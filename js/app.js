@@ -470,9 +470,8 @@ async function renderTareas(el, s, isSelf, categoriaActiva) {
     const items = itemsDe(nombre);
     const pendientes = items.filter(t => !t.hecha).length;
     return `
-      <button class="section-tile cat-btn ${nombre === activa ? "active" : ""}" data-cat="${nombre}" style="cursor:pointer; text-align:left; border:1px solid var(--paper-line); border-left:4px solid var(--ledger-green);">
-        <div class="num" style="font-size:1.05rem;">${nombre}</div>
-        <div class="count">${items.length} asignación${items.length === 1 ? "" : "es"}${pendientes > 0 ? " · " + pendientes + " pendiente" + (pendientes === 1 ? "" : "s") : ""}</div>
+      <button class="cat-navlink ${nombre === activa ? "active" : ""}" data-cat="${nombre}">
+        ${nombre}${pendientes > 0 ? `<span class="cat-navlink-badge">${pendientes}</span>` : ""}
       </button>`;
   }).join("");
 
@@ -486,7 +485,7 @@ async function renderTareas(el, s, isSelf, categoriaActiva) {
   }
 
   el.innerHTML = `
-    <div class="section-grid" style="margin-bottom:1.4rem;">${botones || '<p class="empty">No hay categorías de rúbrica definidas.</p>'}</div>
+    <nav class="cat-navbar">${botones || '<span style="color:#cdd6da; font-size:0.85rem;">No hay categorías de rúbrica definidas.</span>'}</nav>
     ${activa ? `
       <h3>${activa}</h3>
       <div>${itemsActivos.map(filaTarea).join("") || '<p class="empty">Sin asignaciones todavía en esta categoría.</p>'}</div>` : ""}
