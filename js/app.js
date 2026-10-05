@@ -498,7 +498,7 @@ async function renderTareas(el, s, isSelf, categoriaActiva) {
       <button class="btn small" type="submit">Agregar tarea</button>
     </form>` : ""}`;
 
-  el.querySelectorAll(".cat-btn").forEach(btn => {
+  el.querySelectorAll(".cat-navlink").forEach(btn => {
     btn.addEventListener("click", () => {
       renderTareasConCategoria(el, s, isSelf, btn.dataset.cat);
     });
