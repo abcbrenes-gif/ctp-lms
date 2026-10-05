@@ -705,46 +705,36 @@ async function renderProgramaEstudiante(el, s) {
   let html = "";
   for (const u of unidades) {
     const { data: items } = await sb.from("resultados_aprendizaje").select("*").eq("programa_id", u.id).order("id");
+
+    // El profesor decide, por unidad, cuáles columnas extra ve el estudiante.
+    const cols = [{ key: "resultado", label: "Resultado de Aprendizaje", w: "1.1fr" }, { key: "saberes", label: "Saberes Esenciales", w: "1.1fr" }];
+    if (u.mostrar_estrategias) cols.push({ key: "estrategias", label: "Estrategias de mediación", w: "1.1fr" });
+    if (u.mostrar_evidencias) cols.push({ key: "evidencias", label: "Evidencias de aprendizaje", w: "1.1fr" });
+    if (u.mostrar_tiempo) cols.push({ key: "tiempo", label: "Tiempo", w: "90px" });
+    cols.push({ key: "estado", label: "Estado", w: "90px" });
+    const gridStyle = `grid-template-columns:${cols.map(c => c.w).join(" ")};`;
+
     html += `
       <h3 style="margin-top:1.4rem;">${u.unidad}</h3>
       <p style="color:var(--text-muted); font-size:0.85rem; margin-top:-0.6em;">${u.nivel} · ${u.subarea}</p>
       <div class="roa-table">
-        <div class="roa-row roa-head">
-          <div>Resultado de Aprendizaje</div>
-          <div>Saberes Esenciales</div>
-          <div>Estado</div>
+        <div class="roa-row roa-head" style="${gridStyle}">
+          ${cols.map(c => `<div>${c.label}</div>`).join("")}
         </div>
         ${(items || []).map(it => {
           const tareasVinculadas = (misTareas || []).filter(t => t.resultado_id === it.id);
           return `
-          <div class="roa-row">
-            <div>
-              ${it.resultado}
-              ${(it.estrategias || it.evidencias) ? `<div><button class="link-btn" data-ver-mas-est="${it.id}" style="margin-top:0.4rem;">Ver estrategia y evidencia ▾</button></div>
-              <div id="mas-est-${it.id}" style="display:none; margin-top:0.5rem; font-size:0.82rem; color:var(--text-muted); border-left:2px solid var(--paper-line); padding-left:0.6rem;">
-                ${it.estrategias ? `<p><strong>Estrategia de mediación:</strong> ${it.estrategias}</p>` : ""}
-                ${it.evidencias ? `<p><strong>Evidencia de aprendizaje:</strong> ${it.evidencias}</p>` : ""}
-              </div>` : ""}
-              ${tareasVinculadas.length > 0 ? `
-                <div style="margin-top:0.5rem; font-size:0.8rem;">
-                  ${tareasVinculadas.map(t => `<div>${t.hecha ? "✓" : "○"} ${t.titulo}</div>`).join("")}
-                </div>` : ""}
-            </div>
-            <div>${it.saberes}</div>
-            <div style="text-align:center;">
-              <span class="badge" style="${it.impartido ? "" : "opacity:0.5;"}">${it.impartido ? "Impartido" : "No impartido"}</span>
-            </div>
+          <div class="roa-row" style="${gridStyle}">
+            ${cols.map(c => {
+              if (c.key === "resultado") return `<div class="roa-cell-texto">${it.resultado}${tareasVinculadas.length > 0 ? `<div style="margin-top:0.5rem; font-size:0.8rem;">${tareasVinculadas.map(t => `<div>${t.hecha ? "✓" : "○"} ${t.titulo}</div>`).join("")}</div>` : ""}</div>`;
+              if (c.key === "estado") return `<div style="text-align:center;"><span class="badge" style="${it.impartido ? "" : "opacity:0.5;"}">${it.impartido ? "Impartido" : "No impartido"}</span></div>`;
+              return `<div class="roa-cell-texto">${it[c.key] || ""}</div>`;
+            }).join("")}
           </div>`;
         }).join("")}
       </div>`;
   }
   el.innerHTML = html;
-  el.querySelectorAll("[data-ver-mas-est]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const panel = document.getElementById(`mas-est-${btn.dataset.verMasEst}`);
-      if (panel) panel.style.display = panel.style.display === "none" ? "block" : "none";
-    });
-  });
 }
 
 // --- Rúbrica del estudiante: solo lectura, siempre igual a la del profesor ---
@@ -1076,6 +1066,15 @@ async function renderProgramaUnidad(id, soloLectura) {
         </select>
         <div class="row"><button class="btn small" id="save-materia-link">Guardar vínculo</button></div>
         ${(materias || []).length === 0 ? `<p class="no-phone-note">No hay materias creadas todavía para esta sección. Ve a "Materias" para crear una primero.</p>` : ""}
+      </div>
+      <div class="whatsapp-panel" style="max-width:520px; margin-top:1rem;">
+        <label>¿Qué debe ver el estudiante además de Resultado y Saberes?</label>
+        <div style="display:flex; flex-direction:column; gap:0.4rem; margin-top:0.4rem;">
+          <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem;"><input type="checkbox" id="vis-estrategias" ${u.mostrar_estrategias ? "checked" : ""} /> Estrategias de mediación</label>
+          <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem;"><input type="checkbox" id="vis-evidencias" ${u.mostrar_evidencias ? "checked" : ""} /> Evidencias de aprendizaje</label>
+          <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem;"><input type="checkbox" id="vis-tiempo" ${u.mostrar_tiempo ? "checked" : ""} /> Tiempo estimado</label>
+        </div>
+        <div class="row"><button class="btn small" id="save-visibilidad">Guardar</button></div>
       </div>`;
   }
 
@@ -1090,41 +1089,73 @@ async function renderProgramaUnidad(id, soloLectura) {
         <div class="roa-row roa-head">
           <div>Resultado de Aprendizaje</div>
           <div>Saberes Esenciales</div>
+          <div>Estrategias de mediación</div>
+          <div>Evidencias de aprendizaje</div>
+          <div>Tiempo</div>
           <div>${soloLectura ? "Estado" : "Impartido"}</div>
         </div>
-        ${(items || []).map(it => `
+        ${(items || []).map(it => soloLectura ? `
           <div class="roa-row">
-            <div>
-              ${it.resultado}
-              ${(it.estrategias || it.evidencias) ? `<div><button class="link-btn" data-ver-mas="${it.id}" style="margin-top:0.4rem;">Ver estrategia y evidencia ▾</button></div>
-              <div id="mas-${it.id}" style="display:none; margin-top:0.5rem; font-size:0.82rem; color:var(--text-muted); border-left:2px solid var(--paper-line); padding-left:0.6rem;">
-                ${it.estrategias ? `<p><strong>Estrategia de mediación:</strong> ${it.estrategias}</p>` : ""}
-                ${it.evidencias ? `<p><strong>Evidencia de aprendizaje:</strong> ${it.evidencias}</p>` : ""}
-              </div>` : ""}
-            </div>
-            <div>${it.saberes}</div>
+            <div class="roa-cell-texto">${it.resultado}</div>
+            <div class="roa-cell-texto">${it.saberes || ""}</div>
+            <div class="roa-cell-texto">${it.estrategias || ""}</div>
+            <div class="roa-cell-texto">${it.evidencias || ""}</div>
+            <div class="roa-cell-texto">${it.tiempo || ""}</div>
             <div style="text-align:center;">
-              ${soloLectura
-                ? `<span class="badge" style="${it.impartido ? "" : "opacity:0.5;"}">${it.impartido ? "Impartido" : "No impartido"}</span>`
-                : `<input type="checkbox" data-impartido="${it.id}" ${it.impartido ? "checked" : ""} style="width:1.2rem; height:1.2rem;" />`}
+              <span class="badge" style="${it.impartido ? "" : "opacity:0.5;"}">${it.impartido ? "Impartido" : "No impartido"}</span>
+            </div>
+          </div>` : `
+          <div class="roa-row">
+            <textarea data-campo="resultado" data-fila="${it.id}">${it.resultado || ""}</textarea>
+            <textarea data-campo="saberes" data-fila="${it.id}">${it.saberes || ""}</textarea>
+            <textarea data-campo="estrategias" data-fila="${it.id}">${it.estrategias || ""}</textarea>
+            <textarea data-campo="evidencias" data-fila="${it.id}">${it.evidencias || ""}</textarea>
+            <input class="roa-tiempo" data-campo="tiempo" data-fila="${it.id}" value="${it.tiempo || ""}" />
+            <div style="text-align:center;">
+              <input type="checkbox" data-impartido="${it.id}" ${it.impartido ? "checked" : ""} style="width:1.2rem; height:1.2rem;" />
+              <div style="margin-top:0.4rem;"><button class="btn small" data-guardar-fila="${it.id}">Guardar</button></div>
             </div>
           </div>`).join("") || `<p class="empty">No se encontraron resultados de aprendizaje para esta unidad.</p>`}
       </div>
+      ${!soloLectura ? `<button class="btn secondary small" id="agregar-resultado" style="margin-top:0.8rem;">+ Agregar resultado de aprendizaje</button>` : ""}
     </div>`;
   bindTopbar();
 
-  document.querySelectorAll("[data-ver-mas]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const panel = document.getElementById(`mas-${btn.dataset.verMas}`);
-      if (panel) panel.style.display = panel.style.display === "none" ? "block" : "none";
+  if (!soloLectura) {
+    document.querySelectorAll("[data-guardar-fila]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const filaId = btn.dataset.guardarFila;
+        const campos = {};
+        document.querySelectorAll(`[data-fila="${filaId}"]`).forEach(input => {
+          campos[input.dataset.campo] = input.value;
+        });
+        btn.textContent = "Guardando…";
+        await sb.from("resultados_aprendizaje").update(campos).eq("id", filaId);
+        btn.textContent = "Guardado ✓";
+        setTimeout(() => { btn.textContent = "Guardar"; }, 1500);
+      });
     });
-  });
+    const agregarBtn = document.getElementById("agregar-resultado");
+    if (agregarBtn) agregarBtn.addEventListener("click", async () => {
+      await sb.from("resultados_aprendizaje").insert({ programa_id: id, resultado: "Nuevo resultado de aprendizaje", saberes: "" });
+      renderProgramaUnidad(id, soloLectura);
+    });
+  }
 
   if (!soloLectura) {
     const saveBtn = document.getElementById("save-materia-link");
     if (saveBtn) saveBtn.addEventListener("click", async () => {
       const val = document.getElementById("materia-link").value;
       await sb.from("programa").update({ materia_id: val ? Number(val) : null }).eq("id", id);
+      renderProgramaUnidad(id, soloLectura);
+    });
+    const saveVisBtn = document.getElementById("save-visibilidad");
+    if (saveVisBtn) saveVisBtn.addEventListener("click", async () => {
+      await sb.from("programa").update({
+        mostrar_estrategias: document.getElementById("vis-estrategias").checked,
+        mostrar_evidencias: document.getElementById("vis-evidencias").checked,
+        mostrar_tiempo: document.getElementById("vis-tiempo").checked
+      }).eq("id", id);
       renderProgramaUnidad(id, soloLectura);
     });
     document.querySelectorAll("[data-impartido]").forEach(cb => {
