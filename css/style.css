@@ -297,7 +297,38 @@ table.grades td.num.low { color: var(--brick); font-weight: 600; }
   .roa-row { border-bottom: 2px solid var(--paper-line); padding-bottom: 1rem; }
 }
 
-/* Botones grandes de categoría en Tareas */
-.cat-btn { font-family: var(--sans); width: 100%; }
-.cat-btn.active { border-left-color: var(--ochre); background: rgba(184, 134, 43, 0.07); }
-.cat-btn:hover { border-left-color: var(--ochre); }
+/* Barra de navegación horizontal de categorías en Tareas */
+.cat-navbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--ink);
+  padding: 0.65rem 0.9rem;
+  margin-bottom: 1.4rem;
+  border-radius: var(--radius);
+}
+.cat-navlink {
+  background: none;
+  border: none;
+  color: var(--paper);
+  font-family: var(--sans);
+  font-size: 0.92rem;
+  font-weight: 500;
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.cat-navlink:hover { background: rgba(255,255,255,0.08); }
+.cat-navlink.active { color: var(--ledger-green); background: rgba(46, 94, 78, 0.18); font-weight: 600; }
+.cat-navlink-badge {
+  background: var(--ochre);
+  color: var(--ink);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+}
