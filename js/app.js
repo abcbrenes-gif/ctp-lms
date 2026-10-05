@@ -273,6 +273,7 @@ async function renderPerfil(id, isSelf) {
         <button class="tab-btn ${activeTab === "notas" ? "active" : ""}" data-tab="notas">Notas</button>
         <button class="tab-btn ${activeTab === "tareas" ? "active" : ""}" data-tab="tareas">Tareas</button>
         <button class="tab-btn ${activeTab === "programa" ? "active" : ""}" data-tab="programa">Programa</button>
+        <button class="tab-btn ${activeTab === "rubrica" ? "active" : ""}" data-tab="rubrica">Rúbrica</button>
         ${!isSelf ? `<button class="tab-btn ${activeTab === "whatsapp" ? "active" : ""}" data-tab="whatsapp">WhatsApp</button>
         <button class="tab-btn ${activeTab === "acceso" ? "active" : ""}" data-tab="acceso">Materias</button>` : ""}
       </div>
@@ -340,6 +341,7 @@ async function renderTabContent(s, tab, isSelf) {
   const el = document.getElementById("tab-content");
   if (tab === "tareas") return renderTareas(el, s, isSelf);
   if (tab === "programa") return renderProgramaEstudiante(el, s);
+  if (tab === "rubrica") return renderRubricaEstudiante(el, s);
   if (tab === "whatsapp" && !isSelf) return renderWhatsapp(el, s);
   if (tab === "acceso" && !isSelf) return renderAcceso(el, s);
   return renderNotas(el, s, isSelf);
@@ -532,6 +534,61 @@ async function renderProgramaEstudiante(el, s) {
           </div>`).join("")}
       </div>`;
   }
+  el.innerHTML = html;
+}
+
+// --- Rúbrica del estudiante: solo lectura, siempre igual a la del profesor ---
+
+async function renderRubricaEstudiante(el, s) {
+  el.innerHTML = "Cargando…";
+  const { data: categorias } = await sb.from("rubrica_categorias").select("*").order("orden");
+  const { data: asignadas } = await sb.from("estudiante_materias").select("materia_id, materias(id, nombre)").eq("estudiante_id", s.id);
+  const materiasAsignadas = (asignadas || []).map(a => a.materias).filter(Boolean);
+  const { data: notas } = await sb.from("notas").select("*").eq("estudiante_id", s.id);
+
+  if (!categorias || categorias.length === 0) {
+    el.innerHTML = `<p class="empty">El profesor todavía no ha definido la rúbrica.</p>`;
+    return;
+  }
+
+  const sumaTotal = categorias.reduce((a, c) => a + Number(c.porcentaje || 0), 0);
+
+  let html = `
+    <p style="font-size:0.85rem; color:var(--text-muted);">Esta es la rúbrica de evaluación definida por el profesor. Es solo informativa — no se puede modificar desde aquí.</p>
+    <table class="grades">
+      <thead><tr><th>Componente</th><th>Peso en la nota final</th></tr></thead>
+      <tbody>
+        ${categorias.map(c => `<tr><td>${c.nombre}</td><td class="num">${c.porcentaje}%</td></tr>`).join("")}
+      </tbody>
+    </table>
+    <p style="font-size:0.8rem; color:var(--text-muted);">Suma total: ${sumaTotal}%</p>`;
+
+  if (materiasAsignadas.length === 0) {
+    html += `<p class="empty">Todavía no tienes materias asignadas.</p>`;
+  } else {
+    for (const m of materiasAsignadas) {
+      const notasMateria = (notas || []).filter(n => n.materia_id === m.id);
+      html += `<h3 style="margin-top:1.4rem;">${m.nombre}</h3>`;
+      html += `
+        <table class="grades">
+          <thead><tr><th>Componente</th><th>Peso</th><th>Tu promedio</th><th>Aporte</th></tr></thead>
+          <tbody>
+            ${categorias.map(c => {
+              const notasCat = notasMateria.filter(n => n.rubro === c.nombre);
+              const promedio = notasCat.length ? notasCat.reduce((a, n) => a + Number(n.nota), 0) / notasCat.length : null;
+              const aporte = promedio !== null ? (promedio * c.porcentaje / 100).toFixed(1) : "—";
+              return `<tr>
+                <td>${c.nombre}</td>
+                <td class="num">${c.porcentaje}%</td>
+                <td class="num ${promedio !== null && promedio < 70 ? "low" : ""}">${promedio !== null ? promedio.toFixed(1) : "Sin notas"}</td>
+                <td class="num">${aporte}</td>
+              </tr>`;
+            }).join("")}
+          </tbody>
+        </table>`;
+    }
+  }
+
   el.innerHTML = html;
 }
 
