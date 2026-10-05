@@ -436,45 +436,86 @@ async function renderNotas(el, s, isSelf) {
 
 // --- Tareas ---
 
-async function renderTareas(el, s, isSelf) {
+function renderTareasConCategoria(el, s, isSelf, cat) {
+  return renderTareas(el, s, isSelf, cat);
+}
+
+async function renderTareas(el, s, isSelf, categoriaActiva) {
   el.innerHTML = "Cargando…";
   const { data: tareas } = await sb.from("tareas").select("*, materias(nombre)").eq("estudiante_id", s.id).order("fecha", { ascending: true });
+  const { data: categorias } = await sb.from("rubrica_categorias").select("*").order("orden");
 
-  const rows = (tareas || []).map(t => `
-    <div class="task-row ${t.hecha ? "done" : ""}">
-      <input type="checkbox" data-toggle="${t.id}" ${t.hecha ? "checked" : ""} />
-      <span class="task-title">${t.materias?.nombre ? `[${t.materias.nombre}] ` : ""}${t.titulo}</span>
-      <span class="task-due">${t.fecha || ""}</span>
-      ${!isSelf ? `<button class="btn danger small" data-del="${t.id}">Eliminar</button>` : ""}
-    </div>`).join("");
+  function filaTarea(t) {
+    return `
+      <div class="task-row ${t.hecha ? "done" : ""}">
+        <input type="checkbox" data-toggle="${t.id}" ${t.hecha ? "checked" : ""} />
+        <span class="task-title">${t.materias?.nombre ? `[${t.materias.nombre}] ` : ""}${t.titulo}</span>
+        <span class="task-due">${t.fecha || ""}</span>
+        ${!isSelf ? `<button class="btn danger small" data-del="${t.id}">Eliminar</button>` : ""}
+      </div>`;
+  }
 
-  let materiaOptions = "";
+  // Agrupa las asignaciones por categoría de la rúbrica (Trabajo cotidiano, Pruebas, Proyectos…).
+  const nombresCategoria = (categorias || []).map(c => c.nombre);
+  const sinCategoria = (tareas || []).filter(t => !nombresCategoria.includes(t.categoria));
+  const nombresConSin = sinCategoria.length > 0 ? [...nombresCategoria, "Sin categoría"] : nombresCategoria;
+
+  function itemsDe(nombre) {
+    return nombre === "Sin categoría" ? sinCategoria : (tareas || []).filter(t => t.categoria === nombre);
+  }
+
+  const activa = categoriaActiva || nombresConSin[0] || null;
+
+  const botones = nombresConSin.map(nombre => {
+    const items = itemsDe(nombre);
+    const pendientes = items.filter(t => !t.hecha).length;
+    return `
+      <button class="section-tile cat-btn ${nombre === activa ? "active" : ""}" data-cat="${nombre}" style="cursor:pointer; text-align:left; border:1px solid var(--paper-line); border-left:4px solid var(--ledger-green);">
+        <div class="num" style="font-size:1.05rem;">${nombre}</div>
+        <div class="count">${items.length} asignación${items.length === 1 ? "" : "es"}${pendientes > 0 ? " · " + pendientes + " pendiente" + (pendientes === 1 ? "" : "s") : ""}</div>
+      </button>`;
+  }).join("");
+
+  const itemsActivos = activa ? itemsDe(activa) : [];
+
+  let materiaOptions = "", categoriaOptions = "";
   if (!isSelf) {
     const { data: asignadas } = await sb.from("estudiante_materias").select("materias(id, nombre)").eq("estudiante_id", s.id);
     materiaOptions = `<option value="">(general)</option>` + (asignadas || []).map(a => a.materias ? `<option value="${a.materias.id}">${a.materias.nombre}</option>` : "").join("");
+    categoriaOptions = `<option value="">Sin categoría</option>` + nombresCategoria.map(n => `<option value="${n}" ${n === activa ? "selected" : ""}>${n}</option>`).join("");
   }
 
   el.innerHTML = `
-    <div>${rows || '<p class="empty">Todavía no hay tareas asignadas.</p>'}</div>
+    <div class="section-grid" style="margin-bottom:1.4rem;">${botones || '<p class="empty">No hay categorías de rúbrica definidas.</p>'}</div>
+    ${activa ? `
+      <h3>${activa}</h3>
+      <div>${itemsActivos.map(filaTarea).join("") || '<p class="empty">Sin asignaciones todavía en esta categoría.</p>'}</div>` : ""}
     ${!isSelf ? `
-    <form class="inline-form" id="task-form">
+    <form class="inline-form" id="task-form" style="margin-top:1.4rem;">
       <select name="materia_id">${materiaOptions}</select>
+      <select name="categoria">${categoriaOptions}</select>
       <input name="titulo" placeholder="Tarea (ej. Asiento de diario)" required style="flex:1; min-width:10rem" />
       <input name="fecha" type="date" />
       <button class="btn small" type="submit">Agregar tarea</button>
     </form>` : ""}`;
 
+  el.querySelectorAll(".cat-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      renderTareasConCategoria(el, s, isSelf, btn.dataset.cat);
+    });
+  });
+
   el.querySelectorAll("[data-toggle]").forEach(cb => {
     cb.addEventListener("change", async () => {
       await sb.from("tareas").update({ hecha: cb.checked }).eq("id", cb.dataset.toggle);
-      renderTareas(el, s, isSelf);
+      renderTareasConCategoria(el, s, isSelf, activa);
     });
   });
   if (!isSelf) {
     el.querySelectorAll("[data-del]").forEach(btn => {
       btn.addEventListener("click", async () => {
         await sb.from("tareas").delete().eq("id", btn.dataset.del);
-        renderTareas(el, s, isSelf);
+        renderTareasConCategoria(el, s, isSelf, activa);
       });
     });
     const form = el.querySelector("#task-form");
@@ -484,11 +525,12 @@ async function renderTareas(el, s, isSelf) {
       await sb.from("tareas").insert({
         estudiante_id: s.id,
         materia_id: f.get("materia_id") ? Number(f.get("materia_id")) : null,
+        categoria: f.get("categoria") || null,
         titulo: f.get("titulo"),
         fecha: f.get("fecha") || null,
         hecha: false
       });
-      renderTareas(el, s, isSelf);
+      renderTareasConCategoria(el, s, isSelf, f.get("categoria") || activa);
     });
   }
 }
