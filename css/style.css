@@ -296,3 +296,8 @@ table.grades td.num.low { color: var(--brick); font-weight: 600; }
   .roa-row.roa-head { display: none; }
   .roa-row { border-bottom: 2px solid var(--paper-line); padding-bottom: 1rem; }
 }
+
+/* Botones grandes de categoría en Tareas */
+.cat-btn { font-family: var(--sans); width: 100%; }
+.cat-btn.active { border-left-color: var(--ochre); background: rgba(184, 134, 43, 0.07); }
+.cat-btn:hover { border-left-color: var(--ochre); }
