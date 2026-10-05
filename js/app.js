@@ -1107,9 +1107,9 @@ async function renderProgramaUnidad(id, soloLectura) {
           </div>` : `
           <div class="roa-row">
             <textarea data-campo="resultado" data-fila="${it.id}">${it.resultado || ""}</textarea>
-            <textarea data-campo="saberes" data-fila="${it.id}">${it.saberes || ""}</textarea>
-            <textarea data-campo="estrategias" data-fila="${it.id}">${it.estrategias || ""}</textarea>
-            <textarea data-campo="evidencias" data-fila="${it.id}">${it.evidencias || ""}</textarea>
+            <div class="roa-editable roa-html" contenteditable="true" data-campo="saberes" data-fila="${it.id}" data-tipo="html">${it.saberes || ""}</div>
+            <div class="roa-editable roa-html" contenteditable="true" data-campo="estrategias" data-fila="${it.id}" data-tipo="html">${it.estrategias || ""}</div>
+            <div class="roa-editable roa-html" contenteditable="true" data-campo="evidencias" data-fila="${it.id}" data-tipo="html">${it.evidencias || ""}</div>
             <input class="roa-tiempo" data-campo="tiempo" data-fila="${it.id}" value="${it.tiempo || ""}" />
             <div style="text-align:center;">
               <input type="checkbox" data-impartido="${it.id}" ${it.impartido ? "checked" : ""} style="width:1.2rem; height:1.2rem;" />
@@ -1127,7 +1127,7 @@ async function renderProgramaUnidad(id, soloLectura) {
         const filaId = btn.dataset.guardarFila;
         const campos = {};
         document.querySelectorAll(`[data-fila="${filaId}"]`).forEach(input => {
-          campos[input.dataset.campo] = input.value;
+          campos[input.dataset.campo] = input.dataset.tipo === "html" ? input.innerHTML : input.value;
         });
         btn.textContent = "Guardando…";
         await sb.from("resultados_aprendizaje").update(campos).eq("id", filaId);
