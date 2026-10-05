@@ -35,6 +35,7 @@ async function render() {
   const perfilMatch = hash.match(/^#\/perfil\/(.+)$/);
   if (perfilMatch) return renderPerfil(decodeURIComponent(perfilMatch[1]), false);
   if (hash === "#/materias") return renderMaterias();
+  if (hash === "#/rubrica") return renderRubrica();
   if (hash === "#/programa") return renderProgramaNiveles();
   const progUnidadMatch = hash.match(/^#\/programa\/(.+)$/);
   if (progUnidadMatch) return renderProgramaUnidad(decodeURIComponent(progUnidadMatch[1]));
@@ -50,7 +51,7 @@ function topbar() {
     <div>
       <span class="docente">${role === "docente" ? "Prof. " + nombre : nombre}</span>
       <nav style="display:inline">
-        ${role === "docente" ? `<a href="#/">Secciones</a><a href="#/materias">Materias</a><a href="#/programa">Programa</a>` : ""}
+        ${role === "docente" ? `<a href="#/">Secciones</a><a href="#/materias">Materias</a><a href="#/rubrica">Rúbrica</a><a href="#/programa">Programa</a>` : ""}
         <a href="#" id="logout-link">Salir</a>
       </nav>
     </div>
@@ -351,8 +352,8 @@ async function renderNotas(el, s, isSelf) {
   const { data: asignadas } = await sb.from("estudiante_materias").select("materia_id, materias(id, nombre)").eq("estudiante_id", s.id);
   const materiasAsignadas = (asignadas || []).map(a => a.materias).filter(Boolean);
 
-  let query = sb.from("notas").select("*, materias(nombre)").eq("estudiante_id", s.id).order("creado_en", { ascending: false });
-  const { data: notas } = await query;
+  const { data: notas } = await sb.from("notas").select("*, materias(nombre)").eq("estudiante_id", s.id).order("creado_en", { ascending: false });
+  const { data: categorias } = await sb.from("rubrica_categorias").select("*").order("orden");
 
   const rows = (notas || []).map(n => `
     <tr>
@@ -362,10 +363,37 @@ async function renderNotas(el, s, isSelf) {
       ${!isSelf ? `<td><button class="btn danger small" data-del="${n.id}">Eliminar</button></td>` : ""}
     </tr>`).join("");
 
+  // Nota final ponderada por materia, según los % de la rúbrica.
+  // Si hay varias notas en la misma categoría, se promedian antes de ponderar.
+  // Las categorías sin ninguna nota todavía no suman (se excluyen del cálculo,
+  // para no penalizar antes de tiempo lo que aún no se ha evaluado).
+  const finalesPorMateria = materiasAsignadas.map(m => {
+    const notasMateria = (notas || []).filter(n => n.materia_id === m.id);
+    let pesoUsado = 0, suma = 0;
+    const detalle = (categorias || []).map(c => {
+      const notasCat = notasMateria.filter(n => n.rubro === c.nombre);
+      if (notasCat.length === 0) return { nombre: c.nombre, porcentaje: c.porcentaje, promedio: null };
+      const promedio = notasCat.reduce((a, n) => a + Number(n.nota), 0) / notasCat.length;
+      suma += promedio * (c.porcentaje / 100);
+      pesoUsado += Number(c.porcentaje);
+      return { nombre: c.nombre, porcentaje: c.porcentaje, promedio };
+    });
+    return { materia: m.nombre, final: pesoUsado > 0 ? suma : null, pesoUsado, detalle };
+  });
+
   const materiaOptions = materiasAsignadas.map(m => `<option value="${m.id}">${m.nombre}</option>`).join("");
+  const categoriaOptions = (categorias || []).map(c => `<option value="${c.nombre}">${c.nombre} (${c.porcentaje}%)</option>`).join("");
 
   el.innerHTML = `
     ${!isSelf && materiasAsignadas.length === 0 ? `<p class="no-phone-note">Este estudiante no tiene materias asignadas todavía. Ve a la pestaña "Materias" para asignarle al menos una antes de poder registrar notas.</p>` : ""}
+    ${finalesPorMateria.length > 0 ? `
+    <div class="roster" style="margin-bottom:1.2rem;">
+      ${finalesPorMateria.map(f => `
+        <div class="roster-row">
+          <span class="name">${f.materia}</span>
+          <span class="badge" style="${f.final === null ? "opacity:0.5;" : ""}">${f.final === null ? "Sin notas aún" : "Nota final: " + f.final.toFixed(1) + (f.pesoUsado < 100 ? ` (${f.pesoUsado}% evaluado)` : "")}</span>
+        </div>`).join("")}
+    </div>` : ""}
     <table class="grades">
       <thead><tr><th>Materia</th><th>Rubro</th><th>Nota</th>${!isSelf ? "<th></th>" : ""}</tr></thead>
       <tbody>${rows || `<tr><td colspan="${isSelf ? 3 : 4}" class="empty">Todavía no hay notas registradas.</td></tr>`}</tbody>
@@ -375,15 +403,12 @@ async function renderNotas(el, s, isSelf) {
       <select name="materia_id" required>${materiaOptions}</select>
       <select name="rubro" required>
         <option value="">Categoría…</option>
-        <option value="Trabajo cotidiano">Trabajo cotidiano</option>
-        <option value="Tareas">Tareas</option>
-        <option value="Proyectos">Proyectos</option>
-        <option value="Examen">Examen</option>
-        <option value="Asistencia">Asistencia</option>
+        ${categoriaOptions}
       </select>
       <input name="nota" type="number" min="0" max="100" step="0.1" placeholder="Nota" required style="width:6rem" />
       <button class="btn small" type="submit">Agregar nota</button>
-    </form>` : ""}`;
+    </form>
+    ${(categorias || []).length === 0 ? `<p class="no-phone-note">No hay categorías de rúbrica creadas. Ve a "Rúbrica" en el menú para crearlas.</p>` : ""}` : ""}`;
 
   if (!isSelf) {
     el.querySelectorAll("[data-del]").forEach(btn => {
@@ -572,6 +597,86 @@ async function renderAcceso(el, s) {
       }
     });
   });
+}
+
+// ---------- RÚBRICA (categorías y pesos, sumativa, suma ≤ 100%) ----------
+
+async function renderRubrica() {
+  app.innerHTML = `
+    ${topbar()}
+    <div class="wrap">
+      <h1>Rúbrica</h1>
+      <p style="color:var(--text-muted); margin-top:-0.6em;">Define las categorías y el peso (%) de cada una en la nota final. La suma no puede superar 100%.</p>
+      <div id="rubrica-form">Cargando…</div>
+    </div>`;
+  bindTopbar();
+
+  const { data: cats } = await sb.from("rubrica_categorias").select("*").order("orden");
+  const holder = document.getElementById("rubrica-form");
+
+  function pintar(categorias) {
+    const suma = categorias.reduce((acc, c) => acc + Number(c.porcentaje || 0), 0);
+    holder.innerHTML = `
+      <div class="roster" style="border-top:1px solid var(--ink);">
+        ${categorias.map(c => `
+          <div class="roster-row">
+            <input type="text" data-nombre="${c.id}" value="${c.nombre}" style="border:1px solid var(--paper-line); border-radius:3px; padding:0.35rem 0.5rem; font-family:var(--sans); font-size:0.9rem; flex:1; margin-right:1rem;" />
+            <span style="display:flex; align-items:center; gap:0.4rem;">
+              <input type="number" min="0" max="100" step="1" data-porcentaje="${c.id}" value="${c.porcentaje}" style="width:4.5rem; border:1px solid var(--paper-line); border-radius:3px; padding:0.35rem 0.5rem; font-family:var(--sans); font-size:0.9rem; text-align:right;" />
+              <span>%</span>
+              <button class="btn danger small" data-del-cat="${c.id}">Eliminar</button>
+            </span>
+          </div>`).join("") || '<p class="empty">Sin categorías todavía.</p>'}
+      </div>
+      <p style="margin-top:0.8rem; font-weight:600; ${suma > 100 ? "color:var(--brick);" : "color:var(--ledger-green-deep);"}">
+        Suma actual: ${suma}% ${suma > 100 ? "— supera el 100%, no se puede guardar así." : ""}
+      </p>
+      <div class="row" style="margin-top:0.6rem; display:flex; gap:0.6rem;">
+        <button class="btn small" id="guardar-rubrica">Guardar cambios</button>
+      </div>
+      <form class="inline-form" id="add-cat-form" style="margin-top:1.2rem;">
+        <input name="nombre" placeholder="Nueva categoría (ej. Coevaluación)" required style="flex:1; min-width:10rem" />
+        <input name="porcentaje" type="number" min="0" max="100" step="1" placeholder="%" required style="width:5rem" />
+        <button class="btn small" type="submit">Agregar categoría</button>
+      </form>`;
+
+    document.getElementById("guardar-rubrica").addEventListener("click", async () => {
+      const nombres = {};
+      const porcentajes = {};
+      document.querySelectorAll("[data-nombre]").forEach(i => nombres[i.dataset.nombre] = i.value.trim());
+      document.querySelectorAll("[data-porcentaje]").forEach(i => porcentajes[i.dataset.porcentaje] = Number(i.value));
+      const nuevaSuma = Object.values(porcentajes).reduce((a, b) => a + b, 0);
+      if (nuevaSuma > 100) {
+        alert("La suma de los porcentajes no puede superar 100%. Ajusta los valores antes de guardar.");
+        return;
+      }
+      for (const id of Object.keys(nombres)) {
+        await sb.from("rubrica_categorias").update({ nombre: nombres[id], porcentaje: porcentajes[id] }).eq("id", id);
+      }
+      renderRubrica();
+    });
+
+    document.querySelectorAll("[data-del-cat]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        await sb.from("rubrica_categorias").delete().eq("id", btn.dataset.delCat);
+        renderRubrica();
+      });
+    });
+
+    document.getElementById("add-cat-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      const nuevoPorcentaje = Number(f.get("porcentaje"));
+      if (suma + nuevoPorcentaje > 100) {
+        alert(`No puedes agregar esa categoría: la suma quedaría en ${suma + nuevoPorcentaje}%, más de 100%.`);
+        return;
+      }
+      await sb.from("rubrica_categorias").insert({ nombre: f.get("nombre"), porcentaje: nuevoPorcentaje, orden: categorias.length + 1 });
+      renderRubrica();
+    });
+  }
+
+  pintar(cats || []);
 }
 
 // ---------- MATERIAS (panel de administración, solo docente) ----------
