@@ -263,6 +263,7 @@ async function renderPerfil(id, isSelf) {
       <div class="tabs">
         <button class="tab-btn ${activeTab === "notas" ? "active" : ""}" data-tab="notas">Notas</button>
         <button class="tab-btn ${activeTab === "tareas" ? "active" : ""}" data-tab="tareas">Tareas</button>
+        <button class="tab-btn ${activeTab === "programa" ? "active" : ""}" data-tab="programa">Programa</button>
         ${!isSelf ? `<button class="tab-btn ${activeTab === "whatsapp" ? "active" : ""}" data-tab="whatsapp">WhatsApp</button>
         <button class="tab-btn ${activeTab === "acceso" ? "active" : ""}" data-tab="acceso">Materias</button>` : ""}
       </div>
@@ -324,6 +325,7 @@ function resizeImageToDataUrl(file, maxSize, callback) {
 async function renderTabContent(s, tab, isSelf) {
   const el = document.getElementById("tab-content");
   if (tab === "tareas") return renderTareas(el, s, isSelf);
+  if (tab === "programa") return renderProgramaEstudiante(el, s);
   if (tab === "whatsapp" && !isSelf) return renderWhatsapp(el, s);
   if (tab === "acceso" && !isSelf) return renderAcceso(el, s);
   return renderNotas(el, s, isSelf);
@@ -442,6 +444,50 @@ async function renderTareas(el, s, isSelf) {
       renderTareas(el, s, isSelf);
     });
   }
+}
+
+// --- Programa del estudiante: contenido de las materias que tiene asignadas ---
+
+async function renderProgramaEstudiante(el, s) {
+  el.innerHTML = "Cargando…";
+  const { data: asignadas } = await sb.from("estudiante_materias").select("materia_id").eq("estudiante_id", s.id);
+  const materiaIds = (asignadas || []).map(a => a.materia_id);
+
+  if (materiaIds.length === 0) {
+    el.innerHTML = `<p class="empty">Este estudiante todavía no tiene materias asignadas.</p>`;
+    return;
+  }
+
+  const { data: unidades } = await sb.from("programa").select("*").in("materia_id", materiaIds);
+
+  if (!unidades || unidades.length === 0) {
+    el.innerHTML = `<p class="empty">Las materias asignadas todavía no están vinculadas a ninguna unidad del programa. Ve a "Programa" (menú del profesor) y vincula la unidad correspondiente desde cada materia.</p>`;
+    return;
+  }
+
+  let html = "";
+  for (const u of unidades) {
+    const { data: items } = await sb.from("resultados_aprendizaje").select("*").eq("programa_id", u.id).order("id");
+    html += `
+      <h3 style="margin-top:1.4rem;">${u.unidad}</h3>
+      <p style="color:var(--text-muted); font-size:0.85rem; margin-top:-0.6em;">${u.nivel} · ${u.subarea}</p>
+      <div class="roa-table">
+        <div class="roa-row roa-head">
+          <div>Resultado de Aprendizaje</div>
+          <div>Saberes Esenciales</div>
+          <div>Estado</div>
+        </div>
+        ${(items || []).map(it => `
+          <div class="roa-row">
+            <div>${it.resultado}</div>
+            <div>${it.saberes}</div>
+            <div style="text-align:center;">
+              <span class="badge" style="${it.impartido ? "" : "opacity:0.5;"}">${it.impartido ? "Impartido" : "No impartido"}</span>
+            </div>
+          </div>`).join("")}
+      </div>`;
+  }
+  el.innerHTML = html;
 }
 
 // --- WhatsApp (solo docente) ---
@@ -611,19 +657,76 @@ async function renderProgramaNiveles() {
     </details>`).join("");
 }
 
-async function renderProgramaUnidad(id) {
-  const { data: u } = await sb.from("programa").select("*").eq("id", id).maybeSingle();
+// El nivel del programa (Décimo/Undécimo/Duodécimo) se relaciona con la
+// sección del estudiante por el número con el que empieza (10-1 → Décimo, etc).
+const NIVEL_POR_PREFIJO = { "10": "Décimo", "11": "Undécimo", "12": "Duodécimo" };
+function nivelDeSeccion(seccion) {
+  const prefijo = (seccion || "").split("-")[0];
+  return NIVEL_POR_PREFIJO[prefijo] || null;
+}
+
+async function renderProgramaUnidad(id, soloLectura) {
+  const { data: u } = await sb.from("programa").select("*, materias(id, nombre, seccion)").eq("id", id).maybeSingle();
   if (!u) { location.hash = "#/programa"; return; }
+  const { data: items } = await sb.from("resultados_aprendizaje").select("*").eq("programa_id", id).order("id");
+
+  let materiaSelector = "";
+  if (!soloLectura) {
+    const seccionNivel = Object.keys(NIVEL_POR_PREFIJO).find(k => NIVEL_POR_PREFIJO[k] === u.nivel);
+    const { data: materias } = await sb.from("materias").select("*").like("seccion", `${seccionNivel}-%`).order("nombre");
+    const opciones = (materias || []).map(m => `<option value="${m.id}" ${u.materia_id === m.id ? "selected" : ""}>${m.nombre} (${m.seccion})</option>`).join("");
+    materiaSelector = `
+      <div class="whatsapp-panel" style="max-width:520px; margin-top:1rem;">
+        <label for="materia-link">Vincular esta unidad con una materia (para que los estudiantes con esa materia asignada la vean)</label>
+        <select id="materia-link">
+          <option value="">— Sin vincular —</option>
+          ${opciones}
+        </select>
+        <div class="row"><button class="btn small" id="save-materia-link">Guardar vínculo</button></div>
+        ${(materias || []).length === 0 ? `<p class="no-phone-note">No hay materias creadas todavía para esta sección. Ve a "Materias" para crear una primero.</p>` : ""}
+      </div>`;
+  }
 
   app.innerHTML = `
     ${topbar()}
     <div class="wrap">
       <a href="#/programa" class="btn secondary small" style="margin-bottom:1rem; display:inline-block;">&larr; Programa</a>
       <h1>${u.unidad}</h1>
-      <p style="color:var(--text-muted); margin-top:-0.6em;">${u.nivel} · ${u.subarea}${u.tiempo_estimado ? " · " + u.tiempo_estimado + " horas" : ""}</p>
-      <pre style="white-space:pre-wrap; font-family:var(--sans); font-size:0.88rem; line-height:1.6; background:var(--white); border:1px solid var(--paper-line); padding:1.2rem; margin-top:1rem; max-width:100%; overflow-x:auto;">${u.contenido.replace(/</g, "&lt;")}</pre>
+      <p style="color:var(--text-muted); margin-top:-0.6em;">${u.nivel} · ${u.subarea}${u.tiempo_estimado ? " · " + u.tiempo_estimado + " horas" : ""}${u.materias ? " · Materia: " + u.materias.nombre : ""}</p>
+      ${materiaSelector}
+      <div class="roa-table" style="margin-top:1.2rem;">
+        <div class="roa-row roa-head">
+          <div>Resultado de Aprendizaje</div>
+          <div>Saberes Esenciales</div>
+          <div>${soloLectura ? "Estado" : "Impartido"}</div>
+        </div>
+        ${(items || []).map(it => `
+          <div class="roa-row">
+            <div>${it.resultado}</div>
+            <div>${it.saberes}</div>
+            <div style="text-align:center;">
+              ${soloLectura
+                ? `<span class="badge" style="${it.impartido ? "" : "opacity:0.5;"}">${it.impartido ? "Impartido" : "No impartido"}</span>`
+                : `<input type="checkbox" data-impartido="${it.id}" ${it.impartido ? "checked" : ""} style="width:1.2rem; height:1.2rem;" />`}
+            </div>
+          </div>`).join("") || `<p class="empty">No se encontraron resultados de aprendizaje para esta unidad.</p>`}
+      </div>
     </div>`;
   bindTopbar();
+
+  if (!soloLectura) {
+    const saveBtn = document.getElementById("save-materia-link");
+    if (saveBtn) saveBtn.addEventListener("click", async () => {
+      const val = document.getElementById("materia-link").value;
+      await sb.from("programa").update({ materia_id: val ? Number(val) : null }).eq("id", id);
+      renderProgramaUnidad(id, soloLectura);
+    });
+    document.querySelectorAll("[data-impartido]").forEach(cb => {
+      cb.addEventListener("change", async () => {
+        await sb.from("resultados_aprendizaje").update({ impartido: cb.checked }).eq("id", cb.dataset.impartido);
+      });
+    });
+  }
 }
 
 window.addEventListener("hashchange", render);
