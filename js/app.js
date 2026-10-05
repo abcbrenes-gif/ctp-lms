@@ -360,7 +360,14 @@ async function renderNotas(el, s, isSelf) {
     ${!isSelf && materiasAsignadas.length > 0 ? `
     <form class="inline-form" id="grade-form">
       <select name="materia_id" required>${materiaOptions}</select>
-      <input name="rubro" placeholder="Rubro (ej. Examen I trim.)" required />
+      <select name="rubro" required>
+        <option value="">Categoría…</option>
+        <option value="Trabajo cotidiano">Trabajo cotidiano</option>
+        <option value="Tareas">Tareas</option>
+        <option value="Proyectos">Proyectos</option>
+        <option value="Examen">Examen</option>
+        <option value="Asistencia">Asistencia</option>
+      </select>
       <input name="nota" type="number" min="0" max="100" step="0.1" placeholder="Nota" required style="width:6rem" />
       <button class="btn small" type="submit">Agregar nota</button>
     </form>` : ""}`;
