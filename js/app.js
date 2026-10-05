@@ -236,7 +236,8 @@ function initials(s) { return (s.apellido1[0] || "") + (s.nombre[0] || ""); }
 async function renderPerfil(id, isSelf) {
   const { data: s } = await sb.from("estudiantes").select("*").eq("id", id).maybeSingle();
   if (!s) { location.hash = isSelf ? "#/login" : "#/"; return; }
-  if (isSelf && session.id !== s.id) { location.hash = "#/login"; return; } // seguridad extra
+  const previewing = isSelf && session.role === "docente"; // el profesor viendo "como lo vería el estudiante"
+  if (isSelf && session.role === "estudiante" && session.id !== s.id) { location.hash = "#/login"; return; } // seguridad extra
 
   const activeTab = (location.hash.split("?tab=")[1]) || "notas";
 
@@ -244,6 +245,12 @@ async function renderPerfil(id, isSelf) {
     ${topbar()}
     <div class="wrap">
       ${!isSelf ? `<a href="#/seccion/${encodeURIComponent(s.seccion)}" class="btn secondary small" style="margin-bottom:1rem; display:inline-block;">&larr; Sección ${s.seccion}</a>` : ""}
+      ${previewing ? `
+      <div class="whatsapp-panel" style="border-left: 4px solid var(--ochre); margin-bottom: 1rem;">
+        <strong style="font-family:var(--serif);">Vista previa</strong>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin:0.3rem 0 0.6rem;">Esto es exactamente lo que ve ${s.nombre} al entrar con su cédula y PIN. No puedes editar nada desde aquí.</p>
+        <button class="btn small" id="salir-vista-previa">&larr; Volver a modo profesor</button>
+      </div>` : ""}
       <div class="profile-head">
         <div style="display:flex; gap:1rem; align-items:center;">
           <div class="avatar-wrap">
@@ -258,6 +265,7 @@ async function renderPerfil(id, isSelf) {
             <div class="meta">${!isSelf ? `Cédula ${s.id} · ` : ""}Sección ${s.seccion} · ${s.especialidad}</div>
           </div>
         </div>
+        ${!isSelf && session.role === "docente" ? `<button class="btn secondary small" id="ver-como-estudiante">Ver como estudiante</button>` : ""}
       </div>
 
       <div class="tabs">
@@ -271,6 +279,11 @@ async function renderPerfil(id, isSelf) {
       <div id="tab-content">Cargando…</div>
     </div>`;
   bindTopbar();
+
+  const verComoBtn = document.getElementById("ver-como-estudiante");
+  if (verComoBtn) verComoBtn.addEventListener("click", () => renderPerfil(s.id, true));
+  const salirPreviewBtn = document.getElementById("salir-vista-previa");
+  if (salirPreviewBtn) salirPreviewBtn.addEventListener("click", () => renderPerfil(s.id, false));
 
   document.querySelectorAll(".tab-btn").forEach(btn => {
     btn.addEventListener("click", () => {
