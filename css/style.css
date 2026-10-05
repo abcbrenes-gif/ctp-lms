@@ -269,3 +269,30 @@ table.grades td.num.low { color: var(--brick); font-weight: 600; }
 
 /* Materias: checkbox a la derecha en filas tipo roster */
 .roster-row input[type="checkbox"] { accent-color: var(--ledger-green); }
+
+/* Tabla de dos columnas: Resultados de Aprendizaje / Saberes Esenciales */
+.roa-table { border-top: 2px solid var(--ink); }
+.roa-row {
+  display: grid;
+  grid-template-columns: 1.1fr 1.3fr 110px;
+  gap: 1rem;
+  padding: 0.75rem 0.3rem;
+  border-bottom: 1px solid var(--paper-line);
+  font-size: 0.86rem;
+  align-items: start;
+}
+.roa-row.roa-head {
+  font-family: var(--serif);
+  font-weight: 600;
+  color: var(--ink);
+  font-size: 0.82rem;
+  background: var(--white);
+  position: sticky;
+  top: 0;
+}
+.roa-row input[type="checkbox"] { accent-color: var(--ledger-green); }
+@media (max-width: 720px) {
+  .roa-row { grid-template-columns: 1fr; gap: 0.3rem; }
+  .roa-row.roa-head { display: none; }
+  .roa-row { border-bottom: 2px solid var(--paper-line); padding-bottom: 1rem; }
+}
