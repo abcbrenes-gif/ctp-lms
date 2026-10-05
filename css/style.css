@@ -324,6 +324,7 @@ table.grades td.num.low { color: var(--brick); font-weight: 600; }
 }
 .cat-navlink:hover { background: rgba(255,255,255,0.08); }
 .cat-navlink.active { color: var(--ledger-green); background: rgba(46, 94, 78, 0.18); font-weight: 600; }
+.lote-detalle { background: var(--paper); border-bottom: 1px solid var(--paper-line); }
 .cat-navlink-badge {
   background: var(--ochre);
   color: var(--ink);
