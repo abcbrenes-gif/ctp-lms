@@ -442,14 +442,17 @@ function renderTareasConCategoria(el, s, isSelf, cat) {
 
 async function renderTareas(el, s, isSelf, categoriaActiva) {
   el.innerHTML = "Cargando…";
-  const { data: tareas } = await sb.from("tareas").select("*, materias(nombre)").eq("estudiante_id", s.id).order("fecha", { ascending: true });
+  const { data: tareas } = await sb.from("tareas").select("*, materias(nombre), resultados_aprendizaje(resultado)").eq("estudiante_id", s.id).order("fecha", { ascending: true });
   const { data: categorias } = await sb.from("rubrica_categorias").select("*").order("orden");
 
   function filaTarea(t) {
     return `
       <div class="task-row ${t.hecha ? "done" : ""}">
         <input type="checkbox" data-toggle="${t.id}" ${t.hecha ? "checked" : ""} />
-        <span class="task-title">${t.materias?.nombre ? `[${t.materias.nombre}] ` : ""}${t.titulo}</span>
+        <div style="flex:1;">
+          <span class="task-title">${t.materias?.nombre ? `[${t.materias.nombre}] ` : ""}${t.titulo}</span>
+          ${t.resultados_aprendizaje?.resultado ? `<div style="font-size:0.78rem; color:var(--text-muted); font-style:italic; margin-top:0.15rem;">Resultado de aprendizaje: ${t.resultados_aprendizaje.resultado}</div>` : ""}
+        </div>
         <span class="task-due">${t.fecha || ""}</span>
         ${!isSelf ? `<button class="btn danger small" data-del="${t.id}">Eliminar</button>` : ""}
       </div>`;
@@ -477,11 +480,27 @@ async function renderTareas(el, s, isSelf, categoriaActiva) {
 
   const itemsActivos = activa ? itemsDe(activa) : [];
 
-  let materiaOptions = "", categoriaOptions = "";
+  let materiaOptions = "", categoriaOptions = "", resultadoOptions = "";
   if (!isSelf) {
     const { data: asignadas } = await sb.from("estudiante_materias").select("materias(id, nombre)").eq("estudiante_id", s.id);
     materiaOptions = `<option value="">(general)</option>` + (asignadas || []).map(a => a.materias ? `<option value="${a.materias.id}">${a.materias.nombre}</option>` : "").join("");
     categoriaOptions = `<option value="">Sin categoría</option>` + nombresCategoria.map(n => `<option value="${n}" ${n === activa ? "selected" : ""}>${n}</option>`).join("");
+
+    const materiaIds = (asignadas || []).map(a => a.materias?.id).filter(Boolean);
+    if (materiaIds.length > 0) {
+      const { data: unidades } = await sb.from("programa").select("id, unidad, materias(nombre)").in("materia_id", materiaIds);
+      const programaIds = (unidades || []).map(u => u.id);
+      if (programaIds.length > 0) {
+        const { data: resultados } = await sb.from("resultados_aprendizaje").select("id, resultado, programa_id").in("programa_id", programaIds);
+        resultadoOptions = `<option value="">— Sin vincular a un resultado —</option>` + (unidades || []).map(u => {
+          const items = (resultados || []).filter(r => r.programa_id === u.id);
+          if (items.length === 0) return "";
+          return `<optgroup label="${u.materias?.nombre || ""} — ${u.unidad}">
+            ${items.map(r => `<option value="${r.id}">${r.resultado.slice(0, 90)}${r.resultado.length > 90 ? "…" : ""}</option>`).join("")}
+          </optgroup>`;
+        }).join("");
+      }
+    }
   }
 
   el.innerHTML = `
@@ -495,6 +514,7 @@ async function renderTareas(el, s, isSelf, categoriaActiva) {
       <select name="categoria">${categoriaOptions}</select>
       <input name="titulo" placeholder="Tarea (ej. Asiento de diario)" required style="flex:1; min-width:10rem" />
       <input name="fecha" type="date" />
+      <select name="resultado_id" style="flex-basis:100%;">${resultadoOptions || '<option value="">Sin resultados de aprendizaje disponibles (vincula la materia en "Programa")</option>'}</select>
       <button class="btn small" type="submit">Agregar tarea</button>
     </form>` : ""}`;
 
@@ -525,6 +545,7 @@ async function renderTareas(el, s, isSelf, categoriaActiva) {
         estudiante_id: s.id,
         materia_id: f.get("materia_id") ? Number(f.get("materia_id")) : null,
         categoria: f.get("categoria") || null,
+        resultado_id: f.get("resultado_id") ? Number(f.get("resultado_id")) : null,
         titulo: f.get("titulo"),
         fecha: f.get("fecha") || null,
         hecha: false
@@ -553,6 +574,8 @@ async function renderProgramaEstudiante(el, s) {
     return;
   }
 
+  const { data: misTareas } = await sb.from("tareas").select("id, titulo, hecha, resultado_id").eq("estudiante_id", s.id).not("resultado_id", "is", null);
+
   let html = "";
   for (const u of unidades) {
     const { data: items } = await sb.from("resultados_aprendizaje").select("*").eq("programa_id", u.id).order("id");
@@ -565,14 +588,23 @@ async function renderProgramaEstudiante(el, s) {
           <div>Saberes Esenciales</div>
           <div>Estado</div>
         </div>
-        ${(items || []).map(it => `
+        ${(items || []).map(it => {
+          const tareasVinculadas = (misTareas || []).filter(t => t.resultado_id === it.id);
+          return `
           <div class="roa-row">
-            <div>${it.resultado}</div>
+            <div>
+              ${it.resultado}
+              ${tareasVinculadas.length > 0 ? `
+                <div style="margin-top:0.5rem; font-size:0.8rem;">
+                  ${tareasVinculadas.map(t => `<div>${t.hecha ? "✓" : "○"} ${t.titulo}</div>`).join("")}
+                </div>` : ""}
+            </div>
             <div>${it.saberes}</div>
             <div style="text-align:center;">
               <span class="badge" style="${it.impartido ? "" : "opacity:0.5;"}">${it.impartido ? "Impartido" : "No impartido"}</span>
             </div>
-          </div>`).join("")}
+          </div>`;
+        }).join("")}
       </div>`;
   }
   el.innerHTML = html;
