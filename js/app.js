@@ -720,6 +720,11 @@ async function renderProgramaEstudiante(el, s) {
           <div class="roa-row">
             <div>
               ${it.resultado}
+              ${(it.estrategias || it.evidencias) ? `<div><button class="link-btn" data-ver-mas-est="${it.id}" style="margin-top:0.4rem;">Ver estrategia y evidencia ▾</button></div>
+              <div id="mas-est-${it.id}" style="display:none; margin-top:0.5rem; font-size:0.82rem; color:var(--text-muted); border-left:2px solid var(--paper-line); padding-left:0.6rem;">
+                ${it.estrategias ? `<p><strong>Estrategia de mediación:</strong> ${it.estrategias}</p>` : ""}
+                ${it.evidencias ? `<p><strong>Evidencia de aprendizaje:</strong> ${it.evidencias}</p>` : ""}
+              </div>` : ""}
               ${tareasVinculadas.length > 0 ? `
                 <div style="margin-top:0.5rem; font-size:0.8rem;">
                   ${tareasVinculadas.map(t => `<div>${t.hecha ? "✓" : "○"} ${t.titulo}</div>`).join("")}
@@ -734,6 +739,12 @@ async function renderProgramaEstudiante(el, s) {
       </div>`;
   }
   el.innerHTML = html;
+  el.querySelectorAll("[data-ver-mas-est]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const panel = document.getElementById(`mas-est-${btn.dataset.verMasEst}`);
+      if (panel) panel.style.display = panel.style.display === "none" ? "block" : "none";
+    });
+  });
 }
 
 // --- Rúbrica del estudiante: solo lectura, siempre igual a la del profesor ---
@@ -1083,7 +1094,14 @@ async function renderProgramaUnidad(id, soloLectura) {
         </div>
         ${(items || []).map(it => `
           <div class="roa-row">
-            <div>${it.resultado}</div>
+            <div>
+              ${it.resultado}
+              ${(it.estrategias || it.evidencias) ? `<div><button class="link-btn" data-ver-mas="${it.id}" style="margin-top:0.4rem;">Ver estrategia y evidencia ▾</button></div>
+              <div id="mas-${it.id}" style="display:none; margin-top:0.5rem; font-size:0.82rem; color:var(--text-muted); border-left:2px solid var(--paper-line); padding-left:0.6rem;">
+                ${it.estrategias ? `<p><strong>Estrategia de mediación:</strong> ${it.estrategias}</p>` : ""}
+                ${it.evidencias ? `<p><strong>Evidencia de aprendizaje:</strong> ${it.evidencias}</p>` : ""}
+              </div>` : ""}
+            </div>
             <div>${it.saberes}</div>
             <div style="text-align:center;">
               ${soloLectura
@@ -1094,6 +1112,13 @@ async function renderProgramaUnidad(id, soloLectura) {
       </div>
     </div>`;
   bindTopbar();
+
+  document.querySelectorAll("[data-ver-mas]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const panel = document.getElementById(`mas-${btn.dataset.verMas}`);
+      if (panel) panel.style.display = panel.style.display === "none" ? "block" : "none";
+    });
+  });
 
   if (!soloLectura) {
     const saveBtn = document.getElementById("save-materia-link");
