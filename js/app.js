@@ -200,6 +200,14 @@ async function renderSeccion(sec) {
       <p style="color:var(--text-muted); margin-top:-0.6em;">${(students || []).length} estudiantes · ${INSTITUCION.especialidad}</p>
       <div class="roster">${rows || '<p class="empty">No hay estudiantes registrados en esta sección.</p>'}</div>
 
+      <details class="group-promo" open>
+        <summary>Asignaciones de la sección (trabajo cotidiano, tareas, proyectos, pruebas…)</summary>
+        <p style="font-size:0.82rem; color:var(--text-muted); margin-top:0.6rem;">
+          Crea una asignación una sola vez y se registra automáticamente para los ${(students || []).length} estudiantes de la sección.
+        </p>
+        <div id="asignaciones-seccion">Cargando…</div>
+      </details>
+
       <details class="group-promo">
         <summary>Enviar aviso o promoción por WhatsApp a toda la sección</summary>
         <p style="font-size:0.82rem; color:var(--text-muted); margin-top:0.6rem;">
@@ -228,6 +236,124 @@ async function renderSeccion(sec) {
     });
   }
   if (groupList) renderGroupList();
+
+  await cargarAsignacionesSeccion(sec, students || []);
+}
+
+async function cargarAsignacionesSeccion(sec, students) {
+  const holder = document.getElementById("asignaciones-seccion");
+  if (!holder) return;
+  const studentIds = students.map(s => s.id);
+
+  const { data: materias } = await sb.from("materias").select("*").eq("seccion", sec).order("nombre");
+  const { data: categorias } = await sb.from("rubrica_categorias").select("*").order("orden");
+  const { data: todasLasTareas } = studentIds.length
+    ? await sb.from("tareas").select("*").in("estudiante_id", studentIds).not("lote", "is", null)
+    : { data: [] };
+
+  // Agrupa por lote (cada asignación creada de una vez para la sección).
+  const lotes = {};
+  (todasLasTareas || []).forEach(t => {
+    if (!lotes[t.lote]) lotes[t.lote] = [];
+    lotes[t.lote].push(t);
+  });
+  const listaLotes = Object.entries(lotes).sort((a, b) => (b[1][0].creado_en || "").localeCompare(a[1][0].creado_en || ""));
+
+  const materiaOptions = `<option value="">(general)</option>` + (materias || []).map(m => `<option value="${m.id}">${m.nombre}</option>`).join("");
+  const categoriaOptions = `<option value="">Sin categoría</option>` + (categorias || []).map(c => `<option value="${c.nombre}">${c.nombre}</option>`).join("");
+
+  async function resultadoOptionsHTML(materiaIdsFiltro) {
+    if (!materiaIdsFiltro || materiaIdsFiltro.length === 0) return "";
+    const { data: unidades } = await sb.from("programa").select("id, unidad, materias(nombre)").in("materia_id", materiaIdsFiltro);
+    const programaIds = (unidades || []).map(u => u.id);
+    if (programaIds.length === 0) return "";
+    const { data: resultados } = await sb.from("resultados_aprendizaje").select("id, resultado, programa_id").in("programa_id", programaIds);
+    return (unidades || []).map(u => {
+      const items = (resultados || []).filter(r => r.programa_id === u.id);
+      if (items.length === 0) return "";
+      return `<optgroup label="${u.materias?.nombre || ""} — ${u.unidad}">
+        ${items.map(r => `<option value="${r.id}">${r.resultado.slice(0, 90)}${r.resultado.length > 90 ? "…" : ""}</option>`).join("")}
+      </optgroup>`;
+    }).join("");
+  }
+
+  const todasMateriaIds = (materias || []).map(m => m.id);
+  const resultadoOptions = await resultadoOptionsHTML(todasMateriaIds);
+
+  holder.innerHTML = `
+    <div class="roster">
+      ${listaLotes.map(([loteId, items]) => {
+        const hechos = items.filter(t => t.hecha).length;
+        const total = items.length;
+        const ejemplo = items[0];
+        return `
+        <div class="roster-row" style="cursor:pointer;" data-lote-toggle="${loteId}">
+          <span class="name">${ejemplo.categoria ? `[${ejemplo.categoria}] ` : ""}${ejemplo.titulo}${ejemplo.fecha ? " · " + ejemplo.fecha : ""}</span>
+          <span style="display:flex; align-items:center; gap:0.8rem;">
+            <span class="badge">${hechos}/${total} completado${hechos === 1 ? "" : "s"}</span>
+            <button class="btn danger small" data-del-lote="${loteId}">Eliminar</button>
+          </span>
+        </div>
+        <div class="lote-detalle" data-lote-detalle="${loteId}" style="display:none; padding:0.6rem 0.8rem 0.9rem;">
+          ${students.map(st => {
+            const t = items.find(x => x.estudiante_id === st.id);
+            return `<div class="task-row ${t?.hecha ? "done" : ""}">
+              <input type="checkbox" ${t?.hecha ? "checked" : ""} data-toggle-lote="${t?.id}" ${!t ? "disabled" : ""} />
+              <span class="task-title">${st.apellido1} ${st.apellido2}, ${st.nombre}</span>
+            </div>`;
+          }).join("")}
+        </div>`;
+      }).join("") || '<p class="empty">Todavía no hay asignaciones creadas para toda la sección.</p>'}
+    </div>
+
+    <form class="inline-form" id="asignacion-seccion-form" style="margin-top:1rem;">
+      <select name="materia_id">${materiaOptions}</select>
+      <select name="categoria">${categoriaOptions}</select>
+      <input name="titulo" placeholder="Asignación (ej. Guía de ejercicios 1)" required style="flex:1; min-width:10rem" />
+      <input name="fecha" type="date" />
+      <select name="resultado_id" style="flex-basis:100%;">${resultadoOptions || '<option value="">— Sin vincular a un resultado —</option>'}</select>
+      <button class="btn small" type="submit">Crear para toda la sección</button>
+    </form>`;
+
+  holder.querySelectorAll("[data-lote-toggle]").forEach(row => {
+    row.addEventListener("click", () => {
+      const detalle = holder.querySelector(`[data-lote-detalle="${row.dataset.loteToggle}"]`);
+      if (detalle) detalle.style.display = detalle.style.display === "none" ? "block" : "none";
+    });
+  });
+  holder.querySelectorAll("[data-del-lote]").forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (!confirm("¿Eliminar esta asignación para toda la sección? Se borrará para todos los estudiantes.")) return;
+      await sb.from("tareas").delete().eq("lote", btn.dataset.delLote);
+      cargarAsignacionesSeccion(sec, students);
+    });
+  });
+  holder.querySelectorAll("[data-toggle-lote]").forEach(cb => {
+    cb.addEventListener("click", (e) => e.stopPropagation());
+    cb.addEventListener("change", async () => {
+      await sb.from("tareas").update({ hecha: cb.checked }).eq("id", cb.dataset.toggleLote);
+    });
+  });
+
+  const form = document.getElementById("asignacion-seccion-form");
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const loteId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const filas = students.map(st => ({
+      estudiante_id: st.id,
+      materia_id: f.get("materia_id") ? Number(f.get("materia_id")) : null,
+      categoria: f.get("categoria") || null,
+      resultado_id: f.get("resultado_id") ? Number(f.get("resultado_id")) : null,
+      titulo: f.get("titulo"),
+      fecha: f.get("fecha") || null,
+      hecha: false,
+      lote: loteId
+    }));
+    await sb.from("tareas").insert(filas);
+    cargarAsignacionesSeccion(sec, students);
+  });
 }
 
 function initials(s) { return (s.apellido1[0] || "") + (s.nombre[0] || ""); }
