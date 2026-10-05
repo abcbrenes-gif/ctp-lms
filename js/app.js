@@ -35,6 +35,9 @@ async function render() {
   const perfilMatch = hash.match(/^#\/perfil\/(.+)$/);
   if (perfilMatch) return renderPerfil(decodeURIComponent(perfilMatch[1]), false);
   if (hash === "#/materias") return renderMaterias();
+  if (hash === "#/programa") return renderProgramaNiveles();
+  const progUnidadMatch = hash.match(/^#\/programa\/(.+)$/);
+  if (progUnidadMatch) return renderProgramaUnidad(decodeURIComponent(progUnidadMatch[1]));
   renderHome();
 }
 
@@ -47,7 +50,7 @@ function topbar() {
     <div>
       <span class="docente">${role === "docente" ? "Prof. " + nombre : nombre}</span>
       <nav style="display:inline">
-        ${role === "docente" ? `<a href="#/">Secciones</a><a href="#/materias">Materias</a>` : ""}
+        ${role === "docente" ? `<a href="#/">Secciones</a><a href="#/materias">Materias</a><a href="#/programa">Programa</a>` : ""}
         <a href="#" id="logout-link">Salir</a>
       </nav>
     </div>
@@ -562,6 +565,65 @@ async function loadMateriasSeccion(sec) {
     await sb.from("materias").insert({ nombre: f.get("nombre"), seccion: sec });
     loadMateriasSeccion(sec);
   });
+}
+
+// ---------- PROGRAMA (resultados de aprendizaje / saberes esenciales) — solo docente ----------
+
+async function renderProgramaNiveles() {
+  app.innerHTML = `
+    ${topbar()}
+    <div class="wrap">
+      <h1>Programa de estudio</h1>
+      <p style="color:var(--text-muted); margin-top:-0.6em;">Resultados de aprendizaje y saberes esenciales, extraídos de los programas oficiales de décimo, undécimo y duodécimo.</p>
+      <div id="programa-niveles">Cargando…</div>
+    </div>`;
+  bindTopbar();
+
+  const { data: filas } = await sb.from("programa").select("id, nivel, subarea, unidad, tiempo_estimado").order("id");
+  const porNivel = {};
+  (filas || []).forEach(f => {
+    porNivel[f.nivel] = porNivel[f.nivel] || {};
+    porNivel[f.nivel][f.subarea] = porNivel[f.nivel][f.subarea] || [];
+    porNivel[f.nivel][f.subarea].push(f);
+  });
+
+  const holder = document.getElementById("programa-niveles");
+  const niveles = Object.keys(porNivel);
+  if (niveles.length === 0) {
+    holder.innerHTML = `<p class="empty">Todavía no se ha cargado el contenido del programa.</p>`;
+    return;
+  }
+
+  holder.innerHTML = niveles.map(nivel => `
+    <details class="group-promo" style="margin-top:1.2rem;" open>
+      <summary style="font-family:var(--serif); font-weight:600; font-size:1.05rem;">${nivel}</summary>
+      <div style="margin-top:0.8rem;">
+        ${Object.keys(porNivel[nivel]).map(sub => `
+          <p style="font-size:0.78rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em; margin:1rem 0 0.3rem;">${sub}</p>
+          <div class="roster">
+            ${porNivel[nivel][sub].map(u => `
+              <a class="roster-row" href="#/programa/${u.id}">
+                <span class="name">${u.unidad}</span>
+                <span class="cedula">${u.tiempo_estimado ? u.tiempo_estimado + "h" : ""}</span>
+              </a>`).join("")}
+          </div>`).join("")}
+      </div>
+    </details>`).join("");
+}
+
+async function renderProgramaUnidad(id) {
+  const { data: u } = await sb.from("programa").select("*").eq("id", id).maybeSingle();
+  if (!u) { location.hash = "#/programa"; return; }
+
+  app.innerHTML = `
+    ${topbar()}
+    <div class="wrap">
+      <a href="#/programa" class="btn secondary small" style="margin-bottom:1rem; display:inline-block;">&larr; Programa</a>
+      <h1>${u.unidad}</h1>
+      <p style="color:var(--text-muted); margin-top:-0.6em;">${u.nivel} · ${u.subarea}${u.tiempo_estimado ? " · " + u.tiempo_estimado + " horas" : ""}</p>
+      <pre style="white-space:pre-wrap; font-family:var(--sans); font-size:0.88rem; line-height:1.6; background:var(--white); border:1px solid var(--paper-line); padding:1.2rem; margin-top:1rem; max-width:100%; overflow-x:auto;">${u.contenido.replace(/</g, "&lt;")}</pre>
+    </div>`;
+  bindTopbar();
 }
 
 window.addEventListener("hashchange", render);
