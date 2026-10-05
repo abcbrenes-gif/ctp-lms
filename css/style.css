@@ -258,3 +258,14 @@ table.grades td.num.low { color: var(--brick); font-weight: 600; }
 .wa-list-row { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid var(--paper-line); gap: 0.6rem; }
 .wa-list-row .wname { font-size: 0.88rem; }
 .wa-list-row .no-phone { font-size: 0.76rem; color: var(--text-muted); font-style: italic; }
+
+/* Login: pestañas de rol */
+.role-tabs { display: flex; gap: 0; margin-bottom: 1.2rem; border: 1px solid var(--paper-line); border-radius: var(--radius); overflow: hidden; }
+.role-tab {
+  flex: 1; background: var(--paper); border: none; padding: 0.55rem 0.4rem; cursor: pointer;
+  font-family: var(--sans); font-size: 0.82rem; color: var(--text-muted);
+}
+.role-tab.active { background: var(--ink); color: var(--white); font-weight: 500; }
+
+/* Materias: checkbox a la derecha en filas tipo roster */
+.roster-row input[type="checkbox"] { accent-color: var(--ledger-green); }
