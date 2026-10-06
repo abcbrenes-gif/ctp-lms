@@ -42,6 +42,7 @@ async function render() {
   if (hash === "#/asistencia") return renderAsistenciaGeneral();
   if (hash === "#/horario") return renderHorario();
   if (hash === "#/asistencia/resumen") return renderResumenAsistencia();
+  if (hash === "#/asistencia/informe") return renderInformeAsistenciaSeccion();
   const progUnidadMatch = hash.match(/^#\/programa\/(.+)$/);
   if (progUnidadMatch) return renderProgramaUnidad(decodeURIComponent(progUnidadMatch[1]));
   renderHome();
@@ -362,6 +363,7 @@ async function renderAsistenciaGeneral() {
         <input type="date" id="asis-fecha" value="${hoy}" />
         <a href="#/horario" class="btn secondary small">Configurar mi horario de lecciones</a>
         <a href="#/asistencia/resumen" class="btn secondary small">Resumen de lecciones impartidas/no impartidas</a>
+        <a href="#/asistencia/informe" class="btn secondary small">Informe de asistencia por sección</a>
       </div>
       <div id="lecciones-grid">Cargando…</div>
       <div id="leccion-roster" style="margin-top:1.4rem;"></div>
@@ -740,6 +742,69 @@ async function renderHorario() {
   });
 }
 
+async function renderInformeAsistenciaSeccion() {
+  app.innerHTML = `
+    ${topbar()}
+    <div class="wrap">
+      <a href="#/asistencia" class="btn secondary small" style="margin-bottom:1rem; display:inline-block;">&larr; Asistencia</a>
+      <h1>Informe de asistencia por sección</h1>
+      <p style="color:var(--text-muted); margin-top:-0.6em;">Récord de cada estudiante: ausencias y tardías injustificadas, y % de asistencia según el artículo 31° del REA (contando todas sus materias juntas).</p>
+      <div id="informe-asistencia-holder">Cargando…</div>
+    </div>`;
+  bindTopbar();
+
+  const holder = document.getElementById("informe-asistencia-holder");
+  const { data: estudiantes } = await sb.from("estudiantes").select("*").order("seccion").order("apellido1").order("apellido2");
+  const porSeccion = {};
+  (estudiantes || []).forEach(e => {
+    porSeccion[e.seccion] = porSeccion[e.seccion] || [];
+    porSeccion[e.seccion].push(e);
+  });
+
+  let html = "";
+  for (const sec of Object.keys(porSeccion).sort()) {
+    html += `
+      <details class="group-promo" style="margin-top:1.2rem;" open>
+        <summary style="font-family:var(--serif); font-weight:600; font-size:1.02rem;">Sección ${sec}</summary>
+        <div style="overflow-x:auto; margin-top:0.8rem;">
+          <table class="grades">
+            <thead><tr><th>Estudiante</th><th>Lecciones impartidas</th><th>Ausentes injust.</th><th>Tardías injust.</th><th>% Asistencia</th></tr></thead>
+            <tbody id="informe-tbody-${sec.replace(/[^a-zA-Z0-9]/g, "")}">
+              ${porSeccion[sec].map(() => `<tr><td colspan="5" class="empty">Calculando…</td></tr>`).join("")}
+            </tbody>
+          </table>
+        </div>
+      </details>`;
+  }
+  holder.innerHTML = html;
+
+  for (const sec of Object.keys(porSeccion)) {
+    const tbody = document.getElementById(`informe-tbody-${sec.replace(/[^a-zA-Z0-9]/g, "")}`);
+    const filas = await Promise.all(porSeccion[sec].map(async st => {
+      const { data: leccionesSeccion } = await sb.from("lecciones").select("id").eq("seccion", sec);
+      const leccionIds = (leccionesSeccion || []).map(l => l.id);
+      if (leccionIds.length === 0) {
+        return `<tr><td>${st.apellido1} ${st.apellido2}, ${st.nombre}</td><td colspan="4" class="empty">Sin lecciones configuradas para esta sección.</td></tr>`;
+      }
+      const { data: registros } = await sb.from("asistencia_lecciones").select("leccion_id, fecha, estado").eq("estudiante_id", st.id).in("leccion_id", leccionIds);
+      const { data: todosRegistros } = await sb.from("asistencia_lecciones").select("leccion_id, fecha").in("leccion_id", leccionIds);
+      const impartidas = new Set((todosRegistros || []).map(r => `${r.leccion_id}-${r.fecha}`)).size;
+      const ausentesInj = (registros || []).filter(r => r.estado === "ausente_injustificada").length;
+      const tardiasInj = (registros || []).filter(r => r.estado === "tardia_leve" || r.estado === "tardia_grave").length;
+      const ausenciasComputadas = (registros || []).reduce((a, r) => a + pesoAusencia(r.estado), 0);
+      const porcentaje = impartidas > 0 ? Math.max(0, (1 - ausenciasComputadas / impartidas) * 100) : null;
+      return `<tr>
+        <td><a href="#/perfil/${encodeURIComponent(st.id)}">${st.apellido1} ${st.apellido2}, ${st.nombre}</a></td>
+        <td class="num">${impartidas}</td>
+        <td class="num ${ausentesInj > 0 ? "low" : ""}">${ausentesInj}</td>
+        <td class="num">${tardiasInj}</td>
+        <td class="num ${porcentaje !== null && porcentaje < 70 ? "low" : ""}">${porcentaje !== null ? porcentaje.toFixed(1) + "%" : "—"}</td>
+      </tr>`;
+    }));
+    tbody.innerHTML = filas.join("") || '<tr><td colspan="5" class="empty">No hay estudiantes.</td></tr>';
+  }
+}
+
 async function renderResumenAsistencia() {
   const { data: lecciones } = await sb.from("lecciones").select("*, materias(nombre)").order("dia_semana").order("hora_inicio");
   const { data: impartidas } = await sb.from("asistencia_lecciones").select("leccion_id, fecha");
@@ -951,6 +1016,7 @@ async function renderPerfil(id, isSelf) {
         <button class="tab-btn ${activeTab === "tareas" ? "active" : ""}" data-tab="tareas">Tareas</button>
         <button class="tab-btn ${activeTab === "programa" ? "active" : ""}" data-tab="programa">Programa</button>
         <button class="tab-btn ${activeTab === "rubrica" ? "active" : ""}" data-tab="rubrica">Rúbrica</button>
+        <button class="tab-btn ${activeTab === "asistencia" ? "active" : ""}" data-tab="asistencia">Asistencia</button>
         <button class="tab-btn ${activeTab === "avisos" ? "active" : ""}" data-tab="avisos">Avisos</button>
         ${!isSelf ? `<button class="tab-btn ${activeTab === "whatsapp" ? "active" : ""}" data-tab="whatsapp">WhatsApp</button>
         <button class="tab-btn ${activeTab === "acceso" ? "active" : ""}" data-tab="acceso">Materias</button>` : ""}
@@ -1020,6 +1086,7 @@ async function renderTabContent(s, tab, isSelf) {
   if (tab === "tareas") return renderTareas(el, s, isSelf);
   if (tab === "programa") return renderProgramaEstudiante(el, s);
   if (tab === "rubrica") return renderRubricaEstudiante(el, s);
+  if (tab === "asistencia") return renderAsistenciaEstudiante(el, s);
   if (tab === "avisos") return renderAvisosEstudiante(el, s);
   if (tab === "whatsapp" && !isSelf) return renderWhatsapp(el, s);
   if (tab === "acceso" && !isSelf) return renderAcceso(el, s);
@@ -1379,6 +1446,54 @@ async function renderAvisosEstudiante(el, s) {
           <span style="font-size:0.75rem; color:var(--text-muted);">${new Date(p.creado_en).toLocaleDateString("es-CR")}</span>
         </div>`).join("") || '<p class="empty">Todavía no hay publicaciones.</p>'}
     </div>`;
+}
+
+// --- Récord de asistencia del estudiante (visible para profesor y el propio estudiante) ---
+
+async function renderAsistenciaEstudiante(el, s) {
+  el.innerHTML = "Cargando…";
+  const { data: asignadas } = await sb.from("estudiante_materias").select("materia_id, materias(id, nombre)").eq("estudiante_id", s.id);
+  const materiasAsignadas = (asignadas || []).map(a => a.materias).filter(Boolean);
+
+  if (materiasAsignadas.length === 0) {
+    el.innerHTML = `<p class="empty">Todavía no tienes materias asignadas.</p>`;
+    return;
+  }
+
+  let html = `<p style="font-size:0.85rem; color:var(--text-muted);">Récord de asistencia por materia, según el artículo 31° del REA (ausencias y tardías injustificadas).</p>`;
+
+  for (const m of materiasAsignadas) {
+    const { data: lecciones } = await sb.from("lecciones").select("id").eq("materia_id", m.id);
+    const leccionIds = (lecciones || []).map(l => l.id);
+    const { data: registros } = leccionIds.length
+      ? await sb.from("asistencia_lecciones").select("*").in("leccion_id", leccionIds).eq("estudiante_id", s.id).order("fecha", { ascending: false })
+      : { data: [] };
+
+    const conteos = {};
+    ESTADOS_ASISTENCIA.forEach(e => { conteos[e.v] = 0; });
+    (registros || []).forEach(r => { conteos[r.estado] = (conteos[r.estado] || 0) + 1; });
+
+    const resultado = await calcularNotaAsistencia(s.id, m.id);
+
+    html += `
+      <h3 style="margin-top:1.4rem;">${m.nombre}</h3>
+      <div class="roster" style="margin-bottom:0.8rem;">
+        <div class="roster-row"><span class="name">% de asistencia (nota)</span><span class="badge" style="${resultado && resultado.nota < 70 ? "color:var(--brick); border-color:var(--brick);" : ""}">${resultado ? resultado.nota.toFixed(1) + "%" : "Sin datos todavía"}</span></div>
+        ${resultado ? `<div class="roster-row"><span class="name">Lecciones impartidas</span><span class="badge">${resultado.impartidas}</span></div>` : ""}
+        ${ESTADOS_ASISTENCIA.map(e => `<div class="roster-row"><span class="name">${e.l}</span><span class="badge" style="opacity:${conteos[e.v] > 0 ? 1 : 0.4};">${conteos[e.v]}</span></div>`).join("")}
+      </div>
+      <details>
+        <summary style="font-size:0.82rem; color:var(--text-muted); cursor:pointer;">Ver el detalle día por día</summary>
+        <table class="grades" style="margin-top:0.6rem;">
+          <thead><tr><th>Fecha</th><th>Estado</th></tr></thead>
+          <tbody>
+            ${(registros || []).map(r => `<tr><td>${r.fecha}</td><td>${ESTADOS_ASISTENCIA.find(e => e.v === r.estado)?.l || r.estado}</td></tr>`).join("") || '<tr><td colspan="2" class="empty">Sin registros todavía.</td></tr>'}
+          </tbody>
+        </table>
+      </details>`;
+  }
+
+  el.innerHTML = html;
 }
 
 // --- WhatsApp (solo docente) ---
