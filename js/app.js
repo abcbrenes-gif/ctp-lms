@@ -37,6 +37,9 @@ async function render() {
   if (hash === "#/materias") return renderMaterias();
   if (hash === "#/rubrica") return renderRubrica();
   if (hash === "#/programa") return renderProgramaNiveles();
+  if (hash === "#/publicaciones") return renderPublicacionesGeneral();
+  if (hash === "#/evaluaciones") return renderEvaluacionesGeneral();
+  if (hash === "#/asistencia") return renderAsistenciaGeneral();
   const progUnidadMatch = hash.match(/^#\/programa\/(.+)$/);
   if (progUnidadMatch) return renderProgramaUnidad(decodeURIComponent(progUnidadMatch[1]));
   renderHome();
@@ -51,7 +54,7 @@ function topbar() {
     <div>
       <span class="docente">${role === "docente" ? "Prof. " + nombre : nombre}</span>
       <nav style="display:inline">
-        ${role === "docente" ? `<a href="#/">Secciones</a><a href="#/materias">Materias</a><a href="#/rubrica">Rúbrica</a><a href="#/programa">Programa</a>` : ""}
+        ${role === "docente" ? `<a href="#/">Secciones</a><a href="#/materias">Materias</a><a href="#/rubrica">Rúbrica</a><a href="#/programa">Programa</a><a href="#/publicaciones">Publicaciones</a><a href="#/evaluaciones">Evaluaciones</a><a href="#/asistencia">Asistencia</a>` : ""}
         <a href="#" id="logout-link">Salir</a>
       </nav>
     </div>
@@ -201,22 +204,6 @@ async function renderSeccion(sec) {
       <div class="roster">${rows || '<p class="empty">No hay estudiantes registrados en esta sección.</p>'}</div>
 
       <details class="group-promo" open>
-        <summary>Publicaciones de la sección (avisos y materiales)</summary>
-        <p style="font-size:0.82rem; color:var(--text-muted); margin-top:0.6rem;">Lo que publiques aquí lo ven todos los estudiantes de la sección.</p>
-        <div id="publicaciones-seccion">Cargando…</div>
-      </details>
-
-      <details class="group-promo" open>
-        <summary>Evaluaciones de la sección (todas las notas de golpe)</summary>
-        <div id="evaluaciones-seccion">Cargando…</div>
-      </details>
-
-      <details class="group-promo" open>
-        <summary>Asistencia diaria</summary>
-        <div id="asistencia-seccion">Cargando…</div>
-      </details>
-
-      <details class="group-promo" open>
         <summary>Asignaciones de la sección (trabajo cotidiano, tareas, proyectos, pruebas…)</summary>
         <p style="font-size:0.82rem; color:var(--text-muted); margin-top:0.6rem;">
           Crea una asignación una sola vez y se registra automáticamente para los ${(students || []).length} estudiantes de la sección.
@@ -254,15 +241,12 @@ async function renderSeccion(sec) {
   if (groupList) renderGroupList();
 
   await cargarAsignacionesSeccion(sec, students || []);
-  await cargarPublicacionesSeccion(sec);
-  await cargarEvaluacionesSeccion(sec, students || []);
-  await cargarAsistenciaSeccion(sec, students || []);
 }
 
 // ---------- 1) Publicaciones (avisos y materiales) ----------
 
-async function cargarPublicacionesSeccion(sec) {
-  const holder = document.getElementById("publicaciones-seccion");
+async function cargarPublicacionesSeccion(sec, holderId = "publicaciones-seccion") {
+  const holder = document.getElementById(holderId);
   if (!holder) return;
   const { data: materias } = await sb.from("materias").select("*").eq("seccion", sec).order("nombre");
   const { data: pubs } = await sb.from("publicaciones").select("*, materias(nombre)").eq("seccion", sec).order("creado_en", { ascending: false });
@@ -285,7 +269,7 @@ async function cargarPublicacionesSeccion(sec) {
           <span style="font-size:0.75rem; color:var(--text-muted);">${new Date(p.creado_en).toLocaleDateString("es-CR")}</span>
         </div>`).join("") || '<p class="empty">Todavía no hay publicaciones.</p>'}
     </div>
-    <form class="inline-form" id="publicacion-form" style="margin-top:1rem;">
+    <form class="inline-form js-pub-form" style="margin-top:1rem;">
       <select name="tipo">
         <option value="aviso">Aviso</option>
         <option value="material">Material</option>
@@ -293,17 +277,17 @@ async function cargarPublicacionesSeccion(sec) {
       <select name="materia_id">${materiaOptions}</select>
       <input name="titulo" placeholder="Título" required style="flex:1; min-width:10rem" />
       <input name="url" placeholder="Enlace (opcional, ej. a un documento o video)" style="flex-basis:100%;" />
-      <div class="roa-editable" contenteditable="true" id="publicacion-contenido" style="flex-basis:100%; min-height:3rem;" data-placeholder="Contenido (opcional)"></div>
+      <div class="roa-editable js-pub-contenido" contenteditable="true" style="flex-basis:100%; min-height:3rem;" data-placeholder="Contenido (opcional)"></div>
       <button class="btn small" type="submit">Publicar</button>
     </form>`;
 
   holder.querySelectorAll("[data-del-pub]").forEach(btn => {
     btn.addEventListener("click", async () => {
       await sb.from("publicaciones").delete().eq("id", btn.dataset.delPub);
-      cargarPublicacionesSeccion(sec);
+      cargarPublicacionesSeccion(sec, holderId);
     });
   });
-  const form = document.getElementById("publicacion-form");
+  const form = holder.querySelector(".js-pub-form");
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const f = new FormData(e.target);
@@ -313,16 +297,16 @@ async function cargarPublicacionesSeccion(sec) {
       tipo: f.get("tipo"),
       titulo: f.get("titulo"),
       url: f.get("url") || null,
-      contenido: document.getElementById("publicacion-contenido").innerHTML || null
+      contenido: holder.querySelector(".js-pub-contenido").innerHTML || null
     });
-    cargarPublicacionesSeccion(sec);
+    cargarPublicacionesSeccion(sec, holderId);
   });
 }
 
 // ---------- 2) Evaluaciones generales de la sección ----------
 
-async function cargarEvaluacionesSeccion(sec, students) {
-  const holder = document.getElementById("evaluaciones-seccion");
+async function cargarEvaluacionesSeccion(sec, students, holderId = "evaluaciones-seccion") {
+  const holder = document.getElementById(holderId);
   if (!holder) return;
   const studentIds = students.map(s => s.id);
   const { data: categorias } = await sb.from("rubrica_categorias").select("*").order("orden");
@@ -364,8 +348,8 @@ async function cargarEvaluacionesSeccion(sec, students) {
 
 // ---------- 3) Asistencia diaria ----------
 
-async function cargarAsistenciaSeccion(sec, students) {
-  const holder = document.getElementById("asistencia-seccion");
+async function cargarAsistenciaSeccion(sec, students, holderId = "asistencia-seccion") {
+  const holder = document.getElementById(holderId);
   if (!holder) return;
   const hoy = new Date().toISOString().slice(0, 10);
 
@@ -380,8 +364,8 @@ async function cargarAsistenciaSeccion(sec, students) {
     holder.innerHTML = `
       <div class="row" style="display:flex; gap:0.6rem; align-items:center; margin-bottom:0.8rem;">
         <label style="font-size:0.85rem; color:var(--text-muted);">Fecha:</label>
-        <input type="date" id="asistencia-fecha" value="${fecha}" />
-        <button class="btn secondary small" id="marcar-todos-presentes">Marcar todos presentes</button>
+        <input type="date" class="js-asis-fecha" value="${fecha}" />
+        <button class="btn secondary small js-asis-todos">Marcar todos presentes</button>
       </div>
       <div class="roster">
         ${students.map(st => {
@@ -397,13 +381,13 @@ async function cargarAsistenciaSeccion(sec, students) {
         }).join("") || '<p class="empty">No hay estudiantes.</p>'}
       </div>`;
 
-    document.getElementById("asistencia-fecha").addEventListener("change", (e) => pintarFecha(e.target.value));
-    document.getElementById("marcar-todos-presentes").addEventListener("click", () => {
+    holder.querySelector(".js-asis-fecha").addEventListener("change", (e) => pintarFecha(e.target.value));
+    holder.querySelector(".js-asis-todos").addEventListener("click", () => {
       holder.querySelectorAll("[data-asistencia]").forEach(cb => { cb.checked = true; cb.dispatchEvent(new Event("change")); });
     });
     holder.querySelectorAll("[data-asistencia]").forEach(cb => {
       cb.addEventListener("change", async () => {
-        const fechaActual = document.getElementById("asistencia-fecha").value;
+        const fechaActual = holder.querySelector(".js-asis-fecha").value;
         await sb.from("asistencia_diaria").upsert(
           { estudiante_id: cb.dataset.asistencia, fecha: fechaActual, presente: cb.checked },
           { onConflict: "estudiante_id,fecha" }
@@ -1361,6 +1345,78 @@ async function renderProgramaUnidad(id, soloLectura) {
         await sb.from("resultados_aprendizaje").update({ impartido: cb.checked }).eq("id", cb.dataset.impartido);
       });
     });
+  }
+}
+
+// ---------- Páginas generales (organizadas por sección) ----------
+
+async function seccionesConEstudiantes() {
+  const { data: estudiantes } = await sb.from("estudiantes").select("*").order("apellido1").order("apellido2");
+  const porSeccion = {};
+  (estudiantes || []).forEach(e => {
+    porSeccion[e.seccion] = porSeccion[e.seccion] || [];
+    porSeccion[e.seccion].push(e);
+  });
+  return porSeccion;
+}
+
+async function renderPublicacionesGeneral() {
+  const porSeccion = await seccionesConEstudiantes();
+  const secciones = Object.keys(porSeccion).sort();
+  app.innerHTML = `
+    ${topbar()}
+    <div class="wrap">
+      <h1>Publicaciones</h1>
+      <p style="color:var(--text-muted); margin-top:-0.6em;">Avisos y materiales por sección. Lo que publiques aquí lo ven los estudiantes de esa sección.</p>
+      ${secciones.map(sec => `
+        <details class="group-promo" style="margin-top:1.2rem;" open>
+          <summary style="font-family:var(--serif); font-weight:600; font-size:1.02rem;">Sección ${sec}</summary>
+          <div id="publicaciones-sec-${sec}" style="margin-top:0.8rem;">Cargando…</div>
+        </details>`).join("")}
+    </div>`;
+  bindTopbar();
+  for (const sec of secciones) {
+    await cargarPublicacionesSeccion(sec, `publicaciones-sec-${sec}`);
+  }
+}
+
+async function renderEvaluacionesGeneral() {
+  const porSeccion = await seccionesConEstudiantes();
+  const secciones = Object.keys(porSeccion).sort();
+  app.innerHTML = `
+    ${topbar()}
+    <div class="wrap">
+      <h1>Evaluaciones</h1>
+      <p style="color:var(--text-muted); margin-top:-0.6em;">Las notas de todos los estudiantes, de un vistazo, por sección.</p>
+      ${secciones.map(sec => `
+        <details class="group-promo" style="margin-top:1.2rem;" open>
+          <summary style="font-family:var(--serif); font-weight:600; font-size:1.02rem;">Sección ${sec}</summary>
+          <div id="evaluaciones-sec-${sec}" style="margin-top:0.8rem;">Cargando…</div>
+        </details>`).join("")}
+    </div>`;
+  bindTopbar();
+  for (const sec of secciones) {
+    await cargarEvaluacionesSeccion(sec, porSeccion[sec], `evaluaciones-sec-${sec}`);
+  }
+}
+
+async function renderAsistenciaGeneral() {
+  const porSeccion = await seccionesConEstudiantes();
+  const secciones = Object.keys(porSeccion).sort();
+  app.innerHTML = `
+    ${topbar()}
+    <div class="wrap">
+      <h1>Asistencia diaria</h1>
+      <p style="color:var(--text-muted); margin-top:-0.6em;">Marca presente o ausente, por fecha, por sección.</p>
+      ${secciones.map(sec => `
+        <details class="group-promo" style="margin-top:1.2rem;" open>
+          <summary style="font-family:var(--serif); font-weight:600; font-size:1.02rem;">Sección ${sec}</summary>
+          <div id="asistencia-sec-${sec}" style="margin-top:0.8rem;">Cargando…</div>
+        </details>`).join("")}
+    </div>`;
+  bindTopbar();
+  for (const sec of secciones) {
+    await cargarAsistenciaSeccion(sec, porSeccion[sec], `asistencia-sec-${sec}`);
   }
 }
 
