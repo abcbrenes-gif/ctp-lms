@@ -401,107 +401,178 @@ async function pintarLecciones(fecha) {
   const { data: registros } = await sb.from("asistencia_lecciones").select("leccion_id").eq("fecha", fecha).in("leccion_id", leccionIds);
   const registradasSet = new Set((registros || []).map(x => x.leccion_id));
 
+  // Agrupa lecciones consecutivas de la misma materia en un solo bloque de registro.
+  const grupos = [];
+  lecciones.forEach(l => {
+    const ultimo = grupos[grupos.length - 1];
+    if (ultimo && ultimo[ultimo.length - 1].materia_id === l.materia_id && ultimo[ultimo.length - 1].hora_fin === l.hora_inicio) {
+      ultimo.push(l);
+    } else {
+      grupos.push([l]);
+    }
+  });
+
   grid.innerHTML = `
     <div class="section-grid">
-      ${lecciones.map(l => {
-        const estado = sinClaseSet.has(l.id) ? "Sin clase" : (registradasSet.has(l.id) ? "Registrado" : "Pendiente de registrar");
+      ${grupos.map(grupo => {
+        const primero = grupo[0], ultimo = grupo[grupo.length - 1];
+        const todasSinClase = grupo.every(l => sinClaseSet.has(l.id));
+        const todasRegistradas = grupo.every(l => registradasSet.has(l.id));
+        const estado = todasSinClase ? "Sin clase" : (todasRegistradas ? "Registrado" : "Pendiente de registrar");
+        const idsGrupo = grupo.map(l => l.id).join(",");
         return `
         <div class="leccion-card" style="border-left-color:${estado === "Registrado" ? "var(--ledger-green)" : estado === "Sin clase" ? "var(--text-muted)" : "var(--ochre)"};">
-          <div class="num" style="font-size:1.1rem;">${horaCorta(l.hora_inicio)} – ${horaCorta(l.hora_fin)}</div>
-          <div class="count">Asignatura: ${l.materias?.nombre || "—"}</div>
-          <div class="count">Sección: ${l.seccion}</div>
-          <div class="count">Estado: ${estado}</div>
+          <div class="num" style="font-size:1.1rem;">${horaCorta(primero.hora_inicio)} – ${horaCorta(ultimo.hora_fin)}</div>
+          <div class="count">Asignatura: ${primero.materias?.nombre || "—"}</div>
+          <div class="count">Sección: ${primero.seccion}</div>
+          <div class="count">${grupo.length > 1 ? `${grupo.length} lecciones seguidas` : "1 lección"} · Estado: ${estado}</div>
           <div style="display:flex; gap:0.5rem; margin-top:0.6rem; flex-wrap:wrap;">
-            <button class="btn secondary small" data-sin-clase="${l.id}">${sinClaseSet.has(l.id) ? "Quitar \"sin clase\"" : "Marcar lección sin clase"}</button>
-            <button class="btn small" data-registrar="${l.id}">Registrar asistencia</button>
+            <button class="btn secondary small" data-sin-clase-grupo="${idsGrupo}">${todasSinClase ? "Quitar \"sin clase\"" : "Marcar sin clase"}</button>
+            <button class="btn small" data-registrar-grupo="${idsGrupo}">Registrar asistencia</button>
           </div>
         </div>`;
       }).join("")}
     </div>`;
 
-  grid.querySelectorAll("[data-sin-clase]").forEach(btn => {
+  grid.querySelectorAll("[data-sin-clase-grupo]").forEach(btn => {
     btn.addEventListener("click", async () => {
-      const leccionId = btn.dataset.sinClase;
-      if (sinClaseSet.has(Number(leccionId))) {
-        await sb.from("lecciones_sin_clase").delete().eq("leccion_id", leccionId).eq("fecha", fecha);
+      const ids = btn.dataset.sinClaseGrupo.split(",");
+      const todasSinClase = ids.every(id => sinClaseSet.has(Number(id)));
+      if (todasSinClase) {
+        await sb.from("lecciones_sin_clase").delete().eq("fecha", fecha).in("leccion_id", ids);
       } else {
-        await sb.from("lecciones_sin_clase").insert({ leccion_id: leccionId, fecha });
+        await sb.from("lecciones_sin_clase").upsert(ids.map(id => ({ leccion_id: Number(id), fecha })), { onConflict: "leccion_id,fecha" });
       }
       pintarLecciones(fecha);
     });
   });
-  grid.querySelectorAll("[data-registrar]").forEach(btn => {
+  grid.querySelectorAll("[data-registrar-grupo]").forEach(btn => {
     btn.addEventListener("click", () => {
-      const leccion = lecciones.find(l => l.id === Number(btn.dataset.registrar));
-      pintarRosterLeccion(leccion, fecha);
+      const ids = btn.dataset.registrarGrupo.split(",").map(Number);
+      const grupo = lecciones.filter(l => ids.includes(l.id)).sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
+      pintarRosterGrupo(grupo, fecha);
     });
   });
 }
 
-async function pintarRosterLeccion(leccion, fecha) {
+async function pintarRosterGrupo(grupo, fecha) {
   const roster = document.getElementById("leccion-roster");
   roster.innerHTML = "Cargando…";
+  const primero = grupo[0], ultimo = grupo[grupo.length - 1];
+  const leccionIds = grupo.map(l => l.id);
 
-  const { data: asignados } = await sb.from("estudiante_materias").select("estudiante_id, estudiantes(*)").eq("materia_id", leccion.materia_id);
+  const { data: asignados } = await sb.from("estudiante_materias").select("estudiante_id, estudiantes(*)").eq("materia_id", primero.materia_id);
   const estudiantes = (asignados || []).map(a => a.estudiantes).filter(Boolean);
 
   const { data: existentes } = estudiantes.length
-    ? await sb.from("asistencia_lecciones").select("*").eq("leccion_id", leccion.id).eq("fecha", fecha)
+    ? await sb.from("asistencia_lecciones").select("*").eq("fecha", fecha).in("leccion_id", leccionIds)
     : { data: [] };
+  // porEstudiante[estudianteId][leccionId] = estado
   const porEstudiante = {};
-  (existentes || []).forEach(r => { porEstudiante[r.estudiante_id] = r.estado; });
+  (existentes || []).forEach(r => {
+    porEstudiante[r.estudiante_id] = porEstudiante[r.estudiante_id] || {};
+    porEstudiante[r.estudiante_id][r.leccion_id] = r.estado;
+  });
+  function estadoGeneralDe(stId) {
+    const regs = porEstudiante[stId] || {};
+    const valores = grupo.map(l => regs[l.id] || "presente");
+    return valores.every(v => v === valores[0]) ? valores[0] : null; // null = personalizado (mezcla)
+  }
 
   roster.innerHTML = `
-    <h3>${horaCorta(leccion.hora_inicio)} – ${horaCorta(leccion.hora_fin)} — ${leccion.materias?.nombre || ""} — ${new Date(fecha + "T00:00").toLocaleDateString("es-CR", { weekday: "long", day: "numeric", month: "long" })}</h3>
+    <h3>${horaCorta(primero.hora_inicio)} – ${horaCorta(ultimo.hora_fin)} — ${primero.materias?.nombre || ""} — ${new Date(fecha + "T00:00").toLocaleDateString("es-CR", { weekday: "long", day: "numeric", month: "long" })}</h3>
     ${estudiantes.length === 0 ? `<p class="empty">No hay estudiantes asignados a esta materia todavía (ve a "Materias" en el perfil del estudiante).</p>` : `
     <div class="roster">
-      ${estudiantes.map(st => {
-        const estado = porEstudiante[st.id] || "presente";
+      ${estudiantes.map((st, i) => {
+        const general = estadoGeneralDe(st.id);
         return `
-        <div class="roster-row" data-fila-estudiante="${st.id}">
-          <span class="name">${st.apellido1} ${st.apellido2}, ${st.nombre}</span>
-          <span style="display:flex; align-items:center; gap:0.6rem;">
-            <select data-estado="${st.id}" style="padding:0.3rem 0.5rem; border:1px solid var(--paper-line); border-radius:3px; font-family:var(--sans); font-size:0.85rem;">
-              <option value="presente" ${estado === "presente" ? "selected" : ""}>Presente</option>
-              <option value="tardia" ${estado === "tardia" ? "selected" : ""}>Tardía</option>
-              <option value="ausente" ${estado === "ausente" ? "selected" : ""}>Ausente</option>
-            </select>
-            <span data-notificar-holder="${st.id}"></span>
-          </span>
+        <div class="roster-row" data-fila-estudiante="${st.id}" style="flex-direction:column; align-items:stretch; gap:0.5rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+            <span class="name">${i + 1}. ${st.apellido1} ${st.apellido2}, ${st.nombre}</span>
+            <span style="display:flex; align-items:center; gap:0.6rem;">
+              <select data-estado-general="${st.id}" style="padding:0.3rem 0.5rem; border:1px solid var(--paper-line); border-radius:3px; font-family:var(--sans); font-size:0.85rem;">
+                <option value="presente" ${general === "presente" ? "selected" : ""}>Presente</option>
+                <option value="tardia" ${general === "tardia" ? "selected" : ""}>Tardía</option>
+                <option value="ausente" ${general === "ausente" ? "selected" : ""}>Ausente</option>
+              </select>
+              ${grupo.length > 1 ? `<button class="btn secondary small" data-toggle-personalizar="${st.id}">${general === null ? "Personalizado ▾" : "Personalizar por lección"}</button>` : ""}
+              <span data-notificar-holder="${st.id}"></span>
+            </span>
+          </div>
+          ${grupo.length > 1 ? `
+          <div data-personalizar-panel="${st.id}" style="display:${general === null ? "block" : "none"}; background:var(--paper); border-left:2px solid var(--paper-line); padding:0.5rem 0.8rem; margin-left:1rem;">
+            ${grupo.map((l, idx) => `
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:0.6rem; padding:0.25rem 0;">
+                <span style="font-size:0.8rem; color:var(--text-muted);">${primero.materias?.nombre || ""} - Lección ${idx + 1} (${horaCorta(l.hora_inicio)}–${horaCorta(l.hora_fin)})</span>
+                <select data-estado-leccion="${st.id}" data-leccion-id="${l.id}" style="padding:0.25rem 0.4rem; border:1px solid var(--paper-line); border-radius:3px; font-family:var(--sans); font-size:0.8rem;">
+                  <option value="presente" ${(porEstudiante[st.id]?.[l.id] || "presente") === "presente" ? "selected" : ""}>Presente</option>
+                  <option value="tardia" ${porEstudiante[st.id]?.[l.id] === "tardia" ? "selected" : ""}>Tardía</option>
+                  <option value="ausente" ${porEstudiante[st.id]?.[l.id] === "ausente" ? "selected" : ""}>Ausente</option>
+                </select>
+              </div>`).join("")}
+            <button class="link-btn" data-usar-general="${st.id}" style="margin-top:0.3rem;">Usar estado general para todas</button>
+          </div>` : ""}
         </div>`;
       }).join("")}
     </div>
     <div class="row" style="margin-top:0.8rem;"><button class="btn" id="guardar-asistencia-leccion">Guardar asistencia</button></div>
     `}`;
 
-  function actualizarBotonNotificar(st, estado) {
+  function estadoActualPersonalizado(stId) {
+    const panel = roster.querySelector(`[data-personalizar-panel="${stId}"]`);
+    if (!panel || panel.style.display === "none") return null;
+    return grupo.map(l => panel.querySelector(`[data-leccion-id="${l.id}"]`).value);
+  }
+
+  function actualizarBotonNotificar(st) {
     const holder = roster.querySelector(`[data-notificar-holder="${st.id}"]`);
     if (!holder) return;
-    if (estado === "presente") { holder.innerHTML = ""; return; }
+    const personalizados = estadoActualPersonalizado(st.id);
+    const peorEstado = personalizados
+      ? (personalizados.includes("ausente") ? "ausente" : (personalizados.includes("tardia") ? "tardia" : "presente"))
+      : roster.querySelector(`[data-estado-general="${st.id}"]`).value;
+    if (peorEstado === "presente") { holder.innerHTML = ""; return; }
     if (!st.correo_padre) { holder.innerHTML = `<span class="no-phone-note" style="margin:0;">Sin correo guardado</span>`; return; }
-    const asunto = estado === "ausente" ? "Ausencia registrada" : "Llegada tardía registrada";
-    const cuerpo = `Estimado(a) encargado(a) de ${st.nombre} ${st.apellido1}, le informamos que fue registrado(a) como ${estado === "ausente" ? "ausente" : "con llegada tardía"} el día ${fecha}, en la lección de ${horaCorta(leccion.hora_inicio)} a ${horaCorta(leccion.hora_fin)} (${leccion.materias?.nombre || ""}). CTP Mercedes Norte.`;
+    const asunto = peorEstado === "ausente" ? "Ausencia registrada" : "Llegada tardía registrada";
+    const cuerpo = `Estimado(a) encargado(a) de ${st.nombre} ${st.apellido1}, le informamos que fue registrado(a) como ${peorEstado === "ausente" ? "ausente" : "con llegada tardía"} el día ${fecha}, en la lección de ${horaCorta(primero.hora_inicio)} a ${horaCorta(ultimo.hora_fin)} (${primero.materias?.nombre || ""}). CTP Mercedes Norte.`;
     holder.innerHTML = `<a class="btn small wa-btn" href="mailto:${st.correo_padre}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}" target="_blank">✉ Notificar</a>`;
   }
 
-  estudiantes.forEach(st => actualizarBotonNotificar(st, porEstudiante[st.id] || "presente"));
+  estudiantes.forEach(st => actualizarBotonNotificar(st));
 
-  roster.querySelectorAll("[data-estado]").forEach(sel => {
-    sel.addEventListener("change", () => {
-      const st = estudiantes.find(e => e.id === sel.dataset.estado);
-      actualizarBotonNotificar(st, sel.value);
+  roster.querySelectorAll("[data-estado-general]").forEach(sel => {
+    sel.addEventListener("change", () => actualizarBotonNotificar(estudiantes.find(e => e.id === sel.dataset.estadoGeneral)));
+  });
+  roster.querySelectorAll("[data-estado-leccion]").forEach(sel => {
+    sel.addEventListener("change", () => actualizarBotonNotificar(estudiantes.find(e => e.id === sel.dataset.estadoLeccion)));
+  });
+  roster.querySelectorAll("[data-toggle-personalizar]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const panel = roster.querySelector(`[data-personalizar-panel="${btn.dataset.togglePersonalizar}"]`);
+      panel.style.display = panel.style.display === "none" ? "block" : "none";
+    });
+  });
+  roster.querySelectorAll("[data-usar-general]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const stId = btn.dataset.usarGeneral;
+      roster.querySelector(`[data-personalizar-panel="${stId}"]`).style.display = "none";
+      actualizarBotonNotificar(estudiantes.find(e => e.id === stId));
     });
   });
 
   const guardarBtn = document.getElementById("guardar-asistencia-leccion");
   if (guardarBtn) guardarBtn.addEventListener("click", async () => {
     guardarBtn.textContent = "Guardando…";
-    const filas = estudiantes.map(st => ({
-      leccion_id: leccion.id,
-      estudiante_id: st.id,
-      fecha,
-      estado: roster.querySelector(`[data-estado="${st.id}"]`).value
-    }));
+    const filas = [];
+    estudiantes.forEach(st => {
+      const panel = roster.querySelector(`[data-personalizar-panel="${st.id}"]`);
+      const personalizado = panel && panel.style.display !== "none";
+      const general = roster.querySelector(`[data-estado-general="${st.id}"]`).value;
+      grupo.forEach(l => {
+        const estado = personalizado ? panel.querySelector(`[data-leccion-id="${l.id}"]`).value : general;
+        filas.push({ leccion_id: l.id, estudiante_id: st.id, fecha, estado });
+      });
+    });
     await sb.from("asistencia_lecciones").upsert(filas, { onConflict: "leccion_id,estudiante_id,fecha" });
     guardarBtn.textContent = "Guardado ✓";
     pintarLecciones(fecha);
