@@ -40,6 +40,7 @@ async function render() {
   if (hash === "#/publicaciones") return renderPublicacionesGeneral();
   if (hash === "#/evaluaciones") return renderEvaluacionesGeneral();
   if (hash === "#/asistencia") return renderAsistenciaGeneral();
+  if (hash === "#/horario") return renderHorario();
   const progUnidadMatch = hash.match(/^#\/programa\/(.+)$/);
   if (progUnidadMatch) return renderProgramaUnidad(decodeURIComponent(progUnidadMatch[1]));
   renderHome();
@@ -346,57 +347,204 @@ async function cargarEvaluacionesSeccion(sec, students, holderId = "evaluaciones
     </div>`;
 }
 
-// ---------- 3) Asistencia diaria ----------
+// ---------- Asistencia por lecciones ----------
 
-async function cargarAsistenciaSeccion(sec, students, holderId = "asistencia-seccion") {
-  const holder = document.getElementById(holderId);
-  if (!holder) return;
+async function renderAsistenciaGeneral() {
   const hoy = new Date().toISOString().slice(0, 10);
-
-  async function pintarFecha(fecha) {
-    const studentIds = students.map(s => s.id);
-    const { data: registros } = studentIds.length
-      ? await sb.from("asistencia_diaria").select("*").eq("fecha", fecha).in("estudiante_id", studentIds)
-      : { data: [] };
-    const porEstudiante = {};
-    (registros || []).forEach(r => { porEstudiante[r.estudiante_id] = r.presente; });
-
-    holder.innerHTML = `
-      <div class="row" style="display:flex; gap:0.6rem; align-items:center; margin-bottom:0.8rem;">
+  app.innerHTML = `
+    ${topbar()}
+    <div class="wrap">
+      <h1>Asistencia diaria</h1>
+      <p style="color:var(--text-muted); margin-top:-0.6em;">Registra la asistencia por lección (como tu horario del día).</p>
+      <div class="row" style="display:flex; gap:0.6rem; align-items:center; flex-wrap:wrap; margin:1rem 0;">
         <label style="font-size:0.85rem; color:var(--text-muted);">Fecha:</label>
-        <input type="date" class="js-asis-fecha" value="${fecha}" />
-        <button class="btn secondary small js-asis-todos">Marcar todos presentes</button>
+        <input type="date" id="asis-fecha" value="${hoy}" />
+        <a href="#/horario" class="btn secondary small">Configurar mi horario de lecciones</a>
       </div>
-      <div class="roster">
-        ${students.map(st => {
-          const presente = porEstudiante[st.id];
-          const checked = presente === undefined ? true : presente;
-          return `<div class="roster-row">
-            <span class="name">${st.apellido1} ${st.apellido2}, ${st.nombre}</span>
-            <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem;">
-              <input type="checkbox" data-asistencia="${st.id}" ${checked ? "checked" : ""} />
-              Presente
-            </label>
-          </div>`;
-        }).join("") || '<p class="empty">No hay estudiantes.</p>'}
-      </div>`;
+      <div id="lecciones-grid">Cargando…</div>
+      <div id="leccion-roster" style="margin-top:1.4rem;"></div>
+    </div>`;
+  bindTopbar();
 
-    holder.querySelector(".js-asis-fecha").addEventListener("change", (e) => pintarFecha(e.target.value));
-    holder.querySelector(".js-asis-todos").addEventListener("click", () => {
-      holder.querySelectorAll("[data-asistencia]").forEach(cb => { cb.checked = true; cb.dispatchEvent(new Event("change")); });
-    });
-    holder.querySelectorAll("[data-asistencia]").forEach(cb => {
-      cb.addEventListener("change", async () => {
-        const fechaActual = holder.querySelector(".js-asis-fecha").value;
-        await sb.from("asistencia_diaria").upsert(
-          { estudiante_id: cb.dataset.asistencia, fecha: fechaActual, presente: cb.checked },
-          { onConflict: "estudiante_id,fecha" }
-        );
-      });
-    });
+  const fechaInput = document.getElementById("asis-fecha");
+  fechaInput.addEventListener("change", () => pintarLecciones(fechaInput.value));
+  await pintarLecciones(hoy);
+}
+
+async function pintarLecciones(fecha) {
+  const grid = document.getElementById("lecciones-grid");
+  const roster = document.getElementById("leccion-roster");
+  roster.innerHTML = "";
+  const { data: lecciones } = await sb.from("lecciones").select("*, materias(nombre)").order("orden");
+
+  if (!lecciones || lecciones.length === 0) {
+    grid.innerHTML = `<p class="empty">Todavía no has configurado tu horario de lecciones. <a href="#/horario">Configúralo aquí</a>.</p>`;
+    return;
   }
 
-  await pintarFecha(hoy);
+  const leccionIds = lecciones.map(l => l.id);
+  const { data: sinClase } = await sb.from("lecciones_sin_clase").select("leccion_id").eq("fecha", fecha).in("leccion_id", leccionIds);
+  const sinClaseSet = new Set((sinClase || []).map(x => x.leccion_id));
+  const { data: registros } = await sb.from("asistencia_lecciones").select("leccion_id").eq("fecha", fecha).in("leccion_id", leccionIds);
+  const registradasSet = new Set((registros || []).map(x => x.leccion_id));
+
+  grid.innerHTML = `
+    <div class="section-grid">
+      ${lecciones.map(l => {
+        const estado = sinClaseSet.has(l.id) ? "Sin clase" : (registradasSet.has(l.id) ? "Registrado" : "Pendiente de registrar");
+        return `
+        <div class="leccion-card" style="border-left-color:${estado === "Registrado" ? "var(--ledger-green)" : estado === "Sin clase" ? "var(--text-muted)" : "var(--ochre)"};">
+          <div class="num" style="font-size:1.1rem;">Lección ${l.numero}</div>
+          <div class="count">Asignatura: ${l.materias?.nombre || "—"}</div>
+          <div class="count">Sección: ${l.seccion}</div>
+          <div class="count">Estado: ${estado}</div>
+          <div style="display:flex; gap:0.5rem; margin-top:0.6rem; flex-wrap:wrap;">
+            <button class="btn secondary small" data-sin-clase="${l.id}">${sinClaseSet.has(l.id) ? "Quitar \"sin clase\"" : "Marcar lección sin clase"}</button>
+            <button class="btn small" data-registrar="${l.id}">Registrar asistencia</button>
+          </div>
+        </div>`;
+      }).join("")}
+    </div>`;
+
+  grid.querySelectorAll("[data-sin-clase]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const leccionId = btn.dataset.sinClase;
+      if (sinClaseSet.has(Number(leccionId))) {
+        await sb.from("lecciones_sin_clase").delete().eq("leccion_id", leccionId).eq("fecha", fecha);
+      } else {
+        await sb.from("lecciones_sin_clase").insert({ leccion_id: leccionId, fecha });
+      }
+      pintarLecciones(fecha);
+    });
+  });
+  grid.querySelectorAll("[data-registrar]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const leccion = lecciones.find(l => l.id === Number(btn.dataset.registrar));
+      pintarRosterLeccion(leccion, fecha);
+    });
+  });
+}
+
+async function pintarRosterLeccion(leccion, fecha) {
+  const roster = document.getElementById("leccion-roster");
+  roster.innerHTML = "Cargando…";
+
+  const { data: asignados } = await sb.from("estudiante_materias").select("estudiante_id, estudiantes(*)").eq("materia_id", leccion.materia_id);
+  const estudiantes = (asignados || []).map(a => a.estudiantes).filter(Boolean);
+
+  const { data: existentes } = estudiantes.length
+    ? await sb.from("asistencia_lecciones").select("*").eq("leccion_id", leccion.id).eq("fecha", fecha)
+    : { data: [] };
+  const porEstudiante = {};
+  (existentes || []).forEach(r => { porEstudiante[r.estudiante_id] = r.estado; });
+
+  roster.innerHTML = `
+    <h3>Lección ${leccion.numero} — ${leccion.materias?.nombre || ""} — ${new Date(fecha + "T00:00").toLocaleDateString("es-CR", { weekday: "long", day: "numeric", month: "long" })}</h3>
+    ${estudiantes.length === 0 ? `<p class="empty">No hay estudiantes asignados a esta materia todavía (ve a "Materias" en el perfil del estudiante).</p>` : `
+    <div class="roster">
+      ${estudiantes.map(st => {
+        const estado = porEstudiante[st.id] || "presente";
+        return `
+        <div class="roster-row" data-fila-estudiante="${st.id}">
+          <span class="name">${st.apellido1} ${st.apellido2}, ${st.nombre}</span>
+          <span style="display:flex; align-items:center; gap:0.6rem;">
+            <select data-estado="${st.id}" style="padding:0.3rem 0.5rem; border:1px solid var(--paper-line); border-radius:3px; font-family:var(--sans); font-size:0.85rem;">
+              <option value="presente" ${estado === "presente" ? "selected" : ""}>Presente</option>
+              <option value="tardia" ${estado === "tardia" ? "selected" : ""}>Tardía</option>
+              <option value="ausente" ${estado === "ausente" ? "selected" : ""}>Ausente</option>
+            </select>
+            <span data-notificar-holder="${st.id}"></span>
+          </span>
+        </div>`;
+      }).join("")}
+    </div>
+    <div class="row" style="margin-top:0.8rem;"><button class="btn" id="guardar-asistencia-leccion">Guardar asistencia</button></div>
+    `}`;
+
+  function actualizarBotonNotificar(st, estado) {
+    const holder = roster.querySelector(`[data-notificar-holder="${st.id}"]`);
+    if (!holder) return;
+    if (estado === "presente") { holder.innerHTML = ""; return; }
+    if (!st.correo_padre) { holder.innerHTML = `<span class="no-phone-note" style="margin:0;">Sin correo guardado</span>`; return; }
+    const asunto = estado === "ausente" ? "Ausencia registrada" : "Llegada tardía registrada";
+    const cuerpo = `Estimado(a) encargado(a) de ${st.nombre} ${st.apellido1}, le informamos que fue registrado(a) como ${estado === "ausente" ? "ausente" : "con llegada tardía"} el día ${fecha} en la lección ${leccion.numero} (${leccion.materias?.nombre || ""}). CTP Mercedes Norte.`;
+    holder.innerHTML = `<a class="btn small wa-btn" href="mailto:${st.correo_padre}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}" target="_blank">✉ Notificar</a>`;
+  }
+
+  estudiantes.forEach(st => actualizarBotonNotificar(st, porEstudiante[st.id] || "presente"));
+
+  roster.querySelectorAll("[data-estado]").forEach(sel => {
+    sel.addEventListener("change", () => {
+      const st = estudiantes.find(e => e.id === sel.dataset.estado);
+      actualizarBotonNotificar(st, sel.value);
+    });
+  });
+
+  const guardarBtn = document.getElementById("guardar-asistencia-leccion");
+  if (guardarBtn) guardarBtn.addEventListener("click", async () => {
+    guardarBtn.textContent = "Guardando…";
+    const filas = estudiantes.map(st => ({
+      leccion_id: leccion.id,
+      estudiante_id: st.id,
+      fecha,
+      estado: roster.querySelector(`[data-estado="${st.id}"]`).value
+    }));
+    await sb.from("asistencia_lecciones").upsert(filas, { onConflict: "leccion_id,estudiante_id,fecha" });
+    guardarBtn.textContent = "Guardado ✓";
+    pintarLecciones(fecha);
+    setTimeout(() => { guardarBtn.textContent = "Guardar asistencia"; }, 1500);
+  });
+}
+
+// ---------- Configurar horario de lecciones ----------
+
+async function renderHorario() {
+  const { data: materiasPorSeccion } = await sb.from("materias").select("*").order("seccion").order("nombre");
+  const { data: lecciones } = await sb.from("lecciones").select("*, materias(nombre)").order("orden");
+
+  app.innerHTML = `
+    ${topbar()}
+    <div class="wrap">
+      <a href="#/asistencia" class="btn secondary small" style="margin-bottom:1rem; display:inline-block;">&larr; Asistencia</a>
+      <h1>Mi horario de lecciones</h1>
+      <p style="color:var(--text-muted); margin-top:-0.6em;">Define cuántas lecciones das por día y qué materia corresponde a cada una. Se repite igual todos los días.</p>
+      <div class="roster" id="horario-lista">
+        ${(lecciones || []).map(l => `
+          <div class="roster-row">
+            <span class="name">Lección ${l.numero} — ${l.materias?.nombre || "—"} (${l.seccion})</span>
+            <button class="btn danger small" data-del-leccion="${l.id}">Eliminar</button>
+          </div>`).join("") || '<p class="empty">Todavía no has agregado lecciones.</p>'}
+      </div>
+      <form class="inline-form" id="leccion-form" style="margin-top:1rem;">
+        <input name="numero" type="number" min="1" placeholder="N.º de lección" required style="width:8rem" />
+        <select name="materia_id" required>
+          <option value="">Materia…</option>
+          ${(materiasPorSeccion || []).map(m => `<option value="${m.id}">${m.nombre} (${m.seccion})</option>`).join("")}
+        </select>
+        <button class="btn small" type="submit">Agregar lección</button>
+      </form>
+    </div>`;
+  bindTopbar();
+
+  document.querySelectorAll("[data-del-leccion]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      await sb.from("lecciones").delete().eq("id", btn.dataset.delLeccion);
+      renderHorario();
+    });
+  });
+  document.getElementById("leccion-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const materiaId = Number(f.get("materia_id"));
+    const materia = (materiasPorSeccion || []).find(m => m.id === materiaId);
+    await sb.from("lecciones").insert({
+      numero: Number(f.get("numero")),
+      materia_id: materiaId,
+      seccion: materia?.seccion || "",
+      orden: Number(f.get("numero"))
+    });
+    renderHorario();
+  });
 }
 
 async function cargarAsignacionesSeccion(sec, students) {
@@ -978,21 +1126,30 @@ async function renderAvisosEstudiante(el, s) {
 
 function renderWhatsapp(el, s) {
   const phone = s.telefono || "";
+  const correo = s.correo_padre || "";
   el.innerHTML = `
     <div class="whatsapp-panel">
       <label for="phone-input">Teléfono de contacto (con código de país, ej. 506 8888 8888)</label>
       <input id="phone-input" value="${phone}" placeholder="506 8888 8888" />
-      <div class="row"><button class="btn small" id="save-phone">Guardar teléfono</button></div>
+      <label for="correo-input">Correo del encargado (para notificaciones de tardía o ausencia)</label>
+      <input id="correo-input" type="email" value="${correo}" placeholder="encargado@correo.com" />
+      <div class="row"><button class="btn small" id="save-contacto">Guardar contacto</button></div>
       <label for="wa-message">Mensaje</label>
       <textarea id="wa-message" rows="4">Estimado(a) encargado(a) de ${s.nombre} ${s.apellido1}, le saludamos desde el CTP Mercedes Norte, especialidad de Contabilidad.</textarea>
-      <div class="row"><button class="btn wa-btn" id="send-wa">Enviar por WhatsApp</button></div>
-      ${!phone ? '<p class="no-phone-note">Guarda un teléfono primero para poder enviar.</p>' : ""}
+      <div class="row" style="flex-wrap:wrap;">
+        <button class="btn wa-btn" id="send-wa">Enviar por WhatsApp</button>
+        <button class="btn secondary" id="send-correo">Enviar por correo</button>
+      </div>
+      ${!phone ? '<p class="no-phone-note">Guarda un teléfono para poder enviar por WhatsApp.</p>' : ""}
+      ${!correo ? '<p class="no-phone-note">Guarda un correo para poder enviarlo por correo.</p>' : ""}
     </div>`;
 
-  document.getElementById("save-phone").addEventListener("click", async () => {
-    const val = document.getElementById("phone-input").value.trim();
-    await sb.from("estudiantes").update({ telefono: val }).eq("id", s.id);
-    s.telefono = val;
+  document.getElementById("save-contacto").addEventListener("click", async () => {
+    const valTel = document.getElementById("phone-input").value.trim();
+    const valCorreo = document.getElementById("correo-input").value.trim();
+    await sb.from("estudiantes").update({ telefono: valTel, correo_padre: valCorreo }).eq("id", s.id);
+    s.telefono = valTel;
+    s.correo_padre = valCorreo;
     renderWhatsapp(el, s);
   });
   document.getElementById("send-wa").addEventListener("click", () => {
@@ -1000,6 +1157,12 @@ function renderWhatsapp(el, s) {
     if (!currentPhone) { alert("Escribe y guarda un teléfono primero."); return; }
     const msg = document.getElementById("wa-message").value;
     window.open(`https://wa.me/${currentPhone}?text=${encodeURIComponent(msg)}`, "_blank");
+  });
+  document.getElementById("send-correo").addEventListener("click", () => {
+    const currentCorreo = document.getElementById("correo-input").value.trim();
+    if (!currentCorreo) { alert("Escribe y guarda un correo primero."); return; }
+    const msg = document.getElementById("wa-message").value;
+    window.open(`mailto:${currentCorreo}?subject=${encodeURIComponent("CTP Mercedes Norte")}&body=${encodeURIComponent(msg)}`, "_blank");
   });
 }
 
@@ -1397,26 +1560,6 @@ async function renderEvaluacionesGeneral() {
   bindTopbar();
   for (const sec of secciones) {
     await cargarEvaluacionesSeccion(sec, porSeccion[sec], `evaluaciones-sec-${sec}`);
-  }
-}
-
-async function renderAsistenciaGeneral() {
-  const porSeccion = await seccionesConEstudiantes();
-  const secciones = Object.keys(porSeccion).sort();
-  app.innerHTML = `
-    ${topbar()}
-    <div class="wrap">
-      <h1>Asistencia diaria</h1>
-      <p style="color:var(--text-muted); margin-top:-0.6em;">Marca presente o ausente, por fecha, por sección.</p>
-      ${secciones.map(sec => `
-        <details class="group-promo" style="margin-top:1.2rem;" open>
-          <summary style="font-family:var(--serif); font-weight:600; font-size:1.02rem;">Sección ${sec}</summary>
-          <div id="asistencia-sec-${sec}" style="margin-top:0.8rem;">Cargando…</div>
-        </details>`).join("")}
-    </div>`;
-  bindTopbar();
-  for (const sec of secciones) {
-    await cargarAsistenciaSeccion(sec, porSeccion[sec], `asistencia-sec-${sec}`);
   }
 }
 
