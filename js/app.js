@@ -201,6 +201,22 @@ async function renderSeccion(sec) {
       <div class="roster">${rows || '<p class="empty">No hay estudiantes registrados en esta sección.</p>'}</div>
 
       <details class="group-promo" open>
+        <summary>Publicaciones de la sección (avisos y materiales)</summary>
+        <p style="font-size:0.82rem; color:var(--text-muted); margin-top:0.6rem;">Lo que publiques aquí lo ven todos los estudiantes de la sección.</p>
+        <div id="publicaciones-seccion">Cargando…</div>
+      </details>
+
+      <details class="group-promo" open>
+        <summary>Evaluaciones de la sección (todas las notas de golpe)</summary>
+        <div id="evaluaciones-seccion">Cargando…</div>
+      </details>
+
+      <details class="group-promo" open>
+        <summary>Asistencia diaria</summary>
+        <div id="asistencia-seccion">Cargando…</div>
+      </details>
+
+      <details class="group-promo" open>
         <summary>Asignaciones de la sección (trabajo cotidiano, tareas, proyectos, pruebas…)</summary>
         <p style="font-size:0.82rem; color:var(--text-muted); margin-top:0.6rem;">
           Crea una asignación una sola vez y se registra automáticamente para los ${(students || []).length} estudiantes de la sección.
@@ -238,6 +254,165 @@ async function renderSeccion(sec) {
   if (groupList) renderGroupList();
 
   await cargarAsignacionesSeccion(sec, students || []);
+  await cargarPublicacionesSeccion(sec);
+  await cargarEvaluacionesSeccion(sec, students || []);
+  await cargarAsistenciaSeccion(sec, students || []);
+}
+
+// ---------- 1) Publicaciones (avisos y materiales) ----------
+
+async function cargarPublicacionesSeccion(sec) {
+  const holder = document.getElementById("publicaciones-seccion");
+  if (!holder) return;
+  const { data: materias } = await sb.from("materias").select("*").eq("seccion", sec).order("nombre");
+  const { data: pubs } = await sb.from("publicaciones").select("*, materias(nombre)").eq("seccion", sec).order("creado_en", { ascending: false });
+
+  const materiaOptions = `<option value="">(general, sin materia)</option>` + (materias || []).map(m => `<option value="${m.id}">${m.nombre}</option>`).join("");
+
+  holder.innerHTML = `
+    <div class="roster">
+      ${(pubs || []).map(p => `
+        <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem;">
+          <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+            <span class="name">
+              <span class="badge" style="margin-right:0.5rem;">${p.tipo === "material" ? "Material" : "Aviso"}</span>
+              ${p.titulo}${p.materias?.nombre ? ` · ${p.materias.nombre}` : ""}
+            </span>
+            <button class="btn danger small" data-del-pub="${p.id}">Eliminar</button>
+          </div>
+          ${p.contenido ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${p.contenido}</div>` : ""}
+          ${p.url ? `<a href="${p.url}" target="_blank" rel="noopener" style="font-size:0.82rem;">${p.url}</a>` : ""}
+          <span style="font-size:0.75rem; color:var(--text-muted);">${new Date(p.creado_en).toLocaleDateString("es-CR")}</span>
+        </div>`).join("") || '<p class="empty">Todavía no hay publicaciones.</p>'}
+    </div>
+    <form class="inline-form" id="publicacion-form" style="margin-top:1rem;">
+      <select name="tipo">
+        <option value="aviso">Aviso</option>
+        <option value="material">Material</option>
+      </select>
+      <select name="materia_id">${materiaOptions}</select>
+      <input name="titulo" placeholder="Título" required style="flex:1; min-width:10rem" />
+      <input name="url" placeholder="Enlace (opcional, ej. a un documento o video)" style="flex-basis:100%;" />
+      <div class="roa-editable" contenteditable="true" id="publicacion-contenido" style="flex-basis:100%; min-height:3rem;" data-placeholder="Contenido (opcional)"></div>
+      <button class="btn small" type="submit">Publicar</button>
+    </form>`;
+
+  holder.querySelectorAll("[data-del-pub]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      await sb.from("publicaciones").delete().eq("id", btn.dataset.delPub);
+      cargarPublicacionesSeccion(sec);
+    });
+  });
+  const form = document.getElementById("publicacion-form");
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    await sb.from("publicaciones").insert({
+      seccion: sec,
+      materia_id: f.get("materia_id") ? Number(f.get("materia_id")) : null,
+      tipo: f.get("tipo"),
+      titulo: f.get("titulo"),
+      url: f.get("url") || null,
+      contenido: document.getElementById("publicacion-contenido").innerHTML || null
+    });
+    cargarPublicacionesSeccion(sec);
+  });
+}
+
+// ---------- 2) Evaluaciones generales de la sección ----------
+
+async function cargarEvaluacionesSeccion(sec, students) {
+  const holder = document.getElementById("evaluaciones-seccion");
+  if (!holder) return;
+  const studentIds = students.map(s => s.id);
+  const { data: categorias } = await sb.from("rubrica_categorias").select("*").order("orden");
+  const { data: notas } = studentIds.length
+    ? await sb.from("notas").select("*").in("estudiante_id", studentIds)
+    : { data: [] };
+
+  // Resumen: cuántos estudiantes tienen al menos una nota por categoría
+  const resumen = (categorias || []).map(c => {
+    const conNota = new Set(notas.filter(n => n.rubro === c.nombre).map(n => n.estudiante_id)).size;
+    return `<div class="roster-row"><span class="name">${c.nombre} (${c.porcentaje}%)</span><span class="badge">${conNota}/${students.length} evaluados</span></div>`;
+  }).join("");
+
+  // Tabla completa: cada estudiante x cada categoría (promedio) + nota final
+  const filasTabla = students.map(st => {
+    const notasSt = notas.filter(n => n.estudiante_id === st.id);
+    let suma = 0, pesoUsado = 0;
+    const celdas = (categorias || []).map(c => {
+      const notasCat = notasSt.filter(n => n.rubro === c.nombre);
+      if (notasCat.length === 0) return `<td class="num">—</td>`;
+      const prom = notasCat.reduce((a, n) => a + Number(n.nota), 0) / notasCat.length;
+      suma += prom * (c.porcentaje / 100);
+      pesoUsado += Number(c.porcentaje);
+      return `<td class="num ${prom < 70 ? "low" : ""}">${prom.toFixed(1)}</td>`;
+    }).join("");
+    const final = pesoUsado > 0 ? suma.toFixed(1) : "—";
+    return `<tr><td>${st.apellido1} ${st.apellido2}, ${st.nombre}</td>${celdas}<td class="num" style="font-weight:600;">${final}</td></tr>`;
+  }).join("");
+
+  holder.innerHTML = `
+    <div class="roster" style="margin-bottom:1rem;">${resumen || '<p class="empty">No hay categorías de rúbrica definidas.</p>'}</div>
+    <div style="overflow-x:auto;">
+      <table class="grades">
+        <thead><tr><th>Estudiante</th>${(categorias || []).map(c => `<th>${c.nombre}</th>`).join("")}<th>Nota final</th></tr></thead>
+        <tbody>${filasTabla || `<tr><td colspan="${(categorias || []).length + 2}" class="empty">No hay estudiantes.</td></tr>`}</tbody>
+      </table>
+    </div>`;
+}
+
+// ---------- 3) Asistencia diaria ----------
+
+async function cargarAsistenciaSeccion(sec, students) {
+  const holder = document.getElementById("asistencia-seccion");
+  if (!holder) return;
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  async function pintarFecha(fecha) {
+    const studentIds = students.map(s => s.id);
+    const { data: registros } = studentIds.length
+      ? await sb.from("asistencia_diaria").select("*").eq("fecha", fecha).in("estudiante_id", studentIds)
+      : { data: [] };
+    const porEstudiante = {};
+    (registros || []).forEach(r => { porEstudiante[r.estudiante_id] = r.presente; });
+
+    holder.innerHTML = `
+      <div class="row" style="display:flex; gap:0.6rem; align-items:center; margin-bottom:0.8rem;">
+        <label style="font-size:0.85rem; color:var(--text-muted);">Fecha:</label>
+        <input type="date" id="asistencia-fecha" value="${fecha}" />
+        <button class="btn secondary small" id="marcar-todos-presentes">Marcar todos presentes</button>
+      </div>
+      <div class="roster">
+        ${students.map(st => {
+          const presente = porEstudiante[st.id];
+          const checked = presente === undefined ? true : presente;
+          return `<div class="roster-row">
+            <span class="name">${st.apellido1} ${st.apellido2}, ${st.nombre}</span>
+            <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem;">
+              <input type="checkbox" data-asistencia="${st.id}" ${checked ? "checked" : ""} />
+              Presente
+            </label>
+          </div>`;
+        }).join("") || '<p class="empty">No hay estudiantes.</p>'}
+      </div>`;
+
+    document.getElementById("asistencia-fecha").addEventListener("change", (e) => pintarFecha(e.target.value));
+    document.getElementById("marcar-todos-presentes").addEventListener("click", () => {
+      holder.querySelectorAll("[data-asistencia]").forEach(cb => { cb.checked = true; cb.dispatchEvent(new Event("change")); });
+    });
+    holder.querySelectorAll("[data-asistencia]").forEach(cb => {
+      cb.addEventListener("change", async () => {
+        const fechaActual = document.getElementById("asistencia-fecha").value;
+        await sb.from("asistencia_diaria").upsert(
+          { estudiante_id: cb.dataset.asistencia, fecha: fechaActual, presente: cb.checked },
+          { onConflict: "estudiante_id,fecha" }
+        );
+      });
+    });
+  }
+
+  await pintarFecha(hoy);
 }
 
 async function cargarAsignacionesSeccion(sec, students) {
@@ -400,6 +575,7 @@ async function renderPerfil(id, isSelf) {
         <button class="tab-btn ${activeTab === "tareas" ? "active" : ""}" data-tab="tareas">Tareas</button>
         <button class="tab-btn ${activeTab === "programa" ? "active" : ""}" data-tab="programa">Programa</button>
         <button class="tab-btn ${activeTab === "rubrica" ? "active" : ""}" data-tab="rubrica">Rúbrica</button>
+        <button class="tab-btn ${activeTab === "avisos" ? "active" : ""}" data-tab="avisos">Avisos</button>
         ${!isSelf ? `<button class="tab-btn ${activeTab === "whatsapp" ? "active" : ""}" data-tab="whatsapp">WhatsApp</button>
         <button class="tab-btn ${activeTab === "acceso" ? "active" : ""}" data-tab="acceso">Materias</button>` : ""}
       </div>
@@ -468,6 +644,7 @@ async function renderTabContent(s, tab, isSelf) {
   if (tab === "tareas") return renderTareas(el, s, isSelf);
   if (tab === "programa") return renderProgramaEstudiante(el, s);
   if (tab === "rubrica") return renderRubricaEstudiante(el, s);
+  if (tab === "avisos") return renderAvisosEstudiante(el, s);
   if (tab === "whatsapp" && !isSelf) return renderWhatsapp(el, s);
   if (tab === "acceso" && !isSelf) return renderAcceso(el, s);
   return renderNotas(el, s, isSelf);
@@ -790,6 +967,27 @@ async function renderRubricaEstudiante(el, s) {
   }
 
   el.innerHTML = html;
+}
+
+// --- Avisos del estudiante: publicaciones de su sección, solo lectura ---
+
+async function renderAvisosEstudiante(el, s) {
+  el.innerHTML = "Cargando…";
+  const { data: pubs } = await sb.from("publicaciones").select("*, materias(nombre)").eq("seccion", s.seccion).order("creado_en", { ascending: false });
+
+  el.innerHTML = `
+    <div class="roster">
+      ${(pubs || []).map(p => `
+        <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem;">
+          <span class="name">
+            <span class="badge" style="margin-right:0.5rem;">${p.tipo === "material" ? "Material" : "Aviso"}</span>
+            ${p.titulo}${p.materias?.nombre ? ` · ${p.materias.nombre}` : ""}
+          </span>
+          ${p.contenido ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${p.contenido}</div>` : ""}
+          ${p.url ? `<a href="${p.url}" target="_blank" rel="noopener" style="font-size:0.82rem;">${p.url}</a>` : ""}
+          <span style="font-size:0.75rem; color:var(--text-muted);">${new Date(p.creado_en).toLocaleDateString("es-CR")}</span>
+        </div>`).join("") || '<p class="empty">Todavía no hay publicaciones.</p>'}
+    </div>`;
 }
 
 // --- WhatsApp (solo docente) ---
