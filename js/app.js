@@ -41,6 +41,7 @@ async function render() {
   if (hash === "#/evaluaciones") return renderEvaluacionesGeneral();
   if (hash === "#/asistencia") return renderAsistenciaGeneral();
   if (hash === "#/horario") return renderHorario();
+  if (hash === "#/asistencia/resumen") return renderResumenAsistencia();
   const progUnidadMatch = hash.match(/^#\/programa\/(.+)$/);
   if (progUnidadMatch) return renderProgramaUnidad(decodeURIComponent(progUnidadMatch[1]));
   renderHome();
@@ -360,6 +361,7 @@ async function renderAsistenciaGeneral() {
         <label style="font-size:0.85rem; color:var(--text-muted);">Fecha:</label>
         <input type="date" id="asis-fecha" value="${hoy}" />
         <a href="#/horario" class="btn secondary small">Configurar mi horario de lecciones</a>
+        <a href="#/asistencia/resumen" class="btn secondary small">Resumen de lecciones impartidas/no impartidas</a>
       </div>
       <div id="lecciones-grid">Cargando…</div>
       <div id="leccion-roster" style="margin-top:1.4rem;"></div>
@@ -375,10 +377,21 @@ async function pintarLecciones(fecha) {
   const grid = document.getElementById("lecciones-grid");
   const roster = document.getElementById("leccion-roster");
   roster.innerHTML = "";
-  const { data: lecciones } = await sb.from("lecciones").select("*, materias(nombre)").order("orden");
 
-  if (!lecciones || lecciones.length === 0) {
-    grid.innerHTML = `<p class="empty">Todavía no has configurado tu horario de lecciones. <a href="#/horario">Configúralo aquí</a>.</p>`;
+  // new Date("YYYY-MM-DD") usa UTC; getUTCDay() evita desfases de zona horaria.
+  const jsDay = new Date(fecha + "T00:00:00Z").getUTCDay(); // 0=domingo..6=sábado
+  const diaSemana = jsDay; // 1=lunes..5=viernes coincide con getUTCDay()
+
+  if (diaSemana === 0 || diaSemana === 6) {
+    grid.innerHTML = `<p class="empty">Esa fecha es fin de semana — no hay lecciones programadas.</p>`;
+    return;
+  }
+
+  const { data: todasLecciones } = await sb.from("lecciones").select("*, materias(nombre)").eq("dia_semana", diaSemana).order("hora_inicio");
+  const lecciones = todasLecciones || [];
+
+  if (lecciones.length === 0) {
+    grid.innerHTML = `<p class="empty">No tienes lecciones configuradas para este día de la semana. <a href="#/horario">Configura tu horario aquí</a>.</p>`;
     return;
   }
 
@@ -394,7 +407,7 @@ async function pintarLecciones(fecha) {
         const estado = sinClaseSet.has(l.id) ? "Sin clase" : (registradasSet.has(l.id) ? "Registrado" : "Pendiente de registrar");
         return `
         <div class="leccion-card" style="border-left-color:${estado === "Registrado" ? "var(--ledger-green)" : estado === "Sin clase" ? "var(--text-muted)" : "var(--ochre)"};">
-          <div class="num" style="font-size:1.1rem;">Lección ${l.numero}</div>
+          <div class="num" style="font-size:1.1rem;">${horaCorta(l.hora_inicio)} – ${horaCorta(l.hora_fin)}</div>
           <div class="count">Asignatura: ${l.materias?.nombre || "—"}</div>
           <div class="count">Sección: ${l.seccion}</div>
           <div class="count">Estado: ${estado}</div>
@@ -439,7 +452,7 @@ async function pintarRosterLeccion(leccion, fecha) {
   (existentes || []).forEach(r => { porEstudiante[r.estudiante_id] = r.estado; });
 
   roster.innerHTML = `
-    <h3>Lección ${leccion.numero} — ${leccion.materias?.nombre || ""} — ${new Date(fecha + "T00:00").toLocaleDateString("es-CR", { weekday: "long", day: "numeric", month: "long" })}</h3>
+    <h3>${horaCorta(leccion.hora_inicio)} – ${horaCorta(leccion.hora_fin)} — ${leccion.materias?.nombre || ""} — ${new Date(fecha + "T00:00").toLocaleDateString("es-CR", { weekday: "long", day: "numeric", month: "long" })}</h3>
     ${estudiantes.length === 0 ? `<p class="empty">No hay estudiantes asignados a esta materia todavía (ve a "Materias" en el perfil del estudiante).</p>` : `
     <div class="roster">
       ${estudiantes.map(st => {
@@ -467,7 +480,7 @@ async function pintarRosterLeccion(leccion, fecha) {
     if (estado === "presente") { holder.innerHTML = ""; return; }
     if (!st.correo_padre) { holder.innerHTML = `<span class="no-phone-note" style="margin:0;">Sin correo guardado</span>`; return; }
     const asunto = estado === "ausente" ? "Ausencia registrada" : "Llegada tardía registrada";
-    const cuerpo = `Estimado(a) encargado(a) de ${st.nombre} ${st.apellido1}, le informamos que fue registrado(a) como ${estado === "ausente" ? "ausente" : "con llegada tardía"} el día ${fecha} en la lección ${leccion.numero} (${leccion.materias?.nombre || ""}). CTP Mercedes Norte.`;
+    const cuerpo = `Estimado(a) encargado(a) de ${st.nombre} ${st.apellido1}, le informamos que fue registrado(a) como ${estado === "ausente" ? "ausente" : "con llegada tardía"} el día ${fecha}, en la lección de ${horaCorta(leccion.hora_inicio)} a ${horaCorta(leccion.hora_fin)} (${leccion.materias?.nombre || ""}). CTP Mercedes Norte.`;
     holder.innerHTML = `<a class="btn small wa-btn" href="mailto:${st.correo_padre}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}" target="_blank">✉ Notificar</a>`;
   }
 
@@ -498,53 +511,130 @@ async function pintarRosterLeccion(leccion, fecha) {
 
 // ---------- Configurar horario de lecciones ----------
 
+// Bloques fijos de 60 minutos, lunes a viernes, 7:00 a.m. a 4:30 p.m.
+const DIAS_SEMANA = [
+  { num: 1, nombre: "Lunes" },
+  { num: 2, nombre: "Martes" },
+  { num: 3, nombre: "Miércoles" },
+  { num: 4, nombre: "Jueves" },
+  { num: 5, nombre: "Viernes" }
+];
+const BLOQUES_HORA = [
+  ["07:00", "08:00"], ["08:00", "09:00"], ["09:00", "10:00"], ["10:00", "11:00"],
+  ["11:00", "12:00"], ["12:00", "13:00"], ["13:00", "14:00"], ["14:00", "15:00"],
+  ["15:00", "16:00"], ["16:00", "16:30"]
+];
+function horaCorta(hhmmss) { return (hhmmss || "").slice(0, 5); }
+
 async function renderHorario() {
   const { data: materiasPorSeccion } = await sb.from("materias").select("*").order("seccion").order("nombre");
-  const { data: lecciones } = await sb.from("lecciones").select("*, materias(nombre)").order("orden");
+  const { data: lecciones } = await sb.from("lecciones").select("*");
+
+  const mapa = {}; // "dia-horaInicio" -> leccion
+  (lecciones || []).forEach(l => { mapa[`${l.dia_semana}-${horaCorta(l.hora_inicio)}`] = l; });
 
   app.innerHTML = `
     ${topbar()}
     <div class="wrap">
       <a href="#/asistencia" class="btn secondary small" style="margin-bottom:1rem; display:inline-block;">&larr; Asistencia</a>
       <h1>Mi horario de lecciones</h1>
-      <p style="color:var(--text-muted); margin-top:-0.6em;">Define cuántas lecciones das por día y qué materia corresponde a cada una. Se repite igual todos los días.</p>
-      <div class="roster" id="horario-lista">
-        ${(lecciones || []).map(l => `
-          <div class="roster-row">
-            <span class="name">Lección ${l.numero} — ${l.materias?.nombre || "—"} (${l.seccion})</span>
-            <button class="btn danger small" data-del-leccion="${l.id}">Eliminar</button>
-          </div>`).join("") || '<p class="empty">Todavía no has agregado lecciones.</p>'}
+      <p style="color:var(--text-muted); margin-top:-0.6em;">Lunes a viernes, 7:00 a.m. – 4:30 p.m., bloques de 60 minutos. Elige la materia de cada bloque (déjalo en blanco si no das clase en ese horario). Se repite automáticamente todas las semanas.</p>
+      <div style="overflow-x:auto; margin-top:1rem;">
+        <table class="grades" id="horario-tabla">
+          <thead><tr><th>Hora</th>${DIAS_SEMANA.map(d => `<th>${d.nombre}</th>`).join("")}</tr></thead>
+          <tbody>
+            ${BLOQUES_HORA.map(([ini, fin]) => `
+              <tr>
+                <td style="white-space:nowrap; font-size:0.78rem; color:var(--text-muted);">${ini} – ${fin}</td>
+                ${DIAS_SEMANA.map(d => {
+                  const existente = mapa[`${d.num}-${ini}`];
+                  return `<td>
+                    <select data-dia="${d.num}" data-ini="${ini}" data-fin="${fin}" style="width:100%; min-width:9rem; padding:0.3rem; border:1px solid var(--paper-line); border-radius:3px; font-family:var(--sans); font-size:0.78rem;">
+                      <option value="">—</option>
+                      ${(materiasPorSeccion || []).map(m => `<option value="${m.id}" ${existente?.materia_id === m.id ? "selected" : ""}>${m.nombre} (${m.seccion})</option>`).join("")}
+                    </select>
+                  </td>`;
+                }).join("")}
+              </tr>`).join("")}
+          </tbody>
+        </table>
       </div>
-      <form class="inline-form" id="leccion-form" style="margin-top:1rem;">
-        <input name="numero" type="number" min="1" placeholder="N.º de lección" required style="width:8rem" />
-        <select name="materia_id" required>
-          <option value="">Materia…</option>
-          ${(materiasPorSeccion || []).map(m => `<option value="${m.id}">${m.nombre} (${m.seccion})</option>`).join("")}
-        </select>
-        <button class="btn small" type="submit">Agregar lección</button>
-      </form>
+      <div class="row" style="margin-top:1rem;"><button class="btn" id="guardar-horario">Guardar horario</button></div>
     </div>`;
   bindTopbar();
 
-  document.querySelectorAll("[data-del-leccion]").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      await sb.from("lecciones").delete().eq("id", btn.dataset.delLeccion);
-      renderHorario();
+  document.getElementById("guardar-horario").addEventListener("click", async (e) => {
+    const btn = e.target;
+    btn.textContent = "Guardando…";
+    await sb.from("lecciones").delete().neq("id", 0);
+    const filas = [];
+    document.querySelectorAll("#horario-tabla select").forEach(sel => {
+      if (!sel.value) return;
+      const materia = (materiasPorSeccion || []).find(m => m.id === Number(sel.value));
+      filas.push({
+        dia_semana: Number(sel.dataset.dia),
+        hora_inicio: sel.dataset.ini,
+        hora_fin: sel.dataset.fin,
+        materia_id: Number(sel.value),
+        seccion: materia?.seccion || "",
+        numero: 0
+      });
     });
+    if (filas.length > 0) await sb.from("lecciones").insert(filas);
+    btn.textContent = "Guardado ✓";
+    setTimeout(() => { btn.textContent = "Guardar horario"; }, 1500);
   });
-  document.getElementById("leccion-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const f = new FormData(e.target);
-    const materiaId = Number(f.get("materia_id"));
-    const materia = (materiasPorSeccion || []).find(m => m.id === materiaId);
-    await sb.from("lecciones").insert({
-      numero: Number(f.get("numero")),
-      materia_id: materiaId,
-      seccion: materia?.seccion || "",
-      orden: Number(f.get("numero"))
-    });
-    renderHorario();
+}
+
+async function renderResumenAsistencia() {
+  const { data: lecciones } = await sb.from("lecciones").select("*, materias(nombre)").order("dia_semana").order("hora_inicio");
+  const { data: impartidas } = await sb.from("asistencia_lecciones").select("leccion_id, fecha");
+  const { data: noImpartidas } = await sb.from("lecciones_sin_clase").select("leccion_id, fecha");
+
+  const impartidasPorLeccion = {};
+  const fechasVistas = {};
+  (impartidas || []).forEach(r => {
+    const clave = `${r.leccion_id}-${r.fecha}`;
+    if (fechasVistas[clave]) return;
+    fechasVistas[clave] = true;
+    impartidasPorLeccion[r.leccion_id] = (impartidasPorLeccion[r.leccion_id] || 0) + 1;
   });
+  const noImpartidasPorLeccion = {};
+  (noImpartidas || []).forEach(r => {
+    noImpartidasPorLeccion[r.leccion_id] = (noImpartidasPorLeccion[r.leccion_id] || 0) + 1;
+  });
+
+  let totalImp = 0, totalNoImp = 0;
+  const filas = (lecciones || []).map(l => {
+    const imp = impartidasPorLeccion[l.id] || 0;
+    const noImp = noImpartidasPorLeccion[l.id] || 0;
+    totalImp += imp;
+    totalNoImp += noImp;
+    const diaNombre = DIAS_SEMANA.find(d => d.num === l.dia_semana)?.nombre || "";
+    return `<tr>
+      <td>${diaNombre} ${horaCorta(l.hora_inicio)}–${horaCorta(l.hora_fin)}</td>
+      <td>${l.materias?.nombre || "—"}</td>
+      <td class="num">${imp}</td>
+      <td class="num">${noImp}</td>
+    </tr>`;
+  }).join("");
+
+  app.innerHTML = `
+    ${topbar()}
+    <div class="wrap">
+      <a href="#/asistencia" class="btn secondary small" style="margin-bottom:1rem; display:inline-block;">&larr; Asistencia</a>
+      <h1>Resumen de lecciones</h1>
+      <p style="color:var(--text-muted); margin-top:-0.6em;">Total de veces que cada lección fue impartida o marcada sin clase, desde que empezaste a registrar.</p>
+      <div class="roster" style="margin:1rem 0;">
+        <div class="roster-row"><span class="name">Total de lecciones impartidas</span><span class="badge">${totalImp}</span></div>
+        <div class="roster-row"><span class="name">Total de lecciones no impartidas</span><span class="badge" style="opacity:0.6;">${totalNoImp}</span></div>
+      </div>
+      <table class="grades">
+        <thead><tr><th>Lección</th><th>Materia</th><th>Impartidas</th><th>No impartidas</th></tr></thead>
+        <tbody>${filas || '<tr><td colspan="4" class="empty">No hay lecciones configuradas.</td></tr>'}</tbody>
+      </table>
+    </div>`;
+  bindTopbar();
 }
 
 async function cargarAsignacionesSeccion(sec, students) {
