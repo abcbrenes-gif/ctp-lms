@@ -493,9 +493,7 @@ async function pintarRosterGrupo(grupo, fecha) {
             <span class="name">${i + 1}. ${st.apellido1} ${st.apellido2}, ${st.nombre}</span>
             <span style="display:flex; align-items:center; gap:0.6rem;">
               <select data-estado-general="${st.id}" style="padding:0.3rem 0.5rem; border:1px solid var(--paper-line); border-radius:3px; font-family:var(--sans); font-size:0.85rem;">
-                <option value="presente" ${general === "presente" ? "selected" : ""}>Presente</option>
-                <option value="tardia" ${general === "tardia" ? "selected" : ""}>Tardía</option>
-                <option value="ausente" ${general === "ausente" ? "selected" : ""}>Ausente</option>
+                ${ESTADOS_ASISTENCIA.map(e => `<option value="${e.v}" ${general === e.v ? "selected" : ""}>${e.l}</option>`).join("")}
               </select>
               ${grupo.length > 1 ? `<button class="btn secondary small" data-toggle-personalizar="${st.id}">${general === null ? "Personalizado ▾" : "Personalizar por lección"}</button>` : ""}
               <span data-notificar-holder="${st.id}"></span>
@@ -507,9 +505,7 @@ async function pintarRosterGrupo(grupo, fecha) {
               <div style="display:flex; justify-content:space-between; align-items:center; gap:0.6rem; padding:0.25rem 0;">
                 <span style="font-size:0.8rem; color:var(--text-muted);">${primero.materias?.nombre || ""} - Lección ${idx + 1} (${horaCorta(l.hora_inicio)}–${horaCorta(l.hora_fin)})</span>
                 <select data-estado-leccion="${st.id}" data-leccion-id="${l.id}" style="padding:0.25rem 0.4rem; border:1px solid var(--paper-line); border-radius:3px; font-family:var(--sans); font-size:0.8rem;">
-                  <option value="presente" ${(porEstudiante[st.id]?.[l.id] || "presente") === "presente" ? "selected" : ""}>Presente</option>
-                  <option value="tardia" ${porEstudiante[st.id]?.[l.id] === "tardia" ? "selected" : ""}>Tardía</option>
-                  <option value="ausente" ${porEstudiante[st.id]?.[l.id] === "ausente" ? "selected" : ""}>Ausente</option>
+                  ${ESTADOS_ASISTENCIA.map(e => `<option value="${e.v}" ${(porEstudiante[st.id]?.[l.id] || "presente") === e.v ? "selected" : ""}>${e.l}</option>`).join("")}
                 </select>
               </div>`).join("")}
             <button class="link-btn" data-usar-general="${st.id}" style="margin-top:0.3rem;">Usar estado general para todas</button>
@@ -526,17 +522,23 @@ async function pintarRosterGrupo(grupo, fecha) {
     return grupo.map(l => panel.querySelector(`[data-leccion-id="${l.id}"]`).value);
   }
 
+  function peorDe(estados) {
+    // prioriza el estado más grave para decidir si avisar al encargado
+    const orden = ["ausente_injustificada", "tardia_grave", "tardia_leve", "ausente_justificada", "tardia_justificada", "presente"];
+    for (const e of orden) if (estados.includes(e)) return e;
+    return "presente";
+  }
+
   function actualizarBotonNotificar(st) {
     const holder = roster.querySelector(`[data-notificar-holder="${st.id}"]`);
     if (!holder) return;
     const personalizados = estadoActualPersonalizado(st.id);
-    const peorEstado = personalizados
-      ? (personalizados.includes("ausente") ? "ausente" : (personalizados.includes("tardia") ? "tardia" : "presente"))
-      : roster.querySelector(`[data-estado-general="${st.id}"]`).value;
-    if (peorEstado === "presente") { holder.innerHTML = ""; return; }
+    const estado = personalizados ? peorDe(personalizados) : roster.querySelector(`[data-estado-general="${st.id}"]`).value;
+    const etiqueta = ESTADOS_ASISTENCIA.find(e => e.v === estado)?.l || estado;
+    if (estado === "presente") { holder.innerHTML = ""; return; }
     if (!st.correo_padre) { holder.innerHTML = `<span class="no-phone-note" style="margin:0;">Sin correo guardado</span>`; return; }
-    const asunto = peorEstado === "ausente" ? "Ausencia registrada" : "Llegada tardía registrada";
-    const cuerpo = `Estimado(a) encargado(a) de ${st.nombre} ${st.apellido1}, le informamos que fue registrado(a) como ${peorEstado === "ausente" ? "ausente" : "con llegada tardía"} el día ${fecha}, en la lección de ${horaCorta(primero.hora_inicio)} a ${horaCorta(ultimo.hora_fin)} (${primero.materias?.nombre || ""}). CTP Mercedes Norte.`;
+    const asunto = `Asistencia registrada: ${etiqueta}`;
+    const cuerpo = `Estimado(a) encargado(a) de ${st.nombre} ${st.apellido1}, le informamos que fue registrado(a) como "${etiqueta}" el día ${fecha}, en la lección de ${horaCorta(primero.hora_inicio)} a ${horaCorta(ultimo.hora_fin)} (${primero.materias?.nombre || ""}). CTP Mercedes Norte.`;
     holder.innerHTML = `<a class="btn small wa-btn" href="mailto:${st.correo_padre}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}" target="_blank">✉ Notificar</a>`;
   }
 
@@ -592,6 +594,41 @@ const DIAS_SEMANA = [
   { num: 5, nombre: "Viernes" }
 ];
 function horaCorta(hhmmss) { return (hhmmss || "").slice(0, 5); }
+
+// Estados de asistencia según el artículo 31° del REA (Reglamento de Evaluación
+// de los Aprendizajes del MEP). "peso" = cuánto cuenta como ausencia injustificada
+// para el cálculo del porcentaje de asistencia (las justificadas no restan).
+const ESTADOS_ASISTENCIA = [
+  { v: "presente", l: "Presente", peso: 0 },
+  { v: "ausente_justificada", l: "Ausente (justificada)", peso: 0 },
+  { v: "ausente_injustificada", l: "Ausente (injustificada)", peso: 1 },
+  { v: "tardia_leve", l: "Tardía injustificada < 10 min", peso: 0.5 },
+  { v: "tardia_grave", l: "Tardía injustificada ≥ 10 min", peso: 1 },
+  { v: "tardia_justificada", l: "Tardía (justificada)", peso: 0 }
+];
+function pesoAusencia(estado) {
+  return ESTADOS_ASISTENCIA.find(e => e.v === estado)?.peso ?? 0;
+}
+
+// Calcula la nota de Asistencia (0-100) de un estudiante en una materia,
+// según el artículo 31° del REA: % de ausencias injustificadas sobre el
+// total de lecciones impartidas (con llegadas tardías ponderadas).
+async function calcularNotaAsistencia(estudianteId, materiaId) {
+  const { data: lecciones } = await sb.from("lecciones").select("id").eq("materia_id", materiaId);
+  const leccionIds = (lecciones || []).map(l => l.id);
+  if (leccionIds.length === 0) return null;
+
+  const { data: todas } = await sb.from("asistencia_lecciones").select("leccion_id, fecha, estudiante_id, estado").in("leccion_id", leccionIds);
+  if (!todas || todas.length === 0) return null;
+
+  const impartidas = new Set(todas.map(r => `${r.leccion_id}-${r.fecha}`)).size;
+  const delEstudiante = todas.filter(r => r.estudiante_id === estudianteId);
+  const ausenciasComputadas = delEstudiante.reduce((acc, r) => acc + pesoAusencia(r.estado), 0);
+
+  if (impartidas === 0) return null;
+  const nota = Math.max(0, (1 - ausenciasComputadas / impartidas) * 100);
+  return { nota, impartidas, ausenciasComputadas };
+}
 
 async function renderHorario() {
   const { data: plantilla } = await sb.from("plantilla_lecciones").select("*").order("orden");
@@ -1011,22 +1048,31 @@ async function renderNotas(el, s, isSelf) {
   // Si hay varias notas en la misma categoría, se promedian antes de ponderar.
   // Las categorías sin ninguna nota todavía no suman (se excluyen del cálculo,
   // para no penalizar antes de tiempo lo que aún no se ha evaluado).
-  const finalesPorMateria = materiasAsignadas.map(m => {
+  const finalesPorMateria = await Promise.all(materiasAsignadas.map(async m => {
     const notasMateria = (notas || []).filter(n => n.materia_id === m.id);
     let pesoUsado = 0, suma = 0;
-    const detalle = (categorias || []).map(c => {
+    const detalle = [];
+    for (const c of (categorias || [])) {
+      if (c.nombre.trim().toLowerCase() === "asistencia") {
+        const resultado = await calcularNotaAsistencia(s.id, m.id);
+        if (!resultado) { detalle.push({ nombre: c.nombre, porcentaje: c.porcentaje, promedio: null }); continue; }
+        suma += resultado.nota * (c.porcentaje / 100);
+        pesoUsado += Number(c.porcentaje);
+        detalle.push({ nombre: c.nombre, porcentaje: c.porcentaje, promedio: resultado.nota });
+        continue;
+      }
       const notasCat = notasMateria.filter(n => n.rubro === c.nombre);
-      if (notasCat.length === 0) return { nombre: c.nombre, porcentaje: c.porcentaje, promedio: null };
+      if (notasCat.length === 0) { detalle.push({ nombre: c.nombre, porcentaje: c.porcentaje, promedio: null }); continue; }
       const promedio = notasCat.reduce((a, n) => a + Number(n.nota), 0) / notasCat.length;
       suma += promedio * (c.porcentaje / 100);
       pesoUsado += Number(c.porcentaje);
-      return { nombre: c.nombre, porcentaje: c.porcentaje, promedio };
-    });
+      detalle.push({ nombre: c.nombre, porcentaje: c.porcentaje, promedio });
+    }
     return { materia: m.nombre, final: pesoUsado > 0 ? suma : null, pesoUsado, detalle };
-  });
+  }));
 
   const materiaOptions = materiasAsignadas.map(m => `<option value="${m.id}">${m.nombre}</option>`).join("");
-  const categoriaOptions = (categorias || []).map(c => `<option value="${c.nombre}">${c.nombre} (${c.porcentaje}%)</option>`).join("");
+  const categoriaOptions = (categorias || []).filter(c => c.nombre.trim().toLowerCase() !== "asistencia").map(c => `<option value="${c.nombre}">${c.nombre} (${c.porcentaje}%)</option>`).join("");
 
   el.innerHTML = `
     ${!isSelf && materiasAsignadas.length === 0 ? `<p class="no-phone-note">Este estudiante no tiene materias asignadas todavía. Ve a la pestaña "Materias" para asignarle al menos una antes de poder registrar notas.</p>` : ""}
@@ -1285,22 +1331,28 @@ async function renderRubricaEstudiante(el, s) {
     for (const m of materiasAsignadas) {
       const notasMateria = (notas || []).filter(n => n.materia_id === m.id);
       html += `<h3 style="margin-top:1.4rem;">${m.nombre}</h3>`;
+      const filas = [];
+      for (const c of categorias) {
+        let promedio = null;
+        if (c.nombre.trim().toLowerCase() === "asistencia") {
+          const resultado = await calcularNotaAsistencia(s.id, m.id);
+          promedio = resultado ? resultado.nota : null;
+        } else {
+          const notasCat = notasMateria.filter(n => n.rubro === c.nombre);
+          promedio = notasCat.length ? notasCat.reduce((a, n) => a + Number(n.nota), 0) / notasCat.length : null;
+        }
+        const aporte = promedio !== null ? (promedio * c.porcentaje / 100).toFixed(1) : "—";
+        filas.push(`<tr>
+          <td>${c.nombre}</td>
+          <td class="num">${c.porcentaje}%</td>
+          <td class="num ${promedio !== null && promedio < 70 ? "low" : ""}">${promedio !== null ? promedio.toFixed(1) : "Sin datos"}</td>
+          <td class="num">${aporte}</td>
+        </tr>`);
+      }
       html += `
         <table class="grades">
           <thead><tr><th>Componente</th><th>Peso</th><th>Tu promedio</th><th>Aporte</th></tr></thead>
-          <tbody>
-            ${categorias.map(c => {
-              const notasCat = notasMateria.filter(n => n.rubro === c.nombre);
-              const promedio = notasCat.length ? notasCat.reduce((a, n) => a + Number(n.nota), 0) / notasCat.length : null;
-              const aporte = promedio !== null ? (promedio * c.porcentaje / 100).toFixed(1) : "—";
-              return `<tr>
-                <td>${c.nombre}</td>
-                <td class="num">${c.porcentaje}%</td>
-                <td class="num ${promedio !== null && promedio < 70 ? "low" : ""}">${promedio !== null ? promedio.toFixed(1) : "Sin notas"}</td>
-                <td class="num">${aporte}</td>
-              </tr>`;
-            }).join("")}
-          </tbody>
+          <tbody>${filas.join("")}</tbody>
         </table>`;
     }
   }
