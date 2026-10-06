@@ -461,8 +461,8 @@ async function pintarRosterGrupo(grupo, fecha) {
   const primero = grupo[0], ultimo = grupo[grupo.length - 1];
   const leccionIds = grupo.map(l => l.id);
 
-  const { data: asignados } = await sb.from("estudiante_materias").select("estudiante_id, estudiantes(*)").eq("materia_id", primero.materia_id);
-  const estudiantes = (asignados || []).map(a => a.estudiantes).filter(Boolean);
+  const { data: estudiantesData } = await sb.from("estudiantes").select("*").eq("seccion", primero.seccion).order("apellido1").order("apellido2");
+  const estudiantes = estudiantesData || [];
 
   const { data: existentes } = estudiantes.length
     ? await sb.from("asistencia_lecciones").select("*").eq("fecha", fecha).in("leccion_id", leccionIds)
@@ -637,21 +637,26 @@ async function renderHorario() {
   document.getElementById("guardar-horario").addEventListener("click", async (e) => {
     const btn = e.target;
     btn.textContent = "Guardando…";
-    await sb.from("lecciones").delete().neq("id", 0);
     const filas = [];
+    const celdasLlenas = new Set();
     document.querySelectorAll("#horario-tabla select").forEach(sel => {
+      const clave = `${sel.dataset.dia}-${sel.dataset.ini}`;
       if (!sel.value) return;
+      celdasLlenas.add(clave);
       const materia = (materiasPorSeccion || []).find(m => m.id === Number(sel.value));
       filas.push({
         dia_semana: Number(sel.dataset.dia),
         hora_inicio: sel.dataset.ini,
         hora_fin: sel.dataset.fin,
         materia_id: Number(sel.value),
-        seccion: materia?.seccion || "",
-        numero: 0
+        seccion: materia?.seccion || ""
       });
     });
-    if (filas.length > 0) await sb.from("lecciones").insert(filas);
+    // Guarda/actualiza las celdas con materia (conserva el historial de asistencia de las que no cambiaron).
+    if (filas.length > 0) await sb.from("lecciones").upsert(filas, { onConflict: "dia_semana,hora_inicio" });
+    // Borra solo las celdas que quedaron vacías (antes tenían materia, ahora no).
+    const celdasVacias = (lecciones || []).filter(l => !celdasLlenas.has(`${l.dia_semana}-${horaCorta(l.hora_inicio)}`));
+    if (celdasVacias.length > 0) await sb.from("lecciones").delete().in("id", celdasVacias.map(l => l.id));
     btn.textContent = "Guardado ✓";
     setTimeout(() => { btn.textContent = "Guardar horario"; }, 1500);
   });
