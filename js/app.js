@@ -687,7 +687,15 @@ async function renderHorario() {
         seccion: materia?.seccion || ""
       });
     });
-    if (filas.length > 0) await sb.from("lecciones").upsert(filas, { onConflict: "dia_semana,hora_inicio" });
+    if (filas.length > 0) {
+      const { error } = await sb.from("lecciones").upsert(filas, { onConflict: "dia_semana,hora_inicio" });
+      if (error) {
+        console.error(error);
+        alert("No se pudo guardar: " + error.message);
+        btn.textContent = "Guardar horario";
+        return;
+      }
+    }
     const celdasVacias = (lecciones || []).filter(l => !celdasLlenas.has(`${l.dia_semana}-${horaCorta(l.hora_inicio)}`));
     if (celdasVacias.length > 0) await sb.from("lecciones").delete().in("id", celdasVacias.map(l => l.id));
     btn.textContent = "Guardado ✓";
