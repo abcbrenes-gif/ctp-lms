@@ -461,7 +461,9 @@ async function pintarRosterGrupo(grupo, fecha) {
   const primero = grupo[0], ultimo = grupo[grupo.length - 1];
   const leccionIds = grupo.map(l => l.id);
 
-  const { data: estudiantesData } = await sb.from("estudiantes").select("*").eq("seccion", primero.seccion).order("apellido1").order("apellido2");
+  const { data: materiaInfo } = await sb.from("materias").select("*").eq("id", primero.materia_id).maybeSingle();
+  const seccionReal = materiaInfo?.seccion || primero.seccion;
+  const { data: estudiantesData } = await sb.from("estudiantes").select("*").eq("seccion", seccionReal).order("apellido1").order("apellido2");
   const estudiantes = estudiantesData || [];
 
   const { data: existentes } = estudiantes.length
@@ -582,7 +584,6 @@ async function pintarRosterGrupo(grupo, fecha) {
 
 // ---------- Configurar horario de lecciones ----------
 
-// Bloques fijos de 60 minutos, lunes a viernes, 7:00 a.m. a 4:30 p.m.
 const DIAS_SEMANA = [
   { num: 1, nombre: "Lunes" },
   { num: 2, nombre: "Martes" },
@@ -590,14 +591,10 @@ const DIAS_SEMANA = [
   { num: 4, nombre: "Jueves" },
   { num: 5, nombre: "Viernes" }
 ];
-const BLOQUES_HORA = [
-  ["07:00", "08:00"], ["08:00", "09:00"], ["09:00", "10:00"], ["10:00", "11:00"],
-  ["11:00", "12:00"], ["12:00", "13:00"], ["13:00", "14:00"], ["14:00", "15:00"],
-  ["15:00", "16:00"], ["16:00", "16:30"]
-];
 function horaCorta(hhmmss) { return (hhmmss || "").slice(0, 5); }
 
 async function renderHorario() {
+  const { data: plantilla } = await sb.from("plantilla_lecciones").select("*").order("orden");
   const { data: materiasPorSeccion } = await sb.from("materias").select("*").order("seccion").order("nombre");
   const { data: lecciones } = await sb.from("lecciones").select("*");
 
@@ -608,31 +605,69 @@ async function renderHorario() {
     ${topbar()}
     <div class="wrap">
       <a href="#/asistencia" class="btn secondary small" style="margin-bottom:1rem; display:inline-block;">&larr; Asistencia</a>
-      <h1>Mi horario de lecciones</h1>
-      <p style="color:var(--text-muted); margin-top:-0.6em;">Lunes a viernes, 7:00 a.m. – 4:30 p.m., bloques de 60 minutos. Elige la materia de cada bloque (déjalo en blanco si no das clase en ese horario). Se repite automáticamente todas las semanas.</p>
-      <div style="overflow-x:auto; margin-top:1rem;">
-        <table class="grades" id="horario-tabla">
-          <thead><tr><th>Hora</th>${DIAS_SEMANA.map(d => `<th>${d.nombre}</th>`).join("")}</tr></thead>
-          <tbody>
-            ${BLOQUES_HORA.map(([ini, fin]) => `
-              <tr>
-                <td style="white-space:nowrap; font-size:0.78rem; color:var(--text-muted);">${ini} – ${fin}</td>
-                ${DIAS_SEMANA.map(d => {
-                  const existente = mapa[`${d.num}-${ini}`];
-                  return `<td>
-                    <select data-dia="${d.num}" data-ini="${ini}" data-fin="${fin}" style="width:100%; min-width:9rem; padding:0.3rem; border:1px solid var(--paper-line); border-radius:3px; font-family:var(--sans); font-size:0.78rem;">
-                      <option value="">—</option>
-                      ${(materiasPorSeccion || []).map(m => `<option value="${m.id}" ${existente?.materia_id === m.id ? "selected" : ""}>${m.nombre} (${m.seccion})</option>`).join("")}
-                    </select>
-                  </td>`;
-                }).join("")}
-              </tr>`).join("")}
-          </tbody>
-        </table>
+      <h1>Mis lecciones (horas exactas)</h1>
+      <p style="color:var(--text-muted); margin-top:-0.6em;">Define las horas exactas de cada lección (con sus espacios entre clases). Se usan igual todos los días.</p>
+      <div class="roster" id="plantilla-lista">
+        ${(plantilla || []).map(p => `
+          <div class="roster-row">
+            <span class="name">Lección ${p.numero} — ${horaCorta(p.hora_inicio)} a ${horaCorta(p.hora_fin)}</span>
+            <button class="btn danger small" data-del-plantilla="${p.id}">Eliminar</button>
+          </div>`).join("") || '<p class="empty">Todavía no has definido tus lecciones.</p>'}
       </div>
-      <div class="row" style="margin-top:1rem;"><button class="btn" id="guardar-horario">Guardar horario</button></div>
+      <form class="inline-form" id="plantilla-form" style="margin-top:0.8rem;">
+        <input name="numero" type="number" min="1" placeholder="N.º de lección" required style="width:8rem" />
+        <input name="hora_inicio" type="time" required />
+        <input name="hora_fin" type="time" required />
+        <button class="btn small" type="submit">Agregar lección</button>
+      </form>
     </div>`;
   bindTopbar();
+
+  document.querySelectorAll("[data-del-plantilla]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      await sb.from("plantilla_lecciones").delete().eq("id", btn.dataset.delPlantilla);
+      renderHorario();
+    });
+  });
+  document.getElementById("plantilla-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    await sb.from("plantilla_lecciones").insert({
+      numero: Number(f.get("numero")),
+      hora_inicio: f.get("hora_inicio"),
+      hora_fin: f.get("hora_fin")
+    });
+    renderHorario();
+  });
+
+  if (!plantilla || plantilla.length === 0) return; // sin plantilla todavía, no se puede armar la cuadrícula
+
+  // Cuadrícula: qué materia das en cada (día, lección de la plantilla).
+  const gridWrap = document.createElement("div");
+  gridWrap.innerHTML = `
+    <h2 style="margin-top:1.8rem;">Asignar materia por día</h2>
+    <div style="overflow-x:auto; margin-top:0.6rem;">
+      <table class="grades" id="horario-tabla">
+        <thead><tr><th>Lección</th>${DIAS_SEMANA.map(d => `<th>${d.nombre}</th>`).join("")}</tr></thead>
+        <tbody>
+          ${plantilla.map(p => `
+            <tr>
+              <td style="white-space:nowrap; font-size:0.78rem; color:var(--text-muted);">${p.numero}<br/>${horaCorta(p.hora_inicio)}–${horaCorta(p.hora_fin)}</td>
+              ${DIAS_SEMANA.map(d => {
+                const existente = mapa[`${d.num}-${horaCorta(p.hora_inicio)}`];
+                return `<td>
+                  <select data-dia="${d.num}" data-ini="${p.hora_inicio}" data-fin="${p.hora_fin}" style="width:100%; min-width:9rem; padding:0.3rem; border:1px solid var(--paper-line); border-radius:3px; font-family:var(--sans); font-size:0.78rem;">
+                    <option value="">—</option>
+                    ${(materiasPorSeccion || []).map(m => `<option value="${m.id}" ${existente?.materia_id === m.id ? "selected" : ""}>${m.nombre} (${m.seccion})</option>`).join("")}
+                  </select>
+                </td>`;
+              }).join("")}
+            </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
+    <div class="row" style="margin-top:1rem;"><button class="btn" id="guardar-horario">Guardar horario</button></div>`;
+  document.querySelector(".wrap").appendChild(gridWrap);
 
   document.getElementById("guardar-horario").addEventListener("click", async (e) => {
     const btn = e.target;
@@ -652,9 +687,7 @@ async function renderHorario() {
         seccion: materia?.seccion || ""
       });
     });
-    // Guarda/actualiza las celdas con materia (conserva el historial de asistencia de las que no cambiaron).
     if (filas.length > 0) await sb.from("lecciones").upsert(filas, { onConflict: "dia_semana,hora_inicio" });
-    // Borra solo las celdas que quedaron vacías (antes tenían materia, ahora no).
     const celdasVacias = (lecciones || []).filter(l => !celdasLlenas.has(`${l.dia_semana}-${horaCorta(l.hora_inicio)}`));
     if (celdasVacias.length > 0) await sb.from("lecciones").delete().in("id", celdasVacias.map(l => l.id));
     btn.textContent = "Guardado ✓";
