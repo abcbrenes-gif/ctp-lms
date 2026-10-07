@@ -266,13 +266,15 @@ async function cargarPublicacionesSeccion(sec, holderId = "publicaciones-seccion
     <h3 style="margin-top:0;">Apartados por resultado de aprendizaje</h3>
     <div class="roster" style="margin-bottom:1.4rem;">
       ${apartados.map(a => `
-        <a class="roster-row" href="#/apartado/${a.id}">
-          <span class="name">${a.titulo}</span>
+        <div class="roster-row">
+          <a class="name" href="#/apartado/${a.id}" style="flex:1;">${a.titulo}</a>
           <span style="display:flex; gap:0.5rem; align-items:center;">
-            <span class="badge" style="${a.habilitado ? "" : "color:var(--brick); border-color:var(--brick);"}">${a.habilitado ? "Habilitado" : "Deshabilitado"}</span>
             <span class="badge" style="${a.contenido ? "" : "opacity:0.5;"}">${a.contenido ? "Con introducción" : "Sin introducción"}</span>
+            <button class="btn ${a.habilitado ? "secondary" : ""} small" data-toggle-apartado-pub="${a.id}" data-estado-actual="${a.habilitado}">
+              ${a.habilitado ? "Habilitado" : "No habilitado"}
+            </button>
           </span>
-        </a>`).join("")}
+        </div>`).join("")}
     </div>` : "";
 
   holder.innerHTML = `
@@ -304,6 +306,13 @@ async function cargarPublicacionesSeccion(sec, holderId = "publicaciones-seccion
       <button class="btn small" type="submit">Publicar</button>
     </form>`;
 
+  holder.querySelectorAll("[data-toggle-apartado-pub]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const nuevoEstado = btn.dataset.estadoActual !== "true";
+      await sb.from("publicaciones").update({ habilitado: nuevoEstado }).eq("id", btn.dataset.toggleApartadoPub);
+      cargarPublicacionesSeccion(sec, holderId);
+    });
+  });
   holder.querySelectorAll("[data-del-pub]").forEach(btn => {
     btn.addEventListener("click", async () => {
       await sb.from("publicaciones").delete().eq("id", btn.dataset.delPub);
