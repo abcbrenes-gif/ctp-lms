@@ -643,84 +643,6 @@ async function renderAcceso(el, s) {
 
 // ---------- RÚBRICA (categorías y pesos, sumativa, suma ≤ 100%) ----------
 
-async function renderRubrica() {
-  app.innerHTML = `
-    ${topbar()}
-    <div class="wrap">
-      <h1>Rúbrica</h1>
-      <p style="color:var(--text-muted); margin-top:-0.6em;">Define las categorías y el peso (%) de cada una en la nota final. La suma no puede superar 100%.</p>
-      <div id="rubrica-form">Cargando…</div>
-    </div>`;
-  bindTopbar();
-
-  const { data: cats } = await sb.from("rubrica_categorias").select("*").order("orden");
-  const holder = document.getElementById("rubrica-form");
-
-  function pintar(categorias) {
-    const suma = categorias.reduce((acc, c) => acc + Number(c.porcentaje || 0), 0);
-    holder.innerHTML = `
-      <div class="roster" style="border-top:1px solid var(--ink);">
-        ${categorias.map(c => `
-          <div class="roster-row">
-            <input type="text" data-nombre="${c.id}" value="${c.nombre}" style="border:1px solid var(--paper-line); border-radius:3px; padding:0.35rem 0.5rem; font-family:var(--sans); font-size:0.9rem; flex:1; margin-right:1rem;" />
-            <span style="display:flex; align-items:center; gap:0.4rem;">
-              <input type="number" min="0" max="100" step="1" data-porcentaje="${c.id}" value="${c.porcentaje}" style="width:4.5rem; border:1px solid var(--paper-line); border-radius:3px; padding:0.35rem 0.5rem; font-family:var(--sans); font-size:0.9rem; text-align:right;" />
-              <span>%</span>
-              <button class="btn danger small" data-del-cat="${c.id}">Eliminar</button>
-            </span>
-          </div>`).join("") || '<p class="empty">Sin categorías todavía.</p>'}
-      </div>
-      <p style="margin-top:0.8rem; font-weight:600; ${suma > 100 ? "color:var(--brick);" : "color:var(--ledger-green-deep);"}">
-        Suma actual: ${suma}% ${suma > 100 ? "— supera el 100%, no se puede guardar así." : ""}
-      </p>
-      <div class="row" style="margin-top:0.6rem; display:flex; gap:0.6rem;">
-        <button class="btn small" id="guardar-rubrica">Guardar cambios</button>
-      </div>
-      <form class="inline-form" id="add-cat-form" style="margin-top:1.2rem;">
-        <input name="nombre" placeholder="Nueva categoría (ej. Coevaluación)" required style="flex:1; min-width:10rem" />
-        <input name="porcentaje" type="number" min="0" max="100" step="1" placeholder="%" required style="width:5rem" />
-        <button class="btn small" type="submit">Agregar categoría</button>
-      </form>`;
-
-    document.getElementById("guardar-rubrica").addEventListener("click", async () => {
-      const nombres = {};
-      const porcentajes = {};
-      document.querySelectorAll("[data-nombre]").forEach(i => nombres[i.dataset.nombre] = i.value.trim());
-      document.querySelectorAll("[data-porcentaje]").forEach(i => porcentajes[i.dataset.porcentaje] = Number(i.value));
-      const nuevaSuma = Object.values(porcentajes).reduce((a, b) => a + b, 0);
-      if (nuevaSuma > 100) {
-        alert("La suma de los porcentajes no puede superar 100%. Ajusta los valores antes de guardar.");
-        return;
-      }
-      for (const id of Object.keys(nombres)) {
-        await sb.from("rubrica_categorias").update({ nombre: nombres[id], porcentaje: porcentajes[id] }).eq("id", id);
-      }
-      renderRubrica();
-    });
-
-    document.querySelectorAll("[data-del-cat]").forEach(btn => {
-      btn.addEventListener("click", async () => {
-        await sb.from("rubrica_categorias").delete().eq("id", btn.dataset.delCat);
-        renderRubrica();
-      });
-    });
-
-    document.getElementById("add-cat-form").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const f = new FormData(e.target);
-      const nuevoPorcentaje = Number(f.get("porcentaje"));
-      if (suma + nuevoPorcentaje > 100) {
-        alert(`No puedes agregar esa categoría: la suma quedaría en ${suma + nuevoPorcentaje}%, más de 100%.`);
-        return;
-      }
-      await sb.from("rubrica_categorias").insert({ nombre: f.get("nombre"), porcentaje: nuevoPorcentaje, orden: categorias.length + 1 });
-      renderRubrica();
-    });
-  }
-
-  pintar(cats || []);
-}
-
 // ---------- MATERIAS (panel de administración, solo docente) ----------
 
 async function renderMaterias() {
@@ -1104,8 +1026,14 @@ async function renderEvaluacionesGeneral() {
   app.innerHTML = `
     ${topbar()}
     <div class="wrap">
-      <h1>Evaluaciones</h1>
-      <p style="color:var(--text-muted); margin-top:-0.6em;">Las notas de todos los estudiantes, de un vistazo, por sección.</p>
+      <h1>Rúbrica y Evaluaciones</h1>
+      <p style="color:var(--text-muted); margin-top:-0.6em;">Define las categorías y sus pesos, y debajo revisa las notas de todos los estudiantes por sección.</p>
+
+      <details class="group-promo" style="margin-top:1.2rem;" open>
+        <summary style="font-family:var(--serif); font-weight:600; font-size:1.02rem;">Categorías de la rúbrica</summary>
+        <div id="rubrica-form" style="margin-top:0.8rem;">Cargando…</div>
+      </details>
+
       ${secciones.map(sec => `
         <details class="group-promo" style="margin-top:1.2rem;" open>
           <summary style="font-family:var(--serif); font-weight:600; font-size:1.02rem;">Sección ${sec}</summary>
@@ -1113,9 +1041,81 @@ async function renderEvaluacionesGeneral() {
         </details>`).join("")}
     </div>`;
   bindTopbar();
+
+  await cargarRubricaForm();
   for (const sec of secciones) {
     await cargarEvaluacionesSeccion(sec, porSeccion[sec], `evaluaciones-sec-${sec}`);
   }
+}
+
+async function cargarRubricaForm() {
+  const { data: cats } = await sb.from("rubrica_categorias").select("*").order("orden");
+  const holder = document.getElementById("rubrica-form");
+  if (!holder) return;
+
+  function pintar(categorias) {
+    const suma = categorias.reduce((acc, c) => acc + Number(c.porcentaje || 0), 0);
+    holder.innerHTML = `
+      <div class="roster" style="border-top:1px solid var(--ink);">
+        ${categorias.map(c => `
+          <div class="roster-row">
+            <input type="text" data-nombre="${c.id}" value="${c.nombre}" style="border:1px solid var(--paper-line); border-radius:3px; padding:0.35rem 0.5rem; font-family:var(--sans); font-size:0.9rem; flex:1; margin-right:1rem;" />
+            <span style="display:flex; align-items:center; gap:0.4rem;">
+              <input type="number" min="0" max="100" step="1" data-porcentaje="${c.id}" value="${c.porcentaje}" style="width:4.5rem; border:1px solid var(--paper-line); border-radius:3px; padding:0.35rem 0.5rem; font-family:var(--sans); font-size:0.9rem; text-align:right;" />
+              <span>%</span>
+              <button class="btn danger small" data-del-cat="${c.id}">Eliminar</button>
+            </span>
+          </div>`).join("") || '<p class="empty">Sin categorías todavía.</p>'}
+      </div>
+      <p style="margin-top:0.8rem; font-weight:600; ${suma > 100 ? "color:var(--brick);" : "color:var(--ledger-green-deep);"}">
+        Suma actual: ${suma}% ${suma > 100 ? "— supera el 100%, no se puede guardar así." : ""}
+      </p>
+      <div class="row" style="margin-top:0.6rem; display:flex; gap:0.6rem;">
+        <button class="btn small" id="guardar-rubrica">Guardar cambios</button>
+      </div>
+      <form class="inline-form" id="add-cat-form" style="margin-top:1.2rem;">
+        <input name="nombre" placeholder="Nueva categoría (ej. Coevaluación)" required style="flex:1; min-width:10rem" />
+        <input name="porcentaje" type="number" min="0" max="100" step="1" placeholder="%" required style="width:5rem" />
+        <button class="btn small" type="submit">Agregar categoría</button>
+      </form>`;
+
+    document.getElementById("guardar-rubrica").addEventListener("click", async () => {
+      const nombres = {};
+      const porcentajes = {};
+      document.querySelectorAll("[data-nombre]").forEach(i => nombres[i.dataset.nombre] = i.value.trim());
+      document.querySelectorAll("[data-porcentaje]").forEach(i => porcentajes[i.dataset.porcentaje] = Number(i.value));
+      const nuevaSuma = Object.values(porcentajes).reduce((a, b) => a + b, 0);
+      if (nuevaSuma > 100) {
+        alert("La suma de los porcentajes no puede superar 100%. Ajusta los valores antes de guardar.");
+        return;
+      }
+      for (const id of Object.keys(nombres)) {
+        await sb.from("rubrica_categorias").update({ nombre: nombres[id], porcentaje: porcentajes[id] }).eq("id", id);
+      }
+      cargarRubricaForm();
+    });
+
+    document.querySelectorAll("[data-del-cat]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        await sb.from("rubrica_categorias").delete().eq("id", btn.dataset.delCat);
+        cargarRubricaForm();
+      });
+    });
+
+    document.getElementById("add-cat-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      const nuevoPorcentaje = Number(f.get("porcentaje"));
+      if (suma + nuevoPorcentaje > 100) {
+        alert(`No puedes agregar esa categoría: la suma quedaría en ${suma + nuevoPorcentaje}%, más de 100%.`);
+        return;
+      }
+      await sb.from("rubrica_categorias").insert({ nombre: f.get("nombre"), porcentaje: nuevoPorcentaje, orden: categorias.length + 1 });
+      cargarRubricaForm();
+    });
+  }
+
+  pintar(cats || []);
 }
 
 window.addEventListener("hashchange", render);
