@@ -354,20 +354,37 @@ async function cargarEvaluacionesSeccion(sec, students, holderId = "evaluaciones
   }).join("");
 
   // Tabla completa: cada estudiante x cada categoría (promedio) + nota final
-  const filasTabla = students.map(st => {
+  const filasTabla = (await Promise.all(students.map(async st => {
     const notasSt = notas.filter(n => n.estudiante_id === st.id);
+    const { data: asignadas } = await sb.from("estudiante_materias").select("materia_id").eq("estudiante_id", st.id);
+    const materiaIds = (asignadas || []).map(a => a.materia_id);
     let suma = 0, pesoUsado = 0;
-    const celdas = (categorias || []).map(c => {
-      const notasCat = notasSt.filter(n => n.rubro === c.nombre);
-      if (notasCat.length === 0) return `<td class="num">—</td>`;
-      const prom = notasCat.reduce((a, n) => a + Number(n.nota), 0) / notasCat.length;
+    const celdas = [];
+    for (const c of (categorias || [])) {
+      let prom = null;
+      if (c.nombre.trim().toLowerCase() === "asistencia") {
+        for (const mid of materiaIds) {
+          const r = await calcularNotaAsistencia(st.id, mid);
+          if (r) { prom = r.nota; break; }
+        }
+      } else {
+        for (const mid of materiaIds) {
+          const r = await calcularNotaIndicadores(st.id, mid, c.nombre);
+          if (r) { prom = r.nota; break; }
+        }
+        if (prom === null) {
+          const notasCat = notasSt.filter(n => n.rubro === c.nombre);
+          prom = notasCat.length ? notasCat.reduce((a, n) => a + Number(n.nota), 0) / notasCat.length : null;
+        }
+      }
+      if (prom === null) { celdas.push(`<td class="num">—</td>`); continue; }
       suma += prom * (c.porcentaje / 100);
       pesoUsado += Number(c.porcentaje);
-      return `<td class="num ${prom < 70 ? "low" : ""}">${prom.toFixed(1)}</td>`;
-    }).join("");
+      celdas.push(`<td class="num ${prom < 70 ? "low" : ""}">${prom.toFixed(1)}</td>`);
+    }
     const final = pesoUsado > 0 ? suma.toFixed(1) : "—";
-    return `<tr><td>${st.apellido1} ${st.apellido2}, ${st.nombre}</td>${celdas}<td class="num" style="font-weight:600;">${final}</td></tr>`;
-  }).join("");
+    return `<tr><td>${st.apellido1} ${st.apellido2}, ${st.nombre}</td>${celdas.join("")}<td class="num" style="font-weight:600;">${final}</td></tr>`;
+  }))).join("");
 
   holder.innerHTML = `
     <div class="roster" style="margin-bottom:1rem;">${resumen || '<p class="empty">No hay categorías de rúbrica definidas.</p>'}</div>
@@ -660,6 +677,23 @@ async function calcularNotaAsistencia(estudianteId, materiaId) {
   if (impartidas === 0) return null;
   const nota = Math.max(0, (1 - ausenciasComputadas / impartidas) * 100);
   return { nota, impartidas, ausenciasComputadas };
+}
+
+// Calcula la nota (0-100) de un estudiante en una categoría de una materia,
+// a partir de los Indicadores y Criterios de evaluación (si existen).
+async function calcularNotaIndicadores(estudianteId, materiaId, categoriaNombre) {
+  const { data: indicadores } = await sb.from("indicadores").select("*").eq("materia_id", materiaId).eq("categoria", categoriaNombre).order("orden");
+  if (!indicadores || indicadores.length === 0) return null;
+
+  const indicadorIds = indicadores.map(i => i.id);
+  const { data: calificaciones } = await sb.from("calificaciones_indicador").select("*").eq("estudiante_id", estudianteId).in("indicador_id", indicadorIds);
+  const porIndicador = {};
+  (calificaciones || []).forEach(c => { porIndicador[c.indicador_id] = c.puntaje_obtenido; });
+
+  const sumaMaxima = indicadores.reduce((a, i) => a + Number(i.puntaje_maximo), 0);
+  const sumaObtenida = indicadores.reduce((a, i) => a + Number(porIndicador[i.id] || 0), 0);
+  const nota = sumaMaxima > 0 ? (sumaObtenida / sumaMaxima) * 100 : null;
+  return { nota, indicadores, porIndicador, sumaObtenida, sumaMaxima };
 }
 
 async function renderHorario() {
