@@ -22,20 +22,12 @@ async function renderNotas(el, s, isSelf) {
   }
 }
 
-async function renderNotasInterno(el, s, isSelf) {
+async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
   const { data: asignadas } = await sb.from("estudiante_materias").select("materia_id, materias(id, nombre)").eq("estudiante_id", s.id);
   const materiasAsignadas = (asignadas || []).map(a => a.materias).filter(Boolean);
 
   const { data: notas } = await sb.from("notas").select("*, materias(nombre)").eq("estudiante_id", s.id).order("creado_en", { ascending: false });
   const { data: categorias } = await sb.from("rubrica_categorias").select("*").order("orden");
-
-  const rows = (notas || []).map(n => `
-    <tr>
-      <td>${n.materias?.nombre || "—"}</td>
-      <td>${n.rubro}</td>
-      <td class="num ${n.nota < 70 ? "low" : ""}">${n.nota}</td>
-      ${!isSelf ? `<td><button class="btn danger small" data-del="${n.id}">Eliminar</button></td>` : ""}
-    </tr>`).join("");
 
   // Nota final ponderada por materia, según los % de la rúbrica.
   // Si hay varias notas en la misma categoría, se promedian antes de ponderar.
@@ -54,6 +46,13 @@ async function renderNotasInterno(el, s, isSelf) {
         detalle.push({ nombre: c.nombre, porcentaje: c.porcentaje, promedio: resultado.nota });
         continue;
       }
+      const porIndicadores = await calcularNotaIndicadores(s.id, m.id, c.nombre);
+      if (porIndicadores) {
+        suma += porIndicadores.nota * (c.porcentaje / 100);
+        pesoUsado += Number(c.porcentaje);
+        detalle.push({ nombre: c.nombre, porcentaje: c.porcentaje, promedio: porIndicadores.nota });
+        continue;
+      }
       const notasCat = notasMateria.filter(n => n.rubro === c.nombre);
       if (notasCat.length === 0) { detalle.push({ nombre: c.nombre, porcentaje: c.porcentaje, promedio: null }); continue; }
       const promedio = notasCat.reduce((a, n) => a + Number(n.nota), 0) / notasCat.length;
@@ -65,7 +64,87 @@ async function renderNotasInterno(el, s, isSelf) {
   }));
 
   const materiaOptions = materiasAsignadas.map(m => `<option value="${m.id}">${m.nombre}</option>`).join("");
-  const categoriaOptions = (categorias || []).filter(c => c.nombre.trim().toLowerCase() !== "asistencia").map(c => `<option value="${c.nombre}">${c.nombre} (${c.porcentaje}%)</option>`).join("");
+  const categoriasNoAsistencia = (categorias || []).filter(c => c.nombre.trim().toLowerCase() !== "asistencia");
+
+  // Agrupa las notas por categoría, con una barra de navegación igual a la de Tareas.
+  const activa = categoriaActiva || categoriasNoAsistencia[0]?.nombre || null;
+  function notasDe(nombreCat) { return (notas || []).filter(n => n.rubro === nombreCat); }
+
+  const botones = categoriasNoAsistencia.map(c => {
+    const items = notasDe(c.nombre);
+    return `
+      <button class="cat-navlink ${c.nombre === activa ? "active" : ""}" data-cat-nota="${c.nombre}">
+        ${c.nombre}${items.length > 0 ? `<span class="cat-navlink-badge">${items.length}</span>` : ""}
+      </button>`;
+  }).join("");
+
+  const notasActivas = activa ? notasDe(activa) : [];
+
+  // Para la categoría activa, revisa si alguna materia tiene Indicadores de evaluación
+  // configurados; si es así, se muestra la tabla de indicadores en vez de la nota manual.
+  const indicadoresPorMateria = {};
+  if (activa) {
+    for (const m of materiasAsignadas) {
+      const info = await calcularNotaIndicadores(s.id, m.id, activa);
+      if (info) indicadoresPorMateria[m.id] = info;
+    }
+  }
+
+  function tablaIndicadores(m, info) {
+    const categoriaObj = categorias.find(c => c.nombre === activa);
+    const resultadoPct = categoriaObj ? (info.nota * categoriaObj.porcentaje / 100).toFixed(1) : info.nota.toFixed(1);
+    return `
+      <h4 style="margin-top:1rem;">${m.nombre}</h4>
+      <div style="overflow-x:auto;">
+        <table class="grades">
+          <thead><tr>
+            ${info.indicadores.map(i => `<th style="text-align:center;">${i.letra}</th>`).join("")}
+            <th>Resultado (valor: ${categoriaObj?.porcentaje || "?"}%)</th>
+          </tr></thead>
+          <tbody><tr>
+            ${info.indicadores.map(i => !isSelf ? `
+              <td style="text-align:center;">
+                <select data-calif-indicador="${i.id}" data-materia="${m.id}" style="width:4rem; text-align:center; border:1px solid var(--paper-line); border-radius:3px;">
+                  ${Array.from({ length: i.puntaje_maximo + 1 }, (_, p) => `<option value="${p}" ${Number(info.porIndicador[i.id] || 0) === p ? "selected" : ""}>${p}</option>`).join("")}
+                </select>
+              </td>` : `<td class="num">${info.porIndicador[i.id] || 0}</td>`).join("")}
+            <td class="num" style="font-weight:600;">${resultadoPct}%</td>
+          </tr></tbody>
+        </table>
+      </div>
+      <details style="margin-top:0.5rem;">
+        <summary style="font-size:0.82rem; color:var(--text-muted); cursor:pointer;">Ver indicadores y criterios</summary>
+        <table class="grades" style="margin-top:0.5rem;">
+          <thead><tr><th>Indicador</th><th>Puntaje máximo</th><th>Criterios</th></tr></thead>
+          <tbody>
+            ${info.indicadores.map(i => `<tr>
+              <td><strong>${i.letra}:</strong> ${i.descripcion}${i.fecha_evaluacion ? `<div style="font-size:0.75rem; color:var(--text-muted);">Fecha: ${i.fecha_evaluacion}${i.lecciones ? " · " + i.lecciones + " lecciones" : ""}</div>` : ""}</td>
+              <td class="num">${i.puntaje_maximo}</td>
+              <td style="font-size:0.85rem;" data-criterios-de="${i.id}">Cargando…</td>
+            </tr>`).join("")}
+          </tbody>
+        </table>
+      </details>`;
+  }
+
+  function filaNota(n) {
+    const tieneEval = n.evaluacion_texto || n.evaluacion_archivo;
+    return `
+      <div class="roster-row" style="flex-direction:column; align-items:stretch; gap:0.4rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:0.6rem;">
+          <span class="name">${n.materias?.nombre || "—"} <span class="num ${n.nota < 70 ? "low" : ""}" style="font-weight:600;">${n.nota}</span></span>
+          <span style="display:flex; gap:0.5rem; align-items:center;">
+            ${tieneEval ? `<button class="link-btn" data-ver-eval="${n.id}">Ver evaluación ▾</button>` : `<span class="no-phone-note" style="margin:0;">Sin evaluación adjunta</span>`}
+            ${!isSelf ? `<button class="btn danger small" data-del="${n.id}">Eliminar</button>` : ""}
+          </span>
+        </div>
+        ${tieneEval ? `
+        <div id="eval-${n.id}" style="display:none; background:var(--paper); border-left:2px solid var(--paper-line); padding:0.6rem 0.8rem;">
+          ${n.evaluacion_texto ? `<div class="roa-cell-texto" style="font-size:0.85rem; margin-bottom:${n.evaluacion_archivo ? "0.5rem" : "0"};">${n.evaluacion_texto}</div>` : ""}
+          ${n.evaluacion_archivo ? `<a href="${n.evaluacion_archivo}" download="${n.evaluacion_archivo_nombre || "evaluacion"}" class="btn small secondary">⬇ ${n.evaluacion_archivo_nombre || "Descargar archivo"}</a>` : ""}
+        </div>` : ""}
+      </div>`;
+  }
 
   el.innerHTML = `
     ${!isSelf && materiasAsignadas.length === 0 ? `<p class="no-phone-note">Este estudiante no tiene materias asignadas todavía. Ve a la pestaña "Materias" para asignarle al menos una antes de poder registrar notas.</p>` : ""}
@@ -77,40 +156,93 @@ async function renderNotasInterno(el, s, isSelf) {
           <span class="badge" style="${f.final === null ? "opacity:0.5;" : ""}">${f.final === null ? "Sin notas aún" : "Nota final: " + f.final.toFixed(1) + (f.pesoUsado < 100 ? ` (${f.pesoUsado}% evaluado)` : "")}</span>
         </div>`).join("")}
     </div>` : ""}
-    <table class="grades">
-      <thead><tr><th>Materia</th><th>Rubro</th><th>Nota</th>${!isSelf ? "<th></th>" : ""}</tr></thead>
-      <tbody>${rows || `<tr><td colspan="${isSelf ? 3 : 4}" class="empty">Todavía no hay notas registradas.</td></tr>`}</tbody>
-    </table>
-    ${!isSelf && materiasAsignadas.length > 0 ? `
-    <form class="inline-form" id="grade-form">
-      <select name="materia_id" required>${materiaOptions}</select>
+
+    <nav class="cat-navbar">${botones || '<span style="color:#cdd6da; font-size:0.85rem;">No hay categorías de rúbrica definidas.</span>'}</nav>
+    ${activa ? `
+      <h3>${activa}</h3>
+      ${materiasAsignadas.filter(m => indicadoresPorMateria[m.id]).map(m => tablaIndicadores(m, indicadoresPorMateria[m.id])).join("")}
+      ${(() => {
+        const materiasSinIndicadores = materiasAsignadas.filter(m => !indicadoresPorMateria[m.id]);
+        if (materiasSinIndicadores.length === 0 && materiasAsignadas.length > 0) return "";
+        const notasSinIndicadores = notasActivas.filter(n => !indicadoresPorMateria[n.materia_id]);
+        return `<div class="roster" style="margin-top:0.6rem;">${notasSinIndicadores.map(filaNota).join("") || '<p class="empty">Todavía no hay notas en esta categoría.</p>'}</div>`;
+      })()}` : ""}
+
+    ${!isSelf && materiasAsignadas.filter(m => !indicadoresPorMateria[m.id]).length > 0 ? `
+    <form class="inline-form" id="grade-form" style="margin-top:1.4rem;">
+      <select name="materia_id" required>${materiasAsignadas.filter(m => !indicadoresPorMateria[m.id]).map(m => `<option value="${m.id}">${m.nombre}</option>`).join("")}</select>
       <select name="rubro" required>
-        <option value="">Categoría…</option>
-        ${categoriaOptions}
+        ${categoriasNoAsistencia.map(c => `<option value="${c.nombre}" ${c.nombre === activa ? "selected" : ""}>${c.nombre} (${c.porcentaje}%)</option>`).join("")}
       </select>
       <input name="nota" type="number" min="0" max="100" step="0.1" placeholder="Nota" required style="width:6rem" />
+      <div class="roa-editable js-nota-eval-texto" contenteditable="true" style="flex-basis:100%; min-height:2.5rem;" data-placeholder="Criterios de evaluación (opcional, texto)"></div>
+      <label style="font-size:0.82rem; color:var(--text-muted); flex-basis:100%;">Adjuntar evaluación (PDF, imagen o Word, opcional):
+        <input type="file" name="evaluacion_archivo" accept=".pdf,.doc,.docx,image/*" style="display:block; margin-top:0.3rem;" />
+      </label>
       <button class="btn small" type="submit">Agregar nota</button>
     </form>
-    ${(categorias || []).length === 0 ? `<p class="no-phone-note">No hay categorías de rúbrica creadas. Ve a "Rúbrica" en el menú para crearlas.</p>` : ""}` : ""}`;
+    ${(categorias || []).length === 0 ? `<p class="no-phone-note">No hay categorías de rúbrica creadas. Ve a "Rúbrica y Evaluaciones" en el menú para crearlas.</p>` : ""}` : ""}`;
+
+  el.querySelectorAll("[data-cat-nota]").forEach(btn => {
+    btn.addEventListener("click", () => renderNotasInterno(el, s, isSelf, btn.dataset.catNota));
+  });
+  el.querySelectorAll("[data-ver-eval]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const panel = document.getElementById(`eval-${btn.dataset.verEval}`);
+      if (panel) panel.style.display = panel.style.display === "none" ? "block" : "none";
+    });
+  });
+  el.querySelectorAll("[data-criterios-de]").forEach(async (td) => {
+    const { data: criterios } = await sb.from("criterios_indicador").select("*").eq("indicador_id", td.dataset.criteriosDe).order("puntaje");
+    td.innerHTML = (criterios || []).map(c => `<div>${c.puntaje} punto${c.puntaje === 1 ? "" : "s"}: ${c.descripcion}</div>`).join("") || '<span class="empty">Sin criterios</span>';
+  });
+  if (!isSelf) {
+    el.querySelectorAll("[data-calif-indicador]").forEach(sel => {
+      sel.addEventListener("change", async () => {
+        await sb.from("calificaciones_indicador").upsert(
+          { indicador_id: sel.dataset.califIndicador, estudiante_id: s.id, puntaje_obtenido: Number(sel.value) },
+          { onConflict: "indicador_id,estudiante_id" }
+        );
+        renderNotasInterno(el, s, isSelf, activa);
+      });
+    });
+  }
 
   if (!isSelf) {
     el.querySelectorAll("[data-del]").forEach(btn => {
       btn.addEventListener("click", async () => {
         await sb.from("notas").delete().eq("id", btn.dataset.del);
-        renderNotas(el, s, isSelf);
+        renderNotasInterno(el, s, isSelf, activa);
       });
     });
     const form = el.querySelector("#grade-form");
     if (form) form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const f = new FormData(e.target);
+      const archivo = f.get("evaluacion_archivo");
+      let archivoDataUrl = null, archivoNombre = null;
+      if (archivo && archivo.size > 3 * 1024 * 1024) {
+        alert("El archivo pesa más de 3 MB. Usa uno más liviano (puedes comprimir el PDF o la imagen).");
+        return;
+      }
+      if (archivo && archivo.size > 0) {
+        archivoDataUrl = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (ev) => resolve(ev.target.result);
+          reader.readAsDataURL(archivo);
+        });
+        archivoNombre = archivo.name;
+      }
       await sb.from("notas").insert({
         estudiante_id: s.id,
         materia_id: Number(f.get("materia_id")),
         rubro: f.get("rubro"),
-        nota: Number(f.get("nota"))
+        nota: Number(f.get("nota")),
+        evaluacion_texto: el.querySelector(".js-nota-eval-texto").innerHTML || null,
+        evaluacion_archivo: archivoDataUrl,
+        evaluacion_archivo_nombre: archivoNombre
       });
-      renderNotas(el, s, isSelf);
+      renderNotasInterno(el, s, isSelf, f.get("rubro"));
     });
   }
 }
@@ -331,8 +463,13 @@ async function renderRubricaEstudiante(el, s) {
           const resultado = await calcularNotaAsistencia(s.id, m.id);
           promedio = resultado ? resultado.nota : null;
         } else {
-          const notasCat = notasMateria.filter(n => n.rubro === c.nombre);
-          promedio = notasCat.length ? notasCat.reduce((a, n) => a + Number(n.nota), 0) / notasCat.length : null;
+          const porIndicadores = await calcularNotaIndicadores(s.id, m.id, c.nombre);
+          if (porIndicadores) {
+            promedio = porIndicadores.nota;
+          } else {
+            const notasCat = notasMateria.filter(n => n.rubro === c.nombre);
+            promedio = notasCat.length ? notasCat.reduce((a, n) => a + Number(n.nota), 0) / notasCat.length : null;
+          }
         }
         const aporte = promedio !== null ? (promedio * c.porcentaje / 100).toFixed(1) : "—";
         filas.push(`<tr>
@@ -718,12 +855,93 @@ async function renderMateriaDetalle(materiaId) {
       <h1>${materia.nombre}</h1>
       <p style="color:var(--text-muted); margin-top:-0.6em;">Sección ${materia.seccion}</p>
       <div id="materia-apartados">Cargando…</div>
+      <div id="materia-indicadores" style="margin-top:1.4rem;">Cargando…</div>
       <div id="materia-publicaciones" style="margin-top:1.4rem;">Cargando…</div>
     </div>`;
   bindTopbar();
 
   await cargarApartadosDeMateria(materiaId);
+  await cargarIndicadoresDeMateria(materiaId);
   await cargarPublicacionesDeMateria(materiaId, materia.seccion);
+}
+
+async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
+  const holder = document.getElementById("materia-indicadores");
+  if (!holder) return;
+  const { data: categorias } = await sb.from("rubrica_categorias").select("*").order("orden");
+  const catNombre = categoriaActiva || categorias?.[0]?.nombre || null;
+
+  const { data: indicadores } = catNombre
+    ? await sb.from("indicadores").select("*, criterios_indicador(*)").eq("materia_id", materiaId).eq("categoria", catNombre).order("orden")
+    : { data: [] };
+
+  const siguienteLetra = String.fromCharCode(65 + (indicadores || []).length); // A, B, C...
+
+  holder.innerHTML = `
+    <h3 style="margin-top:0;">Indicadores de evaluación</h3>
+    <nav class="cat-navbar">
+      ${(categorias || []).map(c => `<button class="cat-navlink ${c.nombre === catNombre ? "active" : ""}" data-cat-ind="${c.nombre}">${c.nombre}</button>`).join("")}
+    </nav>
+    <table class="grades" style="margin-top:0.8rem;">
+      <thead><tr><th>Indicador</th><th>Puntaje máximo</th><th>Criterios</th><th></th></tr></thead>
+      <tbody>
+        ${(indicadores || []).map(ind => `
+          <tr>
+            <td><strong>${ind.letra}:</strong> ${ind.descripcion}${ind.fecha_evaluacion ? `<div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.3rem;">Fecha: ${ind.fecha_evaluacion}${ind.lecciones ? " · " + ind.lecciones + " lecciones" : ""}</div>` : ""}</td>
+            <td class="num">${ind.puntaje_maximo}</td>
+            <td style="font-size:0.85rem;">
+              ${(ind.criterios_indicador || []).sort((a, b) => a.puntaje - b.puntaje).map(c => `<div>${c.puntaje} punto${c.puntaje === 1 ? "" : "s"}: ${c.descripcion}</div>`).join("") || '<span class="empty">Sin criterios</span>'}
+            </td>
+            <td><button class="btn danger small" data-del-indicador="${ind.id}">Eliminar</button></td>
+          </tr>`).join("") || `<tr><td colspan="4" class="empty">Sin indicadores todavía en "${catNombre}".</td></tr>`}
+      </tbody>
+    </table>
+
+    <form class="inline-form" id="indicador-form" style="margin-top:1rem;">
+      <input name="letra" value="${siguienteLetra}" placeholder="Letra" required style="width:4rem;" />
+      <input name="descripcion" placeholder="Descripción del indicador" required style="flex:1; min-width:14rem" />
+      <input name="puntaje_maximo" type="number" min="1" placeholder="Puntaje máximo" required style="width:9rem" />
+      <input name="fecha_evaluacion" type="date" />
+      <input name="lecciones" type="number" min="1" placeholder="Lecciones (opcional)" style="width:10rem" />
+      <button class="btn small" type="submit">Crear indicador</button>
+    </form>`;
+
+  holder.querySelectorAll("[data-cat-ind]").forEach(btn => {
+    btn.addEventListener("click", () => cargarIndicadoresDeMateria(materiaId, btn.dataset.catInd));
+  });
+  holder.querySelectorAll("[data-del-indicador]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      await sb.from("indicadores").delete().eq("id", btn.dataset.delIndicador);
+      cargarIndicadoresDeMateria(materiaId, catNombre);
+    });
+  });
+  const form = document.getElementById("indicador-form");
+  if (form) form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const { data: nuevo } = await sb.from("indicadores").insert({
+      materia_id: materiaId,
+      categoria: catNombre,
+      letra: f.get("letra"),
+      descripcion: f.get("descripcion"),
+      puntaje_maximo: Number(f.get("puntaje_maximo")),
+      fecha_evaluacion: f.get("fecha_evaluacion") || null,
+      lecciones: f.get("lecciones") ? Number(f.get("lecciones")) : null,
+      orden: (indicadores || []).length + 1
+    }).select().maybeSingle();
+    if (nuevo) await pedirCriterios(nuevo, materiaId, catNombre);
+    cargarIndicadoresDeMateria(materiaId, catNombre);
+  });
+}
+
+async function pedirCriterios(indicador, materiaId, catNombre) {
+  const cantidad = indicador.puntaje_maximo;
+  const criterios = [];
+  for (let p = 1; p <= cantidad; p++) {
+    const desc = prompt(`Criterio para ${p} punto${p === 1 ? "" : "s"} (de ${cantidad}) del indicador ${indicador.letra}:`);
+    if (desc) criterios.push({ indicador_id: indicador.id, puntaje: p, descripcion: desc, orden: p });
+  }
+  if (criterios.length > 0) await sb.from("criterios_indicador").insert(criterios);
 }
 
 async function cargarApartadosDeMateria(materiaId) {
