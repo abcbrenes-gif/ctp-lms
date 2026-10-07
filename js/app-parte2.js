@@ -1031,7 +1031,9 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
     <nav class="cat-navbar">
       ${(categorias || []).map(c => `<button class="cat-navlink ${c.nombre === catNombre ? "active" : ""}" data-cat-ind="${c.nombre}">${c.nombre}</button>`).join("")}
     </nav>
-    <div class="roster" style="margin-top:0.8rem;">
+    ${(indicadores || []).length > 0 ? `<button class="btn" id="calificar-todos-btn" style="margin:0.8rem 0;">Calificar a todos los estudiantes (${catNombre})</button>` : ""}
+    <div id="calificar-todos-holder"></div>
+    <div class="roster" id="lista-indicadores-holder" style="margin-top:0.8rem;">
       ${(indicadores || []).map(ind => {
         const tieneCriterios = (ind.criterios_indicador || []).length > 0;
         return `
@@ -1070,6 +1072,8 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
   holder.querySelectorAll("[data-cat-ind]").forEach(btn => {
     btn.addEventListener("click", () => cargarIndicadoresDeMateria(materiaId, btn.dataset.catInd));
   });
+  const calificarBtn = document.getElementById("calificar-todos-btn");
+  if (calificarBtn) calificarBtn.addEventListener("click", () => cargarCalificarTodos(materiaId, catNombre, indicadores || []));
   holder.querySelectorAll("[data-del-indicador]").forEach(btn => {
     btn.addEventListener("click", async () => {
       await sb.from("indicadores").delete().eq("id", btn.dataset.delIndicador);
@@ -1104,6 +1108,98 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       orden: (indicadores || []).length + 1
     });
     cargarIndicadoresDeMateria(materiaId, catNombre);
+  });
+}
+
+async function cargarCalificarTodos(materiaId, catNombre, indicadores) {
+  const holder = document.getElementById("calificar-todos-holder");
+  const listaHolder = document.getElementById("lista-indicadores-holder");
+  if (!holder) return;
+  if (indicadores.length === 0) return;
+
+  const { data: materia } = await sb.from("materias").select("*").eq("id", materiaId).maybeSingle();
+  const { data: estudiantes } = await sb.from("estudiantes").select("*").eq("seccion", materia.seccion).order("apellido1").order("apellido2");
+  const indicadorIds = indicadores.map(i => i.id);
+  const { data: calificaciones } = (estudiantes || []).length
+    ? await sb.from("calificaciones_indicador").select("*").in("indicador_id", indicadorIds).in("estudiante_id", (estudiantes || []).map(s => s.id))
+    : { data: [] };
+  const mapa = {}; // "estudianteId-indicadorId" -> puntaje
+  (calificaciones || []).forEach(c => { mapa[`${c.estudiante_id}-${c.indicador_id}`] = c.puntaje_obtenido; });
+
+  const categoriaObj = (await sb.from("rubrica_categorias").select("*").eq("nombre", catNombre).maybeSingle()).data;
+
+  holder.innerHTML = `
+    <div class="whatsapp-panel" style="max-width:100%; margin:0.8rem 0;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.6rem;">
+        <strong style="font-family:var(--serif);">Calificar a toda la sección — ${catNombre}</strong>
+        <button class="btn secondary small" id="cerrar-calificar-todos">Cerrar</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="grades">
+          <thead><tr>
+            <th>Estudiante</th>
+            ${indicadores.map(i => `<th style="text-align:center;">${i.letra}</th>`).join("")}
+            <th>Resultado (${categoriaObj?.porcentaje || "?"}%)</th>
+          </tr></thead>
+          <tbody>
+            ${(estudiantes || []).map(st => {
+              const sumaMax = indicadores.reduce((a, i) => a + Number(i.puntaje_maximo), 0);
+              const sumaObt = indicadores.reduce((a, i) => a + Number(mapa[`${st.id}-${i.id}`] || 0), 0);
+              const resultado = sumaMax > 0 ? ((sumaObt / sumaMax) * categoriaObj?.porcentaje).toFixed(1) : "—";
+              return `
+              <tr data-fila-estudiante-cal="${st.id}">
+                <td>${st.apellido1} ${st.apellido2}, ${st.nombre}</td>
+                ${indicadores.map(i => `
+                  <td style="text-align:center;">
+                    <select data-cal-masiva="${i.id}" data-estudiante="${st.id}" style="width:4rem; text-align:center; border:1px solid var(--paper-line); border-radius:3px;">
+                      ${Array.from({ length: i.puntaje_maximo + 1 }, (_, p) => `<option value="${p}" ${Number(mapa[`${st.id}-${i.id}`] || 0) === p ? "selected" : ""}>${p}</option>`).join("")}
+                    </select>
+                  </td>`).join("")}
+                <td class="num" data-resultado-de="${st.id}" style="font-weight:600;">${resultado}%</td>
+              </tr>`;
+            }).join("") || `<tr><td colspan="${indicadores.length + 2}" class="empty">No hay estudiantes en esta sección.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+      <div class="row" style="margin-top:0.8rem;"><button class="btn" id="guardar-calificar-todos">Guardar todas las calificaciones</button></div>
+    </div>`;
+
+  if (listaHolder) listaHolder.style.display = "none";
+
+  document.getElementById("cerrar-calificar-todos").addEventListener("click", () => {
+    holder.innerHTML = "";
+    if (listaHolder) listaHolder.style.display = "";
+  });
+
+  function recalcularFila(estId) {
+    const sumaMax = indicadores.reduce((a, i) => a + Number(i.puntaje_maximo), 0);
+    const sumaObt = indicadores.reduce((a, i) => {
+      const sel = holder.querySelector(`[data-cal-masiva="${i.id}"][data-estudiante="${estId}"]`);
+      return a + Number(sel ? sel.value : 0);
+    }, 0);
+    const resultado = sumaMax > 0 ? ((sumaObt / sumaMax) * categoriaObj?.porcentaje).toFixed(1) : "—";
+    const celda = holder.querySelector(`[data-resultado-de="${estId}"]`);
+    if (celda) celda.textContent = `${resultado}%`;
+  }
+
+  holder.querySelectorAll("[data-cal-masiva]").forEach(sel => {
+    sel.addEventListener("change", () => recalcularFila(sel.dataset.estudiante));
+  });
+
+  document.getElementById("guardar-calificar-todos").addEventListener("click", async (e) => {
+    const btn = e.target;
+    btn.textContent = "Guardando…";
+    const filas = [];
+    holder.querySelectorAll("[data-cal-masiva]").forEach(sel => {
+      filas.push({
+        indicador_id: sel.dataset.calMasiva,
+        estudiante_id: sel.dataset.estudiante,
+        puntaje_obtenido: Number(sel.value)
+      });
+    });
+    await sb.from("calificaciones_indicador").upsert(filas, { onConflict: "indicador_id,estudiante_id" });
+    btn.textContent = "Guardado ✓";
+    setTimeout(() => { btn.textContent = "Guardar todas las calificaciones"; }, 1500);
   });
 }
 
