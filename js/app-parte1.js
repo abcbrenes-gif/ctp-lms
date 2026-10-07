@@ -38,7 +38,7 @@ async function render() {
   const perfilMatch = hash.match(/^#\/perfil\/(.+)$/);
   if (perfilMatch) return renderPerfil(decodeURIComponent(perfilMatch[1]), false);
   if (hash === "#/materias") return renderMaterias();
-  if (hash === "#/rubrica") return renderRubrica();
+  if (hash === "#/rubrica") { location.hash = "#/evaluaciones"; return; }
   if (hash === "#/programa") return renderProgramaNiveles();
   const materiaDetalleMatch = hash.match(/^#\/materia\/(.+)$/);
   if (materiaDetalleMatch) return renderMateriaDetalle(Number(materiaDetalleMatch[1]));
@@ -62,7 +62,7 @@ function topbar() {
     <div>
       <span class="docente">${role === "docente" ? "Prof. " + nombre : nombre}</span>
       <nav style="display:inline">
-        ${role === "docente" ? `<a href="#/">Secciones</a><a href="#/materias">Materias</a><a href="#/rubrica">Rúbrica</a><a href="#/programa">Programa</a><a href="#/evaluaciones">Evaluaciones</a><a href="#/asistencia">Asistencia</a>` : ""}
+        ${role === "docente" ? `<a href="#/">Secciones</a><a href="#/materias">Materias</a><a href="#/programa">Programa</a><a href="#/evaluaciones">Rúbrica y Evaluaciones</a><a href="#/asistencia">Asistencia</a>` : ""}
         <a href="#" id="logout-link">Salir</a>
       </nav>
     </div>
