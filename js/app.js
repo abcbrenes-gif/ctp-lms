@@ -1126,6 +1126,15 @@ async function renderTabContent(s, tab, isSelf) {
 
 async function renderNotas(el, s, isSelf) {
   el.innerHTML = "Cargando…";
+  try {
+    await renderNotasInterno(el, s, isSelf);
+  } catch (err) {
+    console.error(err);
+    el.innerHTML = `<p class="no-phone-note">Ocurrió un error cargando las notas: ${err.message || err}</p>`;
+  }
+}
+
+async function renderNotasInterno(el, s, isSelf) {
   const { data: asignadas } = await sb.from("estudiante_materias").select("materia_id, materias(id, nombre)").eq("estudiante_id", s.id);
   const materiasAsignadas = (asignadas || []).map(a => a.materias).filter(Boolean);
 
