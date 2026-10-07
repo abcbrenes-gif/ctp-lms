@@ -1076,12 +1076,12 @@ async function renderPerfil(id, isSelf) {
       </div>
 
       <div class="tabs">
-        <button class="tab-btn ${activeTab === "notas" ? "active" : ""}" data-tab="notas">Notas</button>
-        <button class="tab-btn ${activeTab === "tareas" ? "active" : ""}" data-tab="tareas">Tareas</button>
+        <button class="tab-btn ${(activeTab === "notas" || activeTab === "tareas") ? "active" : ""}" data-tab="notas">Notas y Tareas</button>
         <button class="tab-btn ${activeTab === "programa" ? "active" : ""}" data-tab="programa">Programa</button>
         <button class="tab-btn ${activeTab === "rubrica" ? "active" : ""}" data-tab="rubrica">Rúbrica</button>
         <button class="tab-btn ${activeTab === "asistencia" ? "active" : ""}" data-tab="asistencia">Asistencia</button>
         <button class="tab-btn ${activeTab === "avisos" ? "active" : ""}" data-tab="avisos">Avisos</button>
+        <button class="tab-btn ${activeTab === "materias-est" ? "active" : ""}" data-tab="materias-est">Materias</button>
         ${!isSelf ? `<button class="tab-btn ${activeTab === "whatsapp" ? "active" : ""}" data-tab="whatsapp">WhatsApp</button>
         <button class="tab-btn ${activeTab === "acceso" ? "active" : ""}" data-tab="acceso">Materias</button>` : ""}
       </div>
