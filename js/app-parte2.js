@@ -603,6 +603,15 @@ async function renderMateriasEstudiante(el, s) {
         ${apartados.map(a => `<a class="roster-row" href="#/apartado/${a.id}"><span class="name">${a.titulo}</span><span class="badge">Ver</span></a>`).join("") || '<p class="empty">Sin temas habilitados todavía.</p>'}
       </div>`;
 
+    const { data: cursos } = programaIds.length
+      ? await sb.from("cursos_interactivos").select("*").in("programa_id", programaIds).eq("habilitado", true)
+      : { data: [] };
+    html += `
+      <p style="font-size:0.8rem; color:var(--text-muted);">Cursos interactivos</p>
+      <div class="roster" style="margin-bottom:1rem;">
+        ${(cursos || []).map(c => `<a class="roster-row" href="#/curso/${c.id}"><span class="name">${c.titulo}</span><span class="badge">Jugar</span></a>`).join("") || '<p class="empty">Sin cursos interactivos habilitados todavía.</p>'}
+      </div>`;
+
     // Trabajos cotidianos pendientes, de todos los temas de esta materia.
     const apartadoIds = apartados.map(a => a.id);
     let trabajos = [];
@@ -720,6 +729,199 @@ async function renderAsistenciaEstudiante(el, s) {
 }
 
 // --- Apartado de un resultado de aprendizaje: introducción + trabajos cotidianos ---
+
+// ---------- Curso interactivo (Antología → Selección única → Asocie → Certificado) ----------
+
+async function renderCurso(id, soloLectura) {
+  const { data: curso } = await sb.from("cursos_interactivos").select("*").eq("id", id).maybeSingle();
+  if (!curso) { location.hash = "#/"; return; }
+  if (soloLectura && !curso.habilitado) { location.hash = "#/"; return; }
+
+  let progreso = null;
+  if (soloLectura) {
+    const { data: p } = await sb.from("progreso_curso").select("*").eq("curso_id", id).eq("estudiante_id", session.id).maybeSingle();
+    progreso = p || { antologia_vista: false, asocie_completado: false, completado: false };
+  }
+
+  const pasoInicial = !soloLectura ? "antologia" : (progreso.completado ? "cert" : progreso.asocie_completado ? "cert" : progreso.antologia_vista ? "mc" : "antologia");
+  pintarPasoCurso(curso, soloLectura, progreso, pasoInicial);
+}
+
+async function pintarPasoCurso(curso, soloLectura, progreso, paso) {
+  app.innerHTML = `
+    ${topbar()}
+    <div class="wrap">
+      <a href="${soloLectura ? "#/" : "#/materias"}" class="btn secondary small" style="margin-bottom:1rem; display:inline-block;">&larr; ${soloLectura ? "Volver a mi perfil" : "Materias"}</a>
+      <h1>${curso.titulo}</h1>
+      <p style="color:var(--text-muted); margin-top:-0.6em;">${curso.subtitulo || ""}</p>
+      ${!soloLectura ? `
+      <div class="whatsapp-panel" style="max-width:420px; margin:1rem 0;">
+        <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem;">
+          <input type="checkbox" id="toggle-curso-habilitado" ${curso.habilitado ? "checked" : ""} /> Curso habilitado para estudiantes
+        </label>
+      </div>` : ""}
+      <nav class="cat-navbar">
+        <button class="cat-navlink ${paso === "antologia" ? "active" : ""}" data-paso="antologia">Antología</button>
+        <button class="cat-navlink ${paso === "mc" ? "active" : ""}" data-paso="mc">Selección única</button>
+        <button class="cat-navlink ${paso === "asocie" ? "active" : ""}" data-paso="asocie">Asocie</button>
+        <button class="cat-navlink ${paso === "cert" ? "active" : ""}" data-paso="cert">Certificado</button>
+      </nav>
+      <div id="curso-paso-contenido" style="margin-top:1rem;">Cargando…</div>
+    </div>`;
+  bindTopbar();
+
+  if (!soloLectura) {
+    document.getElementById("toggle-curso-habilitado").addEventListener("change", async (e) => {
+      await sb.from("cursos_interactivos").update({ habilitado: e.target.checked }).eq("id", curso.id);
+    });
+  }
+
+  document.querySelectorAll("[data-paso]").forEach(btn => {
+    btn.addEventListener("click", () => pintarPasoCurso(curso, soloLectura, progreso, btn.dataset.paso));
+  });
+
+  const contenido = document.getElementById("curso-paso-contenido");
+  if (paso === "antologia") return pintarAntologia(curso, soloLectura, progreso, contenido);
+  if (paso === "mc") return pintarMC(curso, soloLectura, progreso, contenido);
+  if (paso === "asocie") return pintarAsocie(curso, soloLectura, progreso, contenido);
+  if (paso === "cert") return pintarCertificado(curso, soloLectura, progreso, contenido);
+}
+
+function pintarAntologia(curso, soloLectura, progreso, contenido) {
+  contenido.innerHTML = `
+    <div class="roa-cell-texto" style="background:var(--white); border:1px solid var(--paper-line); padding:1.5rem;">
+      ${curso.antologia_html || '<p class="empty">Todavía no hay contenido de antología.</p>'}
+    </div>
+    ${soloLectura ? `<div class="row" style="margin-top:1rem;"><button class="btn" id="continuar-antologia">Continuar a Selección única</button></div>` : ""}`;
+
+  const btn = document.getElementById("continuar-antologia");
+  if (btn) btn.addEventListener("click", async () => {
+    await sb.from("progreso_curso").upsert(
+      { curso_id: curso.id, estudiante_id: session.id, antologia_vista: true },
+      { onConflict: "curso_id,estudiante_id" }
+    );
+    progreso.antologia_vista = true;
+    pintarPasoCurso(curso, soloLectura, progreso, "mc");
+  });
+}
+
+async function pintarMC(curso, soloLectura, progreso, contenido) {
+  contenido.innerHTML = "Cargando…";
+  const { data: preguntas } = await sb.from("curso_mc").select("*").eq("curso_id", curso.id).order("orden");
+
+  contenido.innerHTML = `
+    <form id="mc-form">
+      ${(preguntas || []).map((p, i) => `
+        <div class="whatsapp-panel" style="max-width:100%; margin-bottom:0.8rem;">
+          <p style="font-weight:600; margin:0 0 0.6rem;">${i + 1}. ${p.pregunta}</p>
+          ${p.opciones.map((op, oi) => `
+            <label style="display:flex; align-items:center; gap:0.5rem; padding:0.3rem 0; font-size:0.9rem;">
+              <input type="radio" name="p${p.id}" value="${oi}" ${!soloLectura ? "disabled" : ""} required />
+              ${op}
+            </label>`).join("")}
+        </div>`).join("") || '<p class="empty">Todavía no hay preguntas en este curso.</p>'}
+      ${soloLectura && (preguntas || []).length > 0 ? `<button class="btn" type="submit">Enviar respuestas</button>` : ""}
+    </form>
+    <div id="mc-resultado"></div>`;
+
+  if (!soloLectura) return; // el profesor solo revisa el contenido, no lo responde
+
+  const form = document.getElementById("mc-form");
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    let correctas = 0;
+    (preguntas || []).forEach(p => {
+      const seleccionado = form.querySelector(`input[name="p${p.id}"]:checked`);
+      if (seleccionado && Number(seleccionado.value) === p.correcta) correctas++;
+    });
+    const total = (preguntas || []).length;
+    await sb.from("progreso_curso").upsert(
+      { curso_id: curso.id, estudiante_id: session.id, antologia_vista: true, mc_correctas: correctas, mc_total: total },
+      { onConflict: "curso_id,estudiante_id" }
+    );
+    document.getElementById("mc-resultado").innerHTML = `
+      <div class="whatsapp-panel" style="max-width:420px; margin-top:1rem;">
+        <strong>Resultado: ${correctas} de ${total} correctas (${((correctas / total) * 100).toFixed(0)}%)</strong>
+        <div class="row" style="margin-top:0.8rem;"><button class="btn" id="continuar-mc">Continuar a Asocie</button></div>
+      </div>`;
+    document.getElementById("continuar-mc").addEventListener("click", () => {
+      progreso.mc_correctas = correctas; progreso.mc_total = total;
+      pintarPasoCurso(curso, soloLectura, progreso, "asocie");
+    });
+  });
+}
+
+async function pintarAsocie(curso, soloLectura, progreso, contenido) {
+  contenido.innerHTML = "Cargando…";
+  const { data: pares } = await sb.from("curso_asocie").select("*").eq("curso_id", curso.id).order("orden");
+  const definicionesMezcladas = [...(pares || [])].sort(() => Math.random() - 0.5);
+
+  contenido.innerHTML = `
+    <form id="asocie-form">
+      <table class="grades">
+        <thead><tr><th>Concepto</th><th>Elige la definición correcta</th></tr></thead>
+        <tbody>
+          ${(pares || []).map(p => `
+            <tr>
+              <td style="font-weight:600;">${p.concepto}</td>
+              <td>
+                <select name="c${p.id}" ${!soloLectura ? "disabled" : ""} required style="width:100%; padding:0.4rem; border:1px solid var(--paper-line); border-radius:3px; font-family:var(--sans); font-size:0.85rem;">
+                  <option value="">Selecciona…</option>
+                  ${definicionesMezcladas.map(d => `<option value="${d.id}">${d.definicion}</option>`).join("")}
+                </select>
+              </td>
+            </tr>`).join("") || `<tr><td colspan="2" class="empty">Todavía no hay pares en este curso.</td></tr>`}
+        </tbody>
+      </table>
+      ${soloLectura && (pares || []).length > 0 ? `<button class="btn" type="submit" style="margin-top:1rem;">Verificar</button>` : ""}
+    </form>
+    <div id="asocie-resultado"></div>`;
+
+  if (!soloLectura) return;
+
+  const form = document.getElementById("asocie-form");
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    let correctas = 0;
+    (pares || []).forEach(p => {
+      const sel = form.querySelector(`select[name="c${p.id}"]`);
+      if (sel && Number(sel.value) === p.id) correctas++;
+    });
+    const total = (pares || []).length;
+    await sb.from("progreso_curso").upsert(
+      { curso_id: curso.id, estudiante_id: session.id, asocie_completado: true },
+      { onConflict: "curso_id,estudiante_id" }
+    );
+    document.getElementById("asocie-resultado").innerHTML = `
+      <div class="whatsapp-panel" style="max-width:420px; margin-top:1rem;">
+        <strong>Resultado: ${correctas} de ${total} correctas</strong>
+        <div class="row" style="margin-top:0.8rem;"><button class="btn" id="continuar-asocie">Ver certificado</button></div>
+      </div>`;
+    document.getElementById("continuar-asocie").addEventListener("click", async () => {
+      await sb.from("progreso_curso").upsert(
+        { curso_id: curso.id, estudiante_id: session.id, completado: true, completado_en: new Date().toISOString() },
+        { onConflict: "curso_id,estudiante_id" }
+      );
+      progreso.asocie_completado = true; progreso.completado = true;
+      pintarPasoCurso(curso, soloLectura, progreso, "cert");
+    });
+  });
+}
+
+function pintarCertificado(curso, soloLectura, progreso, contenido) {
+  const completado = soloLectura && progreso.completado;
+  contenido.innerHTML = `
+    <div style="background:var(--white); border:3px double var(--ledger-green); padding:2.5rem; text-align:center; max-width:560px; margin:1rem auto;">
+      <h2 style="font-family:var(--serif);">Certificado de finalización</h2>
+      ${completado ? `
+        <p style="margin:1.2rem 0;">Se certifica que</p>
+        <p style="font-family:var(--serif); font-size:1.3rem; font-weight:700;">${session.nombre}</p>
+        <p style="margin:1.2rem 0;">completó satisfactoriamente el curso</p>
+        <p style="font-family:var(--serif); font-size:1.1rem; font-weight:600;">${curso.titulo}</p>
+        <p style="color:var(--text-muted); font-size:0.85rem; margin-top:1.5rem;">${INSTITUCION.nombre} · ${new Date().toLocaleDateString("es-CR")}</p>
+      ` : `<p class="empty" style="margin-top:1rem;">Todavía te falta completar la Antología, Selección única y Asocie para obtener tu certificado.</p>`}
+    </div>`;
+}
 
 async function renderApartado(id, soloLectura) {
   const { data: pub } = await sb.from("publicaciones").select("*").eq("id", id).maybeSingle();
@@ -1004,14 +1206,36 @@ async function renderMateriaDetalle(materiaId) {
       <h1>${materia.nombre}</h1>
       <p style="color:var(--text-muted); margin-top:-0.6em;">Sección ${materia.seccion}</p>
       <div id="materia-apartados">Cargando…</div>
+      <div id="materia-cursos" style="margin-top:1.4rem;">Cargando…</div>
       <div id="materia-indicadores" style="margin-top:1.4rem;">Cargando…</div>
       <div id="materia-publicaciones" style="margin-top:1.4rem;">Cargando…</div>
     </div>`;
   bindTopbar();
 
   await cargarApartadosDeMateria(materiaId);
+  await cargarCursosDeMateria(materiaId);
   await cargarIndicadoresDeMateria(materiaId);
   await cargarPublicacionesDeMateria(materiaId, materia.seccion);
+}
+
+async function cargarCursosDeMateria(materiaId) {
+  const holder = document.getElementById("materia-cursos");
+  if (!holder) return;
+  const { data: unidades } = await sb.from("programa").select("id").eq("materia_id", materiaId);
+  const programaIds = (unidades || []).map(u => u.id);
+  const { data: cursos } = programaIds.length
+    ? await sb.from("cursos_interactivos").select("*").in("programa_id", programaIds)
+    : { data: [] };
+
+  holder.innerHTML = `
+    <h3 style="margin-top:0;">Cursos interactivos</h3>
+    <div class="roster">
+      ${(cursos || []).map(c => `
+        <a class="roster-row" href="#/curso/${c.id}">
+          <span class="name">${c.titulo}</span>
+          <span class="badge" style="${c.habilitado ? "" : "opacity:0.5;"}">${c.habilitado ? "Habilitado" : "No habilitado"}</span>
+        </a>`).join("") || '<p class="empty">Esta materia todavía no tiene cursos interactivos.</p>'}
+    </div>`;
 }
 
 async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
