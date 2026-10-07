@@ -268,7 +268,10 @@ async function cargarPublicacionesSeccion(sec, holderId = "publicaciones-seccion
       ${apartados.map(a => `
         <a class="roster-row" href="#/apartado/${a.id}">
           <span class="name">${a.titulo}</span>
-          <span class="badge" style="${a.contenido ? "" : "opacity:0.5;"}">${a.contenido ? "Con introducción" : "Sin introducción todavía"}</span>
+          <span style="display:flex; gap:0.5rem; align-items:center;">
+            <span class="badge" style="${a.habilitado ? "" : "color:var(--brick); border-color:var(--brick);"}">${a.habilitado ? "Habilitado" : "Deshabilitado"}</span>
+            <span class="badge" style="${a.contenido ? "" : "opacity:0.5;"}">${a.contenido ? "Con introducción" : "Sin introducción"}</span>
+          </span>
         </a>`).join("")}
     </div>` : "";
 
@@ -1449,7 +1452,7 @@ async function renderRubricaEstudiante(el, s) {
 async function renderAvisosEstudiante(el, s) {
   el.innerHTML = "Cargando…";
   const { data: todasPubs } = await sb.from("publicaciones").select("*, materias(nombre)").eq("seccion", s.seccion).order("creado_en", { ascending: false });
-  const apartados = (todasPubs || []).filter(p => p.tipo === "apartado");
+  const apartados = (todasPubs || []).filter(p => p.tipo === "apartado" && p.habilitado);
   const pubs = (todasPubs || []).filter(p => p.tipo !== "apartado");
 
   el.innerHTML = `
@@ -1529,6 +1532,7 @@ async function renderAsistenciaEstudiante(el, s) {
 async function renderApartado(id, soloLectura) {
   const { data: pub } = await sb.from("publicaciones").select("*").eq("id", id).maybeSingle();
   if (!pub) { location.hash = soloLectura ? "#/" : "#/publicaciones"; return; }
+  if (soloLectura && !pub.habilitado) { location.hash = "#/"; return; }
   const { data: resultado } = pub.resultado_id ? await sb.from("resultados_aprendizaje").select("*").eq("id", pub.resultado_id).maybeSingle() : { data: null };
   const { data: trabajos } = await sb.from("trabajos_cotidianos").select("*").eq("publicacion_id", id).order("creado_en");
 
@@ -1926,6 +1930,12 @@ async function renderProgramaUnidad(id, soloLectura) {
   const { data: u } = await sb.from("programa").select("*, materias(id, nombre, seccion)").eq("id", id).maybeSingle();
   if (!u) { location.hash = "#/programa"; return; }
   const { data: items } = await sb.from("resultados_aprendizaje").select("*").eq("programa_id", id).order("id");
+  const itemIds = (items || []).map(it => it.id);
+  const { data: apartadosVinculados } = itemIds.length
+    ? await sb.from("publicaciones").select("id, resultado_id, habilitado").in("resultado_id", itemIds)
+    : { data: [] };
+  const apartadoPorResultado = {};
+  (apartadosVinculados || []).forEach(a => { apartadoPorResultado[a.resultado_id] = a; });
 
   let materiaSelector = "";
   if (!soloLectura) {
@@ -1989,6 +1999,12 @@ async function renderProgramaUnidad(id, soloLectura) {
             <div style="text-align:center;">
               <input type="checkbox" data-impartido="${it.id}" ${it.impartido ? "checked" : ""} style="width:1.2rem; height:1.2rem;" />
               <div style="margin-top:0.4rem;"><button class="btn small" data-guardar-fila="${it.id}">Guardar</button></div>
+              ${apartadoPorResultado[it.id] ? `
+              <div style="margin-top:0.5rem;">
+                <button class="btn ${apartadoPorResultado[it.id].habilitado ? "secondary" : ""} small" data-toggle-apartado="${apartadoPorResultado[it.id].id}" data-estado-actual="${apartadoPorResultado[it.id].habilitado}">
+                  ${apartadoPorResultado[it.id].habilitado ? "Deshabilitar apartado" : "Habilitar apartado"}
+                </button>
+              </div>` : `<p style="font-size:0.7rem; color:var(--text-muted); margin-top:0.4rem;">Sin apartado creado</p>`}
             </div>
           </div>`).join("") || `<p class="empty">No se encontraron resultados de aprendizaje para esta unidad.</p>`}
       </div>
@@ -2036,6 +2052,13 @@ async function renderProgramaUnidad(id, soloLectura) {
     document.querySelectorAll("[data-impartido]").forEach(cb => {
       cb.addEventListener("change", async () => {
         await sb.from("resultados_aprendizaje").update({ impartido: cb.checked }).eq("id", cb.dataset.impartido);
+      });
+    });
+    document.querySelectorAll("[data-toggle-apartado]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const nuevoEstado = btn.dataset.estadoActual !== "true";
+        await sb.from("publicaciones").update({ habilitado: nuevoEstado }).eq("id", btn.dataset.toggleApartado);
+        renderProgramaUnidad(id, soloLectura);
       });
     });
   }
