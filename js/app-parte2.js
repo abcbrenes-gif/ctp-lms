@@ -882,20 +882,32 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
     <nav class="cat-navbar">
       ${(categorias || []).map(c => `<button class="cat-navlink ${c.nombre === catNombre ? "active" : ""}" data-cat-ind="${c.nombre}">${c.nombre}</button>`).join("")}
     </nav>
-    <table class="grades" style="margin-top:0.8rem;">
-      <thead><tr><th>Indicador</th><th>Puntaje máximo</th><th>Criterios</th><th></th></tr></thead>
-      <tbody>
-        ${(indicadores || []).map(ind => `
-          <tr>
-            <td><strong>${ind.letra}:</strong> ${ind.descripcion}${ind.fecha_evaluacion ? `<div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.3rem;">Fecha: ${ind.fecha_evaluacion}${ind.lecciones ? " · " + ind.lecciones + " lecciones" : ""}</div>` : ""}</td>
-            <td class="num">${ind.puntaje_maximo}</td>
-            <td style="font-size:0.85rem;">
-              ${(ind.criterios_indicador || []).sort((a, b) => a.puntaje - b.puntaje).map(c => `<div>${c.puntaje} punto${c.puntaje === 1 ? "" : "s"}: ${c.descripcion}</div>`).join("") || '<span class="empty">Sin criterios</span>'}
-            </td>
-            <td><button class="btn danger small" data-del-indicador="${ind.id}">Eliminar</button></td>
-          </tr>`).join("") || `<tr><td colspan="4" class="empty">Sin indicadores todavía en "${catNombre}".</td></tr>`}
-      </tbody>
-    </table>
+    <div class="roster" style="margin-top:0.8rem;">
+      ${(indicadores || []).map(ind => {
+        const tieneCriterios = (ind.criterios_indicador || []).length > 0;
+        return `
+        <div class="roster-row" style="flex-direction:column; align-items:stretch; gap:0.4rem;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.6rem;">
+            <span class="name">
+              <strong>${ind.letra}:</strong> ${ind.descripcion}
+              <span style="color:var(--text-muted); font-size:0.8rem;"> (máx. ${ind.puntaje_maximo} pts)</span>
+              ${ind.fecha_evaluacion ? `<div style="font-size:0.75rem; color:var(--text-muted);">Fecha: ${ind.fecha_evaluacion}${ind.lecciones ? " · " + ind.lecciones + " lecciones" : ""}</div>` : ""}
+            </span>
+            <button class="btn danger small" data-del-indicador="${ind.id}">Eliminar</button>
+          </div>
+          <div style="font-size:0.85rem;">
+            ${(ind.criterios_indicador || []).sort((a, b) => a.puntaje - b.puntaje).map(c => `<div>${c.puntaje} punto${c.puntaje === 1 ? "" : "s"}: ${c.descripcion}</div>`).join("")}
+          </div>
+          ${!tieneCriterios ? `
+          <form class="inline-form js-criterios-form" data-indicador-criterios="${ind.id}" data-max="${ind.puntaje_maximo}" style="background:var(--paper); margin-top:0.3rem;">
+            <p style="width:100%; font-size:0.8rem; color:var(--brick); margin:0 0 0.4rem;">Faltan los criterios de este indicador:</p>
+            ${Array.from({ length: ind.puntaje_maximo }, (_, i) => i + 1).map(p => `
+              <input name="criterio_${p}" placeholder="Criterio para ${p} punto${p === 1 ? "" : "s"}" required style="flex-basis:100%;" />`).join("")}
+            <button class="btn small" type="submit">Guardar criterios</button>
+          </form>` : ""}
+        </div>`;
+      }).join("") || `<p class="empty">Sin indicadores todavía en "${catNombre}".</p>`}
+    </div>
 
     <form class="inline-form" id="indicador-form" style="margin-top:1rem;">
       <input name="letra" value="${siguienteLetra}" placeholder="Letra" required style="width:4rem;" />
@@ -915,11 +927,24 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       cargarIndicadoresDeMateria(materiaId, catNombre);
     });
   });
+  holder.querySelectorAll(".js-criterios-form").forEach(form => {
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      const max = Number(form.dataset.max);
+      const criterios = [];
+      for (let p = 1; p <= max; p++) {
+        criterios.push({ indicador_id: form.dataset.indicadorCriterios, puntaje: p, descripcion: f.get(`criterio_${p}`), orden: p });
+      }
+      await sb.from("criterios_indicador").insert(criterios);
+      cargarIndicadoresDeMateria(materiaId, catNombre);
+    });
+  });
   const form = document.getElementById("indicador-form");
   if (form) form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const f = new FormData(e.target);
-    const { data: nuevo } = await sb.from("indicadores").insert({
+    await sb.from("indicadores").insert({
       materia_id: materiaId,
       categoria: catNombre,
       letra: f.get("letra"),
@@ -928,20 +953,9 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       fecha_evaluacion: f.get("fecha_evaluacion") || null,
       lecciones: f.get("lecciones") ? Number(f.get("lecciones")) : null,
       orden: (indicadores || []).length + 1
-    }).select().maybeSingle();
-    if (nuevo) await pedirCriterios(nuevo, materiaId, catNombre);
+    });
     cargarIndicadoresDeMateria(materiaId, catNombre);
   });
-}
-
-async function pedirCriterios(indicador, materiaId, catNombre) {
-  const cantidad = indicador.puntaje_maximo;
-  const criterios = [];
-  for (let p = 1; p <= cantidad; p++) {
-    const desc = prompt(`Criterio para ${p} punto${p === 1 ? "" : "s"} (de ${cantidad}) del indicador ${indicador.letra}:`);
-    if (desc) criterios.push({ indicador_id: indicador.id, puntaje: p, descripcion: desc, orden: p });
-  }
-  if (criterios.length > 0) await sb.from("criterios_indicador").insert(criterios);
 }
 
 async function cargarApartadosDeMateria(materiaId) {
