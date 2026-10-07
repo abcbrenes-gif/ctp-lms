@@ -24,10 +24,12 @@ async function render() {
   if (hash === "#/login") { location.hash = "#/"; return; }
 
   const apartadoMatch = hash.match(/^#\/apartado\/(.+)$/);
+  const cursoMatch = hash.match(/^#\/curso\/(.+)$/);
 
   if (session.role === "estudiante") {
-    // El estudiante solo ve su propio perfil, salvo la página de un apartado (solo lectura).
+    // El estudiante solo ve su propio perfil, salvo apartado o curso interactivo (ambos solo lectura/jugable).
     if (apartadoMatch) return renderApartado(decodeURIComponent(apartadoMatch[1]), true);
+    if (cursoMatch) return renderCurso(Number(cursoMatch[1]), true);
     return renderPerfil(session.id, true);
   }
 
@@ -50,6 +52,7 @@ async function render() {
   const progUnidadMatch = hash.match(/^#\/programa\/(.+)$/);
   if (progUnidadMatch) return renderProgramaUnidad(decodeURIComponent(progUnidadMatch[1]));
   if (apartadoMatch) return renderApartado(decodeURIComponent(apartadoMatch[1]), false);
+  if (cursoMatch) return renderCurso(Number(cursoMatch[1]), false);
   renderHome();
 }
 
