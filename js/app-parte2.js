@@ -1,10 +1,10 @@
 async function renderTabContent(s, tab, isSelf) {
   const el = document.getElementById("tab-content");
-  if (tab === "tareas") return renderTareas(el, s, isSelf);
   if (tab === "programa") return renderProgramaEstudiante(el, s);
   if (tab === "rubrica") return renderRubricaEstudiante(el, s);
   if (tab === "asistencia") return renderAsistenciaEstudiante(el, s);
   if (tab === "avisos") return renderAvisosEstudiante(el, s);
+  if (tab === "materias-est") return renderMateriasEstudiante(el, s);
   if (tab === "whatsapp" && !isSelf) return renderWhatsapp(el, s);
   if (tab === "acceso" && !isSelf) return renderAcceso(el, s);
   return renderNotas(el, s, isSelf);
@@ -28,6 +28,7 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
 
   const { data: notas } = await sb.from("notas").select("*, materias(nombre)").eq("estudiante_id", s.id).order("creado_en", { ascending: false });
   const { data: categorias } = await sb.from("rubrica_categorias").select("*").order("orden");
+  const { data: tareas } = await sb.from("tareas").select("*, materias(nombre), resultados_aprendizaje(resultado)").eq("estudiante_id", s.id).order("fecha", { ascending: true });
 
   // Nota final ponderada por materia, según los % de la rúbrica.
   // Si hay varias notas en la misma categoría, se promedian antes de ponderar.
@@ -71,10 +72,10 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
   function notasDe(nombreCat) { return (notas || []).filter(n => n.rubro === nombreCat); }
 
   const botones = categoriasNoAsistencia.map(c => {
-    const items = notasDe(c.nombre);
+    const pendientesTareaCat = (tareas || []).filter(t => t.categoria === c.nombre && !t.hecha).length;
     return `
       <button class="cat-navlink ${c.nombre === activa ? "active" : ""}" data-cat-nota="${c.nombre}">
-        ${c.nombre}${items.length > 0 ? `<span class="cat-navlink-badge">${items.length}</span>` : ""}
+        ${c.nombre}${pendientesTareaCat > 0 ? `<span class="cat-navlink-badge">${pendientesTareaCat}</span>` : ""}
       </button>`;
   }).join("");
 
@@ -93,8 +94,9 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
   function tablaIndicadores(m, info) {
     const categoriaObj = categorias.find(c => c.nombre === activa);
     const resultadoPct = categoriaObj ? (info.nota * categoriaObj.porcentaje / 100).toFixed(1) : info.nota.toFixed(1);
+    const calificados = info.indicadores.filter(i => info.porIndicador[i.id] !== undefined).length;
     return `
-      <h4 style="margin-top:1rem;">${m.nombre}</h4>
+      <h4 style="margin-top:1rem; display:flex; align-items:center; gap:0.6rem;">${m.nombre} <span class="badge" style="font-weight:400;">Progreso: ${calificados}/${info.indicadores.length} indicadores calificados</span></h4>
       <div style="overflow-x:auto;">
         <table class="grades">
           <thead><tr>
@@ -146,6 +148,41 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
       </div>`;
   }
 
+  function filaTarea(t) {
+    return `
+      <div class="task-row ${t.hecha ? "done" : ""}">
+        <input type="checkbox" data-toggle-tarea="${t.id}" ${t.hecha ? "checked" : ""} />
+        <div style="flex:1;">
+          <span class="task-title">${t.materias?.nombre ? `[${t.materias.nombre}] ` : ""}${t.titulo}</span>
+          ${t.resultados_aprendizaje?.resultado ? `<div style="font-size:0.78rem; color:var(--text-muted); font-style:italic; margin-top:0.15rem;">Resultado de aprendizaje: ${t.resultados_aprendizaje.resultado}</div>` : ""}
+        </div>
+        <span class="task-due">${t.fecha || ""}</span>
+        ${!isSelf ? `<button class="btn danger small" data-del-tarea="${t.id}">Eliminar</button>` : ""}
+      </div>`;
+  }
+  const tareasActivas = activa ? (tareas || []).filter(t => t.categoria === activa) : [];
+  const tareasPendientes = tareasActivas.filter(t => !t.hecha).length;
+
+  let materiaOptionsTarea = "", resultadoOptionsTarea = "";
+  if (!isSelf) {
+    materiaOptionsTarea = `<option value="">(general)</option>` + materiasAsignadas.map(m => `<option value="${m.id}">${m.nombre}</option>`).join("");
+    const materiaIds = materiasAsignadas.map(m => m.id);
+    if (materiaIds.length > 0) {
+      const { data: unidades } = await sb.from("programa").select("id, unidad, materias(nombre)").in("materia_id", materiaIds);
+      const programaIds = (unidades || []).map(u => u.id);
+      if (programaIds.length > 0) {
+        const { data: resultados } = await sb.from("resultados_aprendizaje").select("id, resultado, programa_id").in("programa_id", programaIds);
+        resultadoOptionsTarea = `<option value="">— Sin vincular a un resultado —</option>` + (unidades || []).map(u => {
+          const items = (resultados || []).filter(r => r.programa_id === u.id);
+          if (items.length === 0) return "";
+          return `<optgroup label="${u.materias?.nombre || ""} — ${u.unidad}">
+            ${items.map(r => `<option value="${r.id}">${r.resultado.slice(0, 90)}${r.resultado.length > 90 ? "…" : ""}</option>`).join("")}
+          </optgroup>`;
+        }).join("");
+      }
+    }
+  }
+
   el.innerHTML = `
     ${!isSelf && materiasAsignadas.length === 0 ? `<p class="no-phone-note">Este estudiante no tiene materias asignadas todavía. Ve a la pestaña "Materias" para asignarle al menos una antes de poder registrar notas.</p>` : ""}
     ${finalesPorMateria.length > 0 ? `
@@ -166,7 +203,18 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
         if (materiasSinIndicadores.length === 0 && materiasAsignadas.length > 0) return "";
         const notasSinIndicadores = notasActivas.filter(n => !indicadoresPorMateria[n.materia_id]);
         return `<div class="roster" style="margin-top:0.6rem;">${notasSinIndicadores.map(filaNota).join("") || '<p class="empty">Todavía no hay notas en esta categoría.</p>'}</div>`;
-      })()}` : ""}
+      })()}
+
+      <h4 style="margin-top:1.2rem; display:flex; align-items:center; gap:0.5rem;">Trabajos y tareas ${tareasPendientes > 0 ? `<span class="badge" style="font-weight:400;">${tareasPendientes} pendiente${tareasPendientes === 1 ? "" : "s"}</span>` : ""}</h4>
+      <div>${tareasActivas.map(filaTarea).join("") || '<p class="empty">Sin asignaciones todavía en esta categoría.</p>'}</div>
+      ${!isSelf ? `
+      <form class="inline-form" id="task-form" style="margin-top:0.8rem;">
+        <select name="materia_id">${materiaOptionsTarea}</select>
+        <input name="titulo" placeholder="Tarea (ej. Asiento de diario)" required style="flex:1; min-width:10rem" />
+        <input name="fecha" type="date" />
+        <select name="resultado_id" style="flex-basis:100%;">${resultadoOptionsTarea || '<option value="">Sin resultados de aprendizaje disponibles (vincula la materia en "Programa")</option>'}</select>
+        <button class="btn small" type="submit">Agregar tarea</button>
+      </form>` : ""}` : ""}
 
     ${!isSelf && materiasAsignadas.filter(m => !indicadoresPorMateria[m.id]).length > 0 ? `
     <form class="inline-form" id="grade-form" style="margin-top:1.4rem;">
@@ -186,6 +234,35 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
   el.querySelectorAll("[data-cat-nota]").forEach(btn => {
     btn.addEventListener("click", () => renderNotasInterno(el, s, isSelf, btn.dataset.catNota));
   });
+  el.querySelectorAll("[data-toggle-tarea]").forEach(cb => {
+    cb.addEventListener("change", async () => {
+      await sb.from("tareas").update({ hecha: cb.checked }).eq("id", cb.dataset.toggleTarea);
+      renderNotasInterno(el, s, isSelf, activa);
+    });
+  });
+  if (!isSelf) {
+    el.querySelectorAll("[data-del-tarea]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        await sb.from("tareas").delete().eq("id", btn.dataset.delTarea);
+        renderNotasInterno(el, s, isSelf, activa);
+      });
+    });
+    const taskForm = el.querySelector("#task-form");
+    if (taskForm) taskForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      await sb.from("tareas").insert({
+        estudiante_id: s.id,
+        materia_id: f.get("materia_id") ? Number(f.get("materia_id")) : null,
+        categoria: activa,
+        resultado_id: f.get("resultado_id") ? Number(f.get("resultado_id")) : null,
+        titulo: f.get("titulo"),
+        fecha: f.get("fecha") || null,
+        hecha: false
+      });
+      renderNotasInterno(el, s, isSelf, activa);
+    });
+  }
   el.querySelectorAll("[data-ver-eval]").forEach(btn => {
     btn.addEventListener("click", () => {
       const panel = document.getElementById(`eval-${btn.dataset.verEval}`);
@@ -491,6 +568,78 @@ async function renderRubricaEstudiante(el, s) {
 }
 
 // --- Avisos del estudiante: publicaciones de su sección, solo lectura ---
+
+// --- Materias del estudiante: temas (apartados) y trabajos cotidianos pendientes ---
+
+async function renderMateriasEstudiante(el, s) {
+  el.innerHTML = "Cargando…";
+  const { data: asignadas } = await sb.from("estudiante_materias").select("materia_id, materias(id, nombre)").eq("estudiante_id", s.id);
+  const materiasAsignadas = (asignadas || []).map(a => a.materias).filter(Boolean);
+
+  if (materiasAsignadas.length === 0) {
+    el.innerHTML = `<p class="empty">Todavía no tienes materias asignadas.</p>`;
+    return;
+  }
+
+  let html = "";
+  for (const m of materiasAsignadas) {
+    html += `<h3 style="margin-top:1.4rem;">${m.nombre}</h3>`;
+
+    const { data: unidades } = await sb.from("programa").select("id").eq("materia_id", m.id);
+    const programaIds = (unidades || []).map(u => u.id);
+    let apartados = [];
+    if (programaIds.length > 0) {
+      const { data: resultados } = await sb.from("resultados_aprendizaje").select("id").in("programa_id", programaIds);
+      const resultadoIds = (resultados || []).map(r => r.id);
+      if (resultadoIds.length > 0) {
+        const { data: pubs } = await sb.from("publicaciones").select("*").in("resultado_id", resultadoIds).eq("tipo", "apartado").eq("habilitado", true);
+        apartados = pubs || [];
+      }
+    }
+
+    html += `
+      <p style="font-size:0.8rem; color:var(--text-muted); margin-top:-0.4em;">Temas</p>
+      <div class="roster" style="margin-bottom:1rem;">
+        ${apartados.map(a => `<a class="roster-row" href="#/apartado/${a.id}"><span class="name">${a.titulo}</span><span class="badge">Ver</span></a>`).join("") || '<p class="empty">Sin temas habilitados todavía.</p>'}
+      </div>`;
+
+    // Trabajos cotidianos pendientes, de todos los temas de esta materia.
+    const apartadoIds = apartados.map(a => a.id);
+    let trabajos = [];
+    if (apartadoIds.length > 0) {
+      const { data: tc } = await sb.from("trabajos_cotidianos").select("*, publicaciones(titulo)").in("publicacion_id", apartadoIds).order("fecha");
+      trabajos = tc || [];
+    }
+    const trabajoIds = trabajos.map(t => t.id);
+    const { data: misEstados } = trabajoIds.length
+      ? await sb.from("trabajos_cotidianos_estudiante").select("*").eq("estudiante_id", s.id).in("trabajo_id", trabajoIds)
+      : { data: [] };
+    const porTrabajo = {};
+    (misEstados || []).forEach(e => { porTrabajo[e.trabajo_id] = e.completado; });
+
+    html += `
+      <p style="font-size:0.8rem; color:var(--text-muted);">Trabajos por realizar</p>
+      <div class="roster" id="trabajos-materia-${m.id}">
+        ${trabajos.map(t => `
+          <div class="roster-row">
+            <span class="name">${t.titulo}${t.fecha ? " · " + t.fecha : ""}<span style="color:var(--text-muted); font-size:0.78rem;"> (${t.publicaciones?.titulo || ""})</span></span>
+            <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.85rem;">
+              <input type="checkbox" data-mi-trabajo-materia="${t.id}" ${porTrabajo[t.id] ? "checked" : ""} /> Completado
+            </label>
+          </div>`).join("") || '<p class="empty">No hay trabajos pendientes en esta materia.</p>'}
+      </div>`;
+  }
+
+  el.innerHTML = html;
+  el.querySelectorAll("[data-mi-trabajo-materia]").forEach(cb => {
+    cb.addEventListener("change", async () => {
+      await sb.from("trabajos_cotidianos_estudiante").upsert(
+        { trabajo_id: cb.dataset.miTrabajoMateria, estudiante_id: s.id, completado: cb.checked, entregado_en: cb.checked ? new Date().toISOString() : null },
+        { onConflict: "trabajo_id,estudiante_id" }
+      );
+    });
+  });
+}
 
 async function renderAvisosEstudiante(el, s) {
   el.innerHTML = "Cargando…";
