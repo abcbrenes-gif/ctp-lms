@@ -23,8 +23,11 @@ async function render() {
   }
   if (hash === "#/login") { location.hash = "#/"; return; }
 
+  const apartadoMatch = hash.match(/^#\/apartado\/(.+)$/);
+
   if (session.role === "estudiante") {
-    // El estudiante solo ve su propio perfil, nunca otras rutas.
+    // El estudiante solo ve su propio perfil, salvo la página de un apartado (solo lectura).
+    if (apartadoMatch) return renderApartado(decodeURIComponent(apartadoMatch[1]), true);
     return renderPerfil(session.id, true);
   }
 
@@ -45,6 +48,7 @@ async function render() {
   if (hash === "#/asistencia/informe") return renderInformeAsistenciaSeccion();
   const progUnidadMatch = hash.match(/^#\/programa\/(.+)$/);
   if (progUnidadMatch) return renderProgramaUnidad(decodeURIComponent(progUnidadMatch[1]));
+  if (apartadoMatch) return renderApartado(decodeURIComponent(apartadoMatch[1]), false);
   renderHome();
 }
 
@@ -252,11 +256,24 @@ async function cargarPublicacionesSeccion(sec, holderId = "publicaciones-seccion
   const holder = document.getElementById(holderId);
   if (!holder) return;
   const { data: materias } = await sb.from("materias").select("*").eq("seccion", sec).order("nombre");
-  const { data: pubs } = await sb.from("publicaciones").select("*, materias(nombre)").eq("seccion", sec).order("creado_en", { ascending: false });
+  const { data: todasPubs } = await sb.from("publicaciones").select("*, materias(nombre)").eq("seccion", sec).order("creado_en", { ascending: false });
+  const apartados = (todasPubs || []).filter(p => p.tipo === "apartado");
+  const pubs = (todasPubs || []).filter(p => p.tipo !== "apartado");
 
   const materiaOptions = `<option value="">(general, sin materia)</option>` + (materias || []).map(m => `<option value="${m.id}">${m.nombre}</option>`).join("");
 
+  const apartadosHtml = apartados.length > 0 ? `
+    <h3 style="margin-top:0;">Apartados por resultado de aprendizaje</h3>
+    <div class="roster" style="margin-bottom:1.4rem;">
+      ${apartados.map(a => `
+        <a class="roster-row" href="#/apartado/${a.id}">
+          <span class="name">${a.titulo}</span>
+          <span class="badge" style="${a.contenido ? "" : "opacity:0.5;"}">${a.contenido ? "Con introducción" : "Sin introducción todavía"}</span>
+        </a>`).join("")}
+    </div>` : "";
+
   holder.innerHTML = `
+    ${apartadosHtml}
     <div class="roster">
       ${(pubs || []).map(p => `
         <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem;">
@@ -1431,9 +1448,20 @@ async function renderRubricaEstudiante(el, s) {
 
 async function renderAvisosEstudiante(el, s) {
   el.innerHTML = "Cargando…";
-  const { data: pubs } = await sb.from("publicaciones").select("*, materias(nombre)").eq("seccion", s.seccion).order("creado_en", { ascending: false });
+  const { data: todasPubs } = await sb.from("publicaciones").select("*, materias(nombre)").eq("seccion", s.seccion).order("creado_en", { ascending: false });
+  const apartados = (todasPubs || []).filter(p => p.tipo === "apartado");
+  const pubs = (todasPubs || []).filter(p => p.tipo !== "apartado");
 
   el.innerHTML = `
+    ${apartados.length > 0 ? `
+    <h3 style="margin-top:0;">Apartados por tema</h3>
+    <div class="roster" style="margin-bottom:1.4rem;">
+      ${apartados.map(a => `
+        <a class="roster-row" href="#/apartado/${a.id}">
+          <span class="name">${a.titulo}</span>
+          <span class="badge">Ver</span>
+        </a>`).join("")}
+    </div>` : ""}
     <div class="roster">
       ${(pubs || []).map(p => `
         <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem;">
@@ -1494,6 +1522,134 @@ async function renderAsistenciaEstudiante(el, s) {
   }
 
   el.innerHTML = html;
+}
+
+// --- Apartado de un resultado de aprendizaje: introducción + trabajos cotidianos ---
+
+async function renderApartado(id, soloLectura) {
+  const { data: pub } = await sb.from("publicaciones").select("*").eq("id", id).maybeSingle();
+  if (!pub) { location.hash = soloLectura ? "#/" : "#/publicaciones"; return; }
+  const { data: resultado } = pub.resultado_id ? await sb.from("resultados_aprendizaje").select("*").eq("id", pub.resultado_id).maybeSingle() : { data: null };
+  const { data: trabajos } = await sb.from("trabajos_cotidianos").select("*").eq("publicacion_id", id).order("creado_en");
+
+  let totalEstudiantes = 0;
+  if (!soloLectura) {
+    const { data: est } = await sb.from("estudiantes").select("id").eq("seccion", pub.seccion);
+    totalEstudiantes = (est || []).length;
+  }
+
+  app.innerHTML = `
+    ${topbar()}
+    <div class="wrap">
+      <a href="${soloLectura ? "#/" : "#/publicaciones"}" class="btn secondary small" style="margin-bottom:1rem; display:inline-block;">&larr; ${soloLectura ? "Volver a mi perfil" : "Publicaciones"}</a>
+      <h1>${pub.titulo}</h1>
+      ${resultado ? `<p style="color:var(--text-muted); margin-top:-0.6em; font-size:0.85rem;"><strong>Saberes esenciales:</strong> <span class="roa-cell-texto">${resultado.saberes || ""}</span></p>` : ""}
+
+      <h3 style="margin-top:1.4rem;">Introducción al tema</h3>
+      ${soloLectura
+        ? `<div class="roa-cell-texto" style="background:var(--white); border:1px solid var(--paper-line); padding:1rem;">${pub.contenido || '<span class="empty">El profesor todavía no ha escrito la introducción.</span>'}</div>`
+        : `<div class="roa-editable roa-html" contenteditable="true" id="apartado-intro" style="min-height:6rem;">${pub.contenido || ""}</div>
+           <div class="row" style="margin-top:0.5rem;"><button class="btn small" id="guardar-intro">Guardar introducción</button></div>`}
+
+      <h3 style="margin-top:1.6rem;">Trabajos cotidianos</h3>
+      <div class="roster" id="trabajos-lista">Cargando…</div>
+      ${!soloLectura ? `
+      <form class="inline-form" id="trabajo-form" style="margin-top:0.8rem;">
+        <input name="titulo" placeholder="Título del trabajo" required style="flex:1; min-width:10rem" />
+        <input name="fecha" type="date" />
+        <div class="roa-editable js-trabajo-desc" contenteditable="true" style="flex-basis:100%; min-height:3rem;" data-placeholder="Instrucciones (opcional)"></div>
+        <button class="btn small" type="submit">Agregar trabajo</button>
+      </form>` : ""}
+    </div>`;
+  bindTopbar();
+
+  if (!soloLectura) {
+    document.getElementById("guardar-intro").addEventListener("click", async (e) => {
+      const btn = e.target;
+      btn.textContent = "Guardando…";
+      await sb.from("publicaciones").update({ contenido: document.getElementById("apartado-intro").innerHTML }).eq("id", id);
+      btn.textContent = "Guardado ✓";
+      setTimeout(() => { btn.textContent = "Guardar introducción"; }, 1500);
+    });
+    document.getElementById("trabajo-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      await sb.from("trabajos_cotidianos").insert({
+        publicacion_id: id,
+        titulo: f.get("titulo"),
+        fecha: f.get("fecha") || null,
+        descripcion: document.querySelector(".js-trabajo-desc").innerHTML || null
+      });
+      renderApartado(id, soloLectura);
+    });
+  }
+
+  await pintarTrabajosCotidianos(trabajos || [], soloLectura, id);
+}
+
+async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId) {
+  const holder = document.getElementById("trabajos-lista");
+  if (!holder) return;
+
+  if (trabajos.length === 0) {
+    holder.innerHTML = `<p class="empty">Todavía no hay trabajos cotidianos en este apartado.</p>`;
+    return;
+  }
+
+  if (soloLectura) {
+    const estudianteId = session.id;
+    const trabajoIds = trabajos.map(t => t.id);
+    const { data: misEstados } = await sb.from("trabajos_cotidianos_estudiante").select("*").eq("estudiante_id", estudianteId).in("trabajo_id", trabajoIds);
+    const porTrabajo = {};
+    (misEstados || []).forEach(e => { porTrabajo[e.trabajo_id] = e.completado; });
+
+    holder.innerHTML = trabajos.map(t => `
+      <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem;">
+        <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+          <span class="name">${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+          <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.85rem;">
+            <input type="checkbox" data-mi-trabajo="${t.id}" ${porTrabajo[t.id] ? "checked" : ""} /> Completado
+          </label>
+        </div>
+        ${t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : ""}
+      </div>`).join("");
+
+    holder.querySelectorAll("[data-mi-trabajo]").forEach(cb => {
+      cb.addEventListener("change", async () => {
+        await sb.from("trabajos_cotidianos_estudiante").upsert(
+          { trabajo_id: cb.dataset.miTrabajo, estudiante_id: estudianteId, completado: cb.checked, entregado_en: cb.checked ? new Date().toISOString() : null },
+          { onConflict: "trabajo_id,estudiante_id" }
+        );
+      });
+    });
+  } else {
+    const trabajoIds = trabajos.map(t => t.id);
+    const { data: todosEstados } = await sb.from("trabajos_cotidianos_estudiante").select("trabajo_id, completado").in("trabajo_id", trabajoIds);
+    const conteos = {};
+    (todosEstados || []).forEach(e => {
+      if (!e.completado) return;
+      conteos[e.trabajo_id] = (conteos[e.trabajo_id] || 0) + 1;
+    });
+
+    holder.innerHTML = trabajos.map(t => `
+      <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem;">
+        <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+          <span class="name">${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+          <span style="display:flex; align-items:center; gap:0.6rem;">
+            <span class="badge">${conteos[t.id] || 0} completaron</span>
+            <button class="btn danger small" data-del-trabajo="${t.id}">Eliminar</button>
+          </span>
+        </div>
+        ${t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : ""}
+      </div>`).join("");
+
+    holder.querySelectorAll("[data-del-trabajo]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        await sb.from("trabajos_cotidianos").delete().eq("id", btn.dataset.delTrabajo);
+        renderApartado(publicacionId, soloLectura);
+      });
+    });
+  }
 }
 
 // --- WhatsApp (solo docente) ---
