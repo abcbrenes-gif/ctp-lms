@@ -1429,6 +1429,7 @@ async function cargarCalificarTodos(materiaId, catNombre, indicadores) {
 
 async function cargarApartadosDeMateria(materiaId) {
   const holder = document.getElementById("materia-apartados");
+  if (!holder) return;
   const { data: unidades } = await sb.from("programa").select("id").eq("materia_id", materiaId);
   const programaIds = (unidades || []).map(u => u.id);
   let apartados = [];
@@ -1467,6 +1468,7 @@ async function cargarApartadosDeMateria(materiaId) {
 
 async function cargarPublicacionesDeMateria(materiaId, seccion) {
   const holder = document.getElementById("materia-publicaciones");
+  if (!holder) return;
   const { data: pubs } = await sb.from("publicaciones").select("*").eq("materia_id", materiaId).neq("tipo", "apartado").order("creado_en", { ascending: false });
 
   holder.innerHTML = `
