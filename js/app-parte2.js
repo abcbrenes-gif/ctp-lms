@@ -1681,7 +1681,7 @@ async function renderProgramaUnidad(id, soloLectura) {
               <th style="padding:0.5rem 0.4rem; text-align:left; min-width:12rem;">Evidencias de aprendizaje</th>
               <th style="padding:0.5rem 0.4rem; text-align:left; min-width:6rem;">Tiempo</th>
               <th style="padding:0.5rem 0.4rem; text-align:center; min-width:6rem;">${soloLectura ? "Estado" : "Impartido"}</th>
-              ${!soloLectura ? `<th style="padding:0.5rem 0.4rem; text-align:center; min-width:9rem;">Apartado</th><th style="padding:0.5rem 0.4rem;"></th>` : ""}
+              ${!soloLectura ? `<th style="padding:0.5rem 0.4rem; text-align:center; min-width:9rem;">Apartado</th><th style="padding:0.5rem 0.4rem; text-align:center; min-width:7rem;"></th>` : ""}
             </tr>
           </thead>
           <tbody id="machote-live-filas">
@@ -1711,7 +1711,8 @@ async function renderProgramaUnidad(id, soloLectura) {
                   ${apartadoPorResultado[it.id].habilitado ? "Deshabilitar" : "Habilitar"}
                 </button>` : `<span style="font-size:0.68rem; color:var(--text-muted);">Sin apartado</span>`}
               </td>
-              <td style="padding:0.4rem; text-align:center;">
+              <td style="padding:0.4rem; text-align:center; white-space:nowrap;">
+                <button class="btn small" data-guardar-fila="${it.id}" title="Guardar esta fila">Guardar</button>
                 <button class="btn danger small" data-borrar-fila="${it.id}" title="Eliminar fila">✕</button>
               </td>
             </tr>`).join("") || `<tr><td colspan="${soloLectura ? 6 : 8}" class="empty">No se encontraron resultados de aprendizaje para esta unidad.</td></tr>`}
@@ -1752,6 +1753,30 @@ async function renderProgramaUnidad(id, soloLectura) {
         if (!confirm("¿Eliminar esta fila (resultado de aprendizaje)? No se puede deshacer.")) return;
         await sb.from("resultados_aprendizaje").delete().eq("id", btn.dataset.borrarFila);
         renderProgramaUnidad(id, soloLectura);
+      });
+    });
+    document.querySelectorAll("[data-guardar-fila]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const filaId = btn.dataset.guardarFila;
+        const fila = document.querySelector(`tr[data-fila-tr="${filaId}"]`);
+        if (!fila) return;
+        const payload = {};
+        fila.querySelectorAll("[data-campo]").forEach(celda => {
+          payload[celda.dataset.campo] = celda.dataset.tipo === "html" ? celda.innerHTML : celda.textContent;
+        });
+        const checkbox = fila.querySelector("[data-impartido]");
+        if (checkbox) payload.impartido = checkbox.checked;
+        const textoOriginal = btn.textContent;
+        btn.disabled = true;
+        const { error } = await sb.from("resultados_aprendizaje").update(payload).eq("id", filaId);
+        btn.disabled = false;
+        if (error) {
+          alert("No se pudo guardar la fila: " + (error.message || JSON.stringify(error)));
+          return;
+        }
+        btn.textContent = "Guardado ✓";
+        setTimeout(() => { btn.textContent = textoOriginal; }, 1500);
+        avisarGuardado();
       });
     });
     const tituloEl = document.getElementById("machote-titulo");
