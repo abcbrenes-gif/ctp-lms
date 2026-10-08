@@ -1550,14 +1550,32 @@ async function renderProgramaNiveles() {
 
   document.getElementById("nueva-unidad-form").addEventListener("submit", async (e) => {
     e.preventDefault();
+    e.stopPropagation();
+    const btnSubmit = e.target.querySelector("button[type=submit]");
+    if (btnSubmit) btnSubmit.textContent = "Creando…";
     const f = new FormData(e.target);
-    const { data: nueva } = await sb.from("programa").insert({
+    const payload = {
       nivel: f.get("nivel"),
       subarea: f.get("subarea"),
       unidad: f.get("unidad"),
       tiempo_estimado: f.get("tiempo_estimado") ? Number(f.get("tiempo_estimado")) : null
-    }).select().maybeSingle();
-    if (nueva) location.hash = `#/programa/${nueva.id}`;
+    };
+    try {
+      const { data: nueva, error } = await sb.from("programa").insert(payload).select().maybeSingle();
+      if (error) {
+        console.error("Error creando unidad:", error);
+        alert("No se pudo crear la unidad: " + (error.message || JSON.stringify(error)));
+        if (btnSubmit) btnSubmit.textContent = "Crear unidad";
+        return;
+      }
+      if (nueva) { location.hash = `#/programa/${nueva.id}`; return; }
+      alert("La unidad no se creó (no se recibió confirmación de la base de datos). Revisa que la tabla 'programa' permita insertar y leer filas.");
+      if (btnSubmit) btnSubmit.textContent = "Crear unidad";
+    } catch (err) {
+      console.error("Excepción creando unidad:", err);
+      alert("Ocurrió un error inesperado: " + (err.message || err));
+      if (btnSubmit) btnSubmit.textContent = "Crear unidad";
+    }
   });
 
   const { data: filas } = await sb.from("programa").select("id, nivel, subarea, unidad, tiempo_estimado").order("id");
