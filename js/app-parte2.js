@@ -1528,10 +1528,37 @@ async function renderProgramaNiveles() {
     ${topbar()}
     <div class="wrap">
       <h1>Programa de estudio</h1>
-      <p style="color:var(--text-muted); margin-top:-0.6em;">Resultados de aprendizaje y saberes esenciales, extraídos de los programas oficiales de décimo, undécimo y duodécimo.</p>
-      <div id="programa-niveles">Cargando…</div>
+      <p style="color:var(--text-muted); margin-top:-0.6em;">Resultados de aprendizaje y saberes esenciales. Puedes usar el contenido oficial precargado o crear tus propias unidades.</p>
+      <details class="group-promo" style="margin-top:1rem;">
+        <summary style="font-family:var(--serif); font-weight:600; font-size:1.02rem;">+ Crear nueva unidad propia</summary>
+        <form class="inline-form" id="nueva-unidad-form" style="margin-top:0.8rem;">
+          <select name="nivel" required>
+            <option value="">Nivel…</option>
+            <option value="Décimo">Décimo</option>
+            <option value="Undécimo">Undécimo</option>
+            <option value="Duodécimo">Duodécimo</option>
+          </select>
+          <input name="subarea" placeholder="Subárea (ej. Contabilidad General)" required style="flex:1; min-width:12rem" />
+          <input name="unidad" placeholder="Nombre de la unidad" required style="flex:1; min-width:12rem" />
+          <input name="tiempo_estimado" type="number" min="1" placeholder="Horas (opcional)" style="width:9rem" />
+          <button class="btn small" type="submit">Crear unidad</button>
+        </form>
+      </details>
+      <div id="programa-niveles" style="margin-top:0.4rem;">Cargando…</div>
     </div>`;
   bindTopbar();
+
+  document.getElementById("nueva-unidad-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const { data: nueva } = await sb.from("programa").insert({
+      nivel: f.get("nivel"),
+      subarea: f.get("subarea"),
+      unidad: f.get("unidad"),
+      tiempo_estimado: f.get("tiempo_estimado") ? Number(f.get("tiempo_estimado")) : null
+    }).select().maybeSingle();
+    if (nueva) location.hash = `#/programa/${nueva.id}`;
+  });
 
   const { data: filas } = await sb.from("programa").select("id, nivel, subarea, unidad, tiempo_estimado").order("id");
   const porNivel = {};
@@ -1616,6 +1643,11 @@ async function renderProgramaUnidad(id, soloLectura) {
       <a href="#/programa" class="btn secondary small" style="margin-bottom:1rem; display:inline-block;">&larr; Programa</a>
       <h1>${u.unidad}</h1>
       <p style="color:var(--text-muted); margin-top:-0.6em;">${u.nivel} · ${u.subarea}${u.tiempo_estimado ? " · " + u.tiempo_estimado + " horas" : ""}${u.materias ? " · Materia: " + u.materias.nombre : ""}</p>
+      ${!soloLectura ? `
+      <div style="display:flex; gap:0.6rem; margin-top:0.4rem;">
+        <button class="btn secondary small" id="generar-machote-programa-btn">Generar machote (imprimir)</button>
+        <button class="btn danger small" id="eliminar-unidad-btn">Eliminar esta unidad</button>
+      </div>` : ""}
       ${materiaSelector}
       <div class="roa-table" style="margin-top:1.2rem;">
         <div class="roa-row roa-head">
@@ -1708,7 +1740,100 @@ async function renderProgramaUnidad(id, soloLectura) {
         renderProgramaUnidad(id, soloLectura);
       });
     });
+    const machoteBtn = document.getElementById("generar-machote-programa-btn");
+    if (machoteBtn) machoteBtn.addEventListener("click", () => abrirMachotePrograma(u, items || []));
+
+    const eliminarBtn = document.getElementById("eliminar-unidad-btn");
+    if (eliminarBtn) eliminarBtn.addEventListener("click", async () => {
+      if (!confirm(`¿Eliminar la unidad "${u.unidad}" por completo? Esto borra también sus resultados de aprendizaje y el vínculo con apartados/cursos. No se puede deshacer.`)) return;
+      await sb.from("resultados_aprendizaje").delete().eq("programa_id", id);
+      await sb.from("programa").delete().eq("id", id);
+      location.hash = "#/programa";
+    });
   }
+}
+
+async function abrirMachotePrograma(unidad, items) {
+  const filasHtml = (items.length ? items : [{}]).map(it => `
+      <tr>
+        <td contenteditable="true">${it.resultado || ""}</td>
+        <td contenteditable="true">${it.saberes || ""}</td>
+        <td contenteditable="true">${it.estrategias || ""}</td>
+        <td contenteditable="true">${it.evidencias || ""}</td>
+        <td contenteditable="true">${it.tiempo || ""}</td>
+      </tr>`).join("");
+
+  const html = `<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Machote de programa — ${unidad.unidad}</title>
+<style>
+  @page { size: letter landscape; margin: 1.4cm; }
+  body { font-family: 'IBM Plex Sans', Arial, sans-serif; color: #232323; margin: 0; padding: 1.5rem; }
+  .no-print { margin-bottom: 1.2rem; display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+  .no-print button { padding: 0.5rem 1rem; font-size: 0.9rem; cursor: pointer; }
+  header.machote { text-align: center; border-bottom: 2px solid #16232e; padding-bottom: 0.7rem; margin-bottom: 1.1rem; }
+  header.machote h1 { font-size: 1.15rem; margin: 0 0 0.15rem; font-family: Georgia, serif; }
+  header.machote .sub { font-size: 0.85rem; color: #555; }
+  .campos { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.3rem 1.5rem; margin-bottom: 1.2rem; font-size: 0.92rem; }
+  .campo { border-bottom: 1px solid #999; padding: 0.25rem 0.1rem; display: flex; gap: 0.4rem; }
+  .campo b { white-space: nowrap; }
+  .campo span.linea { flex: 1; }
+  .titulo-principal { text-align: center; font-size: 1.3rem; font-weight: 700; font-family: Georgia, serif; border: 1px solid #16232e; padding: 0.6rem; margin: 1rem 0 1.3rem; }
+  .titulo-principal[contenteditable="true"]:empty:before { content: "Título principal del machote — haz clic aquí para escribirlo"; color: #999; font-style: italic; font-weight: 400; font-size: 1rem; }
+  table { width: 100%; border-collapse: collapse; margin-top: 0.4rem; }
+  th, td { border: 1px solid #16232e; padding: 0.5rem 0.4rem; font-size: 0.82rem; text-align: left; vertical-align: top; }
+  th { background: #16232e; color: #fff; font-weight: 600; }
+  td:empty:before { content: "—"; color: #bbb; }
+  @media print { .no-print { display: none; } body { padding: 0; } }
+</style>
+</head>
+<body>
+  <div class="no-print">
+    <button id="btn-print">Imprimir / Guardar PDF</button>
+    <span style="font-size:0.8rem; color:#666;">Puedes escribir directamente sobre el título y las celdas antes de imprimir.</span>
+  </div>
+
+  <header class="machote">
+    <h1>${INSTITUCION.nombre}</h1>
+    <div class="sub">Especialidad: ${INSTITUCION.especialidad} · Docente: ${INSTITUCION.docente}</div>
+  </header>
+
+  <div class="campos">
+    <div class="campo"><b>Nivel:</b><span class="linea">${unidad.nivel || ""}</span></div>
+    <div class="campo"><b>Subárea:</b><span class="linea">${unidad.subarea || ""}</span></div>
+    <div class="campo"><b>Tiempo estimado:</b><span class="linea">${unidad.tiempo_estimado ? unidad.tiempo_estimado + " horas" : ""}</span></div>
+  </div>
+
+  <div class="titulo-principal" contenteditable="true" id="titulo-principal">${unidad.unidad || ""}</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:22%;">Resultado de Aprendizaje</th>
+        <th style="width:22%;">Saberes Esenciales</th>
+        <th style="width:20%;">Estrategias de mediación</th>
+        <th style="width:20%;">Evidencias de aprendizaje</th>
+        <th style="width:8%;">Tiempo</th>
+      </tr>
+    </thead>
+    <tbody contenteditable="true">
+      ${filasHtml}
+    </tbody>
+  </table>
+
+  <script>
+    document.getElementById("btn-print").addEventListener("click", () => window.print());
+  </script>
+</body>
+</html>`;
+
+  const w = window.open("", "_blank");
+  if (!w) { alert("El navegador bloqueó la ventana nueva. Permite ventanas emergentes para generar el machote."); return; }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
 }
 
 // ---------- Páginas generales (organizadas por sección) ----------
