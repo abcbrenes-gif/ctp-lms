@@ -1649,61 +1649,97 @@ async function renderProgramaUnidad(id, soloLectura) {
         <button class="btn danger small" id="eliminar-unidad-btn">Eliminar esta unidad</button>
       </div>` : ""}
       ${materiaSelector}
-      <div class="roa-table" style="margin-top:1.2rem;">
-        <div class="roa-row roa-head">
-          <div>Resultado de Aprendizaje</div>
-          <div>Saberes Esenciales</div>
-          <div>Estrategias de mediación</div>
-          <div>Evidencias de aprendizaje</div>
-          <div>Tiempo</div>
-          <div>${soloLectura ? "Estado" : "Impartido"}</div>
-        </div>
-        ${(items || []).map(it => soloLectura ? `
-          <div class="roa-row">
-            <div class="roa-cell-texto">${it.resultado}</div>
-            <div class="roa-cell-texto">${it.saberes || ""}</div>
-            <div class="roa-cell-texto">${it.estrategias || ""}</div>
-            <div class="roa-cell-texto">${it.evidencias || ""}</div>
-            <div class="roa-cell-texto">${it.tiempo || ""}</div>
-            <div style="text-align:center;">
-              <span class="badge" style="${it.impartido ? "" : "opacity:0.5;"}">${it.impartido ? "Impartido" : "No impartido"}</span>
-            </div>
-          </div>` : `
-          <div class="roa-row">
-            <textarea data-campo="resultado" data-fila="${it.id}">${it.resultado || ""}</textarea>
-            <div class="roa-editable roa-html" contenteditable="true" data-campo="saberes" data-fila="${it.id}" data-tipo="html">${it.saberes || ""}</div>
-            <div class="roa-editable roa-html" contenteditable="true" data-campo="estrategias" data-fila="${it.id}" data-tipo="html">${it.estrategias || ""}</div>
-            <div class="roa-editable roa-html" contenteditable="true" data-campo="evidencias" data-fila="${it.id}" data-tipo="html">${it.evidencias || ""}</div>
-            <input class="roa-tiempo" data-campo="tiempo" data-fila="${it.id}" value="${it.tiempo || ""}" />
-            <div style="text-align:center;">
-              <input type="checkbox" data-impartido="${it.id}" ${it.impartido ? "checked" : ""} style="width:1.2rem; height:1.2rem;" />
-              <div style="margin-top:0.4rem;"><button class="btn small" data-guardar-fila="${it.id}">Guardar</button></div>
-              ${apartadoPorResultado[it.id] ? `
-              <div style="margin-top:0.5rem;">
+
+      <div class="machote-live" style="margin-top:1.2rem; border:1px solid var(--ink); background:var(--white);">
+        <div style="text-align:center; font-family:var(--serif); font-weight:700; font-size:1.15rem; padding:0.9rem; border-bottom:1px solid var(--paper-line);"
+             ${!soloLectura ? `contenteditable="true" id="machote-titulo"` : ""}>${u.unidad || ""}</div>
+        <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+          <thead>
+            <tr style="background:var(--ink); color:var(--white);">
+              <th style="padding:0.5rem 0.4rem; text-align:left; min-width:12rem;">Resultado de Aprendizaje</th>
+              <th style="padding:0.5rem 0.4rem; text-align:left; min-width:12rem;">Saberes Esenciales</th>
+              <th style="padding:0.5rem 0.4rem; text-align:left; min-width:12rem;">Estrategias de mediación</th>
+              <th style="padding:0.5rem 0.4rem; text-align:left; min-width:12rem;">Evidencias de aprendizaje</th>
+              <th style="padding:0.5rem 0.4rem; text-align:left; min-width:6rem;">Tiempo</th>
+              <th style="padding:0.5rem 0.4rem; text-align:center; min-width:6rem;">${soloLectura ? "Estado" : "Impartido"}</th>
+              ${!soloLectura ? `<th style="padding:0.5rem 0.4rem; text-align:center; min-width:9rem;">Apartado</th><th style="padding:0.5rem 0.4rem;"></th>` : ""}
+            </tr>
+          </thead>
+          <tbody id="machote-live-filas">
+            ${(items || []).map(it => soloLectura ? `
+            <tr style="border-bottom:1px solid var(--paper-line);">
+              <td style="padding:0.5rem 0.4rem; vertical-align:top;" class="roa-cell-texto">${it.resultado || ""}</td>
+              <td style="padding:0.5rem 0.4rem; vertical-align:top;" class="roa-cell-texto">${it.saberes || ""}</td>
+              <td style="padding:0.5rem 0.4rem; vertical-align:top;" class="roa-cell-texto">${it.estrategias || ""}</td>
+              <td style="padding:0.5rem 0.4rem; vertical-align:top;" class="roa-cell-texto">${it.evidencias || ""}</td>
+              <td style="padding:0.5rem 0.4rem; vertical-align:top;" class="roa-cell-texto">${it.tiempo || ""}</td>
+              <td style="padding:0.5rem 0.4rem; text-align:center;">
+                <span class="badge" style="${it.impartido ? "" : "opacity:0.5;"}">${it.impartido ? "Impartido" : "No impartido"}</span>
+              </td>
+            </tr>` : `
+            <tr style="border-bottom:1px solid var(--paper-line);" data-fila-tr="${it.id}">
+              <td style="padding:0.4rem; vertical-align:top;" contenteditable="true" data-campo="resultado" data-fila="${it.id}" data-tipo="texto">${it.resultado || ""}</td>
+              <td style="padding:0.4rem; vertical-align:top;" contenteditable="true" data-campo="saberes" data-fila="${it.id}" data-tipo="html">${it.saberes || ""}</td>
+              <td style="padding:0.4rem; vertical-align:top;" contenteditable="true" data-campo="estrategias" data-fila="${it.id}" data-tipo="html">${it.estrategias || ""}</td>
+              <td style="padding:0.4rem; vertical-align:top;" contenteditable="true" data-campo="evidencias" data-fila="${it.id}" data-tipo="html">${it.evidencias || ""}</td>
+              <td style="padding:0.4rem; vertical-align:top;" contenteditable="true" data-campo="tiempo" data-fila="${it.id}" data-tipo="texto">${it.tiempo || ""}</td>
+              <td style="padding:0.4rem; text-align:center;">
+                <input type="checkbox" data-impartido="${it.id}" ${it.impartido ? "checked" : ""} style="width:1.2rem; height:1.2rem;" />
+              </td>
+              <td style="padding:0.4rem; text-align:center;">
+                ${apartadoPorResultado[it.id] ? `
                 <button class="btn ${apartadoPorResultado[it.id].habilitado ? "secondary" : ""} small" data-toggle-apartado="${apartadoPorResultado[it.id].id}" data-estado-actual="${apartadoPorResultado[it.id].habilitado}">
-                  ${apartadoPorResultado[it.id].habilitado ? "Deshabilitar apartado" : "Habilitar apartado"}
-                </button>
-              </div>` : `<p style="font-size:0.7rem; color:var(--text-muted); margin-top:0.4rem;">Sin apartado creado</p>`}
-            </div>
-          </div>`).join("") || `<p class="empty">No se encontraron resultados de aprendizaje para esta unidad.</p>`}
+                  ${apartadoPorResultado[it.id].habilitado ? "Deshabilitar" : "Habilitar"}
+                </button>` : `<span style="font-size:0.68rem; color:var(--text-muted);">Sin apartado</span>`}
+              </td>
+              <td style="padding:0.4rem; text-align:center;">
+                <button class="btn danger small" data-borrar-fila="${it.id}" title="Eliminar fila">✕</button>
+              </td>
+            </tr>`).join("") || `<tr><td colspan="${soloLectura ? 6 : 8}" class="empty">No se encontraron resultados de aprendizaje para esta unidad.</td></tr>`}
+          </tbody>
+        </table>
+        </div>
       </div>
-      ${!soloLectura ? `<button class="btn secondary small" id="agregar-resultado" style="margin-top:0.8rem;">+ Agregar resultado de aprendizaje</button>` : ""}
+      <span id="machote-live-estado" style="font-size:0.78rem; color:var(--ledger-green-deep); display:block; margin-top:0.4rem; min-height:1.2em;"></span>
+      ${!soloLectura ? `<button class="btn secondary small" id="agregar-resultado" style="margin-top:0.5rem;">+ Agregar resultado de aprendizaje</button>` : ""}
     </div>`;
   bindTopbar();
 
+  function avisarGuardado() {
+    const span = document.getElementById("machote-live-estado");
+    if (!span) return;
+    span.textContent = "Guardado ✓ " + new Date().toLocaleTimeString("es-CR");
+    clearTimeout(avisarGuardado._t);
+    avisarGuardado._t = setTimeout(() => { span.textContent = ""; }, 2500);
+  }
+
   if (!soloLectura) {
-    document.querySelectorAll("[data-guardar-fila]").forEach(btn => {
-      btn.addEventListener("click", async () => {
-        const filaId = btn.dataset.guardarFila;
-        const campos = {};
-        document.querySelectorAll(`[data-fila="${filaId}"]`).forEach(input => {
-          campos[input.dataset.campo] = input.dataset.tipo === "html" ? input.innerHTML : input.value;
-        });
-        btn.textContent = "Guardando…";
-        await sb.from("resultados_aprendizaje").update(campos).eq("id", filaId);
-        btn.textContent = "Guardado ✓";
-        setTimeout(() => { btn.textContent = "Guardar"; }, 1500);
+    document.querySelectorAll("#machote-live-filas [data-campo]").forEach(celda => {
+      celda.addEventListener("blur", async () => {
+        const campo = celda.dataset.campo;
+        const valor = celda.dataset.tipo === "html" ? celda.innerHTML : celda.textContent;
+        await sb.from("resultados_aprendizaje").update({ [campo]: valor }).eq("id", celda.dataset.fila);
+        avisarGuardado();
       });
+    });
+    document.querySelectorAll("[data-impartido]").forEach(cb => {
+      cb.addEventListener("change", async () => {
+        await sb.from("resultados_aprendizaje").update({ impartido: cb.checked }).eq("id", cb.dataset.impartido);
+        avisarGuardado();
+      });
+    });
+    document.querySelectorAll("[data-borrar-fila]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        if (!confirm("¿Eliminar esta fila (resultado de aprendizaje)? No se puede deshacer.")) return;
+        await sb.from("resultados_aprendizaje").delete().eq("id", btn.dataset.borrarFila);
+        renderProgramaUnidad(id, soloLectura);
+      });
+    });
+    const tituloEl = document.getElementById("machote-titulo");
+    if (tituloEl) tituloEl.addEventListener("blur", async () => {
+      await sb.from("programa").update({ unidad: tituloEl.textContent.trim() }).eq("id", id);
+      avisarGuardado();
     });
     const agregarBtn = document.getElementById("agregar-resultado");
     if (agregarBtn) agregarBtn.addEventListener("click", async () => {
