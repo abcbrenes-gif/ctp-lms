@@ -1732,6 +1732,8 @@ async function renderEvaluacionesGeneral() {
       <h1>Rúbrica y Evaluaciones</h1>
       <p style="color:var(--text-muted); margin-top:-0.6em;">Define las categorías y sus pesos, y debajo revisa las notas de todos los estudiantes por sección.</p>
 
+      <button class="btn secondary small" id="generar-machote-btn" style="margin-top:0.4rem;">Generar machote (imprimir)</button>
+
       <details class="group-promo" style="margin-top:1.2rem;" open>
         <summary style="font-family:var(--serif); font-weight:600; font-size:1.02rem;">Categorías de la rúbrica</summary>
         <div id="rubrica-form" style="margin-top:0.8rem;">Cargando…</div>
@@ -1745,10 +1747,118 @@ async function renderEvaluacionesGeneral() {
     </div>`;
   bindTopbar();
 
+  document.getElementById("generar-machote-btn").addEventListener("click", () => abrirMachoteEvaluaciones(secciones));
+
   await cargarRubricaForm();
   for (const sec of secciones) {
     await cargarEvaluacionesSeccion(sec, porSeccion[sec], `evaluaciones-sec-${sec}`);
   }
+}
+
+async function abrirMachoteEvaluaciones(secciones) {
+  const { data: materias } = await sb.from("materias").select("*").order("seccion").order("nombre");
+
+  const opcionesMaterias = (materias || []).map(m => `<option value="${m.id}">${m.nombre} (${m.seccion})</option>`).join("");
+
+  const html = `<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Machote de evaluación</title>
+<style>
+  @page { size: letter portrait; margin: 1.6cm; }
+  body { font-family: 'IBM Plex Sans', Arial, sans-serif; color: #232323; margin: 0; padding: 1.5rem; }
+  .no-print { margin-bottom: 1.2rem; display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+  .no-print select, .no-print input { padding: 0.4rem 0.5rem; font-size: 0.9rem; }
+  .no-print button { padding: 0.5rem 1rem; font-size: 0.9rem; cursor: pointer; }
+  header.machote { text-align: center; border-bottom: 2px solid #16232e; padding-bottom: 0.7rem; margin-bottom: 1.1rem; }
+  header.machote h1 { font-size: 1.15rem; margin: 0 0 0.15rem; font-family: Georgia, serif; }
+  header.machote .sub { font-size: 0.85rem; color: #555; }
+  .campos { display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem 1.5rem; margin-bottom: 1.2rem; font-size: 0.92rem; }
+  .campo { border-bottom: 1px solid #999; padding: 0.25rem 0.1rem; display: flex; gap: 0.4rem; }
+  .campo b { white-space: nowrap; }
+  .campo span.linea { flex: 1; }
+  .titulo-principal { text-align: center; font-size: 1.3rem; font-weight: 700; font-family: Georgia, serif; border: 1px solid #16232e; padding: 0.6rem; margin: 1rem 0 1.3rem; }
+  .titulo-principal[contenteditable="true"]:empty:before { content: "Título principal del machote — haz clic aquí para escribirlo"; color: #999; font-style: italic; font-weight: 400; font-size: 1rem; }
+  table { width: 100%; border-collapse: collapse; margin-top: 0.4rem; }
+  th, td { border: 1px solid #16232e; padding: 0.5rem 0.4rem; font-size: 0.85rem; text-align: left; vertical-align: top; }
+  th { background: #16232e; color: #fff; font-weight: 600; }
+  td { min-height: 2.4rem; }
+  td[contenteditable="true"]:empty:before { content: "—"; color: #bbb; }
+  @media print { .no-print { display: none; } body { padding: 0; } }
+</style>
+</head>
+<body>
+  <div class="no-print">
+    <label>Sección:
+      <select id="sel-sec"><option value="">— todas —</option>${secciones.map(s => `<option value="${s}">${s}</option>`).join("")}</select>
+    </label>
+    <label>Materia:
+      <select id="sel-mat"><option value="">— ninguna —</option>${opcionesMaterias}</select>
+    </label>
+    <button id="btn-print">Imprimir / Guardar PDF</button>
+    <span style="font-size:0.8rem; color:#666;">Puedes escribir directamente sobre el título y las celdas antes de imprimir.</span>
+  </div>
+
+  <header class="machote">
+    <h1>${INSTITUCION.nombre}</h1>
+    <div class="sub">Especialidad: ${INSTITUCION.especialidad} · Docente: ${INSTITUCION.docente}</div>
+  </header>
+
+  <div class="campos">
+    <div class="campo"><b>Nivel / Sección:</b><span class="linea" contenteditable="true" id="campo-seccion"></span></div>
+    <div class="campo"><b>Materia:</b><span class="linea" contenteditable="true" id="campo-materia"></span></div>
+    <div class="campo"><b>Fecha:</b><span class="linea" contenteditable="true"></span></div>
+    <div class="campo"><b>Trimestre:</b><span class="linea" contenteditable="true"></span></div>
+  </div>
+
+  <div class="titulo-principal" contenteditable="true" id="titulo-principal"></div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:22%;">Resultado de Aprendizaje</th>
+        <th style="width:22%;">Indicador</th>
+        <th style="width:28%;">Criterios</th>
+        <th style="width:10%;">Puntaje</th>
+        <th style="width:18%;">Fecha</th>
+      </tr>
+    </thead>
+    <tbody id="filas-machote">
+      ${Array.from({ length: 6 }, () => `
+      <tr>
+        <td contenteditable="true"></td>
+        <td contenteditable="true"></td>
+        <td contenteditable="true"></td>
+        <td contenteditable="true"></td>
+        <td contenteditable="true"></td>
+      </tr>`).join("")}
+    </tbody>
+  </table>
+
+  <script>
+    const MATERIAS = ${JSON.stringify(materias || [])};
+    document.getElementById("btn-print").addEventListener("click", () => window.print());
+    document.getElementById("sel-sec").addEventListener("change", (e) => {
+      document.getElementById("campo-seccion").textContent = e.target.value;
+    });
+    document.getElementById("sel-mat").addEventListener("change", (e) => {
+      const m = MATERIAS.find(x => String(x.id) === e.target.value);
+      document.getElementById("campo-materia").textContent = m ? m.nombre : "";
+      if (m && !document.getElementById("campo-seccion").textContent) {
+        document.getElementById("campo-seccion").textContent = m.seccion;
+      }
+      document.getElementById("titulo-principal").textContent = m ? m.nombre.toUpperCase() : "";
+    });
+  </script>
+</body>
+</html>`;
+
+  const w = window.open("", "_blank");
+  if (!w) { alert("El navegador bloqueó la ventana nueva. Permite ventanas emergentes para generar el machote."); return; }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
 }
 
 async function cargarRubricaForm() {
