@@ -49,6 +49,7 @@ async function render() {
   if (hash === "#/horario") return renderHorario();
   if (hash === "#/asistencia/resumen") return renderResumenAsistencia();
   if (hash === "#/asistencia/informe") return renderInformeAsistenciaSeccion();
+  if (hash === "#/periodos") return renderPeriodos();
   const progUnidadMatch = hash.match(/^#\/programa\/(.+)$/);
   if (progUnidadMatch) return renderProgramaUnidad(decodeURIComponent(progUnidadMatch[1]));
   if (apartadoMatch) return renderApartado(decodeURIComponent(apartadoMatch[1]), false);
@@ -65,7 +66,7 @@ function topbar() {
     <div>
       <span class="docente">${role === "docente" ? "Prof. " + nombre : nombre}</span>
       <nav style="display:inline">
-        ${role === "docente" ? `<a href="#/">Secciones</a><a href="#/materias">Materias</a><a href="#/programa">Programa</a><a href="#/evaluaciones">Rúbrica y Evaluaciones</a><a href="#/asistencia">Asistencia</a>` : ""}
+        ${role === "docente" ? `<a href="#/">Secciones</a><a href="#/materias">Materias</a><a href="#/programa">Programa</a><a href="#/evaluaciones">Rúbrica y Evaluaciones</a><a href="#/asistencia">Asistencia</a><a href="#/periodos">Períodos</a>` : ""}
         <a href="#" id="logout-link">Salir</a>
       </nav>
     </div>
@@ -682,6 +683,44 @@ async function calcularNotaAsistencia(estudianteId, materiaId) {
   return { nota, impartidas, ausenciasComputadas };
 }
 
+// Igual que calcularNotaAsistencia, pero limitado a un rango de fechas (un período),
+// y devuelve el desglose completo (presentes, justificadas, tardías, etc.) y el
+// detalle de cada falta/tardía, para el Reporte oficial.
+async function calcularNotaAsistenciaPeriodo(estudianteId, materiaId, fechaInicio, fechaFin) {
+  const { data: lecciones } = await sb.from("lecciones").select("id, numero, dia_semana, hora_inicio").eq("materia_id", materiaId);
+  const leccionIds = (lecciones || []).map(l => l.id);
+  const leccionPorId = {};
+  (lecciones || []).forEach(l => { leccionPorId[l.id] = l; });
+  if (leccionIds.length === 0) return null;
+
+  const { data: todas } = await sb.from("asistencia_lecciones").select("leccion_id, fecha, estudiante_id, estado")
+    .in("leccion_id", leccionIds).gte("fecha", fechaInicio).lte("fecha", fechaFin);
+  if (!todas || todas.length === 0) return null;
+
+  const impartidas = new Set(todas.map(r => `${r.leccion_id}-${r.fecha}`)).size;
+  const delEstudiante = todas.filter(r => r.estudiante_id === estudianteId);
+
+  const justificadas = delEstudiante.filter(r => r.estado === "ausente_justificada" || r.estado === "tardia_justificada").length;
+  const tardias = delEstudiante.filter(r => r.estado === "tardia_leve" || r.estado === "tardia_grave");
+  const ausentesInjustificadas = delEstudiante.filter(r => r.estado === "ausente_injustificada").length;
+  const porConversionTardias = tardias.reduce((a, r) => a + pesoAusencia(r.estado), 0);
+  const totalInjustificadas = ausentesInjustificadas + porConversionTardias;
+  const presentes = Math.max(0, impartidas - justificadas - totalInjustificadas);
+
+  const nota = Math.max(0, (1 - totalInjustificadas / impartidas) * 100);
+
+  const detalleFaltas = delEstudiante
+    .filter(r => r.estado !== "presente")
+    .sort((a, b) => (a.fecha || "").localeCompare(b.fecha || ""))
+    .map(r => ({
+      fecha: r.fecha,
+      leccion: leccionPorId[r.leccion_id]?.numero || "",
+      estado: ESTADOS_ASISTENCIA.find(e => e.v === r.estado)?.l || r.estado
+    }));
+
+  return { nota, impartidas, presentes, justificadas, tardias: tardias.length, porConversionTardias, ausentesInjustificadas, totalInjustificadas, detalleFaltas };
+}
+
 // Calcula la nota (0-100) de un estudiante en una categoría de una materia,
 // a partir de los Indicadores y Criterios de evaluación (si existen).
 async function calcularNotaIndicadores(estudianteId, materiaId, categoriaNombre) {
@@ -806,6 +845,59 @@ async function renderHorario() {
     if (celdasVacias.length > 0) await sb.from("lecciones").delete().in("id", celdasVacias.map(l => l.id));
     btn.textContent = "Guardado ✓";
     setTimeout(() => { btn.textContent = "Guardar horario"; }, 1500);
+  });
+}
+
+async function renderPeriodos() {
+  app.innerHTML = `
+    ${topbar()}
+    <div class="wrap">
+      <h1>Períodos</h1>
+      <p style="color:var(--text-muted); margin-top:-0.6em;">Define las fechas de cada período (I, II, III). El sistema usa estas fechas para separar automáticamente los indicadores, las notas y la asistencia en el "Reporte oficial" de cada estudiante — por fecha, sin que tengas que etiquetar nada a mano.</p>
+      <div id="periodos-lista" style="margin-top:1rem;">Cargando…</div>
+      <form class="inline-form" id="periodo-form" style="margin-top:1rem;">
+        <input name="nombre" placeholder="Nombre (ej. I Período)" required style="flex:1; min-width:10rem" />
+        <input name="fecha_inicio" type="date" required />
+        <input name="fecha_fin" type="date" required />
+        <button class="btn small" type="submit">Agregar período</button>
+      </form>
+    </div>`;
+  bindTopbar();
+
+  async function cargar() {
+    const { data: periodos } = await sb.from("periodos").select("*").order("orden").order("fecha_inicio");
+    const holder = document.getElementById("periodos-lista");
+    if (!holder) return;
+    holder.innerHTML = `
+      <div class="roster">
+        ${(periodos || []).map(p => `
+          <div class="roster-row">
+            <span class="name">${p.nombre}</span>
+            <span class="cedula">${p.fecha_inicio} → ${p.fecha_fin}</span>
+            <button class="btn danger small" data-del-periodo="${p.id}">Eliminar</button>
+          </div>`).join("") || '<p class="empty">Todavía no has definido períodos.</p>'}
+      </div>`;
+    holder.querySelectorAll("[data-del-periodo]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        await sb.from("periodos").delete().eq("id", btn.dataset.delPeriodo);
+        cargar();
+      });
+    });
+  }
+  await cargar();
+
+  document.getElementById("periodo-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const { data: existentes } = await sb.from("periodos").select("id");
+    await sb.from("periodos").insert({
+      nombre: f.get("nombre"),
+      fecha_inicio: f.get("fecha_inicio"),
+      fecha_fin: f.get("fecha_fin"),
+      orden: (existentes || []).length + 1
+    });
+    e.target.reset();
+    cargar();
   });
 }
 
@@ -1075,8 +1167,13 @@ async function renderPerfil(id, isSelf) {
             <div class="meta">${!isSelf ? `Cédula ${s.id} · ` : ""}Sección ${s.seccion} · ${s.especialidad}</div>
           </div>
         </div>
-        ${!isSelf && session.role === "docente" ? `<button class="btn secondary small" id="ver-como-estudiante">Ver como estudiante</button>` : ""}
+        ${!isSelf && session.role === "docente" ? `
+        <span style="display:flex; gap:0.5rem;">
+          <button class="btn secondary small" id="generar-reporte-oficial-btn">Generar reporte oficial</button>
+          <button class="btn secondary small" id="ver-como-estudiante">Ver como estudiante</button>
+        </span>` : ""}
       </div>
+      ${!isSelf ? `<div id="reporte-oficial-selector" style="display:none; margin-bottom:1.2rem;"></div>` : ""}
 
       <div class="tabs">
         <button class="tab-btn ${(activeTab === "notas" || activeTab === "tareas") ? "active" : ""}" data-tab="notas">Notas y Tareas</button>
@@ -1095,6 +1192,8 @@ async function renderPerfil(id, isSelf) {
 
   const verComoBtn = document.getElementById("ver-como-estudiante");
   if (verComoBtn) verComoBtn.addEventListener("click", () => renderPerfil(s.id, true));
+  const reporteBtn = document.getElementById("generar-reporte-oficial-btn");
+  if (reporteBtn) reporteBtn.addEventListener("click", () => mostrarSelectorReporteOficial(s));
   const salirPreviewBtn = document.getElementById("salir-vista-previa");
   if (salirPreviewBtn) salirPreviewBtn.addEventListener("click", () => renderPerfil(s.id, false));
 
@@ -1128,6 +1227,206 @@ async function renderPerfil(id, isSelf) {
   }
 
   renderTabContent(s, activeTab, isSelf);
+}
+
+async function mostrarSelectorReporteOficial(s) {
+  const panel = document.getElementById("reporte-oficial-selector");
+  if (!panel) return;
+  if (panel.style.display === "block") { panel.style.display = "none"; return; }
+
+  const { data: asignadas } = await sb.from("estudiante_materias").select("materia_id, materias(id, nombre)").eq("estudiante_id", s.id);
+  const materias = (asignadas || []).map(a => a.materias).filter(Boolean);
+  if (materias.length === 0) {
+    panel.style.display = "block";
+    panel.innerHTML = `<p class="no-phone-note">Este estudiante no tiene materias asignadas todavía.</p>`;
+    return;
+  }
+  const { data: periodos } = await sb.from("periodos").select("*").order("orden").order("fecha_inicio");
+
+  panel.style.display = "block";
+  panel.innerHTML = `
+    <div class="whatsapp-panel" style="max-width:520px;">
+      <label for="reporte-materia-sel">Asignatura</label>
+      <select id="reporte-materia-sel">
+        ${materias.map(m => `<option value="${m.id}">${m.nombre}</option>`).join("")}
+      </select>
+      <div class="row"><button class="btn small" id="reporte-generar-btn">Generar</button></div>
+      ${(periodos || []).length === 0 ? `<p class="no-phone-note">No has definido períodos todavía. Ve a "Períodos" en el menú para crear al menos uno (ej. "I Período", con sus fechas).</p>` : ""}
+    </div>`;
+
+  document.getElementById("reporte-generar-btn").addEventListener("click", async (e) => {
+    if ((periodos || []).length === 0) { alert('Primero define al menos un período en "Períodos" (menú superior).'); return; }
+    const btn = e.target;
+    btn.textContent = "Generando…";
+    const materiaId = Number(document.getElementById("reporte-materia-sel").value);
+    await generarReporteOficial(s, materiaId, periodos);
+    btn.textContent = "Generar";
+  });
+}
+
+async function generarReporteOficial(estudiante, materiaId, periodos) {
+  const { data: materia } = await sb.from("materias").select("*").eq("id", materiaId).maybeSingle();
+  const { data: categorias } = await sb.from("rubrica_categorias").select("*").order("orden");
+
+  function fmtPct(n) { return (Math.round(n * 10) / 10) + "%"; }
+
+  async function bloqueCategoria(cat, fechaInicio, fechaFin) {
+    // Indicadores (con fecha dentro del período)
+    const { data: indicadoresTodos } = await sb.from("indicadores").select("*, criterios_indicador(*)").eq("materia_id", materiaId).eq("categoria", cat.nombre).order("orden");
+    const indicadores = (indicadoresTodos || []).filter(i => i.fecha_evaluacion && i.fecha_evaluacion >= fechaInicio && i.fecha_evaluacion <= fechaFin);
+
+    if (indicadores.length > 0) {
+      const indicadorIds = indicadores.map(i => i.id);
+      const { data: calificaciones } = await sb.from("calificaciones_indicador").select("*").eq("estudiante_id", estudiante.id).in("indicador_id", indicadorIds);
+      const porIndicador = {};
+      (calificaciones || []).forEach(c => { porIndicador[c.indicador_id] = c.puntaje_obtenido; });
+      const sumaMax = indicadores.reduce((a, i) => a + Number(i.puntaje_maximo), 0);
+      const sumaObt = indicadores.reduce((a, i) => a + Number(porIndicador[i.id] || 0), 0);
+      const notaCat = sumaMax > 0 ? (sumaObt / sumaMax) * 100 : 0;
+      const contribucion = notaCat * cat.porcentaje / 100;
+
+      const html = `
+        <div class="titulo-principal" style="font-size:1rem; text-align:left; padding:0.5rem 0.8rem;">Evaluación de ${cat.nombre}</div>
+        <table>
+          <thead><tr>${indicadores.map(i => `<th style="text-align:center;">${i.letra}</th>`).join("")}<th>Resultado de ${cat.nombre.toLowerCase()} (valor: ${cat.porcentaje}%)</th></tr></thead>
+          <tbody><tr>${indicadores.map(i => `<td style="text-align:center;">${porIndicador[i.id] || 0}</td>`).join("")}<td style="text-align:center; font-weight:700;">${fmtPct(contribucion)}</td></tr></tbody>
+        </table>
+        <p style="font-weight:600; margin:0.8rem 0 0.3rem;">Indicadores evaluados y criterios de evaluación</p>
+        <table>
+          <thead><tr><th style="width:45%;">Indicador</th><th style="width:12%;">Puntaje máximo</th><th>Criterios</th></tr></thead>
+          <tbody>
+            ${indicadores.map(i => `<tr>
+              <td><strong>${i.letra}:</strong> ${i.descripcion}<div style="font-size:0.75rem; color:#666;">Fecha${i.lecciones ? " y lecciones" : ""}: ${i.fecha_evaluacion}${i.lecciones ? " · " + i.lecciones + " lecciones" : ""}</div></td>
+              <td style="text-align:center;">${i.puntaje_maximo} puntos</td>
+              <td>${(i.criterios_indicador || []).length ? i.criterios_indicador.sort((a, b) => a.puntaje - b.puntaje).map(c => `${c.puntaje} punto${c.puntaje === 1 ? "" : "s"}: ${c.descripcion}`).join("<br/>") : "Sin criterios configurados."}</td>
+            </tr>`).join("")}
+          </tbody>
+        </table>`;
+      return { html, contribucion };
+    }
+
+    // Si no hay indicadores en el período, usa notas manuales con fecha de creación dentro del rango.
+    const { data: notasTodas } = await sb.from("notas").select("*").eq("estudiante_id", estudiante.id).eq("materia_id", materiaId).eq("rubro", cat.nombre);
+    const notas = (notasTodas || []).filter(n => n.creado_en && n.creado_en.slice(0, 10) >= fechaInicio && n.creado_en.slice(0, 10) <= fechaFin);
+    if (notas.length === 0) return null;
+    const promedio = notas.reduce((a, n) => a + Number(n.nota), 0) / notas.length;
+    const contribucion = promedio * cat.porcentaje / 100;
+    const html = `
+      <div class="titulo-principal" style="font-size:1rem; text-align:left; padding:0.5rem 0.8rem;">${cat.nombre}</div>
+      <table>
+        <thead><tr>${notas.map((n, idx) => `<th>${cat.nombre} ${idx + 1}</th>`).join("")}<th>Resultado del componente</th></tr></thead>
+        <tbody>
+          <tr>${notas.map(n => `<td style="text-align:center;">${new Date(n.creado_en).toLocaleDateString("es-CR")}</td>`).join("")}<td rowspan="2" style="text-align:center; font-weight:700;">${fmtPct(contribucion)}</td></tr>
+          <tr>${notas.map(n => `<td style="text-align:center;">Nota: ${n.nota}</td>`).join("")}</tr>
+        </tbody>
+      </table>
+      <p style="font-size:0.8rem; color:#555;">Valor: ${cat.porcentaje}%</p>`;
+    return { html, contribucion };
+  }
+
+  async function bloqueAsistencia(cat, fechaInicio, fechaFin) {
+    const r = await calcularNotaAsistenciaPeriodo(estudiante.id, materiaId, fechaInicio, fechaFin);
+    if (!r) return null;
+    const contribucion = r.nota * cat.porcentaje / 100;
+    const html = `
+      <div class="titulo-principal" style="font-size:1rem; text-align:left; padding:0.5rem 0.8rem;">Asistencia</div>
+      <p style="font-size:0.85rem;">Cantidad de lecciones registradas por el docente: ${r.impartidas}. Fechas: ${fechaInicio} al ${fechaFin}.</p>
+      <table>
+        <thead><tr><th>Lecciones presentes</th><th>Ausencias justificadas</th><th>Tardanzas</th><th>Ausencias injustificadas por conversión de tardanzas</th><th>Ausencias injustificadas</th><th>Total de ausencias injustificadas</th><th>Resultado de asistencia (${cat.porcentaje}%)</th></tr></thead>
+        <tbody><tr>
+          <td style="text-align:center;">${r.presentes}</td>
+          <td style="text-align:center;">${r.justificadas}</td>
+          <td style="text-align:center;">${r.tardias}</td>
+          <td style="text-align:center;">${r.porConversionTardias.toFixed(1)}</td>
+          <td style="text-align:center;">${r.ausentesInjustificadas}</td>
+          <td style="text-align:center;">${r.totalInjustificadas.toFixed(1)}</td>
+          <td style="text-align:center; font-weight:700;">${fmtPct(contribucion)}</td>
+        </tr></tbody>
+      </table>
+      ${r.detalleFaltas.length > 0 ? `
+      <p style="font-weight:600; margin:0.8rem 0 0.3rem;">Reporte de ausencias y tardanzas</p>
+      <table>
+        <thead><tr><th>Fecha</th><th>Lección</th><th>Estado</th></tr></thead>
+        <tbody>${r.detalleFaltas.map(f => `<tr><td>${new Date(f.fecha).toLocaleDateString("es-CR", { day: "numeric", month: "long", year: "numeric" })}</td><td style="text-align:center;">${f.leccion}</td><td>${f.estado}</td></tr>`).join("")}</tbody>
+      </table>` : ""}`;
+    return { html, contribucion };
+  }
+
+  let periodosHtml = "";
+  for (const p of periodos) {
+    let bloques = "", resumenCols = "", resumenVals = "", totalPct = 0;
+    for (const cat of (categorias || [])) {
+      const esAsistencia = cat.nombre.trim().toLowerCase() === "asistencia";
+      const resultado = esAsistencia ? await bloqueAsistencia(cat, p.fecha_inicio, p.fecha_fin) : await bloqueCategoria(cat, p.fecha_inicio, p.fecha_fin);
+      resumenCols += `<th>${cat.nombre} (${cat.porcentaje}%)</th>`;
+      if (resultado) {
+        bloques += `<div style="margin-top:1.3rem;">${resultado.html}</div>`;
+        resumenVals += `<td style="text-align:center;">${fmtPct(resultado.contribucion)}</td>`;
+        totalPct += resultado.contribucion;
+      } else {
+        resumenVals += `<td style="text-align:center; color:#999;">—</td>`;
+      }
+    }
+    if (!bloques) continue; // sin ningún dato en este período, lo omite
+    periodosHtml += `
+      <div style="page-break-before:always; margin-top:2rem; padding-top:1rem; border-top:3px double #16232e;">
+        <h2 style="text-align:center; font-family:Georgia,serif;">${p.nombre}</h2>
+        ${bloques}
+        <p style="font-weight:600; margin:1.2rem 0 0.3rem; text-align:center;">Resumen de ${p.nombre}</p>
+        <table>
+          <thead><tr>${resumenCols}<th>Total (%)</th></tr></thead>
+          <tbody><tr>${resumenVals}<td style="text-align:center; font-weight:700;">${fmtPct(totalPct)}</td></tr></tbody>
+        </table>
+      </div>`;
+  }
+
+  if (!periodosHtml) periodosHtml = `<p style="margin-top:2rem; color:#999;">No se encontraron datos (indicadores, notas o asistencia) dentro de las fechas de los períodos definidos, para esta asignatura.</p>`;
+
+  const html = `<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Reporte oficial — ${estudiante.nombre} ${estudiante.apellido1}</title>
+<style>
+  @page { size: letter portrait; margin: 1.6cm; }
+  body { font-family: 'IBM Plex Sans', Arial, sans-serif; color: #232323; margin: 0; padding: 1.5rem; font-size: 0.85rem; }
+  .no-print { margin-bottom: 1.2rem; }
+  .no-print button { padding: 0.5rem 1rem; font-size: 0.9rem; cursor: pointer; }
+  header.rep { text-align: center; border-bottom: 2px solid #16232e; padding-bottom: 0.7rem; margin-bottom: 1.1rem; }
+  header.rep h1 { font-size: 1.1rem; margin: 0 0 0.15rem; font-family: Georgia, serif; }
+  header.rep .sub { font-size: 0.8rem; color: #555; }
+  .datos { display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem 1.5rem; margin-bottom: 1.2rem; font-size: 0.88rem; }
+  .datos div { border-bottom: 1px solid #ccc; padding: 0.2rem 0; }
+  .titulo-principal { font-weight: 700; font-family: Georgia, serif; border: 1px solid #16232e; }
+  table { width: 100%; border-collapse: collapse; margin-top: 0.3rem; }
+  th, td { border: 1px solid #16232e; padding: 0.4rem 0.35rem; font-size: 0.78rem; text-align: left; vertical-align: top; }
+  th { background: #16232e; color: #fff; font-weight: 600; }
+  @media print { .no-print { display: none; } body { padding: 0; } }
+</style>
+</head>
+<body>
+  <div class="no-print"><button id="btn-print">Imprimir / Guardar PDF</button></div>
+  <header class="rep">
+    <h1>${INSTITUCION.nombre}</h1>
+    <div class="sub">Este reporte presenta un resumen de las calificaciones obtenidas por el estudiante en las diferentes evaluaciones realizadas.</div>
+  </header>
+  <div class="datos">
+    <div><b>Estudiante:</b> ${estudiante.apellido1} ${estudiante.apellido2}, ${estudiante.nombre}</div>
+    <div><b>Sección:</b> ${estudiante.seccion}</div>
+    <div><b>Asignatura:</b> ${materia?.nombre || ""}</div>
+    <div><b>Docente:</b> ${INSTITUCION.docente}</div>
+    <div><b>Fecha del reporte:</b> ${new Date().toLocaleDateString("es-CR", { day: "numeric", month: "long", year: "numeric" })}</div>
+  </div>
+  ${periodosHtml}
+  <script>document.getElementById("btn-print").addEventListener("click", () => window.print());</script>
+</body>
+</html>`;
+
+  const w = window.open("", "_blank");
+  if (!w) { alert("El navegador bloqueó la ventana nueva. Permite ventanas emergentes para generar el reporte."); return; }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
 }
 
 function resizeImageToDataUrl(file, maxSize, callback) {
