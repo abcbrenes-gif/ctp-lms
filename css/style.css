@@ -179,6 +179,19 @@ a { color: inherit; }
   border: 1px solid var(--ledger-green);
   padding: 0.1rem 0.5rem;
   border-radius: 999px;
+  flex-shrink: 0;
+}
+
+/* Títulos largos (p. ej. un resultado de aprendizaje usado como nombre de tema):
+   se recortan a 2 líneas en vez de desbordar la fila. */
+.roster-row .name.clamp2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.35;
 }
 
 /* Profile */
@@ -325,6 +338,54 @@ table.grades td.num.low { color: var(--brick); font-weight: 600; }
 .roa-cell-texto p, .roa-html p { margin: 0 0 0.4em 0; }
 .roa-cell-texto ul, .roa-html ul { margin: 0 0 0.3em 0; padding-left: 1.1rem; }
 .roa-cell-texto li, .roa-html li { margin-bottom: 0.15em; }
+
+/* Página de un Tema (apartado): lo que ve el estudiante al entrar a un resultado de aprendizaje. */
+.tema-header {
+  background: var(--white);
+  border: 1px solid var(--paper-line);
+  border-top: 4px solid var(--ledger-green);
+  padding: 1.4rem 1.6rem;
+  margin-bottom: 1.3rem;
+}
+.tema-eyebrow {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ledger-green-deep);
+  margin-bottom: 0.5rem;
+}
+.tema-title {
+  font-size: 1.4rem;
+  line-height: 1.4;
+  margin: 0;
+}
+.tema-saberes {
+  margin-top: 1.1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--paper-line);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+.tema-saberes strong {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.4rem;
+}
+.tema-section {
+  background: var(--white);
+  border: 1px solid var(--paper-line);
+  padding: 1.2rem 1.5rem;
+  margin-bottom: 1.2rem;
+}
+.tema-section h3 { margin-top: 0; }
+.tema-section .roa-cell-texto,
+.tema-section .roa-html { font-size: 0.95rem; line-height: 1.6; }
 
 .roa-editable {
   width: 100%;
