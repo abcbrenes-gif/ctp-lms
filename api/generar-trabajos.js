@@ -1,11 +1,12 @@
-// Función serverless de Vercel: sugiere una lista de "Trabajos cotidianos"
-// (título + instrucciones) a partir de los datos del Programa de estudio
-// (resultado, saberes, estrategias del estudiante, evidencias).
-// Solo se usa desde la vista del profesor en /js/app-parte2.js (renderApartado).
-// El profesor revisa la lista y decide cuáles agregar — no se crean solos.
+// Función serverless de Vercel: a partir del Resultado de aprendizaje y los
+// Saberes esenciales de un Tema, sugiere una lista de "Subtemas" en los que
+// se puede dividir ese tema (para luego subir material de apoyo específico
+// a cada uno). Solo se usa desde la vista del profesor en /js/app-parte2.js
+// (renderApartado). El profesor revisa la lista y decide cuáles crear —
+// no se crean solos.
 //
-// La llave de la API (ANTHROPIC_API_KEY) se lee de las variables de entorno de Vercel.
-// Nunca se envía al navegador: esta función corre en el servidor.
+// La llave de la API (ANTHROPIC_API_KEY) se lee de las variables de entorno
+// de Vercel. Nunca se envía al navegador: esta función corre en el servidor.
 
 function limpiarHtml(valor) {
   return String(valor || "")
@@ -16,8 +17,16 @@ function limpiarHtml(valor) {
 }
 
 function extraerJson(texto) {
+  let limpio = String(texto || "").trim();
   // El modelo a veces envuelve el JSON en ```json ... ``` — se lo quitamos si aparece.
-  const limpio = String(texto || "").trim().replace(/^```(json)?/i, "").replace(/```$/, "").trim();
+  limpio = limpio.replace(/^```(json)?/i, "").replace(/```$/, "").trim();
+  // Si además agregó alguna frase antes o después del arreglo, nos quedamos
+  // solo con lo que está entre el primer "[" y el último "]".
+  const inicio = limpio.indexOf("[");
+  const fin = limpio.lastIndexOf("]");
+  if (inicio !== -1 && fin !== -1 && fin > inicio) {
+    limpio = limpio.slice(inicio, fin + 1);
+  }
   return JSON.parse(limpio);
 }
 
@@ -40,38 +49,34 @@ module.exports = async (req, res) => {
   body = body || {};
 
   const resultado = limpiarHtml(body.resultado);
-  const saberes = limpiarHtml(body.saberes);
-  const estrategiasEstudiante = limpiarHtml(body.estrategiasEstudiante);
-  const evidencias = limpiarHtml(body.evidencias);
+  // Algunos temas tienen un texto de "Saberes esenciales" muy largo (varios miles
+  // de caracteres, pegado desde Word). Lo recortamos para dejarle espacio de sobra
+  // a la respuesta del modelo y evitar que la salida JSON quede incompleta.
+  const saberes = limpiarHtml(body.saberes).slice(0, 6000);
   const instrucciones = limpiarHtml(body.instrucciones);
 
-  if (!resultado) {
-    res.status(400).json({ error: "Falta el resultado de aprendizaje de este tema." });
+  if (!saberes) {
+    res.status(400).json({ error: "Falta el texto de Saberes esenciales de este tema." });
     return;
   }
 
   const contexto = [
-    `Resultado de aprendizaje: ${resultado}`,
-    saberes ? `Saberes esenciales: ${saberes}` : "",
-    estrategiasEstudiante ? `Estrategias de mediación del estudiante (según el programa de estudio): ${estrategiasEstudiante}` : "",
-    evidencias ? `Evidencias de aprendizaje que se piden: ${evidencias}` : ""
+    resultado ? `Resultado de aprendizaje: ${resultado}` : "",
+    `Saberes esenciales: ${saberes}`
   ].filter(Boolean).join("\n");
 
   const prompt = `Sos un asistente para un profesor de Contabilidad de un colegio técnico (CTP) en Costa Rica.
-Te doy el contenido oficial de un tema del programa de estudio. Proponé una lista de 4 a 6 "trabajos cotidianos"
-(tareas cortas que los estudiantes hacen y entregan, de las que ya existen en la plataforma del profesor) para ese tema.
-
-Cada trabajo cotidiano se basa en las estrategias de mediación del estudiante que ya están en el programa —
-convertí cada estrategia (o grupo de estrategias relacionadas) en una tarea concreta y evaluable.
+Te doy el contenido oficial de un Tema del programa de estudio (su resultado de aprendizaje y sus saberes esenciales).
+Dividí ese tema en subtemas (entre 3 y 6), agrupando los saberes esenciales por bloques de contenido relacionado,
+para que el profesor pueda subir material de apoyo distinto a cada subtema.
 
 Reglas:
 - Devolvé ÚNICAMENTE un JSON válido, sin texto antes ni después, con esta forma exacta:
   [{"titulo": "...", "descripcion": "..."}, ...]
-- "titulo": corto (máximo 8 palabras), en español de Costa Rica.
-- "descripcion": instrucciones breves para el estudiante (1 a 3 oraciones), en HTML simple
-  (solo <p>, <ul>, <li>, <strong> si hace falta — sin markdown).
-- No repitas el resultado de aprendizaje como si fuera un trabajo.
-- No inventes fechas ni rúbricas.
+- "titulo": corto (máximo 7 palabras), en español de Costa Rica, que nombre el bloque de contenido.
+- "descripcion": 1 oración breve que resuma qué entra en ese subtema, basada en los saberes esenciales dados.
+- Cubrí entre 3 y 6 subtemas que en conjunto abarquen todos los saberes esenciales, sin repetir contenido entre subtemas.
+- No inventes contenido que no esté en los saberes esenciales dados.
 
 ${contexto}
 ${instrucciones ? `\nInstrucciones adicionales del profesor (seguilas con prioridad): ${instrucciones}` : ""}`;
@@ -86,7 +91,7 @@ ${instrucciones ? `\nInstrucciones adicionales del profesor (seguilas con priori
       },
       body: JSON.stringify({
         model: "claude-haiku-5-5",
-        max_tokens: 1200,
+        max_tokens: 2048,
         messages: [{ role: "user", content: prompt }]
       })
     });
@@ -101,25 +106,41 @@ ${instrucciones ? `\nInstrucciones adicionales del profesor (seguilas con priori
 
     const texto = (datos.content || []).map((bloque) => bloque.text || "").join("").trim();
 
-    let trabajos;
+    let subtemas;
     try {
-      trabajos = extraerJson(texto);
+      subtemas = extraerJson(texto);
     } catch (err) {
+      // Reintentamos una sola vez con una instrucción más estricta antes de rendirnos.
+      try {
+        const reintento = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+          body: JSON.stringify({
+            model: "claude-haiku-5-5",
+            max_tokens: 2048,
+            messages: [{ role: "user", content: prompt + "\n\nRecordatorio: respondé SOLO con el arreglo JSON, sin explicaciones antes ni después, y sin cortar el texto a la mitad." }]
+          })
+        });
+        const datosReintento = await reintento.json();
+        const textoReintento = (datosReintento.content || []).map((bloque) => bloque.text || "").join("").trim();
+        subtemas = extraerJson(textoReintento);
+      } catch (err2) {
+        res.status(502).json({ error: "La IA no devolvió una lista válida. Intentá de nuevo." });
+        return;
+      }
+    }
+
+    if (!Array.isArray(subtemas)) {
       res.status(502).json({ error: "La IA no devolvió una lista válida. Intentá de nuevo." });
       return;
     }
 
-    if (!Array.isArray(trabajos)) {
-      res.status(502).json({ error: "La IA no devolvió una lista válida. Intentá de nuevo." });
-      return;
-    }
-
-    const limpiosValidos = trabajos
-      .filter((t) => t && typeof t.titulo === "string" && t.titulo.trim())
-      .map((t) => ({ titulo: t.titulo.trim(), descripcion: typeof t.descripcion === "string" ? t.descripcion.trim() : "" }))
+    const limpiosValidos = subtemas
+      .filter((s) => s && typeof s.titulo === "string" && s.titulo.trim())
+      .map((s) => ({ titulo: s.titulo.trim(), descripcion: typeof s.descripcion === "string" ? s.descripcion.trim() : "" }))
       .slice(0, 8);
 
-    res.status(200).json({ trabajos: limpiosValidos });
+    res.status(200).json({ subtemas: limpiosValidos });
   } catch (err) {
     res.status(500).json({ error: "No se pudo conectar con la IA: " + (err && err.message ? err.message : String(err)) });
   }
