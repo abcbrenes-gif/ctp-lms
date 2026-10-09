@@ -929,6 +929,7 @@ async function renderApartado(id, soloLectura) {
   if (soloLectura && !pub.habilitado) { location.hash = "#/"; return; }
   const { data: resultado } = pub.resultado_id ? await sb.from("resultados_aprendizaje").select("*").eq("id", pub.resultado_id).maybeSingle() : { data: null };
   const { data: trabajos } = await sb.from("trabajos_cotidianos").select("*").eq("publicacion_id", id).order("creado_en");
+  const { data: materiales } = await sb.from("materiales").select("*").eq("publicacion_id", id).order("creado_en");
 
   let totalEstudiantes = 0;
   if (!soloLectura) {
@@ -978,6 +979,22 @@ async function renderApartado(id, soloLectura) {
           <input name="fecha" type="date" />
           <div class="roa-editable js-trabajo-desc" contenteditable="true" style="flex-basis:100%; min-height:3rem;" data-placeholder="Instrucciones (opcional)"></div>
           <button class="btn small" type="submit">Agregar trabajo</button>
+        </form>
+        <div class="row" style="margin-top:0.6rem;">
+          <button class="btn secondary small" id="sugerir-trabajos-btn" type="button">✨ Sugerir trabajos cotidianos con IA</button>
+        </div>
+        <span id="sugerir-trabajos-estado" style="font-size:0.78rem; color:var(--text-muted); display:block; margin-top:0.4rem; min-height:1.2em;"></span>
+        <div id="sugerir-trabajos-lista" style="margin-top:0.6rem;"></div>` : ""}
+      </section>
+
+      <section class="tema-section">
+        <h3>Material de apoyo</h3>
+        <div class="roster" id="materiales-lista">Cargando…</div>
+        ${!soloLectura ? `
+        <form id="material-form" style="margin-top:0.8rem; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+          <input type="file" id="material-archivo" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.webp" required />
+          <button class="btn small" type="submit">Subir archivo</button>
+          <span id="material-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>
         </form>` : ""}
       </section>
     </div>`;
@@ -1036,9 +1053,138 @@ async function renderApartado(id, soloLectura) {
       });
       renderApartado(id, soloLectura);
     });
+
+    const sugerirBtn = document.getElementById("sugerir-trabajos-btn");
+    if (sugerirBtn) sugerirBtn.addEventListener("click", async () => {
+      const estado = document.getElementById("sugerir-trabajos-estado");
+      const lista = document.getElementById("sugerir-trabajos-lista");
+      const textoOriginal = sugerirBtn.textContent;
+      sugerirBtn.disabled = true;
+      sugerirBtn.textContent = "Pensando…";
+      if (estado) estado.textContent = "";
+      lista.innerHTML = "";
+      try {
+        const r = await fetch("/api/generar-trabajos", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            resultado: resultado ? resultado.resultado : pub.titulo,
+            saberes: resultado ? resultado.saberes : "",
+            estrategiasEstudiante: resultado ? resultado.estrategias : "",
+            evidencias: resultado ? resultado.evidencias : ""
+          })
+        });
+        const datos = await r.json();
+        if (!r.ok) {
+          if (estado) estado.textContent = "No se pudo generar: " + (datos.error || "error desconocido.");
+          return;
+        }
+        const trabajosSugeridos = datos.trabajos || [];
+        if (trabajosSugeridos.length === 0) {
+          if (estado) estado.textContent = "La IA no propuso trabajos para este tema.";
+          return;
+        }
+        if (estado) estado.textContent = "Revisá las sugerencias y agregá las que le sirvan.";
+        lista.innerHTML = trabajosSugeridos.map((t, i) => `
+          <div class="roster-row" data-sugerencia="${i}" style="align-items:flex-start; flex-direction:column; gap:0.4rem;">
+            <div style="display:flex; justify-content:space-between; width:100%; gap:0.5rem;">
+              <strong style="font-size:0.9rem;">${t.titulo}</strong>
+              <button class="btn small" type="button" data-agregar-sugerencia="${i}">+ Agregar</button>
+            </div>
+            ${t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : ""}
+          </div>`).join("");
+        lista.querySelectorAll("[data-agregar-sugerencia]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const i = Number(btn.dataset.agregarSugerencia);
+            const t = trabajosSugeridos[i];
+            btn.disabled = true;
+            btn.textContent = "Agregando…";
+            await sb.from("trabajos_cotidianos").insert({
+              publicacion_id: id,
+              titulo: t.titulo,
+              descripcion: t.descripcion || null
+            });
+            const fila = btn.closest("[data-sugerencia]");
+            if (fila) fila.remove();
+            await pintarTrabajosCotidianos((await sb.from("trabajos_cotidianos").select("*").eq("publicacion_id", id).order("creado_en")).data || [], soloLectura, id);
+          });
+        });
+      } catch (err) {
+        if (estado) estado.textContent = "No se pudo conectar con la IA: " + (err.message || err);
+      } finally {
+        sugerirBtn.disabled = false;
+        sugerirBtn.textContent = textoOriginal;
+      }
+    });
+
+    document.getElementById("material-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const estado = document.getElementById("material-estado");
+      const input = document.getElementById("material-archivo");
+      const archivo = input.files[0];
+      if (!archivo) return;
+      estado.textContent = "Subiendo…";
+      const rutaSegura = `${id}/${Date.now()}-${archivo.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      const { error: errorSubida } = await sb.storage.from("materiales").upload(rutaSegura, archivo);
+      if (errorSubida) {
+        estado.textContent = "No se pudo subir: " + errorSubida.message;
+        return;
+      }
+      await sb.from("materiales").insert({
+        publicacion_id: id,
+        nombre: archivo.name,
+        ruta: rutaSegura,
+        tipo: archivo.type || null,
+        tamano_bytes: archivo.size || null
+      });
+      input.value = "";
+      estado.textContent = "";
+      await pintarMateriales((await sb.from("materiales").select("*").eq("publicacion_id", id).order("creado_en")).data || [], soloLectura);
+    });
   }
 
   await pintarTrabajosCotidianos(trabajos || [], soloLectura, id);
+  await pintarMateriales(materiales || [], soloLectura);
+}
+
+function formatoTamano(bytes) {
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+async function pintarMateriales(materiales, soloLectura) {
+  const holder = document.getElementById("materiales-lista");
+  if (!holder) return;
+
+  if (materiales.length === 0) {
+    holder.innerHTML = `<p class="empty">Todavía no hay material de apoyo en este tema.</p>`;
+    return;
+  }
+
+  holder.innerHTML = materiales.map((m) => {
+    const { data: pub } = sb.storage.from("materiales").getPublicUrl(m.ruta);
+    const url = pub ? pub.publicUrl : "#";
+    return `
+    <div class="roster-row">
+      <a class="name" href="${url}" target="_blank" rel="noopener">${m.nombre}</a>
+      <span class="badge" style="font-weight:400;">${formatoTamano(m.tamano_bytes)}</span>
+      ${!soloLectura ? `<button class="btn danger small" data-del-material="${m.id}" data-ruta-material="${m.ruta}">Eliminar</button>` : ""}
+    </div>`;
+  }).join("");
+
+  if (!soloLectura) {
+    holder.querySelectorAll("[data-del-material]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (!confirm("¿Eliminar este archivo?")) return;
+        await sb.storage.from("materiales").remove([btn.dataset.rutaMaterial]);
+        await sb.from("materiales").delete().eq("id", btn.dataset.delMaterial);
+        btn.closest(".roster-row").remove();
+        if (!holder.children.length) holder.innerHTML = `<p class="empty">Todavía no hay material de apoyo en este tema.</p>`;
+      });
+    });
+  }
 }
 
 async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId) {
