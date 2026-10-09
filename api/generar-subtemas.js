@@ -17,7 +17,16 @@ function limpiarHtml(valor) {
 }
 
 function extraerJson(texto) {
-  const limpio = String(texto || "").trim().replace(/^```(json)?/i, "").replace(/```$/, "").trim();
+  let limpio = String(texto || "").trim();
+  // El modelo a veces envuelve el JSON en ```json ... ``` — se lo quitamos si aparece.
+  limpio = limpio.replace(/^```(json)?/i, "").replace(/```$/, "").trim();
+  // Si además agregó alguna frase antes o después del arreglo, nos quedamos
+  // solo con lo que está entre el primer "[" y el último "]".
+  const inicio = limpio.indexOf("[");
+  const fin = limpio.lastIndexOf("]");
+  if (inicio !== -1 && fin !== -1 && fin > inicio) {
+    limpio = limpio.slice(inicio, fin + 1);
+  }
   return JSON.parse(limpio);
 }
 
@@ -40,7 +49,10 @@ module.exports = async (req, res) => {
   body = body || {};
 
   const resultado = limpiarHtml(body.resultado);
-  const saberes = limpiarHtml(body.saberes);
+  // Algunos temas tienen un texto de "Saberes esenciales" muy largo (varios miles
+  // de caracteres, pegado desde Word). Lo recortamos para dejarle espacio de sobra
+  // a la respuesta del modelo y evitar que la salida JSON quede incompleta.
+  const saberes = limpiarHtml(body.saberes).slice(0, 6000);
   const instrucciones = limpiarHtml(body.instrucciones);
 
   if (!saberes) {
@@ -79,7 +91,7 @@ ${instrucciones ? `\nInstrucciones adicionales del profesor (seguilas con priori
       },
       body: JSON.stringify({
         model: "claude-haiku-5-5",
-        max_tokens: 1200,
+        max_tokens: 2048,
         messages: [{ role: "user", content: prompt }]
       })
     });
@@ -98,8 +110,24 @@ ${instrucciones ? `\nInstrucciones adicionales del profesor (seguilas con priori
     try {
       subtemas = extraerJson(texto);
     } catch (err) {
-      res.status(502).json({ error: "La IA no devolvió una lista válida. Intentá de nuevo." });
-      return;
+      // Reintentamos una sola vez con una instrucción más estricta antes de rendirnos.
+      try {
+        const reintento = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+          body: JSON.stringify({
+            model: "claude-haiku-5-5",
+            max_tokens: 2048,
+            messages: [{ role: "user", content: prompt + "\n\nRecordatorio: respondé SOLO con el arreglo JSON, sin explicaciones antes ni después, y sin cortar el texto a la mitad." }]
+          })
+        });
+        const datosReintento = await reintento.json();
+        const textoReintento = (datosReintento.content || []).map((bloque) => bloque.text || "").join("").trim();
+        subtemas = extraerJson(textoReintento);
+      } catch (err2) {
+        res.status(502).json({ error: "La IA no devolvió una lista válida. Intentá de nuevo." });
+        return;
+      }
     }
 
     if (!Array.isArray(subtemas)) {
