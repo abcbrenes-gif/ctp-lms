@@ -51,6 +51,12 @@ a { color: inherit; }
   padding: 2.5rem 1.5rem 4rem;
 }
 
+/* Páginas que trabajan con tablas anchas (como Programa de estudio):
+   usan casi todo el ancho de la pantalla en vez del límite angosto de .wrap. */
+.wrap.wrap-ancho {
+  max-width: min(1600px, 97vw);
+}
+
 /* Top bar */
 .topbar {
   background: var(--ink);
