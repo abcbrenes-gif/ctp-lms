@@ -88,6 +88,10 @@ function bindTopbar() {
 
 function renderLogin() {
   app.innerHTML = `
+    <div class="hero-banner">
+      <h1>${INSTITUCION.nombre}</h1>
+      <p>Especialidad de ${INSTITUCION.especialidad} · Plataforma de aula</p>
+    </div>
     <div class="login-card">
       <h1>Ingresar</h1>
       <p class="sub">${INSTITUCION.nombre} · Especialidad de ${INSTITUCION.especialidad}</p>
@@ -177,9 +181,17 @@ async function renderHome() {
   (estudiantes || []).forEach(e => { counts[e.seccion] = (counts[e.seccion] || 0) + 1; });
 
   const tiles = secciones.map(sec => `
-    <a class="section-tile" href="#/seccion/${encodeURIComponent(sec)}">
-      <div class="num">${sec}</div>
-      <div class="count">${counts[sec]} estudiantes · ${INSTITUCION.especialidad}</div>
+    <a class="section-tile flip-card" href="#/seccion/${encodeURIComponent(sec)}">
+      <div class="flip-card-inner">
+        <div class="flip-card-front">
+          <div class="num">${sec}</div>
+          <div class="count">${counts[sec]} estudiantes · ${INSTITUCION.especialidad}</div>
+        </div>
+        <div class="flip-card-back">
+          <div class="flip-cta">Ver estudiantes →</div>
+          <div class="flip-sub">Sección ${sec}</div>
+        </div>
+      </div>
     </a>`).join("");
 
   app.innerHTML = `
