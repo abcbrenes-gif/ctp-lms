@@ -1408,36 +1408,14 @@ async function renderMateriaDetalle(materiaId) {
       <h1>${materia.nombre}</h1>
       <p style="color:var(--text-muted); margin-top:-0.6em;">Sección ${materia.seccion}</p>
       <div id="materia-apartados">Cargando…</div>
-      <div id="materia-cursos" style="margin-top:1.4rem;">Cargando…</div>
       <div id="materia-indicadores" style="margin-top:1.4rem;">Cargando…</div>
       <div id="materia-publicaciones" style="margin-top:1.4rem;">Cargando…</div>
     </div>`;
   bindTopbar();
 
   await cargarApartadosDeMateria(materiaId);
-  await cargarCursosDeMateria(materiaId);
   await cargarIndicadoresDeMateria(materiaId);
   await cargarPublicacionesDeMateria(materiaId, materia.seccion);
-}
-
-async function cargarCursosDeMateria(materiaId) {
-  const holder = document.getElementById("materia-cursos");
-  if (!holder) return;
-  const { data: unidades } = await sb.from("programa").select("id").eq("materia_id", materiaId);
-  const programaIds = (unidades || []).map(u => u.id);
-  const { data: cursos } = programaIds.length
-    ? await sb.from("cursos_interactivos").select("*").in("programa_id", programaIds)
-    : { data: [] };
-
-  holder.innerHTML = `
-    <h3 style="margin-top:0;">Cursos interactivos</h3>
-    <div class="roster">
-      ${(cursos || []).map(c => `
-        <a class="roster-row" href="#/curso/${c.id}">
-          <span class="name">${c.titulo}</span>
-          <span class="badge" style="${c.habilitado ? "" : "opacity:0.5;"}">${c.habilitado ? "Habilitado" : "No habilitado"}</span>
-        </a>`).join("") || '<p class="empty">Esta materia todavía no tiene cursos interactivos.</p>'}
-    </div>`;
 }
 
 async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
