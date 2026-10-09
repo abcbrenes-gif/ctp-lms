@@ -1526,7 +1526,7 @@ async function cargarPublicacionesDeMateria(materiaId, seccion) {
 async function renderProgramaNiveles() {
   app.innerHTML = `
     ${topbar()}
-    <div class="wrap">
+    <div class="wrap wrap-ancho">
       <h1>Programa de estudio</h1>
       <p style="color:var(--text-muted); margin-top:-0.6em;">Resultados de aprendizaje y saberes esenciales. Puedes usar el contenido oficial precargado o crear tus propias unidades.</p>
       <details class="group-promo" style="margin-top:1rem;">
@@ -1657,7 +1657,7 @@ async function renderProgramaUnidad(id, soloLectura) {
 
   app.innerHTML = `
     ${topbar()}
-    <div class="wrap">
+    <div class="wrap wrap-ancho">
       <a href="#/programa" class="btn secondary small" style="margin-bottom:1rem; display:inline-block;">&larr; Programa</a>
       <h1>${u.unidad}</h1>
       <p style="color:var(--text-muted); margin-top:-0.6em;">${u.nivel} · ${u.subarea}${u.tiempo_estimado ? " · " + u.tiempo_estimado + " horas" : ""}${u.materias ? " · Materia: " + u.materias.nombre : ""}</p>
@@ -1709,7 +1709,8 @@ async function renderProgramaUnidad(id, soloLectura) {
                 ${apartadoPorResultado[it.id] ? `
                 <button class="btn ${apartadoPorResultado[it.id].habilitado ? "secondary" : ""} small" data-toggle-apartado="${apartadoPorResultado[it.id].id}" data-estado-actual="${apartadoPorResultado[it.id].habilitado}">
                   ${apartadoPorResultado[it.id].habilitado ? "Deshabilitar" : "Habilitar"}
-                </button>` : `<span style="font-size:0.68rem; color:var(--text-muted);">Sin apartado</span>`}
+                </button>` : u.materia_id ? `
+                <button class="btn small" data-crear-apartado="${it.id}" title="Crea el tema en la materia vinculada, para que los estudiantes lo vean">+ Crear apartado</button>` : `<span style="font-size:0.68rem; color:var(--text-muted);">Vincula una materia arriba primero</span>`}
               </td>
               <td style="padding:0.4rem; text-align:center; white-space:nowrap;">
                 <button class="btn small" data-guardar-fila="${it.id}" title="Guardar esta fila">Guardar</button>
@@ -1816,6 +1817,25 @@ async function renderProgramaUnidad(id, soloLectura) {
       btn.addEventListener("click", async () => {
         const nuevoEstado = btn.dataset.estadoActual !== "true";
         await sb.from("publicaciones").update({ habilitado: nuevoEstado }).eq("id", btn.dataset.toggleApartado);
+        renderProgramaUnidad(id, soloLectura);
+      });
+    });
+    document.querySelectorAll("[data-crear-apartado]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const resultadoId = btn.dataset.crearApartado;
+        const fila = (items || []).find(it => String(it.id) === String(resultadoId));
+        const { error } = await sb.from("publicaciones").insert({
+          tipo: "apartado",
+          resultado_id: resultadoId,
+          materia_id: u.materia_id,
+          seccion: u.materias ? u.materias.seccion : null,
+          titulo: (fila && fila.resultado ? fila.resultado.replace(/<[^>]*>/g, "").slice(0, 120) : u.unidad) || u.unidad,
+          habilitado: true
+        });
+        if (error) {
+          alert("No se pudo crear el apartado: " + (error.message || JSON.stringify(error)));
+          return;
+        }
         renderProgramaUnidad(id, soloLectura);
       });
     });
