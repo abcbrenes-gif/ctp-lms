@@ -928,7 +928,7 @@ async function renderApartado(id, soloLectura) {
   if (!pub) { location.hash = soloLectura ? "#/" : "#/publicaciones"; return; }
   if (soloLectura && !pub.habilitado) { location.hash = "#/"; return; }
   const { data: resultado } = pub.resultado_id ? await sb.from("resultados_aprendizaje").select("*").eq("id", pub.resultado_id).maybeSingle() : { data: null };
-  const { data: trabajos } = await sb.from("trabajos_cotidianos").select("*").eq("publicacion_id", id).order("creado_en");
+  const { data: trabajos } = await sb.from("trabajos_cotidianos").select("*").eq("publicacion_id", id).is("subtema_id", null).order("creado_en");
   const { data: materiales } = await sb.from("materiales").select("*").eq("publicacion_id", id).is("subtema_id", null).order("creado_en");
   const { data: subtemas } = await sb.from("subtemas").select("*").eq("publicacion_id", id).order("orden").order("creado_en");
 
@@ -956,18 +956,6 @@ async function renderApartado(id, soloLectura) {
       </div>
 
       <section class="tema-section">
-        <h3>Subtemas</h3>
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-top:-0.6em;">Divida este tema en subtemas (a partir de los saberes esenciales) y suba material de apoyo específico a cada uno.</p>
-        <div id="subtemas-lista">Cargando…</div>
-        ${!soloLectura ? `
-        <div class="row" style="margin-top:0.8rem; flex-wrap:wrap; gap:0.5rem;">
-          <button class="btn secondary small" id="generar-subtemas-btn" type="button">✨ Generar subtemas con IA</button>
-        </div>
-        <span id="generar-subtemas-estado" style="font-size:0.78rem; color:var(--text-muted); display:block; margin-top:0.4rem; min-height:1.2em;"></span>
-        <div id="sugerir-subtemas-lista" style="margin-top:0.6rem;"></div>` : ""}
-      </section>
-
-      <section class="tema-section">
         <h3>Introducción al tema</h3>
         ${soloLectura
           ? `<div class="roa-cell-texto roa-html">${pub.contenido || '<span class="empty">El profesor todavía no ha escrito la introducción.</span>'}</div>`
@@ -984,7 +972,25 @@ async function renderApartado(id, soloLectura) {
       </section>
 
       <section class="tema-section">
-        <h3>Trabajos cotidianos</h3>
+        <h3>Subtemas</h3>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-top:-0.6em;">Cada subtema tiene su propia página: ahí se escribe su introducción, se sube material de apoyo y se crean sus trabajos cotidianos.</p>
+        <div id="subtemas-lista">Cargando…</div>
+        ${!soloLectura ? `
+        <div class="row" style="margin-top:0.8rem; flex-wrap:wrap; gap:0.5rem;">
+          <button class="btn secondary small" id="generar-subtemas-btn" type="button">✨ Generar subtemas con IA</button>
+        </div>
+        <span id="generar-subtemas-estado" style="font-size:0.78rem; color:var(--text-muted); display:block; margin-top:0.4rem; min-height:1.2em;"></span>
+        <div id="sugerir-subtemas-lista" style="margin-top:0.6rem;"></div>` : ""}
+      </section>
+
+      <section class="tema-section">
+        <h3>Resumen de trabajos cotidianos por subtema</h3>
+        <div class="roster" id="resumen-trabajos-lista">Cargando…</div>
+      </section>
+
+      <section class="tema-section">
+        <h3>Trabajos cotidianos generales (sin subtema)</h3>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-top:-0.6em;">Trabajos cotidianos de todo el tema, no ligados a un subtema específico.</p>
         <div class="roster" id="trabajos-lista">Cargando…</div>
         ${!soloLectura ? `
         <form class="inline-form" id="trabajo-form" style="margin-top:0.8rem;">
@@ -1001,7 +1007,7 @@ async function renderApartado(id, soloLectura) {
       </section>
 
       <section class="tema-section">
-        <h3>Material de apoyo</h3>
+        <h3>Material de apoyo general</h3>
         <div class="roster" id="materiales-lista">Cargando…</div>
         ${!soloLectura ? `
         <form id="material-form" style="margin-top:0.8rem; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
@@ -1218,6 +1224,7 @@ async function renderApartado(id, soloLectura) {
   await pintarTrabajosCotidianos(trabajos || [], soloLectura, id);
   await pintarMateriales(materiales || [], soloLectura);
   await pintarSubtemas(subtemas || [], soloLectura, id);
+  await pintarResumenTrabajos(subtemas || [], soloLectura);
 }
 
 function formatoTamano(bytes) {
@@ -1260,7 +1267,7 @@ async function pintarMateriales(materiales, soloLectura) {
   }
 }
 
-// --- Subtemas (cada uno con su propio material de apoyo) ---
+// --- Subtemas (cada uno abre su propia página: #/subtema/:id) ---
 
 async function pintarSubtemas(subtemas, soloLectura, publicacionId) {
   const holder = document.getElementById("subtemas-lista");
@@ -1272,80 +1279,69 @@ async function pintarSubtemas(subtemas, soloLectura, publicacionId) {
   }
 
   const subtemaIds = subtemas.map(s => s.id);
-  const { data: materialesSubtemas } = subtemaIds.length
-    ? await sb.from("materiales").select("*").in("subtema_id", subtemaIds).order("creado_en")
-    : { data: [] };
+  const [{ data: materialesSubtemas }, { data: trabajosSubtemas }] = subtemaIds.length
+    ? await Promise.all([
+        sb.from("materiales").select("id, subtema_id").in("subtema_id", subtemaIds),
+        sb.from("trabajos_cotidianos").select("id, subtema_id").in("subtema_id", subtemaIds)
+      ])
+    : [{ data: [] }, { data: [] }];
   const materialesPorSubtema = {};
-  (materialesSubtemas || []).forEach(m => {
-    (materialesPorSubtema[m.subtema_id] = materialesPorSubtema[m.subtema_id] || []).push(m);
-  });
+  (materialesSubtemas || []).forEach(m => { materialesPorSubtema[m.subtema_id] = (materialesPorSubtema[m.subtema_id] || 0) + 1; });
+  const trabajosPorSubtema = {};
+  (trabajosSubtemas || []).forEach(t => { trabajosPorSubtema[t.subtema_id] = (trabajosPorSubtema[t.subtema_id] || 0) + 1; });
 
   holder.innerHTML = subtemas.map((s) => `
-    <div class="leccion-card" style="margin-bottom:0.9rem;">
+    <a class="leccion-card" href="#/subtema/${s.id}" style="margin-bottom:0.9rem; display:block; text-decoration:none; color:inherit;">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.6rem;">
         <div>
           <div class="num" style="font-size:1.05rem;">${s.titulo}</div>
           ${s.descripcion ? `<div class="count" style="margin-top:0.2rem;">${s.descripcion}</div>` : ""}
+          <div class="count" style="margin-top:0.4rem; font-size:0.78rem;">${materialesPorSubtema[s.id] || 0} archivo(s) · ${trabajosPorSubtema[s.id] || 0} trabajo(s) cotidiano(s)</div>
         </div>
-        ${!soloLectura ? `<button class="btn danger small" data-del-subtema="${s.id}">Eliminar</button>` : ""}
+        <span class="btn secondary small" style="pointer-events:none; white-space:nowrap;">Abrir →</span>
       </div>
-      <div class="roster" id="subtema-materiales-${s.id}" style="margin-top:0.8rem;"></div>
-      ${!soloLectura ? `
-      <form class="subtema-material-form" data-subtema-id="${s.id}" style="margin-top:0.7rem; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-        <input type="file" class="subtema-material-archivo" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.webp" required />
-        <button class="btn small" type="submit">Subir archivo</button>
-        <span class="subtema-material-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>
-      </form>` : ""}
-    </div>`).join("");
+    </a>`).join("");
+}
 
-  subtemas.forEach((s) => {
-    pintarMaterialesSubtema(s.id, materialesPorSubtema[s.id] || [], soloLectura, publicacionId);
-  });
+async function pintarResumenTrabajos(subtemas, soloLectura) {
+  const holder = document.getElementById("resumen-trabajos-lista");
+  if (!holder) return;
 
-  if (!soloLectura) {
-    holder.querySelectorAll("[data-del-subtema]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        if (!confirm("¿Eliminar este subtema y su material de apoyo?")) return;
-        const subtemaId = btn.dataset.delSubtema;
-        const materialesDelSubtema = materialesPorSubtema[subtemaId] || [];
-        if (materialesDelSubtema.length) {
-          await sb.storage.from("materiales").remove(materialesDelSubtema.map(m => m.ruta));
-        }
-        await sb.from("subtemas").delete().eq("id", subtemaId);
-        renderApartado(publicacionId, soloLectura);
-      });
-    });
-
-    holder.querySelectorAll(".subtema-material-form").forEach((form) => {
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const subtemaId = form.dataset.subtemaId;
-        const estado = form.querySelector(".subtema-material-estado");
-        const input = form.querySelector(".subtema-material-archivo");
-        const archivo = input.files[0];
-        if (!archivo) return;
-        estado.textContent = "Subiendo…";
-        const rutaSegura = `${publicacionId}/subtema-${subtemaId}/${Date.now()}-${archivo.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-        const { error: errorSubida } = await sb.storage.from("materiales").upload(rutaSegura, archivo);
-        if (errorSubida) {
-          estado.textContent = "No se pudo subir: " + errorSubida.message;
-          return;
-        }
-        await sb.from("materiales").insert({
-          publicacion_id: publicacionId,
-          subtema_id: subtemaId,
-          nombre: archivo.name,
-          ruta: rutaSegura,
-          tipo: archivo.type || null,
-          tamano_bytes: archivo.size || null
-        });
-        input.value = "";
-        estado.textContent = "";
-        const { data: actualizados } = await sb.from("materiales").select("*").eq("subtema_id", subtemaId).order("creado_en");
-        await pintarMaterialesSubtema(subtemaId, actualizados || [], soloLectura, publicacionId);
-      });
-    });
+  if (subtemas.length === 0) {
+    holder.innerHTML = `<p class="empty">Todavía no hay subtemas, así que no hay trabajos cotidianos por subtema.</p>`;
+    return;
   }
+
+  const subtemaIds = subtemas.map(s => s.id);
+  const { data: trabajos } = await sb.from("trabajos_cotidianos").select("id, subtema_id").in("subtema_id", subtemaIds);
+  const trabajosPorSubtema = {};
+  (trabajos || []).forEach(t => { (trabajosPorSubtema[t.subtema_id] = trabajosPorSubtema[t.subtema_id] || []).push(t); });
+
+  const todosIds = (trabajos || []).map(t => t.id);
+  let estadosPorTrabajo = {};
+  if (todosIds.length) {
+    if (soloLectura) {
+      const { data: misEstados } = await sb.from("trabajos_cotidianos_estudiante").select("trabajo_id, completado").eq("estudiante_id", session.id).in("trabajo_id", todosIds);
+      (misEstados || []).forEach(e => { estadosPorTrabajo[e.trabajo_id] = e.completado; });
+    } else {
+      const { data: todosEstados } = await sb.from("trabajos_cotidianos_estudiante").select("trabajo_id, completado").in("trabajo_id", todosIds);
+      (todosEstados || []).forEach(e => { if (e.completado) estadosPorTrabajo[e.trabajo_id] = (estadosPorTrabajo[e.trabajo_id] || 0) + 1; });
+    }
+  }
+
+  holder.innerHTML = subtemas.map(s => {
+    const lista = trabajosPorSubtema[s.id] || [];
+    const detalle = lista.length === 0
+      ? "Sin trabajos todavía"
+      : (soloLectura
+          ? `${lista.filter(t => estadosPorTrabajo[t.id]).length} de ${lista.length} completados`
+          : `${lista.length} trabajo(s)`);
+    return `
+      <a class="roster-row" href="#/subtema/${s.id}" style="text-decoration:none; color:inherit;">
+        <span class="name">${s.titulo}</span>
+        <span class="badge" style="font-weight:400;">${detalle}</span>
+      </a>`;
+  }).join("");
 }
 
 async function pintarMaterialesSubtema(subtemaId, materiales, soloLectura, publicacionId) {
@@ -1376,6 +1372,270 @@ async function pintarMaterialesSubtema(subtemaId, materiales, soloLectura, publi
         await sb.from("materiales").delete().eq("id", btn.dataset.delMaterialSubtema);
         btn.closest(".roster-row").remove();
         if (!holder.children.length) holder.innerHTML = `<p class="empty" style="padding:0.4rem 0;">Todavía no hay material en este subtema.</p>`;
+      });
+    });
+  }
+}
+
+// --- Página propia de un Subtema (#/subtema/:id) ---
+
+async function renderSubtema(id, soloLectura) {
+  const { data: sub } = await sb.from("subtemas").select("*").eq("id", id).maybeSingle();
+  if (!sub) { location.hash = soloLectura ? "#/" : "#/publicaciones"; return; }
+  const { data: pub } = await sb.from("publicaciones").select("*").eq("id", sub.publicacion_id).maybeSingle();
+  if (!pub) { location.hash = soloLectura ? "#/" : "#/publicaciones"; return; }
+  if (soloLectura && !pub.habilitado) { location.hash = "#/"; return; }
+  const { data: resultado } = pub.resultado_id ? await sb.from("resultados_aprendizaje").select("*").eq("id", pub.resultado_id).maybeSingle() : { data: null };
+  const { data: trabajos } = await sb.from("trabajos_cotidianos").select("*").eq("subtema_id", id).order("creado_en");
+  const { data: materiales } = await sb.from("materiales").select("*").eq("subtema_id", id).order("creado_en");
+
+  const tituloTema = (resultado && resultado.resultado ? resultado.resultado : pub.titulo || "").replace(/<[^>]*>/g, "");
+
+  app.innerHTML = `
+    ${topbar()}
+    <div class="wrap">
+      <a href="#/apartado/${encodeURIComponent(sub.publicacion_id)}" class="btn secondary small" style="margin-bottom:1rem; display:inline-block;">&larr; Volver al tema</a>
+
+      <div class="tema-header">
+        <span class="tema-eyebrow">Subtema de "${tituloTema}"</span>
+        <h1 class="tema-title">${sub.titulo}</h1>
+        ${sub.descripcion ? `<div class="tema-saberes"><div class="roa-cell-texto">${sub.descripcion}</div></div>` : ""}
+      </div>
+
+      ${!soloLectura ? `
+      <div class="row" style="margin-bottom:1rem;">
+        <button class="btn danger small" id="eliminar-subtema-btn" type="button">Eliminar este subtema</button>
+      </div>` : ""}
+
+      <section class="tema-section">
+        <h3>Introducción del subtema</h3>
+        ${soloLectura
+          ? `<div class="roa-cell-texto roa-html">${sub.contenido || '<span class="empty">El profesor todavía no ha escrito contenido para este subtema.</span>'}</div>`
+          : `<div class="roa-editable roa-html" contenteditable="true" id="subtema-intro" style="min-height:6rem;">${sub.contenido || ""}</div>
+             <div class="row" style="margin-top:0.5rem;">
+               <button class="btn small" id="guardar-subtema-intro">Guardar introducción</button>
+             </div>`}
+      </section>
+
+      <section class="tema-section">
+        <h3>Trabajos cotidianos de este subtema</h3>
+        <div class="roster" id="subtema-trabajos-lista">Cargando…</div>
+        ${!soloLectura ? `
+        <form class="inline-form" id="subtema-trabajo-form" style="margin-top:0.8rem;">
+          <input name="titulo" placeholder="Título del trabajo" required style="flex:1; min-width:10rem" />
+          <input name="fecha" type="date" />
+          <div class="roa-editable js-subtema-trabajo-desc" contenteditable="true" style="flex-basis:100%; min-height:3rem;" data-placeholder="Instrucciones (opcional)"></div>
+          <button class="btn small" type="submit">Agregar trabajo</button>
+        </form>
+        <div class="row" style="margin-top:0.6rem;">
+          <button class="btn secondary small" id="sugerir-subtema-trabajos-btn" type="button">✨ Sugerir trabajos cotidianos con IA</button>
+        </div>
+        <span id="sugerir-subtema-trabajos-estado" style="font-size:0.78rem; color:var(--text-muted); display:block; margin-top:0.4rem; min-height:1.2em;"></span>
+        <div id="sugerir-subtema-trabajos-lista" style="margin-top:0.6rem;"></div>` : ""}
+      </section>
+
+      <section class="tema-section">
+        <h3>Material de apoyo de este subtema</h3>
+        <div class="roster" id="subtema-materiales-${sub.id}">Cargando…</div>
+        ${!soloLectura ? `
+        <form class="subtema-material-form" data-subtema-id="${sub.id}" style="margin-top:0.8rem; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+          <input type="file" class="subtema-material-archivo" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.webp" required />
+          <button class="btn small" type="submit">Subir archivo</button>
+          <span class="subtema-material-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>
+        </form>` : ""}
+      </section>
+    </div>`;
+  bindTopbar();
+
+  if (!soloLectura) {
+    document.getElementById("eliminar-subtema-btn").addEventListener("click", async () => {
+      if (!confirm("¿Eliminar este subtema, su material y sus trabajos cotidianos?")) return;
+      if ((materiales || []).length) {
+        await sb.storage.from("materiales").remove((materiales || []).map(m => m.ruta));
+      }
+      await sb.from("subtemas").delete().eq("id", sub.id);
+      location.hash = `#/apartado/${encodeURIComponent(sub.publicacion_id)}`;
+    });
+
+    document.getElementById("guardar-subtema-intro").addEventListener("click", async (e) => {
+      const btn = e.target;
+      btn.textContent = "Guardando…";
+      await sb.from("subtemas").update({ contenido: document.getElementById("subtema-intro").innerHTML }).eq("id", sub.id);
+      btn.textContent = "Guardado ✓";
+      setTimeout(() => { btn.textContent = "Guardar introducción"; }, 1500);
+    });
+
+    document.getElementById("subtema-trabajo-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      await sb.from("trabajos_cotidianos").insert({
+        publicacion_id: sub.publicacion_id,
+        subtema_id: sub.id,
+        titulo: f.get("titulo"),
+        fecha: f.get("fecha") || null,
+        descripcion: document.querySelector(".js-subtema-trabajo-desc").innerHTML || null
+      });
+      renderSubtema(id, soloLectura);
+    });
+
+    const sugerirBtn = document.getElementById("sugerir-subtema-trabajos-btn");
+    if (sugerirBtn) sugerirBtn.addEventListener("click", async () => {
+      const estado = document.getElementById("sugerir-subtema-trabajos-estado");
+      const lista = document.getElementById("sugerir-subtema-trabajos-lista");
+      const textoOriginal = sugerirBtn.textContent;
+      sugerirBtn.disabled = true;
+      sugerirBtn.textContent = "Pensando…";
+      if (estado) estado.textContent = "";
+      lista.innerHTML = "";
+      try {
+        const r = await fetch("/api/generar-trabajos", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            resultado: (resultado ? resultado.resultado : pub.titulo) + " — Subtema: " + sub.titulo,
+            saberes: sub.descripcion || (resultado ? resultado.saberes : ""),
+            estrategiasEstudiante: resultado ? resultado.estrategias : "",
+            evidencias: resultado ? resultado.evidencias : ""
+          })
+        });
+        const datos = await r.json();
+        if (!r.ok) {
+          if (estado) estado.textContent = "No se pudo generar: " + (datos.error || "error desconocido.");
+          return;
+        }
+        const trabajosSugeridos = datos.trabajos || [];
+        if (trabajosSugeridos.length === 0) {
+          if (estado) estado.textContent = "La IA no propuso trabajos para este subtema.";
+          return;
+        }
+        if (estado) estado.textContent = "Revisá las sugerencias y agregá las que le sirvan.";
+        lista.innerHTML = trabajosSugeridos.map((t, i) => `
+          <div class="roster-row" data-sugerencia="${i}" style="align-items:flex-start; flex-direction:column; gap:0.4rem;">
+            <div style="display:flex; justify-content:space-between; width:100%; gap:0.5rem;">
+              <strong style="font-size:0.9rem;">${t.titulo}</strong>
+              <button class="btn small" type="button" data-agregar-sugerencia="${i}">+ Agregar</button>
+            </div>
+            ${t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : ""}
+          </div>`).join("");
+        lista.querySelectorAll("[data-agregar-sugerencia]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const i = Number(btn.dataset.agregarSugerencia);
+            const t = trabajosSugeridos[i];
+            btn.disabled = true;
+            btn.textContent = "Agregando…";
+            await sb.from("trabajos_cotidianos").insert({
+              publicacion_id: sub.publicacion_id,
+              subtema_id: sub.id,
+              titulo: t.titulo,
+              descripcion: t.descripcion || null
+            });
+            const fila = btn.closest("[data-sugerencia]");
+            if (fila) fila.remove();
+            await pintarTrabajosCotidianosSubtema((await sb.from("trabajos_cotidianos").select("*").eq("subtema_id", sub.id).order("creado_en")).data || [], soloLectura, sub.id);
+          });
+        });
+      } catch (err) {
+        if (estado) estado.textContent = "No se pudo conectar con la IA: " + (err.message || err);
+      } finally {
+        sugerirBtn.disabled = false;
+        sugerirBtn.textContent = textoOriginal;
+      }
+    });
+
+    document.querySelector(".subtema-material-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const subtemaId = form.dataset.subtemaId;
+      const estado = form.querySelector(".subtema-material-estado");
+      const input = form.querySelector(".subtema-material-archivo");
+      const archivo = input.files[0];
+      if (!archivo) return;
+      estado.textContent = "Subiendo…";
+      const rutaSegura = `${sub.publicacion_id}/subtema-${subtemaId}/${Date.now()}-${archivo.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      const { error: errorSubida } = await sb.storage.from("materiales").upload(rutaSegura, archivo);
+      if (errorSubida) {
+        estado.textContent = "No se pudo subir: " + errorSubida.message;
+        return;
+      }
+      await sb.from("materiales").insert({
+        publicacion_id: sub.publicacion_id,
+        subtema_id: subtemaId,
+        nombre: archivo.name,
+        ruta: rutaSegura,
+        tipo: archivo.type || null,
+        tamano_bytes: archivo.size || null
+      });
+      input.value = "";
+      estado.textContent = "";
+      const { data: actualizados } = await sb.from("materiales").select("*").eq("subtema_id", subtemaId).order("creado_en");
+      await pintarMaterialesSubtema(subtemaId, actualizados || [], soloLectura, sub.publicacion_id);
+    });
+  }
+
+  await pintarTrabajosCotidianosSubtema(trabajos || [], soloLectura, sub.id);
+  await pintarMaterialesSubtema(sub.id, materiales || [], soloLectura, sub.publicacion_id);
+}
+
+async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId) {
+  const holder = document.getElementById("subtema-trabajos-lista");
+  if (!holder) return;
+
+  if (trabajos.length === 0) {
+    holder.innerHTML = `<p class="empty">Todavía no hay trabajos cotidianos en este subtema.</p>`;
+    return;
+  }
+
+  if (soloLectura) {
+    const estudianteId = session.id;
+    const trabajoIds = trabajos.map(t => t.id);
+    const { data: misEstados } = await sb.from("trabajos_cotidianos_estudiante").select("*").eq("estudiante_id", estudianteId).in("trabajo_id", trabajoIds);
+    const porTrabajo = {};
+    (misEstados || []).forEach(e => { porTrabajo[e.trabajo_id] = e.completado; });
+
+    holder.innerHTML = trabajos.map(t => `
+      <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem;">
+        <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+          <span class="name">${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+          <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.85rem;">
+            <input type="checkbox" data-mi-trabajo-subtema="${t.id}" ${porTrabajo[t.id] ? "checked" : ""} /> Completado
+          </label>
+        </div>
+        ${t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : ""}
+      </div>`).join("");
+
+    holder.querySelectorAll("[data-mi-trabajo-subtema]").forEach(cb => {
+      cb.addEventListener("change", async () => {
+        await sb.from("trabajos_cotidianos_estudiante").upsert(
+          { trabajo_id: cb.dataset.miTrabajoSubtema, estudiante_id: estudianteId, completado: cb.checked, entregado_en: cb.checked ? new Date().toISOString() : null },
+          { onConflict: "trabajo_id,estudiante_id" }
+        );
+      });
+    });
+  } else {
+    const trabajoIds = trabajos.map(t => t.id);
+    const { data: todosEstados } = await sb.from("trabajos_cotidianos_estudiante").select("trabajo_id, completado").in("trabajo_id", trabajoIds);
+    const conteos = {};
+    (todosEstados || []).forEach(e => {
+      if (!e.completado) return;
+      conteos[e.trabajo_id] = (conteos[e.trabajo_id] || 0) + 1;
+    });
+
+    holder.innerHTML = trabajos.map(t => `
+      <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem;">
+        <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+          <span class="name">${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+          <span style="display:flex; align-items:center; gap:0.6rem;">
+            <span class="badge">${conteos[t.id] || 0} completaron</span>
+            <button class="btn danger small" data-del-trabajo-subtema="${t.id}">Eliminar</button>
+          </span>
+        </div>
+        ${t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : ""}
+      </div>`).join("");
+
+    holder.querySelectorAll("[data-del-trabajo-subtema]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        await sb.from("trabajos_cotidianos").delete().eq("id", btn.dataset.delTrabajoSubtema);
+        renderSubtema(subtemaId, soloLectura);
       });
     });
   }
