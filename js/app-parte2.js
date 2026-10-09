@@ -600,7 +600,7 @@ async function renderMateriasEstudiante(el, s) {
     html += `
       <p style="font-size:0.8rem; color:var(--text-muted); margin-top:-0.4em;">Temas</p>
       <div class="roster" style="margin-bottom:1rem;">
-        ${apartados.map(a => `<a class="roster-row" href="#/apartado/${a.id}"><span class="name">${a.titulo}</span><span class="badge">Ver</span></a>`).join("") || '<p class="empty">Sin temas habilitados todavía.</p>'}
+        ${apartados.map(a => `<a class="roster-row" href="#/apartado/${a.id}"><span class="name clamp2" title="${a.titulo.replace(/"/g, "&quot;")}">${a.titulo}</span><span class="badge">Ver</span></a>`).join("") || '<p class="empty">Sin temas habilitados todavía.</p>'}
       </div>`;
 
     const { data: cursos } = programaIds.length
@@ -662,7 +662,7 @@ async function renderAvisosEstudiante(el, s) {
     <div class="roster" style="margin-bottom:1.4rem;">
       ${apartados.map(a => `
         <a class="roster-row" href="#/apartado/${a.id}">
-          <span class="name">${a.titulo}</span>
+          <span class="name clamp2" title="${a.titulo.replace(/"/g, "&quot;")}">${a.titulo}</span>
           <span class="badge">Ver</span>
         </a>`).join("")}
     </div>` : ""}
@@ -936,28 +936,42 @@ async function renderApartado(id, soloLectura) {
     totalEstudiantes = (est || []).length;
   }
 
+  const tituloMostrar = (resultado && resultado.resultado ? resultado.resultado : pub.titulo || "").replace(/<[^>]*>/g, "");
+
   app.innerHTML = `
     ${topbar()}
     <div class="wrap">
       <a href="${soloLectura ? "#/" : "#/publicaciones"}" class="btn secondary small" style="margin-bottom:1rem; display:inline-block;">&larr; ${soloLectura ? "Volver a mi perfil" : "Publicaciones"}</a>
-      <h1>${pub.titulo}</h1>
-      ${resultado ? `<p style="color:var(--text-muted); margin-top:-0.6em; font-size:0.85rem;"><strong>Saberes esenciales:</strong> <span class="roa-cell-texto">${resultado.saberes || ""}</span></p>` : ""}
 
-      <h3 style="margin-top:1.4rem;">Introducción al tema</h3>
-      ${soloLectura
-        ? `<div class="roa-cell-texto" style="background:var(--white); border:1px solid var(--paper-line); padding:1rem;">${pub.contenido || '<span class="empty">El profesor todavía no ha escrito la introducción.</span>'}</div>`
-        : `<div class="roa-editable roa-html" contenteditable="true" id="apartado-intro" style="min-height:6rem;">${pub.contenido || ""}</div>
-           <div class="row" style="margin-top:0.5rem;"><button class="btn small" id="guardar-intro">Guardar introducción</button></div>`}
+      <div class="tema-header">
+        <span class="tema-eyebrow">Resultado de aprendizaje</span>
+        <h1 class="tema-title">${tituloMostrar}</h1>
+        ${resultado && resultado.saberes ? `
+        <div class="tema-saberes">
+          <strong>Saberes esenciales</strong>
+          <div class="roa-cell-texto">${resultado.saberes}</div>
+        </div>` : ""}
+      </div>
 
-      <h3 style="margin-top:1.6rem;">Trabajos cotidianos</h3>
-      <div class="roster" id="trabajos-lista">Cargando…</div>
-      ${!soloLectura ? `
-      <form class="inline-form" id="trabajo-form" style="margin-top:0.8rem;">
-        <input name="titulo" placeholder="Título del trabajo" required style="flex:1; min-width:10rem" />
-        <input name="fecha" type="date" />
-        <div class="roa-editable js-trabajo-desc" contenteditable="true" style="flex-basis:100%; min-height:3rem;" data-placeholder="Instrucciones (opcional)"></div>
-        <button class="btn small" type="submit">Agregar trabajo</button>
-      </form>` : ""}
+      <section class="tema-section">
+        <h3>Introducción al tema</h3>
+        ${soloLectura
+          ? `<div class="roa-cell-texto roa-html">${pub.contenido || '<span class="empty">El profesor todavía no ha escrito la introducción.</span>'}</div>`
+          : `<div class="roa-editable roa-html" contenteditable="true" id="apartado-intro" style="min-height:6rem;">${pub.contenido || ""}</div>
+             <div class="row" style="margin-top:0.5rem;"><button class="btn small" id="guardar-intro">Guardar introducción</button></div>`}
+      </section>
+
+      <section class="tema-section">
+        <h3>Trabajos cotidianos</h3>
+        <div class="roster" id="trabajos-lista">Cargando…</div>
+        ${!soloLectura ? `
+        <form class="inline-form" id="trabajo-form" style="margin-top:0.8rem;">
+          <input name="titulo" placeholder="Título del trabajo" required style="flex:1; min-width:10rem" />
+          <input name="fecha" type="date" />
+          <div class="roa-editable js-trabajo-desc" contenteditable="true" style="flex-basis:100%; min-height:3rem;" data-placeholder="Instrucciones (opcional)"></div>
+          <button class="btn small" type="submit">Agregar trabajo</button>
+        </form>` : ""}
+      </section>
     </div>`;
   bindTopbar();
 
@@ -1447,7 +1461,7 @@ async function cargarApartadosDeMateria(materiaId) {
     <div class="roster">
       ${apartados.map(a => `
         <div class="roster-row">
-          <a class="name" href="#/apartado/${a.id}" style="flex:1;">${a.titulo}</a>
+          <a class="name clamp2" href="#/apartado/${a.id}" title="${a.titulo.replace(/"/g, "&quot;")}" style="flex:1;">${a.titulo}</a>
           <span style="display:flex; gap:0.5rem; align-items:center;">
             <span class="badge" style="${a.contenido ? "" : "opacity:0.5;"}">${a.contenido ? "Con introducción" : "Sin introducción"}</span>
             <button class="btn ${a.habilitado ? "secondary" : ""} small" data-toggle-apartado-pub="${a.id}" data-estado-actual="${a.habilitado}">
