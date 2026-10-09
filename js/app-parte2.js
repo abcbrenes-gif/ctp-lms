@@ -958,7 +958,15 @@ async function renderApartado(id, soloLectura) {
         ${soloLectura
           ? `<div class="roa-cell-texto roa-html">${pub.contenido || '<span class="empty">El profesor todavía no ha escrito la introducción.</span>'}</div>`
           : `<div class="roa-editable roa-html" contenteditable="true" id="apartado-intro" style="min-height:6rem;">${pub.contenido || ""}</div>
-             <div class="row" style="margin-top:0.5rem;"><button class="btn small" id="guardar-intro">Guardar introducción</button></div>`}
+             <div class="row" style="margin-top:0.5rem; flex-wrap:wrap; gap:0.5rem;">
+               <button class="btn small" id="guardar-intro">Guardar introducción</button>
+               <button class="btn secondary small" id="generar-ia-btn" type="button">✨ Generar introducción con IA</button>
+             </div>
+             <div style="margin-top:0.7rem;">
+               <label for="ia-instrucciones" style="display:block; font-size:0.78rem; color:var(--text-muted); margin-bottom:0.3rem;">Instrucciones para la IA (opcional): tono, longitud, un ejemplo que querés que incluya…</label>
+               <input type="text" id="ia-instrucciones" placeholder="Ej: tono motivador, máximo 3 párrafos, incluir un ejemplo de la vida real" style="width:100%; padding:0.5rem 0.6rem; border:1px solid var(--paper-line); border-radius:var(--radius); font-family:var(--sans); font-size:0.85rem; background:var(--paper);" />
+               <span id="ia-estado" style="font-size:0.78rem; color:var(--text-muted); display:block; margin-top:0.4rem; min-height:1.2em;"></span>
+             </div>`}
       </section>
 
       <section class="tema-section">
@@ -982,6 +990,40 @@ async function renderApartado(id, soloLectura) {
       await sb.from("publicaciones").update({ contenido: document.getElementById("apartado-intro").innerHTML }).eq("id", id);
       btn.textContent = "Guardado ✓";
       setTimeout(() => { btn.textContent = "Guardar introducción"; }, 1500);
+    });
+    const iaBtn = document.getElementById("generar-ia-btn");
+    if (iaBtn) iaBtn.addEventListener("click", async () => {
+      const estado = document.getElementById("ia-estado");
+      const intro = document.getElementById("apartado-intro");
+      const textoOriginal = iaBtn.textContent;
+      iaBtn.disabled = true;
+      iaBtn.textContent = "Generando…";
+      if (estado) estado.textContent = "";
+      try {
+        const r = await fetch("/api/generar-introduccion", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            resultado: resultado ? resultado.resultado : pub.titulo,
+            saberes: resultado ? resultado.saberes : "",
+            estrategias: resultado ? resultado.estrategias : "",
+            evidencias: resultado ? resultado.evidencias : "",
+            instrucciones: document.getElementById("ia-instrucciones").value
+          })
+        });
+        const datos = await r.json();
+        if (!r.ok) {
+          if (estado) estado.textContent = "No se pudo generar: " + (datos.error || "error desconocido.");
+          return;
+        }
+        intro.innerHTML = datos.texto || "";
+        if (estado) estado.textContent = "Listo. Revisá el texto y dale \"Guardar introducción\" si te gusta.";
+      } catch (err) {
+        if (estado) estado.textContent = "No se pudo conectar con la IA: " + (err.message || err);
+      } finally {
+        iaBtn.disabled = false;
+        iaBtn.textContent = textoOriginal;
+      }
     });
     document.getElementById("trabajo-form").addEventListener("submit", async (e) => {
       e.preventDefault();
