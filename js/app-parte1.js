@@ -25,10 +25,12 @@ async function render() {
 
   const apartadoMatch = hash.match(/^#\/apartado\/(.+)$/);
   const cursoMatch = hash.match(/^#\/curso\/(.+)$/);
+  const subtemaMatch = hash.match(/^#\/subtema\/(.+)$/);
 
   if (session.role === "estudiante") {
-    // El estudiante solo ve su propio perfil, salvo apartado o curso interactivo (ambos solo lectura/jugable).
+    // El estudiante solo ve su propio perfil, salvo apartado, subtema o curso interactivo (todos solo lectura/jugable).
     if (apartadoMatch) return renderApartado(decodeURIComponent(apartadoMatch[1]), true);
+    if (subtemaMatch) return renderSubtema(Number(subtemaMatch[1]), true);
     if (cursoMatch) return renderCurso(Number(cursoMatch[1]), true);
     return renderPerfil(session.id, true);
   }
@@ -53,6 +55,7 @@ async function render() {
   const progUnidadMatch = hash.match(/^#\/programa\/(.+)$/);
   if (progUnidadMatch) return renderProgramaUnidad(decodeURIComponent(progUnidadMatch[1]));
   if (apartadoMatch) return renderApartado(decodeURIComponent(apartadoMatch[1]), false);
+  if (subtemaMatch) return renderSubtema(Number(subtemaMatch[1]), false);
   if (cursoMatch) return renderCurso(Number(cursoMatch[1]), false);
   renderHome();
 }
