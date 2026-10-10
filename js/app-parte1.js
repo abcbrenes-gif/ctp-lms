@@ -1178,7 +1178,7 @@ async function renderPerfil(id, isSelf) {
   const previewing = isSelf && session.role === "docente"; // el profesor viendo "como lo vería el estudiante"
   if (isSelf && session.role === "estudiante" && session.id !== s.id) { location.hash = "#/login"; return; } // seguridad extra
 
-  const activeTab = (location.hash.split("?tab=")[1]) || "notas";
+  const activeTab = (location.hash.split("?tab=")[1]) || (isSelf ? "materias-est" : "notas");
 
   app.innerHTML = `
     ${topbar()}
@@ -1213,10 +1213,9 @@ async function renderPerfil(id, isSelf) {
       ${!isSelf ? `<div id="reporte-oficial-selector" style="display:none; margin-bottom:1.2rem;"></div>` : ""}
 
       <div class="tabs">
-        <button class="tab-btn ${(activeTab === "notas" || activeTab === "tareas") ? "active" : ""}" data-tab="notas"><span class="tab-icon">📝</span><span class="tab-label">Notas y Tareas</span></button>
+        ${!isSelf ? `<button class="tab-btn ${(activeTab === "notas" || activeTab === "tareas") ? "active" : ""}" data-tab="notas"><span class="tab-icon">📝</span><span class="tab-label">Notas y Tareas</span></button>` : ""}
         <button class="tab-btn ${activeTab === "rubrica" ? "active" : ""}" data-tab="rubrica"><span class="tab-icon">📊</span><span class="tab-label">Rúbrica</span></button>
         <button class="tab-btn ${activeTab === "asistencia" ? "active" : ""}" data-tab="asistencia"><span class="tab-icon">🗓️</span><span class="tab-label">Asistencia</span></button>
-        <button class="tab-btn ${activeTab === "avisos" ? "active" : ""}" data-tab="avisos"><span class="tab-icon">📣</span><span class="tab-label">Avisos</span></button>
         <button class="tab-btn ${activeTab === "materias-est" ? "active" : ""}" data-tab="materias-est"><span class="tab-icon">📚</span><span class="tab-label">Materias</span></button>
         ${!isSelf ? `<button class="tab-btn ${activeTab === "whatsapp" ? "active" : ""}" data-tab="whatsapp"><span class="tab-icon">💬</span><span class="tab-label">WhatsApp</span></button>
         <button class="tab-btn ${activeTab === "acceso" ? "active" : ""}" data-tab="acceso"><span class="tab-icon">🔑</span><span class="tab-label">Materias</span></button>` : ""}
