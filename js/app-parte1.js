@@ -197,11 +197,33 @@ async function renderHome() {
       </div>
     </a>`).join("");
 
+  const accesos = [
+    { href: "#/materias", icono: "📚", titulo: "Materias", sub: "Temas, apartados y publicaciones", cta: "Ver materias →" },
+    { href: "#/programa", icono: "🗂️", titulo: "Programa", sub: "Unidades y resultados de aprendizaje", cta: "Ver programa →" },
+    { href: "#/evaluaciones", icono: "📊", titulo: "Rúbrica y Evaluaciones", sub: "Categorías e indicadores de nota", cta: "Ver rúbrica →" }
+  ].map(a => `
+    <a class="section-tile flip-card" href="${a.href}">
+      <div class="flip-card-inner">
+        <div class="flip-card-front">
+          <div class="num" style="font-size:1.3rem;">${a.icono} ${a.titulo}</div>
+          <div class="count">${a.sub}</div>
+        </div>
+        <div class="flip-card-back">
+          <div class="flip-cta">${a.cta}</div>
+          <div class="flip-sub">${a.titulo}</div>
+        </div>
+      </div>
+    </a>`).join("");
+
   app.innerHTML = `
     ${topbar()}
     <div class="wrap">
       <h1>Secciones</h1>
       <div class="section-grid">${tiles || '<p class="empty">No hay secciones todavía.</p>'}</div>
+
+      <h2 style="margin-top:2.2rem;">Accesos rápidos</h2>
+      <div class="section-grid">${accesos}</div>
+
       <p class="footer-note">Datos guardados en la base de datos — visibles desde cualquier dispositivo.</p>
     </div>`;
   bindTopbar();
