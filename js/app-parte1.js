@@ -13,6 +13,13 @@ function clearSession() { sessionStorage.removeItem(SESSION_KEY); }
 let session = loadSession();
 const app = document.getElementById("app");
 
+// Cuando el profesor usa "Ver como estudiante", guardamos aquí la cédula del
+// estudiante previsualizado. Mientras esté activo, TODA la navegación (clics
+// en enlaces, el menú superior, etc.) se trata como si fuera un estudiante
+// real: solo lectura, sin botones de edición ni de generar con IA. Se limpia
+// al salir de la vista previa o al cerrar sesión.
+let previewEstudianteId = null;
+
 function onlyDigits(str) { return (str || "").replace(/\D/g, ""); }
 
 async function render() {
@@ -27,12 +34,13 @@ async function render() {
   const cursoMatch = hash.match(/^#\/curso\/(.+)$/);
   const subtemaMatch = hash.match(/^#\/subtema\/(.+)$/);
 
-  if (session.role === "estudiante") {
-    // El estudiante solo ve su propio perfil, salvo apartado, subtema o curso interactivo (todos solo lectura/jugable).
+  if (session.role === "estudiante" || previewEstudianteId) {
+    // El estudiante (o el profesor en "Ver como estudiante") solo ve su propio
+    // perfil, salvo apartado, subtema o curso interactivo (todos solo lectura/jugable).
     if (apartadoMatch) return renderApartado(decodeURIComponent(apartadoMatch[1]), true);
     if (subtemaMatch) return renderSubtema(Number(subtemaMatch[1]), true);
     if (cursoMatch) return renderCurso(Number(cursoMatch[1]), true);
-    return renderPerfil(session.id, true);
+    return renderPerfil(previewEstudianteId || session.id, true);
   }
 
   // Rol docente/admin
@@ -63,13 +71,15 @@ async function render() {
 function topbar() {
   const role = session?.role;
   const nombre = session?.nombre || "";
+  const esDocenteSinPreview = role === "docente" && !previewEstudianteId;
   return `
   <div class="topbar">
     <div class="brand">${INSTITUCION.nombre}<small>Especialidad de ${INSTITUCION.especialidad} — Plataforma de aula</small></div>
     <div>
       <span class="docente">${role === "docente" ? "Prof. " + nombre : nombre}</span>
       <nav style="display:inline">
-        ${role === "docente" ? `<a href="#/">Secciones</a><a href="#/materias">Materias</a><a href="#/programa">Programa</a><a href="#/evaluaciones">Rúbrica y Evaluaciones</a><a href="#/asistencia">Asistencia</a><a href="#/periodos">Períodos</a>` : ""}
+        ${esDocenteSinPreview ? `<a href="#/">Secciones</a><a href="#/materias">Materias</a><a href="#/programa">Programa</a><a href="#/evaluaciones">Rúbrica y Evaluaciones</a><a href="#/asistencia">Asistencia</a><a href="#/periodos">Períodos</a>` : ""}
+        ${previewEstudianteId ? `<a href="#" id="salir-preview-topbar">&larr; Volver a modo profesor</a>` : ""}
         <a href="#" id="logout-link">Salir</a>
       </nav>
     </div>
@@ -82,8 +92,16 @@ function bindTopbar() {
     e.preventDefault();
     clearSession();
     session = null;
+    previewEstudianteId = null;
     location.hash = "#/login";
     render();
+  });
+  const salirPreviewTopbar = document.getElementById("salir-preview-topbar");
+  if (salirPreviewTopbar) salirPreviewTopbar.addEventListener("click", (e) => {
+    e.preventDefault();
+    const id = previewEstudianteId;
+    previewEstudianteId = null;
+    renderPerfil(id, false);
   });
 }
 
@@ -1226,11 +1244,11 @@ async function renderPerfil(id, isSelf) {
   bindTopbar();
 
   const verComoBtn = document.getElementById("ver-como-estudiante");
-  if (verComoBtn) verComoBtn.addEventListener("click", () => renderPerfil(s.id, true));
+  if (verComoBtn) verComoBtn.addEventListener("click", () => { previewEstudianteId = s.id; renderPerfil(s.id, true); });
   const reporteBtn = document.getElementById("generar-reporte-oficial-btn");
   if (reporteBtn) reporteBtn.addEventListener("click", () => mostrarSelectorReporteOficial(s));
   const salirPreviewBtn = document.getElementById("salir-vista-previa");
-  if (salirPreviewBtn) salirPreviewBtn.addEventListener("click", () => renderPerfil(s.id, false));
+  if (salirPreviewBtn) salirPreviewBtn.addEventListener("click", () => { previewEstudianteId = null; renderPerfil(s.id, false); });
 
   document.querySelectorAll(".tab-btn").forEach(btn => {
     btn.addEventListener("click", () => {
