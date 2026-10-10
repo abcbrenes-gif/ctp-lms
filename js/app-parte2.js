@@ -997,6 +997,10 @@ async function renderApartado(id, soloLectura) {
           <input name="titulo" placeholder="Título del trabajo" required style="flex:1; min-width:10rem" />
           <input name="fecha" type="date" />
           <div class="roa-editable js-trabajo-desc" contenteditable="true" style="flex-basis:100%; min-height:3rem;" data-placeholder="Instrucciones (opcional)"></div>
+          <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; flex-basis:100%;">
+            <input type="checkbox" name="calificable" checked /> Contar como indicador calificable en Rúbrica y Evaluaciones (categoría "Trabajo cotidiano")
+          </label>
+          <input name="puntaje_maximo" type="number" min="1" value="10" placeholder="Puntaje máximo" style="width:10rem" />
           <button class="btn small" type="submit">Agregar trabajo</button>
         </form>
         <div class="row" style="margin-top:0.6rem;">
@@ -1064,12 +1068,17 @@ async function renderApartado(id, soloLectura) {
     document.getElementById("trabajo-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const f = new FormData(e.target);
-      await sb.from("trabajos_cotidianos").insert({
+      const { data: nuevo } = await sb.from("trabajos_cotidianos").insert({
         publicacion_id: id,
         titulo: f.get("titulo"),
         fecha: f.get("fecha") || null,
         descripcion: document.querySelector(".js-trabajo-desc").innerHTML || null
-      });
+      }).select().maybeSingle();
+      if (nuevo && f.get("calificable") && pub.materia_id) {
+        const puntajeMaximo = Number(f.get("puntaje_maximo")) || 10;
+        const indicadorId = await crearIndicadorParaTrabajo(pub.materia_id, f.get("titulo"), f.get("fecha"), puntajeMaximo);
+        if (indicadorId) await sb.from("trabajos_cotidianos").update({ indicador_id: indicadorId }).eq("id", nuevo.id);
+      }
       renderApartado(id, soloLectura);
     });
 
@@ -1125,7 +1134,7 @@ async function renderApartado(id, soloLectura) {
             });
             const fila = btn.closest("[data-sugerencia]");
             if (fila) fila.remove();
-            await pintarTrabajosCotidianos((await sb.from("trabajos_cotidianos").select("*").eq("publicacion_id", id).order("creado_en")).data || [], soloLectura, id);
+            await pintarTrabajosCotidianos((await sb.from("trabajos_cotidianos").select("*").eq("publicacion_id", id).is("subtema_id", null).order("creado_en")).data || [], soloLectura, id, pub.materia_id);
           });
         });
       } catch (err) {
@@ -1221,7 +1230,7 @@ async function renderApartado(id, soloLectura) {
     });
   }
 
-  await pintarTrabajosCotidianos(trabajos || [], soloLectura, id);
+  await pintarTrabajosCotidianos(trabajos || [], soloLectura, id, pub.materia_id);
   await pintarMateriales(materiales || [], soloLectura);
   await pintarSubtemas(subtemas || [], soloLectura, id);
   await pintarResumenTrabajos(subtemas || [], soloLectura);
@@ -1425,6 +1434,10 @@ async function renderSubtema(id, soloLectura) {
           <input name="titulo" placeholder="Título del trabajo" required style="flex:1; min-width:10rem" />
           <input name="fecha" type="date" />
           <div class="roa-editable js-subtema-trabajo-desc" contenteditable="true" style="flex-basis:100%; min-height:3rem;" data-placeholder="Instrucciones (opcional)"></div>
+          <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; flex-basis:100%;">
+            <input type="checkbox" name="calificable" checked /> Contar como indicador calificable en Rúbrica y Evaluaciones (categoría "Trabajo cotidiano")
+          </label>
+          <input name="puntaje_maximo" type="number" min="1" value="10" placeholder="Puntaje máximo" style="width:10rem" />
           <button class="btn small" type="submit">Agregar trabajo</button>
         </form>
         <div class="row" style="margin-top:0.6rem;">
@@ -1468,13 +1481,18 @@ async function renderSubtema(id, soloLectura) {
     document.getElementById("subtema-trabajo-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const f = new FormData(e.target);
-      await sb.from("trabajos_cotidianos").insert({
+      const { data: nuevo } = await sb.from("trabajos_cotidianos").insert({
         publicacion_id: sub.publicacion_id,
         subtema_id: sub.id,
         titulo: f.get("titulo"),
         fecha: f.get("fecha") || null,
         descripcion: document.querySelector(".js-subtema-trabajo-desc").innerHTML || null
-      });
+      }).select().maybeSingle();
+      if (nuevo && f.get("calificable") && pub.materia_id) {
+        const puntajeMaximo = Number(f.get("puntaje_maximo")) || 10;
+        const indicadorId = await crearIndicadorParaTrabajo(pub.materia_id, f.get("titulo"), f.get("fecha"), puntajeMaximo);
+        if (indicadorId) await sb.from("trabajos_cotidianos").update({ indicador_id: indicadorId }).eq("id", nuevo.id);
+      }
       renderSubtema(id, soloLectura);
     });
 
@@ -1531,7 +1549,7 @@ async function renderSubtema(id, soloLectura) {
             });
             const fila = btn.closest("[data-sugerencia]");
             if (fila) fila.remove();
-            await pintarTrabajosCotidianosSubtema((await sb.from("trabajos_cotidianos").select("*").eq("subtema_id", sub.id).order("creado_en")).data || [], soloLectura, sub.id);
+            await pintarTrabajosCotidianosSubtema((await sb.from("trabajos_cotidianos").select("*").eq("subtema_id", sub.id).order("creado_en")).data || [], soloLectura, sub.id, pub.materia_id);
           });
         });
       } catch (err) {
@@ -1572,11 +1590,11 @@ async function renderSubtema(id, soloLectura) {
     });
   }
 
-  await pintarTrabajosCotidianosSubtema(trabajos || [], soloLectura, sub.id);
+  await pintarTrabajosCotidianosSubtema(trabajos || [], soloLectura, sub.id, pub.materia_id);
   await pintarMaterialesSubtema(sub.id, materiales || [], soloLectura, sub.publicacion_id);
 }
 
-async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId) {
+async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId) {
   const holder = document.getElementById("subtema-trabajos-lista");
   if (!holder) return;
 
@@ -1622,10 +1640,13 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId)
 
     holder.innerHTML = trabajos.map(t => `
       <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem;">
-        <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+        <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
           <span class="name">${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
-          <span style="display:flex; align-items:center; gap:0.6rem;">
+          <span style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
             <span class="badge">${conteos[t.id] || 0} completaron</span>
+            ${t.indicador_id
+              ? `<span class="badge" style="font-weight:400;">📊 Indicador calificable</span>`
+              : `<button class="btn secondary small" data-convertir-indicador-subtema="${t.id}">Contar como indicador</button>`}
             <button class="btn danger small" data-del-trabajo-subtema="${t.id}">Eliminar</button>
           </span>
         </div>
@@ -1634,14 +1655,59 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId)
 
     holder.querySelectorAll("[data-del-trabajo-subtema]").forEach(btn => {
       btn.addEventListener("click", async () => {
+        const trabajo = trabajos.find(t => String(t.id) === String(btn.dataset.delTrabajoSubtema));
         await sb.from("trabajos_cotidianos").delete().eq("id", btn.dataset.delTrabajoSubtema);
+        if (trabajo && trabajo.indicador_id) await sb.from("indicadores").delete().eq("id", trabajo.indicador_id);
+        renderSubtema(subtemaId, soloLectura);
+      });
+    });
+
+    holder.querySelectorAll("[data-convertir-indicador-subtema]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        if (!materiaId) { alert("Este subtema no tiene una materia asociada."); return; }
+        const trabajo = trabajos.find(t => String(t.id) === String(btn.dataset.convertirIndicadorSubtema));
+        if (!trabajo) return;
+        const puntaje = Number(prompt(`¿Puntaje máximo para "${trabajo.titulo}"?`, "10"));
+        if (!puntaje || puntaje <= 0) return;
+        btn.disabled = true;
+        btn.textContent = "Creando…";
+        const indicadorId = await crearIndicadorParaTrabajo(materiaId, trabajo.titulo, trabajo.fecha, puntaje);
+        if (indicadorId) await sb.from("trabajos_cotidianos").update({ indicador_id: indicadorId }).eq("id", trabajo.id);
         renderSubtema(subtemaId, soloLectura);
       });
     });
   }
 }
 
-async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId) {
+// Crea un indicador calificable (categoría "Trabajo cotidiano") en Rúbrica y
+// Evaluaciones a partir de un trabajo cotidiano, para poder calificarlo por
+// estudiante igual que cualquier otro indicador. Devuelve el id del indicador
+// creado, o null si no se pudo (y avisa al profesor por qué).
+async function crearIndicadorParaTrabajo(materiaId, titulo, fecha, puntajeMaximo) {
+  const { data: categoria } = await sb.from("rubrica_categorias").select("*").eq("nombre", "Trabajo cotidiano").maybeSingle();
+  if (!categoria) {
+    alert('No se encontró la categoría "Trabajo cotidiano" en Rúbrica y Evaluaciones. Cree esa categoría primero si quiere que este trabajo cuente como indicador calificable.');
+    return null;
+  }
+  const { data: existentes } = await sb.from("indicadores").select("id").eq("materia_id", materiaId).eq("categoria", "Trabajo cotidiano");
+  const letra = String.fromCharCode(65 + (existentes || []).length);
+  const { data: nuevo, error } = await sb.from("indicadores").insert({
+    materia_id: materiaId,
+    categoria: "Trabajo cotidiano",
+    letra,
+    descripcion: titulo,
+    puntaje_maximo: puntajeMaximo,
+    fecha_evaluacion: fecha || null,
+    orden: (existentes || []).length + 1
+  }).select().maybeSingle();
+  if (error || !nuevo) {
+    alert("No se pudo crear el indicador: " + (error ? error.message : "error desconocido."));
+    return null;
+  }
+  return nuevo.id;
+}
+
+async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, materiaId) {
   const holder = document.getElementById("trabajos-lista");
   if (!holder) return;
 
@@ -1687,10 +1753,13 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId) {
 
     holder.innerHTML = trabajos.map(t => `
       <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem;">
-        <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+        <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
           <span class="name">${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
-          <span style="display:flex; align-items:center; gap:0.6rem;">
+          <span style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
             <span class="badge">${conteos[t.id] || 0} completaron</span>
+            ${t.indicador_id
+              ? `<span class="badge" style="font-weight:400;">📊 Indicador calificable</span>`
+              : `<button class="btn secondary small" data-convertir-indicador="${t.id}">Contar como indicador</button>`}
             <button class="btn danger small" data-del-trabajo="${t.id}">Eliminar</button>
           </span>
         </div>
@@ -1699,7 +1768,24 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId) {
 
     holder.querySelectorAll("[data-del-trabajo]").forEach(btn => {
       btn.addEventListener("click", async () => {
+        const trabajo = trabajos.find(t => String(t.id) === String(btn.dataset.delTrabajo));
         await sb.from("trabajos_cotidianos").delete().eq("id", btn.dataset.delTrabajo);
+        if (trabajo && trabajo.indicador_id) await sb.from("indicadores").delete().eq("id", trabajo.indicador_id);
+        renderApartado(publicacionId, soloLectura);
+      });
+    });
+
+    holder.querySelectorAll("[data-convertir-indicador]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        if (!materiaId) { alert("Este tema no tiene una materia asociada."); return; }
+        const trabajo = trabajos.find(t => String(t.id) === String(btn.dataset.convertirIndicador));
+        if (!trabajo) return;
+        const puntaje = Number(prompt(`¿Puntaje máximo para "${trabajo.titulo}"?`, "10"));
+        if (!puntaje || puntaje <= 0) return;
+        btn.disabled = true;
+        btn.textContent = "Creando…";
+        const indicadorId = await crearIndicadorParaTrabajo(materiaId, trabajo.titulo, trabajo.fecha, puntaje);
+        if (indicadorId) await sb.from("trabajos_cotidianos").update({ indicador_id: indicadorId }).eq("id", trabajo.id);
         renderApartado(publicacionId, soloLectura);
       });
     });
