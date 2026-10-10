@@ -7,7 +7,6 @@ async function renderTabContent(s, tab, isSelf) {
   if (tab === "materias-est") return renderMateriasEstudiante(el, s);
   if (tab === "whatsapp" && !isSelf) return renderWhatsapp(el, s);
   if (tab === "acceso" && !isSelf) return renderAcceso(el, s);
-  if (isSelf) return renderMateriasEstudiante(el, s);
   return renderNotas(el, s, isSelf);
 }
 
