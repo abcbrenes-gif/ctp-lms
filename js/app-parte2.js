@@ -2473,11 +2473,33 @@ async function renderMateriaDetalle(materiaId) {
       <a href="#/materias" class="btn secondary small" style="margin-bottom:1rem; display:inline-block;">&larr; Materias</a>
       <h1>${materia.nombre}</h1>
       <p style="color:var(--text-muted); margin-top:-0.6em;">Sección ${materia.seccion}</p>
+      <div class="row" style="margin:0.6rem 0 1rem;">
+        <button class="btn secondary small" id="asignar-todos-seccion-btn" type="button">👥 Asignar esta materia a toda la sección</button>
+        <span id="asignar-todos-seccion-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>
+      </div>
+      <p style="font-size:0.78rem; color:var(--text-muted); margin-top:-0.6rem; margin-bottom:1rem;">Si un estudiante no tiene esta materia marcada en su "Acceso", sus notas de esta materia no aparecen en Rúbrica y Evaluaciones. Este botón la marca para todos los de la sección ${materia.seccion} de una sola vez.</p>
       <div id="materia-apartados">Cargando…</div>
       <div id="materia-indicadores" style="margin-top:1.4rem;">Cargando…</div>
       <div id="materia-publicaciones" style="margin-top:1.4rem;">Cargando…</div>
     </div>`;
   bindTopbar();
+
+  document.getElementById("asignar-todos-seccion-btn").addEventListener("click", async (e) => {
+    const estado = document.getElementById("asignar-todos-seccion-estado");
+    e.target.disabled = true;
+    estado.textContent = "Asignando…";
+    const { data: estudiantes } = await sb.from("estudiantes").select("id").eq("seccion", materia.seccion);
+    const { data: yaAsignados } = await sb.from("estudiante_materias").select("estudiante_id").eq("materia_id", materiaId);
+    const yaAsignadosSet = new Set((yaAsignados || []).map(a => a.estudiante_id));
+    const faltantes = (estudiantes || []).filter(s => !yaAsignadosSet.has(s.id));
+    if (faltantes.length === 0) {
+      estado.textContent = "Ya estaba asignada a todos los estudiantes de la sección.";
+    } else {
+      await sb.from("estudiante_materias").insert(faltantes.map(s => ({ estudiante_id: s.id, materia_id: materiaId })));
+      estado.textContent = `Listo — se asignó a ${faltantes.length} estudiante(s) que faltaban.`;
+    }
+    e.target.disabled = false;
+  });
 
   await cargarApartadosDeMateria(materiaId);
   await cargarIndicadoresDeMateria(materiaId);
