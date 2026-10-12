@@ -41,7 +41,10 @@ Reglas:
 - "correcta" es el índice (0, 1, 2 o 3) de la opción correcta.
 - Las 4 opciones deben ser plausibles (nada de respuestas absurdas obvias), en español de Costa Rica.
 - Variá cuál índice es el correcto entre las preguntas (no pongas siempre 0).
-- Preguntas claras, de nivel de colegio técnico, basadas en contenido real del tema.`,
+- Preguntas claras, de nivel de colegio técnico, basadas en contenido real del tema.
+- Cada pregunta y cada opción debe ser una oración u oración corta COMPLETA y bien formada en
+  español de Costa Rica — nunca la cortes a la mitad, nunca termines en "..." ni dejes una idea
+  sin terminar. Revisá cada una antes de responder.`,
 
   falso_verdadero: (tema, contexto) => `Sos un asistente para un profesor de Contabilidad de un colegio técnico (CTP) en Costa Rica.
 Generá 10 afirmaciones de verdadero/falso sobre este tema para una actividad de evaluación de estudiantes de secundaria.
@@ -55,7 +58,9 @@ Reglas:
 - Exactamente 10 afirmaciones.
 - "correcta" es true si la afirmación es verdadera, false si es falsa.
 - Mezclá verdaderas y falsas (no pongas todas verdaderas ni todas falsas).
-- Afirmaciones claras y concretas, en español de Costa Rica, basadas en contenido real del tema.`,
+- Afirmaciones claras y concretas, en español de Costa Rica, basadas en contenido real del tema.
+- Cada afirmación debe ser una oración COMPLETA y bien formada — nunca la cortes a la mitad ni
+  termines en "...". Revisá cada una antes de responder.`,
 
   sopa_letras: (tema, contexto) => `Sos un asistente para un profesor de Contabilidad de un colegio técnico (CTP) en Costa Rica.
 Generá una lista de 10 palabras clave (una sola palabra cada una, sin espacios ni tildes, en mayúsculas) relacionadas con este tema, para una sopa de letras.
@@ -81,7 +86,8 @@ Reglas:
   {"items": [{"palabra": "PALABRA", "pista": "Definición o pista corta"}, ...]}
 - Exactamente 7 pares.
 - "palabra": una sola palabra (sin espacios), SIN TILDES, en MAYÚSCULAS, entre 4 y 12 letras.
-- "pista": una definición corta (máximo 15 palabras), en español de Costa Rica, sin mencionar la palabra.
+- "pista": una definición corta (máximo 15 palabras) pero una oración COMPLETA y bien formada, en
+  español de Costa Rica, sin mencionar la palabra. Nunca la cortes a la mitad ni termines en "...".
 - Preferí palabras que compartan letras entre sí (para que el crucigrama pueda cruzarlas), pero priorizá que sean términos reales del tema.`,
 
   infografia: (tema, contexto) => `Sos un asistente para un profesor de Contabilidad de un colegio técnico (CTP) en Costa Rica.
@@ -142,7 +148,7 @@ module.exports = async (req, res) => {
         "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
-        model: "claude-haiku-5-5",
+        model: "claude-sonnet-5-5",
         max_tokens: maxTokens,
         messages: [{ role: "user", content: promptTexto }]
       })
