@@ -1018,6 +1018,12 @@ async function renderApartado(id, soloLectura) {
           <input type="file" id="material-archivo" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.webp" required />
           <button class="btn small" type="submit">Subir archivo</button>
           <span id="material-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>
+        </form>
+        <form id="enlace-form" style="margin-top:0.6rem; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+          <input name="titulo" id="enlace-titulo" placeholder="Nombre del recurso (ej. Presentación, Resumen)" required style="flex:1; min-width:12rem" />
+          <input name="url" id="enlace-url" type="url" placeholder="https://..." required style="flex:1; min-width:14rem" />
+          <button class="btn small" type="submit">🔗 Agregar enlace</button>
+          <span id="enlace-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>
         </form>` : ""}
       </section>
     </div>`;
@@ -1170,6 +1176,24 @@ async function renderApartado(id, soloLectura) {
       await pintarMateriales((await sb.from("materiales").select("*").eq("publicacion_id", id).is("subtema_id", null).order("creado_en")).data || [], soloLectura);
     });
 
+    document.getElementById("enlace-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      const estado = document.getElementById("enlace-estado");
+      let url = (f.get("url") || "").trim();
+      if (url && !/^https?:\/\//i.test(url)) url = "https://" + url;
+      await sb.from("materiales").insert({
+        publicacion_id: id,
+        nombre: f.get("titulo"),
+        ruta: url,
+        tipo: "link",
+        tamano_bytes: null
+      });
+      e.target.reset();
+      estado.textContent = "";
+      await pintarMateriales((await sb.from("materiales").select("*").eq("publicacion_id", id).is("subtema_id", null).order("creado_en")).data || [], soloLectura);
+    });
+
     const generarSubtemasBtn = document.getElementById("generar-subtemas-btn");
     if (generarSubtemasBtn) generarSubtemasBtn.addEventListener("click", async () => {
       const estado = document.getElementById("generar-subtemas-estado");
@@ -1253,21 +1277,28 @@ async function pintarMateriales(materiales, soloLectura) {
   }
 
   holder.innerHTML = materiales.map((m) => {
-    const { data: pub } = sb.storage.from("materiales").getPublicUrl(m.ruta);
-    const url = pub ? pub.publicUrl : "#";
+    const esEnlace = m.tipo === "link";
+    let url = "#";
+    if (esEnlace) {
+      url = m.ruta;
+    } else {
+      const { data: pub } = sb.storage.from("materiales").getPublicUrl(m.ruta);
+      url = pub ? pub.publicUrl : "#";
+    }
     return `
     <div class="roster-row">
-      <a class="name" href="${url}" target="_blank" rel="noopener">${m.nombre}</a>
-      <span class="badge" style="font-weight:400;">${formatoTamano(m.tamano_bytes)}</span>
-      ${!soloLectura ? `<button class="btn danger small" data-del-material="${m.id}" data-ruta-material="${m.ruta}">Eliminar</button>` : ""}
+      <a class="name" href="${url}" target="_blank" rel="noopener">${esEnlace ? "🔗 " : ""}${m.nombre}</a>
+      <span class="badge" style="font-weight:400;">${esEnlace ? "Enlace" : formatoTamano(m.tamano_bytes)}</span>
+      ${!soloLectura ? `<button class="btn danger small" data-del-material="${m.id}" data-ruta-material="${m.ruta}" data-tipo-material="${m.tipo || ""}">Eliminar</button>` : ""}
     </div>`;
   }).join("");
 
   if (!soloLectura) {
     holder.querySelectorAll("[data-del-material]").forEach((btn) => {
       btn.addEventListener("click", async () => {
-        if (!confirm("¿Eliminar este archivo?")) return;
-        await sb.storage.from("materiales").remove([btn.dataset.rutaMaterial]);
+        const esEnlace = btn.dataset.tipoMaterial === "link";
+        if (!confirm(esEnlace ? "¿Eliminar este enlace?" : "¿Eliminar este archivo?")) return;
+        if (!esEnlace) await sb.storage.from("materiales").remove([btn.dataset.rutaMaterial]);
         await sb.from("materiales").delete().eq("id", btn.dataset.delMaterial);
         btn.closest(".roster-row").remove();
         if (!holder.children.length) holder.innerHTML = `<p class="empty">Todavía no hay material de apoyo en este tema.</p>`;
@@ -1363,21 +1394,28 @@ async function pintarMaterialesSubtema(subtemaId, materiales, soloLectura, publi
   }
 
   holder.innerHTML = materiales.map((m) => {
-    const { data: pub } = sb.storage.from("materiales").getPublicUrl(m.ruta);
-    const url = pub ? pub.publicUrl : "#";
+    const esEnlace = m.tipo === "link";
+    let url = "#";
+    if (esEnlace) {
+      url = m.ruta;
+    } else {
+      const { data: pub } = sb.storage.from("materiales").getPublicUrl(m.ruta);
+      url = pub ? pub.publicUrl : "#";
+    }
     return `
     <div class="roster-row">
-      <a class="name" href="${url}" target="_blank" rel="noopener">${m.nombre}</a>
-      <span class="badge" style="font-weight:400;">${formatoTamano(m.tamano_bytes)}</span>
-      ${!soloLectura ? `<button class="btn danger small" data-del-material-subtema="${m.id}" data-ruta-material="${m.ruta}">Eliminar</button>` : ""}
+      <a class="name" href="${url}" target="_blank" rel="noopener">${esEnlace ? "🔗 " : ""}${m.nombre}</a>
+      <span class="badge" style="font-weight:400;">${esEnlace ? "Enlace" : formatoTamano(m.tamano_bytes)}</span>
+      ${!soloLectura ? `<button class="btn danger small" data-del-material-subtema="${m.id}" data-ruta-material="${m.ruta}" data-tipo-material="${m.tipo || ""}">Eliminar</button>` : ""}
     </div>`;
   }).join("");
 
   if (!soloLectura) {
     holder.querySelectorAll("[data-del-material-subtema]").forEach((btn) => {
       btn.addEventListener("click", async () => {
-        if (!confirm("¿Eliminar este archivo?")) return;
-        await sb.storage.from("materiales").remove([btn.dataset.rutaMaterial]);
+        const esEnlace = btn.dataset.tipoMaterial === "link";
+        if (!confirm(esEnlace ? "¿Eliminar este enlace?" : "¿Eliminar este archivo?")) return;
+        if (!esEnlace) await sb.storage.from("materiales").remove([btn.dataset.rutaMaterial]);
         await sb.from("materiales").delete().eq("id", btn.dataset.delMaterialSubtema);
         btn.closest(".roster-row").remove();
         if (!holder.children.length) holder.innerHTML = `<p class="empty" style="padding:0.4rem 0;">Todavía no hay material en este subtema.</p>`;
@@ -1455,6 +1493,12 @@ async function renderSubtema(id, soloLectura) {
           <input type="file" class="subtema-material-archivo" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.webp" required />
           <button class="btn small" type="submit">Subir archivo</button>
           <span class="subtema-material-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>
+        </form>
+        <form class="subtema-enlace-form" data-subtema-id="${sub.id}" style="margin-top:0.6rem; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+          <input name="titulo" class="subtema-enlace-titulo" placeholder="Nombre del recurso (ej. Presentación, Resumen)" required style="flex:1; min-width:12rem" />
+          <input name="url" class="subtema-enlace-url" type="url" placeholder="https://..." required style="flex:1; min-width:14rem" />
+          <button class="btn small" type="submit">🔗 Agregar enlace</button>
+          <span class="subtema-enlace-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>
         </form>` : ""}
       </section>
     </div>`;
@@ -1584,6 +1628,28 @@ async function renderSubtema(id, soloLectura) {
         tamano_bytes: archivo.size || null
       });
       input.value = "";
+      estado.textContent = "";
+      const { data: actualizados } = await sb.from("materiales").select("*").eq("subtema_id", subtemaId).order("creado_en");
+      await pintarMaterialesSubtema(subtemaId, actualizados || [], soloLectura, sub.publicacion_id);
+    });
+
+    document.querySelector(".subtema-enlace-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const subtemaId = form.dataset.subtemaId;
+      const estado = form.querySelector(".subtema-enlace-estado");
+      const f = new FormData(form);
+      let url = (f.get("url") || "").trim();
+      if (url && !/^https?:\/\//i.test(url)) url = "https://" + url;
+      await sb.from("materiales").insert({
+        publicacion_id: sub.publicacion_id,
+        subtema_id: subtemaId,
+        nombre: f.get("titulo"),
+        ruta: url,
+        tipo: "link",
+        tamano_bytes: null
+      });
+      form.reset();
       estado.textContent = "";
       const { data: actualizados } = await sb.from("materiales").select("*").eq("subtema_id", subtemaId).order("creado_en");
       await pintarMaterialesSubtema(subtemaId, actualizados || [], soloLectura, sub.publicacion_id);
