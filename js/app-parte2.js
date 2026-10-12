@@ -1545,9 +1545,11 @@ async function renderSubtema(id, soloLectura) {
         </form>
         <div class="row" style="margin-top:0.6rem;">
           <button class="btn secondary small" id="sugerir-subtema-trabajos-btn" type="button">✨ Sugerir trabajos cotidianos con IA</button>
+          <button class="btn secondary small" id="abrir-actividad-interactiva" type="button">🧠 Crear actividad interactiva</button>
         </div>
         <span id="sugerir-subtema-trabajos-estado" style="font-size:0.78rem; color:var(--text-muted); display:block; margin-top:0.4rem; min-height:1.2em;"></span>
-        <div id="sugerir-subtema-trabajos-lista" style="margin-top:0.6rem;"></div>` : ""}
+        <div id="sugerir-subtema-trabajos-lista" style="margin-top:0.6rem;"></div>
+        <div id="actividad-interactiva-panel" style="margin-top:0.8rem;"></div>` : ""}
       </section>
 
       <section class="tema-section">
@@ -1603,6 +1605,40 @@ async function renderSubtema(id, soloLectura) {
         if (indicadorId) await sb.from("trabajos_cotidianos").update({ indicador_id: indicadorId }).eq("id", nuevo.id);
       }
       renderSubtema(id, soloLectura);
+    });
+
+    const abrirActividadBtn = document.getElementById("abrir-actividad-interactiva");
+    if (abrirActividadBtn) abrirActividadBtn.addEventListener("click", () => {
+      const panel = document.getElementById("actividad-interactiva-panel");
+      panel.innerHTML = construirSelectorTipoActividad();
+      panel.querySelector("#actividad-tipo").addEventListener("change", (e) => {
+        panel.querySelector("#actividad-constructor").innerHTML = construirPanelActividadHTML(e.target.value);
+      });
+      panel.querySelector("#actividad-tipo").dispatchEvent(new Event("change"));
+      panel.querySelector("#cancelar-actividad-interactiva").addEventListener("click", () => { panel.innerHTML = ""; });
+      panel.querySelector("#guardar-actividad-interactiva").addEventListener("click", async (btnEv) => {
+        const tipo = panel.querySelector("#actividad-tipo").value;
+        const titulo = panel.querySelector("#actividad-titulo").value.trim();
+        const fecha = panel.querySelector("#actividad-fecha").value || null;
+        if (!titulo) { alert("Ponele un título a la actividad."); return; }
+        const resultado = leerContenidoActividadDesdeFormulario(tipo, panel.querySelector("#actividad-constructor"));
+        if (!resultado.valido) { alert(resultado.error); return; }
+        if (!pub.materia_id) { alert("Este subtema no tiene una materia asociada, no se puede crear el indicador de calificación."); return; }
+        btnEv.target.disabled = true;
+        btnEv.target.textContent = "Creando…";
+        const indicadorId = await crearIndicadorParaTrabajo(pub.materia_id, titulo, fecha, 3);
+        const { data: nuevo } = await sb.from("trabajos_cotidianos").insert({
+          publicacion_id: sub.publicacion_id,
+          subtema_id: sub.id,
+          titulo,
+          fecha,
+          tipo_actividad: tipo,
+          contenido_actividad: resultado.contenido,
+          indicador_id: indicadorId
+        }).select().maybeSingle();
+        if (!nuevo) { alert("No se pudo crear la actividad."); btnEv.target.disabled = false; btnEv.target.textContent = "Crear actividad"; return; }
+        renderSubtema(id, soloLectura);
+      });
     });
 
     const sugerirBtn = document.getElementById("sugerir-subtema-trabajos-btn");
@@ -1791,7 +1827,29 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
     const porTrabajo = {};
     (misEstados || []).forEach(e => { porTrabajo[e.trabajo_id] = e.completado; });
 
-    holder.innerHTML = trabajos.map(t => `
+    const trabajosActividad = trabajos.filter(t => t.tipo_actividad && t.tipo_actividad !== "simple");
+    const { data: misResultados } = trabajosActividad.length
+      ? await sb.from("actividades_estudiante").select("*").eq("estudiante_id", estudianteId).in("trabajo_id", trabajosActividad.map(t => t.id))
+      : { data: [] };
+    const resultadoPorTrabajo = {};
+    (misResultados || []).forEach(r => { resultadoPorTrabajo[r.trabajo_id] = r; });
+
+    holder.innerHTML = trabajos.map(t => {
+      const esActividad = t.tipo_actividad && t.tipo_actividad !== "simple";
+      if (esActividad) {
+        const res = resultadoPorTrabajo[t.id];
+        return `
+        <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.4rem;">
+          <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
+            <span class="name">🧠 ${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+            <span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>
+          </div>
+          ${res && res.completado
+            ? `<span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Completado — Nota: ${res.puntaje}/3</span>`
+            : `<button class="btn small" data-iniciar-actividad="${t.id}">▶ Iniciar actividad</button>`}
+        </div>`;
+      }
+      return `
       <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem;">
         <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
           <span class="name">${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
@@ -1800,7 +1858,8 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
           </label>
         </div>
         ${t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : ""}
-      </div>`).join("");
+      </div>`;
+    }).join("");
 
     holder.querySelectorAll("[data-mi-trabajo-subtema]").forEach(cb => {
       cb.addEventListener("change", async () => {
@@ -1808,6 +1867,17 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
           { trabajo_id: cb.dataset.miTrabajoSubtema, estudiante_id: estudianteId, completado: cb.checked, entregado_en: cb.checked ? new Date().toISOString() : null },
           { onConflict: "trabajo_id,estudiante_id" }
         );
+      });
+    });
+
+    holder.querySelectorAll("[data-iniciar-actividad]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const trabajo = trabajos.find(t => String(t.id) === String(btn.dataset.iniciarActividad));
+        if (!trabajo) return;
+        if (!confirm(`Vas a iniciar "${trabajo.titulo}". Se abre en pantalla completa y la nota se calcula automáticamente al terminar. ¿Listo para empezar?`)) return;
+        iniciarActividadInteractiva(trabajo, estudianteId, (puntaje) => {
+          pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId);
+        });
       });
     });
   } else {
@@ -1822,8 +1892,9 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
     holder.innerHTML = trabajos.map(t => `
       <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem;">
         <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
-          <span class="name">${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+          <span class="name">${t.tipo_actividad && t.tipo_actividad !== "simple" ? "🧠 " : ""}${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
           <span style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+            ${t.tipo_actividad && t.tipo_actividad !== "simple" ? `<span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>` : ""}
             <span class="badge">${conteos[t.id] || 0} completaron</span>
             ${t.indicador_id
               ? `<span class="badge" style="font-weight:400;">📊 Indicador calificable</span>`
@@ -1858,6 +1929,92 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
       });
     });
   }
+}
+
+// --- Constructor de actividades interactivas (selección única, falso y verdadero) ---
+
+function construirSelectorTipoActividad() {
+  return `
+    <div style="background:#fff; border:1px solid var(--paper-line); border-radius:10px; padding:1rem;">
+      <div class="row" style="margin-bottom:0.6rem;">
+        <input id="actividad-titulo" placeholder="Título de la actividad" style="flex:1; min-width:12rem" />
+        <input id="actividad-fecha" type="date" />
+      </div>
+      <div class="row" style="margin-bottom:0.8rem; align-items:center;">
+        <label style="display:flex; align-items:center; gap:0.5rem;">Tipo de actividad:
+          <select id="actividad-tipo">
+            <option value="seleccion_unica">🧠 Selección única (15 preguntas)</option>
+            <option value="falso_verdadero">✅ Falso y verdadero (10 afirmaciones)</option>
+            <option value="crucigrama" disabled>🔤 Crucigrama (próximamente)</option>
+            <option value="sopa_letras" disabled>🔎 Sopa de letras (próximamente)</option>
+            <option value="infografia" disabled>🖼️ Infografía (próximamente)</option>
+          </select>
+        </label>
+      </div>
+      <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.8rem;">Se califica automáticamente de 0 a 3 según el % de aciertos, y se hace en pantalla completa: si el estudiante sale de la actividad, queda registrado.</p>
+      <div id="actividad-constructor"></div>
+      <div class="row" style="margin-top:1rem;">
+        <button class="btn small" id="guardar-actividad-interactiva" type="button">Crear actividad</button>
+        <button class="btn secondary small" id="cancelar-actividad-interactiva" type="button">Cancelar</button>
+      </div>
+    </div>`;
+}
+
+function construirPanelActividadHTML(tipo) {
+  if (tipo === "seleccion_unica") {
+    const preguntas = Array.from({ length: 15 }, (_, i) => i);
+    return `
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Escribí las 15 preguntas y marcá con el círculo cuál opción es la correcta.</p>
+      ${preguntas.map(i => `
+        <div style="background:#F5F6FA; border-radius:8px; padding:0.8rem; margin-bottom:0.6rem;">
+          <p style="font-weight:600; margin-bottom:0.4rem; font-size:0.85rem;">Pregunta ${i + 1}</p>
+          <input class="au-pregunta" data-i="${i}" placeholder="Texto de la pregunta" style="width:100%; margin-bottom:0.5rem;" />
+          ${[0, 1, 2, 3].map(j => `
+            <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.3rem;">
+              <input type="radio" name="au-correcta-${i}" value="${j}" ${j === 0 ? "checked" : ""} />
+              <input class="au-opcion" data-i="${i}" data-j="${j}" placeholder="Opción ${String.fromCharCode(65 + j)}" style="flex:1;" />
+            </div>`).join("")}
+        </div>`).join("")}`;
+  }
+  if (tipo === "falso_verdadero") {
+    const items = Array.from({ length: 10 }, (_, i) => i);
+    return `
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Escribí las afirmaciones y marcá si cada una es verdadera o falsa.</p>
+      ${items.map(i => `
+        <div style="background:#F5F6FA; border-radius:8px; padding:0.8rem; margin-bottom:0.6rem;">
+          <input class="au-afirmacion" data-i="${i}" placeholder="Afirmación ${i + 1}" style="width:100%; margin-bottom:0.5rem;" />
+          <div style="display:flex; gap:1.2rem;">
+            <label style="display:flex; align-items:center; gap:0.4rem;"><input type="radio" name="au-fv-${i}" value="true" checked /> Verdadero</label>
+            <label style="display:flex; align-items:center; gap:0.4rem;"><input type="radio" name="au-fv-${i}" value="false" /> Falso</label>
+          </div>
+        </div>`).join("")}`;
+  }
+  return `<p class="empty">Este tipo todavía no está disponible — contame y lo agrego.</p>`;
+}
+
+function leerContenidoActividadDesdeFormulario(tipo, el) {
+  if (tipo === "seleccion_unica") {
+    const preguntas = [];
+    for (let i = 0; i < 15; i++) {
+      const pregunta = (el.querySelector(`.au-pregunta[data-i="${i}"]`)?.value || "").trim();
+      const opciones = [0, 1, 2, 3].map(j => (el.querySelector(`.au-opcion[data-i="${i}"][data-j="${j}"]`)?.value || "").trim());
+      if (!pregunta || opciones.some(o => !o)) return { valido: false, error: `Completá la pregunta ${i + 1} y sus 4 opciones.` };
+      const marcada = el.querySelector(`input[name="au-correcta-${i}"]:checked`);
+      preguntas.push({ pregunta, opciones, correcta: marcada ? Number(marcada.value) : 0 });
+    }
+    return { valido: true, contenido: { preguntas } };
+  }
+  if (tipo === "falso_verdadero") {
+    const afirmaciones = [];
+    for (let i = 0; i < 10; i++) {
+      const texto = (el.querySelector(`.au-afirmacion[data-i="${i}"]`)?.value || "").trim();
+      if (!texto) return { valido: false, error: `Completá la afirmación ${i + 1}.` };
+      const marcada = el.querySelector(`input[name="au-fv-${i}"]:checked`);
+      afirmaciones.push({ texto, correcta: marcada ? marcada.value === "true" : true });
+    }
+    return { valido: true, contenido: { afirmaciones } };
+  }
+  return { valido: false, error: "Tipo de actividad no soportado todavía." };
 }
 
 // Crea un indicador calificable (categoría "Trabajo cotidiano") en Rúbrica y
