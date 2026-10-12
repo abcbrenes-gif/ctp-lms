@@ -1615,6 +1615,33 @@ async function renderSubtema(id, soloLectura) {
         panel.querySelector("#actividad-constructor").innerHTML = construirPanelActividadHTML(e.target.value);
       });
       panel.querySelector("#actividad-tipo").dispatchEvent(new Event("change"));
+      panel.querySelector("#generar-actividad-ia-btn").addEventListener("click", async (iaEv) => {
+        const tipo = panel.querySelector("#actividad-tipo").value;
+        const estado = panel.querySelector("#generar-actividad-ia-estado");
+        const tema = (panel.querySelector("#actividad-titulo").value.trim() || sub.titulo || pub.titulo || "");
+        if (!tema) { alert("Ponele un título a la actividad primero (o el subtema debe tener nombre), para que la IA sepa el tema."); return; }
+        const quitarHtml = (v) => String(v || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+        const contexto = [sub.titulo, quitarHtml(sub.descripcion), quitarHtml(resultado ? resultado.resultado : "")].filter(Boolean).join(" — ").slice(0, 1500);
+        iaEv.target.disabled = true;
+        iaEv.target.textContent = "Generando…";
+        if (estado) estado.textContent = "";
+        try {
+          const r = await fetch("/api/generar-actividad-ia", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ tipo, tema, contexto })
+          });
+          const datos = await r.json();
+          if (!r.ok) { if (estado) estado.textContent = "No se pudo generar: " + (datos.error || "error desconocido."); return; }
+          llenarPanelActividadConIA(tipo, panel.querySelector("#actividad-constructor"), datos.contenido);
+          if (estado) estado.textContent = "Listo — revisá y editá antes de crear la actividad.";
+        } catch (err) {
+          if (estado) estado.textContent = "No se pudo conectar con la IA: " + (err.message || err);
+        } finally {
+          iaEv.target.disabled = false;
+          iaEv.target.textContent = "✨ Generar con IA";
+        }
+      });
       panel.querySelector("#cancelar-actividad-interactiva").addEventListener("click", () => { panel.innerHTML = ""; });
       panel.querySelector("#guardar-actividad-interactiva").addEventListener("click", async (btnEv) => {
         const tipo = panel.querySelector("#actividad-tipo").value;
@@ -1836,6 +1863,23 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
 
     holder.innerHTML = trabajos.map(t => {
       const esActividad = t.tipo_actividad && t.tipo_actividad !== "simple";
+      if (esActividad && t.tipo_actividad === "infografia") {
+        const res = resultadoPorTrabajo[t.id];
+        const instrucciones = (t.contenido_actividad && t.contenido_actividad.instrucciones) || "";
+        return `
+        <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.4rem;">
+          <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
+            <span class="name">🖼️ ${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+            <span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>
+          </div>
+          ${instrucciones ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${instrucciones}</div>` : ""}
+          ${res && res.archivo_ruta
+            ? `<span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Entregado: ${res.archivo_nombre || "archivo"}${res.puntaje != null ? " — Nota: " + res.puntaje + "/3" : " (pendiente de calificación)"}</span>
+               <label class="btn secondary small" style="cursor:pointer;">Reemplazar archivo<input type="file" data-infografia-subir="${t.id}" accept="image/*,.pdf" style="display:none;" /></label>`
+            : `<label class="btn small" style="cursor:pointer;">📎 Subir archivo (imagen o PDF)<input type="file" data-infografia-subir="${t.id}" accept="image/*,.pdf" style="display:none;" /></label>`}
+          <span data-infografia-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
+        </div>`;
+      }
       if (esActividad) {
         const res = resultadoPorTrabajo[t.id];
         return `
@@ -1880,6 +1924,31 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         });
       });
     });
+
+    holder.querySelectorAll("[data-infografia-subir]").forEach(input => {
+      input.addEventListener("change", async () => {
+        const trabajoId = input.dataset.infografiaSubir;
+        const archivo = input.files[0];
+        if (!archivo) return;
+        const estado = holder.querySelector(`[data-infografia-estado="${trabajoId}"]`);
+        if (estado) estado.textContent = "Subiendo…";
+        const rutaSegura = `infografias/trabajo-${trabajoId}/${estudianteId}-${Date.now()}-${archivo.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+        const { error: errorSubida } = await sb.storage.from("materiales").upload(rutaSegura, archivo);
+        if (errorSubida) {
+          if (estado) estado.textContent = "No se pudo subir: " + errorSubida.message;
+          return;
+        }
+        await sb.from("actividades_estudiante").upsert({
+          trabajo_id: trabajoId,
+          estudiante_id: estudianteId,
+          completado: true,
+          archivo_ruta: rutaSegura,
+          archivo_nombre: archivo.name,
+          actualizado_en: new Date().toISOString()
+        }, { onConflict: "trabajo_id,estudiante_id" });
+        pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId);
+      });
+    });
   } else {
     const trabajoIds = trabajos.map(t => t.id);
     const { data: todosEstados } = await sb.from("trabajos_cotidianos_estudiante").select("trabajo_id, completado").in("trabajo_id", trabajoIds);
@@ -1896,6 +1965,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
           <span style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
             ${t.tipo_actividad && t.tipo_actividad !== "simple" ? `<span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>` : ""}
             <span class="badge">${conteos[t.id] || 0} completaron</span>
+            ${t.tipo_actividad === "infografia" ? `<button class="btn secondary small" data-ver-entregas="${t.id}">📂 Ver entregas</button>` : ""}
             ${t.indicador_id
               ? `<span class="badge" style="font-weight:400;">📊 Indicador calificable</span>`
               : `<button class="btn secondary small" data-convertir-indicador-subtema="${t.id}">Contar como indicador</button>`}
@@ -1903,7 +1973,38 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
           </span>
         </div>
         ${t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : ""}
+        ${t.tipo_actividad === "infografia" ? `<div data-entregas-panel="${t.id}"></div>` : ""}
       </div>`).join("");
+
+    holder.querySelectorAll("[data-ver-entregas]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const trabajoId = btn.dataset.verEntregas;
+        const panel = holder.querySelector(`[data-entregas-panel="${trabajoId}"]`);
+        if (!panel) return;
+        if (panel.innerHTML) { panel.innerHTML = ""; return; }
+        panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando entregas…</p>`;
+        const { data: entregas } = await sb.from("actividades_estudiante").select("*").eq("trabajo_id", trabajoId).not("archivo_ruta", "is", null);
+        if (!entregas || entregas.length === 0) {
+          panel.innerHTML = `<p class="empty" style="font-size:0.82rem;">Todavía nadie ha entregado esta infografía.</p>`;
+          return;
+        }
+        const estudianteIds = entregas.map(e => e.estudiante_id);
+        const { data: estudiantes } = await sb.from("estudiantes").select("id, nombre, apellido1, apellido2").in("id", estudianteIds);
+        const nombrePorId = {};
+        (estudiantes || []).forEach(e => { nombrePorId[e.id] = [e.nombre, e.apellido1, e.apellido2].filter(Boolean).join(" "); });
+        panel.innerHTML = `
+          <div style="background:#F5F6FA; border-radius:8px; padding:0.7rem; margin-top:0.4rem;">
+            <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">La nota se pone en la sección "Rúbrica y Evaluaciones" (0 a 3), ya que el indicador quedó creado.</p>
+            ${entregas.map(e => {
+              const { data: pub } = sb.storage.from("materiales").getPublicUrl(e.archivo_ruta);
+              return `<div class="roster-row" style="padding:0.3rem 0;">
+                <span class="name">${nombrePorId[e.estudiante_id] || e.estudiante_id}</span>
+                <a class="btn small" href="${pub.publicUrl}" target="_blank" rel="noopener">📄 ${e.archivo_nombre || "Ver archivo"}</a>
+              </div>`;
+            }).join("")}
+          </div>`;
+      });
+    });
 
     holder.querySelectorAll("[data-del-trabajo-subtema]").forEach(btn => {
       btn.addEventListener("click", async () => {
@@ -1945,13 +2046,17 @@ function construirSelectorTipoActividad() {
           <select id="actividad-tipo">
             <option value="seleccion_unica">🧠 Selección única (15 preguntas)</option>
             <option value="falso_verdadero">✅ Falso y verdadero (10 afirmaciones)</option>
-            <option value="crucigrama" disabled>🔤 Crucigrama (próximamente)</option>
-            <option value="sopa_letras" disabled>🔎 Sopa de letras (próximamente)</option>
-            <option value="infografia" disabled>🖼️ Infografía (próximamente)</option>
+            <option value="crucigrama">🔤 Crucigrama</option>
+            <option value="sopa_letras">🔎 Sopa de letras</option>
+            <option value="infografia">🖼️ Infografía (el estudiante sube un archivo, se califica a mano)</option>
           </select>
         </label>
       </div>
       <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.8rem;">Se califica automáticamente de 0 a 3 según el % de aciertos, y se hace en pantalla completa: si el estudiante sale de la actividad, queda registrado.</p>
+      <div class="row" style="margin-bottom:0.8rem; align-items:center;">
+        <button class="btn secondary small" id="generar-actividad-ia-btn" type="button">✨ Generar con IA</button>
+        <span id="generar-actividad-ia-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>
+      </div>
       <div id="actividad-constructor"></div>
       <div class="row" style="margin-top:1rem;">
         <button class="btn small" id="guardar-actividad-interactiva" type="button">Crear actividad</button>
@@ -1989,7 +2094,69 @@ function construirPanelActividadHTML(tipo) {
           </div>
         </div>`).join("")}`;
   }
+  if (tipo === "sopa_letras") {
+    return `
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Escribí entre 6 y 12 palabras (sin tildes es mejor), una por línea. Se genera la sopa de letras automáticamente.</p>
+      <textarea id="au-palabras-sopa" rows="10" placeholder="CCSS&#10;RENTA&#10;SALARIO&#10;JORNADA&#10;FERIADO&#10;PLANILLA" style="width:100%; font-family:inherit;"></textarea>`;
+  }
+  if (tipo === "crucigrama") {
+    const filas = Array.from({ length: 8 }, (_, i) => i);
+    return `
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Escribí entre 5 y 8 palabras con su pista. Se genera el crucigrama automáticamente, cruzando las palabras donde comparten letras.</p>
+      ${filas.map(i => `
+        <div style="display:flex; gap:0.5rem; margin-bottom:0.5rem;">
+          <input class="au-cruci-palabra" data-i="${i}" placeholder="Palabra ${i + 1}" style="width:9rem;" />
+          <input class="au-cruci-pista" data-i="${i}" placeholder="Pista" style="flex:1;" />
+        </div>`).join("")}`;
+  }
+  if (tipo === "infografia") {
+    return `
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Esta es la única actividad en la que el estudiante SÍ puede salir de la plataforma (por ejemplo, para usar Canva). Entrega un archivo (imagen o PDF) que vos calificás a mano en Rúbrica y Evaluaciones.</p>
+      <textarea id="au-infografia-instrucciones" rows="4" placeholder="Instrucciones para el estudiante (ej. haz una infografía que resuma los descuentos obligatorios de ley...)" style="width:100%; font-family:inherit;"></textarea>`;
+  }
   return `<p class="empty">Este tipo todavía no está disponible — contame y lo agrego.</p>`;
+}
+
+// Llena el formulario de autoría de una actividad con lo que devolvió la IA,
+// para que el profesor lo revise y edite antes de crear la actividad.
+function llenarPanelActividadConIA(tipo, el, contenido) {
+  if (!contenido) return;
+  if (tipo === "seleccion_unica" && Array.isArray(contenido.preguntas)) {
+    contenido.preguntas.slice(0, 15).forEach((p, i) => {
+      const inputPregunta = el.querySelector(`.au-pregunta[data-i="${i}"]`);
+      if (inputPregunta) inputPregunta.value = p.pregunta || "";
+      (p.opciones || []).slice(0, 4).forEach((op, j) => {
+        const inputOpcion = el.querySelector(`.au-opcion[data-i="${i}"][data-j="${j}"]`);
+        if (inputOpcion) inputOpcion.value = op || "";
+      });
+      const radio = el.querySelector(`input[name="au-correcta-${i}"][value="${Number(p.correcta) || 0}"]`);
+      if (radio) radio.checked = true;
+    });
+  }
+  if (tipo === "falso_verdadero" && Array.isArray(contenido.afirmaciones)) {
+    contenido.afirmaciones.slice(0, 10).forEach((a, i) => {
+      const inputAfirmacion = el.querySelector(`.au-afirmacion[data-i="${i}"]`);
+      if (inputAfirmacion) inputAfirmacion.value = a.texto || "";
+      const radio = el.querySelector(`input[name="au-fv-${i}"][value="${a.correcta ? "true" : "false"}"]`);
+      if (radio) radio.checked = true;
+    });
+  }
+  if (tipo === "sopa_letras" && Array.isArray(contenido.palabras)) {
+    const textarea = el.querySelector("#au-palabras-sopa");
+    if (textarea) textarea.value = contenido.palabras.join("\n");
+  }
+  if (tipo === "crucigrama" && Array.isArray(contenido.items)) {
+    contenido.items.slice(0, 8).forEach((it, i) => {
+      const inputPalabra = el.querySelector(`.au-cruci-palabra[data-i="${i}"]`);
+      const inputPista = el.querySelector(`.au-cruci-pista[data-i="${i}"]`);
+      if (inputPalabra) inputPalabra.value = it.palabra || "";
+      if (inputPista) inputPista.value = it.pista || "";
+    });
+  }
+  if (tipo === "infografia" && typeof contenido.instrucciones === "string") {
+    const textarea = el.querySelector("#au-infografia-instrucciones");
+    if (textarea) textarea.value = contenido.instrucciones;
+  }
 }
 
 function leerContenidoActividadDesdeFormulario(tipo, el) {
@@ -2013,6 +2180,27 @@ function leerContenidoActividadDesdeFormulario(tipo, el) {
       afirmaciones.push({ texto, correcta: marcada ? marcada.value === "true" : true });
     }
     return { valido: true, contenido: { afirmaciones } };
+  }
+  if (tipo === "sopa_letras") {
+    const palabras = (el.querySelector("#au-palabras-sopa")?.value || "")
+      .split("\n").map(p => p.trim()).filter(Boolean);
+    if (palabras.length < 4) return { valido: false, error: "Escribí al menos 4 palabras para la sopa de letras." };
+    if (palabras.length > 15) return { valido: false, error: "Como máximo 15 palabras para la sopa de letras." };
+    return { valido: true, contenido: generarSopaDeLetras(palabras) };
+  }
+  if (tipo === "crucigrama") {
+    const items = [];
+    for (let i = 0; i < 8; i++) {
+      const palabra = (el.querySelector(`.au-cruci-palabra[data-i="${i}"]`)?.value || "").trim();
+      const pista = (el.querySelector(`.au-cruci-pista[data-i="${i}"]`)?.value || "").trim();
+      if (palabra && pista) items.push({ palabra, pista });
+    }
+    if (items.length < 4) return { valido: false, error: "Completá al menos 4 pares de palabra + pista para el crucigrama." };
+    return { valido: true, contenido: generarCrucigrama(items) };
+  }
+  if (tipo === "infografia") {
+    const instrucciones = (el.querySelector("#au-infografia-instrucciones")?.value || "").trim();
+    return { valido: true, contenido: { instrucciones } };
   }
   return { valido: false, error: "Tipo de actividad no soportado todavía." };
 }
