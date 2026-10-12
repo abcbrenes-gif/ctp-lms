@@ -2073,11 +2073,11 @@ function construirPanelActividadHTML(tipo) {
       ${preguntas.map(i => `
         <div style="background:#F5F6FA; border-radius:8px; padding:0.8rem; margin-bottom:0.6rem;">
           <p style="font-weight:600; margin-bottom:0.4rem; font-size:0.85rem;">Pregunta ${i + 1}</p>
-          <input class="au-pregunta" data-i="${i}" placeholder="Texto de la pregunta" style="width:100%; margin-bottom:0.5rem;" />
+          <textarea class="au-pregunta" data-i="${i}" placeholder="Texto de la pregunta" rows="2" style="width:100%; margin-bottom:0.5rem; font-family:inherit; resize:vertical;"></textarea>
           ${[0, 1, 2, 3].map(j => `
-            <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.3rem;">
-              <input type="radio" name="au-correcta-${i}" value="${j}" ${j === 0 ? "checked" : ""} />
-              <input class="au-opcion" data-i="${i}" data-j="${j}" placeholder="Opción ${String.fromCharCode(65 + j)}" style="flex:1;" />
+            <div style="display:flex; align-items:flex-start; gap:0.5rem; margin-bottom:0.3rem;">
+              <input type="radio" name="au-correcta-${i}" value="${j}" ${j === 0 ? "checked" : ""} style="margin-top:0.6rem;" />
+              <textarea class="au-opcion" data-i="${i}" data-j="${j}" placeholder="Opción ${String.fromCharCode(65 + j)}" rows="1" style="flex:1; font-family:inherit; resize:vertical;"></textarea>
             </div>`).join("")}
         </div>`).join("")}`;
   }
@@ -2087,7 +2087,7 @@ function construirPanelActividadHTML(tipo) {
       <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Escribí las afirmaciones y marcá si cada una es verdadera o falsa.</p>
       ${items.map(i => `
         <div style="background:#F5F6FA; border-radius:8px; padding:0.8rem; margin-bottom:0.6rem;">
-          <input class="au-afirmacion" data-i="${i}" placeholder="Afirmación ${i + 1}" style="width:100%; margin-bottom:0.5rem;" />
+          <textarea class="au-afirmacion" data-i="${i}" placeholder="Afirmación ${i + 1}" rows="2" style="width:100%; margin-bottom:0.5rem; font-family:inherit; resize:vertical;"></textarea>
           <div style="display:flex; gap:1.2rem;">
             <label style="display:flex; align-items:center; gap:0.4rem;"><input type="radio" name="au-fv-${i}" value="true" checked /> Verdadero</label>
             <label style="display:flex; align-items:center; gap:0.4rem;"><input type="radio" name="au-fv-${i}" value="false" /> Falso</label>
@@ -2104,9 +2104,9 @@ function construirPanelActividadHTML(tipo) {
     return `
       <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Escribí entre 5 y 8 palabras con su pista. Se genera el crucigrama automáticamente, cruzando las palabras donde comparten letras.</p>
       ${filas.map(i => `
-        <div style="display:flex; gap:0.5rem; margin-bottom:0.5rem;">
+        <div style="display:flex; gap:0.5rem; margin-bottom:0.5rem; align-items:flex-start;">
           <input class="au-cruci-palabra" data-i="${i}" placeholder="Palabra ${i + 1}" style="width:9rem;" />
-          <input class="au-cruci-pista" data-i="${i}" placeholder="Pista" style="flex:1;" />
+          <textarea class="au-cruci-pista" data-i="${i}" placeholder="Pista" rows="1" style="flex:1; font-family:inherit; resize:vertical;"></textarea>
         </div>`).join("")}`;
   }
   if (tipo === "infografia") {
