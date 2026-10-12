@@ -2420,10 +2420,46 @@ async function renderMaterias() {
     const block = document.createElement("div");
     block.className = "group-promo";
     block.style.marginTop = "1.2rem";
-    block.innerHTML = `<summary style="font-family:var(--serif); font-weight:600; font-size:1.02rem;">Sección ${sec}</summary><div class="materia-list" data-sec="${sec}" style="margin-top:0.8rem;">Cargando…</div>`;
+    block.innerHTML = `<summary style="font-family:var(--serif); font-weight:600; font-size:1.02rem;">Sección ${sec}</summary>
+      <div class="row" style="margin-top:0.6rem;">
+        <button class="btn secondary small" data-asignar-todas-materias="${sec}" type="button">👥 Asignar TODAS las materias de esta sección a TODOS sus estudiantes</button>
+        <span data-asignar-todas-materias-estado="${sec}" style="font-size:0.78rem; color:var(--text-muted);"></span>
+      </div>
+      <div class="materia-list" data-sec="${sec}" style="margin-top:0.8rem;">Cargando…</div>`;
     container.appendChild(block);
     await loadMateriasSeccion(sec);
   }
+
+  container.querySelectorAll("[data-asignar-todas-materias]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const sec = btn.dataset.asignarTodasMaterias;
+      const estado = container.querySelector(`[data-asignar-todas-materias-estado="${CSS.escape(sec)}"]`);
+      btn.disabled = true;
+      estado.textContent = "Asignando…";
+      const { data: materiasSec } = await sb.from("materias").select("id").eq("seccion", sec);
+      const { data: estudiantesSec } = await sb.from("estudiantes").select("id").eq("seccion", sec);
+      if (!materiasSec || materiasSec.length === 0) {
+        estado.textContent = "Esta sección todavía no tiene materias creadas.";
+        btn.disabled = false;
+        return;
+      }
+      const { data: yaAsignados } = await sb.from("estudiante_materias").select("estudiante_id, materia_id").in("materia_id", materiasSec.map(m => m.id));
+      const yaAsignadosSet = new Set((yaAsignados || []).map(a => `${a.estudiante_id}-${a.materia_id}`));
+      const faltantes = [];
+      (estudiantesSec || []).forEach(s => {
+        materiasSec.forEach(m => {
+          if (!yaAsignadosSet.has(`${s.id}-${m.id}`)) faltantes.push({ estudiante_id: s.id, materia_id: m.id });
+        });
+      });
+      if (faltantes.length === 0) {
+        estado.textContent = "Ya estaban todas asignadas.";
+      } else {
+        await sb.from("estudiante_materias").insert(faltantes);
+        estado.textContent = `Listo — se hicieron ${faltantes.length} asignación(es) que faltaban.`;
+      }
+      btn.disabled = false;
+    });
+  });
 }
 
 async function loadMateriasSeccion(sec) {
