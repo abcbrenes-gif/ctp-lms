@@ -7,6 +7,7 @@ async function renderTabContent(s, tab, isSelf) {
   if (tab === "materias-est") return renderMateriasEstudiante(el, s);
   if (tab === "whatsapp" && !isSelf) return renderWhatsapp(el, s);
   if (tab === "acceso" && !isSelf) return renderAcceso(el, s);
+  if (tab === "pin" && !isSelf) return renderPin(el, s);
   return renderNotas(el, s, isSelf);
 }
 
@@ -2394,6 +2395,41 @@ async function renderAcceso(el, s) {
         await sb.from("estudiante_materias").delete().eq("estudiante_id", s.id).eq("materia_id", materiaId);
       }
     });
+  });
+}
+
+// --- PIN de acceso del estudiante (para que el profesor lo vea/cambie sin entrar a Supabase) ---
+
+function generarPinAleatorio() {
+  return String(Math.floor(1000 + Math.random() * 9000)); // 4 dígitos
+}
+
+function renderPin(el, s) {
+  el.innerHTML = `
+    <div class="whatsapp-panel">
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.6rem;">
+        ${s.nombre} entra a la plataforma con su cédula (<strong>${s.id}</strong>) y este PIN. Puede verlo, cambiarlo o generar uno nuevo aquí mismo.
+      </p>
+      <label for="pin-input">PIN actual</label>
+      <div class="row" style="align-items:center;">
+        <input id="pin-input" value="${s.pin || ""}" placeholder="Sin PIN asignado" inputmode="numeric" style="max-width:10rem; font-size:1.1rem; letter-spacing:0.15em;" />
+        <button class="btn secondary small" id="generar-pin-btn" type="button">🎲 Generar aleatorio</button>
+        <button class="btn small" id="guardar-pin-btn" type="button">Guardar</button>
+      </div>
+      <span id="pin-estado" style="font-size:0.78rem; color:var(--text-muted); display:block; margin-top:0.5rem;"></span>
+    </div>`;
+
+  document.getElementById("generar-pin-btn").addEventListener("click", () => {
+    document.getElementById("pin-input").value = generarPinAleatorio();
+  });
+
+  document.getElementById("guardar-pin-btn").addEventListener("click", async () => {
+    const nuevoPin = document.getElementById("pin-input").value.trim();
+    const estado = document.getElementById("pin-estado");
+    if (!nuevoPin) { estado.textContent = "Escribe o genera un PIN antes de guardar."; return; }
+    await sb.from("estudiantes").update({ pin: nuevoPin }).eq("id", s.id);
+    s.pin = nuevoPin;
+    estado.textContent = "Guardado ✓ — ya puede entrar con este PIN.";
   });
 }
 

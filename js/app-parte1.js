@@ -258,7 +258,7 @@ async function renderSeccion(sec) {
       <span class="name">${s.apellido1} ${s.apellido2}, ${s.nombre}</span>
       <span style="display:flex; align-items:center; gap:0.8rem;">
         <span class="cedula">${s.id}</span>
-        <span class="badge">Ver perfil</span>
+        ${s.pin ? `<span class="badge" style="font-family:monospace;">🔐 ${s.pin}</span>` : `<span class="badge" style="background:#fdecea; color:#c0392b;">Sin PIN</span>`}
       </span>
     </a>`).join("");
 
@@ -268,6 +268,10 @@ async function renderSeccion(sec) {
       <a href="#/" class="btn secondary small" style="margin-bottom:1rem; display:inline-block;">&larr; Secciones</a>
       <h1>Sección ${sec}</h1>
       <p style="color:var(--text-muted); margin-top:-0.6em;">${(students || []).length} estudiantes · ${INSTITUCION.especialidad}</p>
+      <div class="row" style="margin:0.6rem 0;">
+        <button class="btn secondary small" id="generar-pines-btn" type="button">🔐 Generar PIN a los que no tienen</button>
+        <span id="generar-pines-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>
+      </div>
       <div class="roster">${rows || '<p class="empty">No hay estudiantes registrados en esta sección.</p>'}</div>
 
       <details class="group-promo" open>
@@ -306,6 +310,22 @@ async function renderSeccion(sec) {
     });
   }
   if (groupList) renderGroupList();
+
+  const generarPinesBtn = document.getElementById("generar-pines-btn");
+  if (generarPinesBtn) generarPinesBtn.addEventListener("click", async () => {
+    const estado = document.getElementById("generar-pines-estado");
+    const sinPin = (students || []).filter(st => !st.pin);
+    if (sinPin.length === 0) { estado.textContent = "Todos los estudiantes de esta sección ya tienen PIN."; return; }
+    generarPinesBtn.disabled = true;
+    estado.textContent = "Generando…";
+    for (const st of sinPin) {
+      const nuevoPin = generarPinAleatorio();
+      await sb.from("estudiantes").update({ pin: nuevoPin }).eq("id", st.id);
+      st.pin = nuevoPin;
+    }
+    estado.textContent = `Listo — se generó PIN para ${sinPin.length} estudiante(s). Entra al perfil de cada uno (pestaña "PIN de acceso") para verlo y comunicárselo.`;
+    renderSeccion(sec);
+  });
 
   await cargarAsignacionesSeccion(sec, students || []);
 }
@@ -1236,7 +1256,8 @@ async function renderPerfil(id, isSelf) {
         <button class="tab-btn ${activeTab === "asistencia" ? "active" : ""}" data-tab="asistencia"><span class="tab-icon">🗓️</span><span class="tab-label">Asistencia</span></button>
         <button class="tab-btn ${activeTab === "materias-est" ? "active" : ""}" data-tab="materias-est"><span class="tab-icon">📚</span><span class="tab-label">Materias</span></button>
         ${!isSelf ? `<button class="tab-btn ${activeTab === "whatsapp" ? "active" : ""}" data-tab="whatsapp"><span class="tab-icon">💬</span><span class="tab-label">WhatsApp</span></button>
-        <button class="tab-btn ${activeTab === "acceso" ? "active" : ""}" data-tab="acceso"><span class="tab-icon">🔑</span><span class="tab-label">Materias</span></button>` : ""}
+        <button class="tab-btn ${activeTab === "acceso" ? "active" : ""}" data-tab="acceso"><span class="tab-icon">🔑</span><span class="tab-label">Materias</span></button>
+        <button class="tab-btn ${activeTab === "pin" ? "active" : ""}" data-tab="pin"><span class="tab-icon">🔐</span><span class="tab-label">PIN de acceso</span></button>` : ""}
       </div>
 
       <div id="tab-content">Cargando…</div>
