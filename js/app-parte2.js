@@ -1850,6 +1850,11 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
   }
 
   if (soloLectura) {
+    trabajos = trabajos.filter(t => t.habilitado !== false);
+    if (trabajos.length === 0) {
+      holder.innerHTML = `<p class="empty">Todavía no hay trabajos cotidianos habilitados en este subtema.</p>`;
+      return;
+    }
     const estudianteId = session.id;
     const trabajoIds = trabajos.map(t => t.id);
     const { data: misEstados } = await sb.from("trabajos_cotidianos_estudiante").select("*").eq("estudiante_id", estudianteId).in("trabajo_id", trabajoIds);
@@ -1961,12 +1966,15 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
     });
 
     holder.innerHTML = trabajos.map(t => `
-      <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem;">
+      <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem; ${t.habilitado === false ? "opacity:0.55;" : ""}">
         <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
           <span class="name">${t.tipo_actividad && t.tipo_actividad !== "simple" ? "🧠 " : ""}${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
           <span style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
             ${t.tipo_actividad && t.tipo_actividad !== "simple" ? `<span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>` : ""}
             <span class="badge">${conteos[t.id] || 0} completaron</span>
+            <button class="btn ${t.habilitado === false ? "" : "secondary"} small" data-toggle-trabajo-subtema-habilitado="${t.id}" data-estado-actual="${t.habilitado !== false}">
+              ${t.habilitado === false ? "Habilitar" : "Habilitado"}
+            </button>
             ${t.tipo_actividad === "infografia" ? `<button class="btn secondary small" data-ver-entregas="${t.id}">📂 Ver entregas</button>` : ""}
             ${ACTIVIDADES_BLOQUEADAS.includes(t.tipo_actividad) ? `<button class="btn secondary small" data-ver-preguntas="${t.id}">👁️ Ver preguntas</button>` : ""}
             ${t.indicador_id
@@ -1979,6 +1987,14 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         ${t.tipo_actividad === "infografia" ? `<div data-entregas-panel="${t.id}"></div>` : ""}
         ${ACTIVIDADES_BLOQUEADAS.includes(t.tipo_actividad) ? `<div data-preguntas-panel="${t.id}"></div>` : ""}
       </div>`).join("");
+
+    holder.querySelectorAll("[data-toggle-trabajo-subtema-habilitado]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const nuevoEstado = btn.dataset.estadoActual !== "true";
+        await sb.from("trabajos_cotidianos").update({ habilitado: nuevoEstado }).eq("id", btn.dataset.toggleTrabajoSubtemaHabilitado);
+        renderSubtema(subtemaId, soloLectura);
+      });
+    });
 
     holder.querySelectorAll("[data-ver-preguntas]").forEach(btn => {
       btn.addEventListener("click", () => {
@@ -2300,6 +2316,11 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
   }
 
   if (soloLectura) {
+    trabajos = trabajos.filter(t => t.habilitado !== false);
+    if (trabajos.length === 0) {
+      holder.innerHTML = `<p class="empty">Todavía no hay trabajos cotidianos habilitados en este apartado.</p>`;
+      return;
+    }
     const estudianteId = session.id;
     const trabajoIds = trabajos.map(t => t.id);
     const { data: misEstados } = await sb.from("trabajos_cotidianos_estudiante").select("*").eq("estudiante_id", estudianteId).in("trabajo_id", trabajoIds);
@@ -2335,11 +2356,14 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
     });
 
     holder.innerHTML = trabajos.map(t => `
-      <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem;">
+      <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem; ${t.habilitado === false ? "opacity:0.55;" : ""}">
         <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
           <span class="name">${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
           <span style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
             <span class="badge">${conteos[t.id] || 0} completaron</span>
+            <button class="btn ${t.habilitado === false ? "" : "secondary"} small" data-toggle-trabajo-habilitado="${t.id}" data-estado-actual="${t.habilitado !== false}">
+              ${t.habilitado === false ? "Habilitar" : "Habilitado"}
+            </button>
             ${t.indicador_id
               ? `<span class="badge" style="font-weight:400;">📊 Indicador calificable</span>`
               : `<button class="btn secondary small" data-convertir-indicador="${t.id}">Contar como indicador</button>`}
@@ -2348,6 +2372,14 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
         </div>
         ${t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : ""}
       </div>`).join("");
+
+    holder.querySelectorAll("[data-toggle-trabajo-habilitado]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const nuevoEstado = btn.dataset.estadoActual !== "true";
+        await sb.from("trabajos_cotidianos").update({ habilitado: nuevoEstado }).eq("id", btn.dataset.toggleTrabajoHabilitado);
+        renderApartado(publicacionId, soloLectura);
+      });
+    });
 
     holder.querySelectorAll("[data-del-trabajo]").forEach(btn => {
       btn.addEventListener("click", async () => {
