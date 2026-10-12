@@ -129,6 +129,9 @@ module.exports = async (req, res) => {
   }
 
   const prompt = PROMPTS[tipo](tema, contexto);
+  // La selección única (15 preguntas x 4 opciones) es la respuesta más larga —
+  // le damos más margen para que no se corte a la mitad.
+  const maxTokens = tipo === "seleccion_unica" ? 6000 : (tipo === "falso_verdadero" || tipo === "crucigrama" ? 4000 : 2000);
 
   async function llamarIA(promptTexto) {
     const respuesta = await fetch("https://api.anthropic.com/v1/messages", {
@@ -140,7 +143,7 @@ module.exports = async (req, res) => {
       },
       body: JSON.stringify({
         model: "claude-haiku-5-5",
-        max_tokens: 3000,
+        max_tokens: maxTokens,
         messages: [{ role: "user", content: promptTexto }]
       })
     });
