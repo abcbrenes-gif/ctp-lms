@@ -1424,6 +1424,61 @@ async function pintarMaterialesSubtema(subtemaId, materiales, soloLectura, publi
   }
 }
 
+// --- Visor de presentación (imágenes de diapositivas) embebido en la Introducción del subtema ---
+
+function pintarPresentacionSubtema(subtemaId, diapositivas, soloLectura) {
+  const holder = document.getElementById(`subtema-presentacion-${subtemaId}`);
+  if (!holder) return;
+
+  if (!diapositivas || diapositivas.length === 0) {
+    holder.innerHTML = "";
+    return;
+  }
+
+  const urls = diapositivas.map(d => {
+    const { data: pub } = sb.storage.from("materiales").getPublicUrl(d.ruta);
+    return pub ? pub.publicUrl : "";
+  });
+
+  let actual = 0;
+
+  holder.innerHTML = `
+    <div class="presentacion-visor" style="margin-bottom:1.2rem; background:#0f172a; border-radius:14px; overflow:hidden;">
+      <div style="position:relative; width:100%; aspect-ratio:16/9; background:#0f172a; display:flex; align-items:center; justify-content:center;">
+        <img id="presentacion-img-${subtemaId}" src="${urls[0]}" alt="Diapositiva 1" style="width:100%; height:100%; object-fit:contain; display:block;" />
+        <button type="button" id="presentacion-prev-${subtemaId}" aria-label="Diapositiva anterior" style="position:absolute; left:0.5rem; top:50%; transform:translateY(-50%); background:rgba(15,23,42,0.6); color:#fff; border:none; border-radius:999px; width:2.4rem; height:2.4rem; font-size:1.2rem; cursor:pointer;">&larr;</button>
+        <button type="button" id="presentacion-next-${subtemaId}" aria-label="Siguiente diapositiva" style="position:absolute; right:0.5rem; top:50%; transform:translateY(-50%); background:rgba(15,23,42,0.6); color:#fff; border:none; border-radius:999px; width:2.4rem; height:2.4rem; font-size:1.2rem; cursor:pointer;">&rarr;</button>
+        <button type="button" id="presentacion-full-${subtemaId}" aria-label="Pantalla completa" style="position:absolute; right:0.5rem; bottom:0.5rem; background:rgba(15,23,42,0.6); color:#fff; border:none; border-radius:8px; padding:0.3rem 0.6rem; font-size:0.78rem; cursor:pointer;">⛶ Pantalla completa</button>
+      </div>
+      <div style="display:flex; align-items:center; justify-content:center; gap:0.6rem; padding:0.5rem; background:#1b2340;">
+        <span id="presentacion-contador-${subtemaId}" style="color:#C7D0E8; font-size:0.82rem;">1 / ${urls.length}</span>
+      </div>
+    </div>`;
+
+  const img = document.getElementById(`presentacion-img-${subtemaId}`);
+  const contador = document.getElementById(`presentacion-contador-${subtemaId}`);
+  const visor = holder.querySelector(".presentacion-visor");
+
+  function mostrar(i) {
+    actual = (i + urls.length) % urls.length;
+    img.src = urls[actual];
+    img.alt = `Diapositiva ${actual + 1}`;
+    contador.textContent = `${actual + 1} / ${urls.length}`;
+  }
+
+  document.getElementById(`presentacion-prev-${subtemaId}`).addEventListener("click", () => mostrar(actual - 1));
+  document.getElementById(`presentacion-next-${subtemaId}`).addEventListener("click", () => mostrar(actual + 1));
+  document.getElementById(`presentacion-full-${subtemaId}`).addEventListener("click", () => {
+    if (visor.requestFullscreen) visor.requestFullscreen();
+    else if (visor.webkitRequestFullscreen) visor.webkitRequestFullscreen();
+  });
+  visor.tabIndex = 0;
+  visor.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowLeft") mostrar(actual - 1);
+    if (e.key === "ArrowRight") mostrar(actual + 1);
+  });
+}
+
 // --- Página propia de un Subtema (#/subtema/:id) ---
 
 async function renderSubtema(id, soloLectura) {
@@ -1434,7 +1489,9 @@ async function renderSubtema(id, soloLectura) {
   if (soloLectura && !pub.habilitado) { location.hash = "#/"; return; }
   const { data: resultado } = pub.resultado_id ? await sb.from("resultados_aprendizaje").select("*").eq("id", pub.resultado_id).maybeSingle() : { data: null };
   const { data: trabajos } = await sb.from("trabajos_cotidianos").select("*").eq("subtema_id", id).order("creado_en");
-  const { data: materiales } = await sb.from("materiales").select("*").eq("subtema_id", id).order("creado_en");
+  const { data: materialesTodos } = await sb.from("materiales").select("*").eq("subtema_id", id).order("creado_en");
+  const materiales = (materialesTodos || []).filter(m => m.tipo !== "slide-image");
+  const diapositivas = (materialesTodos || []).filter(m => m.tipo === "slide-image");
 
   const tituloTema = (resultado && resultado.resultado ? resultado.resultado : pub.titulo || "").replace(/<[^>]*>/g, "");
 
@@ -1456,6 +1513,14 @@ async function renderSubtema(id, soloLectura) {
 
       <section class="tema-section">
         <h3>Introducción del subtema</h3>
+        <div id="subtema-presentacion-${sub.id}"></div>
+        ${!soloLectura ? `
+        <form class="subtema-presentacion-form" data-subtema-id="${sub.id}" style="margin:${diapositivas.length ? "0 0 1.2rem" : "0 0 1.2rem"}; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+          <input type="file" class="subtema-presentacion-archivos" accept="image/*" multiple />
+          <button class="btn small" type="submit">📽️ ${diapositivas.length ? "Reemplazar presentación" : "Subir presentación (imágenes, en orden)"}</button>
+          ${diapositivas.length ? `<button class="btn danger small" type="button" id="borrar-presentacion-${sub.id}">Quitar presentación</button>` : ""}
+          <span class="subtema-presentacion-estado" style="font-size:0.78rem; color:var(--text-muted); flex-basis:100%;"></span>
+        </form>` : ""}
         ${soloLectura
           ? `<div class="roa-cell-texto roa-html">${sub.contenido || '<span class="empty">El profesor todavía no ha escrito contenido para este subtema.</span>'}</div>`
           : `<div class="roa-editable roa-html" contenteditable="true" id="subtema-intro" style="min-height:6rem;">${sub.contenido || ""}</div>
@@ -1629,7 +1694,7 @@ async function renderSubtema(id, soloLectura) {
       });
       input.value = "";
       estado.textContent = "";
-      const { data: actualizados } = await sb.from("materiales").select("*").eq("subtema_id", subtemaId).order("creado_en");
+      const { data: actualizados } = await sb.from("materiales").select("*").eq("subtema_id", subtemaId).neq("tipo", "slide-image").order("creado_en");
       await pintarMaterialesSubtema(subtemaId, actualizados || [], soloLectura, sub.publicacion_id);
     });
 
@@ -1651,13 +1716,63 @@ async function renderSubtema(id, soloLectura) {
       });
       form.reset();
       estado.textContent = "";
-      const { data: actualizados } = await sb.from("materiales").select("*").eq("subtema_id", subtemaId).order("creado_en");
+      const { data: actualizados } = await sb.from("materiales").select("*").eq("subtema_id", subtemaId).neq("tipo", "slide-image").order("creado_en");
       await pintarMaterialesSubtema(subtemaId, actualizados || [], soloLectura, sub.publicacion_id);
+    });
+
+    const presentacionForm = document.querySelector(".subtema-presentacion-form");
+    if (presentacionForm) presentacionForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const subtemaId = form.dataset.subtemaId;
+      const estado = form.querySelector(".subtema-presentacion-estado");
+      const input = form.querySelector(".subtema-presentacion-archivos");
+      const archivos = Array.from(input.files || []);
+      if (!archivos.length) return;
+
+      const existentes = (await sb.from("materiales").select("id, ruta").eq("subtema_id", subtemaId).eq("tipo", "slide-image")).data || [];
+      if (existentes.length) {
+        estado.textContent = "Quitando presentación anterior…";
+        await sb.storage.from("materiales").remove(existentes.map(m => m.ruta));
+        await sb.from("materiales").delete().in("id", existentes.map(m => m.id));
+      }
+
+      for (let i = 0; i < archivos.length; i++) {
+        const archivo = archivos[i];
+        estado.textContent = `Subiendo diapositiva ${i + 1} de ${archivos.length}…`;
+        const rutaSegura = `${sub.publicacion_id}/subtema-${subtemaId}/presentacion/${String(i + 1).padStart(3, "0")}-${Date.now()}-${archivo.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+        const { error: errorSubida } = await sb.storage.from("materiales").upload(rutaSegura, archivo);
+        if (errorSubida) {
+          estado.textContent = "No se pudo subir: " + errorSubida.message;
+          return;
+        }
+        await sb.from("materiales").insert({
+          publicacion_id: sub.publicacion_id,
+          subtema_id: subtemaId,
+          nombre: archivo.name,
+          ruta: rutaSegura,
+          tipo: "slide-image",
+          tamano_bytes: archivo.size || null
+        });
+      }
+      renderSubtema(id, soloLectura);
+    });
+
+    const borrarPresentacionBtn = document.getElementById(`borrar-presentacion-${sub.id}`);
+    if (borrarPresentacionBtn) borrarPresentacionBtn.addEventListener("click", async () => {
+      if (!confirm("¿Quitar la presentación de este subtema?")) return;
+      const existentes = (await sb.from("materiales").select("id, ruta").eq("subtema_id", sub.id).eq("tipo", "slide-image")).data || [];
+      if (existentes.length) {
+        await sb.storage.from("materiales").remove(existentes.map(m => m.ruta));
+        await sb.from("materiales").delete().in("id", existentes.map(m => m.id));
+      }
+      renderSubtema(id, soloLectura);
     });
   }
 
   await pintarTrabajosCotidianosSubtema(trabajos || [], soloLectura, sub.id, pub.materia_id);
   await pintarMaterialesSubtema(sub.id, materiales || [], soloLectura, sub.publicacion_id);
+  await pintarPresentacionSubtema(sub.id, diapositivas, soloLectura);
 }
 
 async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId) {
