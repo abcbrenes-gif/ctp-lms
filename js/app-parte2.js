@@ -101,22 +101,37 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
       <div style="overflow-x:auto;">
         <table class="grades">
           <thead><tr>
-            ${info.indicadores.map(i => `<th style="text-align:center;">${i.letra}</th>`).join("")}
-            <th>Resultado (valor: ${categoriaObj?.porcentaje || "?"}%)</th>
+            <th>${activa}</th>
+            <th style="text-align:center;">Nota obtenida</th>
+            ${!isSelf ? `<th style="text-align:center;">Calificar</th>` : ""}
           </tr></thead>
-          <tbody><tr>
-            ${info.indicadores.map(i => !isSelf ? `
-              <td style="text-align:center;">
-                <select data-calif-indicador="${i.id}" data-materia="${m.id}" style="width:4rem; text-align:center; border:1px solid var(--paper-line); border-radius:3px;">
-                  ${Array.from({ length: i.puntaje_maximo + 1 }, (_, p) => `<option value="${p}" ${Number(info.porIndicador[i.id] || 0) === p ? "selected" : ""}>${p}</option>`).join("")}
-                </select>
-              </td>` : `<td class="num">${info.porIndicador[i.id] || 0}</td>`).join("")}
-            <td class="num" style="font-weight:600;">${resultadoPct}%</td>
-          </tr></tbody>
+          <tbody>
+            ${info.indicadores.map(i => {
+              const obtenido = Number(info.porIndicador[i.id] || 0);
+              const sinCalificar = info.porIndicador[i.id] === undefined;
+              return `
+              <tr>
+                <td>
+                  <strong>${i.descripcion}</strong>
+                  ${i.fecha_evaluacion ? `<div style="font-size:0.75rem; color:var(--text-muted);">Fecha: ${i.fecha_evaluacion}${i.lecciones ? " · " + i.lecciones + " lecciones" : ""}</div>` : ""}
+                </td>
+                <td class="num" style="text-align:center; font-weight:600;">
+                  ${sinCalificar ? `<span class="no-phone-note" style="margin:0;">Sin calificar aún</span>` : `${obtenido} / ${i.puntaje_maximo}`}
+                </td>
+                ${!isSelf ? `
+                <td style="text-align:center;">
+                  <select data-calif-indicador="${i.id}" data-materia="${m.id}" style="width:4rem; text-align:center; border:1px solid var(--paper-line); border-radius:3px;">
+                    ${Array.from({ length: i.puntaje_maximo + 1 }, (_, p) => `<option value="${p}" ${obtenido === p ? "selected" : ""}>${p}</option>`).join("")}
+                  </select>
+                </td>` : ""}
+              </tr>`;
+            }).join("")}
+          </tbody>
         </table>
       </div>
+      <p class="num" style="font-weight:600; margin-top:0.4rem;">Resultado de ${activa} (valor: ${categoriaObj?.porcentaje || "?"}% de la nota final): ${resultadoPct}%</p>
       <details style="margin-top:0.5rem;">
-        <summary style="font-size:0.82rem; color:var(--text-muted); cursor:pointer;">Ver indicadores y criterios</summary>
+        <summary style="font-size:0.82rem; color:var(--text-muted); cursor:pointer;">Ver criterios de cada trabajo</summary>
         <table class="grades" style="margin-top:0.5rem;">
           <thead><tr><th>Indicador</th><th>Puntaje máximo</th><th>Criterios</th></tr></thead>
           <tbody>
