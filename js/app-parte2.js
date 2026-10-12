@@ -1967,6 +1967,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
             ${t.tipo_actividad && t.tipo_actividad !== "simple" ? `<span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>` : ""}
             <span class="badge">${conteos[t.id] || 0} completaron</span>
             ${t.tipo_actividad === "infografia" ? `<button class="btn secondary small" data-ver-entregas="${t.id}">📂 Ver entregas</button>` : ""}
+            ${ACTIVIDADES_BLOQUEADAS.includes(t.tipo_actividad) ? `<button class="btn secondary small" data-ver-preguntas="${t.id}">👁️ Ver preguntas</button>` : ""}
             ${t.indicador_id
               ? `<span class="badge" style="font-weight:400;">📊 Indicador calificable</span>`
               : `<button class="btn secondary small" data-convertir-indicador-subtema="${t.id}">Contar como indicador</button>`}
@@ -1975,7 +1976,20 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         </div>
         ${t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : ""}
         ${t.tipo_actividad === "infografia" ? `<div data-entregas-panel="${t.id}"></div>` : ""}
+        ${ACTIVIDADES_BLOQUEADAS.includes(t.tipo_actividad) ? `<div data-preguntas-panel="${t.id}"></div>` : ""}
       </div>`).join("");
+
+    holder.querySelectorAll("[data-ver-preguntas]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const trabajoId = btn.dataset.verPreguntas;
+        const panel = holder.querySelector(`[data-preguntas-panel="${trabajoId}"]`);
+        if (!panel) return;
+        if (panel.innerHTML) { panel.innerHTML = ""; return; }
+        const trabajo = trabajos.find(x => String(x.id) === String(trabajoId));
+        if (!trabajo) return;
+        panel.innerHTML = construirRevisionContenidoActividad(trabajo.tipo_actividad, trabajo.contenido_actividad);
+      });
+    });
 
     holder.querySelectorAll("[data-ver-entregas]").forEach(btn => {
       btn.addEventListener("click", async () => {
@@ -2158,6 +2172,43 @@ function llenarPanelActividadConIA(tipo, el, contenido) {
     const textarea = el.querySelector("#au-infografia-instrucciones");
     if (textarea) textarea.value = contenido.instrucciones;
   }
+}
+
+// Muestra (solo lectura) el contenido ya creado de una actividad, para que el
+// profesor pueda revisar las preguntas/palabras/pistas sin tener que iniciarla
+// como estudiante.
+function construirRevisionContenidoActividad(tipo, contenido) {
+  if (!contenido) return `<p class="empty" style="font-size:0.82rem;">Esta actividad no tiene contenido guardado.</p>`;
+  const envoltura = (html) => `<div style="background:#F5F6FA; border-radius:8px; padding:0.8rem; margin-top:0.5rem; font-size:0.85rem;">${html}</div>`;
+
+  if (tipo === "seleccion_unica" && Array.isArray(contenido.preguntas)) {
+    return envoltura(contenido.preguntas.map((p, i) => `
+      <div style="margin-bottom:0.7rem;">
+        <p style="font-weight:600;">${i + 1}. ${p.pregunta}</p>
+        <ul style="margin:0.2rem 0 0 1.2rem; padding:0;">
+          ${(p.opciones || []).map((op, j) => `<li style="${j === Number(p.correcta) ? "color:#1d7a43; font-weight:600;" : ""}">${op}${j === Number(p.correcta) ? " ✓" : ""}</li>`).join("")}
+        </ul>
+      </div>`).join(""));
+  }
+  if (tipo === "falso_verdadero" && Array.isArray(contenido.afirmaciones)) {
+    return envoltura(contenido.afirmaciones.map((a, i) => `
+      <div style="margin-bottom:0.4rem;">${i + 1}. ${a.texto}
+        <strong style="color:${a.correcta ? "#1d7a43" : "#c0392b"};"> — ${a.correcta ? "Verdadero" : "Falso"}</strong>
+      </div>`).join(""));
+  }
+  if (tipo === "sopa_letras" && Array.isArray(contenido.colocadas)) {
+    return envoltura(`
+      <p style="font-weight:600; margin-bottom:0.4rem;">Palabras de la sopa de letras:</p>
+      <p>${contenido.colocadas.map(c => c.palabra).join(" · ") || "(ninguna se logró colocar)"}</p>`);
+  }
+  if (tipo === "crucigrama" && Array.isArray(contenido.colocadas)) {
+    return envoltura(`
+      <p style="font-weight:600; margin-bottom:0.4rem;">Palabras y pistas del crucigrama:</p>
+      <ol style="margin:0 0 0 1.2rem; padding:0;">
+        ${contenido.colocadas.slice().sort((a, b) => a.numero - b.numero).map(c => `<li><strong>${c.palabra}</strong> — ${c.pista} <span style="color:var(--text-muted);">(${c.horizontal ? "horizontal" : "vertical"})</span></li>`).join("")}
+      </ol>`);
+  }
+  return `<p class="empty" style="font-size:0.82rem;">No se pudo mostrar el contenido de este tipo de actividad.</p>`;
 }
 
 function leerContenidoActividadDesdeFormulario(tipo, el) {
