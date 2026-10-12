@@ -1623,6 +1623,7 @@ async function renderSubtema(id, soloLectura) {
         if (!tema) { alert("Ponele un título a la actividad primero (o el subtema debe tener nombre), para que la IA sepa el tema."); return; }
         const quitarHtml = (v) => String(v || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
         const contexto = [sub.titulo, quitarHtml(sub.descripcion), quitarHtml(resultado ? resultado.resultado : "")].filter(Boolean).join(" — ").slice(0, 1500);
+        const instrucciones = (panel.querySelector("#actividad-ia-instrucciones")?.value || "").trim().slice(0, 800);
         iaEv.target.disabled = true;
         iaEv.target.textContent = "Generando…";
         if (estado) estado.textContent = "";
@@ -1630,7 +1631,7 @@ async function renderSubtema(id, soloLectura) {
           const r = await fetch("/api/generar-actividad-ia", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ tipo, tema, contexto })
+            body: JSON.stringify({ tipo, tema, contexto, instrucciones })
           });
           const datos = await r.json();
           if (!r.ok) { if (estado) estado.textContent = "No se pudo generar: " + (datos.error || "error desconocido."); return; }
@@ -2068,6 +2069,10 @@ function construirSelectorTipoActividad() {
         </label>
       </div>
       <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.8rem;">Se califica automáticamente de 0 a 3 según el % de aciertos, y se hace en pantalla completa: si el estudiante sale de la actividad, queda registrado.</p>
+      <div style="margin-bottom:0.6rem;">
+        <label for="actividad-ia-instrucciones" style="font-size:0.82rem; color:var(--text-muted); display:block; margin-bottom:0.3rem;">Instrucciones para la IA (opcional) — ej. "enfocate en salarios y cargas sociales, con ejemplos en colones", "nivel básico", "incluí IVA y renta"</label>
+        <textarea id="actividad-ia-instrucciones" rows="2" placeholder="Dejalo en blanco para que la IA use solo el título y el tema del subtema" style="width:100%; font-family:inherit; resize:vertical;"></textarea>
+      </div>
       <div class="row" style="margin-bottom:0.8rem; align-items:center;">
         <button class="btn secondary small" id="generar-actividad-ia-btn" type="button">✨ Generar con IA</button>
         <span id="generar-actividad-ia-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>

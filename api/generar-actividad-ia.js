@@ -28,12 +28,12 @@ function extraerJson(texto) {
 }
 
 const PROMPTS = {
-  seleccion_unica: (tema, contexto) => `Sos un asistente para un profesor de Contabilidad de un colegio técnico (CTP) en Costa Rica.
+  seleccion_unica: (tema, contexto, instrucciones) => `Sos un asistente para un profesor de Contabilidad de un colegio técnico (CTP) en Costa Rica.
 Generá 15 preguntas de selección única (opción múltiple) sobre este tema para una actividad de evaluación de estudiantes de secundaria.
 
 Tema: ${tema}
 ${contexto ? `Contexto adicional: ${contexto}` : ""}
-
+${instrucciones ? `\nInstrucciones del profesor (seguilas con prioridad sobre lo demás): ${instrucciones}\n` : ""}
 Reglas:
 - Devolvé ÚNICAMENTE un JSON válido, sin texto antes ni después, con esta forma exacta:
   {"preguntas": [{"pregunta": "...", "opciones": ["...", "...", "...", "..."], "correcta": 0}, ...]}
@@ -46,12 +46,12 @@ Reglas:
   español de Costa Rica — nunca la cortes a la mitad, nunca termines en "..." ni dejes una idea
   sin terminar. Revisá cada una antes de responder.`,
 
-  falso_verdadero: (tema, contexto) => `Sos un asistente para un profesor de Contabilidad de un colegio técnico (CTP) en Costa Rica.
+  falso_verdadero: (tema, contexto, instrucciones) => `Sos un asistente para un profesor de Contabilidad de un colegio técnico (CTP) en Costa Rica.
 Generá 10 afirmaciones de verdadero/falso sobre este tema para una actividad de evaluación de estudiantes de secundaria.
 
 Tema: ${tema}
 ${contexto ? `Contexto adicional: ${contexto}` : ""}
-
+${instrucciones ? `\nInstrucciones del profesor (seguilas con prioridad sobre lo demás): ${instrucciones}\n` : ""}
 Reglas:
 - Devolvé ÚNICAMENTE un JSON válido, sin texto antes ni después, con esta forma exacta:
   {"afirmaciones": [{"texto": "...", "correcta": true}, ...]}
@@ -62,12 +62,12 @@ Reglas:
 - Cada afirmación debe ser una oración COMPLETA y bien formada — nunca la cortes a la mitad ni
   termines en "...". Revisá cada una antes de responder.`,
 
-  sopa_letras: (tema, contexto) => `Sos un asistente para un profesor de Contabilidad de un colegio técnico (CTP) en Costa Rica.
+  sopa_letras: (tema, contexto, instrucciones) => `Sos un asistente para un profesor de Contabilidad de un colegio técnico (CTP) en Costa Rica.
 Generá una lista de 10 palabras clave (una sola palabra cada una, sin espacios ni tildes, en mayúsculas) relacionadas con este tema, para una sopa de letras.
 
 Tema: ${tema}
 ${contexto ? `Contexto adicional: ${contexto}` : ""}
-
+${instrucciones ? `\nInstrucciones del profesor (seguilas con prioridad sobre lo demás): ${instrucciones}\n` : ""}
 Reglas:
 - Devolvé ÚNICAMENTE un JSON válido, sin texto antes ni después, con esta forma exacta:
   {"palabras": ["PALABRA1", "PALABRA2", ...]}
@@ -75,12 +75,12 @@ Reglas:
 - Cada palabra: una sola palabra (sin espacios), SIN TILDES, en MAYÚSCULAS, entre 4 y 12 letras.
 - Términos técnicos reales y relevantes del tema.`,
 
-  crucigrama: (tema, contexto) => `Sos un asistente para un profesor de Contabilidad de un colegio técnico (CTP) en Costa Rica.
+  crucigrama: (tema, contexto, instrucciones) => `Sos un asistente para un profesor de Contabilidad de un colegio técnico (CTP) en Costa Rica.
 Generá 7 pares de palabra+pista sobre este tema para un crucigrama.
 
 Tema: ${tema}
 ${contexto ? `Contexto adicional: ${contexto}` : ""}
-
+${instrucciones ? `\nInstrucciones del profesor (seguilas con prioridad sobre lo demás): ${instrucciones}\n` : ""}
 Reglas:
 - Devolvé ÚNICAMENTE un JSON válido, sin texto antes ni después, con esta forma exacta:
   {"items": [{"palabra": "PALABRA", "pista": "Definición o pista corta"}, ...]}
@@ -90,12 +90,12 @@ Reglas:
   español de Costa Rica, sin mencionar la palabra. Nunca la cortes a la mitad ni termines en "...".
 - Preferí palabras que compartan letras entre sí (para que el crucigrama pueda cruzarlas), pero priorizá que sean términos reales del tema.`,
 
-  infografia: (tema, contexto) => `Sos un asistente para un profesor de Contabilidad de un colegio técnico (CTP) en Costa Rica.
+  infografia: (tema, contexto, instrucciones) => `Sos un asistente para un profesor de Contabilidad de un colegio técnico (CTP) en Costa Rica.
 Escribí instrucciones breves (3 a 5 oraciones) para que un estudiante de secundaria haga una infografía sobre este tema, que luego sube como imagen o PDF.
 
 Tema: ${tema}
 ${contexto ? `Contexto adicional: ${contexto}` : ""}
-
+${instrucciones ? `\nInstrucciones del profesor (seguilas con prioridad sobre lo demás): ${instrucciones}\n` : ""}
 Reglas:
 - Devolvé ÚNICAMENTE un JSON válido, sin texto antes ni después, con esta forma exacta:
   {"instrucciones": "..."}
@@ -124,6 +124,7 @@ module.exports = async (req, res) => {
   const tipo = String(body.tipo || "");
   const tema = limpiarHtml(body.tema).slice(0, 300);
   const contexto = limpiarHtml(body.contexto).slice(0, 2000);
+  const instrucciones = limpiarHtml(body.instrucciones).slice(0, 800);
 
   if (!PROMPTS[tipo]) {
     res.status(400).json({ error: "Tipo de actividad no soportado." });
@@ -134,7 +135,7 @@ module.exports = async (req, res) => {
     return;
   }
 
-  const prompt = PROMPTS[tipo](tema, contexto);
+  const prompt = PROMPTS[tipo](tema, contexto, instrucciones);
   // La selección única (15 preguntas x 4 opciones) es la respuesta más larga —
   // le damos más margen para que no se corte a la mitad.
   const maxTokens = tipo === "seleccion_unica" ? 6000 : (tipo === "falso_verdadero" || tipo === "crucigrama" ? 4000 : 2000);
