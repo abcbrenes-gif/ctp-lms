@@ -3063,6 +3063,25 @@ function leerContenidoActividadDesdeFormulario(tipo, el) {
   return { valido: false, error: "Tipo de actividad no soportado todavía." };
 }
 
+// Calcula la siguiente letra disponible (A, B, C… luego AA, AB…) que no
+// esté ya usada por otro indicador de la misma categoría. Evita que dos
+// indicadores queden con la misma letra cuando uno se borró a mitad de
+// camino (el conteo simple "A + cantidad" se desincroniza en ese caso).
+function siguienteLetraDisponible(usadas) {
+  const set = new Set((usadas || []).filter(Boolean).map(l => String(l).trim().toUpperCase()));
+  let i = 0;
+  while (true) {
+    let letra = "";
+    let n = i;
+    do {
+      letra = String.fromCharCode(65 + (n % 26)) + letra;
+      n = Math.floor(n / 26) - 1;
+    } while (n >= 0);
+    if (!set.has(letra)) return letra;
+    i++;
+  }
+}
+
 // Crea un indicador calificable (categoría "Trabajo cotidiano") en Rúbrica y
 // Evaluaciones a partir de un trabajo cotidiano, para poder calificarlo por
 // estudiante igual que cualquier otro indicador. Devuelve el id del indicador
@@ -3073,8 +3092,8 @@ async function crearIndicadorParaTrabajo(materiaId, titulo, fecha, puntajeMaximo
     alert('No se encontró la categoría "Trabajo cotidiano" en Rúbrica y Evaluaciones. Cree esa categoría primero si quiere que este trabajo cuente como indicador calificable.');
     return null;
   }
-  const { data: existentes } = await sb.from("indicadores").select("id").eq("materia_id", materiaId).eq("categoria", "Trabajo cotidiano");
-  const letra = String.fromCharCode(65 + (existentes || []).length);
+  const { data: existentes } = await sb.from("indicadores").select("id, letra").eq("materia_id", materiaId).eq("categoria", "Trabajo cotidiano");
+  const letra = siguienteLetraDisponible((existentes || []).map(e => e.letra));
   const { data: nuevo, error } = await sb.from("indicadores").insert({
     materia_id: materiaId,
     categoria: "Trabajo cotidiano",
@@ -3620,14 +3639,18 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
     ? await sb.from("subtemas").select("id, titulo").in("publicacion_id", temaIds).order("orden")
     : { data: [] };
 
-  const siguienteLetra = String.fromCharCode(65 + (indicadores || []).length); // A, B, C...
+  const siguienteLetra = siguienteLetraDisponible((indicadores || []).map(i => i.letra));
 
   holder.innerHTML = `
     <h3 style="margin-top:0;">Indicadores de evaluación</h3>
     <nav class="cat-navbar">
       ${(categorias || []).map(c => `<button class="cat-navlink ${c.nombre === catNombre ? "active" : ""}" data-cat-ind="${c.nombre}">${c.nombre}</button>`).join("")}
     </nav>
-    ${(indicadores || []).length > 0 ? `<button class="btn" id="calificar-todos-btn" style="margin:0.8rem 0;">Calificar a todos los estudiantes (${catNombre})</button>` : ""}
+    ${(indicadores || []).length > 0 ? `
+    <div class="row" style="margin:0.8rem 0; flex-wrap:wrap; gap:0.5rem;">
+      <button class="btn" id="calificar-todos-btn">Calificar a todos los estudiantes (${catNombre})</button>
+      <button class="btn secondary" id="corregir-letras-btn" type="button" title="Vuelve a poner las letras en orden (A, B, C…) sin repetidas, dentro de esta categoría">🔤 Corregir letras repetidas</button>
+    </div>` : ""}
     <div id="calificar-todos-holder"></div>
     <div class="roster" id="lista-indicadores-holder" style="margin-top:0.8rem;">
       ${(indicadores || []).map(ind => {
@@ -3705,6 +3728,25 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
   });
   const calificarBtn = document.getElementById("calificar-todos-btn");
   if (calificarBtn) calificarBtn.addEventListener("click", () => cargarCalificarTodos(materiaId, catNombre, indicadores || []));
+
+  const corregirLetrasBtn = document.getElementById("corregir-letras-btn");
+  if (corregirLetrasBtn) corregirLetrasBtn.addEventListener("click", async () => {
+    if (!confirm(`¿Reordenar las letras de los indicadores de "${catNombre}" (A, B, C… sin repetidas)? El orden se respeta tal como aparecen en la lista.`)) return;
+    corregirLetrasBtn.disabled = true;
+    corregirLetrasBtn.textContent = "Corrigiendo…";
+    const ordenados = [...(indicadores || [])].sort((a, b) => (a.orden || 0) - (b.orden || 0));
+    // Asigna A, B, C... en orden, sin huecos: se renumera todo desde cero.
+    for (let i = 0; i < ordenados.length; i++) {
+      let letra = "";
+      let n = i;
+      do {
+        letra = String.fromCharCode(65 + (n % 26)) + letra;
+        n = Math.floor(n / 26) - 1;
+      } while (n >= 0);
+      await sb.from("indicadores").update({ letra, orden: i + 1 }).eq("id", ordenados[i].id);
+    }
+    cargarIndicadoresDeMateria(materiaId, catNombre);
+  });
   holder.querySelectorAll("[data-del-indicador]").forEach(btn => {
     btn.addEventListener("click", async () => {
       await sb.from("indicadores").delete().eq("id", btn.dataset.delIndicador);
@@ -3861,7 +3903,7 @@ async function cargarCalificarTodos(materiaId, catNombre, indicadores) {
               <div style="display:grid; gap:0.6rem; margin-left:0.6rem;">
                 ${g.items.map(i => `
                   <div style="font-size:0.82rem;">
-                    <strong>${i.letra}: ${i.descripcion}</strong>
+                    <strong>${i.letra}: ${i.descripcion}</strong>${i.fecha_evaluacion ? ` <span style="color:var(--text-muted); font-weight:400;">· Fecha: ${i.fecha_evaluacion}</span>` : ""}
                     ${(i.criterios_indicador || []).length
                       ? (i.criterios_indicador || []).sort((a, b) => a.puntaje - b.puntaje).map(c => `<div style="margin-left:0.8rem;"><strong>${c.nivel ? c.nivel + " — " : ""}${c.puntaje} punto${c.puntaje === 1 ? "" : "s"}:</strong> ${c.descripcion}</div>`).join("")
                       : `<div style="margin-left:0.8rem; color:var(--text-muted);">Sin criterios configurados — agregalos arriba en la lista de indicadores.</div>`}
