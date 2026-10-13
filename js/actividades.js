@@ -45,36 +45,50 @@ function mezclar(arr) {
   return copia;
 }
 
+// "Upsert" manual que NO depende de que exista una restricción unique en la
+// base de datos para las columnas de `filtro`. Un upsert normal con
+// onConflict falla por completo (sin guardar nada, y sin que nadie se dé
+// cuenta porque el error no se mostraba) si esa restricción no está creada
+// o no coincide exactamente — eso era lo que dejaba a un estudiante volver
+// a hacer una actividad ya completada: el resultado nunca quedaba guardado.
+async function upsertSinConflicto(tabla, filtro, datos) {
+  const { data: existente } = await sb.from(tabla).select("id").match(filtro).limit(1).maybeSingle();
+  if (existente) {
+    return sb.from(tabla).update(datos).eq("id", existente.id);
+  }
+  return sb.from(tabla).insert({ ...filtro, ...datos });
+}
+
 // Guarda el resultado del estudiante: fila en actividades_estudiante y,
 // si el trabajo tiene indicador_id, también en calificaciones_indicador
 // (así aparece de inmediato en Rúbrica y Evaluaciones, sin que el profesor
 // tenga que calificarlo a mano).
 async function guardarResultadoActividad(trabajo, estudianteId, { respuestas, porcentaje, intentosSalida }) {
   const puntaje = puntajeDesdePorcentaje(porcentaje);
-  await sb.from("actividades_estudiante").upsert({
-    trabajo_id: trabajo.id,
-    estudiante_id: estudianteId,
-    respuestas,
-    porcentaje,
-    puntaje,
-    completado: true,
-    intentos_salida: intentosSalida || 0,
-    actualizado_en: new Date().toISOString()
-  }, { onConflict: "trabajo_id,estudiante_id" });
 
-  await sb.from("trabajos_cotidianos_estudiante").upsert({
-    trabajo_id: trabajo.id,
-    estudiante_id: estudianteId,
-    completado: true,
-    entregado_en: new Date().toISOString()
-  }, { onConflict: "trabajo_id,estudiante_id" });
+  const { error: errorActividad } = await upsertSinConflicto(
+    "actividades_estudiante",
+    { trabajo_id: trabajo.id, estudiante_id: estudianteId },
+    { respuestas, porcentaje, puntaje, completado: true, intentos_salida: intentosSalida || 0, actualizado_en: new Date().toISOString() }
+  );
+  if (errorActividad) {
+    alert("No se pudo guardar tu resultado (" + errorActividad.message + "). Avisale a tu profesor antes de salir de esta pantalla.");
+  }
+
+  const { error: errorEstado } = await upsertSinConflicto(
+    "trabajos_cotidianos_estudiante",
+    { trabajo_id: trabajo.id, estudiante_id: estudianteId },
+    { completado: true, entregado_en: new Date().toISOString() }
+  );
+  if (errorEstado) console.error("No se pudo actualizar trabajos_cotidianos_estudiante:", errorEstado.message);
 
   if (trabajo.indicador_id) {
-    await sb.from("calificaciones_indicador").upsert({
-      indicador_id: trabajo.indicador_id,
-      estudiante_id: estudianteId,
-      puntaje_obtenido: puntaje
-    }, { onConflict: "indicador_id,estudiante_id" });
+    const { error: errorIndicador } = await upsertSinConflicto(
+      "calificaciones_indicador",
+      { indicador_id: trabajo.indicador_id, estudiante_id: estudianteId },
+      { puntaje_obtenido: puntaje }
+    );
+    if (errorIndicador) console.error("No se pudo actualizar calificaciones_indicador:", errorIndicador.message);
   }
   return puntaje;
 }
