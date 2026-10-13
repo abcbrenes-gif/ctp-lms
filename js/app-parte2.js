@@ -3824,6 +3824,28 @@ async function cargarCalificarTodos(materiaId, catNombre, indicadores) {
 
   const categoriaObj = (await sb.from("rubrica_categorias").select("*").eq("nombre", catNombre).maybeSingle()).data;
 
+  // Agrupa los indicadores por el tema que evaluaron (según el resultado de
+  // aprendizaje vinculado), para que la tabla y el detalle de criterios
+  // muestren "qué tema se evaluó" en vez de solo la letra del indicador.
+  const resultadoIdsCal = [...new Set(indicadores.map(i => i.resultado_id).filter(Boolean))];
+  let temaPorResultadoCal = {};
+  if (resultadoIdsCal.length) {
+    const { data: temasVinculadosCal } = await sb.from("publicaciones").select("resultado_id, titulo").in("resultado_id", resultadoIdsCal).eq("tipo", "apartado");
+    (temasVinculadosCal || []).forEach(t => { temaPorResultadoCal[t.resultado_id] = t.titulo; });
+  }
+  const temaDeIndicador = (i) => (i.resultado_id && temaPorResultadoCal[i.resultado_id]) || "Sin tema vinculado";
+  const gruposPorTema = [];
+  const indiceGrupoTema = {};
+  indicadores.forEach(i => {
+    const tema = temaDeIndicador(i);
+    if (!(tema in indiceGrupoTema)) {
+      indiceGrupoTema[tema] = gruposPorTema.length;
+      gruposPorTema.push({ tema, items: [] });
+    }
+    gruposPorTema[indiceGrupoTema[tema]].items.push(i);
+  });
+  const indicadoresOrdenados = gruposPorTema.flatMap(g => g.items);
+
   holder.innerHTML = `
     <div class="whatsapp-panel" style="max-width:100%; margin:0.8rem 0;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.6rem;">
@@ -3832,23 +3854,34 @@ async function cargarCalificarTodos(materiaId, catNombre, indicadores) {
       </div>
       <details style="margin-bottom:0.6rem;">
         <summary style="font-size:0.82rem; color:var(--text-muted); cursor:pointer;">📋 Ver criterios de evaluación (para calificar con base en ellos)</summary>
-        <div style="margin-top:0.5rem; display:grid; gap:0.6rem;">
-          ${indicadores.map(i => `
-            <div style="font-size:0.82rem;">
-              <strong>${i.letra}: ${i.descripcion}</strong>
-              ${(i.criterios_indicador || []).length
-                ? (i.criterios_indicador || []).sort((a, b) => a.puntaje - b.puntaje).map(c => `<div style="margin-left:0.8rem;"><strong>${c.nivel ? c.nivel + " — " : ""}${c.puntaje} punto${c.puntaje === 1 ? "" : "s"}:</strong> ${c.descripcion}</div>`).join("")
-                : `<div style="margin-left:0.8rem; color:var(--text-muted);">Sin criterios configurados — agregalos arriba en la lista de indicadores.</div>`}
+        <div style="margin-top:0.5rem; display:grid; gap:0.9rem;">
+          ${gruposPorTema.map(g => `
+            <div>
+              <p style="font-weight:600; margin:0 0 0.3rem; font-size:0.85rem;">📘 ${g.tema}</p>
+              <div style="display:grid; gap:0.6rem; margin-left:0.6rem;">
+                ${g.items.map(i => `
+                  <div style="font-size:0.82rem;">
+                    <strong>${i.letra}: ${i.descripcion}</strong>
+                    ${(i.criterios_indicador || []).length
+                      ? (i.criterios_indicador || []).sort((a, b) => a.puntaje - b.puntaje).map(c => `<div style="margin-left:0.8rem;"><strong>${c.nivel ? c.nivel + " — " : ""}${c.puntaje} punto${c.puntaje === 1 ? "" : "s"}:</strong> ${c.descripcion}</div>`).join("")
+                      : `<div style="margin-left:0.8rem; color:var(--text-muted);">Sin criterios configurados — agregalos arriba en la lista de indicadores.</div>`}
+                  </div>`).join("")}
+              </div>
             </div>`).join("")}
         </div>
       </details>
       <div style="overflow-x:auto;">
         <table class="grades">
-          <thead><tr>
-            <th>Estudiante</th>
-            ${indicadores.map(i => `<th style="text-align:center;" title="${(i.criterios_indicador || []).sort((a, b) => a.puntaje - b.puntaje).map(c => `${c.nivel ? c.nivel + " (" + c.puntaje + "): " : c.puntaje + ": "}${c.descripcion}`).join(" · ").replace(/"/g, "&quot;")}">${i.letra}</th>`).join("")}
-            <th>Resultado (${categoriaObj?.porcentaje || "?"}%)</th>
-          </tr></thead>
+          <thead>
+            <tr>
+              <th rowspan="2" style="vertical-align:bottom;">Estudiante</th>
+              ${gruposPorTema.map(g => `<th colspan="${g.items.length}" style="text-align:center; font-size:0.76rem; font-weight:600; border-bottom:1px solid var(--paper-line);" title="${g.tema.replace(/"/g, "&quot;")}">📘 ${g.tema}</th>`).join("")}
+              <th rowspan="2" style="vertical-align:bottom;">Resultado (${categoriaObj?.porcentaje || "?"}%)</th>
+            </tr>
+            <tr>
+              ${indicadoresOrdenados.map(i => `<th style="text-align:center;" title="${(i.criterios_indicador || []).sort((a, b) => a.puntaje - b.puntaje).map(c => `${c.nivel ? c.nivel + " (" + c.puntaje + "): " : c.puntaje + ": "}${c.descripcion}`).join(" · ").replace(/"/g, "&quot;")}">${i.letra}</th>`).join("")}
+            </tr>
+          </thead>
           <tbody>
             ${(estudiantes || []).map(st => {
               const sumaMax = indicadores.reduce((a, i) => a + Number(i.puntaje_maximo), 0);
@@ -3857,7 +3890,7 @@ async function cargarCalificarTodos(materiaId, catNombre, indicadores) {
               return `
               <tr data-fila-estudiante-cal="${st.id}">
                 <td>${st.apellido1} ${st.apellido2}, ${st.nombre}</td>
-                ${indicadores.map(i => {
+                ${indicadoresOrdenados.map(i => {
                   const criteriosPorPuntaje = {};
                   (i.criterios_indicador || []).forEach(c => { criteriosPorPuntaje[c.puntaje] = (c.nivel ? c.nivel + ": " : "") + c.descripcion; });
                   return `
