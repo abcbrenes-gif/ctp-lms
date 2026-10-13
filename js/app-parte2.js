@@ -633,11 +633,23 @@ async function renderMateriasEstudiante(el, s) {
     } else {
       const sinCuadro = temasPorCuadroEst.sin || [];
       panelDataPorMateria[m.id] = { cuadros: listaCuadrosMateria, temas: temasPorCuadroEst };
+      const tarjetaCuadro = (clave, titulo, cantidad) => `
+        <button type="button" class="section-tile flip-card" data-cuadro-toggle="${m.id}|${clave}" style="border:none; background:none; padding:0; width:100%; text-align:left; cursor:pointer; font:inherit;">
+          <div class="flip-card-inner">
+            <div class="flip-card-front">
+              <div class="num" style="font-size:1.15rem;">📦 ${titulo}</div>
+              <div class="count">${cantidad} tema${cantidad === 1 ? "" : "s"}</div>
+            </div>
+            <div class="flip-card-back">
+              <div class="flip-cta">Ver temas →</div>
+              <div class="flip-sub">${titulo}</div>
+            </div>
+          </div>
+        </button>`;
       html += `
-      <div class="cuadros-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:0.7rem; margin-bottom:0.8rem;">
-        ${listaCuadrosMateria.map(c => `
-          <button type="button" class="btn secondary" data-cuadro-toggle="${m.id}|${c.id}" style="padding:1.2rem 0.8rem; font-size:1rem; font-weight:600;">📦 ${c.titulo}</button>`).join("")}
-        ${sinCuadro.length ? `<button type="button" class="btn secondary" data-cuadro-toggle="${m.id}|sin" style="padding:1.2rem 0.8rem; font-size:1rem; font-weight:600;">Otros temas</button>` : ""}
+      <div class="section-grid" style="margin-top:0; margin-bottom:0.8rem;">
+        ${listaCuadrosMateria.map(c => tarjetaCuadro(c.id, c.titulo, (temasPorCuadroEst[c.id] || []).length)).join("")}
+        ${sinCuadro.length ? tarjetaCuadro("sin", "Otros temas", sinCuadro.length) : ""}
       </div>
       <div class="roster" id="cuadro-panel-${m.id}" style="margin-bottom:1rem;"></div>`;
     }
