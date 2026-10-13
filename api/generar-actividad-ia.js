@@ -16,6 +16,15 @@ function limpiarHtml(valor) {
     .trim();
 }
 
+const TIPOS_ARCHIVO_PERMITIDOS = {
+  "application/pdf": "document",
+  "image/png": "image",
+  "image/jpeg": "image",
+  "image/jpg": "image",
+  "image/gif": "image",
+  "image/webp": "image"
+};
+
 function extraerJson(texto) {
   let limpio = String(texto || "").trim();
   limpio = limpio.replace(/^```(json)?/i, "").replace(/```$/, "").trim();
@@ -124,7 +133,25 @@ module.exports = async (req, res) => {
   const tipo = String(body.tipo || "");
   const tema = limpiarHtml(body.tema).slice(0, 300);
   const contexto = limpiarHtml(body.contexto).slice(0, 2000);
-  const instrucciones = limpiarHtml(body.instrucciones).slice(0, 800);
+  let instrucciones = limpiarHtml(body.instrucciones).slice(0, 800);
+
+  const archivo = body.archivo || null;
+  let bloqueArchivo = null;
+  if (archivo && archivo.datosBase64) {
+    const mimeType = String(archivo.mimeType || "");
+    const tipoBloque = TIPOS_ARCHIVO_PERMITIDOS[mimeType];
+    if (!tipoBloque) {
+      res.status(400).json({ error: "Solo se aceptan archivos PDF o imágenes (PNG, JPG, GIF, WEBP) como apoyo para generar la actividad." });
+      return;
+    }
+    const datosBase64 = String(archivo.datosBase64 || "");
+    if (datosBase64.length > 3_500_000) {
+      res.status(400).json({ error: "El archivo es demasiado grande. Probá con uno más liviano (máximo ~2.5MB)." });
+      return;
+    }
+    bloqueArchivo = { type: tipoBloque, source: { type: "base64", media_type: mimeType, data: datosBase64 } };
+    instrucciones = `${instrucciones ? instrucciones + " " : ""}Basate en el CONTENIDO REAL del archivo adjunto (no inventes datos que no estén ahí ni en el tema/contexto dado).`.trim();
+  }
 
   if (!PROMPTS[tipo]) {
     res.status(400).json({ error: "Tipo de actividad no soportado." });
@@ -141,6 +168,9 @@ module.exports = async (req, res) => {
   const maxTokens = tipo === "seleccion_unica" ? 6000 : (tipo === "falso_verdadero" || tipo === "crucigrama" ? 4000 : 2000);
 
   async function llamarIA(promptTexto) {
+    const contenidoMensaje = bloqueArchivo
+      ? [bloqueArchivo, { type: "text", text: promptTexto }]
+      : promptTexto;
     const respuesta = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -151,7 +181,7 @@ module.exports = async (req, res) => {
       body: JSON.stringify({
         model: "claude-sonnet-5-5",
         max_tokens: maxTokens,
-        messages: [{ role: "user", content: promptTexto }]
+        messages: [{ role: "user", content: contenidoMensaje }]
       })
     });
     const datos = await respuesta.json();

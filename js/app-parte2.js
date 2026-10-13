@@ -1584,7 +1584,26 @@ async function renderSubtema(id, soloLectura) {
         </div>
         <span id="sugerir-subtema-trabajos-estado" style="font-size:0.78rem; color:var(--text-muted); display:block; margin-top:0.4rem; min-height:1.2em;"></span>
         <div id="sugerir-subtema-trabajos-lista" style="margin-top:0.6rem;"></div>
-        <div id="actividad-interactiva-panel" style="margin-top:0.8rem;"></div>` : ""}
+        <div id="actividad-interactiva-panel" style="margin-top:0.8rem;"></div>
+        <div style="margin-top:1rem; padding-top:0.8rem; border-top:1px dashed var(--paper-line);">
+          <p style="font-size:0.85rem; font-weight:600; margin-bottom:0.4rem;">✨ Generar un trabajo cotidiano con IA a partir de un archivo</p>
+          <p style="font-size:0.78rem; color:var(--text-muted); margin:0 0 0.5rem;">Subí un PDF o una imagen (una guía, un ejercicio, un enunciado) y decile a la IA qué tipo de trabajo querés que arme con eso.</p>
+          <form class="subtema-trabajo-ia-form" data-subtema-id="${sub.id}" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+            <label style="display:flex; align-items:center; gap:0.5rem; flex-basis:100%;">Tipo de trabajo a generar:
+              <select class="subtema-trabajo-ia-tipo">
+                <option value="normal">📝 Trabajo normal (título + instrucciones)</option>
+                <option value="seleccion_unica">🧠 Selección única (15 preguntas)</option>
+                <option value="falso_verdadero">✅ Falso y verdadero (10 afirmaciones)</option>
+                <option value="crucigrama">🔤 Crucigrama</option>
+                <option value="sopa_letras">🔎 Sopa de letras</option>
+              </select>
+            </label>
+            <input type="file" class="subtema-trabajo-ia-archivo" accept=".pdf,image/png,image/jpeg,image/gif,image/webp" required />
+            <textarea class="subtema-trabajo-ia-instrucciones" rows="2" placeholder='Instrucciones para la IA (opcional) — ej. "que sea un ejercicio de asientos contables con estos datos"' style="width:100%; font-family:inherit; resize:vertical;"></textarea>
+            <button class="btn small" type="submit">✨ Generar</button>
+            <span class="subtema-trabajo-ia-estado" style="font-size:0.78rem; color:var(--text-muted); flex-basis:100%;"></span>
+          </form>
+        </div>` : ""}
       </section>
 
       <section class="tema-section">
@@ -1741,14 +1760,27 @@ async function renderSubtema(id, soloLectura) {
         const quitarHtml = (v) => String(v || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
         const contexto = [sub.titulo, quitarHtml(sub.descripcion), quitarHtml(resultado ? resultado.resultado : "")].filter(Boolean).join(" — ").slice(0, 1500);
         const instrucciones = (panel.querySelector("#actividad-ia-instrucciones")?.value || "").trim().slice(0, 800);
+        const archivoInput = panel.querySelector("#actividad-ia-archivo");
+        const archivo = archivoInput?.files[0];
         iaEv.target.disabled = true;
         iaEv.target.textContent = "Generando…";
         if (estado) estado.textContent = "";
         try {
+          let archivoPayload = null;
+          if (archivo) {
+            const leerComoBase64 = (f) => new Promise((resolve, reject) => {
+              const lector = new FileReader();
+              lector.onload = () => resolve(String(lector.result).split(",")[1] || "");
+              lector.onerror = () => reject(new Error("No se pudo leer el archivo."));
+              lector.readAsDataURL(f);
+            });
+            if (estado) estado.textContent = "Leyendo el archivo…";
+            archivoPayload = { mimeType: archivo.type, datosBase64: await leerComoBase64(archivo) };
+          }
           const r = await fetch("/api/generar-actividad-ia", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ tipo, tema, contexto, instrucciones })
+            body: JSON.stringify({ tipo, tema, contexto, instrucciones, archivo: archivoPayload })
           });
           const datos = await r.json();
           if (!r.ok) { if (estado) estado.textContent = "No se pudo generar: " + (datos.error || "error desconocido."); return; }
@@ -1785,6 +1817,86 @@ async function renderSubtema(id, soloLectura) {
         if (!nuevo) { alert("No se pudo crear la actividad."); btnEv.target.disabled = false; btnEv.target.textContent = "Crear actividad"; return; }
         renderSubtema(id, soloLectura);
       });
+    });
+
+    const trabajoIaForm = document.querySelector(".subtema-trabajo-ia-form");
+    if (trabajoIaForm) trabajoIaForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const estado = form.querySelector(".subtema-trabajo-ia-estado");
+      const tipo = form.querySelector(".subtema-trabajo-ia-tipo").value;
+      const instrucciones = form.querySelector(".subtema-trabajo-ia-instrucciones").value.trim().slice(0, 800);
+      const archivoInput = form.querySelector(".subtema-trabajo-ia-archivo");
+      const archivo = archivoInput.files[0];
+      if (!archivo) return;
+      const boton = form.querySelector("button[type=submit]");
+
+      if (tipo !== "normal") {
+        // Reusa el panel y la lógica de "Crear actividad interactiva" ya
+        // existente: abre el panel, le pasa el mismo archivo (vía
+        // DataTransfer) y las instrucciones, y dispara su propio botón
+        // "Generar con IA".
+        boton.disabled = true;
+        boton.textContent = "Abriendo…";
+        document.getElementById("abrir-actividad-interactiva").click();
+        const panel = document.getElementById("actividad-interactiva-panel");
+        const selectTipo = panel.querySelector("#actividad-tipo");
+        selectTipo.value = tipo;
+        selectTipo.dispatchEvent(new Event("change"));
+        const dt = new DataTransfer();
+        dt.items.add(archivo);
+        panel.querySelector("#actividad-ia-archivo").files = dt.files;
+        panel.querySelector("#actividad-ia-instrucciones").value = instrucciones;
+        panel.scrollIntoView({ behavior: "smooth", block: "start" });
+        panel.querySelector("#generar-actividad-ia-btn").click();
+        form.reset();
+        estado.textContent = "Abrí el panel de actividad interactiva arriba — ahí mismo se está generando.";
+        boton.disabled = false;
+        boton.textContent = "✨ Generar";
+        return;
+      }
+
+      const leerComoBase64 = (f) => new Promise((resolve, reject) => {
+        const lector = new FileReader();
+        lector.onload = () => resolve(String(lector.result).split(",")[1] || "");
+        lector.onerror = () => reject(new Error("No se pudo leer el archivo."));
+        lector.readAsDataURL(f);
+      });
+
+      boton.disabled = true;
+      boton.textContent = "Generando…";
+      estado.textContent = "Leyendo el archivo y generando con la IA (puede tardar unos segundos)…";
+      try {
+        const datosBase64 = await leerComoBase64(archivo);
+        const quitarHtml = (v) => String(v || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+        const contexto = [sub.titulo, quitarHtml(sub.descripcion), quitarHtml(resultado ? resultado.resultado : "")].filter(Boolean).join(" — ").slice(0, 1500);
+        const r = await fetch("/api/generar-trabajo-ia", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            tema: sub.titulo || pub.titulo || "",
+            contexto,
+            instrucciones,
+            archivo: { mimeType: archivo.type, datosBase64 }
+          })
+        });
+        const datos = await r.json();
+        if (!r.ok) {
+          estado.textContent = "No se pudo generar: " + (datos.error || "error desconocido.");
+          return;
+        }
+        const trabajoForm = document.getElementById("subtema-trabajo-form");
+        trabajoForm.querySelector("[name=titulo]").value = (datos.contenido && datos.contenido.titulo) || "";
+        trabajoForm.querySelector(".js-subtema-trabajo-desc").innerHTML = (datos.contenido && datos.contenido.instrucciones_html) || "";
+        trabajoForm.scrollIntoView({ behavior: "smooth", block: "start" });
+        form.reset();
+        estado.textContent = "Listo — revisá el título y las instrucciones arriba y dale \"Agregar trabajo\" cuando esté bien.";
+      } catch (err) {
+        estado.textContent = "No se pudo conectar con la IA: " + (err.message || err);
+      } finally {
+        boton.disabled = false;
+        boton.textContent = "✨ Generar";
+      }
     });
 
     const sugerirBtn = document.getElementById("sugerir-subtema-trabajos-btn");
@@ -2279,8 +2391,10 @@ function construirSelectorTipoActividad() {
       </div>
       <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.8rem;">Se califica automáticamente de 0 a 3 según el % de aciertos, y se hace en pantalla completa: si el estudiante sale de la actividad, queda registrado.</p>
       <div style="margin-bottom:0.6rem;">
+        <label for="actividad-ia-archivo" style="font-size:0.82rem; color:var(--text-muted); display:block; margin-bottom:0.3rem;">Archivo de apoyo (opcional) — un PDF o imagen con el contenido real sobre el que querés las preguntas</label>
+        <input type="file" id="actividad-ia-archivo" accept=".pdf,image/png,image/jpeg,image/gif,image/webp" style="display:block; margin-bottom:0.5rem;" />
         <label for="actividad-ia-instrucciones" style="font-size:0.82rem; color:var(--text-muted); display:block; margin-bottom:0.3rem;">Instrucciones para la IA (opcional) — ej. "enfocate en salarios y cargas sociales, con ejemplos en colones", "nivel básico", "incluí IVA y renta"</label>
-        <textarea id="actividad-ia-instrucciones" rows="2" placeholder="Dejalo en blanco para que la IA use solo el título y el tema del subtema" style="width:100%; font-family:inherit; resize:vertical;"></textarea>
+        <textarea id="actividad-ia-instrucciones" rows="2" placeholder="Dejalo en blanco para que la IA use solo el título y el tema del subtema (o el archivo, si subiste uno)" style="width:100%; font-family:inherit; resize:vertical;"></textarea>
       </div>
       <div class="row" style="margin-bottom:0.8rem; align-items:center;">
         <button class="btn secondary small" id="generar-actividad-ia-btn" type="button">✨ Generar con IA</button>
