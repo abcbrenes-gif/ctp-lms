@@ -1019,7 +1019,11 @@ async function renderApartado(id, soloLectura) {
           <input name="puntaje_maximo" type="number" min="1" value="10" placeholder="Puntaje máximo" style="width:10rem" />
           <button class="btn small" type="submit">Agregar trabajo</button>
         </form>
-        <div class="row" style="margin-top:0.6rem;">
+        <div style="margin-top:0.6rem;">
+          <label for="sugerir-trabajos-instrucciones" style="font-size:0.78rem; color:var(--text-muted); display:block; margin-bottom:0.3rem;">Instrucciones para la IA (opcional) — ej. "que sean trabajos individuales, cortos, de 15 minutos", "enfocate en la parte práctica con ejemplos numéricos"</label>
+          <textarea id="sugerir-trabajos-instrucciones" rows="2" placeholder="Dejalo en blanco para que la IA proponga trabajos solo con el resultado de aprendizaje y los saberes del programa" style="width:100%; font-family:inherit; resize:vertical; margin-bottom:0.5rem;"></textarea>
+        </div>
+        <div class="row" style="margin-top:0.2rem;">
           <button class="btn secondary small" id="sugerir-trabajos-btn" type="button">✨ Sugerir trabajos cotidianos con IA</button>
         </div>
         <span id="sugerir-trabajos-estado" style="font-size:0.78rem; color:var(--text-muted); display:block; margin-top:0.4rem; min-height:1.2em;"></span>
@@ -1114,6 +1118,7 @@ async function renderApartado(id, soloLectura) {
       if (estado) estado.textContent = "";
       lista.innerHTML = "";
       try {
+        const instruccionesSugerir = (document.getElementById("sugerir-trabajos-instrucciones")?.value || "").trim().slice(0, 800);
         const r = await fetch("/api/generar-trabajos", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -1121,7 +1126,8 @@ async function renderApartado(id, soloLectura) {
             resultado: resultado ? resultado.resultado : pub.titulo,
             saberes: resultado ? resultado.saberes : "",
             estrategiasEstudiante: resultado ? resultado.estrategias : "",
-            evidencias: resultado ? resultado.evidencias : ""
+            evidencias: resultado ? resultado.evidencias : "",
+            instrucciones: instruccionesSugerir
           })
         });
         const datos = await r.json();
@@ -1578,7 +1584,11 @@ async function renderSubtema(id, soloLectura) {
           <input name="puntaje_maximo" type="number" min="1" value="10" placeholder="Puntaje máximo" style="width:10rem" />
           <button class="btn small" type="submit">Agregar trabajo</button>
         </form>
-        <div class="row" style="margin-top:0.6rem;">
+        <div style="margin-top:0.6rem;">
+          <label for="sugerir-subtema-trabajos-instrucciones" style="font-size:0.78rem; color:var(--text-muted); display:block; margin-bottom:0.3rem;">Instrucciones para la IA (opcional) — ej. "que sean trabajos individuales, cortos, de 15 minutos", "enfocate en la parte práctica con ejemplos numéricos"</label>
+          <textarea id="sugerir-subtema-trabajos-instrucciones" rows="2" placeholder="Dejalo en blanco para que la IA proponga trabajos solo con el resultado de aprendizaje y los saberes del programa" style="width:100%; font-family:inherit; resize:vertical; margin-bottom:0.5rem;"></textarea>
+        </div>
+        <div class="row" style="margin-top:0.2rem;">
           <button class="btn secondary small" id="sugerir-subtema-trabajos-btn" type="button">✨ Sugerir trabajos cotidianos con IA</button>
           <button class="btn secondary small" id="abrir-actividad-interactiva" type="button">🧠 Crear actividad interactiva</button>
         </div>
@@ -1909,6 +1919,7 @@ async function renderSubtema(id, soloLectura) {
       if (estado) estado.textContent = "";
       lista.innerHTML = "";
       try {
+        const instruccionesSugerir = (document.getElementById("sugerir-subtema-trabajos-instrucciones")?.value || "").trim().slice(0, 800);
         const r = await fetch("/api/generar-trabajos", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -1916,7 +1927,8 @@ async function renderSubtema(id, soloLectura) {
             resultado: (resultado ? resultado.resultado : pub.titulo) + " — Subtema: " + sub.titulo,
             saberes: sub.descripcion || (resultado ? resultado.saberes : ""),
             estrategiasEstudiante: resultado ? resultado.estrategias : "",
-            evidencias: resultado ? resultado.evidencias : ""
+            evidencias: resultado ? resultado.evidencias : "",
+            instrucciones: instruccionesSugerir
           })
         });
         const datos = await r.json();
