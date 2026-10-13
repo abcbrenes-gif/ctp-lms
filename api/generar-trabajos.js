@@ -78,8 +78,9 @@ Reglas:
 - Devolvé ÚNICAMENTE un JSON válido, sin texto antes ni después, con esta forma exacta:
   [{"titulo": "...", "descripcion": "..."}, ...]
 - "titulo": corto (máximo 8 palabras), en español de Costa Rica.
-- "descripcion": instrucciones breves para el estudiante (1 a 3 oraciones), en HTML simple
-  (solo <p>, <ul>, <li>, <strong> si hace falta — sin markdown).
+- "descripcion": OBLIGATORIA, nunca vacía — instrucciones breves pero concretas para el estudiante
+  (1 a 3 oraciones, diciendo qué tiene que hacer y entregar), en HTML simple
+  (solo <p>, <ul>, <li>, <strong> si hace falta — sin markdown). Un trabajo sin descripción no sirve.
 - No repitas el resultado de aprendizaje como si fuera un trabajo.
 - No inventes fechas ni rúbricas.
 
@@ -140,9 +141,11 @@ ${instrucciones ? `\nInstrucciones adicionales del profesor (seguilas con priori
       return;
     }
 
+    // Una sugerencia sin descripción no le sirve al profesor (queda un
+    // trabajo sin instrucciones) — se descarta en vez de mostrarla vacía.
     const limpiosValidos = trabajos
-      .filter((t) => t && typeof t.titulo === "string" && t.titulo.trim())
-      .map((t) => ({ titulo: t.titulo.trim(), descripcion: typeof t.descripcion === "string" ? t.descripcion.trim() : "" }))
+      .filter((t) => t && typeof t.titulo === "string" && t.titulo.trim() && typeof t.descripcion === "string" && t.descripcion.replace(/<[^>]*>/g, "").trim())
+      .map((t) => ({ titulo: t.titulo.trim(), descripcion: t.descripcion.trim() }))
       .slice(0, 8);
 
     res.status(200).json({ trabajos: limpiosValidos });

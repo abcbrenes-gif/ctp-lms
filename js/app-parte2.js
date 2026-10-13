@@ -2282,6 +2282,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
       conteos[e.trabajo_id] = (conteos[e.trabajo_id] || 0) + 1;
     });
 
+    const esEditable = (t) => !t.tipo_actividad || t.tipo_actividad === "simple";
     holder.innerHTML = trabajos.map(t => `
       <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem; ${t.habilitado === false ? "opacity:0.55;" : ""}">
         <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
@@ -2294,16 +2295,58 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
             </button>
             ${t.tipo_actividad === "infografia" ? `<button class="btn secondary small" data-ver-entregas="${t.id}">📂 Ver entregas</button>` : ""}
             ${ACTIVIDADES_BLOQUEADAS.includes(t.tipo_actividad) ? `<button class="btn secondary small" data-ver-preguntas="${t.id}">👁️ Ver preguntas</button>` : ""}
+            ${esEditable(t) ? `<button class="btn secondary small" data-editar-trabajo-subtema="${t.id}">✏️ Editar</button>` : ""}
             ${t.indicador_id
               ? `<span class="badge" style="font-weight:400;">📊 Indicador calificable</span>`
               : `<button class="btn secondary small" data-convertir-indicador-subtema="${t.id}">Contar como indicador</button>`}
             <button class="btn danger small" data-del-trabajo-subtema="${t.id}">Eliminar</button>
           </span>
         </div>
-        ${t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : ""}
+        ${esEditable(t) ? `
+        <div data-trabajo-subtema-lectura="${t.id}" style="width:100%;">
+          ${t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : `<p class="empty" style="font-size:0.8rem; color:var(--brick);">⚠️ Sin instrucciones todavía — dale "✏️ Editar" para agregarlas.</p>`}
+        </div>
+        <form class="inline-form" data-trabajo-subtema-editar-form="${t.id}" style="display:none; width:100%;">
+          <input name="titulo" value="${String(t.titulo || "").replace(/"/g, "&quot;")}" required style="flex:1; min-width:10rem;" />
+          <div class="roa-editable" contenteditable="true" data-trabajo-subtema-editar-desc="${t.id}" style="flex-basis:100%; min-height:4rem;">${t.descripcion || ""}</div>
+          <button class="btn small" type="submit">Guardar</button>
+          <button class="btn secondary small" type="button" data-cancelar-editar-trabajo-subtema="${t.id}">Cancelar</button>
+        </form>` : (t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : "")}
         ${t.tipo_actividad === "infografia" ? `<div data-entregas-panel="${t.id}"></div>` : ""}
         ${ACTIVIDADES_BLOQUEADAS.includes(t.tipo_actividad) ? `<div data-preguntas-panel="${t.id}"></div>` : ""}
       </div>`).join("");
+
+    holder.querySelectorAll("[data-editar-trabajo-subtema]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.editarTrabajoSubtema;
+        const lectura = holder.querySelector(`[data-trabajo-subtema-lectura="${id}"]`);
+        const form = holder.querySelector(`[data-trabajo-subtema-editar-form="${id}"]`);
+        if (lectura) lectura.style.display = "none";
+        if (form) form.style.display = "flex";
+      });
+    });
+    holder.querySelectorAll("[data-cancelar-editar-trabajo-subtema]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.cancelarEditarTrabajoSubtema;
+        const lectura = holder.querySelector(`[data-trabajo-subtema-lectura="${id}"]`);
+        const form = holder.querySelector(`[data-trabajo-subtema-editar-form="${id}"]`);
+        if (form) form.style.display = "none";
+        if (lectura) lectura.style.display = "";
+      });
+    });
+    holder.querySelectorAll("[data-trabajo-subtema-editar-form]").forEach(form => {
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const id = form.dataset.trabajoSubtemaEditarForm;
+        const f = new FormData(form);
+        const descDiv = form.querySelector(`[data-trabajo-subtema-editar-desc="${id}"]`);
+        await sb.from("trabajos_cotidianos").update({
+          titulo: f.get("titulo"),
+          descripcion: descDiv ? descDiv.innerHTML : null
+        }).eq("id", id);
+        renderSubtema(subtemaId, soloLectura);
+      });
+    });
 
     holder.querySelectorAll("[data-toggle-trabajo-subtema-habilitado]").forEach(btn => {
       btn.addEventListener("click", async () => {
@@ -2683,14 +2726,55 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
             <button class="btn ${t.habilitado === false ? "" : "secondary"} small" data-toggle-trabajo-habilitado="${t.id}" data-estado-actual="${t.habilitado !== false}">
               ${t.habilitado === false ? "Habilitar" : "Habilitado"}
             </button>
+            <button class="btn secondary small" data-editar-trabajo="${t.id}">✏️ Editar</button>
             ${t.indicador_id
               ? `<span class="badge" style="font-weight:400;">📊 Indicador calificable</span>`
               : `<button class="btn secondary small" data-convertir-indicador="${t.id}">Contar como indicador</button>`}
             <button class="btn danger small" data-del-trabajo="${t.id}">Eliminar</button>
           </span>
         </div>
-        ${t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : ""}
+        <div data-trabajo-lectura="${t.id}" style="width:100%;">
+          ${t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : `<p class="empty" style="font-size:0.8rem; color:var(--brick);">⚠️ Sin instrucciones todavía — dale "✏️ Editar" para agregarlas.</p>`}
+        </div>
+        <form class="inline-form" data-trabajo-editar-form="${t.id}" style="display:none; width:100%;">
+          <input name="titulo" value="${String(t.titulo || "").replace(/"/g, "&quot;")}" required style="flex:1; min-width:10rem;" />
+          <div class="roa-editable" contenteditable="true" data-trabajo-editar-desc="${t.id}" style="flex-basis:100%; min-height:4rem;">${t.descripcion || ""}</div>
+          <button class="btn small" type="submit">Guardar</button>
+          <button class="btn secondary small" type="button" data-cancelar-editar-trabajo="${t.id}">Cancelar</button>
+        </form>
       </div>`).join("");
+
+    holder.querySelectorAll("[data-editar-trabajo]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.editarTrabajo;
+        const lectura = holder.querySelector(`[data-trabajo-lectura="${id}"]`);
+        const form = holder.querySelector(`[data-trabajo-editar-form="${id}"]`);
+        if (lectura) lectura.style.display = "none";
+        if (form) form.style.display = "flex";
+      });
+    });
+    holder.querySelectorAll("[data-cancelar-editar-trabajo]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.cancelarEditarTrabajo;
+        const lectura = holder.querySelector(`[data-trabajo-lectura="${id}"]`);
+        const form = holder.querySelector(`[data-trabajo-editar-form="${id}"]`);
+        if (form) form.style.display = "none";
+        if (lectura) lectura.style.display = "";
+      });
+    });
+    holder.querySelectorAll("[data-trabajo-editar-form]").forEach(form => {
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const id = form.dataset.trabajoEditarForm;
+        const f = new FormData(form);
+        const descDiv = form.querySelector(`[data-trabajo-editar-desc="${id}"]`);
+        await sb.from("trabajos_cotidianos").update({
+          titulo: f.get("titulo"),
+          descripcion: descDiv ? descDiv.innerHTML : null
+        }).eq("id", id);
+        renderApartado(publicacionId, soloLectura);
+      });
+    });
 
     holder.querySelectorAll("[data-toggle-trabajo-habilitado]").forEach(btn => {
       btn.addEventListener("click", async () => {
