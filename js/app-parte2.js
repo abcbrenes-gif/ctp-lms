@@ -598,6 +598,7 @@ async function renderMateriasEstudiante(el, s) {
   }
 
   let html = "";
+  const panelDataPorMateria = {};
   for (const m of materiasAsignadas) {
     html += `<h3 style="margin-top:1.4rem;">${m.nombre}</h3>`;
 
@@ -613,11 +614,33 @@ async function renderMateriasEstudiante(el, s) {
       }
     }
 
-    html += `
-      <p style="font-size:0.8rem; color:var(--text-muted); margin-top:-0.4em;">Temas</p>
+    const { data: cuadrosMateria } = await sb.from("materia_cuadros").select("*").eq("materia_id", m.id).order("orden").order("creado_en");
+    const listaCuadrosMateria = cuadrosMateria || [];
+    const temasPorCuadroEst = {};
+    apartados.forEach(a => {
+      const clave = a.cuadro_id || "sin";
+      if (!temasPorCuadroEst[clave]) temasPorCuadroEst[clave] = [];
+      temasPorCuadroEst[clave].push(a);
+    });
+    const filaTemaEst = (a) => `<a class="roster-row" href="#/apartado/${a.id}"><span class="name clamp2" title="${a.titulo.replace(/"/g, "&quot;")}">${a.titulo}</span><span class="badge">Ver</span></a>`;
+
+    html += `<p style="font-size:0.8rem; color:var(--text-muted); margin-top:-0.4em;">Temas</p>`;
+    if (listaCuadrosMateria.length === 0) {
+      html += `
       <div class="roster" style="margin-bottom:1rem;">
-        ${apartados.map(a => `<a class="roster-row" href="#/apartado/${a.id}"><span class="name clamp2" title="${a.titulo.replace(/"/g, "&quot;")}">${a.titulo}</span><span class="badge">Ver</span></a>`).join("") || '<p class="empty">Sin temas habilitados todavía.</p>'}
+        ${apartados.map(filaTemaEst).join("") || '<p class="empty">Sin temas habilitados todavía.</p>'}
       </div>`;
+    } else {
+      const sinCuadro = temasPorCuadroEst.sin || [];
+      panelDataPorMateria[m.id] = { cuadros: listaCuadrosMateria, temas: temasPorCuadroEst };
+      html += `
+      <div class="cuadros-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:0.7rem; margin-bottom:0.8rem;">
+        ${listaCuadrosMateria.map(c => `
+          <button type="button" class="btn secondary" data-cuadro-toggle="${m.id}|${c.id}" style="padding:1.2rem 0.8rem; font-size:1rem; font-weight:600;">📦 ${c.titulo}</button>`).join("")}
+        ${sinCuadro.length ? `<button type="button" class="btn secondary" data-cuadro-toggle="${m.id}|sin" style="padding:1.2rem 0.8rem; font-size:1rem; font-weight:600;">Otros temas</button>` : ""}
+      </div>
+      <div class="roster" id="cuadro-panel-${m.id}" style="margin-bottom:1rem;"></div>`;
+    }
 
     const { data: cursos } = programaIds.length
       ? await sb.from("cursos_interactivos").select("*").in("programa_id", programaIds).eq("habilitado", true)
@@ -656,6 +679,22 @@ async function renderMateriasEstudiante(el, s) {
   }
 
   el.innerHTML = html;
+  el.querySelectorAll("[data-cuadro-toggle]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const [materiaId, cuadroKey] = btn.dataset.cuadroToggle.split("|");
+      const panel = document.getElementById(`cuadro-panel-${materiaId}`);
+      const datos = panelDataPorMateria[materiaId];
+      if (!panel || !datos) return;
+      if (panel.dataset.abierto === cuadroKey) {
+        panel.innerHTML = "";
+        panel.dataset.abierto = "";
+        return;
+      }
+      const temas = datos.temas[cuadroKey] || [];
+      panel.dataset.abierto = cuadroKey;
+      panel.innerHTML = temas.map(a => `<a class="roster-row" href="#/apartado/${a.id}"><span class="name clamp2" title="${a.titulo.replace(/"/g, "&quot;")}">${a.titulo}</span><span class="badge">Ver</span></a>`).join("") || '<p class="empty">Sin temas en este cuadro todavía.</p>';
+    });
+  });
   el.querySelectorAll("[data-mi-trabajo-materia]").forEach(cb => {
     cb.addEventListener("change", async () => {
       await sb.from("trabajos_cotidianos_estudiante").upsert(
@@ -3865,29 +3904,131 @@ async function cargarApartadosDeMateria(materiaId) {
       apartados = pubs || [];
     }
   }
+  const { data: cuadros } = await sb.from("materia_cuadros").select("*").eq("materia_id", materiaId).order("orden").order("creado_en");
+  const listaCuadros = cuadros || [];
+
+  // Agrupa los temas por cuadro — "sin" es la clave para los que todavía no
+  // tienen cuadro asignado.
+  const temasPorCuadro = {};
+  apartados.forEach(a => {
+    const clave = a.cuadro_id || "sin";
+    if (!temasPorCuadro[clave]) temasPorCuadro[clave] = [];
+    temasPorCuadro[clave].push(a);
+  });
+
+  function filaTema(a) {
+    return `
+      <div class="roster-row" style="flex-direction:column; align-items:stretch; gap:0.3rem;">
+        <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+          <a class="name clamp2" href="#/apartado/${a.id}" title="${a.titulo.replace(/"/g, "&quot;")}" data-apartado-titulo-lectura="${a.id}" style="flex:1;">${a.titulo}</a>
+          <span style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+            <span class="badge" style="${a.contenido ? "" : "opacity:0.5;"}">${a.contenido ? "Con introducción" : "Sin introducción"}</span>
+            <select data-apartado-cuadro="${a.id}" style="font-size:0.82rem;">
+              <option value="">Sin cuadro</option>
+              ${listaCuadros.map(c => `<option value="${c.id}" ${a.cuadro_id == c.id ? "selected" : ""}>${c.titulo}</option>`).join("")}
+            </select>
+            <button class="btn secondary small" data-editar-apartado-titulo="${a.id}" type="button">✏️ Editar título</button>
+            <button class="btn ${a.habilitado ? "secondary" : ""} small" data-toggle-apartado-pub="${a.id}" data-estado-actual="${a.habilitado}">
+              ${a.habilitado ? "Habilitado" : "No habilitado"}
+            </button>
+          </span>
+        </div>
+        <form class="inline-form" data-apartado-titulo-form="${a.id}" style="display:none;">
+          <input name="titulo" value="${a.titulo.replace(/"/g, "&quot;")}" required style="flex:1; min-width:10rem;" />
+          <button class="btn small" type="submit">Guardar</button>
+          <button class="btn secondary small" type="button" data-cancelar-apartado-titulo="${a.id}">Cancelar</button>
+        </form>
+      </div>`;
+  }
 
   holder.innerHTML = `
-    <h3 style="margin-top:0;">Temas (apartados por resultado de aprendizaje)</h3>
-    <div class="roster">
-      ${apartados.map(a => `
+    <h3 style="margin-top:0;">Cuadros (unidades para agrupar los temas)</h3>
+    <p style="font-size:0.85rem; color:var(--text-muted); margin-top:-0.6em;">Creá un cuadro por cada unidad/bloque y asignale los temas que quieras que lo integren. El estudiante los ve como cuadros grandes seleccionables.</p>
+    <div class="roster" id="cuadros-lista">
+      ${listaCuadros.map(c => `
         <div class="roster-row" style="flex-direction:column; align-items:stretch; gap:0.3rem;">
           <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
-            <a class="name clamp2" href="#/apartado/${a.id}" title="${a.titulo.replace(/"/g, "&quot;")}" data-apartado-titulo-lectura="${a.id}" style="flex:1;">${a.titulo}</a>
-            <span style="display:flex; gap:0.5rem; align-items:center;">
-              <span class="badge" style="${a.contenido ? "" : "opacity:0.5;"}">${a.contenido ? "Con introducción" : "Sin introducción"}</span>
-              <button class="btn secondary small" data-editar-apartado-titulo="${a.id}" type="button">✏️ Editar título</button>
-              <button class="btn ${a.habilitado ? "secondary" : ""} small" data-toggle-apartado-pub="${a.id}" data-estado-actual="${a.habilitado}">
-                ${a.habilitado ? "Habilitado" : "No habilitado"}
-              </button>
-            </span>
+            <span class="name" data-cuadro-titulo-lectura="${c.id}" style="flex:1;">${c.titulo}</span>
+            <span class="badge" style="font-weight:400;">${(temasPorCuadro[c.id] || []).length} tema(s)</span>
+            <button class="btn secondary small" data-editar-cuadro-titulo="${c.id}" type="button">✏️ Editar</button>
+            <button class="btn danger small" data-del-cuadro="${c.id}">Eliminar cuadro</button>
           </div>
-          <form class="inline-form" data-apartado-titulo-form="${a.id}" style="display:none;">
-            <input name="titulo" value="${a.titulo.replace(/"/g, "&quot;")}" required style="flex:1; min-width:10rem;" />
+          <form class="inline-form" data-cuadro-titulo-form="${c.id}" style="display:none;">
+            <input name="titulo" value="${c.titulo.replace(/"/g, "&quot;")}" required style="flex:1; min-width:10rem;" />
             <button class="btn small" type="submit">Guardar</button>
-            <button class="btn secondary small" type="button" data-cancelar-apartado-titulo="${a.id}">Cancelar</button>
+            <button class="btn secondary small" type="button" data-cancelar-cuadro-titulo="${c.id}">Cancelar</button>
           </form>
-        </div>`).join("") || '<p class="empty">Esta materia todavía no tiene unidades del Programa vinculadas. Ve a "Programa" y vincula una unidad con esta materia.</p>'}
+        </div>`).join("") || '<p class="empty">Todavía no has creado ningún cuadro.</p>'}
+    </div>
+    <form class="inline-form" id="cuadro-form" style="margin-top:0.6rem;">
+      <input name="titulo" placeholder="Título del cuadro (ej. Unidad 1)" required style="flex:1; min-width:10rem" />
+      <button class="btn small" type="submit">+ Agregar cuadro</button>
+    </form>
+
+    <h3 style="margin-top:1.4rem;">Temas (apartados por resultado de aprendizaje)</h3>
+    ${listaCuadros.map(c => `
+      <div style="margin-bottom:1rem;">
+        <p style="font-weight:600; margin:0.6rem 0 0.3rem;">📦 ${c.titulo}</p>
+        <div class="roster">${(temasPorCuadro[c.id] || []).map(filaTema).join("") || '<p class="empty">Sin temas asignados a este cuadro todavía.</p>'}</div>
+      </div>`).join("")}
+    <div style="margin-bottom:1rem;">
+      ${listaCuadros.length ? `<p style="font-weight:600; margin:0.6rem 0 0.3rem;">Sin cuadro asignado</p>` : ""}
+      <div class="roster">${(temasPorCuadro.sin || []).map(filaTema).join("") || (apartados.length ? '' : '<p class="empty">Esta materia todavía no tiene unidades del Programa vinculadas. Ve a "Programa" y vincula una unidad con esta materia.</p>')}</div>
     </div>`;
+
+  document.getElementById("cuadro-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    await sb.from("materia_cuadros").insert({ materia_id: materiaId, titulo: f.get("titulo"), orden: listaCuadros.length });
+    cargarApartadosDeMateria(materiaId);
+  });
+
+  holder.querySelectorAll("[data-del-cuadro]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("¿Eliminar este cuadro? Los temas que tenía quedarán sin cuadro asignado (no se eliminan).")) return;
+      const cId = btn.dataset.delCuadro;
+      await sb.from("publicaciones").update({ cuadro_id: null }).eq("cuadro_id", cId);
+      await sb.from("materia_cuadros").delete().eq("id", cId);
+      cargarApartadosDeMateria(materiaId);
+    });
+  });
+
+  holder.querySelectorAll("[data-editar-cuadro-titulo]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const cId = btn.dataset.editarCuadroTitulo;
+      const lectura = holder.querySelector(`[data-cuadro-titulo-lectura="${cId}"]`);
+      const form = holder.querySelector(`[data-cuadro-titulo-form="${cId}"]`);
+      if (lectura) lectura.style.display = "none";
+      if (form) { form.style.display = "flex"; form.querySelector("input[name=titulo]").focus(); }
+    });
+  });
+  holder.querySelectorAll("[data-cancelar-cuadro-titulo]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const cId = btn.dataset.cancelarCuadroTitulo;
+      const lectura = holder.querySelector(`[data-cuadro-titulo-lectura="${cId}"]`);
+      const form = holder.querySelector(`[data-cuadro-titulo-form="${cId}"]`);
+      if (form) form.style.display = "none";
+      if (lectura) lectura.style.display = "";
+    });
+  });
+  holder.querySelectorAll("[data-cuadro-titulo-form]").forEach(form => {
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const cId = form.dataset.cuadroTituloForm;
+      const nuevoTitulo = new FormData(form).get("titulo").trim();
+      if (!nuevoTitulo) return;
+      await sb.from("materia_cuadros").update({ titulo: nuevoTitulo }).eq("id", cId);
+      cargarApartadosDeMateria(materiaId);
+    });
+  });
+
+  holder.querySelectorAll("[data-apartado-cuadro]").forEach(sel => {
+    sel.addEventListener("change", async () => {
+      const aId = sel.dataset.apartadoCuadro;
+      await sb.from("publicaciones").update({ cuadro_id: sel.value || null }).eq("id", aId);
+      cargarApartadosDeMateria(materiaId);
+    });
+  });
 
   holder.querySelectorAll("[data-toggle-apartado-pub]").forEach(btn => {
     btn.addEventListener("click", async () => {
