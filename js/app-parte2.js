@@ -287,7 +287,7 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
   });
   el.querySelectorAll("[data-criterios-de]").forEach(async (td) => {
     const { data: criterios } = await sb.from("criterios_indicador").select("*").eq("indicador_id", td.dataset.criteriosDe).order("puntaje");
-    td.innerHTML = (criterios || []).map(c => `<div>${c.puntaje} punto${c.puntaje === 1 ? "" : "s"}: ${c.descripcion}</div>`).join("") || '<span class="empty">Sin criterios</span>';
+    td.innerHTML = (criterios || []).map(c => `<div><strong>${c.nivel ? c.nivel + " — " : ""}${c.puntaje} punto${c.puntaje === 1 ? "" : "s"}:</strong> ${c.descripcion}</div>`).join("") || '<span class="empty">Sin criterios</span>';
   });
   if (!isSelf) {
     el.querySelectorAll("[data-calif-indicador]").forEach(sel => {
@@ -2985,6 +2985,18 @@ async function renderMateriaDetalle(materiaId) {
   await cargarPublicacionesDeMateria(materiaId, materia.seccion);
 }
 
+// Nombres de nivel de desempeño por defecto, siguiendo la convención del MEP
+// (rúbrica analítica con niveles de ejecución). Si el puntaje máximo es 3 se
+// usa la escala estándar; para otros puntajes se aproxima con una escala más
+// larga. Siempre editable por el profesor antes de guardar.
+function nombreNivelPorDefecto(puntaje, max) {
+  if (max === 3) return ["Inicial", "En proceso", "Logrado"][puntaje - 1] || "";
+  if (max === 1) return "Logrado";
+  if (max === 2) return puntaje === 1 ? "En proceso" : "Logrado";
+  const escala = ["Inicial", "En proceso", "Logrado", "Avanzado", "Excelente"];
+  return escala[Math.min(puntaje - 1, escala.length - 1)];
+}
+
 async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
   const holder = document.getElementById("materia-indicadores");
   if (!holder) return;
@@ -2994,6 +3006,18 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
   const { data: indicadores } = catNombre
     ? await sb.from("indicadores").select("*, criterios_indicador(*)").eq("materia_id", materiaId).eq("categoria", catNombre).order("orden")
     : { data: [] };
+
+  // Resultados de aprendizaje del programa de estudio de esta materia, para
+  // poder vincular cada indicador al resultado oficial que evalúa (normativa
+  // del MEP: todo indicador debe derivarse de un resultado de aprendizaje).
+  const { data: unidadesProg } = await sb.from("programa").select("id").eq("materia_id", materiaId);
+  const programaIds = (unidadesProg || []).map(u => u.id);
+  const { data: resultadosMateria } = programaIds.length
+    ? await sb.from("resultados_aprendizaje").select("id, resultado").in("programa_id", programaIds).order("id")
+    : { data: [] };
+  const resultadoPorId = {};
+  (resultadosMateria || []).forEach(r => { resultadoPorId[r.id] = r.resultado; });
+  const quitarHtmlResultado = (v) => String(v || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 
   const siguienteLetra = String.fromCharCode(65 + (indicadores || []).length); // A, B, C...
 
@@ -3007,6 +3031,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
     <div class="roster" id="lista-indicadores-holder" style="margin-top:0.8rem;">
       ${(indicadores || []).map(ind => {
         const tieneCriterios = (ind.criterios_indicador || []).length > 0;
+        const resultadoVinculado = ind.resultado_id ? resultadoPorId[ind.resultado_id] : null;
         return `
         <div class="roster-row" style="flex-direction:column; align-items:stretch; gap:0.4rem;">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.6rem;">
@@ -3014,21 +3039,27 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
               <strong>${ind.letra}:</strong> ${ind.descripcion}
               <span style="color:var(--text-muted); font-size:0.8rem;"> (máx. ${ind.puntaje_maximo} pts)</span>
               ${ind.fecha_evaluacion ? `<div style="font-size:0.75rem; color:var(--text-muted);">Fecha: ${ind.fecha_evaluacion}${ind.lecciones ? " · " + ind.lecciones + " lecciones" : ""}</div>` : ""}
+              ${resultadoVinculado
+                ? `<div style="font-size:0.75rem; color:var(--text-muted); font-style:italic;">📘 Resultado de aprendizaje: ${quitarHtmlResultado(resultadoVinculado)}</div>`
+                : `<div style="font-size:0.75rem; color:var(--brick);">⚠️ Sin vincular a un resultado de aprendizaje del programa</div>`}
             </span>
             <button class="btn danger small" data-del-indicador="${ind.id}">Eliminar</button>
           </div>
           <div style="font-size:0.85rem;">
-            ${(ind.criterios_indicador || []).sort((a, b) => a.puntaje - b.puntaje).map(c => `<div>${c.puntaje} punto${c.puntaje === 1 ? "" : "s"}: ${c.descripcion}</div>`).join("")}
+            ${(ind.criterios_indicador || []).sort((a, b) => a.puntaje - b.puntaje).map(c => `<div><strong>${c.nivel ? c.nivel + " — " : ""}${c.puntaje} punto${c.puntaje === 1 ? "" : "s"}:</strong> ${c.descripcion}</div>`).join("")}
           </div>
           ${!tieneCriterios ? `
           <form class="inline-form js-criterios-form" data-indicador-criterios="${ind.id}" data-max="${ind.puntaje_maximo}" style="background:var(--paper); margin-top:0.3rem;">
-            <p style="width:100%; font-size:0.8rem; color:var(--brick); margin:0 0 0.4rem;">Faltan los criterios de este indicador:</p>
+            <p style="width:100%; font-size:0.8rem; color:var(--brick); margin:0 0 0.4rem;">Faltan los criterios de este indicador (con sus niveles de desempeño, según la normativa del MEP):</p>
             <div class="row" style="width:100%; margin-bottom:0.4rem;">
-              <button class="btn secondary small js-generar-criterios-ia" type="button" data-indicador="${ind.id}" data-titulo="${ind.descripcion.replace(/"/g, "&quot;")}" data-max="${ind.puntaje_maximo}">✨ Generar con IA</button>
+              <button class="btn secondary small js-generar-criterios-ia" type="button" data-indicador="${ind.id}" data-titulo="${ind.descripcion.replace(/"/g, "&quot;")}" data-max="${ind.puntaje_maximo}" data-resultado="${resultadoVinculado ? quitarHtmlResultado(resultadoVinculado).replace(/"/g, "&quot;") : ""}">✨ Generar con IA</button>
               <span class="js-generar-criterios-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>
             </div>
             ${Array.from({ length: ind.puntaje_maximo }, (_, i) => i + 1).map(p => `
-              <input name="criterio_${p}" placeholder="Criterio para ${p} punto${p === 1 ? "" : "s"}" required style="flex-basis:100%;" />`).join("")}
+              <div style="display:flex; gap:0.4rem; flex-basis:100%; align-items:center;">
+                <input name="nivel_${p}" value="${nombreNivelPorDefecto(p, ind.puntaje_maximo)}" placeholder="Nivel de desempeño" required style="width:11rem;" />
+                <input name="criterio_${p}" placeholder="Criterio para ${p} punto${p === 1 ? "" : "s"}" required style="flex:1;" />
+              </div>`).join("")}
             <button class="btn small" type="submit">Guardar criterios</button>
           </form>` : ""}
         </div>`;
@@ -3037,7 +3068,13 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
 
     <form class="inline-form" id="indicador-form" style="margin-top:1rem;">
       <input name="letra" value="${siguienteLetra}" placeholder="Letra" required style="width:4rem;" />
-      <input name="descripcion" placeholder="Descripción del indicador" required style="flex:1; min-width:14rem" />
+      <input name="descripcion" placeholder="Descripción del indicador (verbo + contenido, ej. 'Calcula las sanciones administrativas del RTS')" required style="flex:1; min-width:14rem" />
+      <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; flex-basis:100%;">Vincular a Resultado de Aprendizaje del programa (normativa MEP):
+        <select name="resultado_id" style="flex:1; min-width:14rem;">
+          <option value="">— Sin vincular —</option>
+          ${(resultadosMateria || []).map(r => `<option value="${r.id}">${quitarHtmlResultado(r.resultado).slice(0, 90)}</option>`).join("")}
+        </select>
+      </label>
       <input name="puntaje_maximo" type="number" min="1" placeholder="Puntaje máximo" required style="width:9rem" />
       <input name="fecha_evaluacion" type="date" />
       <input name="lecciones" type="number" min="1" placeholder="Lecciones (opcional)" style="width:10rem" />
@@ -3062,7 +3099,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       const max = Number(form.dataset.max);
       const criterios = [];
       for (let p = 1; p <= max; p++) {
-        criterios.push({ indicador_id: form.dataset.indicadorCriterios, puntaje: p, descripcion: f.get(`criterio_${p}`), orden: p });
+        criterios.push({ indicador_id: form.dataset.indicadorCriterios, puntaje: p, nivel: f.get(`nivel_${p}`) || null, descripcion: f.get(`criterio_${p}`), orden: p });
       }
       await sb.from("criterios_indicador").insert(criterios);
       cargarIndicadoresDeMateria(materiaId, catNombre);
@@ -3072,6 +3109,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
     btn.addEventListener("click", async () => {
       const indicadorId = btn.dataset.indicador;
       const titulo = btn.dataset.titulo;
+      const resultadoVinculado = btn.dataset.resultado || "";
       const puntajeMaximo = Number(btn.dataset.max);
       const estado = btn.parentElement.querySelector(".js-generar-criterios-estado");
       btn.disabled = true;
@@ -3080,7 +3118,10 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       try {
         const { data: trabajo } = await sb.from("trabajos_cotidianos").select("descripcion").eq("indicador_id", indicadorId).maybeSingle();
         const quitarHtml = (v) => String(v || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-        const contexto = quitarHtml(trabajo ? trabajo.descripcion : "").slice(0, 1500);
+        const contexto = [
+          resultadoVinculado ? `Resultado de aprendizaje vinculado: ${resultadoVinculado}` : "",
+          quitarHtml(trabajo ? trabajo.descripcion : "")
+        ].filter(Boolean).join(" — ").slice(0, 1500);
         const r = await fetch("/api/generar-criterios-ia", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -3093,10 +3134,12 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
         }
         const form = btn.closest(".js-criterios-form");
         (datos.criterios || []).forEach(c => {
-          const input = form.querySelector(`[name="criterio_${c.puntaje}"]`);
-          if (input) input.value = c.descripcion;
+          const inputCriterio = form.querySelector(`[name="criterio_${c.puntaje}"]`);
+          if (inputCriterio) inputCriterio.value = c.descripcion;
+          const inputNivel = form.querySelector(`[name="nivel_${c.puntaje}"]`);
+          if (inputNivel && c.nivel) inputNivel.value = c.nivel;
         });
-        if (estado) estado.textContent = "Listo — revisá los criterios y dale \"Guardar criterios\".";
+        if (estado) estado.textContent = "Listo — revisá los criterios y niveles y dale \"Guardar criterios\".";
       } catch (err) {
         if (estado) estado.textContent = "No se pudo conectar con la IA: " + (err.message || err);
       } finally {
@@ -3114,6 +3157,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       categoria: catNombre,
       letra: f.get("letra"),
       descripcion: f.get("descripcion"),
+      resultado_id: f.get("resultado_id") || null,
       puntaje_maximo: Number(f.get("puntaje_maximo")),
       fecha_evaluacion: f.get("fecha_evaluacion") || null,
       lecciones: f.get("lecciones") ? Number(f.get("lecciones")) : null,
@@ -3153,7 +3197,7 @@ async function cargarCalificarTodos(materiaId, catNombre, indicadores) {
             <div style="font-size:0.82rem;">
               <strong>${i.letra}: ${i.descripcion}</strong>
               ${(i.criterios_indicador || []).length
-                ? (i.criterios_indicador || []).sort((a, b) => a.puntaje - b.puntaje).map(c => `<div style="margin-left:0.8rem;">${c.puntaje} punto${c.puntaje === 1 ? "" : "s"}: ${c.descripcion}</div>`).join("")
+                ? (i.criterios_indicador || []).sort((a, b) => a.puntaje - b.puntaje).map(c => `<div style="margin-left:0.8rem;"><strong>${c.nivel ? c.nivel + " — " : ""}${c.puntaje} punto${c.puntaje === 1 ? "" : "s"}:</strong> ${c.descripcion}</div>`).join("")
                 : `<div style="margin-left:0.8rem; color:var(--text-muted);">Sin criterios configurados — agregalos arriba en la lista de indicadores.</div>`}
             </div>`).join("")}
         </div>
@@ -3162,7 +3206,7 @@ async function cargarCalificarTodos(materiaId, catNombre, indicadores) {
         <table class="grades">
           <thead><tr>
             <th>Estudiante</th>
-            ${indicadores.map(i => `<th style="text-align:center;" title="${(i.criterios_indicador || []).sort((a, b) => a.puntaje - b.puntaje).map(c => `${c.puntaje}: ${c.descripcion}`).join(" · ").replace(/"/g, "&quot;")}">${i.letra}</th>`).join("")}
+            ${indicadores.map(i => `<th style="text-align:center;" title="${(i.criterios_indicador || []).sort((a, b) => a.puntaje - b.puntaje).map(c => `${c.nivel ? c.nivel + " (" + c.puntaje + "): " : c.puntaje + ": "}${c.descripcion}`).join(" · ").replace(/"/g, "&quot;")}">${i.letra}</th>`).join("")}
             <th>Resultado (${categoriaObj?.porcentaje || "?"}%)</th>
           </tr></thead>
           <tbody>
@@ -3175,7 +3219,7 @@ async function cargarCalificarTodos(materiaId, catNombre, indicadores) {
                 <td>${st.apellido1} ${st.apellido2}, ${st.nombre}</td>
                 ${indicadores.map(i => {
                   const criteriosPorPuntaje = {};
-                  (i.criterios_indicador || []).forEach(c => { criteriosPorPuntaje[c.puntaje] = c.descripcion; });
+                  (i.criterios_indicador || []).forEach(c => { criteriosPorPuntaje[c.puntaje] = (c.nivel ? c.nivel + ": " : "") + c.descripcion; });
                   return `
                   <td style="text-align:center;">
                     <select data-cal-masiva="${i.id}" data-estudiante="${st.id}" style="width:4rem; text-align:center; border:1px solid var(--paper-line); border-radius:3px;">
