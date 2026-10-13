@@ -1582,7 +1582,17 @@ async function renderSubtema(id, soloLectura) {
           <input name="url" class="subtema-enlace-url" type="url" placeholder="https://..." required style="flex:1; min-width:14rem" />
           <button class="btn small" type="submit">🔗 Agregar enlace</button>
           <span class="subtema-enlace-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>
-        </form>` : ""}
+        </form>
+        <div style="margin-top:1rem; padding-top:0.8rem; border-top:1px dashed var(--paper-line);">
+          <p style="font-size:0.85rem; font-weight:600; margin-bottom:0.4rem;">✨ Generar material con IA a partir de un archivo</p>
+          <p style="font-size:0.78rem; color:var(--text-muted); margin:0 0 0.5rem;">Subí un PDF o una imagen (ej. una guía, un ejercicio, una foto de la pizarra) y decile a la IA qué querés que genere con eso. El resultado se agrega automáticamente como material de apoyo de este subtema.</p>
+          <form class="subtema-material-ia-form" data-subtema-id="${sub.id}" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+            <input type="file" class="subtema-material-ia-archivo" accept=".pdf,image/png,image/jpeg,image/gif,image/webp" required />
+            <textarea class="subtema-material-ia-instrucciones" rows="2" placeholder='Instrucciones para la IA — ej. "hacé un resumen en viñetas", "generá una guía de estudio con los puntos clave", "explicá esto con ejemplos de Costa Rica"' style="width:100%; font-family:inherit; resize:vertical;"></textarea>
+            <button class="btn small" type="submit">✨ Generar y agregar</button>
+            <span class="subtema-material-ia-estado" style="font-size:0.78rem; color:var(--text-muted); flex-basis:100%;"></span>
+          </form>
+        </div>` : ""}
       </section>
     </div>`;
   bindTopbar();
@@ -1798,6 +1808,82 @@ async function renderSubtema(id, soloLectura) {
       estado.textContent = "";
       const { data: actualizados } = await sb.from("materiales").select("*").eq("subtema_id", subtemaId).neq("tipo", "slide-image").order("creado_en");
       await pintarMaterialesSubtema(subtemaId, actualizados || [], soloLectura, sub.publicacion_id);
+    });
+
+    const materialIaForm = document.querySelector(".subtema-material-ia-form");
+    if (materialIaForm) materialIaForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const subtemaId = form.dataset.subtemaId;
+      const estado = form.querySelector(".subtema-material-ia-estado");
+      const input = form.querySelector(".subtema-material-ia-archivo");
+      const instrucciones = form.querySelector(".subtema-material-ia-instrucciones").value.trim().slice(0, 800);
+      const archivo = input.files[0];
+      if (!archivo) return;
+      const boton = form.querySelector("button[type=submit]");
+
+      const leerComoBase64 = (f) => new Promise((resolve, reject) => {
+        const lector = new FileReader();
+        lector.onload = () => resolve(String(lector.result).split(",")[1] || "");
+        lector.onerror = () => reject(new Error("No se pudo leer el archivo."));
+        lector.readAsDataURL(f);
+      });
+
+      boton.disabled = true;
+      boton.textContent = "Generando…";
+      estado.textContent = "Leyendo el archivo y generando con la IA (puede tardar unos segundos)…";
+      try {
+        const datosBase64 = await leerComoBase64(archivo);
+        const quitarHtml = (v) => String(v || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+        const contexto = [sub.titulo, quitarHtml(sub.descripcion), quitarHtml(resultado ? resultado.resultado : "")].filter(Boolean).join(" — ").slice(0, 1500);
+        const r = await fetch("/api/generar-material-ia", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            tema: sub.titulo || pub.titulo || "",
+            contexto,
+            instrucciones,
+            archivo: { mimeType: archivo.type, datosBase64 }
+          })
+        });
+        const datos = await r.json();
+        if (!r.ok) {
+          estado.textContent = "No se pudo generar: " + (datos.error || "error desconocido.");
+          return;
+        }
+        const titulo = (datos.contenido && datos.contenido.titulo) || "Material generado con IA";
+        const contenidoHtml = (datos.contenido && datos.contenido.contenido_html) || "";
+
+        estado.textContent = "Agregando el material generado…";
+        const paginaHtml = `<!doctype html><html lang="es"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>${titulo}</title>
+<style>body{font-family:system-ui,sans-serif; max-width:40rem; margin:2rem auto; padding:0 1rem; line-height:1.5; color:#222;} h4{margin-top:1.4rem;}</style>
+</head><body><h3>${titulo}</h3>${contenidoHtml}</body></html>`;
+        const blob = new Blob([paginaHtml], { type: "text/html" });
+        const rutaSegura = `${sub.publicacion_id}/subtema-${subtemaId}/ia-${Date.now()}.html`;
+        const { error: errorSubida } = await sb.storage.from("materiales").upload(rutaSegura, blob, { contentType: "text/html" });
+        if (errorSubida) {
+          estado.textContent = "La IA generó el contenido, pero no se pudo guardar: " + errorSubida.message;
+          return;
+        }
+        await sb.from("materiales").insert({
+          publicacion_id: sub.publicacion_id,
+          subtema_id: subtemaId,
+          nombre: `✨ ${titulo}`,
+          ruta: rutaSegura,
+          tipo: "text/html",
+          tamano_bytes: blob.size
+        });
+        form.reset();
+        estado.textContent = "¡Listo! Se agregó como material de apoyo.";
+        setTimeout(() => { if (estado.textContent === "¡Listo! Se agregó como material de apoyo.") estado.textContent = ""; }, 4000);
+        const { data: actualizados } = await sb.from("materiales").select("*").eq("subtema_id", subtemaId).neq("tipo", "slide-image").order("creado_en");
+        await pintarMaterialesSubtema(subtemaId, actualizados || [], soloLectura, sub.publicacion_id);
+      } catch (err) {
+        estado.textContent = "No se pudo conectar con la IA: " + (err.message || err);
+      } finally {
+        boton.disabled = false;
+        boton.textContent = "✨ Generar y agregar";
+      }
     });
 
     const presentacionForm = document.querySelector(".subtema-presentacion-form");
