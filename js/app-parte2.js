@@ -3639,6 +3639,23 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
     ? await sb.from("subtemas").select("id, titulo").in("publicacion_id", temaIds).order("orden")
     : { data: [] };
 
+  // Para cada indicador creado a partir de un trabajo cotidiano, busca ese
+  // trabajo para poder ofrecer un botón "Ver trabajo" que lleve directo a
+  // la página del tema/subtema donde vive (los trabajos en clase no llevan
+  // indicador, así que no aplica para esos).
+  const indicadorIdsActuales = (indicadores || []).map(i => i.id);
+  const trabajoPorIndicador = {};
+  if (indicadorIdsActuales.length) {
+    const { data: tcVinculados } = await sb.from("trabajos_cotidianos").select("id, indicador_id, publicacion_id, subtema_id, titulo").in("indicador_id", indicadorIdsActuales);
+    (tcVinculados || []).forEach(t => { trabajoPorIndicador[t.indicador_id] = t; });
+  }
+  function linkTrabajo(ind) {
+    const t = trabajoPorIndicador[ind.id];
+    if (!t) return "";
+    const href = t.subtema_id ? `#/subtema/${t.subtema_id}` : `#/apartado/${t.publicacion_id}`;
+    return `<a class="btn secondary small" href="${href}" title="Ver el trabajo cotidiano: ${String(t.titulo || "").replace(/"/g, "&quot;")}">📎 Ver trabajo</a>`;
+  }
+
   const siguienteLetra = siguienteLetraDisponible((indicadores || []).map(i => i.letra));
 
   holder.innerHTML = `
@@ -3673,7 +3690,10 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
                      </select>
                    </div>`}
             </span>
-            <button class="btn danger small" data-del-indicador="${ind.id}">Eliminar</button>
+            <span style="display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap;">
+              ${linkTrabajo(ind)}
+              <button class="btn danger small" data-del-indicador="${ind.id}">Eliminar</button>
+            </span>
           </div>
           <div style="font-size:0.85rem;">
             ${(ind.criterios_indicador || []).sort((a, b) => a.puntaje - b.puntaje).map(c => `<div><strong>${c.nivel ? c.nivel + " — " : ""}${c.puntaje} punto${c.puntaje === 1 ? "" : "s"}:</strong> ${c.descripcion}</div>`).join("")}
@@ -3888,6 +3908,20 @@ async function cargarCalificarTodos(materiaId, catNombre, indicadores) {
   });
   const indicadoresOrdenados = gruposPorTema.flatMap(g => g.items);
 
+  // Para poder ofrecer un botón "Ver trabajo" junto a cada indicador que
+  // provenga de un trabajo cotidiano.
+  const trabajoPorIndicadorCal = {};
+  if (indicadorIds.length) {
+    const { data: tcVinculadosCal } = await sb.from("trabajos_cotidianos").select("id, indicador_id, publicacion_id, subtema_id, titulo").in("indicador_id", indicadorIds);
+    (tcVinculadosCal || []).forEach(t => { trabajoPorIndicadorCal[t.indicador_id] = t; });
+  }
+  function linkTrabajoCal(ind) {
+    const t = trabajoPorIndicadorCal[ind.id];
+    if (!t) return "";
+    const href = t.subtema_id ? `#/subtema/${t.subtema_id}` : `#/apartado/${t.publicacion_id}`;
+    return ` <a class="btn secondary small" href="${href}" title="Ver el trabajo cotidiano: ${String(t.titulo || "").replace(/"/g, "&quot;")}">📎 Ver trabajo</a>`;
+  }
+
   holder.innerHTML = `
     <div class="whatsapp-panel" style="max-width:100%; margin:0.8rem 0;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.6rem;">
@@ -3903,7 +3937,7 @@ async function cargarCalificarTodos(materiaId, catNombre, indicadores) {
               <div style="display:grid; gap:0.6rem; margin-left:0.6rem;">
                 ${g.items.map(i => `
                   <div style="font-size:0.82rem;">
-                    <strong>${i.letra}: ${i.descripcion}</strong>${i.fecha_evaluacion ? ` <span style="color:var(--text-muted); font-weight:400;">· Fecha: ${i.fecha_evaluacion}</span>` : ""}
+                    <strong>${i.letra}: ${i.descripcion}</strong>${i.fecha_evaluacion ? ` <span style="color:var(--text-muted); font-weight:400;">· Fecha: ${i.fecha_evaluacion}</span>` : ""}${linkTrabajoCal(i)}
                     ${(i.criterios_indicador || []).length
                       ? (i.criterios_indicador || []).sort((a, b) => a.puntaje - b.puntaje).map(c => `<div style="margin-left:0.8rem;"><strong>${c.nivel ? c.nivel + " — " : ""}${c.puntaje} punto${c.puntaje === 1 ? "" : "s"}:</strong> ${c.descripcion}</div>`).join("")
                       : `<div style="margin-left:0.8rem; color:var(--text-muted);">Sin criterios configurados — agregalos arriba en la lista de indicadores.</div>`}
