@@ -945,6 +945,7 @@ async function renderApartado(id, soloLectura) {
   if (soloLectura && !pub.habilitado) { location.hash = "#/"; return; }
   const { data: resultado } = pub.resultado_id ? await sb.from("resultados_aprendizaje").select("*").eq("id", pub.resultado_id).maybeSingle() : { data: null };
   const { data: trabajos } = await sb.from("trabajos_cotidianos").select("*").eq("publicacion_id", id).is("subtema_id", null).order("creado_en");
+  const { data: trabajosClase } = await sb.from("trabajos_clase").select("*").eq("publicacion_id", id).is("subtema_id", null).order("creado_en");
   const { data: materiales } = await sb.from("materiales").select("*").eq("publicacion_id", id).is("subtema_id", null).order("creado_en");
   const { data: subtemas } = await sb.from("subtemas").select("*").eq("publicacion_id", id).order("orden").order("creado_en");
 
@@ -1028,6 +1029,22 @@ async function renderApartado(id, soloLectura) {
         </div>
         <span id="sugerir-trabajos-estado" style="font-size:0.78rem; color:var(--text-muted); display:block; margin-top:0.4rem; min-height:1.2em;"></span>
         <div id="sugerir-trabajos-lista" style="margin-top:0.6rem;"></div>` : ""}
+      </section>
+
+      <section class="tema-section">
+        <h3>Trabajos en clase (sin subtema)</h3>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-top:-0.6em;">Le dan al estudiante un documento para completar; el estudiante lo descarga, lo llena y sube su propia versión. No llevan indicador — se califican con una nota manual.</p>
+        <div class="roster" id="trabajos-clase-lista">Cargando…</div>
+        ${!soloLectura ? `
+        <form class="inline-form" id="trabajo-clase-form" style="margin-top:0.8rem;">
+          <input name="titulo" placeholder="Título del trabajo en clase" required style="flex:1; min-width:10rem" />
+          <input name="fecha" type="date" />
+          <div class="roa-editable js-trabajo-clase-desc" contenteditable="true" style="flex-basis:100%; min-height:3rem;" data-placeholder="Instrucciones (opcional)"></div>
+          <label style="flex-basis:100%; font-size:0.82rem;">Documento base (plantilla) que descargarán los estudiantes:
+            <input type="file" name="plantilla" style="display:block; margin-top:0.3rem;" />
+          </label>
+          <button class="btn small" type="submit">Agregar trabajo en clase</button>
+        </form>` : ""}
       </section>
 
       <section class="tema-section">
@@ -1173,6 +1190,39 @@ async function renderApartado(id, soloLectura) {
       }
     });
 
+    document.getElementById("trabajo-clase-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const f = new FormData(form);
+      const btn = form.querySelector("button[type=submit]");
+      btn.disabled = true;
+      btn.textContent = "Agregando…";
+      let archivoRuta = null, archivoNombre = null;
+      const archivo = f.get("plantilla");
+      if (archivo && archivo.size) {
+        const rutaSegura = `plantillas-trabajo-clase/${id}-${Date.now()}-${archivo.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+        const { error: errorSubida } = await sb.storage.from("materiales").upload(rutaSegura, archivo);
+        if (errorSubida) {
+          alert("No se pudo subir el documento base: " + errorSubida.message);
+          btn.disabled = false;
+          btn.textContent = "Agregar trabajo en clase";
+          return;
+        }
+        archivoRuta = rutaSegura;
+        archivoNombre = archivo.name;
+      }
+      await sb.from("trabajos_clase").insert({
+        publicacion_id: id,
+        subtema_id: null,
+        titulo: f.get("titulo"),
+        fecha: f.get("fecha") || null,
+        instrucciones: document.querySelector(".js-trabajo-clase-desc").innerHTML || null,
+        archivo_ruta: archivoRuta,
+        archivo_nombre: archivoNombre
+      });
+      renderApartado(id, soloLectura);
+    });
+
     document.getElementById("material-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const estado = document.getElementById("material-estado");
@@ -1277,6 +1327,11 @@ async function renderApartado(id, soloLectura) {
   }
 
   await pintarTrabajosCotidianos(trabajos || [], soloLectura, id, pub.materia_id);
+  async function cargarTrabajosClaseTema() {
+    const { data } = await sb.from("trabajos_clase").select("*").eq("publicacion_id", id).is("subtema_id", null).order("creado_en");
+    await pintarTrabajosClase(data || [], soloLectura, "trabajos-clase-lista", { recargar: cargarTrabajosClaseTema });
+  }
+  await pintarTrabajosClase(trabajosClase || [], soloLectura, "trabajos-clase-lista", { recargar: cargarTrabajosClaseTema });
   await pintarMateriales(materiales || [], soloLectura);
   await pintarSubtemas(subtemas || [], soloLectura, id);
   await pintarResumenTrabajos(subtemas || [], soloLectura);
@@ -1511,6 +1566,7 @@ async function renderSubtema(id, soloLectura) {
   if (soloLectura && !pub.habilitado) { location.hash = "#/"; return; }
   const { data: resultado } = pub.resultado_id ? await sb.from("resultados_aprendizaje").select("*").eq("id", pub.resultado_id).maybeSingle() : { data: null };
   const { data: trabajos } = await sb.from("trabajos_cotidianos").select("*").eq("subtema_id", id).order("creado_en");
+  const { data: trabajosClase } = await sb.from("trabajos_clase").select("*").eq("subtema_id", id).order("creado_en");
   const { data: materialesTodos } = await sb.from("materiales").select("*").eq("subtema_id", id).order("creado_en");
   const materiales = (materialesTodos || []).filter(m => m.tipo !== "slide-image");
   const diapositivas = (materialesTodos || []).filter(m => m.tipo === "slide-image");
@@ -1614,6 +1670,22 @@ async function renderSubtema(id, soloLectura) {
             <span class="subtema-trabajo-ia-estado" style="font-size:0.78rem; color:var(--text-muted); flex-basis:100%;"></span>
           </form>
         </div>` : ""}
+      </section>
+
+      <section class="tema-section">
+        <h3>Trabajos en clase de este subtema</h3>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-top:-0.6em;">Le dan al estudiante un documento para completar; el estudiante lo descarga, lo llena y sube su propia versión. No llevan indicador — se califican con una nota manual.</p>
+        <div class="roster" id="subtema-trabajos-clase-lista">Cargando…</div>
+        ${!soloLectura ? `
+        <form class="inline-form" id="subtema-trabajo-clase-form" style="margin-top:0.8rem;">
+          <input name="titulo" placeholder="Título del trabajo en clase" required style="flex:1; min-width:10rem" />
+          <input name="fecha" type="date" />
+          <div class="roa-editable js-subtema-trabajo-clase-desc" contenteditable="true" style="flex-basis:100%; min-height:3rem;" data-placeholder="Instrucciones (opcional)"></div>
+          <label style="flex-basis:100%; font-size:0.82rem;">Documento base (plantilla) que descargarán los estudiantes:
+            <input type="file" name="plantilla" style="display:block; margin-top:0.3rem;" />
+          </label>
+          <button class="btn small" type="submit">Agregar trabajo en clase</button>
+        </form>` : ""}
       </section>
 
       <section class="tema-section">
@@ -1751,6 +1823,39 @@ async function renderSubtema(id, soloLectura) {
         const indicadorId = await crearIndicadorParaTrabajo(pub.materia_id, f.get("titulo"), f.get("fecha"), puntajeMaximo);
         if (indicadorId) await sb.from("trabajos_cotidianos").update({ indicador_id: indicadorId }).eq("id", nuevo.id);
       }
+      renderSubtema(id, soloLectura);
+    });
+
+    document.getElementById("subtema-trabajo-clase-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const f = new FormData(form);
+      const btn = form.querySelector("button[type=submit]");
+      btn.disabled = true;
+      btn.textContent = "Agregando…";
+      let archivoRuta = null, archivoNombre = null;
+      const archivo = f.get("plantilla");
+      if (archivo && archivo.size) {
+        const rutaSegura = `plantillas-trabajo-clase/${sub.id}-${Date.now()}-${archivo.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+        const { error: errorSubida } = await sb.storage.from("materiales").upload(rutaSegura, archivo);
+        if (errorSubida) {
+          alert("No se pudo subir el documento base: " + errorSubida.message);
+          btn.disabled = false;
+          btn.textContent = "Agregar trabajo en clase";
+          return;
+        }
+        archivoRuta = rutaSegura;
+        archivoNombre = archivo.name;
+      }
+      await sb.from("trabajos_clase").insert({
+        publicacion_id: sub.publicacion_id,
+        subtema_id: sub.id,
+        titulo: f.get("titulo"),
+        fecha: f.get("fecha") || null,
+        instrucciones: document.querySelector(".js-subtema-trabajo-clase-desc").innerHTML || null,
+        archivo_ruta: archivoRuta,
+        archivo_nombre: archivoNombre
+      });
       renderSubtema(id, soloLectura);
     });
 
@@ -2153,8 +2258,191 @@ async function renderSubtema(id, soloLectura) {
   }
 
   await pintarTrabajosCotidianosSubtema(trabajos || [], soloLectura, sub.id, pub.materia_id);
+  async function cargarTrabajosClaseSubtema() {
+    const { data } = await sb.from("trabajos_clase").select("*").eq("subtema_id", id).order("creado_en");
+    await pintarTrabajosClase(data || [], soloLectura, "subtema-trabajos-clase-lista", { recargar: cargarTrabajosClaseSubtema });
+  }
+  await pintarTrabajosClase(trabajosClase || [], soloLectura, "subtema-trabajos-clase-lista", { recargar: cargarTrabajosClaseSubtema });
   await pintarMaterialesSubtema(sub.id, materiales || [], soloLectura, sub.publicacion_id);
   await pintarPresentacionSubtema(sub.id, diapositivas, soloLectura);
+}
+
+// "Trabajos en clase": a diferencia de los trabajos cotidianos, no llevan
+// indicador/rúbrica — el profesor sube un documento base (plantilla), cada
+// estudiante lo descarga, lo completa en su computadora y sube su propia
+// versión terminada, y el profesor le pone una nota manual (0-100).
+// Se usa tanto a nivel de tema (sin subtema) como a nivel de subtema, por
+// eso recibe el id del elemento donde pintar y un callback para recargar.
+async function pintarTrabajosClase(trabajos, soloLectura, holderId, opts) {
+  const holder = document.getElementById(holderId);
+  if (!holder) return;
+  const recargar = opts && opts.recargar;
+
+  if (trabajos.length === 0) {
+    holder.innerHTML = `<p class="empty">Todavía no hay trabajos en clase.</p>`;
+    return;
+  }
+
+  if (soloLectura) {
+    trabajos = trabajos.filter(t => t.habilitado !== false);
+    if (trabajos.length === 0) {
+      holder.innerHTML = `<p class="empty">Todavía no hay trabajos en clase habilitados.</p>`;
+      return;
+    }
+    const estudianteId = session.id;
+    const trabajoIds = trabajos.map(t => t.id);
+    const { data: misEntregas } = await sb.from("trabajos_clase_estudiante").select("*").eq("estudiante_id", estudianteId).in("trabajo_id", trabajoIds);
+    const entregaPorTrabajo = {};
+    (misEntregas || []).forEach(e => { entregaPorTrabajo[e.trabajo_id] = e; });
+
+    holder.innerHTML = trabajos.map(t => {
+      const miEntrega = entregaPorTrabajo[t.id];
+      const yaEntregado = !!(miEntrega && miEntrega.archivo_ruta);
+      let linkPlantilla = "";
+      if (t.archivo_ruta) linkPlantilla = sb.storage.from("materiales").getPublicUrl(t.archivo_ruta).data.publicUrl;
+      let linkMiEntrega = "";
+      if (miEntrega && miEntrega.archivo_ruta) linkMiEntrega = sb.storage.from("materiales").getPublicUrl(miEntrega.archivo_ruta).data.publicUrl;
+      return `
+      <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem;">
+        <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
+          <span class="name">${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+          ${yaEntregado
+            ? `<span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Entregado${miEntrega.nota != null ? " · Nota: " + miEntrega.nota : ""}</span>`
+            : ""}
+        </div>
+        ${t.instrucciones ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.instrucciones}</div>` : ""}
+        ${linkPlantilla ? `<a class="btn secondary small" href="${linkPlantilla}" target="_blank" rel="noopener">⬇️ Descargar documento base: ${t.archivo_nombre || "archivo"}</a>` : ""}
+        ${yaEntregado
+          ? `<a class="btn secondary small" href="${linkMiEntrega}" target="_blank" rel="noopener">👁️ Consultar mi entrega: ${miEntrega.archivo_nombre || "archivo"}</a>`
+          : `<label class="btn small" style="cursor:pointer;">📎 Subir mi trabajo completado<input type="file" data-clase-subir="${t.id}" style="display:none;" /></label>`}
+        <span data-clase-subir-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
+      </div>`;
+    }).join("");
+
+    holder.querySelectorAll("[data-clase-subir]").forEach(input => {
+      input.addEventListener("change", async () => {
+        const trabajoId = input.dataset.claseSubir;
+        const archivo = input.files[0];
+        if (!archivo) return;
+        const estado = holder.querySelector(`[data-clase-subir-estado="${trabajoId}"]`);
+        if (estado) estado.textContent = "Subiendo…";
+        const rutaSegura = `entregas-trabajo-clase/trabajo-${trabajoId}/${estudianteId}-${Date.now()}-${archivo.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+        const { error: errorSubida } = await sb.storage.from("materiales").upload(rutaSegura, archivo);
+        if (errorSubida) {
+          if (estado) estado.textContent = "No se pudo subir: " + errorSubida.message;
+          return;
+        }
+        await sb.from("trabajos_clase_estudiante").upsert(
+          { trabajo_id: trabajoId, estudiante_id: estudianteId, entregado_en: new Date().toISOString(), archivo_ruta: rutaSegura, archivo_nombre: archivo.name },
+          { onConflict: "trabajo_id,estudiante_id" }
+        );
+        if (recargar) recargar(); else holder.innerHTML = "Cargando…";
+      });
+    });
+  } else {
+    const trabajoIds = trabajos.map(t => t.id);
+    const { data: todasEntregas } = await sb.from("trabajos_clase_estudiante").select("*").in("trabajo_id", trabajoIds);
+    const entregasPorTrabajo = {};
+    (todasEntregas || []).forEach(e => {
+      if (!entregasPorTrabajo[e.trabajo_id]) entregasPorTrabajo[e.trabajo_id] = [];
+      entregasPorTrabajo[e.trabajo_id].push(e);
+    });
+    const estudiantesPorId = {};
+    const estudianteIds = (todasEntregas || []).map(e => e.estudiante_id);
+    if (estudianteIds.length) {
+      const { data: estudiantesData } = await sb.from("estudiantes").select("id, nombre, apellido1, apellido2").in("id", estudianteIds);
+      (estudiantesData || []).forEach(e => { estudiantesPorId[e.id] = [e.nombre, e.apellido1, e.apellido2].filter(Boolean).join(" "); });
+    }
+
+    holder.innerHTML = trabajos.map(t => {
+      let linkPlantilla = "";
+      if (t.archivo_ruta) linkPlantilla = sb.storage.from("materiales").getPublicUrl(t.archivo_ruta).data.publicUrl;
+      const entregas = entregasPorTrabajo[t.id] || [];
+      return `
+      <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem; ${t.habilitado === false ? "opacity:0.55;" : ""}">
+        <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
+          <span class="name">${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+          <span style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+            <span class="badge">${entregas.filter(e => e.archivo_ruta).length} entregaron</span>
+            <button class="btn ${t.habilitado === false ? "" : "secondary"} small" data-toggle-clase-habilitado="${t.id}" data-estado-actual="${t.habilitado !== false}">
+              ${t.habilitado === false ? "Habilitar" : "Habilitado"}
+            </button>
+            <button class="btn secondary small" data-ver-entregas-clase="${t.id}">📂 Ver entregas y calificar</button>
+            <button class="btn danger small" data-del-clase="${t.id}">Eliminar</button>
+          </span>
+        </div>
+        ${t.instrucciones ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.instrucciones}</div>` : ""}
+        ${linkPlantilla ? `<a class="btn secondary small" href="${linkPlantilla}" target="_blank" rel="noopener">📎 Ver documento base: ${t.archivo_nombre || "archivo"}</a>` : ""}
+        <div data-entregas-clase-panel="${t.id}" style="width:100%;"></div>
+      </div>`;
+    }).join("");
+
+    holder.querySelectorAll("[data-toggle-clase-habilitado]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const trabajoId = btn.dataset.toggleClaseHabilitado;
+        const habilitadoActual = btn.dataset.estadoActual === "true";
+        await sb.from("trabajos_clase").update({ habilitado: !habilitadoActual }).eq("id", trabajoId);
+        if (recargar) recargar();
+      });
+    });
+
+    holder.querySelectorAll("[data-del-clase]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        if (!confirm("¿Eliminar este trabajo en clase y sus entregas?")) return;
+        const trabajoId = btn.dataset.delClase;
+        await sb.from("trabajos_clase_estudiante").delete().eq("trabajo_id", trabajoId);
+        await sb.from("trabajos_clase").delete().eq("id", trabajoId);
+        if (recargar) recargar();
+      });
+    });
+
+    holder.querySelectorAll("[data-ver-entregas-clase]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const trabajoId = btn.dataset.verEntregasClase;
+        const panel = holder.querySelector(`[data-entregas-clase-panel="${trabajoId}"]`);
+        if (!panel) return;
+        if (panel.innerHTML.trim()) { panel.innerHTML = ""; return; }
+        const entregas = (entregasPorTrabajo[trabajoId] || entregasPorTrabajo[Number(trabajoId)] || []).filter(e => e.archivo_ruta);
+        if (entregas.length === 0) {
+          panel.innerHTML = `<p class="empty" style="font-size:0.82rem;">Todavía nadie ha entregado este trabajo.</p>`;
+        } else {
+          panel.innerHTML = `<div style="margin-top:0.5rem; padding:0.6rem; background:var(--paper); border-left:2px solid var(--paper-line);">` +
+            entregas.map(e => {
+              const link = sb.storage.from("materiales").getPublicUrl(e.archivo_ruta).data.publicUrl;
+              const nombreEst = estudiantesPorId[e.estudiante_id] || ("Estudiante #" + e.estudiante_id);
+              return `<div class="roster-row" style="flex-wrap:wrap; gap:0.5rem; align-items:center;">
+                <span class="name" style="flex:1; min-width:9rem;">${nombreEst}</span>
+                <a class="btn secondary small" href="${link}" target="_blank" rel="noopener">⬇️ ${e.archivo_nombre || "archivo"}</a>
+                <input type="number" min="0" max="100" step="0.1" placeholder="Nota" value="${e.nota != null ? e.nota : ""}" data-nota-clase="${e.trabajo_id}" data-nota-estudiante="${e.estudiante_id}" style="width:5.5rem;" />
+                <button class="btn small" data-guardar-nota-clase="${e.trabajo_id}" data-guardar-nota-estudiante="${e.estudiante_id}">Guardar nota</button>
+                <button class="btn secondary small" data-permitir-reintento-clase="${e.trabajo_id}" data-permitir-reintento-clase-estudiante="${e.estudiante_id}">↺ Permitir reintento</button>
+              </div>`;
+            }).join("") + `</div>`;
+          panel.querySelectorAll("[data-guardar-nota-clase]").forEach(gbtn => {
+            gbtn.addEventListener("click", async () => {
+              const tId = gbtn.dataset.guardarNotaClase;
+              const eId = gbtn.dataset.guardarNotaEstudiante;
+              const input = panel.querySelector(`[data-nota-clase="${tId}"][data-nota-estudiante="${eId}"]`);
+              const nota = input && input.value !== "" ? Number(input.value) : null;
+              gbtn.textContent = "Guardando…";
+              await sb.from("trabajos_clase_estudiante").update({ nota }).eq("trabajo_id", tId).eq("estudiante_id", eId);
+              gbtn.textContent = "Guardado ✓";
+              setTimeout(() => { gbtn.textContent = "Guardar nota"; }, 1200);
+            });
+          });
+          panel.querySelectorAll("[data-permitir-reintento-clase]").forEach(rbtn => {
+            rbtn.addEventListener("click", async () => {
+              if (!confirm("¿Permitir que este estudiante vuelva a subir su entrega? Se borrará el archivo entregado.")) return;
+              const tId = rbtn.dataset.permitirReintentoClase;
+              const eId = rbtn.dataset.permitirReintentoClaseEstudiante;
+              await sb.from("trabajos_clase_estudiante").update({ archivo_ruta: null, archivo_nombre: null, entregado_en: null }).eq("trabajo_id", tId).eq("estudiante_id", eId);
+              if (recargar) recargar();
+            });
+          });
+        }
+      });
+    });
+  }
 }
 
 async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId) {
