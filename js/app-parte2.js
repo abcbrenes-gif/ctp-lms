@@ -955,7 +955,10 @@ async function renderApartado(id, soloLectura) {
     totalEstudiantes = (est || []).length;
   }
 
-  const tituloMostrar = (resultado && resultado.resultado ? resultado.resultado : pub.titulo || "").replace(/<[^>]*>/g, "");
+  // El título del tema lo pone el profesor (editable desde la ficha de la
+  // materia); si todavía no le puso uno propio, se usa el resultado de
+  // aprendizaje del programa como respaldo.
+  const tituloMostrar = (pub.titulo || (resultado && resultado.resultado) || "").replace(/<[^>]*>/g, "");
 
   app.innerHTML = `
     ${topbar()}
@@ -1571,7 +1574,7 @@ async function renderSubtema(id, soloLectura) {
   const materiales = (materialesTodos || []).filter(m => m.tipo !== "slide-image");
   const diapositivas = (materialesTodos || []).filter(m => m.tipo === "slide-image");
 
-  const tituloTema = (resultado && resultado.resultado ? resultado.resultado : pub.titulo || "").replace(/<[^>]*>/g, "");
+  const tituloTema = (pub.titulo || (resultado && resultado.resultado) || "").replace(/<[^>]*>/g, "");
 
   app.innerHTML = `
     ${topbar()}
@@ -3867,14 +3870,22 @@ async function cargarApartadosDeMateria(materiaId) {
     <h3 style="margin-top:0;">Temas (apartados por resultado de aprendizaje)</h3>
     <div class="roster">
       ${apartados.map(a => `
-        <div class="roster-row">
-          <a class="name clamp2" href="#/apartado/${a.id}" title="${a.titulo.replace(/"/g, "&quot;")}" style="flex:1;">${a.titulo}</a>
-          <span style="display:flex; gap:0.5rem; align-items:center;">
-            <span class="badge" style="${a.contenido ? "" : "opacity:0.5;"}">${a.contenido ? "Con introducción" : "Sin introducción"}</span>
-            <button class="btn ${a.habilitado ? "secondary" : ""} small" data-toggle-apartado-pub="${a.id}" data-estado-actual="${a.habilitado}">
-              ${a.habilitado ? "Habilitado" : "No habilitado"}
-            </button>
-          </span>
+        <div class="roster-row" style="flex-direction:column; align-items:stretch; gap:0.3rem;">
+          <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+            <a class="name clamp2" href="#/apartado/${a.id}" title="${a.titulo.replace(/"/g, "&quot;")}" data-apartado-titulo-lectura="${a.id}" style="flex:1;">${a.titulo}</a>
+            <span style="display:flex; gap:0.5rem; align-items:center;">
+              <span class="badge" style="${a.contenido ? "" : "opacity:0.5;"}">${a.contenido ? "Con introducción" : "Sin introducción"}</span>
+              <button class="btn secondary small" data-editar-apartado-titulo="${a.id}" type="button">✏️ Editar título</button>
+              <button class="btn ${a.habilitado ? "secondary" : ""} small" data-toggle-apartado-pub="${a.id}" data-estado-actual="${a.habilitado}">
+                ${a.habilitado ? "Habilitado" : "No habilitado"}
+              </button>
+            </span>
+          </div>
+          <form class="inline-form" data-apartado-titulo-form="${a.id}" style="display:none;">
+            <input name="titulo" value="${a.titulo.replace(/"/g, "&quot;")}" required style="flex:1; min-width:10rem;" />
+            <button class="btn small" type="submit">Guardar</button>
+            <button class="btn secondary small" type="button" data-cancelar-apartado-titulo="${a.id}">Cancelar</button>
+          </form>
         </div>`).join("") || '<p class="empty">Esta materia todavía no tiene unidades del Programa vinculadas. Ve a "Programa" y vincula una unidad con esta materia.</p>'}
     </div>`;
 
@@ -3882,6 +3893,35 @@ async function cargarApartadosDeMateria(materiaId) {
     btn.addEventListener("click", async () => {
       const nuevoEstado = btn.dataset.estadoActual !== "true";
       await sb.from("publicaciones").update({ habilitado: nuevoEstado }).eq("id", btn.dataset.toggleApartadoPub);
+      cargarApartadosDeMateria(materiaId);
+    });
+  });
+
+  holder.querySelectorAll("[data-editar-apartado-titulo]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const aId = btn.dataset.editarApartadoTitulo;
+      const lectura = holder.querySelector(`[data-apartado-titulo-lectura="${aId}"]`);
+      const form = holder.querySelector(`[data-apartado-titulo-form="${aId}"]`);
+      if (lectura) lectura.style.display = "none";
+      if (form) { form.style.display = "flex"; form.querySelector("input[name=titulo]").focus(); }
+    });
+  });
+  holder.querySelectorAll("[data-cancelar-apartado-titulo]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const aId = btn.dataset.cancelarApartadoTitulo;
+      const lectura = holder.querySelector(`[data-apartado-titulo-lectura="${aId}"]`);
+      const form = holder.querySelector(`[data-apartado-titulo-form="${aId}"]`);
+      if (form) form.style.display = "none";
+      if (lectura) lectura.style.display = "";
+    });
+  });
+  holder.querySelectorAll("[data-apartado-titulo-form]").forEach(form => {
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const aId = form.dataset.apartadoTituloForm;
+      const nuevoTitulo = new FormData(form).get("titulo").trim();
+      if (!nuevoTitulo) return;
+      await sb.from("publicaciones").update({ titulo: nuevoTitulo }).eq("id", aId);
       cargarApartadosDeMateria(materiaId);
     });
   });
