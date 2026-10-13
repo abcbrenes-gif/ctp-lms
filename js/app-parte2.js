@@ -3978,15 +3978,92 @@ async function cargarApartadosDeMateria(materiaId) {
     </form>
 
     <h3 style="margin-top:1.4rem;">Temas (apartados por resultado de aprendizaje)</h3>
-    ${listaCuadros.map(c => `
-      <div style="margin-bottom:1rem;">
-        <p style="font-weight:600; margin:0.6rem 0 0.3rem;">📦 ${c.titulo}</p>
-        <div class="roster">${(temasPorCuadro[c.id] || []).map(filaTema).join("") || '<p class="empty">Sin temas asignados a este cuadro todavía.</p>'}</div>
-      </div>`).join("")}
-    <div style="margin-bottom:1rem;">
-      ${listaCuadros.length ? `<p style="font-weight:600; margin:0.6rem 0 0.3rem;">Sin cuadro asignado</p>` : ""}
-      <div class="roster">${(temasPorCuadro.sin || []).map(filaTema).join("") || (apartados.length ? '' : '<p class="empty">Esta materia todavía no tiene unidades del Programa vinculadas. Ve a "Programa" y vincula una unidad con esta materia.</p>')}</div>
-    </div>`;
+    <p style="font-size:0.85rem; color:var(--text-muted); margin-top:-0.6em;">Los temas están minimizados dentro de cada cuadro — hacé clic para verlos.</p>
+    ${apartados.length === 0 ? '<p class="empty">Esta materia todavía no tiene unidades del Programa vinculadas. Ve a "Programa" y vincula una unidad con esta materia.</p>' : `
+    <div class="section-grid" style="margin-top:0; margin-bottom:0.6rem;">
+      ${listaCuadros.map(c => tarjetaCuadroProfesor(c.id, c.titulo, (temasPorCuadro[c.id] || []).length)).join("")}
+      ${(temasPorCuadro.sin || []).length ? tarjetaCuadroProfesor("sin", listaCuadros.length ? "Sin cuadro asignado" : "Todos los temas", (temasPorCuadro.sin || []).length) : ""}
+    </div>
+    <div id="temas-cuadro-panel-profesor"></div>`}`;
+
+  function tarjetaCuadroProfesor(clave, titulo, cantidad) {
+    return `
+      <button type="button" class="section-tile flip-card" data-cuadro-toggle-profesor="${clave}" style="border:none; background:none; padding:0; width:100%; text-align:left; cursor:pointer; font:inherit;">
+        <div class="flip-card-inner">
+          <div class="flip-card-front">
+            <div class="num" style="font-size:1.15rem;">📦 ${titulo}</div>
+            <div class="count">${cantidad} tema${cantidad === 1 ? "" : "s"}</div>
+          </div>
+          <div class="flip-card-back">
+            <div class="flip-cta">Ver temas →</div>
+            <div class="flip-sub">${titulo}</div>
+          </div>
+        </div>
+      </button>`;
+  }
+
+  function bindFilasTemaHandlers(scopeEl) {
+    scopeEl.querySelectorAll("[data-apartado-cuadro]").forEach(sel => {
+      sel.addEventListener("change", async () => {
+        const aId = sel.dataset.apartadoCuadro;
+        await sb.from("publicaciones").update({ cuadro_id: sel.value || null }).eq("id", aId);
+        cargarApartadosDeMateria(materiaId);
+      });
+    });
+    scopeEl.querySelectorAll("[data-toggle-apartado-pub]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const nuevoEstado = btn.dataset.estadoActual !== "true";
+        await sb.from("publicaciones").update({ habilitado: nuevoEstado }).eq("id", btn.dataset.toggleApartadoPub);
+        cargarApartadosDeMateria(materiaId);
+      });
+    });
+    scopeEl.querySelectorAll("[data-editar-apartado-titulo]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const aId = btn.dataset.editarApartadoTitulo;
+        const lectura = scopeEl.querySelector(`[data-apartado-titulo-lectura="${aId}"]`);
+        const form = scopeEl.querySelector(`[data-apartado-titulo-form="${aId}"]`);
+        if (lectura) lectura.style.display = "none";
+        if (form) { form.style.display = "flex"; form.querySelector("input[name=titulo]").focus(); }
+      });
+    });
+    scopeEl.querySelectorAll("[data-cancelar-apartado-titulo]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const aId = btn.dataset.cancelarApartadoTitulo;
+        const lectura = scopeEl.querySelector(`[data-apartado-titulo-lectura="${aId}"]`);
+        const form = scopeEl.querySelector(`[data-apartado-titulo-form="${aId}"]`);
+        if (form) form.style.display = "none";
+        if (lectura) lectura.style.display = "";
+      });
+    });
+    scopeEl.querySelectorAll("[data-apartado-titulo-form]").forEach(form => {
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const aId = form.dataset.apartadoTituloForm;
+        const nuevoTitulo = new FormData(form).get("titulo").trim();
+        if (!nuevoTitulo) return;
+        await sb.from("publicaciones").update({ titulo: nuevoTitulo }).eq("id", aId);
+        cargarApartadosDeMateria(materiaId);
+      });
+    });
+  }
+
+  const panelTemas = document.getElementById("temas-cuadro-panel-profesor");
+  if (panelTemas) {
+    holder.querySelectorAll("[data-cuadro-toggle-profesor]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const clave = btn.dataset.cuadroToggleProfesor;
+        if (panelTemas.dataset.abierto === clave) {
+          panelTemas.innerHTML = "";
+          panelTemas.dataset.abierto = "";
+          return;
+        }
+        const temas = temasPorCuadro[clave] || [];
+        panelTemas.dataset.abierto = clave;
+        panelTemas.innerHTML = `<div class="roster">${temas.map(filaTema).join("") || '<p class="empty">Sin temas asignados todavía.</p>'}</div>`;
+        bindFilasTemaHandlers(panelTemas);
+      });
+    });
+  }
 
   document.getElementById("cuadro-form").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -4034,50 +4111,6 @@ async function cargarApartadosDeMateria(materiaId) {
     });
   });
 
-  holder.querySelectorAll("[data-apartado-cuadro]").forEach(sel => {
-    sel.addEventListener("change", async () => {
-      const aId = sel.dataset.apartadoCuadro;
-      await sb.from("publicaciones").update({ cuadro_id: sel.value || null }).eq("id", aId);
-      cargarApartadosDeMateria(materiaId);
-    });
-  });
-
-  holder.querySelectorAll("[data-toggle-apartado-pub]").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      const nuevoEstado = btn.dataset.estadoActual !== "true";
-      await sb.from("publicaciones").update({ habilitado: nuevoEstado }).eq("id", btn.dataset.toggleApartadoPub);
-      cargarApartadosDeMateria(materiaId);
-    });
-  });
-
-  holder.querySelectorAll("[data-editar-apartado-titulo]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const aId = btn.dataset.editarApartadoTitulo;
-      const lectura = holder.querySelector(`[data-apartado-titulo-lectura="${aId}"]`);
-      const form = holder.querySelector(`[data-apartado-titulo-form="${aId}"]`);
-      if (lectura) lectura.style.display = "none";
-      if (form) { form.style.display = "flex"; form.querySelector("input[name=titulo]").focus(); }
-    });
-  });
-  holder.querySelectorAll("[data-cancelar-apartado-titulo]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const aId = btn.dataset.cancelarApartadoTitulo;
-      const lectura = holder.querySelector(`[data-apartado-titulo-lectura="${aId}"]`);
-      const form = holder.querySelector(`[data-apartado-titulo-form="${aId}"]`);
-      if (form) form.style.display = "none";
-      if (lectura) lectura.style.display = "";
-    });
-  });
-  holder.querySelectorAll("[data-apartado-titulo-form]").forEach(form => {
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const aId = form.dataset.apartadoTituloForm;
-      const nuevoTitulo = new FormData(form).get("titulo").trim();
-      if (!nuevoTitulo) return;
-      await sb.from("publicaciones").update({ titulo: nuevoTitulo }).eq("id", aId);
-      cargarApartadosDeMateria(materiaId);
-    });
-  });
 }
 
 async function cargarPublicacionesDeMateria(materiaId, seccion) {
