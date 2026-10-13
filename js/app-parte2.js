@@ -2176,7 +2176,8 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
     const trabajoIds = trabajos.map(t => t.id);
     const { data: misEstados } = await sb.from("trabajos_cotidianos_estudiante").select("*").eq("estudiante_id", estudianteId).in("trabajo_id", trabajoIds);
     const porTrabajo = {};
-    (misEstados || []).forEach(e => { porTrabajo[e.trabajo_id] = e.completado; });
+    const estadoPorTrabajo = {};
+    (misEstados || []).forEach(e => { porTrabajo[e.trabajo_id] = e.completado; estadoPorTrabajo[e.trabajo_id] = e; });
 
     const trabajosActividad = trabajos.filter(t => t.tipo_actividad && t.tipo_actividad !== "simple");
     const { data: misResultados } = trabajosActividad.length
@@ -2217,15 +2218,21 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
             : `<button class="btn small" data-iniciar-actividad="${t.id}">▶ Iniciar actividad</button>`}
         </div>`;
       }
+      const miEstado = estadoPorTrabajo[t.id];
       return `
       <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem;">
-        <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+        <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
           <span class="name">${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
           <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.85rem;">
             <input type="checkbox" data-mi-trabajo-subtema="${t.id}" ${porTrabajo[t.id] ? "checked" : ""} /> Completado
           </label>
         </div>
         ${t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : ""}
+        ${miEstado && miEstado.archivo_ruta
+          ? `<span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Archivo entregado: ${miEstado.archivo_nombre || "archivo"}</span>
+             <label class="btn secondary small" style="cursor:pointer;">Reemplazar archivo<input type="file" data-trabajo-subtema-subir="${t.id}" style="display:none;" /></label>`
+          : `<label class="btn small" style="cursor:pointer;">📎 Adjuntar archivo para que lo califiquen<input type="file" data-trabajo-subtema-subir="${t.id}" style="display:none;" /></label>`}
+        <span data-trabajo-subtema-subir-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
       </div>`;
     }).join("");
 
@@ -2235,6 +2242,27 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
           { trabajo_id: cb.dataset.miTrabajoSubtema, estudiante_id: estudianteId, completado: cb.checked, entregado_en: cb.checked ? new Date().toISOString() : null },
           { onConflict: "trabajo_id,estudiante_id" }
         );
+      });
+    });
+
+    holder.querySelectorAll("[data-trabajo-subtema-subir]").forEach(input => {
+      input.addEventListener("change", async () => {
+        const trabajoId = input.dataset.trabajoSubtemaSubir;
+        const archivo = input.files[0];
+        if (!archivo) return;
+        const estado = holder.querySelector(`[data-trabajo-subtema-subir-estado="${trabajoId}"]`);
+        if (estado) estado.textContent = "Subiendo…";
+        const rutaSegura = `entregas-trabajo/trabajo-${trabajoId}/${estudianteId}-${Date.now()}-${archivo.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+        const { error: errorSubida } = await sb.storage.from("materiales").upload(rutaSegura, archivo);
+        if (errorSubida) {
+          if (estado) estado.textContent = "No se pudo subir: " + errorSubida.message;
+          return;
+        }
+        await sb.from("trabajos_cotidianos_estudiante").upsert(
+          { trabajo_id: trabajoId, estudiante_id: estudianteId, completado: true, entregado_en: new Date().toISOString(), archivo_ruta: rutaSegura, archivo_nombre: archivo.name },
+          { onConflict: "trabajo_id,estudiante_id" }
+        );
+        pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId);
       });
     });
 
@@ -2294,6 +2322,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
               ${t.habilitado === false ? "Habilitar" : "Habilitado"}
             </button>
             ${t.tipo_actividad === "infografia" ? `<button class="btn secondary small" data-ver-entregas="${t.id}">📂 Ver entregas</button>` : ""}
+            ${esEditable(t) ? `<button class="btn secondary small" data-ver-entregas-trabajo="${t.id}">📎 Ver archivos entregados</button>` : ""}
             ${ACTIVIDADES_BLOQUEADAS.includes(t.tipo_actividad) ? `<button class="btn secondary small" data-ver-preguntas="${t.id}">👁️ Ver preguntas</button>` : ""}
             ${esEditable(t) ? `<button class="btn secondary small" data-editar-trabajo-subtema="${t.id}">✏️ Editar</button>` : ""}
             ${t.indicador_id
@@ -2311,7 +2340,8 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
           <div class="roa-editable" contenteditable="true" data-trabajo-subtema-editar-desc="${t.id}" style="flex-basis:100%; min-height:4rem;">${t.descripcion || ""}</div>
           <button class="btn small" type="submit">Guardar</button>
           <button class="btn secondary small" type="button" data-cancelar-editar-trabajo-subtema="${t.id}">Cancelar</button>
-        </form>` : (t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : "")}
+        </form>
+        <div data-entregas-trabajo-panel="${t.id}" style="width:100%;"></div>` : (t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : "")}
         ${t.tipo_actividad === "infografia" ? `<div data-entregas-panel="${t.id}"></div>` : ""}
         ${ACTIVIDADES_BLOQUEADAS.includes(t.tipo_actividad) ? `<div data-preguntas-panel="${t.id}"></div>` : ""}
       </div>`).join("");
@@ -2387,6 +2417,36 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         panel.innerHTML = `
           <div style="background:#F5F6FA; border-radius:8px; padding:0.7rem; margin-top:0.4rem;">
             <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">La nota se pone en la sección "Rúbrica y Evaluaciones" (0 a 3), ya que el indicador quedó creado.</p>
+            ${entregas.map(e => {
+              const { data: pub } = sb.storage.from("materiales").getPublicUrl(e.archivo_ruta);
+              return `<div class="roster-row" style="padding:0.3rem 0;">
+                <span class="name">${nombrePorId[e.estudiante_id] || e.estudiante_id}</span>
+                <a class="btn small" href="${pub.publicUrl}" target="_blank" rel="noopener">📄 ${e.archivo_nombre || "Ver archivo"}</a>
+              </div>`;
+            }).join("")}
+          </div>`;
+      });
+    });
+
+    holder.querySelectorAll("[data-ver-entregas-trabajo]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const trabajoId = btn.dataset.verEntregasTrabajo;
+        const panel = holder.querySelector(`[data-entregas-trabajo-panel="${trabajoId}"]`);
+        if (!panel) return;
+        if (panel.innerHTML) { panel.innerHTML = ""; return; }
+        panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando entregas…</p>`;
+        const { data: entregas } = await sb.from("trabajos_cotidianos_estudiante").select("*").eq("trabajo_id", trabajoId).not("archivo_ruta", "is", null);
+        if (!entregas || entregas.length === 0) {
+          panel.innerHTML = `<p class="empty" style="font-size:0.82rem;">Todavía nadie ha adjuntado un archivo en este trabajo.</p>`;
+          return;
+        }
+        const estudianteIds = entregas.map(e => e.estudiante_id);
+        const { data: estudiantes } = await sb.from("estudiantes").select("id, nombre, apellido1, apellido2").in("id", estudianteIds);
+        const nombrePorId = {};
+        (estudiantes || []).forEach(e => { nombrePorId[e.id] = [e.nombre, e.apellido1, e.apellido2].filter(Boolean).join(" "); });
+        panel.innerHTML = `
+          <div style="background:#F5F6FA; border-radius:8px; padding:0.7rem; margin-top:0.4rem;">
+            <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">La nota se pone en la sección "Rúbrica y Evaluaciones" (0 a 3), si este trabajo quedó marcado como indicador.</p>
             ${entregas.map(e => {
               const { data: pub } = sb.storage.from("materiales").getPublicUrl(e.archivo_ruta);
               return `<div class="roster-row" style="padding:0.3rem 0;">
@@ -2687,18 +2747,27 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
     const trabajoIds = trabajos.map(t => t.id);
     const { data: misEstados } = await sb.from("trabajos_cotidianos_estudiante").select("*").eq("estudiante_id", estudianteId).in("trabajo_id", trabajoIds);
     const porTrabajo = {};
-    (misEstados || []).forEach(e => { porTrabajo[e.trabajo_id] = e.completado; });
+    const estadoPorTrabajo = {};
+    (misEstados || []).forEach(e => { porTrabajo[e.trabajo_id] = e.completado; estadoPorTrabajo[e.trabajo_id] = e; });
 
-    holder.innerHTML = trabajos.map(t => `
+    holder.innerHTML = trabajos.map(t => {
+      const miEstado = estadoPorTrabajo[t.id];
+      return `
       <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem;">
-        <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+        <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
           <span class="name">${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
           <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.85rem;">
             <input type="checkbox" data-mi-trabajo="${t.id}" ${porTrabajo[t.id] ? "checked" : ""} /> Completado
           </label>
         </div>
         ${t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : ""}
-      </div>`).join("");
+        ${miEstado && miEstado.archivo_ruta
+          ? `<span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Archivo entregado: ${miEstado.archivo_nombre || "archivo"}</span>
+             <label class="btn secondary small" style="cursor:pointer;">Reemplazar archivo<input type="file" data-trabajo-subir="${t.id}" style="display:none;" /></label>`
+          : `<label class="btn small" style="cursor:pointer;">📎 Adjuntar archivo para que lo califiquen<input type="file" data-trabajo-subir="${t.id}" style="display:none;" /></label>`}
+        <span data-trabajo-subir-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
+      </div>`;
+    }).join("");
 
     holder.querySelectorAll("[data-mi-trabajo]").forEach(cb => {
       cb.addEventListener("change", async () => {
@@ -2706,6 +2775,27 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
           { trabajo_id: cb.dataset.miTrabajo, estudiante_id: estudianteId, completado: cb.checked, entregado_en: cb.checked ? new Date().toISOString() : null },
           { onConflict: "trabajo_id,estudiante_id" }
         );
+      });
+    });
+
+    holder.querySelectorAll("[data-trabajo-subir]").forEach(input => {
+      input.addEventListener("change", async () => {
+        const trabajoId = input.dataset.trabajoSubir;
+        const archivo = input.files[0];
+        if (!archivo) return;
+        const estado = holder.querySelector(`[data-trabajo-subir-estado="${trabajoId}"]`);
+        if (estado) estado.textContent = "Subiendo…";
+        const rutaSegura = `entregas-trabajo/trabajo-${trabajoId}/${estudianteId}-${Date.now()}-${archivo.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+        const { error: errorSubida } = await sb.storage.from("materiales").upload(rutaSegura, archivo);
+        if (errorSubida) {
+          if (estado) estado.textContent = "No se pudo subir: " + errorSubida.message;
+          return;
+        }
+        await sb.from("trabajos_cotidianos_estudiante").upsert(
+          { trabajo_id: trabajoId, estudiante_id: estudianteId, completado: true, entregado_en: new Date().toISOString(), archivo_ruta: rutaSegura, archivo_nombre: archivo.name },
+          { onConflict: "trabajo_id,estudiante_id" }
+        );
+        pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, materiaId);
       });
     });
   } else {
@@ -2727,6 +2817,7 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
               ${t.habilitado === false ? "Habilitar" : "Habilitado"}
             </button>
             <button class="btn secondary small" data-editar-trabajo="${t.id}">✏️ Editar</button>
+            <button class="btn secondary small" data-ver-entregas-trabajo-tema="${t.id}">📎 Ver archivos entregados</button>
             ${t.indicador_id
               ? `<span class="badge" style="font-weight:400;">📊 Indicador calificable</span>`
               : `<button class="btn secondary small" data-convertir-indicador="${t.id}">Contar como indicador</button>`}
@@ -2742,6 +2833,7 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
           <button class="btn small" type="submit">Guardar</button>
           <button class="btn secondary small" type="button" data-cancelar-editar-trabajo="${t.id}">Cancelar</button>
         </form>
+        <div data-entregas-trabajo-tema-panel="${t.id}" style="width:100%;"></div>
       </div>`).join("");
 
     holder.querySelectorAll("[data-editar-trabajo]").forEach(btn => {
@@ -2781,6 +2873,36 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
         const nuevoEstado = btn.dataset.estadoActual !== "true";
         await sb.from("trabajos_cotidianos").update({ habilitado: nuevoEstado }).eq("id", btn.dataset.toggleTrabajoHabilitado);
         renderApartado(publicacionId, soloLectura);
+      });
+    });
+
+    holder.querySelectorAll("[data-ver-entregas-trabajo-tema]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const trabajoId = btn.dataset.verEntregasTrabajoTema;
+        const panel = holder.querySelector(`[data-entregas-trabajo-tema-panel="${trabajoId}"]`);
+        if (!panel) return;
+        if (panel.innerHTML) { panel.innerHTML = ""; return; }
+        panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando entregas…</p>`;
+        const { data: entregas } = await sb.from("trabajos_cotidianos_estudiante").select("*").eq("trabajo_id", trabajoId).not("archivo_ruta", "is", null);
+        if (!entregas || entregas.length === 0) {
+          panel.innerHTML = `<p class="empty" style="font-size:0.82rem;">Todavía nadie ha adjuntado un archivo en este trabajo.</p>`;
+          return;
+        }
+        const estudianteIds = entregas.map(e => e.estudiante_id);
+        const { data: estudiantes } = await sb.from("estudiantes").select("id, nombre, apellido1, apellido2").in("id", estudianteIds);
+        const nombrePorId = {};
+        (estudiantes || []).forEach(e => { nombrePorId[e.id] = [e.nombre, e.apellido1, e.apellido2].filter(Boolean).join(" "); });
+        panel.innerHTML = `
+          <div style="background:#F5F6FA; border-radius:8px; padding:0.7rem; margin-top:0.4rem;">
+            <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">La nota se pone en la sección "Rúbrica y Evaluaciones" (0 a 3), si este trabajo quedó marcado como indicador.</p>
+            ${entregas.map(e => {
+              const { data: pub } = sb.storage.from("materiales").getPublicUrl(e.archivo_ruta);
+              return `<div class="roster-row" style="padding:0.3rem 0;">
+                <span class="name">${nombrePorId[e.estudiante_id] || e.estudiante_id}</span>
+                <a class="btn small" href="${pub.publicUrl}" target="_blank" rel="noopener">📄 ${e.archivo_nombre || "Ver archivo"}</a>
+              </div>`;
+            }).join("")}
+          </div>`;
       });
     });
 
