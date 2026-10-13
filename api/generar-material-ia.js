@@ -27,11 +27,24 @@ function extraerTituloYContenido(texto) {
   limpio = limpio.replace(/^```[a-z]*\n?/i, "").replace(/```\s*$/, "").trim();
 
   const idx = limpio.indexOf(SEPARADOR);
+  let titulo, contenido;
   if (idx === -1) {
-    throw new Error("La respuesta de la IA no tiene el formato esperado.");
+    // La IA no puso el separador exacto (puede pasar con respuestas muy
+    // largas o si agregó un preámbulo) — en vez de fallar, usamos todo el
+    // texto como contenido y buscamos un "TITULO:" en la primera línea.
+    const primeraLinea = limpio.split("\n")[0] || "";
+    const matchTitulo = primeraLinea.match(/^t[ií]tulo:?\s*(.+)/i);
+    if (matchTitulo) {
+      titulo = matchTitulo[1].trim();
+      contenido = limpio.slice(primeraLinea.length).trim();
+    } else {
+      titulo = "";
+      contenido = limpio;
+    }
+  } else {
+    titulo = limpio.slice(0, idx).replace(/^t[ií]tulo:?/i, "").trim();
+    contenido = limpio.slice(idx + SEPARADOR.length).trim();
   }
-  let titulo = limpio.slice(0, idx).replace(/^t[ií]tulo:?/i, "").trim();
-  let contenido = limpio.slice(idx + SEPARADOR.length).trim();
   contenido = contenido.replace(/^```[a-z]*\n?/i, "").replace(/```\s*$/, "").trim();
   if (!titulo) titulo = "Material generado con IA";
   if (!contenido) throw new Error("La IA no generó contenido.");
@@ -121,7 +134,7 @@ Reglas:
       },
       body: JSON.stringify({
         model: "claude-sonnet-5-5",
-        max_tokens: 3000,
+        max_tokens: 6000,
         messages: [{
           role: "user",
           content: [
