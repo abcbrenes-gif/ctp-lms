@@ -1549,9 +1549,18 @@ async function renderSubtema(id, soloLectura) {
                  <span class="subtema-intro-ia-estado" style="font-size:0.78rem; color:var(--text-muted); flex-basis:100%;"></span>
                </form>
              </div>
-             <div class="roa-editable roa-html" contenteditable="true" id="subtema-intro" style="min-height:6rem;">${sub.contenido || ""}</div>
-             <div class="row" style="margin-top:0.5rem;">
-               <button class="btn small" id="guardar-subtema-intro">Guardar introducción</button>
+             <div id="subtema-intro-lectura">
+               <div class="roa-cell-texto roa-html">${sub.contenido || '<span class="empty">El profesor todavía no ha escrito contenido para este subtema.</span>'}</div>
+               <div class="row" style="margin-top:0.5rem;">
+                 <button class="btn secondary small" id="editar-subtema-intro">✏️ Editar introducción</button>
+               </div>
+             </div>
+             <div id="subtema-intro-edicion" style="display:none;">
+               <div class="roa-editable roa-html" contenteditable="true" id="subtema-intro" style="min-height:6rem;">${sub.contenido || ""}</div>
+               <div class="row" style="margin-top:0.5rem;">
+                 <button class="btn small" id="guardar-subtema-intro">Guardar introducción</button>
+                 <button class="btn secondary small" id="cancelar-subtema-intro" type="button">Cancelar</button>
+               </div>
              </div>`}
       </section>
 
@@ -1659,6 +1668,8 @@ async function renderSubtema(id, soloLectura) {
         }
         const contenidoHtml = (datos.contenido && datos.contenido.contenido_html) || "";
         document.getElementById("subtema-intro").innerHTML = contenidoHtml;
+        document.getElementById("subtema-intro-lectura").style.display = "none";
+        document.getElementById("subtema-intro-edicion").style.display = "block";
         form.reset();
         estado.textContent = "Listo — revisá el texto abajo y dale \"Guardar introducción\" cuando esté bien.";
       } catch (err) {
@@ -1669,12 +1680,31 @@ async function renderSubtema(id, soloLectura) {
       }
     });
 
+    const editarIntroBtn = document.getElementById("editar-subtema-intro");
+    if (editarIntroBtn) editarIntroBtn.addEventListener("click", () => {
+      document.getElementById("subtema-intro-lectura").style.display = "none";
+      document.getElementById("subtema-intro-edicion").style.display = "block";
+      document.getElementById("subtema-intro").focus();
+    });
+
+    const cancelarIntroBtn = document.getElementById("cancelar-subtema-intro");
+    if (cancelarIntroBtn) cancelarIntroBtn.addEventListener("click", () => {
+      document.getElementById("subtema-intro").innerHTML = sub.contenido || "";
+      document.getElementById("subtema-intro-edicion").style.display = "none";
+      document.getElementById("subtema-intro-lectura").style.display = "block";
+    });
+
     document.getElementById("guardar-subtema-intro").addEventListener("click", async (e) => {
       const btn = e.target;
       btn.textContent = "Guardando…";
-      await sb.from("subtemas").update({ contenido: document.getElementById("subtema-intro").innerHTML }).eq("id", sub.id);
-      btn.textContent = "Guardado ✓";
-      setTimeout(() => { btn.textContent = "Guardar introducción"; }, 1500);
+      const nuevoContenido = document.getElementById("subtema-intro").innerHTML;
+      await sb.from("subtemas").update({ contenido: nuevoContenido }).eq("id", sub.id);
+      sub.contenido = nuevoContenido;
+      btn.textContent = "Guardar introducción";
+      document.getElementById("subtema-intro-edicion").style.display = "none";
+      const vistaLectura = document.getElementById("subtema-intro-lectura");
+      vistaLectura.querySelector(".roa-cell-texto").innerHTML = nuevoContenido || '<span class="empty">El profesor todavía no ha escrito contenido para este subtema.</span>';
+      vistaLectura.style.display = "block";
     });
 
     document.getElementById("subtema-trabajo-form").addEventListener("submit", async (e) => {
