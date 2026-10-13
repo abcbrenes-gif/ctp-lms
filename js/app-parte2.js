@@ -2997,6 +2997,12 @@ function nombreNivelPorDefecto(puntaje, max) {
   return escala[Math.min(puntaje - 1, escala.length - 1)];
 }
 
+// Escala fija de los indicadores nuevos: 0 a 3 puntos. El nivel 0 siempre
+// significa que el estudiante no presentó el trabajo o tiene una ausencia
+// injustificada — es fijo, no lo redacta el profesor ni la IA.
+const NIVEL_CERO_NOMBRE = "No presentado";
+const NIVEL_CERO_DESCRIPCION = "El estudiante no presentó el trabajo, o tiene una ausencia injustificada en la fecha de evaluación.";
+
 async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
   const holder = document.getElementById("materia-indicadores");
   if (!holder) return;
@@ -3019,6 +3025,14 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
   (resultadosMateria || []).forEach(r => { resultadoPorId[r.id] = r.resultado; });
   const quitarHtmlResultado = (v) => String(v || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 
+  // Subtemas de la materia, para poder llenar el título del indicador
+  // automáticamente con el nombre del subtema (en vez de escribirlo a mano).
+  const { data: temasMateria } = await sb.from("publicaciones").select("id").eq("materia_id", materiaId).eq("tipo", "apartado");
+  const temaIds = (temasMateria || []).map(t => t.id);
+  const { data: subtemasMateria } = temaIds.length
+    ? await sb.from("subtemas").select("id, titulo").in("publicacion_id", temaIds).order("orden")
+    : { data: [] };
+
   const siguienteLetra = String.fromCharCode(65 + (indicadores || []).length); // A, B, C...
 
   holder.innerHTML = `
@@ -3036,7 +3050,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
         <div class="roster-row" style="flex-direction:column; align-items:stretch; gap:0.4rem;">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.6rem;">
             <span class="name">
-              <strong>${ind.letra}:</strong> ${ind.descripcion}
+              <strong>${ind.letra}:</strong> <span class="ind-descripcion-text">${ind.descripcion}</span>
               <span style="color:var(--text-muted); font-size:0.8rem;"> (máx. ${ind.puntaje_maximo} pts)</span>
               ${ind.fecha_evaluacion ? `<div style="font-size:0.75rem; color:var(--text-muted);">Fecha: ${ind.fecha_evaluacion}${ind.lecciones ? " · " + ind.lecciones + " lecciones" : ""}</div>` : ""}
               ${resultadoVinculado
@@ -3055,6 +3069,12 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
               <button class="btn secondary small js-generar-criterios-ia" type="button" data-indicador="${ind.id}" data-titulo="${ind.descripcion.replace(/"/g, "&quot;")}" data-max="${ind.puntaje_maximo}" data-resultado="${resultadoVinculado ? quitarHtmlResultado(resultadoVinculado).replace(/"/g, "&quot;") : ""}">✨ Generar con IA</button>
               <span class="js-generar-criterios-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>
             </div>
+            ${ind.puntaje_maximo === 3 ? `
+              <div style="display:flex; gap:0.4rem; flex-basis:100%; align-items:center; opacity:0.7;">
+                <input value="${NIVEL_CERO_NOMBRE}" disabled style="width:11rem;" />
+                <input value="${NIVEL_CERO_DESCRIPCION}" disabled style="flex:1;" />
+                <span style="font-size:0.72rem; color:var(--text-muted); white-space:nowrap;">0 pts — fijo</span>
+              </div>` : ""}
             ${Array.from({ length: ind.puntaje_maximo }, (_, i) => i + 1).map(p => `
               <div style="display:flex; gap:0.4rem; flex-basis:100%; align-items:center;">
                 <input name="nivel_${p}" value="${nombreNivelPorDefecto(p, ind.puntaje_maximo)}" placeholder="Nivel de desempeño" required style="width:11rem;" />
@@ -3068,14 +3088,20 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
 
     <form class="inline-form" id="indicador-form" style="margin-top:1rem;">
       <input name="letra" value="${siguienteLetra}" placeholder="Letra" required style="width:4rem;" />
-      <input name="descripcion" placeholder="Descripción del indicador (verbo + contenido, ej. 'Calcula las sanciones administrativas del RTS')" required style="flex:1; min-width:14rem" />
+      <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; flex-basis:100%;">Subtema (llena el título solo):
+        <select id="indicador-subtema-select" style="flex:1; min-width:14rem;">
+          <option value="">— Elegir subtema (opcional) —</option>
+          ${(subtemasMateria || []).map(s => `<option value="${s.id}" data-titulo="${String(s.titulo || "").replace(/"/g, "&quot;")}">${s.titulo}</option>`).join("")}
+        </select>
+      </label>
+      <input name="descripcion" placeholder="Título del indicador (se llena solo al elegir un subtema, o escribilo a mano)" required style="flex:1; min-width:14rem" />
       <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; flex-basis:100%;">Vincular a Resultado de Aprendizaje del programa (normativa MEP):
         <select name="resultado_id" style="flex:1; min-width:14rem;">
           <option value="">— Sin vincular —</option>
           ${(resultadosMateria || []).map(r => `<option value="${r.id}">${quitarHtmlResultado(r.resultado).slice(0, 90)}</option>`).join("")}
         </select>
       </label>
-      <input name="puntaje_maximo" type="number" min="1" placeholder="Puntaje máximo" required style="width:9rem" />
+      <span style="font-size:0.78rem; color:var(--text-muted);">Escala fija: 0 a 3 puntos (0 = no presentado / ausencia injustificada).</span>
       <input name="fecha_evaluacion" type="date" />
       <input name="lecciones" type="number" min="1" placeholder="Lecciones (opcional)" style="width:10rem" />
       <button class="btn small" type="submit">Crear indicador</button>
@@ -3098,6 +3124,9 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       const f = new FormData(e.target);
       const max = Number(form.dataset.max);
       const criterios = [];
+      if (max === 3) {
+        criterios.push({ indicador_id: form.dataset.indicadorCriterios, puntaje: 0, nivel: NIVEL_CERO_NOMBRE, descripcion: NIVEL_CERO_DESCRIPCION, orden: 0 });
+      }
       for (let p = 1; p <= max; p++) {
         criterios.push({ indicador_id: form.dataset.indicadorCriterios, puntaje: p, nivel: f.get(`nivel_${p}`) || null, descripcion: f.get(`criterio_${p}`), orden: p });
       }
@@ -3139,7 +3168,12 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
           const inputNivel = form.querySelector(`[name="nivel_${c.puntaje}"]`);
           if (inputNivel && c.nivel) inputNivel.value = c.nivel;
         });
-        if (estado) estado.textContent = "Listo — revisá los criterios y niveles y dale \"Guardar criterios\".";
+        if (datos.descripcion) {
+          await sb.from("indicadores").update({ descripcion: datos.descripcion }).eq("id", indicadorId);
+          const descSpan = btn.closest(".roster-row")?.querySelector(".ind-descripcion-text");
+          if (descSpan) descSpan.textContent = datos.descripcion;
+        }
+        if (estado) estado.textContent = "Listo — revisá la descripción, los criterios y niveles, y dale \"Guardar criterios\".";
       } catch (err) {
         if (estado) estado.textContent = "No se pudo conectar con la IA: " + (err.message || err);
       } finally {
@@ -3147,6 +3181,12 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
         btn.textContent = "✨ Generar con IA";
       }
     });
+  });
+  const subtemaSelect = document.getElementById("indicador-subtema-select");
+  if (subtemaSelect) subtemaSelect.addEventListener("change", () => {
+    const opt = subtemaSelect.selectedOptions[0];
+    const descInput = document.querySelector('#indicador-form [name="descripcion"]');
+    if (opt && opt.dataset.titulo && descInput) descInput.value = opt.dataset.titulo;
   });
   const form = document.getElementById("indicador-form");
   if (form) form.addEventListener("submit", async (e) => {
@@ -3158,7 +3198,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       letra: f.get("letra"),
       descripcion: f.get("descripcion"),
       resultado_id: f.get("resultado_id") || null,
-      puntaje_maximo: Number(f.get("puntaje_maximo")),
+      puntaje_maximo: 3, // escala fija del MEP: 0 (fijo) a 3 (niveles de desempeño)
       fecha_evaluacion: f.get("fecha_evaluacion") || null,
       lecciones: f.get("lecciones") ? Number(f.get("lecciones")) : null,
       orden: (indicadores || []).length + 1
