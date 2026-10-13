@@ -3642,7 +3642,13 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
               ${ind.fecha_evaluacion ? `<div style="font-size:0.75rem; color:var(--text-muted);">Fecha: ${ind.fecha_evaluacion}${ind.lecciones ? " · " + ind.lecciones + " lecciones" : ""}</div>` : ""}
               ${resultadoVinculado
                 ? `<div style="font-size:0.75rem; color:var(--text-muted); font-style:italic;">📘 Resultado de aprendizaje: ${quitarHtmlResultado(resultadoVinculado)}</div>`
-                : `<div style="font-size:0.75rem; color:var(--brick);">⚠️ Sin vincular a un resultado de aprendizaje del programa</div>`}
+                : `<div style="font-size:0.75rem; color:var(--brick); display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; margin-top:0.2rem;">
+                     ⚠️ Sin vincular a un resultado de aprendizaje del programa
+                     <select data-vincular-resultado="${ind.id}" style="font-size:0.78rem;">
+                       <option value="">Elegir resultado…</option>
+                       ${(resultadosMateria || []).map(r => `<option value="${r.id}">${quitarHtmlResultado(r.resultado).slice(0, 80)}</option>`).join("")}
+                     </select>
+                   </div>`}
             </span>
             <button class="btn danger small" data-del-indicador="${ind.id}">Eliminar</button>
           </div>
@@ -3702,6 +3708,13 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
   holder.querySelectorAll("[data-del-indicador]").forEach(btn => {
     btn.addEventListener("click", async () => {
       await sb.from("indicadores").delete().eq("id", btn.dataset.delIndicador);
+      cargarIndicadoresDeMateria(materiaId, catNombre);
+    });
+  });
+  holder.querySelectorAll("[data-vincular-resultado]").forEach(sel => {
+    sel.addEventListener("change", async () => {
+      if (!sel.value) return;
+      await sb.from("indicadores").update({ resultado_id: Number(sel.value) }).eq("id", sel.dataset.vincularResultado);
       cargarIndicadoresDeMateria(materiaId, catNombre);
     });
   });
