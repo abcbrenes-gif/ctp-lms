@@ -3023,6 +3023,10 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
           ${!tieneCriterios ? `
           <form class="inline-form js-criterios-form" data-indicador-criterios="${ind.id}" data-max="${ind.puntaje_maximo}" style="background:var(--paper); margin-top:0.3rem;">
             <p style="width:100%; font-size:0.8rem; color:var(--brick); margin:0 0 0.4rem;">Faltan los criterios de este indicador:</p>
+            <div class="row" style="width:100%; margin-bottom:0.4rem;">
+              <button class="btn secondary small js-generar-criterios-ia" type="button" data-indicador="${ind.id}" data-titulo="${ind.descripcion.replace(/"/g, "&quot;")}" data-max="${ind.puntaje_maximo}">✨ Generar con IA</button>
+              <span class="js-generar-criterios-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>
+            </div>
             ${Array.from({ length: ind.puntaje_maximo }, (_, i) => i + 1).map(p => `
               <input name="criterio_${p}" placeholder="Criterio para ${p} punto${p === 1 ? "" : "s"}" required style="flex-basis:100%;" />`).join("")}
             <button class="btn small" type="submit">Guardar criterios</button>
@@ -3062,6 +3066,43 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       }
       await sb.from("criterios_indicador").insert(criterios);
       cargarIndicadoresDeMateria(materiaId, catNombre);
+    });
+  });
+  holder.querySelectorAll(".js-generar-criterios-ia").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const indicadorId = btn.dataset.indicador;
+      const titulo = btn.dataset.titulo;
+      const puntajeMaximo = Number(btn.dataset.max);
+      const estado = btn.parentElement.querySelector(".js-generar-criterios-estado");
+      btn.disabled = true;
+      btn.textContent = "Generando…";
+      if (estado) estado.textContent = "";
+      try {
+        const { data: trabajo } = await sb.from("trabajos_cotidianos").select("descripcion").eq("indicador_id", indicadorId).maybeSingle();
+        const quitarHtml = (v) => String(v || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+        const contexto = quitarHtml(trabajo ? trabajo.descripcion : "").slice(0, 1500);
+        const r = await fetch("/api/generar-criterios-ia", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ titulo, contexto, puntajeMaximo })
+        });
+        const datos = await r.json();
+        if (!r.ok) {
+          if (estado) estado.textContent = "No se pudo generar: " + (datos.error || "error desconocido.");
+          return;
+        }
+        const form = btn.closest(".js-criterios-form");
+        (datos.criterios || []).forEach(c => {
+          const input = form.querySelector(`[name="criterio_${c.puntaje}"]`);
+          if (input) input.value = c.descripcion;
+        });
+        if (estado) estado.textContent = "Listo — revisá los criterios y dale \"Guardar criterios\".";
+      } catch (err) {
+        if (estado) estado.textContent = "No se pudo conectar con la IA: " + (err.message || err);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "✨ Generar con IA";
+      }
     });
   });
   const form = document.getElementById("indicador-form");
@@ -3105,11 +3146,23 @@ async function cargarCalificarTodos(materiaId, catNombre, indicadores) {
         <strong style="font-family:var(--serif);">Calificar a toda la sección — ${catNombre}</strong>
         <button class="btn secondary small" id="cerrar-calificar-todos">Cerrar</button>
       </div>
+      <details style="margin-bottom:0.6rem;">
+        <summary style="font-size:0.82rem; color:var(--text-muted); cursor:pointer;">📋 Ver criterios de evaluación (para calificar con base en ellos)</summary>
+        <div style="margin-top:0.5rem; display:grid; gap:0.6rem;">
+          ${indicadores.map(i => `
+            <div style="font-size:0.82rem;">
+              <strong>${i.letra}: ${i.descripcion}</strong>
+              ${(i.criterios_indicador || []).length
+                ? (i.criterios_indicador || []).sort((a, b) => a.puntaje - b.puntaje).map(c => `<div style="margin-left:0.8rem;">${c.puntaje} punto${c.puntaje === 1 ? "" : "s"}: ${c.descripcion}</div>`).join("")
+                : `<div style="margin-left:0.8rem; color:var(--text-muted);">Sin criterios configurados — agregalos arriba en la lista de indicadores.</div>`}
+            </div>`).join("")}
+        </div>
+      </details>
       <div style="overflow-x:auto;">
         <table class="grades">
           <thead><tr>
             <th>Estudiante</th>
-            ${indicadores.map(i => `<th style="text-align:center;">${i.letra}</th>`).join("")}
+            ${indicadores.map(i => `<th style="text-align:center;" title="${(i.criterios_indicador || []).sort((a, b) => a.puntaje - b.puntaje).map(c => `${c.puntaje}: ${c.descripcion}`).join(" · ").replace(/"/g, "&quot;")}">${i.letra}</th>`).join("")}
             <th>Resultado (${categoriaObj?.porcentaje || "?"}%)</th>
           </tr></thead>
           <tbody>
@@ -3120,12 +3173,16 @@ async function cargarCalificarTodos(materiaId, catNombre, indicadores) {
               return `
               <tr data-fila-estudiante-cal="${st.id}">
                 <td>${st.apellido1} ${st.apellido2}, ${st.nombre}</td>
-                ${indicadores.map(i => `
+                ${indicadores.map(i => {
+                  const criteriosPorPuntaje = {};
+                  (i.criterios_indicador || []).forEach(c => { criteriosPorPuntaje[c.puntaje] = c.descripcion; });
+                  return `
                   <td style="text-align:center;">
                     <select data-cal-masiva="${i.id}" data-estudiante="${st.id}" style="width:4rem; text-align:center; border:1px solid var(--paper-line); border-radius:3px;">
-                      ${Array.from({ length: i.puntaje_maximo + 1 }, (_, p) => `<option value="${p}" ${Number(mapa[`${st.id}-${i.id}`] || 0) === p ? "selected" : ""}>${p}</option>`).join("")}
+                      ${Array.from({ length: i.puntaje_maximo + 1 }, (_, p) => `<option value="${p}" ${criteriosPorPuntaje[p] ? `title="${String(criteriosPorPuntaje[p]).replace(/"/g, "&quot;")}"` : ""} ${Number(mapa[`${st.id}-${i.id}`] || 0) === p ? "selected" : ""}>${p}</option>`).join("")}
                     </select>
-                  </td>`).join("")}
+                  </td>`;
+                }).join("")}
                 <td class="num" data-resultado-de="${st.id}" style="font-weight:600;">${resultado}%</td>
               </tr>`;
             }).join("") || `<tr><td colspan="${indicadores.length + 2}" class="empty">No hay estudiantes en esta sección.</td></tr>`}
