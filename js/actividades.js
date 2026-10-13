@@ -24,6 +24,11 @@ const NOMBRES_ACTIVIDAD = {
 // pero si cambia de pestaña o sale de pantalla completa queda registrado.
 const ACTIVIDADES_BLOQUEADAS = ["seleccion_unica", "falso_verdadero", "crucigrama", "sopa_letras"];
 
+// Tipos de actividad donde tiene sentido mostrarle al profesor, por
+// estudiante, qué respondió frente a la respuesta correcta en cada
+// pregunta (retroalimentación detallada), además de la nota.
+const TIPOS_CON_RETRO = ["seleccion_unica", "falso_verdadero"];
+
 function puntajeDesdePorcentaje(pct) {
   if (pct >= 85) return 3;
   if (pct >= 60) return 2;

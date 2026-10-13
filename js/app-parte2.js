@@ -2677,6 +2677,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
             ${t.tipo_actividad === "infografia" ? `<button class="btn secondary small" data-ver-entregas="${t.id}">📂 Ver entregas</button>` : ""}
             ${esEditable(t) ? `<button class="btn secondary small" data-ver-entregas-trabajo="${t.id}">📎 Ver archivos entregados</button>` : ""}
             ${ACTIVIDADES_BLOQUEADAS.includes(t.tipo_actividad) ? `<button class="btn secondary small" data-ver-preguntas="${t.id}">👁️ Ver preguntas</button>` : ""}
+            ${TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<button class="btn secondary small" data-ver-retro="${t.id}">📝 Ver retroalimentación</button>` : ""}
             ${esEditable(t) ? `<button class="btn secondary small" data-editar-trabajo-subtema="${t.id}">✏️ Editar</button>` : ""}
             ${t.indicador_id
               ? `<span class="badge" style="font-weight:400;">📊 Indicador calificable</span>`
@@ -2697,7 +2698,21 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         <div data-entregas-trabajo-panel="${t.id}" style="width:100%;"></div>` : (t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : "")}
         ${t.tipo_actividad === "infografia" ? `<div data-entregas-panel="${t.id}"></div>` : ""}
         ${ACTIVIDADES_BLOQUEADAS.includes(t.tipo_actividad) ? `<div data-preguntas-panel="${t.id}"></div>` : ""}
+        ${TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<div data-retro-panel="${t.id}"></div>` : ""}
       </div>`).join("");
+
+    holder.querySelectorAll("[data-ver-retro]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const trabajoId = btn.dataset.verRetro;
+        const panel = holder.querySelector(`[data-retro-panel="${trabajoId}"]`);
+        if (!panel) return;
+        if (panel.innerHTML) { panel.innerHTML = ""; return; }
+        const trabajo = trabajos.find(x => String(x.id) === String(trabajoId));
+        if (!trabajo) return;
+        panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando…</p>`;
+        panel.innerHTML = await construirRetroalimentacionActividad(trabajo);
+      });
+    });
 
     holder.querySelectorAll("[data-editar-trabajo-subtema]").forEach(btn => {
       btn.addEventListener("click", () => {
@@ -3015,6 +3030,68 @@ function construirRevisionContenidoActividad(tipo, contenido) {
       </ol>`);
   }
   return `<p class="empty" style="font-size:0.82rem;">No se pudo mostrar el contenido de este tipo de actividad.</p>`;
+}
+
+// Retroalimentación por estudiante de una actividad de selección única o
+// falso/verdadero: qué respondió cada quien frente a la respuesta correcta,
+// pregunta por pregunta, y la nota como puntos conseguidos / puntos
+// asignados (una pregunta = un punto).
+async function construirRetroalimentacionActividad(trabajo) {
+  const contenido = trabajo.contenido_actividad;
+  if (!contenido) return `<p class="empty" style="font-size:0.82rem;">Esta actividad no tiene contenido guardado.</p>`;
+
+  const items = trabajo.tipo_actividad === "seleccion_unica"
+    ? (contenido.preguntas || []).map(p => ({ texto: p.pregunta, opciones: p.opciones || [], correcta: Number(p.correcta) }))
+    : (contenido.afirmaciones || []).map(a => ({ texto: a.texto, opciones: ["Falso", "Verdadero"], correcta: a.correcta ? 1 : 0 }));
+  if (items.length === 0) return `<p class="empty" style="font-size:0.82rem;">Esta actividad no tiene preguntas guardadas.</p>`;
+
+  const { data: entregas } = await sb.from("actividades_estudiante").select("*").eq("trabajo_id", trabajo.id).eq("completado", true);
+  if (!entregas || entregas.length === 0) return `<p class="empty" style="font-size:0.82rem;">Todavía nadie ha completado esta actividad.</p>`;
+
+  const estudianteIds = entregas.map(e => e.estudiante_id);
+  const { data: estudiantes } = await sb.from("estudiantes").select("id, nombre, apellido1, apellido2").in("id", estudianteIds);
+  const nombrePorId = {};
+  (estudiantes || []).forEach(e => { nombrePorId[e.id] = [e.apellido1, e.apellido2, e.nombre].filter(Boolean).join(" "); });
+
+  const respuestaTexto = (item, valor) => {
+    if (trabajo.tipo_actividad === "falso_verdadero") return valor === true ? "Verdadero" : (valor === false ? "Falso" : "Sin responder");
+    if (valor === null || valor === undefined) return "Sin responder";
+    return item.opciones[Number(valor)] ?? "Sin responder";
+  };
+  const esCorrecta = (item, valor) => {
+    if (trabajo.tipo_actividad === "falso_verdadero") return valor === item.correcta;
+    return Number(valor) === item.correcta;
+  };
+
+  const filas = entregas
+    .sort((a, b) => (nombrePorId[a.estudiante_id] || "").localeCompare(nombrePorId[b.estudiante_id] || ""))
+    .map(e => {
+      const respuestas = Array.isArray(e.respuestas) ? e.respuestas : [];
+      const correctas = items.reduce((acc, item, i) => acc + (esCorrecta(item, respuestas[i]) ? 1 : 0), 0);
+      return `
+      <details style="margin-bottom:0.5rem; background:#F5F6FA; border-radius:8px; padding:0.6rem 0.8rem;">
+        <summary style="cursor:pointer; font-size:0.85rem; display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
+          <span>${nombrePorId[e.estudiante_id] || e.estudiante_id}</span>
+          <strong>Nota: ${correctas}/${items.length} (${items.length ? Math.round((correctas / items.length) * 100) : 0}%)</strong>
+        </summary>
+        <div style="margin-top:0.6rem; display:grid; gap:0.4rem;">
+          ${items.map((item, i) => {
+            const correcta = esCorrecta(item, respuestas[i]);
+            return `
+            <div style="font-size:0.82rem; padding:0.4rem 0.5rem; border-left:3px solid ${correcta ? "#1d7a43" : "#c0392b"};">
+              <div style="font-weight:600;">${i + 1}. ${item.texto}</div>
+              <div style="color:${correcta ? "#1d7a43" : "#c0392b"};">${correcta ? "✓" : "✗"} Respondió: ${respuestaTexto(item, respuestas[i])}</div>
+              ${!correcta ? `<div style="color:var(--text-muted);">Respuesta correcta: ${respuestaTexto(item, item.correcta)}</div>` : ""}
+            </div>`;
+          }).join("")}
+        </div>
+      </details>`;
+    }).join("");
+
+  return `<div style="margin-top:0.5rem;">
+    <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">La nota es la cantidad de preguntas correctas sobre el total (cada pregunta vale 1 punto). Hacé clic en un estudiante para ver el detalle.</p>
+    ${filas}
+  </div>`;
 }
 
 function leerContenidoActividadDesdeFormulario(tipo, el) {
