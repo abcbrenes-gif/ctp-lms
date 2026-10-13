@@ -2386,11 +2386,17 @@ async function pintarTrabajosClase(trabajos, soloLectura, holderId, opts) {
           if (estado) estado.textContent = "No se pudo subir: " + errorSubida.message;
           return;
         }
-        await sb.from("trabajos_clase_estudiante").upsert(
-          { trabajo_id: trabajoId, estudiante_id: estudianteId, entregado_en: new Date().toISOString(), archivo_ruta: rutaSegura, archivo_nombre: archivo.name },
-          { onConflict: "trabajo_id,estudiante_id" }
+        const { error: errorGuardado } = await upsertSinConflicto(
+          "trabajos_clase_estudiante",
+          { trabajo_id: trabajoId, estudiante_id: estudianteId },
+          { entregado_en: new Date().toISOString(), archivo_ruta: rutaSegura, archivo_nombre: archivo.name }
         );
-        if (recargar) recargar(); else holder.innerHTML = "Cargando…";
+        if (errorGuardado) {
+          if (estado) estado.textContent = "⚠️ El archivo se subió pero no se pudo registrar la entrega (" + errorGuardado.message + "). Avisale a tu profesor.";
+          return;
+        }
+        if (estado) estado.textContent = "✅ ¡Archivo subido correctamente!";
+        setTimeout(() => { if (recargar) recargar(); else holder.innerHTML = "Cargando…"; }, 1100);
       });
     });
   } else {
