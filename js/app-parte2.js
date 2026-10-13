@@ -2199,8 +2199,11 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
           </div>
           ${instrucciones ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${instrucciones}</div>` : ""}
           ${res && res.archivo_ruta
-            ? `<span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Entregado: ${res.archivo_nombre || "archivo"}${res.puntaje != null ? " — Nota: " + res.puntaje + "/3" : " (pendiente de calificación)"}</span>
-               <label class="btn secondary small" style="cursor:pointer;">Reemplazar archivo<input type="file" data-infografia-subir="${t.id}" accept="image/*,.pdf" style="display:none;" /></label>`
+            ? (() => {
+                const { data: pub } = sb.storage.from("materiales").getPublicUrl(res.archivo_ruta);
+                return `<span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Entregado: ${res.archivo_nombre || "archivo"}${res.puntaje != null ? " — Nota: " + res.puntaje + "/3" : " (pendiente de calificación)"}</span>
+               <a class="btn secondary small" href="${pub.publicUrl}" target="_blank" rel="noopener">👁️ Consultar mi entrega</a>`;
+              })()
             : `<label class="btn small" style="cursor:pointer;">📎 Subir archivo (imagen o PDF)<input type="file" data-infografia-subir="${t.id}" accept="image/*,.pdf" style="display:none;" /></label>`}
           <span data-infografia-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
         </div>`;
@@ -2219,18 +2222,25 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         </div>`;
       }
       const miEstado = estadoPorTrabajo[t.id];
+      const yaEntregado = porTrabajo[t.id] === true;
+      let linkArchivo = "";
+      if (miEstado && miEstado.archivo_ruta) {
+        const { data: pub } = sb.storage.from("materiales").getPublicUrl(miEstado.archivo_ruta);
+        linkArchivo = pub.publicUrl;
+      }
       return `
       <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem;">
         <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
           <span class="name">${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
-          <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.85rem;">
-            <input type="checkbox" data-mi-trabajo-subtema="${t.id}" ${porTrabajo[t.id] ? "checked" : ""} /> Completado
-          </label>
+          ${yaEntregado
+            ? `<span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Entregado</span>`
+            : `<label style="display:flex; align-items:center; gap:0.4rem; font-size:0.85rem;">
+                 <input type="checkbox" data-mi-trabajo-subtema="${t.id}" /> Completado
+               </label>`}
         </div>
         ${t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : ""}
-        ${miEstado && miEstado.archivo_ruta
-          ? `<span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Archivo entregado: ${miEstado.archivo_nombre || "archivo"}</span>
-             <label class="btn secondary small" style="cursor:pointer;">Reemplazar archivo<input type="file" data-trabajo-subtema-subir="${t.id}" style="display:none;" /></label>`
+        ${yaEntregado
+          ? (linkArchivo ? `<a class="btn secondary small" href="${linkArchivo}" target="_blank" rel="noopener">👁️ Consultar mi entrega: ${miEstado.archivo_nombre || "archivo"}</a>` : "")
           : `<label class="btn small" style="cursor:pointer;">📎 Adjuntar archivo para que lo califiquen<input type="file" data-trabajo-subtema-subir="${t.id}" style="display:none;" /></label>`}
         <span data-trabajo-subtema-subir-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
       </div>`;
@@ -2242,6 +2252,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
           { trabajo_id: cb.dataset.miTrabajoSubtema, estudiante_id: estudianteId, completado: cb.checked, entregado_en: cb.checked ? new Date().toISOString() : null },
           { onConflict: "trabajo_id,estudiante_id" }
         );
+        pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId);
       });
     });
 
@@ -2435,9 +2446,9 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         if (!panel) return;
         if (panel.innerHTML) { panel.innerHTML = ""; return; }
         panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando entregas…</p>`;
-        const { data: entregas } = await sb.from("trabajos_cotidianos_estudiante").select("*").eq("trabajo_id", trabajoId).not("archivo_ruta", "is", null);
+        const { data: entregas } = await sb.from("trabajos_cotidianos_estudiante").select("*").eq("trabajo_id", trabajoId).or("completado.eq.true,archivo_ruta.not.is.null");
         if (!entregas || entregas.length === 0) {
-          panel.innerHTML = `<p class="empty" style="font-size:0.82rem;">Todavía nadie ha adjuntado un archivo en este trabajo.</p>`;
+          panel.innerHTML = `<p class="empty" style="font-size:0.82rem;">Todavía nadie ha entregado este trabajo.</p>`;
           return;
         }
         const estudianteIds = entregas.map(e => e.estudiante_id);
@@ -2446,15 +2457,25 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         (estudiantes || []).forEach(e => { nombrePorId[e.id] = [e.nombre, e.apellido1, e.apellido2].filter(Boolean).join(" "); });
         panel.innerHTML = `
           <div style="background:#F5F6FA; border-radius:8px; padding:0.7rem; margin-top:0.4rem;">
-            <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">La nota se pone en la sección "Rúbrica y Evaluaciones" (0 a 3), si este trabajo quedó marcado como indicador.</p>
+            <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">El estudiante ya no puede volver a entregar este trabajo una vez marcado. Si alguien se equivocó, usá "↺ Permitir reintento". La nota se pone en la sección "Rúbrica y Evaluaciones" (0 a 3), si este trabajo quedó marcado como indicador.</p>
             ${entregas.map(e => {
-              const { data: pub } = sb.storage.from("materiales").getPublicUrl(e.archivo_ruta);
-              return `<div class="roster-row" style="padding:0.3rem 0;">
+              const link = e.archivo_ruta ? sb.storage.from("materiales").getPublicUrl(e.archivo_ruta).data.publicUrl : "";
+              return `<div class="roster-row" style="padding:0.3rem 0; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
                 <span class="name">${nombrePorId[e.estudiante_id] || e.estudiante_id}</span>
-                <a class="btn small" href="${pub.publicUrl}" target="_blank" rel="noopener">📄 ${e.archivo_nombre || "Ver archivo"}</a>
+                ${link ? `<a class="btn small" href="${link}" target="_blank" rel="noopener">📄 ${e.archivo_nombre || "Ver archivo"}</a>` : `<span class="badge">Completado (sin archivo)</span>`}
+                <button class="btn secondary small" data-permitir-reintento-trabajo="${trabajoId}" data-permitir-reintento-estudiante="${e.estudiante_id}">↺ Permitir reintento</button>
               </div>`;
             }).join("")}
           </div>`;
+        panel.querySelectorAll("[data-permitir-reintento-trabajo]").forEach(rbtn => {
+          rbtn.addEventListener("click", async () => {
+            if (!confirm("¿Permitir que este estudiante vuelva a entregar el trabajo? Se borra lo que tenía entregado.")) return;
+            await sb.from("trabajos_cotidianos_estudiante").update({ completado: false, archivo_ruta: null, archivo_nombre: null, entregado_en: null })
+              .eq("trabajo_id", rbtn.dataset.permitirReintentoTrabajo).eq("estudiante_id", rbtn.dataset.permitirReintentoEstudiante);
+            btn.click();
+            btn.click();
+          });
+        });
       });
     });
 
@@ -2752,18 +2773,25 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
 
     holder.innerHTML = trabajos.map(t => {
       const miEstado = estadoPorTrabajo[t.id];
+      const yaEntregado = porTrabajo[t.id] === true;
+      let linkArchivo = "";
+      if (miEstado && miEstado.archivo_ruta) {
+        const { data: pub } = sb.storage.from("materiales").getPublicUrl(miEstado.archivo_ruta);
+        linkArchivo = pub.publicUrl;
+      }
       return `
       <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem;">
         <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
           <span class="name">${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
-          <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.85rem;">
-            <input type="checkbox" data-mi-trabajo="${t.id}" ${porTrabajo[t.id] ? "checked" : ""} /> Completado
-          </label>
+          ${yaEntregado
+            ? `<span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Entregado</span>`
+            : `<label style="display:flex; align-items:center; gap:0.4rem; font-size:0.85rem;">
+                 <input type="checkbox" data-mi-trabajo="${t.id}" /> Completado
+               </label>`}
         </div>
         ${t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : ""}
-        ${miEstado && miEstado.archivo_ruta
-          ? `<span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Archivo entregado: ${miEstado.archivo_nombre || "archivo"}</span>
-             <label class="btn secondary small" style="cursor:pointer;">Reemplazar archivo<input type="file" data-trabajo-subir="${t.id}" style="display:none;" /></label>`
+        ${yaEntregado
+          ? (linkArchivo ? `<a class="btn secondary small" href="${linkArchivo}" target="_blank" rel="noopener">👁️ Consultar mi entrega: ${miEstado.archivo_nombre || "archivo"}</a>` : "")
           : `<label class="btn small" style="cursor:pointer;">📎 Adjuntar archivo para que lo califiquen<input type="file" data-trabajo-subir="${t.id}" style="display:none;" /></label>`}
         <span data-trabajo-subir-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
       </div>`;
@@ -2775,6 +2803,7 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
           { trabajo_id: cb.dataset.miTrabajo, estudiante_id: estudianteId, completado: cb.checked, entregado_en: cb.checked ? new Date().toISOString() : null },
           { onConflict: "trabajo_id,estudiante_id" }
         );
+        pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, materiaId);
       });
     });
 
@@ -2883,9 +2912,9 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
         if (!panel) return;
         if (panel.innerHTML) { panel.innerHTML = ""; return; }
         panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando entregas…</p>`;
-        const { data: entregas } = await sb.from("trabajos_cotidianos_estudiante").select("*").eq("trabajo_id", trabajoId).not("archivo_ruta", "is", null);
+        const { data: entregas } = await sb.from("trabajos_cotidianos_estudiante").select("*").eq("trabajo_id", trabajoId).or("completado.eq.true,archivo_ruta.not.is.null");
         if (!entregas || entregas.length === 0) {
-          panel.innerHTML = `<p class="empty" style="font-size:0.82rem;">Todavía nadie ha adjuntado un archivo en este trabajo.</p>`;
+          panel.innerHTML = `<p class="empty" style="font-size:0.82rem;">Todavía nadie ha entregado este trabajo.</p>`;
           return;
         }
         const estudianteIds = entregas.map(e => e.estudiante_id);
@@ -2894,15 +2923,25 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
         (estudiantes || []).forEach(e => { nombrePorId[e.id] = [e.nombre, e.apellido1, e.apellido2].filter(Boolean).join(" "); });
         panel.innerHTML = `
           <div style="background:#F5F6FA; border-radius:8px; padding:0.7rem; margin-top:0.4rem;">
-            <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">La nota se pone en la sección "Rúbrica y Evaluaciones" (0 a 3), si este trabajo quedó marcado como indicador.</p>
+            <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">El estudiante ya no puede volver a entregar este trabajo una vez marcado. Si alguien se equivocó, usá "↺ Permitir reintento". La nota se pone en la sección "Rúbrica y Evaluaciones" (0 a 3), si este trabajo quedó marcado como indicador.</p>
             ${entregas.map(e => {
-              const { data: pub } = sb.storage.from("materiales").getPublicUrl(e.archivo_ruta);
-              return `<div class="roster-row" style="padding:0.3rem 0;">
+              const link = e.archivo_ruta ? sb.storage.from("materiales").getPublicUrl(e.archivo_ruta).data.publicUrl : "";
+              return `<div class="roster-row" style="padding:0.3rem 0; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
                 <span class="name">${nombrePorId[e.estudiante_id] || e.estudiante_id}</span>
-                <a class="btn small" href="${pub.publicUrl}" target="_blank" rel="noopener">📄 ${e.archivo_nombre || "Ver archivo"}</a>
+                ${link ? `<a class="btn small" href="${link}" target="_blank" rel="noopener">📄 ${e.archivo_nombre || "Ver archivo"}</a>` : `<span class="badge">Completado (sin archivo)</span>`}
+                <button class="btn secondary small" data-permitir-reintento-trabajo-tema="${trabajoId}" data-permitir-reintento-estudiante-tema="${e.estudiante_id}">↺ Permitir reintento</button>
               </div>`;
             }).join("")}
           </div>`;
+        panel.querySelectorAll("[data-permitir-reintento-trabajo-tema]").forEach(rbtn => {
+          rbtn.addEventListener("click", async () => {
+            if (!confirm("¿Permitir que este estudiante vuelva a entregar el trabajo? Se borra lo que tenía entregado.")) return;
+            await sb.from("trabajos_cotidianos_estudiante").update({ completado: false, archivo_ruta: null, archivo_nombre: null, entregado_en: null })
+              .eq("trabajo_id", rbtn.dataset.permitirReintentoTrabajoTema).eq("estudiante_id", rbtn.dataset.permitirReintentoEstudianteTema);
+            btn.click();
+            btn.click();
+          });
+        });
       });
     });
 
