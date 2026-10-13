@@ -1539,7 +1539,17 @@ async function renderSubtema(id, soloLectura) {
         </form>` : ""}
         ${soloLectura
           ? `<div class="roa-cell-texto roa-html">${sub.contenido || '<span class="empty">El profesor todavía no ha escrito contenido para este subtema.</span>'}</div>`
-          : `<div class="roa-editable roa-html" contenteditable="true" id="subtema-intro" style="min-height:6rem;">${sub.contenido || ""}</div>
+          : `<div style="margin-bottom:0.6rem; padding:0.6rem 0.8rem; background:var(--paper); border-left:2px solid var(--paper-line);">
+               <p style="font-size:0.85rem; font-weight:600; margin:0 0 0.3rem;">✨ Generar introducción con IA a partir de un archivo</p>
+               <p style="font-size:0.78rem; color:var(--text-muted); margin:0 0 0.5rem;">Subí un PDF o una imagen y decile a la IA qué querés que escriba. El texto se pone en el cuadro de abajo para que lo revisés y lo guardés vos.</p>
+               <form class="subtema-intro-ia-form" data-subtema-id="${sub.id}" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+                 <input type="file" class="subtema-intro-ia-archivo" accept=".pdf,image/png,image/jpeg,image/gif,image/webp" required />
+                 <textarea class="subtema-intro-ia-instrucciones" rows="2" placeholder='Instrucciones para la IA — ej. "escribí la introducción basada en este documento", "explicá esto de forma sencilla"' style="width:100%; font-family:inherit; resize:vertical;"></textarea>
+                 <button class="btn small" type="submit">✨ Generar introducción</button>
+                 <span class="subtema-intro-ia-estado" style="font-size:0.78rem; color:var(--text-muted); flex-basis:100%;"></span>
+               </form>
+             </div>
+             <div class="roa-editable roa-html" contenteditable="true" id="subtema-intro" style="min-height:6rem;">${sub.contenido || ""}</div>
              <div class="row" style="margin-top:0.5rem;">
                <button class="btn small" id="guardar-subtema-intro">Guardar introducción</button>
              </div>`}
@@ -1605,6 +1615,58 @@ async function renderSubtema(id, soloLectura) {
       }
       await sb.from("subtemas").delete().eq("id", sub.id);
       location.hash = `#/apartado/${encodeURIComponent(sub.publicacion_id)}`;
+    });
+
+    const introIaForm = document.querySelector(".subtema-intro-ia-form");
+    if (introIaForm) introIaForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const estado = form.querySelector(".subtema-intro-ia-estado");
+      const input = form.querySelector(".subtema-intro-ia-archivo");
+      const instrucciones = form.querySelector(".subtema-intro-ia-instrucciones").value.trim().slice(0, 800);
+      const archivo = input.files[0];
+      if (!archivo) return;
+      const boton = form.querySelector("button[type=submit]");
+
+      const leerComoBase64 = (f) => new Promise((resolve, reject) => {
+        const lector = new FileReader();
+        lector.onload = () => resolve(String(lector.result).split(",")[1] || "");
+        lector.onerror = () => reject(new Error("No se pudo leer el archivo."));
+        lector.readAsDataURL(f);
+      });
+
+      boton.disabled = true;
+      boton.textContent = "Generando…";
+      estado.textContent = "Leyendo el archivo y generando con la IA (puede tardar unos segundos)…";
+      try {
+        const datosBase64 = await leerComoBase64(archivo);
+        const quitarHtml = (v) => String(v || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+        const contexto = [sub.titulo, quitarHtml(sub.descripcion), quitarHtml(resultado ? resultado.resultado : "")].filter(Boolean).join(" — ").slice(0, 1500);
+        const r = await fetch("/api/generar-material-ia", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            tema: sub.titulo || pub.titulo || "",
+            contexto,
+            instrucciones: instrucciones || "Escribí la introducción de este subtema basada en el archivo adjunto, dirigida a estudiantes de secundaria.",
+            archivo: { mimeType: archivo.type, datosBase64 }
+          })
+        });
+        const datos = await r.json();
+        if (!r.ok) {
+          estado.textContent = "No se pudo generar: " + (datos.error || "error desconocido.");
+          return;
+        }
+        const contenidoHtml = (datos.contenido && datos.contenido.contenido_html) || "";
+        document.getElementById("subtema-intro").innerHTML = contenidoHtml;
+        form.reset();
+        estado.textContent = "Listo — revisá el texto abajo y dale \"Guardar introducción\" cuando esté bien.";
+      } catch (err) {
+        estado.textContent = "No se pudo conectar con la IA: " + (err.message || err);
+      } finally {
+        boton.disabled = false;
+        boton.textContent = "✨ Generar introducción";
+      }
     });
 
     document.getElementById("guardar-subtema-intro").addEventListener("click", async (e) => {
