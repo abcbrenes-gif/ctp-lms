@@ -16,15 +16,26 @@ function limpiarHtml(valor) {
     .trim();
 }
 
-function extraerJson(texto) {
+// El contenido generado es HTML libre (puede traer comillas, saltos de línea,
+// tildes, etc.), así que en vez de pedirle a la IA un JSON — donde cualquier
+// comilla o salto de línea sin escapar rompe el parseo — se usa un separador
+// de texto plano, mucho más tolerante a lo que la IA realmente devuelve.
+const SEPARADOR = "===CONTENIDO===";
+
+function extraerTituloYContenido(texto) {
   let limpio = String(texto || "").trim();
-  limpio = limpio.replace(/^```(json)?/i, "").replace(/```$/, "").trim();
-  const inicioLlave = limpio.indexOf("{");
-  const finLlave = limpio.lastIndexOf("}");
-  if (inicioLlave !== -1 && finLlave !== -1 && finLlave > inicioLlave) {
-    limpio = limpio.slice(inicioLlave, finLlave + 1);
+  limpio = limpio.replace(/^```[a-z]*\n?/i, "").replace(/```\s*$/, "").trim();
+
+  const idx = limpio.indexOf(SEPARADOR);
+  if (idx === -1) {
+    throw new Error("La respuesta de la IA no tiene el formato esperado.");
   }
-  return JSON.parse(limpio);
+  let titulo = limpio.slice(0, idx).replace(/^t[ií]tulo:?/i, "").trim();
+  let contenido = limpio.slice(idx + SEPARADOR.length).trim();
+  contenido = contenido.replace(/^```[a-z]*\n?/i, "").replace(/```\s*$/, "").trim();
+  if (!titulo) titulo = "Material generado con IA";
+  if (!contenido) throw new Error("La IA no generó contenido.");
+  return { titulo, contenido_html: contenido };
 }
 
 const TIPOS_PERMITIDOS = {
@@ -92,10 +103,11 @@ ${instruccionesTexto}
 A partir del CONTENIDO REAL del archivo adjunto, generá el material de apoyo que el profesor pidió, dirigido a estudiantes de secundaria, en español de Costa Rica.
 
 Reglas:
-- Devolvé ÚNICAMENTE un JSON válido, sin texto antes ni después, con esta forma exacta:
-  {"titulo": "...", "contenido_html": "..."}
-- "titulo": un título corto (máximo 8 palabras) para este material.
-- "contenido_html": el material en HTML simple, usando solo <p>, <h4>, <ul>, <li>, <strong>, <em> — sin markdown, sin <html>/<body>, sin explicaciones fuera del HTML.
+- Respondé ÚNICAMENTE con este formato exacto, sin nada antes ni después:
+  TITULO: (un título corto, máximo 8 palabras, en una sola línea)
+  ===CONTENIDO===
+  (el material en HTML simple, usando solo <p>, <h4>, <ul>, <li>, <strong>, <em> — podés usar varios párrafos y saltos de línea con normalidad)
+- No uses markdown (nada de \`\`\`, #, **), ni <html>/<body>, ni expliques nada fuera de esas dos partes.
 - Basate en el contenido real del archivo adjunto, no inventes datos que no estén ahí ni en el contexto dado.
 - Texto claro, bien formado, en oraciones completas — nunca lo cortes a la mitad ni termines en "...".`;
 
@@ -141,11 +153,11 @@ Reglas:
 
     let contenido;
     try {
-      contenido = extraerJson(texto);
+      contenido = extraerTituloYContenido(texto);
     } catch (err) {
       try {
-        const textoReintento = await llamarIA(prompt + "\n\nRecordatorio: respondé SOLO con el objeto JSON, sin explicaciones antes ni después.");
-        contenido = extraerJson(textoReintento);
+        const textoReintento = await llamarIA(prompt + "\n\nRecordatorio: respondé SOLO con \"TITULO: ...\" seguido de \"===CONTENIDO===\" y el HTML, sin explicaciones antes ni después.");
+        contenido = extraerTituloYContenido(textoReintento);
       } catch (err2) {
         res.status(502).json({ error: "La IA no devolvió una respuesta válida. Intentá de nuevo." });
         return;
