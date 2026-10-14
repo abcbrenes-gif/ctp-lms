@@ -1662,6 +1662,13 @@ function pintarPresentacionSubtema(subtemaId, diapositivas, soloLectura) {
     return;
   }
 
+  // Un archivo único que no es imagen (PDF, PowerPoint, Word, Excel): visor de documento
+  const doc = diapositivas.find(d => d.tipo === "slide-doc");
+  if (doc) {
+    pintarVisorDocumentoSubtema(subtemaId, doc, holder);
+    return;
+  }
+
   const urls = diapositivas.map(d => {
     const { data: pub } = sb.storage.from("materiales").getPublicUrl(d.ruta);
     return pub ? pub.publicUrl : "";
@@ -1706,6 +1713,33 @@ function pintarPresentacionSubtema(subtemaId, diapositivas, soloLectura) {
   });
 }
 
+function pintarVisorDocumentoSubtema(subtemaId, doc, holder) {
+  const { data: pub } = sb.storage.from("materiales").getPublicUrl(doc.ruta);
+  const url = pub ? pub.publicUrl : "";
+  const nombre = (doc.nombre || doc.ruta || "").toLowerCase();
+  const esPdf = nombre.endsWith(".pdf");
+  // Para PDF usamos el visor nativo del navegador; para PPT/DOC/XLS usamos el visor de Google Docs.
+  const srcVisor = esPdf ? url : `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+
+  holder.innerHTML = `
+    <div class="presentacion-visor" id="presentacion-doc-visor-${subtemaId}" style="margin-bottom:1.2rem; background:#0f172a; border-radius:14px; overflow:hidden;">
+      <div style="position:relative; width:100%; aspect-ratio:16/9; background:#fff;">
+        <iframe src="${srcVisor}" title="Documento de la introducción" style="width:100%; height:100%; border:none; display:block;" allowfullscreen></iframe>
+        <button type="button" id="presentacion-doc-full-${subtemaId}" aria-label="Pantalla completa" style="position:absolute; right:0.5rem; bottom:0.5rem; background:rgba(15,23,42,0.6); color:#fff; border:none; border-radius:8px; padding:0.3rem 0.6rem; font-size:0.78rem; cursor:pointer;">⛶ Pantalla completa</button>
+      </div>
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:0.6rem; padding:0.5rem 0.8rem; background:#1b2340;">
+        <span style="color:#C7D0E8; font-size:0.82rem;">📄 ${doc.nombre || "Documento"}</span>
+        <a href="${url}" target="_blank" rel="noopener" style="color:#9fb4ff; font-size:0.82rem;">Abrir en otra pestaña ↗</a>
+      </div>
+    </div>`;
+
+  const visorDoc = document.getElementById(`presentacion-doc-visor-${subtemaId}`);
+  document.getElementById(`presentacion-doc-full-${subtemaId}`).addEventListener("click", () => {
+    if (visorDoc.requestFullscreen) visorDoc.requestFullscreen();
+    else if (visorDoc.webkitRequestFullscreen) visorDoc.webkitRequestFullscreen();
+  });
+}
+
 // --- Página propia de un Subtema (#/subtema/:id) ---
 
 async function renderSubtema(id, soloLectura) {
@@ -1718,8 +1752,9 @@ async function renderSubtema(id, soloLectura) {
   const { data: trabajos } = await sb.from("trabajos_cotidianos").select("*").eq("subtema_id", id).order("creado_en");
   const { data: trabajosClase } = await sb.from("trabajos_clase").select("*").eq("subtema_id", id).order("creado_en");
   const { data: materialesTodos } = await sb.from("materiales").select("*").eq("subtema_id", id).order("creado_en");
-  const materiales = (materialesTodos || []).filter(m => m.tipo !== "slide-image");
-  const diapositivas = (materialesTodos || []).filter(m => m.tipo === "slide-image");
+  const TIPOS_PRESENTACION = ["slide-image", "slide-doc"];
+  const materiales = (materialesTodos || []).filter(m => !TIPOS_PRESENTACION.includes(m.tipo));
+  const diapositivas = (materialesTodos || []).filter(m => TIPOS_PRESENTACION.includes(m.tipo));
 
   const tituloTema = (pub.titulo || (resultado && resultado.resultado) || "").replace(/<[^>]*>/g, "");
 
@@ -1751,9 +1786,10 @@ async function renderSubtema(id, soloLectura) {
         <div id="subtema-presentacion-${sub.id}"></div>
         ${!soloLectura ? `
         <form class="subtema-presentacion-form" data-subtema-id="${sub.id}" style="margin:${diapositivas.length ? "0 0 1.2rem" : "0 0 1.2rem"}; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-          <input type="file" class="subtema-presentacion-archivos" accept="image/*" multiple />
-          <button class="btn small" type="submit">📽️ ${diapositivas.length ? "Reemplazar presentación" : "Subir presentación (imágenes, en orden)"}</button>
+          <input type="file" class="subtema-presentacion-archivos" accept="image/*,.pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx" multiple />
+          <button class="btn small" type="submit">📽️ ${diapositivas.length ? "Reemplazar presentación" : "Subir presentación"}</button>
           ${diapositivas.length ? `<button class="btn danger small" type="button" id="borrar-presentacion-${sub.id}">Quitar presentación</button>` : ""}
+          <span style="font-size:0.78rem; color:var(--text-muted); flex-basis:100%;">Varias imágenes en orden (se pasan como diapositivas), o un solo archivo de cualquier tipo (PDF, PowerPoint, Word, Excel) que se pueda ver en pantalla completa.</span>
           <span class="subtema-presentacion-estado" style="font-size:0.78rem; color:var(--text-muted); flex-basis:100%;"></span>
         </form>` : ""}
         ${soloLectura
@@ -2282,7 +2318,7 @@ async function renderSubtema(id, soloLectura) {
       });
       input.value = "";
       estado.textContent = "";
-      const { data: actualizados } = await sb.from("materiales").select("*").eq("subtema_id", subtemaId).neq("tipo", "slide-image").order("creado_en");
+      const { data: actualizados } = await sb.from("materiales").select("*").eq("subtema_id", subtemaId).not("tipo", "in", "(slide-image,slide-doc)").order("creado_en");
       await pintarMaterialesSubtema(subtemaId, actualizados || [], soloLectura, sub.publicacion_id);
     });
 
@@ -2304,7 +2340,7 @@ async function renderSubtema(id, soloLectura) {
       });
       form.reset();
       estado.textContent = "";
-      const { data: actualizados } = await sb.from("materiales").select("*").eq("subtema_id", subtemaId).neq("tipo", "slide-image").order("creado_en");
+      const { data: actualizados } = await sb.from("materiales").select("*").eq("subtema_id", subtemaId).not("tipo", "in", "(slide-image,slide-doc)").order("creado_en");
       await pintarMaterialesSubtema(subtemaId, actualizados || [], soloLectura, sub.publicacion_id);
     });
 
@@ -2374,7 +2410,7 @@ async function renderSubtema(id, soloLectura) {
         form.reset();
         estado.textContent = "¡Listo! Se agregó como material de apoyo.";
         setTimeout(() => { if (estado.textContent === "¡Listo! Se agregó como material de apoyo.") estado.textContent = ""; }, 4000);
-        const { data: actualizados } = await sb.from("materiales").select("*").eq("subtema_id", subtemaId).neq("tipo", "slide-image").order("creado_en");
+        const { data: actualizados } = await sb.from("materiales").select("*").eq("subtema_id", subtemaId).not("tipo", "in", "(slide-image,slide-doc)").order("creado_en");
         await pintarMaterialesSubtema(subtemaId, actualizados || [], soloLectura, sub.publicacion_id);
       } catch (err) {
         estado.textContent = "No se pudo conectar con la IA: " + (err.message || err);
@@ -2394,11 +2430,41 @@ async function renderSubtema(id, soloLectura) {
       const archivos = Array.from(input.files || []);
       if (!archivos.length) return;
 
-      const existentes = (await sb.from("materiales").select("id, ruta").eq("subtema_id", subtemaId).eq("tipo", "slide-image")).data || [];
+      const existentes = (await sb.from("materiales").select("id, ruta").eq("subtema_id", subtemaId).in("tipo", TIPOS_PRESENTACION)).data || [];
       if (existentes.length) {
         estado.textContent = "Quitando presentación anterior…";
         await sb.storage.from("materiales").remove(existentes.map(m => m.ruta));
         await sb.from("materiales").delete().in("id", existentes.map(m => m.id));
+      }
+
+      // Si se eligió un solo archivo que NO es imagen (PDF, PowerPoint, Word, Excel),
+      // se guarda como un único "slide-doc" para verse en el visor de documentos.
+      // Si se eligieron una o varias imágenes, se guardan como "slide-image" (diapositivas).
+      const todosSonImagenes = archivos.every(a => a.type.startsWith("image/"));
+
+      if (!todosSonImagenes) {
+        if (archivos.length > 1) {
+          estado.textContent = "Para un documento (PDF, PowerPoint, Word, Excel) subí un solo archivo. Para varias diapositivas, usá solo imágenes.";
+          return;
+        }
+        const archivo = archivos[0];
+        estado.textContent = "Subiendo documento…";
+        const rutaSegura = `${sub.publicacion_id}/subtema-${subtemaId}/presentacion/${Date.now()}-${archivo.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+        const { error: errorSubida } = await sb.storage.from("materiales").upload(rutaSegura, archivo);
+        if (errorSubida) {
+          estado.textContent = "No se pudo subir: " + errorSubida.message;
+          return;
+        }
+        await sb.from("materiales").insert({
+          publicacion_id: sub.publicacion_id,
+          subtema_id: subtemaId,
+          nombre: archivo.name,
+          ruta: rutaSegura,
+          tipo: "slide-doc",
+          tamano_bytes: archivo.size || null
+        });
+        renderSubtema(id, soloLectura);
+        return;
       }
 
       for (let i = 0; i < archivos.length; i++) {
@@ -2425,7 +2491,7 @@ async function renderSubtema(id, soloLectura) {
     const borrarPresentacionBtn = document.getElementById(`borrar-presentacion-${sub.id}`);
     if (borrarPresentacionBtn) borrarPresentacionBtn.addEventListener("click", async () => {
       if (!confirm("¿Quitar la presentación de este subtema?")) return;
-      const existentes = (await sb.from("materiales").select("id, ruta").eq("subtema_id", sub.id).eq("tipo", "slide-image")).data || [];
+      const existentes = (await sb.from("materiales").select("id, ruta").eq("subtema_id", sub.id).in("tipo", TIPOS_PRESENTACION)).data || [];
       if (existentes.length) {
         await sb.storage.from("materiales").remove(existentes.map(m => m.ruta));
         await sb.from("materiales").delete().in("id", existentes.map(m => m.id));
