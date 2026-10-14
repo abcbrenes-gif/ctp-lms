@@ -1,10 +1,11 @@
-// Función serverless de Vercel: a partir de un archivo que el profesor adjunta
-// (PDF o imagen) más una instrucción propia, redacta un trabajo cotidiano
-// "normal" (título + instrucciones para el estudiante) listo para revisar y
-// agregar en el subtema.
+// Función serverless de Vercel: a partir de uno o varios archivos que el
+// profesor adjunta (PDF o imagen) más una instrucción propia, redacta un
+// trabajo cotidiano "normal" (título + instrucciones para el estudiante)
+// listo para revisar y agregar en el subtema.
 //
-// El archivo se envía como base64 y se manda directo a Claude como bloque
-// multimodal (document/image) — no se procesa ni se guarda en el servidor.
+// Los archivos se envían como base64 y se mandan directo a Claude como
+// bloques multimodales (document/image) — no se procesan ni se guardan en
+// el servidor.
 //
 // La llave de la API (ANTHROPIC_API_KEY) se lee de las variables de entorno de
 // Vercel. Nunca se envía al navegador: esta función corre en el servidor.
@@ -68,21 +69,36 @@ module.exports = async (req, res) => {
   const tema = limpiarHtml(body.tema).slice(0, 300);
   const contexto = limpiarHtml(body.contexto).slice(0, 1500);
   const instrucciones = limpiarHtml(body.instrucciones).slice(0, 800);
-  const archivo = body.archivo || {};
-  const mimeType = String(archivo.mimeType || "");
-  const datosBase64 = String(archivo.datosBase64 || "");
 
-  if (!datosBase64) {
+  // Acepta varios archivos (body.archivos, un arreglo) o, por compatibilidad
+  // con versiones anteriores, uno solo (body.archivo).
+  const archivosRaw = Array.isArray(body.archivos) ? body.archivos : (body.archivo ? [body.archivo] : []);
+
+  if (!archivosRaw.length) {
     res.status(400).json({ error: "Falta el archivo (PDF o imagen) a partir del cual generar el trabajo." });
     return;
   }
-  const tipoBloque = TIPOS_PERMITIDOS[mimeType];
-  if (!tipoBloque) {
-    res.status(400).json({ error: "Solo se aceptan archivos PDF o imágenes (PNG, JPG, GIF, WEBP) para generar el trabajo con IA." });
+
+  const bloquesArchivo = [];
+  let totalLen = 0;
+  for (const a of archivosRaw) {
+    const mimeType = String((a && a.mimeType) || "");
+    const datosBase64 = String((a && a.datosBase64) || "");
+    if (!datosBase64) continue;
+    const tipoBloque = TIPOS_PERMITIDOS[mimeType];
+    if (!tipoBloque) {
+      res.status(400).json({ error: "Solo se aceptan archivos PDF o imágenes (PNG, JPG, GIF, WEBP) para generar el trabajo con IA." });
+      return;
+    }
+    totalLen += datosBase64.length;
+    bloquesArchivo.push({ type: tipoBloque, source: { type: "base64", media_type: mimeType, data: datosBase64 } });
+  }
+  if (!bloquesArchivo.length) {
+    res.status(400).json({ error: "Falta el archivo (PDF o imagen) a partir del cual generar el trabajo." });
     return;
   }
-  if (datosBase64.length > 3_500_000) {
-    res.status(400).json({ error: "El archivo es demasiado grande para generar el trabajo con IA. Probá con uno más liviano (máximo ~2.5MB)." });
+  if (totalLen > 9_000_000) {
+    res.status(400).json({ error: "Los archivos son demasiado grandes en conjunto para generar el trabajo con IA. Probá con menos archivos o más livianos." });
     return;
   }
 
@@ -91,13 +107,14 @@ module.exports = async (req, res) => {
     : `El profesor no dio instrucciones específicas: generá un trabajo (ejercicio o pregunta de aplicación) basado en el contenido real del archivo.`;
 
   const prompt = `Sos un asistente para un profesor de Contabilidad de un colegio técnico (CTP) en Costa Rica.
-Te adjunto un archivo (documento o imagen) que el profesor subió como base para crear un "trabajo cotidiano": una tarea o ejercicio corto que el estudiante entrega y se califica con una rúbrica.
+Te adjunto ${bloquesArchivo.length > 1 ? `${bloquesArchivo.length} archivos (documentos y/o imágenes)` : "un archivo (documento o imagen)"} que el profesor subió como base para crear un "trabajo cotidiano": una tarea o ejercicio corto que el estudiante entrega y se califica con una rúbrica.
+${bloquesArchivo.length > 1 ? "Usá la información de TODOS los archivos juntos, combinándola, para armar un solo trabajo coherente." : ""}
 
 ${tema ? `Tema / subtema: ${tema}` : ""}
 ${contexto ? `Contexto adicional: ${contexto}` : ""}
 ${instruccionesTexto}
 
-A partir del CONTENIDO REAL del archivo adjunto, redactá el título y las instrucciones de este trabajo cotidiano, dirigido a estudiantes de secundaria, en español de Costa Rica.
+A partir del CONTENIDO REAL de${bloquesArchivo.length > 1 ? " los archivos adjuntos" : "l archivo adjunto"}, redactá el título y las instrucciones de este trabajo cotidiano, dirigido a estudiantes de secundaria, en español de Costa Rica.
 
 Reglas:
 - Respondé ÚNICAMENTE con este formato exacto, sin nada antes ni después:
@@ -106,7 +123,7 @@ Reglas:
   (las instrucciones del trabajo para el estudiante, en HTML simple, usando solo <p>, <ul>, <li>, <strong>, <em> — podés usar varios párrafos y saltos de línea con normalidad)
 - No uses markdown (nada de \`\`\`, #, **), ni <html>/<body>, ni expliques nada fuera de esas dos partes.
 - Las instrucciones deben decirle claramente al estudiante qué tiene que hacer y entregar.
-- Basate en el contenido real del archivo adjunto, no inventes datos que no estén ahí ni en el contexto dado.
+- Basate en el contenido real d${bloquesArchivo.length > 1 ? "e los archivos adjuntos" : "el archivo adjunto"}, no inventes datos que no estén ahí ni en el contexto dado.
 - Texto claro, bien formado, en oraciones completas — nunca lo cortes a la mitad ni termines en "...".`;
 
   async function llamarIA(promptTexto) {
@@ -122,13 +139,7 @@ Reglas:
         max_tokens: 2000,
         messages: [{
           role: "user",
-          content: [
-            {
-              type: tipoBloque,
-              source: { type: "base64", media_type: mimeType, data: datosBase64 }
-            },
-            { type: "text", text: promptTexto }
-          ]
+          content: [...bloquesArchivo, { type: "text", text: promptTexto }]
         }]
       })
     });

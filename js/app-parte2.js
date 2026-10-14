@@ -1848,7 +1848,7 @@ async function renderSubtema(id, soloLectura) {
         <div id="actividad-interactiva-panel" style="margin-top:0.8rem;"></div>
         <div style="margin-top:1rem; padding-top:0.8rem; border-top:1px dashed var(--paper-line);">
           <p style="font-size:0.85rem; font-weight:600; margin-bottom:0.4rem;">✨ Generar un trabajo cotidiano con IA a partir de un archivo</p>
-          <p style="font-size:0.78rem; color:var(--text-muted); margin:0 0 0.5rem;">Subí un PDF o una imagen (una guía, un ejercicio, un enunciado) y decile a la IA qué tipo de trabajo querés que arme con eso.</p>
+          <p style="font-size:0.78rem; color:var(--text-muted); margin:0 0 0.5rem;">Subí uno o varios PDF/imágenes (una guía, un ejercicio, un enunciado) y decile a la IA qué tipo de trabajo querés que arme con toda esa información junta.</p>
           <form class="subtema-trabajo-ia-form" data-subtema-id="${sub.id}" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
             <label style="display:flex; align-items:center; gap:0.5rem; flex-basis:100%;">Tipo de trabajo a generar:
               <select class="subtema-trabajo-ia-tipo">
@@ -1859,7 +1859,7 @@ async function renderSubtema(id, soloLectura) {
                 <option value="sopa_letras">🔎 Sopa de letras</option>
               </select>
             </label>
-            <input type="file" class="subtema-trabajo-ia-archivo" accept=".pdf,image/png,image/jpeg,image/gif,image/webp" required />
+            <input type="file" class="subtema-trabajo-ia-archivo" accept=".pdf,image/png,image/jpeg,image/gif,image/webp" multiple required />
             <textarea class="subtema-trabajo-ia-instrucciones" rows="2" placeholder='Instrucciones para la IA (opcional) — ej. "que sea un ejercicio de asientos contables con estos datos"' style="width:100%; font-family:inherit; resize:vertical;"></textarea>
             <button class="btn small" type="submit">✨ Generar</button>
             <span class="subtema-trabajo-ia-estado" style="font-size:0.78rem; color:var(--text-muted); flex-basis:100%;"></span>
@@ -2086,26 +2086,26 @@ async function renderSubtema(id, soloLectura) {
         const contexto = [sub.titulo, quitarHtml(sub.descripcion), quitarHtml(resultado ? resultado.resultado : "")].filter(Boolean).join(" — ").slice(0, 1500);
         const instrucciones = (panel.querySelector("#actividad-ia-instrucciones")?.value || "").trim().slice(0, 800);
         const archivoInput = panel.querySelector("#actividad-ia-archivo");
-        const archivo = archivoInput?.files[0];
+        const archivos = archivoInput ? Array.from(archivoInput.files || []) : [];
         iaEv.target.disabled = true;
         iaEv.target.textContent = "Generando…";
         if (estado) estado.textContent = "";
         try {
-          let archivoPayload = null;
-          if (archivo) {
-            const leerComoBase64 = (f) => new Promise((resolve, reject) => {
-              const lector = new FileReader();
-              lector.onload = () => resolve(String(lector.result).split(",")[1] || "");
-              lector.onerror = () => reject(new Error("No se pudo leer el archivo."));
-              lector.readAsDataURL(f);
-            });
-            if (estado) estado.textContent = "Leyendo el archivo…";
-            archivoPayload = { mimeType: archivo.type, datosBase64: await leerComoBase64(archivo) };
+          const leerComoBase64 = (f) => new Promise((resolve, reject) => {
+            const lector = new FileReader();
+            lector.onload = () => resolve(String(lector.result).split(",")[1] || "");
+            lector.onerror = () => reject(new Error("No se pudo leer el archivo."));
+            lector.readAsDataURL(f);
+          });
+          let archivosPayload = [];
+          if (archivos.length) {
+            if (estado) estado.textContent = archivos.length > 1 ? `Leyendo ${archivos.length} archivos…` : "Leyendo el archivo…";
+            archivosPayload = await Promise.all(archivos.map(async (a) => ({ mimeType: a.type, nombre: a.name, datosBase64: await leerComoBase64(a) })));
           }
           const r = await fetch("/api/generar-actividad-ia", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ tipo, tema, contexto, instrucciones, archivo: archivoPayload })
+            body: JSON.stringify({ tipo, tema, contexto, instrucciones, archivos: archivosPayload })
           });
           const datos = await r.json();
           if (!r.ok) { if (estado) estado.textContent = "No se pudo generar: " + (datos.error || "error desconocido."); return; }
@@ -2155,13 +2155,13 @@ async function renderSubtema(id, soloLectura) {
       const tipo = form.querySelector(".subtema-trabajo-ia-tipo").value;
       const instrucciones = form.querySelector(".subtema-trabajo-ia-instrucciones").value.trim().slice(0, 800);
       const archivoInput = form.querySelector(".subtema-trabajo-ia-archivo");
-      const archivo = archivoInput.files[0];
-      if (!archivo) return;
+      const archivos = Array.from(archivoInput.files || []);
+      if (!archivos.length) return;
       const boton = form.querySelector("button[type=submit]");
 
       if (tipo !== "normal") {
         // Reusa el panel y la lógica de "Crear actividad interactiva" ya
-        // existente: abre el panel, le pasa el mismo archivo (vía
+        // existente: abre el panel, le pasa los mismos archivos (vía
         // DataTransfer) y las instrucciones, y dispara su propio botón
         // "Generar con IA".
         boton.disabled = true;
@@ -2172,7 +2172,7 @@ async function renderSubtema(id, soloLectura) {
         selectTipo.value = tipo;
         selectTipo.dispatchEvent(new Event("change"));
         const dt = new DataTransfer();
-        dt.items.add(archivo);
+        archivos.forEach(a => dt.items.add(a));
         panel.querySelector("#actividad-ia-archivo").files = dt.files;
         panel.querySelector("#actividad-ia-instrucciones").value = instrucciones;
         panel.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -2193,9 +2193,9 @@ async function renderSubtema(id, soloLectura) {
 
       boton.disabled = true;
       boton.textContent = "Generando…";
-      estado.textContent = "Leyendo el archivo y generando con la IA (puede tardar unos segundos)…";
+      estado.textContent = archivos.length > 1 ? `Leyendo ${archivos.length} archivos y generando con la IA (puede tardar unos segundos)…` : "Leyendo el archivo y generando con la IA (puede tardar unos segundos)…";
       try {
-        const datosBase64 = await leerComoBase64(archivo);
+        const archivosPayload = await Promise.all(archivos.map(async (a) => ({ mimeType: a.type, nombre: a.name, datosBase64: await leerComoBase64(a) })));
         const quitarHtml = (v) => String(v || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
         const contexto = [sub.titulo, quitarHtml(sub.descripcion), quitarHtml(resultado ? resultado.resultado : "")].filter(Boolean).join(" — ").slice(0, 1500);
         const r = await fetch("/api/generar-trabajo-ia", {
@@ -2205,7 +2205,7 @@ async function renderSubtema(id, soloLectura) {
             tema: sub.titulo || pub.titulo || "",
             contexto,
             instrucciones,
-            archivo: { mimeType: archivo.type, datosBase64 }
+            archivos: archivosPayload
           })
         });
         const datos = await r.json();
@@ -3165,8 +3165,8 @@ function construirSelectorTipoActividad() {
       </div>
       <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.8rem;">Se califica automáticamente de 0 a 3 según el % de aciertos, y se hace en pantalla completa: si el estudiante sale de la actividad, queda registrado.</p>
       <div style="margin-bottom:0.6rem;">
-        <label for="actividad-ia-archivo" style="font-size:0.82rem; color:var(--text-muted); display:block; margin-bottom:0.3rem;">Archivo de apoyo (opcional) — un PDF, Word (.docx) o imagen con el contenido real sobre el que querés las preguntas. Para "Prueba": subí el Word del examen y la IA lo digitaliza (vos marcás/revisás las respuestas correctas después, el Word no las trae).</label>
-        <input type="file" id="actividad-ia-archivo" accept=".pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/gif,image/webp" style="display:block; margin-bottom:0.5rem;" />
+        <label for="actividad-ia-archivo" style="font-size:0.82rem; color:var(--text-muted); display:block; margin-bottom:0.3rem;">Archivo(s) de apoyo (opcional) — podés subir varios PDF, Word (.docx) o imágenes con el contenido real sobre el que querés las preguntas; la IA usa toda la información junta. Para "Prueba": subí el Word del examen y la IA lo digitaliza (vos marcás/revisás las respuestas correctas después, el Word no las trae).</label>
+        <input type="file" id="actividad-ia-archivo" accept=".pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/gif,image/webp" multiple style="display:block; margin-bottom:0.5rem;" />
         <label for="actividad-ia-instrucciones" style="font-size:0.82rem; color:var(--text-muted); display:block; margin-bottom:0.3rem;">Instrucciones para la IA (opcional) — ej. "enfocate en salarios y cargas sociales, con ejemplos en colones", "nivel básico", "incluí IVA y renta"</label>
         <textarea id="actividad-ia-instrucciones" rows="2" placeholder="Dejalo en blanco para que la IA use solo el título y el tema del subtema (o el archivo, si subiste uno)" style="width:100%; font-family:inherit; resize:vertical;"></textarea>
       </div>
@@ -5370,8 +5370,8 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
           </select>
         </label>
         <div style="margin-bottom:0.6rem;">
-          <label for="prueba-materia-ia-archivo" style="font-size:0.82rem; color:var(--text-muted); display:block; margin-bottom:0.3rem;">Subir un Word (.docx) o PDF con la prueba ya hecha, para que la IA la digitalice (revisá y marcá las respuestas correctas después — el documento no las trae)</label>
-          <input type="file" id="prueba-materia-ia-archivo" accept=".pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/gif,image/webp" style="display:block; margin-bottom:0.5rem;" />
+          <label for="prueba-materia-ia-archivo" style="font-size:0.82rem; color:var(--text-muted); display:block; margin-bottom:0.3rem;">Subir uno o varios Word (.docx), PDF o imágenes con la prueba ya hecha, para que la IA la digitalice usando toda la información junta (revisá y marcá las respuestas correctas después — el documento no las trae)</label>
+          <input type="file" id="prueba-materia-ia-archivo" accept=".pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/gif,image/webp" multiple style="display:block; margin-bottom:0.5rem;" />
           <button class="btn secondary small" id="prueba-materia-ia-btn" type="button">✨ Digitalizar con IA</button>
           <span id="prueba-materia-ia-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>
         </div>
@@ -5390,8 +5390,8 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       const tema = panel.querySelector("#prueba-materia-titulo").value.trim();
       if (!tema) { alert("Ponele un título a la prueba primero, para que la IA sepa qué estás subiendo."); return; }
       const archivoInput = panel.querySelector("#prueba-materia-ia-archivo");
-      const archivo = archivoInput?.files[0];
-      if (!archivo) { alert("Elegí primero el archivo (Word, PDF o imagen) de la prueba."); return; }
+      const archivos = archivoInput ? Array.from(archivoInput.files || []) : [];
+      if (!archivos.length) { alert("Elegí primero el o los archivos (Word, PDF o imagen) de la prueba."); return; }
       iaEv.target.disabled = true;
       iaEv.target.textContent = "Digitalizando…";
       if (estado) estado.textContent = "";
@@ -5402,13 +5402,13 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
           lector.onerror = () => reject(new Error("No se pudo leer el archivo."));
           lector.readAsDataURL(f);
         });
-        if (estado) estado.textContent = "Leyendo el archivo…";
-        const archivoPayload = { mimeType: archivo.type, datosBase64: await leerComoBase64(archivo) };
+        if (estado) estado.textContent = archivos.length > 1 ? `Leyendo ${archivos.length} archivos…` : "Leyendo el archivo…";
+        const archivosPayload = await Promise.all(archivos.map(async (a) => ({ mimeType: a.type, nombre: a.name, datosBase64: await leerComoBase64(a) })));
         if (estado) estado.textContent = "La IA está leyendo la prueba…";
         const r = await fetch("/api/generar-actividad-ia", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ tipo: "prueba", tema, contexto: "", instrucciones: "", archivo: archivoPayload })
+          body: JSON.stringify({ tipo: "prueba", tema, contexto: "", instrucciones: "", archivos: archivosPayload })
         });
         const datos = await r.json();
         if (!r.ok) { if (estado) estado.textContent = "No se pudo digitalizar: " + (datos.error || "error desconocido."); return; }

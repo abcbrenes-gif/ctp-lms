@@ -165,29 +165,28 @@ module.exports = async (req, res) => {
   const contexto = limpiarHtml(body.contexto).slice(0, 2000);
   let instrucciones = limpiarHtml(body.instrucciones).slice(0, 800);
 
-  const archivo = body.archivo || null;
-  let bloqueArchivo = null;
-  let textoExtraidoDocx = "";
-  if (archivo && archivo.datosBase64) {
+  // Acepta varios archivos (body.archivos, un arreglo) o, por compatibilidad
+  // con versiones anteriores, uno solo (body.archivo).
+  const archivosRaw = Array.isArray(body.archivos) ? body.archivos : (body.archivo ? [body.archivo] : []);
+  const bloquesArchivo = [];
+  const textosExtraidosDocx = [];
+  let totalLen = 0;
+  for (const archivo of archivosRaw) {
+    if (!archivo || !archivo.datosBase64) continue;
     const mimeType = String(archivo.mimeType || "");
     const datosBase64 = String(archivo.datosBase64 || "");
-    if (datosBase64.length > 3_500_000) {
-      res.status(400).json({ error: "El archivo es demasiado grande. Probá con uno más liviano (máximo ~2.5MB)." });
-      return;
-    }
+    const nombre = String(archivo.nombre || "").trim();
+    totalLen += datosBase64.length;
     if (TIPOS_ARCHIVO_DOCX[mimeType]) {
       // Word: no se puede mandar como bloque multimodal a Claude — se le
       // extrae el texto en el servidor y se agrega como bloque de texto.
       try {
         const mammoth = require("mammoth");
         const resultado = await mammoth.extractRawText({ buffer: Buffer.from(datosBase64, "base64") });
-        textoExtraidoDocx = String(resultado.value || "").trim().slice(0, 30000);
+        const texto = String(resultado.value || "").trim().slice(0, 30000);
+        if (texto) textosExtraidosDocx.push(nombre ? `[${nombre}]\n${texto}` : texto);
       } catch (err) {
-        res.status(400).json({ error: "No se pudo leer el archivo Word: " + (err && err.message ? err.message : String(err)) });
-        return;
-      }
-      if (!textoExtraidoDocx) {
-        res.status(400).json({ error: "El archivo Word parece estar vacío o no se pudo extraer texto de él." });
+        res.status(400).json({ error: "No se pudo leer un archivo Word: " + (err && err.message ? err.message : String(err)) });
         return;
       }
     } else {
@@ -196,9 +195,21 @@ module.exports = async (req, res) => {
         res.status(400).json({ error: "Solo se aceptan archivos PDF, Word (.docx) o imágenes (PNG, JPG, GIF, WEBP) como apoyo para generar la actividad." });
         return;
       }
-      bloqueArchivo = { type: tipoBloque, source: { type: "base64", media_type: mimeType, data: datosBase64 } };
+      bloquesArchivo.push({ type: tipoBloque, source: { type: "base64", media_type: mimeType, data: datosBase64 } });
     }
-    instrucciones = `${instrucciones ? instrucciones + " " : ""}Basate en el CONTENIDO REAL del archivo adjunto (no inventes datos que no estén ahí ni en el tema/contexto dado).`.trim();
+  }
+  if (totalLen > 9_000_000) {
+    res.status(400).json({ error: "Los archivos son demasiado grandes en conjunto. Probá con menos archivos o más livianos." });
+    return;
+  }
+  if (!bloquesArchivo.length && !textosExtraidosDocx.length && archivosRaw.length) {
+    res.status(400).json({ error: "No se pudo leer ningún archivo adjunto." });
+    return;
+  }
+  const textoExtraidoDocx = textosExtraidosDocx.join("\n\n---\n\n");
+  if (bloquesArchivo.length || textosExtraidosDocx.length) {
+    const varios = (bloquesArchivo.length + textosExtraidosDocx.length) > 1;
+    instrucciones = `${instrucciones ? instrucciones + " " : ""}Basate en el CONTENIDO REAL d${varios ? "e los archivos adjuntos" : "el archivo adjunto"} (no inventes datos que no estén ahí ni en el tema/contexto dado)${varios ? ", combinando la información de todos" : ""}.`.trim();
   }
 
   if (!PROMPTS[tipo]) {
@@ -219,10 +230,10 @@ module.exports = async (req, res) => {
 
   async function llamarIA(promptTexto) {
     const promptConDocx = textoExtraidoDocx
-      ? `${promptTexto}\n\n--- TEXTO EXTRAÍDO DEL ARCHIVO WORD ADJUNTO ---\n${textoExtraidoDocx}\n--- FIN DEL TEXTO EXTRAÍDO ---`
+      ? `${promptTexto}\n\n--- TEXTO EXTRAÍDO DE${textosExtraidosDocx.length > 1 ? " LOS ARCHIVOS WORD ADJUNTOS" : "L ARCHIVO WORD ADJUNTO"} ---\n${textoExtraidoDocx}\n--- FIN DEL TEXTO EXTRAÍDO ---`
       : promptTexto;
-    const contenidoMensaje = bloqueArchivo
-      ? [bloqueArchivo, { type: "text", text: promptConDocx }]
+    const contenidoMensaje = bloquesArchivo.length
+      ? [...bloquesArchivo, { type: "text", text: promptConDocx }]
       : promptConDocx;
     const respuesta = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
