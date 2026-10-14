@@ -199,7 +199,15 @@ async function guardarResultadoActividad(trabajo, estudianteId, { respuestas, po
   );
   if (errorEstado) console.error("No se pudo actualizar trabajos_cotidianos_estudiante:", errorEstado.message);
 
-  if (trabajo.indicador_id) {
+  // Si la prueba tiene caso práctico (se califica a mano), NO se publica
+  // sola la nota automática — quedaría "ya calificado" con una nota
+  // incompleta (sin el caso) antes de que el profesor la revise. En ese
+  // caso se deja "Sin calificar aún" hasta que el profesor ponga la nota
+  // final a mano (ya viendo el % automático + la respuesta del caso).
+  const tieneCasoPractico = !!(trabajo.contenido_actividad && trabajo.contenido_actividad.casoPractico
+    && ((trabajo.contenido_actividad.casoPractico.enunciado || "").trim() || (trabajo.contenido_actividad.casoPractico.instruccion || "").trim()));
+
+  if (trabajo.indicador_id && !tieneCasoPractico) {
     const { error: errorIndicador } = await upsertSinConflicto(
       "calificaciones_indicador",
       { indicador_id: trabajo.indicador_id, estudiante_id: estudianteId },
