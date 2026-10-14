@@ -611,6 +611,119 @@ function jugarCrucigrama(trabajo, cuerpo, terminar) {
   });
 }
 
+// --- Prueba: selección única + apareamiento (opcional) + caso práctico
+// (opcional), una después de la otra. Solo la selección única y el
+// apareamiento se corrigen solos; el caso práctico lo califica el
+// profesor a mano (igual que la Infografía). ---
+function jugarPrueba(trabajo, cuerpo, terminar) {
+  const contenido = trabajo.contenido_actividad || {};
+  const preguntas = contenido.preguntas || [];
+  const apareamiento = (contenido.apareamiento && Array.isArray(contenido.apareamiento.pares) && contenido.apareamiento.pares.length)
+    ? contenido.apareamiento
+    : null;
+  const casoPractico = (contenido.casoPractico && ((contenido.casoPractico.enunciado || "").trim() || (contenido.casoPractico.instruccion || "").trim()))
+    ? contenido.casoPractico
+    : null;
+
+  const respuestas = new Array(preguntas.length).fill(null);
+  let actual = 0;
+  let apareamientoRespuestas = [];
+  let casoRespuesta = "";
+
+  function renderSeleccion() {
+    const p = preguntas[actual];
+    cuerpo.innerHTML = `
+      <p style="font-size:0.85rem; color:#9FB0D6; margin-bottom:0.6rem;">Pregunta ${actual + 1} de ${preguntas.length}</p>
+      <h3 style="font-size:1.3rem; margin-bottom:1rem;">${p.pregunta}</h3>
+      <div id="opciones-actividad" style="display:flex; flex-direction:column; gap:0.6rem;">
+        ${p.opciones.map((op, i) => `
+          <button type="button" class="btn secondary" data-opcion="${i}" style="text-align:left; background:${respuestas[actual] === i ? "#2E6FDB" : ""}; color:${respuestas[actual] === i ? "#fff" : ""};">${op}</button>`).join("")}
+      </div>
+      <div class="row" style="margin-top:1.5rem; justify-content:space-between;">
+        <button type="button" class="btn secondary small" id="act-anterior" ${actual === 0 ? "disabled" : ""}>&larr; Anterior</button>
+        <button type="button" class="btn small" id="act-siguiente">${actual === preguntas.length - 1 ? "Siguiente parte →" : "Siguiente →"}</button>
+      </div>`;
+    cuerpo.querySelectorAll("[data-opcion]").forEach(btn => {
+      btn.addEventListener("click", () => { respuestas[actual] = Number(btn.dataset.opcion); renderSeleccion(); });
+    });
+    cuerpo.querySelector("#act-anterior").addEventListener("click", () => { actual--; renderSeleccion(); });
+    cuerpo.querySelector("#act-siguiente").addEventListener("click", () => {
+      if (actual < preguntas.length - 1) { actual++; renderSeleccion(); return; }
+      const sinResponder = respuestas.some(r => r === null);
+      if (sinResponder && !confirm("Todavía hay preguntas sin responder. ¿Continuar de todos modos?")) return;
+      irAApareamiento();
+    });
+  }
+
+  function irAApareamiento() {
+    if (!apareamiento) { irACaso(); return; }
+    const pares = apareamiento.pares;
+    apareamientoRespuestas = new Array(pares.length).fill(null);
+    const opcionesMezcladas = mezclar(pares.map((_, i) => i));
+    function render() {
+      cuerpo.innerHTML = `
+        <h3 style="margin-bottom:0.6rem;">Apareamiento</h3>
+        <p style="font-size:0.85rem; color:#9FB0D6; margin-bottom:1rem;">${(apareamiento.instrucciones || "Relacioná cada situación con la opción que corresponde.").replace(/[<>]/g, "")}</p>
+        <div style="display:flex; flex-direction:column; gap:0.8rem;">
+          ${pares.map((p, i) => `
+            <div style="background:#1b2340; border-radius:10px; padding:0.9rem;">
+              <p style="margin-bottom:0.5rem;">${i + 1}. ${p.situacion}</p>
+              <select data-apar="${i}" style="width:100%; padding:0.4rem;">
+                <option value="">— Elegir —</option>
+                ${opcionesMezcladas.map(j => `<option value="${j}" ${apareamientoRespuestas[i] === j ? "selected" : ""}>${pares[j].respuesta}</option>`).join("")}
+              </select>
+            </div>`).join("")}
+        </div>
+        <div class="row" style="margin-top:1.5rem; justify-content:flex-end;">
+          <button type="button" class="btn small" id="act-terminar-apareamiento">${casoPractico ? "Siguiente parte →" : "Terminar"}</button>
+        </div>`;
+      cuerpo.querySelectorAll("[data-apar]").forEach(sel => {
+        sel.addEventListener("change", () => { apareamientoRespuestas[Number(sel.dataset.apar)] = sel.value === "" ? null : Number(sel.value); });
+      });
+      cuerpo.querySelector("#act-terminar-apareamiento").addEventListener("click", () => {
+        const sinResponder = apareamientoRespuestas.some(r => r === null);
+        if (sinResponder && !confirm("Todavía hay pares sin relacionar. ¿Continuar de todos modos?")) return;
+        irACaso();
+      });
+    }
+    render();
+  }
+
+  function irACaso() {
+    if (!casoPractico) { finalizar(); return; }
+    cuerpo.innerHTML = `
+      <h3 style="margin-bottom:0.6rem;">Caso práctico</h3>
+      <div style="background:#1b2340; border-radius:10px; padding:0.9rem; margin-bottom:0.8rem; font-size:0.9rem; line-height:1.5;">${casoPractico.enunciado || ""}</div>
+      ${casoPractico.instruccion ? `<p style="font-size:0.85rem; color:#9FB0D6; margin-bottom:0.6rem;">${casoPractico.instruccion.replace(/[<>]/g, "")}</p>` : ""}
+      <textarea id="act-caso-respuesta" rows="12" placeholder="Escribí aquí tu respuesta..." style="width:100%; font-family:inherit; padding:0.6rem; box-sizing:border-box; resize:vertical;">${casoRespuesta}</textarea>
+      <p style="font-size:0.78rem; color:#9FB0D6; margin-top:0.4rem;">Esta parte la revisa y califica tu profesor a mano; no se corrige automáticamente.</p>
+      <div class="row" style="margin-top:1rem; justify-content:flex-end;">
+        <button type="button" class="btn small" id="act-terminar-caso">Terminar prueba</button>
+      </div>`;
+    cuerpo.querySelector("#act-terminar-caso").addEventListener("click", () => {
+      casoRespuesta = cuerpo.querySelector("#act-caso-respuesta").value.trim();
+      if (!casoRespuesta && !confirm("No escribiste ninguna respuesta para el caso práctico. ¿Terminar de todos modos?")) return;
+      finalizar();
+    });
+  }
+
+  function finalizar() {
+    const correctasSeleccion = preguntas.reduce((acc, p, i) => acc + (respuestas[i] === p.correcta ? 1 : 0), 0);
+    const correctasApareamiento = apareamiento ? apareamiento.pares.reduce((acc, _, i) => acc + (apareamientoRespuestas[i] === i ? 1 : 0), 0) : 0;
+    const totalAuto = preguntas.length + (apareamiento ? apareamiento.pares.length : 0);
+    const porcentaje = totalAuto ? ((correctasSeleccion + correctasApareamiento) / totalAuto) * 100 : 0;
+    terminar({
+      respuestas,
+      porcentaje,
+      apareamientoRespuestas: apareamiento ? apareamientoRespuestas : null,
+      casoRespuesta: casoPractico ? casoRespuesta : null
+    });
+  }
+
+  if (preguntas.length) renderSeleccion();
+  else irAApareamiento();
+}
+
 // Punto de entrada: arranca la actividad correcta según tipo_actividad y
 // guarda el resultado al terminar. `onTerminado(puntaje)` se llama al final
 // para que la pantalla pueda refrescarse.
@@ -621,7 +734,7 @@ async function iniciarActividadInteractiva(trabajo, estudianteId, onTerminado) {
     falso_verdadero: jugarFalsoVerdadero,
     sopa_letras: jugarSopaDeLetras,
     crucigrama: jugarCrucigrama,
-    prueba: jugarSeleccionUnica // misma mecánica que selección única
+    prueba: jugarPrueba
   };
   const jugador = jugadores[tipo];
   if (!jugador) { alert("Este tipo de actividad todavía no está disponible para jugar."); return; }
@@ -635,7 +748,10 @@ async function iniciarActividadInteractiva(trabajo, estudianteId, onTerminado) {
   }
 
   lanzarActividadBloqueada(trabajo, (cuerpo, terminar) => jugador(trabajo, cuerpo, terminar), async (resultado) => {
-    const puntaje = await guardarResultadoActividad(trabajo, estudianteId, { ...resultado, datosPrueba });
+    const datosPruebaCompleto = datosPrueba
+      ? { ...datosPrueba, apareamiento_respuestas: resultado.apareamientoRespuestas || null, caso_respuesta: resultado.casoRespuesta || null }
+      : null;
+    const puntaje = await guardarResultadoActividad(trabajo, estudianteId, { ...resultado, datosPrueba: datosPruebaCompleto });
     onTerminado(puntaje, resultado.porcentaje, resultado.intentosSalida);
   });
 }

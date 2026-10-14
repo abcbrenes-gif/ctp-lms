@@ -3048,21 +3048,56 @@ function agregarPreguntaPruebaBloque(contenedor) {
 // bloque, dentro de "contenedor" (el div donde se insertó el HTML de
 // construirPanelActividadHTML("prueba")). Hay que llamarla una vez, justo
 // después de insertar ese HTML en el DOM.
+// Un bloque de "situación / respuesta correcta" para el apareamiento
+// (opcional) de una Prueba. "i" es un índice interno único por bloque.
+function bloqueParApareamientoHTML(i) {
+  return `
+    <div class="au-apareamiento-par" data-par="${i}" style="display:flex; gap:0.5rem; margin-bottom:0.5rem; align-items:flex-start;">
+      <textarea class="au-apar-situacion" data-i="${i}" placeholder="Situación (columna A)" rows="2" style="flex:1; font-family:inherit; resize:vertical;"></textarea>
+      <textarea class="au-apar-respuesta" data-i="${i}" placeholder="Respuesta correcta (columna B)" rows="2" style="flex:1; font-family:inherit; resize:vertical;"></textarea>
+      <button type="button" class="btn danger small au-apareamiento-quitar" data-par="${i}">Quitar</button>
+    </div>`;
+}
+
+function agregarParApareamientoBloque(contenedor) {
+  const lista = contenedor.querySelector(".au-apareamiento-lista");
+  if (!lista) return null;
+  const siguiente = Number(lista.dataset.auApareamientoSiguiente || "0");
+  lista.dataset.auApareamientoSiguiente = String(siguiente + 1);
+  const envoltura = document.createElement("div");
+  envoltura.innerHTML = bloqueParApareamientoHTML(siguiente);
+  const bloque = envoltura.firstElementChild;
+  lista.appendChild(bloque);
+  return bloque;
+}
+
 function inicializarConstructorPrueba(contenedor) {
   const lista = contenedor.querySelector(".au-prueba-lista");
   const btnAgregar = contenedor.querySelector(".au-prueba-agregar");
-  if (!lista || !btnAgregar) return;
-  btnAgregar.addEventListener("click", () => agregarPreguntaPruebaBloque(contenedor));
-  lista.addEventListener("click", (e) => {
-    const quitar = e.target.closest(".au-prueba-quitar");
-    if (!quitar) return;
-    if (lista.querySelectorAll(".au-prueba-bloque").length <= 1) {
-      alert("La prueba debe tener al menos una pregunta.");
-      return;
-    }
-    quitar.closest(".au-prueba-bloque")?.remove();
-    renumerarPreguntasPrueba(lista);
-  });
+  if (lista && btnAgregar) {
+    btnAgregar.addEventListener("click", () => agregarPreguntaPruebaBloque(contenedor));
+    lista.addEventListener("click", (e) => {
+      const quitar = e.target.closest(".au-prueba-quitar");
+      if (!quitar) return;
+      if (lista.querySelectorAll(".au-prueba-bloque").length <= 1) {
+        alert("La prueba debe tener al menos una pregunta.");
+        return;
+      }
+      quitar.closest(".au-prueba-bloque")?.remove();
+      renumerarPreguntasPrueba(lista);
+    });
+  }
+
+  const listaApar = contenedor.querySelector(".au-apareamiento-lista");
+  const btnAgregarApar = contenedor.querySelector(".au-apareamiento-agregar");
+  if (listaApar && btnAgregarApar) {
+    btnAgregarApar.addEventListener("click", () => agregarParApareamientoBloque(contenedor));
+    listaApar.addEventListener("click", (e) => {
+      const quitar = e.target.closest(".au-apareamiento-quitar");
+      if (!quitar) return;
+      quitar.closest(".au-apareamiento-par")?.remove();
+    });
+  }
 }
 
 function construirPanelActividadHTML(tipo) {
@@ -3098,7 +3133,24 @@ function construirPanelActividadHTML(tipo) {
       <div class="au-prueba-lista" data-au-prueba-siguiente="${preguntasIniciales.length}">
         ${preguntasIniciales.map(i => bloquePreguntaPruebaHTML(i)).join("")}
       </div>
-      <button type="button" class="btn secondary small au-prueba-agregar">+ Agregar pregunta</button>`;
+      <button type="button" class="btn secondary small au-prueba-agregar">+ Agregar pregunta</button>
+
+      <div style="margin:1.4rem 0 0.8rem; padding-top:1rem; border-top:1px solid var(--paper-line);">
+        <p style="font-weight:600; font-size:0.9rem; margin-bottom:0.3rem;">Apareamiento (opcional)</p>
+        <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.6rem;">Si agregás pares, se suman como una sección extra de la prueba y se corrigen solos (1 punto por par). Dejalo vacío si esta prueba no lleva apareamiento.</p>
+        <textarea id="au-prueba-apareamiento-instrucciones" rows="2" placeholder="Instrucciones del apareamiento (opcional — si lo dejás vacío se usa un texto genérico)" style="width:100%; font-family:inherit; resize:vertical; margin-bottom:0.6rem;"></textarea>
+        <div class="au-apareamiento-lista" data-au-apareamiento-siguiente="0"></div>
+        <button type="button" class="btn secondary small au-apareamiento-agregar">+ Agregar par</button>
+      </div>
+
+      <div style="margin:1.4rem 0 0.4rem; padding-top:1rem; border-top:1px solid var(--paper-line);">
+        <p style="font-weight:600; font-size:0.9rem; margin-bottom:0.3rem;">Caso práctico / desarrollo (opcional)</p>
+        <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.6rem;">Se agrega como última parte de la prueba. El estudiante escribe su respuesta en un cuadro de texto y vos la calificás a mano en Rúbrica y Evaluaciones, igual que con una Infografía. Dejalo vacío si esta prueba no lleva caso práctico.</p>
+        <label style="font-size:0.82rem; display:block; margin-bottom:0.3rem;">Enunciado del caso (podés pegar texto y tablas)</label>
+        <div id="au-prueba-caso-enunciado" contenteditable="true" style="min-height:6rem; border:1px solid var(--paper-line); border-radius:6px; padding:0.6rem; margin-bottom:0.6rem; font-size:0.85rem; background:#fff;"></div>
+        <label style="font-size:0.82rem; display:block; margin-bottom:0.3rem;">Qué debe entregar el estudiante</label>
+        <textarea id="au-prueba-caso-instruccion" rows="2" placeholder="Ej. Elaborar el libro de compras del trimestre con los datos del caso." style="width:100%; font-family:inherit; resize:vertical;"></textarea>
+      </div>`;
   }
   if (tipo === "falso_verdadero") {
     const items = Array.from({ length: 10 }, (_, i) => i);
@@ -3249,7 +3301,7 @@ async function construirRetroalimentacionActividad(trabajo, soloEstudianteId) {
   const contenido = trabajo.contenido_actividad;
   if (!contenido) return `<p class="empty" style="font-size:0.82rem;">Esta actividad no tiene contenido guardado.</p>`;
 
-  const items = trabajo.tipo_actividad === "seleccion_unica"
+  const items = (trabajo.tipo_actividad === "seleccion_unica" || trabajo.tipo_actividad === "prueba")
     ? (contenido.preguntas || []).map(p => ({ texto: p.pregunta, opciones: p.opciones || [], correcta: Number(p.correcta) }))
     : (contenido.afirmaciones || []).map(a => ({ texto: a.texto, opciones: ["Falso", "Verdadero"], correcta: a.correcta ? 1 : 0 }));
   if (items.length === 0) return `<p class="empty" style="font-size:0.82rem;">Esta actividad no tiene preguntas guardadas.</p>`;
@@ -3273,6 +3325,44 @@ async function construirRetroalimentacionActividad(trabajo, soloEstudianteId) {
     return Number(valor) === item.correcta;
   };
 
+  const apareamiento = trabajo.tipo_actividad === "prueba" ? contenido.apareamiento : null;
+  const casoPractico = trabajo.tipo_actividad === "prueba" ? contenido.casoPractico : null;
+
+  // HTML extra para una Prueba con apareamiento y/o caso práctico, a partir
+  // de lo que se guardó en datos_prueba (apareamiento_respuestas, caso_respuesta).
+  const extraPruebaHTML = (e) => {
+    const dp = e.datos_prueba || {};
+    let html = "";
+    if (apareamiento && Array.isArray(apareamiento.pares) && apareamiento.pares.length) {
+      const respuestas = Array.isArray(dp.apareamiento_respuestas) ? dp.apareamiento_respuestas : [];
+      const correctasApar = apareamiento.pares.reduce((acc, _, i) => acc + (respuestas[i] === i ? 1 : 0), 0);
+      html += `
+        <div style="margin-top:0.6rem;">
+          <p style="font-weight:600; font-size:0.82rem; margin-bottom:0.3rem;">Apareamiento: ${correctasApar}/${apareamiento.pares.length}</p>
+          <div style="display:grid; gap:0.3rem;">
+            ${apareamiento.pares.map((p, i) => {
+              const val = respuestas[i];
+              const correcta = val === i;
+              const elegido = (val === null || val === undefined) ? "Sin responder" : (apareamiento.pares[val]?.respuesta ?? "Sin responder");
+              return `<div style="font-size:0.8rem; padding:0.3rem 0.5rem; border-left:3px solid ${correcta ? "#1d7a43" : "#c0392b"};">
+                <div>${i + 1}. ${p.situacion}</div>
+                <div style="color:${correcta ? "#1d7a43" : "#c0392b"};">${correcta ? "✓" : "✗"} Relacionó: ${elegido}</div>
+                ${!correcta ? `<div style="color:var(--text-muted);">Correcta: ${p.respuesta}</div>` : ""}
+              </div>`;
+            }).join("")}
+          </div>
+        </div>`;
+    }
+    if (casoPractico && (casoPractico.enunciado || casoPractico.instruccion)) {
+      html += `
+        <div style="margin-top:0.6rem;">
+          <p style="font-weight:600; font-size:0.82rem; margin-bottom:0.3rem;">Caso práctico (calificar a mano en Rúbrica y Evaluaciones):</p>
+          <div style="font-size:0.82rem; background:#fff; border:1px solid var(--paper-line); border-radius:6px; padding:0.5rem 0.6rem; white-space:pre-wrap;">${dp.caso_respuesta ? dp.caso_respuesta.replace(/[<>]/g, "") : "<em>Sin respuesta</em>"}</div>
+        </div>`;
+    }
+    return html;
+  };
+
   const detalleDe = (e) => {
     const respuestas = Array.isArray(e.respuestas) ? e.respuestas : [];
     const correctas = items.reduce((acc, item, i) => acc + (esCorrecta(item, respuestas[i]) ? 1 : 0), 0);
@@ -3284,7 +3374,7 @@ async function construirRetroalimentacionActividad(trabajo, soloEstudianteId) {
         <div style="color:${correcta ? "#1d7a43" : "#c0392b"};">${correcta ? "✓" : "✗"} Respondió: ${respuestaTexto(item, respuestas[i])}</div>
         ${!correcta ? `<div style="color:var(--text-muted);">Respuesta correcta: ${respuestaTexto(item, item.correcta)}</div>` : ""}
       </div>`;
-    }).join("");
+    }).join("") + extraPruebaHTML(e);
     return { correctas, preguntas };
   };
 
@@ -3347,7 +3437,31 @@ function leerContenidoActividadDesdeFormulario(tipo, el) {
       preguntas.push({ pregunta, opciones, correcta: marcada ? Number(marcada.value) : 0 });
     }
     const instrucciones = (el.querySelector("#au-prueba-instrucciones")?.value || "").trim();
-    return { valido: true, contenido: instrucciones ? { preguntas, instrucciones } : { preguntas } };
+
+    const paresEl = Array.from(el.querySelectorAll(".au-apareamiento-par"));
+    const pares = [];
+    for (let idx = 0; idx < paresEl.length; idx++) {
+      const bloque = paresEl[idx];
+      const i = bloque.dataset.par;
+      const situacion = (bloque.querySelector(`.au-apar-situacion[data-i="${i}"]`)?.value || "").trim();
+      const respuesta = (bloque.querySelector(`.au-apar-respuesta[data-i="${i}"]`)?.value || "").trim();
+      if (!situacion && !respuesta) continue; // par vacío, se ignora
+      if (!situacion || !respuesta) return { valido: false, error: `Completá la situación y la respuesta del par de apareamiento ${idx + 1} (o quitalo si no lo vas a usar).` };
+      pares.push({ situacion, respuesta });
+    }
+    const instruccionesApareamiento = (el.querySelector("#au-prueba-apareamiento-instrucciones")?.value || "").trim();
+    const apareamiento = pares.length ? { pares, instrucciones: instruccionesApareamiento || undefined } : null;
+
+    const enunciadoCaso = (el.querySelector("#au-prueba-caso-enunciado")?.innerHTML || "").trim();
+    const enunciadoCasoTexto = (el.querySelector("#au-prueba-caso-enunciado")?.textContent || "").trim();
+    const instruccionCaso = (el.querySelector("#au-prueba-caso-instruccion")?.value || "").trim();
+    const casoPractico = (enunciadoCasoTexto || instruccionCaso) ? { enunciado: enunciadoCaso, instruccion: instruccionCaso || undefined } : null;
+
+    const contenido = { preguntas };
+    if (instrucciones) contenido.instrucciones = instrucciones;
+    if (apareamiento) contenido.apareamiento = apareamiento;
+    if (casoPractico) contenido.casoPractico = casoPractico;
+    return { valido: true, contenido };
   }
   if (tipo === "falso_verdadero") {
     const afirmaciones = [];
