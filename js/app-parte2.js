@@ -3550,7 +3550,7 @@ async function construirDiagnosticoPorPregunta(trabajo) {
 // puntos de la prueba, sin convertir a ninguna otra escala — y ese
 // mismo total queda guardado como el "máximo" del indicador, para que
 // el % calzado sea exacto.
-async function pintarPanelPuntosPorParte(panel, trabajo, indicadorId, totalPuntos) {
+async function pintarPanelPuntosPorParte(panel, trabajo, indicadorId, totalPuntos, pesoPrueba) {
   const contenido = trabajo.contenido_actividad;
   if (!contenido) { panel.innerHTML = `<p class="empty" style="font-size:0.82rem;">Esta prueba no tiene contenido guardado.</p>`; return; }
 
@@ -3560,6 +3560,7 @@ async function pintarPanelPuntosPorParte(panel, trabajo, indicadorId, totalPunto
   const parte1Max = preguntas.length;
   const parte2Max = pares.length;
   const total = totalPuntos || 47;
+  const peso = pesoPrueba || 20;
   const parte3Max = Math.max(total - parte1Max - parte2Max, 0);
 
   const { data: entregas } = await sb.from("actividades_estudiante").select("*").eq("trabajo_id", trabajo.id).eq("completado", true);
@@ -3583,6 +3584,7 @@ async function pintarPanelPuntosPorParte(panel, trabajo, indicadorId, totalPunto
       const p3Guardado = e.datos_prueba?.puntos_parte3;
       const sumaActual = p1 + p2 + (Number.isFinite(p3Guardado) ? p3Guardado : 0);
       const pct = total ? Math.round((sumaActual / total) * 100) : 0;
+      const aporte = total ? Math.round((sumaActual / total) * peso * 10) / 10 : 0;
       return `
       <div class="roster-row" style="flex-wrap:wrap; gap:0.5rem; align-items:center;" data-fila-puntos="${e.estudiante_id}">
         <span class="name" style="flex-basis:12rem;">${nombrePorId[e.estudiante_id] || e.estudiante_id}</span>
@@ -3592,6 +3594,7 @@ async function pintarPanelPuntosPorParte(panel, trabajo, indicadorId, totalPunto
           <input type="number" min="0" max="${parte3Max}" step="1" value="${Number.isFinite(p3Guardado) ? p3Guardado : ""}" data-parte3-input="${e.estudiante_id}" style="width:4.5rem;" />/${parte3Max}
         </label>
         <span style="font-size:0.85rem;">Total: <strong data-total-texto="${e.estudiante_id}">${sumaActual}</strong>/${total} (<span data-pct-texto="${e.estudiante_id}">${pct}</span>%)</span>
+        <span style="font-size:0.85rem; color:var(--brick); font-weight:600;">Aporte a la nota final: <span data-aporte-texto="${e.estudiante_id}">${aporte}</span>% de ${peso}%</span>
         <button class="btn small" data-guardar-puntos="${e.estudiante_id}">Guardar</button>
       </div>`;
     }).join("");
@@ -3602,17 +3605,22 @@ async function pintarPanelPuntosPorParte(panel, trabajo, indicadorId, totalPunto
         <label style="font-size:0.82rem; display:flex; align-items:center; gap:0.4rem;">Total de puntos de la prueba:
           <input type="number" min="1" value="${total}" data-total-puntos-input style="width:5rem;" />
         </label>
+        <label style="font-size:0.82rem; display:flex; align-items:center; gap:0.4rem;">Valor de esta prueba en la nota final:
+          <input type="number" min="0" max="100" step="0.1" value="${peso}" data-peso-prueba-input style="width:4.5rem;" />%
+        </label>
         <button class="btn secondary small" data-aplicar-total-puntos type="button">Aplicar</button>
         <button class="btn small" data-guardar-todos-puntos type="button">Guardar todas</button>
       </div>
-      <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.6rem;">Parte 1 y Parte 2 se calculan solas con lo que contestó cada quien. Parte 3 (caso práctico) la ponés vos a mano, según lo que entregó en papel. La nota final es los puntos sumados sobre ${total}, sin convertir a ninguna otra escala.</p>
+      <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.6rem;">Parte 1 y Parte 2 se calculan solas con lo que contestó cada quien. Parte 3 (caso práctico) la ponés vos a mano, según lo que entregó en papel. La nota final es los puntos sumados sobre ${total}, sin convertir a ninguna otra escala — y el "Aporte a la nota final" es ese % aplicado sobre el ${peso}% que vale esta prueba.</p>
       <div class="roster">${filas}</div>
     </div>`;
 
   panel.querySelector("[data-aplicar-total-puntos]").addEventListener("click", () => {
-    const input = panel.querySelector("[data-total-puntos-input]");
-    const nuevoTotal = Number(input.value) || 47;
-    pintarPanelPuntosPorParte(panel, trabajo, indicadorId, nuevoTotal);
+    const inputTotal = panel.querySelector("[data-total-puntos-input]");
+    const inputPeso = panel.querySelector("[data-peso-prueba-input]");
+    const nuevoTotal = Number(inputTotal.value) || 47;
+    const nuevoPeso = Number(inputPeso.value) || 0;
+    pintarPanelPuntosPorParte(panel, trabajo, indicadorId, nuevoTotal, nuevoPeso);
   });
 
   const guardarUno = async (estudianteId) => {
@@ -3631,8 +3639,10 @@ async function pintarPanelPuntosPorParte(panel, trabajo, indicadorId, totalPunto
     entrega.datos_prueba = nuevosDatos;
     const totalTexto = panel.querySelector(`[data-total-texto="${estudianteId}"]`);
     const pctTexto = panel.querySelector(`[data-pct-texto="${estudianteId}"]`);
+    const aporteTexto = panel.querySelector(`[data-aporte-texto="${estudianteId}"]`);
     if (totalTexto) totalTexto.textContent = sumaFinal;
     if (pctTexto) pctTexto.textContent = total ? Math.round((sumaFinal / total) * 100) : 0;
+    if (aporteTexto) aporteTexto.textContent = total ? Math.round((sumaFinal / total) * peso * 10) / 10 : 0;
   };
 
   panel.querySelectorAll("[data-guardar-puntos]").forEach(btn => {
