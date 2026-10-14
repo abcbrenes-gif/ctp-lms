@@ -3610,7 +3610,62 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
     const estadoPorTrabajo = {};
     (misEstados || []).forEach(e => { porTrabajo[e.trabajo_id] = e.completado; estadoPorTrabajo[e.trabajo_id] = e; });
 
+    // Trabajos de tipo prueba/actividad interactiva (no el trabajo simple de
+    // casilla "Completado") — mismo trato que en un subtema, para que
+    // "Iniciar actividad"/"Iniciar prueba" aparezca también cuando el
+    // trabajo vive directo bajo el tema (sin subtema).
+    const trabajosActividad = trabajos.filter(t => t.tipo_actividad && t.tipo_actividad !== "simple");
+    const { data: misResultados } = trabajosActividad.length
+      ? await sb.from("actividades_estudiante").select("*").eq("estudiante_id", estudianteId).in("trabajo_id", trabajosActividad.map(t => t.id))
+      : { data: [] };
+    const resultadoPorTrabajo = {};
+    (misResultados || []).forEach(r => { resultadoPorTrabajo[r.trabajo_id] = r; });
+
     holder.innerHTML = trabajos.map(t => {
+      const esActividad = t.tipo_actividad && t.tipo_actividad !== "simple";
+      if (esActividad && t.tipo_actividad === "infografia") {
+        const res = resultadoPorTrabajo[t.id];
+        const instrucciones = (t.contenido_actividad && t.contenido_actividad.instrucciones) || "";
+        return `
+        <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.4rem;">
+          <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
+            <span class="name">🖼️ ${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+            <span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>
+          </div>
+          ${instrucciones ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${instrucciones}</div>` : ""}
+          ${res && res.archivo_ruta
+            ? (() => {
+                const { data: pub } = sb.storage.from("materiales").getPublicUrl(res.archivo_ruta);
+                return `<span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Entregado: ${res.archivo_nombre || "archivo"}${res.puntaje != null ? " — Nota: " + res.puntaje + "/3" : " (pendiente de calificación)"}</span>
+               <a class="btn secondary small" href="${pub.publicUrl}" target="_blank" rel="noopener">👁️ Consultar mi entrega</a>`;
+              })()
+            : `<label class="btn small" style="cursor:pointer;">📎 Subir archivo (imagen o PDF)<input type="file" data-infografia-subir-tema="${t.id}" accept="image/*,.pdf" style="display:none;" /></label>`}
+          <span data-infografia-tema-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
+        </div>`;
+      }
+      if (esActividad) {
+        const res = resultadoPorTrabajo[t.id];
+        const completo = res && res.completado;
+        const puedeVerRetro = completo && t.retro_visible && TIPOS_CON_RETRO.includes(t.tipo_actividad);
+        const aunNoEsHora = t.tipo_actividad === "prueba" && t.fecha_hora_inicio && new Date(t.fecha_hora_inicio) > new Date();
+        let accionInicio;
+        if (completo) {
+          accionInicio = `<span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Completado — Nota: ${res.puntaje}/3</span>`;
+        } else if (aunNoEsHora) {
+          accionInicio = `<span class="badge" style="background:#fdf1dc; color:#a5690a;">⏳ Disponible a partir de ${formatearFechaHora(t.fecha_hora_inicio)}</span>`;
+        } else {
+          accionInicio = `<button class="btn small" data-iniciar-actividad-tema="${t.id}">▶ ${t.tipo_actividad === "prueba" ? "Iniciar prueba" : "Iniciar actividad"}</button>`;
+        }
+        return `
+        <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.4rem;">
+          <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
+            <span class="name">${t.tipo_actividad === "prueba" ? "📝" : "🧠"} ${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+            <span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>
+          </div>
+          ${accionInicio}
+          ${puedeVerRetro ? `<button class="btn secondary small" data-ver-mi-retro-tema="${t.id}">📝 Ver mis respuestas</button><div data-mi-retro-tema-panel="${t.id}" style="width:100%;"></div>` : ""}
+        </div>`;
+      }
       const miEstado = estadoPorTrabajo[t.id];
       const yaEntregado = porTrabajo[t.id] === true;
       let linkArchivo = "";
@@ -3664,6 +3719,68 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
           { onConflict: "trabajo_id,estudiante_id" }
         );
         pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, materiaId);
+      });
+    });
+
+    holder.querySelectorAll("[data-iniciar-actividad-tema]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const trabajo = trabajos.find(t => String(t.id) === String(btn.dataset.iniciarActividadTema));
+        if (!trabajo) return;
+        // Re-chequea en la base de datos, justo antes de arrancar, que no
+        // esté ya completada (evita que quede sin bloquear si la pantalla
+        // quedó abierta desde antes o si el guardado anterior tardó).
+        const { data: yaHecha } = await sb.from("actividades_estudiante").select("completado").eq("trabajo_id", trabajo.id).eq("estudiante_id", estudianteId).maybeSingle();
+        if (yaHecha && yaHecha.completado) {
+          alert("Esta actividad ya está completada. No se puede volver a hacer.");
+          pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, materiaId);
+          return;
+        }
+        if (trabajo.tipo_actividad === "prueba" && trabajo.fecha_hora_inicio && new Date(trabajo.fecha_hora_inicio) > new Date()) {
+          alert("Esta prueba todavía no está disponible. Podés entrar a partir de " + formatearFechaHora(trabajo.fecha_hora_inicio) + ".");
+          pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, materiaId);
+          return;
+        }
+        // Para "prueba" las reglas y la confirmación salen en la ventana de
+        // reglas propia (mostrarReglasPrueba), que aparece primero.
+        if (trabajo.tipo_actividad !== "prueba" && !confirm(`Vas a iniciar "${trabajo.titulo}". Se abre en pantalla completa y la nota se calcula automáticamente al terminar. ¿Listo para empezar?`)) return;
+        iniciarActividadInteractiva(trabajo, estudianteId, (puntaje) => {
+          pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, materiaId);
+        });
+      });
+    });
+
+    holder.querySelectorAll("[data-infografia-subir-tema]").forEach(input => {
+      input.addEventListener("change", async () => {
+        const trabajoId = input.dataset.infografiaSubirTema;
+        const archivo = input.files[0];
+        if (!archivo) return;
+        const estado = holder.querySelector(`[data-infografia-tema-estado="${trabajoId}"]`);
+        if (estado) estado.textContent = "Subiendo…";
+        const rutaSegura = `infografias/trabajo-${trabajoId}/${estudianteId}-${Date.now()}-${archivo.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+        const { error: errorSubida } = await sb.storage.from("materiales").upload(rutaSegura, archivo);
+        if (errorSubida) {
+          if (estado) estado.textContent = "No se pudo subir: " + errorSubida.message;
+          return;
+        }
+        await upsertSinConflicto(
+          "actividades_estudiante",
+          { trabajo_id: trabajoId, estudiante_id: estudianteId },
+          { completado: true, archivo_ruta: rutaSegura, archivo_nombre: archivo.name, actualizado_en: new Date().toISOString() }
+        );
+        pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, materiaId);
+      });
+    });
+
+    holder.querySelectorAll("[data-ver-mi-retro-tema]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const trabajoId = btn.dataset.verMiRetroTema;
+        const panel = holder.querySelector(`[data-mi-retro-tema-panel="${trabajoId}"]`);
+        if (!panel) return;
+        if (panel.innerHTML) { panel.innerHTML = ""; return; }
+        const trabajo = trabajos.find(x => String(x.id) === String(trabajoId));
+        if (!trabajo) return;
+        panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando…</p>`;
+        panel.innerHTML = await construirRetroalimentacionActividad(trabajo, estudianteId);
       });
     });
   } else {
