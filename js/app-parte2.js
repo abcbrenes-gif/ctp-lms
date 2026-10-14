@@ -2093,6 +2093,10 @@ async function renderSubtema(id, soloLectura) {
         const archivos = archivoInput ? Array.from(archivoInput.files || []) : [];
         const cantidadInput = panel.querySelector("#actividad-ia-cantidad");
         const cantidad = cantidadInput ? Number(cantidadInput.value) || null : null;
+        if (archivosExcedenLimiteIA(archivos)) {
+          if (estado) estado.textContent = "Los archivos pesan demasiado en conjunto (máximo ~3MB entre todos). Probá con menos archivos o más livianos.";
+          return;
+        }
         iaEv.target.disabled = true;
         iaEv.target.textContent = "Generando…";
         if (estado) estado.textContent = "";
@@ -2113,7 +2117,8 @@ async function renderSubtema(id, soloLectura) {
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ tipo, tema, contexto, instrucciones, archivos: archivosPayload, cantidad })
           });
-          const datos = await r.json();
+          const { datos, error } = await leerRespuestaIA(r);
+          if (!datos) { if (estado) estado.textContent = "No se pudo generar: " + error; return; }
           if (!r.ok) { if (estado) estado.textContent = "No se pudo generar: " + (datos.error || "error desconocido."); return; }
           llenarPanelActividadConIA(tipo, panel.querySelector("#actividad-constructor"), datos.contenido);
           if (estado) estado.textContent = "Listo — revisá y editá antes de crear la actividad.";
@@ -2214,6 +2219,11 @@ async function renderSubtema(id, soloLectura) {
         return;
       }
 
+      if (archivosExcedenLimiteIA(archivos)) {
+        estado.textContent = "Los archivos pesan demasiado en conjunto (máximo ~3MB entre todos). Probá con menos archivos o más livianos.";
+        return;
+      }
+
       const leerComoBase64 = (f) => new Promise((resolve, reject) => {
         const lector = new FileReader();
         lector.onload = () => resolve(String(lector.result).split(",")[1] || "");
@@ -2238,7 +2248,8 @@ async function renderSubtema(id, soloLectura) {
             archivos: archivosPayload
           })
         });
-        const datos = await r.json();
+        const { datos, error } = await leerRespuestaIA(r);
+        if (!datos) { estado.textContent = "No se pudo generar: " + error; return; }
         if (!r.ok) {
           estado.textContent = "No se pudo generar: " + (datos.error || "error desconocido.");
           return;
@@ -4679,6 +4690,33 @@ function renderPin(el, s) {
   });
 }
 
+// --- Ayudas para enviar archivos a los endpoints de generación con IA
+// (generar-actividad-ia, generar-trabajo-ia): la solicitud serverless de
+// Vercel rechaza (fuera de nuestro código, con un error en texto plano,
+// no JSON) cualquier solicitud que en total pese más de ~4.5MB una vez
+// armado el JSON. Como el archivo va codificado en base64 (~33% más
+// pesado que el original), avisamos ANTES de subir si ya se nota que no
+// va a entrar, y si aun así el servidor lo rechaza, damos un mensaje
+// claro en vez del error crudo "Unexpected token... is not valid JSON". ---
+
+const LIMITE_BYTES_ARCHIVOS_IA = 3_000_000; // ~3MB de archivos originales en total
+
+function archivosExcedenLimiteIA(archivos) {
+  const total = (archivos || []).reduce((acc, a) => acc + (a.size || 0), 0);
+  return total > LIMITE_BYTES_ARCHIVOS_IA;
+}
+
+async function leerRespuestaIA(r) {
+  const texto = await r.text();
+  let datos = null;
+  try { datos = JSON.parse(texto); } catch { datos = null; }
+  if (datos) return { datos };
+  if (r.status === 413 || /entity too large/i.test(texto)) {
+    return { error: "Los archivos pesan demasiado en conjunto para enviarlos a la IA. Probá con menos archivos o más livianos (máximo ~3MB entre todos)." };
+  }
+  return { error: `El servidor no respondió correctamente (código ${r.status}).` };
+}
+
 // --- Clave de prueba (código aparte del PIN de acceso: lo pide la prueba
 // al empezar, para confirmar que quien la está haciendo es ese estudiante
 // y no otra persona con su sesión abierta. Solo vos la ves y la manejás —
@@ -5600,6 +5638,10 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       const archivoInput = panel.querySelector("#prueba-materia-ia-archivo");
       const archivos = archivoInput ? Array.from(archivoInput.files || []) : [];
       if (!archivos.length) { alert("Elegí primero el o los archivos (Word, PDF o imagen) de la prueba."); return; }
+      if (archivosExcedenLimiteIA(archivos)) {
+        if (estado) estado.textContent = "Los archivos pesan demasiado en conjunto (máximo ~3MB entre todos). Probá con menos archivos o más livianos.";
+        return;
+      }
       iaEv.target.disabled = true;
       iaEv.target.textContent = "Digitalizando…";
       if (estado) estado.textContent = "";
@@ -5618,7 +5660,8 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ tipo: "prueba", tema, contexto: "", instrucciones: "", archivos: archivosPayload })
         });
-        const datos = await r.json();
+        const { datos, error } = await leerRespuestaIA(r);
+        if (!datos) { if (estado) estado.textContent = "No se pudo digitalizar: " + error; return; }
         if (!r.ok) { if (estado) estado.textContent = "No se pudo digitalizar: " + (datos.error || "error desconocido."); return; }
         llenarPanelActividadConIA("prueba", panel.querySelector("#prueba-materia-constructor"), datos.contenido);
         if (estado) estado.textContent = "Listo — revisá el contenido y marcá bien las respuestas correctas antes de crear la prueba.";

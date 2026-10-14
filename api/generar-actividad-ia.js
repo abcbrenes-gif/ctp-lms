@@ -202,7 +202,9 @@ module.exports = async (req, res) => {
       bloquesArchivo.push({ type: tipoBloque, source: { type: "base64", media_type: mimeType, data: datosBase64 } });
     }
   }
-  if (totalLen > 9_000_000) {
+  // Vercel rechaza (fuera de este código) cualquier solicitud que pese más
+  // de ~4.5MB una vez armado el JSON completo; dejamos margen para eso.
+  if (totalLen > 4_000_000) {
     res.status(400).json({ error: "Los archivos son demasiado grandes en conjunto. Probá con menos archivos o más livianos." });
     return;
   }

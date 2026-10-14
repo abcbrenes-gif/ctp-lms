@@ -97,7 +97,9 @@ module.exports = async (req, res) => {
     res.status(400).json({ error: "Falta el archivo (PDF o imagen) a partir del cual generar el trabajo." });
     return;
   }
-  if (totalLen > 9_000_000) {
+  // Vercel rechaza (fuera de este código) cualquier solicitud que pese más
+  // de ~4.5MB una vez armado el JSON completo; dejamos margen para eso.
+  if (totalLen > 4_000_000) {
     res.status(400).json({ error: "Los archivos son demasiado grandes en conjunto para generar el trabajo con IA. Probá con menos archivos o más livianos." });
     return;
   }
