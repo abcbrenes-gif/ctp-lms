@@ -70,15 +70,39 @@ function mostrarReglasPrueba(trabajo) {
   });
 }
 
+// Membrete institucional (estilo MEP) que se muestra antes de las preguntas
+// de una Prueba, con los datos que ya conocemos de la actividad. Es solo
+// informativo (de lectura), no editable.
+function construirMembreteHTML(trabajo) {
+  const hoy = new Date().toLocaleDateString("es-CR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const puntosTotales = (trabajo.contenido_actividad && trabajo.contenido_actividad.preguntas)
+    ? trabajo.contenido_actividad.preguntas.length
+    : "—";
+  return `
+    <div style="border:1px solid #333; border-radius:4px; margin-bottom:1rem; font-size:0.78rem;">
+      <div style="text-align:center; font-weight:700; padding:0.5rem 0.4rem 0.3rem; border-bottom:1px solid #333;">MINISTERIO DE EDUCACIÓN PÚBLICA</div>
+      <div style="text-align:center; padding:0.3rem 0.4rem; border-bottom:1px solid #333;">Institución: <strong>Colegio Técnico Profesional Mercedes Norte</strong></div>
+      <div style="display:grid; grid-template-columns:1fr 1fr;">
+        <div style="padding:0.3rem 0.5rem; border-right:1px solid #333; border-bottom:1px solid #333;">Especialidad: Contabilidad</div>
+        <div style="padding:0.3rem 0.5rem; border-bottom:1px solid #333;">Docente: Andrés Brenes Conejo</div>
+        <div style="padding:0.3rem 0.5rem; border-right:1px solid #333; border-bottom:1px solid #333;">Prueba: ${(trabajo.titulo || "Prueba").replace(/[<>]/g, "")}</div>
+        <div style="padding:0.3rem 0.5rem; border-bottom:1px solid #333;">Fecha: ${hoy}</div>
+        <div style="padding:0.3rem 0.5rem; border-right:1px solid #333;">Puntos totales: ${puntosTotales}</div>
+        <div style="padding:0.3rem 0.5rem;">Puntos obtenidos: se calcula al terminar</div>
+      </div>
+    </div>`;
+}
+
 // Pide los datos iniciales de un estudiante antes de empezar una Prueba
 // (nombre completo, cédula, correo del MEP y correo del padre/encargado).
 // Devuelve una Promise que resuelve con esos datos, o null si cancela.
-function pedirDatosPrueba() {
+function pedirDatosPrueba(trabajo) {
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
-    overlay.style.cssText = "position:fixed; inset:0; background:rgba(15,23,42,0.75); z-index:9998; display:flex; align-items:center; justify-content:center; padding:1rem;";
+    overlay.style.cssText = "position:fixed; inset:0; background:rgba(15,23,42,0.75); z-index:9998; display:flex; align-items:center; justify-content:center; padding:1rem; overflow:auto;";
     overlay.innerHTML = `
       <div style="background:#fff; border-radius:12px; padding:1.4rem; max-width:28rem; width:100%;">
+        ${construirMembreteHTML(trabajo || {})}
         <h3 style="margin-bottom:0.3rem;">Antes de empezar</h3>
         <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Completá tus datos para esta prueba.</p>
         <div style="display:grid; gap:0.6rem;">
@@ -606,7 +630,7 @@ async function iniciarActividadInteractiva(trabajo, estudianteId, onTerminado) {
   if (tipo === "prueba") {
     const aceptaReglas = await mostrarReglasPrueba(trabajo);
     if (!aceptaReglas) return; // el estudiante canceló
-    datosPrueba = await pedirDatosPrueba();
+    datosPrueba = await pedirDatosPrueba(trabajo);
     if (!datosPrueba) return; // el estudiante canceló
   }
 
