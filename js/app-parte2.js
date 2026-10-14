@@ -4425,6 +4425,17 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
     if (!t || !TIPOS_CON_RETRO.includes(t.tipo_actividad)) return "";
     return `<button class="btn secondary small" data-ver-retro-ind="${t.id}">📝 Ver respuestas</button>`;
   }
+  // Botón para que el profesor controle, desde aquí mismo, si los
+  // estudiantes pueden ver el detalle de sus propias respuestas (qué
+  // contestaron vs. la correcta) en su propio perfil. Mientras esté
+  // apagado, el estudiante solo ve la nota, nunca el detalle.
+  function botonMostrarRespuestasTrabajo(ind) {
+    const t = trabajoPorIndicador[ind.id];
+    if (!t || !TIPOS_CON_RETRO.includes(t.tipo_actividad)) return "";
+    return t.retro_visible
+      ? `<button class="btn small" data-toggle-retro-visible-ind="${t.id}" data-estado-actual="true">🙈 Ocultar respuestas a estudiantes</button>`
+      : `<button class="btn secondary small" data-toggle-retro-visible-ind="${t.id}" data-estado-actual="false">👁️ Mostrar respuestas a estudiantes</button>`;
+  }
 
   const siguienteLetra = siguienteLetraDisponible((indicadores || []).map(i => i.letra));
   const esCategoriaPruebas = catNombre === "Pruebas";
@@ -4471,6 +4482,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
               ${botonHabilitarTrabajo(ind)}
               ${botonHoraTrabajo(ind)}
               ${botonVerRespuestasTrabajo(ind)}
+              ${botonMostrarRespuestasTrabajo(ind)}
               ${linkTrabajo(ind)}
               <button class="btn danger small" data-del-indicador="${ind.id}">Eliminar</button>
             </span>
@@ -4579,6 +4591,14 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       if (!t) return;
       panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando…</p>`;
       panel.innerHTML = await construirRetroalimentacionActividad(t);
+    });
+  });
+  holder.querySelectorAll("[data-toggle-retro-visible-ind]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const trabajoId = btn.dataset.toggleRetroVisibleInd;
+      const actual = btn.dataset.estadoActual === "true";
+      await sb.from("trabajos_cotidianos").update({ retro_visible: !actual }).eq("id", trabajoId);
+      cargarIndicadoresDeMateria(materiaId, catNombre);
     });
   });
   holder.querySelectorAll("[data-cambiar-hora-ind]").forEach(btn => {
