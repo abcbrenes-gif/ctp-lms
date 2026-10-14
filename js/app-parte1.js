@@ -518,9 +518,15 @@ async function cargarEvaluacionesSeccion(sec, students, holderId = "evaluaciones
         }
       }
       if (prom === null) { celdas.push(`<td class="num">—</td>`); continue; }
-      suma += prom * (c.porcentaje / 100);
+      const aporte = prom * (c.porcentaje / 100);
+      suma += aporte;
       pesoUsado += Number(c.porcentaje);
-      celdas.push(`<td class="num ${prom < 70 ? "low" : ""}">${prom.toFixed(1)}%</td>`);
+      // En "Pruebas" mostramos directamente el aporte a la nota final
+      // (el mismo valor que sale en rojo en "Calificar por puntos"),
+      // no el promedio crudo de la categoría.
+      const esPruebas = c.nombre.trim().toLowerCase() === "pruebas";
+      const valorMostrado = esPruebas ? aporte : prom;
+      celdas.push(`<td class="num ${prom < 70 ? "low" : ""}">${valorMostrado.toFixed(1)}%</td>`);
     }
     const final = pesoUsado > 0 ? `${suma.toFixed(1)}%` : "—";
     return `<tr><td>${st.apellido1} ${st.apellido2}, ${st.nombre}</td>${celdas.join("")}<td class="num" style="font-weight:600;">${final}</td></tr>`;
