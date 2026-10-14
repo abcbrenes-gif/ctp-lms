@@ -4838,11 +4838,34 @@ async function renderMateriaDetalle(materiaId) {
         <span id="asignar-todos-seccion-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>
       </div>
       <p style="font-size:0.78rem; color:var(--text-muted); margin-top:-0.6rem; margin-bottom:1rem;">Si un estudiante no tiene esta materia marcada en su "Acceso", sus notas de esta materia no aparecen en Rúbrica y Evaluaciones. Este botón la marca para todos los de la sección ${materia.seccion} de una sola vez.</p>
-      <div id="materia-apartados">Cargando…</div>
-      <div id="materia-indicadores" style="margin-top:1.4rem;">Cargando…</div>
-      <div id="materia-publicaciones" style="margin-top:1.4rem;">Cargando…</div>
+
+      <nav class="cat-navbar" style="margin-bottom:1rem;">
+        <button class="cat-navlink active" data-materia-tab="temas" type="button">📘 Temas</button>
+        <button class="cat-navlink" data-materia-tab="indicadores" type="button">📊 Indicadores de evaluación</button>
+        <button class="cat-navlink" data-materia-tab="avisos" type="button">📎 Avisos y materiales</button>
+      </nav>
+
+      <div data-materia-panel="temas">
+        <div id="materia-apartados">Cargando…</div>
+      </div>
+      <div data-materia-panel="indicadores" style="display:none;">
+        <div id="materia-indicadores">Cargando…</div>
+      </div>
+      <div data-materia-panel="avisos" style="display:none;">
+        <div id="materia-publicaciones">Cargando…</div>
+      </div>
     </div>`;
   bindTopbar();
+
+  document.querySelectorAll("[data-materia-tab]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("[data-materia-tab]").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      document.querySelectorAll("[data-materia-panel]").forEach(p => { p.style.display = "none"; });
+      const panel = document.querySelector(`[data-materia-panel="${btn.dataset.materiaTab}"]`);
+      if (panel) panel.style.display = "";
+    });
+  });
 
   document.getElementById("asignar-todos-seccion-btn").addEventListener("click", async (e) => {
     const estado = document.getElementById("asignar-todos-seccion-estado");
