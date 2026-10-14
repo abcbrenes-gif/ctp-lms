@@ -4461,6 +4461,11 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       ${(indicadores || []).map(ind => {
         const tieneCriterios = (ind.criterios_indicador || []).length > 0;
         const resultadoVinculado = ind.resultado_id ? resultadoPorId[ind.resultado_id] : null;
+        // Una prueba se califica sola (selección única/falso-verdadero, nota
+        // automática por porcentaje de aciertos): no tiene sentido pedirle al
+        // profesor que le escriba criterios de evaluación con niveles de
+        // desempeño, así que ese bloque no aplica a este tipo de indicador.
+        const esPruebaAuto = trabajoPorIndicador[ind.id] && trabajoPorIndicador[ind.id].tipo_actividad === "prueba";
         return `
         <div class="roster-row" style="flex-direction:column; align-items:stretch; gap:0.4rem;">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.6rem;">
@@ -4489,10 +4494,10 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
           </div>
           ${trabajoPorIndicador[ind.id] && trabajoPorIndicador[ind.id].tipo_actividad === "prueba" ? `<div data-hora-ind-panel="${trabajoPorIndicador[ind.id].id}"></div>` : ""}
           ${trabajoPorIndicador[ind.id] && TIPOS_CON_RETRO.includes(trabajoPorIndicador[ind.id].tipo_actividad) ? `<div data-retro-ind-panel="${trabajoPorIndicador[ind.id].id}"></div>` : ""}
-          <div style="font-size:0.85rem;">
+          ${esPruebaAuto ? "" : `<div style="font-size:0.85rem;">
             ${(ind.criterios_indicador || []).sort((a, b) => a.puntaje - b.puntaje).map(c => `<div><strong>${c.nivel ? c.nivel + " — " : ""}${c.puntaje} punto${c.puntaje === 1 ? "" : "s"}:</strong> ${c.descripcion}</div>`).join("")}
-          </div>
-          ${!tieneCriterios ? `
+          </div>`}
+          ${(!tieneCriterios && !esPruebaAuto) ? `
           <form class="inline-form js-criterios-form" data-indicador-criterios="${ind.id}" data-max="${ind.puntaje_maximo}" style="background:var(--paper); margin-top:0.3rem;">
             <p style="width:100%; font-size:0.8rem; color:var(--brick); margin:0 0 0.4rem;">Faltan los criterios de este indicador (con sus niveles de desempeño, según la normativa del MEP):</p>
             <div class="row" style="width:100%; margin-bottom:0.4rem;">
