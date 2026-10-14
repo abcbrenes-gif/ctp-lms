@@ -4353,6 +4353,100 @@ function nombreNivelPorDefecto(puntaje, max) {
 const NIVEL_CERO_NOMBRE = "No presentado";
 const NIVEL_CERO_DESCRIPCION = "El estudiante no presentó el trabajo, o tiene una ausencia injustificada en la fecha de evaluación.";
 
+// Abre una ventana con la prueba lista para imprimir o "Guardar como PDF"
+// desde el navegador: el membrete del MEP, las preguntas con sus opciones
+// (sin marcar cuál es la correcta), el apareamiento y el caso práctico si
+// los tiene. Sirve para tener la prueba en papel o guardarla en PDF.
+function generarPdfPrueba(trabajo) {
+  const contenido = trabajo.contenido_actividad;
+  if (!contenido) { alert("Esta prueba todavía no tiene contenido guardado."); return; }
+  const hoy = new Date().toLocaleDateString("es-CR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const preguntas = Array.isArray(contenido.preguntas) ? contenido.preguntas : [];
+  const apareamiento = contenido.apareamiento;
+  const casoPractico = contenido.casoPractico;
+  const letras = ["a", "b", "c", "d", "e", "f", "g", "h"];
+
+  const preguntasHtml = preguntas.map((p, i) => `
+    <div style="margin-bottom:0.9rem; break-inside:avoid;">
+      <p style="font-weight:700; margin:0 0 0.3rem;">${i + 1}. ${p.pregunta || ""}</p>
+      <div style="padding-left:1.2rem; display:grid; gap:0.25rem;">
+        ${(p.opciones || []).map((op, j) => `<div>${letras[j] || j}) ${op}</div>`).join("")}
+      </div>
+    </div>`).join("");
+
+  const apareamientoHtml = (apareamiento && Array.isArray(apareamiento.pares) && apareamiento.pares.length) ? `
+    <div style="margin-top:1.2rem; break-inside:avoid;">
+      <p style="font-weight:700;">Apareamiento</p>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem;">
+        <div>
+          ${apareamiento.pares.map((p, i) => `<div style="margin-bottom:0.4rem;">${i + 1}. ${p.situacion}</div>`).join("")}
+        </div>
+        <div>
+          ${apareamiento.pares.map((p, i) => `<div style="margin-bottom:0.4rem;">${letras[i] || i}) ${p.respuesta}</div>`).join("")}
+        </div>
+      </div>
+    </div>` : "";
+
+  const casoPracticoHtml = (casoPractico && (casoPractico.enunciado || casoPractico.instruccion)) ? `
+    <div style="margin-top:1.2rem; break-inside:avoid;">
+      <p style="font-weight:700;">Caso práctico</p>
+      ${casoPractico.enunciado ? `<p style="white-space:pre-wrap;">${casoPractico.enunciado}</p>` : ""}
+      ${casoPractico.instruccion ? `<p style="white-space:pre-wrap; font-style:italic;">${casoPractico.instruccion}</p>` : ""}
+      <div style="border:1px solid #999; min-height:6cm; margin-top:0.5rem;"></div>
+    </div>` : "";
+
+  const html = `<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>${(trabajo.titulo || "Prueba").replace(/[<>]/g, "")}</title>
+<style>
+  @page { size: letter; margin: 1.6cm; }
+  body { font-family: 'IBM Plex Sans', Arial, sans-serif; color: #232323; margin: 0; padding: 1.5rem; font-size: 0.92rem; }
+  .no-print { margin-bottom: 1.2rem; display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+  .no-print button { padding: 0.5rem 1rem; font-size: 0.9rem; cursor: pointer; }
+  header.membrete { text-align: center; border: 1px solid #16232e; padding: 0.6rem; margin-bottom: 1rem; }
+  header.membrete .mep { font-weight: 700; }
+  .datos { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 1.5rem; margin-bottom: 1.3rem; font-size: 0.85rem; }
+  .datos .campo { border-bottom: 1px solid #999; padding: 0.3rem 0.1rem; }
+  @media print { .no-print { display: none; } body { padding: 0; } }
+</style>
+</head>
+<body>
+  <div class="no-print">
+    <button id="btn-print">Imprimir / Guardar PDF</button>
+  </div>
+
+  <header class="membrete">
+    <div class="mep">MINISTERIO DE EDUCACIÓN PÚBLICA</div>
+    <div>${INSTITUCION.nombre} — Especialidad: ${INSTITUCION.especialidad}</div>
+    <div>Docente: ${INSTITUCION.docente || ""}</div>
+  </header>
+
+  <div class="datos">
+    <div class="campo"><b>Prueba:</b> ${(trabajo.titulo || "").replace(/[<>]/g, "")}</div>
+    <div class="campo"><b>Fecha:</b> ${hoy}</div>
+    <div class="campo"><b>Nombre del estudiante:</b> ______________________________</div>
+    <div class="campo"><b>Cédula:</b> ______________________________</div>
+  </div>
+
+  ${preguntasHtml}
+  ${apareamientoHtml}
+  ${casoPracticoHtml}
+
+  <script>
+    document.getElementById("btn-print").addEventListener("click", () => window.print());
+  </script>
+</body>
+</html>`;
+
+  const w = window.open("", "_blank");
+  if (!w) { alert("El navegador bloqueó la ventana nueva. Permite ventanas emergentes para generar el PDF."); return; }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+}
+
 async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
   const holder = document.getElementById("materia-indicadores");
   if (!holder) return;
@@ -4436,6 +4530,13 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       ? `<button class="btn small" data-toggle-retro-visible-ind="${t.id}" data-estado-actual="true">🙈 Ocultar respuestas a estudiantes</button>`
       : `<button class="btn secondary small" data-toggle-retro-visible-ind="${t.id}" data-estado-actual="false">👁️ Mostrar respuestas a estudiantes</button>`;
   }
+  // Botón para descargar/imprimir la prueba en PDF (sin marcar las
+  // respuestas correctas), para tenerla en papel o guardada.
+  function botonPdfTrabajo(ind) {
+    const t = trabajoPorIndicador[ind.id];
+    if (!t || t.tipo_actividad !== "prueba") return "";
+    return `<button class="btn secondary small" data-pdf-prueba-ind="${t.id}">📄 Descargar PDF</button>`;
+  }
 
   const siguienteLetra = siguienteLetraDisponible((indicadores || []).map(i => i.letra));
   const esCategoriaPruebas = catNombre === "Pruebas";
@@ -4488,6 +4589,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
               ${botonHoraTrabajo(ind)}
               ${botonVerRespuestasTrabajo(ind)}
               ${botonMostrarRespuestasTrabajo(ind)}
+              ${botonPdfTrabajo(ind)}
               ${linkTrabajo(ind)}
               <button class="btn danger small" data-del-indicador="${ind.id}">Eliminar</button>
             </span>
@@ -4604,6 +4706,14 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       const actual = btn.dataset.estadoActual === "true";
       await sb.from("trabajos_cotidianos").update({ retro_visible: !actual }).eq("id", trabajoId);
       cargarIndicadoresDeMateria(materiaId, catNombre);
+    });
+  });
+  holder.querySelectorAll("[data-pdf-prueba-ind]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const trabajoId = btn.dataset.pdfPruebaInd;
+      const t = Object.values(trabajoPorIndicador).find(x => String(x.id) === String(trabajoId));
+      if (!t) return;
+      generarPdfPrueba(t);
     });
   });
   holder.querySelectorAll("[data-cambiar-hora-ind]").forEach(btn => {
