@@ -3576,18 +3576,51 @@ async function pintarPanelPuntosPorParte(panel, trabajo, indicadorId, totalPunto
   const calcularParte1 = (e) => preguntas.filter((p, i) => Number(e.respuestas?.[i]) === Number(p.correcta)).length;
   const calcularParte2 = (e) => pares.filter((p, i) => Number(e.datos_prueba?.apareamiento_respuestas?.[i]) === i).length;
 
+  // Arma el mailto: con el resultado, dirigido al correo del estudiante y
+  // al del encargado que escribieron ellos mismos antes de entrar a la
+  // prueba (en el formulario de "Antes de empezar"). Si no dejaron ningún
+  // correo, no hay a quién mandarlo.
+  const armarMailtoResultado = (e, nombreMostrado, p1, p2, p3, sumaActual, pct, aporte) => {
+    const dp = e.datos_prueba || {};
+    const destinatarios = [dp.correo_mep, dp.correo_padre].filter(Boolean);
+    if (destinatarios.length === 0) return null;
+    const asunto = `Resultado de la prueba: ${trabajo.titulo || ""}`;
+    const nombreParaSaludo = dp.nombre_completo || nombreMostrado;
+    const lineas = [
+      `Estimado/a ${nombreParaSaludo}${dp.cedula ? " (cédula " + dp.cedula + ")" : ""}:`,
+      "",
+      `Le compartimos el resultado de la prueba "${trabajo.titulo || ""}":`,
+      "",
+      `Parte 1 (selección única): ${p1}/${parte1Max}`,
+      parte2Max ? `Parte 2 (apareamiento): ${p2}/${parte2Max}` : null,
+      `Parte 3 (caso práctico): ${p3}/${parte3Max}`,
+      "",
+      `Total: ${sumaActual}/${total} (${pct}%)`,
+      `Aporte a la nota final: ${aporte}% de ${peso}%`,
+      "",
+      `${INSTITUCION.nombre} — Especialidad: ${INSTITUCION.especialidad}`,
+      `Docente: ${INSTITUCION.docente || ""}`
+    ].filter(l => l !== null).join("\n");
+    const [to, ...resto] = destinatarios;
+    const cc = resto.length ? `&cc=${encodeURIComponent(resto.join(","))}` : "";
+    return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(asunto)}${cc}&body=${encodeURIComponent(lineas)}`;
+  };
+
   const filas = entregas
     .sort((a, b) => (nombrePorId[a.estudiante_id] || "").localeCompare(nombrePorId[b.estudiante_id] || ""))
     .map(e => {
       const p1 = calcularParte1(e);
       const p2 = calcularParte2(e);
       const p3Guardado = e.datos_prueba?.puntos_parte3;
-      const sumaActual = p1 + p2 + (Number.isFinite(p3Guardado) ? p3Guardado : 0);
+      const p3 = Number.isFinite(p3Guardado) ? p3Guardado : 0;
+      const sumaActual = p1 + p2 + p3;
       const pct = total ? Math.round((sumaActual / total) * 100) : 0;
       const aporte = total ? Math.round((sumaActual / total) * peso * 10) / 10 : 0;
+      const nombreMostrado = nombrePorId[e.estudiante_id] || e.estudiante_id;
+      const href = armarMailtoResultado(e, nombreMostrado, p1, p2, p3, sumaActual, pct, aporte);
       return `
       <div class="roster-row" style="flex-wrap:wrap; gap:0.5rem; align-items:center;" data-fila-puntos="${e.estudiante_id}">
-        <span class="name" style="flex-basis:12rem;">${nombrePorId[e.estudiante_id] || e.estudiante_id}</span>
+        <span class="name" style="flex-basis:12rem;">${nombreMostrado}</span>
         <span style="font-size:0.82rem;">Parte 1: <strong>${p1}</strong>/${parte1Max}</span>
         ${parte2Max ? `<span style="font-size:0.82rem;">Parte 2: <strong>${p2}</strong>/${parte2Max}</span>` : ""}
         <label style="font-size:0.82rem; display:flex; align-items:center; gap:0.3rem;">Parte 3 (manual):
@@ -3596,6 +3629,9 @@ async function pintarPanelPuntosPorParte(panel, trabajo, indicadorId, totalPunto
         <span style="font-size:0.85rem;">Total: <strong data-total-texto="${e.estudiante_id}">${sumaActual}</strong>/${total} (<span data-pct-texto="${e.estudiante_id}">${pct}</span>%)</span>
         <span style="font-size:0.85rem; color:var(--brick); font-weight:600;">Aporte a la nota final: <span data-aporte-texto="${e.estudiante_id}">${aporte}</span>% de ${peso}%</span>
         <button class="btn small" data-guardar-puntos="${e.estudiante_id}">Guardar</button>
+        ${href
+          ? `<a class="btn secondary small" data-mailto-resultado="${e.estudiante_id}" href="${href}" target="_blank">✉ Enviar resultado</a>`
+          : `<span data-mailto-resultado="${e.estudiante_id}" style="font-size:0.75rem; color:var(--text-muted);">Sin correo guardado</span>`}
       </div>`;
     }).join("");
 
@@ -3637,12 +3673,20 @@ async function pintarPanelPuntosPorParte(panel, trabajo, indicadorId, totalPunto
     await sb.from("indicadores").update({ puntaje_maximo: total }).eq("id", indicadorId);
     await upsertSinConflicto("calificaciones_indicador", { estudiante_id: estudianteId, indicador_id: indicadorId }, { puntaje_obtenido: sumaFinal });
     entrega.datos_prueba = nuevosDatos;
+    const pctFinal = total ? Math.round((sumaFinal / total) * 100) : 0;
+    const aporteFinal = total ? Math.round((sumaFinal / total) * peso * 10) / 10 : 0;
     const totalTexto = panel.querySelector(`[data-total-texto="${estudianteId}"]`);
     const pctTexto = panel.querySelector(`[data-pct-texto="${estudianteId}"]`);
     const aporteTexto = panel.querySelector(`[data-aporte-texto="${estudianteId}"]`);
     if (totalTexto) totalTexto.textContent = sumaFinal;
-    if (pctTexto) pctTexto.textContent = total ? Math.round((sumaFinal / total) * 100) : 0;
-    if (aporteTexto) aporteTexto.textContent = total ? Math.round((sumaFinal / total) * peso * 10) / 10 : 0;
+    if (pctTexto) pctTexto.textContent = pctFinal;
+    if (aporteTexto) aporteTexto.textContent = aporteFinal;
+    const linkMailto = panel.querySelector(`[data-mailto-resultado="${estudianteId}"]`);
+    if (linkMailto && linkMailto.tagName === "A") {
+      const nombreMostrado = nombrePorId[estudianteId] || estudianteId;
+      const nuevoHref = armarMailtoResultado(entrega, nombreMostrado, p1, p2, p3, sumaFinal, pctFinal, aporteFinal);
+      if (nuevoHref) linkMailto.setAttribute("href", nuevoHref);
+    }
   };
 
   panel.querySelectorAll("[data-guardar-puntos]").forEach(btn => {
