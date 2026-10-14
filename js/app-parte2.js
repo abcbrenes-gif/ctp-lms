@@ -1971,6 +1971,8 @@ async function renderSubtema(id, soloLectura) {
         const resultado = leerContenidoActividadDesdeFormulario(tipo, panel.querySelector("#actividad-constructor"));
         if (!resultado.valido) { alert(resultado.error); return; }
         if (!pub.materia_id) { alert("Este subtema no tiene una materia asociada, no se puede crear el indicador de calificación."); return; }
+        const horaInicioInput = panel.querySelector("#au-prueba-hora-inicio");
+        const fechaHoraInicio = (tipo === "prueba" && horaInicioInput && horaInicioInput.value) ? new Date(horaInicioInput.value).toISOString() : null;
         btnEv.target.disabled = true;
         btnEv.target.textContent = "Creando…";
         const indicadorId = await crearIndicadorParaTrabajo(pub.materia_id, titulo, fecha, 3);
@@ -1981,7 +1983,8 @@ async function renderSubtema(id, soloLectura) {
           fecha,
           tipo_actividad: tipo,
           contenido_actividad: resultado.contenido,
-          indicador_id: indicadorId
+          indicador_id: indicadorId,
+          fecha_hora_inicio: fechaHoraInicio
         }).select().maybeSingle();
         if (!nuevo) { alert("No se pudo crear la actividad."); btnEv.target.disabled = false; btnEv.target.textContent = "Crear actividad"; return; }
         renderSubtema(id, soloLectura);
@@ -2560,15 +2563,22 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         const res = resultadoPorTrabajo[t.id];
         const completo = res && res.completado;
         const puedeVerRetro = completo && t.retro_visible && TIPOS_CON_RETRO.includes(t.tipo_actividad);
+        const aunNoEsHora = t.tipo_actividad === "prueba" && t.fecha_hora_inicio && new Date(t.fecha_hora_inicio) > new Date();
+        let accionInicio;
+        if (completo) {
+          accionInicio = `<span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Completado — Nota: ${res.puntaje}/3</span>`;
+        } else if (aunNoEsHora) {
+          accionInicio = `<span class="badge" style="background:#fdf1dc; color:#a5690a;">⏳ Disponible a partir de ${formatearFechaHora(t.fecha_hora_inicio)}</span>`;
+        } else {
+          accionInicio = `<button class="btn small" data-iniciar-actividad="${t.id}">▶ Iniciar actividad</button>`;
+        }
         return `
         <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.4rem;">
           <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
-            <span class="name">🧠 ${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+            <span class="name">${t.tipo_actividad === "prueba" ? "📝" : "🧠"} ${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
             <span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>
           </div>
-          ${completo
-            ? `<span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Completado — Nota: ${res.puntaje}/3</span>`
-            : `<button class="btn small" data-iniciar-actividad="${t.id}">▶ Iniciar actividad</button>`}
+          ${accionInicio}
           ${puedeVerRetro ? `<button class="btn secondary small" data-ver-mi-retro="${t.id}">📝 Ver mis respuestas</button><div data-mi-retro-panel="${t.id}" style="width:100%;"></div>` : ""}
         </div>`;
       }
@@ -2643,6 +2653,11 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
           pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId);
           return;
         }
+        if (trabajo.tipo_actividad === "prueba" && trabajo.fecha_hora_inicio && new Date(trabajo.fecha_hora_inicio) > new Date()) {
+          alert("Esta prueba todavía no está disponible. Podés entrar a partir de " + formatearFechaHora(trabajo.fecha_hora_inicio) + ".");
+          pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId);
+          return;
+        }
         if (!confirm(`Vas a iniciar "${trabajo.titulo}". Se abre en pantalla completa y la nota se calcula automáticamente al terminar. ¿Listo para empezar?`)) return;
         iniciarActividadInteractiva(trabajo, estudianteId, (puntaje) => {
           pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId);
@@ -2697,9 +2712,11 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
     holder.innerHTML = trabajos.map(t => `
       <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem; ${t.habilitado === false ? "opacity:0.55;" : ""}">
         <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
-          <span class="name">${t.tipo_actividad && t.tipo_actividad !== "simple" ? "🧠 " : ""}${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+          <span class="name">${t.tipo_actividad === "prueba" ? "📝 " : (t.tipo_actividad && t.tipo_actividad !== "simple" ? "🧠 " : "")}${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
           <span style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
             ${t.tipo_actividad && t.tipo_actividad !== "simple" ? `<span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>` : ""}
+            ${t.tipo_actividad === "prueba" ? `<span class="badge" style="font-weight:400;">${t.fecha_hora_inicio ? "⏰ Inicia: " + formatearFechaHora(t.fecha_hora_inicio) : "⏰ Sin hora programada"}</span>
+            <button class="btn secondary small" data-cambiar-hora-prueba="${t.id}">⏰ Cambiar hora</button>` : ""}
             <span class="badge">${conteos[t.id] || 0} completaron</span>
             <button class="btn ${t.habilitado === false ? "" : "secondary"} small" data-toggle-trabajo-subtema-habilitado="${t.id}" data-estado-actual="${t.habilitado !== false}">
               ${t.habilitado === false ? "Habilitar" : "Habilitado"}
@@ -2730,6 +2747,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         ${t.tipo_actividad === "infografia" ? `<div data-entregas-panel="${t.id}"></div>` : ""}
         ${ACTIVIDADES_BLOQUEADAS.includes(t.tipo_actividad) ? `<div data-preguntas-panel="${t.id}"></div>` : ""}
         ${TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<div data-retro-panel="${t.id}"></div>` : ""}
+        ${t.tipo_actividad === "prueba" ? `<div data-hora-prueba-panel="${t.id}" style="width:100%;"></div>` : ""}
       </div>`).join("");
 
     holder.querySelectorAll("[data-ver-retro]").forEach(btn => {
@@ -2753,6 +2771,38 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         const trabajo = trabajos.find(x => String(x.id) === String(trabajoId));
         if (trabajo) trabajo.retro_visible = !actual;
         pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId);
+      });
+    });
+
+    holder.querySelectorAll("[data-cambiar-hora-prueba]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const trabajoId = btn.dataset.cambiarHoraPrueba;
+        const panel = holder.querySelector(`[data-hora-prueba-panel="${trabajoId}"]`);
+        if (!panel) return;
+        if (panel.innerHTML.trim()) { panel.innerHTML = ""; return; }
+        const trabajo = trabajos.find(x => String(x.id) === String(trabajoId));
+        if (!trabajo) return;
+        const valorActual = trabajo.fecha_hora_inicio
+          ? new Date(new Date(trabajo.fecha_hora_inicio).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+          : "";
+        panel.innerHTML = `
+          <div class="row" style="align-items:center; margin-top:0.3rem;">
+            <input type="datetime-local" data-hora-prueba-input="${trabajoId}" value="${valorActual}" style="padding:0.4rem;" />
+            <button class="btn small" data-guardar-hora-prueba="${trabajoId}">Guardar hora</button>
+            <button class="btn secondary small" data-quitar-hora-prueba="${trabajoId}">Quitar hora (disponible de inmediato)</button>
+          </div>`;
+        panel.querySelector(`[data-guardar-hora-prueba="${trabajoId}"]`).addEventListener("click", async () => {
+          const input = panel.querySelector(`[data-hora-prueba-input="${trabajoId}"]`);
+          const nuevaHora = input && input.value ? new Date(input.value).toISOString() : null;
+          await sb.from("trabajos_cotidianos").update({ fecha_hora_inicio: nuevaHora }).eq("id", trabajoId);
+          trabajo.fecha_hora_inicio = nuevaHora;
+          pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId);
+        });
+        panel.querySelector(`[data-quitar-hora-prueba="${trabajoId}"]`).addEventListener("click", async () => {
+          await sb.from("trabajos_cotidianos").update({ fecha_hora_inicio: null }).eq("id", trabajoId);
+          trabajo.fecha_hora_inicio = null;
+          pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId);
+        });
       });
     });
 
@@ -2921,6 +2971,7 @@ function construirSelectorTipoActividad() {
             <option value="crucigrama">🔤 Crucigrama</option>
             <option value="sopa_letras">🔎 Sopa de letras</option>
             <option value="infografia">🖼️ Infografía (el estudiante sube un archivo, se califica a mano)</option>
+            <option value="prueba">📝 Prueba (con hora de inicio y datos del estudiante)</option>
           </select>
         </label>
       </div>
@@ -2948,6 +2999,26 @@ function construirPanelActividadHTML(tipo) {
     const preguntas = Array.from({ length: 15 }, (_, i) => i);
     return `
       <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Escribí las 15 preguntas y marcá con el círculo cuál opción es la correcta.</p>
+      ${preguntas.map(i => `
+        <div style="background:#F5F6FA; border-radius:8px; padding:0.8rem; margin-bottom:0.6rem;">
+          <p style="font-weight:600; margin-bottom:0.4rem; font-size:0.85rem;">Pregunta ${i + 1}</p>
+          <textarea class="au-pregunta" data-i="${i}" placeholder="Texto de la pregunta" rows="2" style="width:100%; margin-bottom:0.5rem; font-family:inherit; resize:vertical;"></textarea>
+          ${[0, 1, 2, 3].map(j => `
+            <div style="display:flex; align-items:flex-start; gap:0.5rem; margin-bottom:0.3rem;">
+              <input type="radio" name="au-correcta-${i}" value="${j}" ${j === 0 ? "checked" : ""} style="margin-top:0.6rem;" />
+              <textarea class="au-opcion" data-i="${i}" data-j="${j}" placeholder="Opción ${String.fromCharCode(65 + j)}" rows="1" style="flex:1; font-family:inherit; resize:vertical;"></textarea>
+            </div>`).join("")}
+        </div>`).join("")}`;
+  }
+  if (tipo === "prueba") {
+    const preguntas = Array.from({ length: 15 }, (_, i) => i);
+    return `
+      <div style="background:#FFF7E8; border:1px solid #E8C777; border-radius:8px; padding:0.8rem; margin-bottom:0.8rem;">
+        <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.4rem;">Hora de inicio (opcional)</label>
+        <input type="datetime-local" id="au-prueba-hora-inicio" style="padding:0.4rem;" />
+        <p style="font-size:0.78rem; color:var(--text-muted); margin-top:0.4rem;">Si la dejás vacía, la prueba queda disponible apenas la habilités con el botón "Habilitado" de la lista. Si ponés una hora, nadie va a poder entrar antes de esa hora aunque ya esté habilitada — y vos podés además deshabilitarla manualmente en cualquier momento para cerrarla. Solo vos podés cambiar esto.</p>
+      </div>
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Antes de empezar, cada estudiante debe escribir su nombre completo, cédula, correo del MEP y correo del padre/encargado. Escribí las 15 preguntas y marcá con el círculo cuál opción es la correcta.</p>
       ${preguntas.map(i => `
         <div style="background:#F5F6FA; border-radius:8px; padding:0.8rem; margin-bottom:0.6rem;">
           <p style="font-weight:600; margin-bottom:0.4rem; font-size:0.85rem;">Pregunta ${i + 1}</p>
@@ -2999,7 +3070,7 @@ function construirPanelActividadHTML(tipo) {
 // para que el profesor lo revise y edite antes de crear la actividad.
 function llenarPanelActividadConIA(tipo, el, contenido) {
   if (!contenido) return;
-  if (tipo === "seleccion_unica" && Array.isArray(contenido.preguntas)) {
+  if ((tipo === "seleccion_unica" || tipo === "prueba") && Array.isArray(contenido.preguntas)) {
     contenido.preguntas.slice(0, 15).forEach((p, i) => {
       const inputPregunta = el.querySelector(`.au-pregunta[data-i="${i}"]`);
       if (inputPregunta) inputPregunta.value = p.pregunta || "";
@@ -3044,7 +3115,7 @@ function construirRevisionContenidoActividad(tipo, contenido) {
   if (!contenido) return `<p class="empty" style="font-size:0.82rem;">Esta actividad no tiene contenido guardado.</p>`;
   const envoltura = (html) => `<div style="background:#F5F6FA; border-radius:8px; padding:0.8rem; margin-top:0.5rem; font-size:0.85rem;">${html}</div>`;
 
-  if (tipo === "seleccion_unica" && Array.isArray(contenido.preguntas)) {
+  if ((tipo === "seleccion_unica" || tipo === "prueba") && Array.isArray(contenido.preguntas)) {
     return envoltura(contenido.preguntas.map((p, i) => `
       <div style="margin-bottom:0.7rem;">
         <p style="font-weight:600;">${i + 1}. ${p.pregunta}</p>
@@ -3158,7 +3229,7 @@ async function construirRetroalimentacionActividad(trabajo, soloEstudianteId) {
 }
 
 function leerContenidoActividadDesdeFormulario(tipo, el) {
-  if (tipo === "seleccion_unica") {
+  if (tipo === "seleccion_unica" || tipo === "prueba") {
     const preguntas = [];
     for (let i = 0; i < 15; i++) {
       const pregunta = (el.querySelector(`.au-pregunta[data-i="${i}"]`)?.value || "").trim();

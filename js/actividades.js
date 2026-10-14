@@ -16,18 +16,78 @@ const NOMBRES_ACTIVIDAD = {
   falso_verdadero: "Falso y verdadero",
   crucigrama: "Crucigrama",
   sopa_letras: "Sopa de letras",
-  infografia: "Infografía"
+  infografia: "Infografía",
+  prueba: "Prueba"
 };
 
 // Todas estas actividades, salvo la infografía, se hacen en modo "pantalla
 // completa + aviso": no se puede impedir al 100% que el estudiante salga,
 // pero si cambia de pestaña o sale de pantalla completa queda registrado.
-const ACTIVIDADES_BLOQUEADAS = ["seleccion_unica", "falso_verdadero", "crucigrama", "sopa_letras"];
+const ACTIVIDADES_BLOQUEADAS = ["seleccion_unica", "falso_verdadero", "crucigrama", "sopa_letras", "prueba"];
 
 // Tipos de actividad donde tiene sentido mostrarle al profesor, por
 // estudiante, qué respondió frente a la respuesta correcta en cada
 // pregunta (retroalimentación detallada), además de la nota.
-const TIPOS_CON_RETRO = ["seleccion_unica", "falso_verdadero"];
+const TIPOS_CON_RETRO = ["seleccion_unica", "falso_verdadero", "prueba"];
+
+// Formatea una fecha/hora ISO al estilo "13 oct 2026, 2:30 p. m." en español.
+function formatearFechaHora(iso) {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleString("es-CR", { dateStyle: "medium", timeStyle: "short" });
+  } catch (e) {
+    return iso;
+  }
+}
+
+// Pide los datos iniciales de un estudiante antes de empezar una Prueba
+// (nombre completo, cédula, correo del MEP y correo del padre/encargado).
+// Devuelve una Promise que resuelve con esos datos, o null si cancela.
+function pedirDatosPrueba() {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.style.cssText = "position:fixed; inset:0; background:rgba(15,23,42,0.75); z-index:9998; display:flex; align-items:center; justify-content:center; padding:1rem;";
+    overlay.innerHTML = `
+      <div style="background:#fff; border-radius:12px; padding:1.4rem; max-width:28rem; width:100%;">
+        <h3 style="margin-bottom:0.3rem;">Antes de empezar</h3>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Completá tus datos para esta prueba.</p>
+        <div style="display:grid; gap:0.6rem;">
+          <label style="font-size:0.82rem;">Nombre completo
+            <input id="pd-nombre" style="width:100%; margin-top:0.2rem; box-sizing:border-box;" />
+          </label>
+          <label style="font-size:0.82rem;">Cédula
+            <input id="pd-cedula" style="width:100%; margin-top:0.2rem; box-sizing:border-box;" />
+          </label>
+          <label style="font-size:0.82rem;">Correo electrónico del MEP
+            <input id="pd-correo-mep" type="email" style="width:100%; margin-top:0.2rem; box-sizing:border-box;" />
+          </label>
+          <label style="font-size:0.82rem;">Correo electrónico del padre/encargado
+            <input id="pd-correo-padre" type="email" style="width:100%; margin-top:0.2rem; box-sizing:border-box;" />
+          </label>
+        </div>
+        <p id="pd-error" style="color:#c0392b; font-size:0.8rem; margin-top:0.6rem; min-height:1em;"></p>
+        <div class="row" style="margin-top:1rem; justify-content:flex-end; gap:0.5rem;">
+          <button type="button" class="btn secondary small" id="pd-cancelar">Cancelar</button>
+          <button type="button" class="btn small" id="pd-continuar">Continuar a la prueba</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    overlay.querySelector("#pd-cancelar").addEventListener("click", () => { overlay.remove(); resolve(null); });
+    overlay.querySelector("#pd-continuar").addEventListener("click", () => {
+      const nombre_completo = overlay.querySelector("#pd-nombre").value.trim();
+      const cedula = overlay.querySelector("#pd-cedula").value.trim();
+      const correo_mep = overlay.querySelector("#pd-correo-mep").value.trim();
+      const correo_padre = overlay.querySelector("#pd-correo-padre").value.trim();
+      if (!nombre_completo || !cedula || !correo_mep || !correo_padre) {
+        overlay.querySelector("#pd-error").textContent = "Completá los 4 campos para continuar.";
+        return;
+      }
+      overlay.remove();
+      resolve({ nombre_completo, cedula, correo_mep, correo_padre });
+    });
+  });
+}
 
 function puntajeDesdePorcentaje(pct) {
   if (pct >= 85) return 3;
@@ -63,13 +123,16 @@ async function upsertSinConflicto(tabla, filtro, datos) {
 // si el trabajo tiene indicador_id, también en calificaciones_indicador
 // (así aparece de inmediato en Rúbrica y Evaluaciones, sin que el profesor
 // tenga que calificarlo a mano).
-async function guardarResultadoActividad(trabajo, estudianteId, { respuestas, porcentaje, intentosSalida }) {
+async function guardarResultadoActividad(trabajo, estudianteId, { respuestas, porcentaje, intentosSalida, datosPrueba }) {
   const puntaje = puntajeDesdePorcentaje(porcentaje);
+
+  const datosActividad = { respuestas, porcentaje, puntaje, completado: true, intentos_salida: intentosSalida || 0, actualizado_en: new Date().toISOString() };
+  if (datosPrueba) datosActividad.datos_prueba = datosPrueba;
 
   const { error: errorActividad } = await upsertSinConflicto(
     "actividades_estudiante",
     { trabajo_id: trabajo.id, estudiante_id: estudianteId },
-    { respuestas, porcentaje, puntaje, completado: true, intentos_salida: intentosSalida || 0, actualizado_en: new Date().toISOString() }
+    datosActividad
   );
   if (errorActividad) {
     alert("No se pudo guardar tu resultado (" + errorActividad.message + "). Avisale a tu profesor antes de salir de esta pantalla.");
@@ -497,19 +560,26 @@ function jugarCrucigrama(trabajo, cuerpo, terminar) {
 // Punto de entrada: arranca la actividad correcta según tipo_actividad y
 // guarda el resultado al terminar. `onTerminado(puntaje)` se llama al final
 // para que la pantalla pueda refrescarse.
-function iniciarActividadInteractiva(trabajo, estudianteId, onTerminado) {
+async function iniciarActividadInteractiva(trabajo, estudianteId, onTerminado) {
   const tipo = trabajo.tipo_actividad;
   const jugadores = {
     seleccion_unica: jugarSeleccionUnica,
     falso_verdadero: jugarFalsoVerdadero,
     sopa_letras: jugarSopaDeLetras,
-    crucigrama: jugarCrucigrama
+    crucigrama: jugarCrucigrama,
+    prueba: jugarSeleccionUnica // misma mecánica que selección única
   };
   const jugador = jugadores[tipo];
   if (!jugador) { alert("Este tipo de actividad todavía no está disponible para jugar."); return; }
 
+  let datosPrueba = null;
+  if (tipo === "prueba") {
+    datosPrueba = await pedirDatosPrueba();
+    if (!datosPrueba) return; // el estudiante canceló
+  }
+
   lanzarActividadBloqueada(trabajo, (cuerpo, terminar) => jugador(trabajo, cuerpo, terminar), async (resultado) => {
-    const puntaje = await guardarResultadoActividad(trabajo, estudianteId, resultado);
+    const puntaje = await guardarResultadoActividad(trabajo, estudianteId, { ...resultado, datosPrueba });
     onTerminado(puntaje, resultado.porcentaje, resultado.intentosSalida);
   });
 }
