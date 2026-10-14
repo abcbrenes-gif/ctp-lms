@@ -910,8 +910,10 @@ async function calcularNotaIndicadores(estudianteId, materiaId, categoriaNombre,
 // puntos", guardado en indicadores.peso_prueba). Esta función suma el
 // aporte de cada prueba en vez de promediar todas a la vez, para que
 // el aporte nunca pueda pasarse del peso que esa prueba realmente vale.
-// Si una prueba todavía no tiene peso_prueba guardado (nunca se usó ese
-// panel), usa el % de la categoría como respaldo (comportamiento viejo).
+// Si una prueba todavía no tiene peso_prueba guardado (nunca se le dio
+// "Guardar" en ese panel), esa prueba simplemente no cuenta todavía —
+// nunca se usa el % de toda la categoría como respaldo, porque eso
+// inflaba el número por encima de lo que el estudiante realmente ganó.
 async function calcularAportePruebas(estudianteId, materiaId, categoriaNombre, categoriaPorcentaje) {
   const { data: indicadoresTodos } = await sb.from("indicadores").select("*").eq("materia_id", materiaId).eq("categoria", categoriaNombre).order("orden");
   const indicadores = indicadoresTodos || [];
@@ -924,11 +926,11 @@ async function calcularAportePruebas(estudianteId, materiaId, categoriaNombre, c
 
   let aporte = 0, huboAlguno = false;
   indicadores.forEach(ind => {
+    if (ind.peso_prueba === null || ind.peso_prueba === undefined) return; // todavía sin configurar, no cuenta
     const max = Number(ind.puntaje_maximo) || 0;
     if (max <= 0) return;
     const obtenido = Number(porIndicador[ind.id] || 0);
-    const pesoInd = (ind.peso_prueba !== null && ind.peso_prueba !== undefined) ? Number(ind.peso_prueba) : Number(categoriaPorcentaje);
-    aporte += (obtenido / max) * pesoInd;
+    aporte += (obtenido / max) * Number(ind.peso_prueba);
     huboAlguno = true;
   });
   return huboAlguno ? aporte : null;
