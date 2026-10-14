@@ -8,6 +8,7 @@ async function renderTabContent(s, tab, isSelf) {
   if (tab === "whatsapp" && !isSelf) return renderWhatsapp(el, s);
   if (tab === "acceso" && !isSelf) return renderAcceso(el, s);
   if (tab === "pin" && !isSelf) return renderPin(el, s);
+  if (tab === "clave-prueba" && !isSelf) return renderClavePrueba(el, s);
   return renderNotas(el, s, isSelf);
 }
 
@@ -3920,6 +3921,48 @@ function renderPin(el, s) {
     await sb.from("estudiantes").update({ pin: nuevoPin }).eq("id", s.id);
     s.pin = nuevoPin;
     estado.textContent = "Guardado ✓ — ya puede entrar con este PIN.";
+  });
+}
+
+// --- Clave de prueba (código aparte del PIN de acceso: lo pide la prueba
+// al empezar, para confirmar que quien la está haciendo es ese estudiante
+// y no otra persona con su sesión abierta. Solo vos la ves y la manejás —
+// el estudiante no la ve en su perfil) ---
+
+function generarClavePruebaAleatoria() {
+  // Letras y números, sin caracteres que se confunden entre sí (0/O, 1/I/L).
+  const alfabeto = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  let clave = "";
+  for (let i = 0; i < 6; i++) clave += alfabeto[Math.floor(Math.random() * alfabeto.length)];
+  return clave;
+}
+
+function renderClavePrueba(el, s) {
+  el.innerHTML = `
+    <div class="whatsapp-panel">
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.6rem;">
+        Antes de entrar a CUALQUIER prueba, la plataforma le pide a ${s.nombre} esta clave (además de sus datos). Es distinta del PIN de acceso: sirve para confirmar que es él/ella quien la está haciendo, no otra persona con su sesión abierta. Se la comunicás vos — el estudiante no la ve en su propio perfil.
+      </p>
+      <label for="clave-prueba-input">Clave actual</label>
+      <div class="row" style="align-items:center;">
+        <input id="clave-prueba-input" value="${s.clave_prueba || ""}" placeholder="Sin clave asignada" style="max-width:10rem; font-size:1.1rem; letter-spacing:0.15em; text-transform:uppercase;" />
+        <button class="btn secondary small" id="generar-clave-prueba-btn" type="button">🎲 Generar aleatoria</button>
+        <button class="btn small" id="guardar-clave-prueba-btn" type="button">Guardar</button>
+      </div>
+      <span id="clave-prueba-estado" style="font-size:0.78rem; color:var(--text-muted); display:block; margin-top:0.5rem;"></span>
+    </div>`;
+
+  document.getElementById("generar-clave-prueba-btn").addEventListener("click", () => {
+    document.getElementById("clave-prueba-input").value = generarClavePruebaAleatoria();
+  });
+
+  document.getElementById("guardar-clave-prueba-btn").addEventListener("click", async () => {
+    const nuevaClave = document.getElementById("clave-prueba-input").value.trim().toUpperCase();
+    const estado = document.getElementById("clave-prueba-estado");
+    if (!nuevaClave) { estado.textContent = "Escribe o genera una clave antes de guardar."; return; }
+    await sb.from("estudiantes").update({ clave_prueba: nuevaClave }).eq("id", s.id);
+    s.clave_prueba = nuevaClave;
+    estado.textContent = "Guardado ✓ — ya se la puede pedir en cualquier prueba.";
   });
 }
 

@@ -299,6 +299,7 @@ async function renderSeccion(sec) {
       <span style="display:flex; align-items:center; gap:0.8rem;">
         <span class="cedula">${s.id}</span>
         ${s.pin ? `<span class="badge" style="font-family:monospace;">🔐 ${s.pin}</span>` : `<span class="badge" style="background:#fdecea; color:#c0392b;">Sin PIN</span>`}
+        ${s.clave_prueba ? `<span class="badge" style="font-family:monospace;">🎫 ${s.clave_prueba}</span>` : `<span class="badge" style="background:#fdecea; color:#c0392b;">Sin clave de prueba</span>`}
       </span>
     </a>`).join("");
 
@@ -311,6 +312,10 @@ async function renderSeccion(sec) {
       <div class="row" style="margin:0.6rem 0;">
         <button class="btn secondary small" id="generar-pines-btn" type="button">🔐 Generar PIN a los que no tienen</button>
         <span id="generar-pines-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>
+      </div>
+      <div class="row" style="margin:0.6rem 0;">
+        <button class="btn secondary small" id="generar-claves-prueba-btn" type="button">🎫 Generar clave de prueba a los que no tienen</button>
+        <span id="generar-claves-prueba-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>
       </div>
       <div class="roster">${rows || '<p class="empty">No hay estudiantes registrados en esta sección.</p>'}</div>
 
@@ -364,6 +369,22 @@ async function renderSeccion(sec) {
       st.pin = nuevoPin;
     }
     estado.textContent = `Listo — se generó PIN para ${sinPin.length} estudiante(s). Entra al perfil de cada uno (pestaña "PIN de acceso") para verlo y comunicárselo.`;
+    renderSeccion(sec);
+  });
+
+  const generarClavesPruebaBtn = document.getElementById("generar-claves-prueba-btn");
+  if (generarClavesPruebaBtn) generarClavesPruebaBtn.addEventListener("click", async () => {
+    const estado = document.getElementById("generar-claves-prueba-estado");
+    const sinClave = (students || []).filter(st => !st.clave_prueba);
+    if (sinClave.length === 0) { estado.textContent = "Todos los estudiantes de esta sección ya tienen clave de prueba."; return; }
+    generarClavesPruebaBtn.disabled = true;
+    estado.textContent = "Generando…";
+    for (const st of sinClave) {
+      const nuevaClave = generarClavePruebaAleatoria();
+      await sb.from("estudiantes").update({ clave_prueba: nuevaClave }).eq("id", st.id);
+      st.clave_prueba = nuevaClave;
+    }
+    estado.textContent = `Listo — se generó clave de prueba para ${sinClave.length} estudiante(s). Entra al perfil de cada uno (pestaña "Clave de prueba") para verla y comunicársela.`;
     renderSeccion(sec);
   });
 
@@ -1312,7 +1333,8 @@ async function renderPerfil(id, isSelf) {
         <button class="tab-btn ${activeTab === "materias-est" ? "active" : ""}" data-tab="materias-est"><span class="tab-icon">📚</span><span class="tab-label">Materias</span></button>
         ${!isSelf ? `<button class="tab-btn ${activeTab === "whatsapp" ? "active" : ""}" data-tab="whatsapp"><span class="tab-icon">💬</span><span class="tab-label">WhatsApp</span></button>
         <button class="tab-btn ${activeTab === "acceso" ? "active" : ""}" data-tab="acceso"><span class="tab-icon">🔑</span><span class="tab-label">Materias</span></button>
-        <button class="tab-btn ${activeTab === "pin" ? "active" : ""}" data-tab="pin"><span class="tab-icon">🔐</span><span class="tab-label">PIN de acceso</span></button>` : ""}
+        <button class="tab-btn ${activeTab === "pin" ? "active" : ""}" data-tab="pin"><span class="tab-icon">🔐</span><span class="tab-label">PIN de acceso</span></button>
+        <button class="tab-btn ${activeTab === "clave-prueba" ? "active" : ""}" data-tab="clave-prueba"><span class="tab-icon">🎫</span><span class="tab-label">Clave de prueba</span></button>` : ""}
       </div>
 
       <div id="tab-content">Cargando…</div>

@@ -118,6 +118,9 @@ function pedirDatosPrueba(trabajo) {
           <label style="font-size:0.82rem;">Correo electrónico del padre/encargado
             <input id="pd-correo-padre" type="email" style="width:100%; margin-top:0.2rem; box-sizing:border-box;" />
           </label>
+          <label style="font-size:0.82rem;">Clave de la prueba (te la dio tu profesor)
+            <input id="pd-clave-prueba" style="width:100%; margin-top:0.2rem; box-sizing:border-box; text-transform:uppercase; letter-spacing:0.15em;" />
+          </label>
         </div>
         <p id="pd-error" style="color:#c0392b; font-size:0.8rem; margin-top:0.6rem; min-height:1em;"></p>
         <div class="row" style="margin-top:1rem; justify-content:flex-end; gap:0.5rem;">
@@ -128,17 +131,42 @@ function pedirDatosPrueba(trabajo) {
     document.body.appendChild(overlay);
 
     overlay.querySelector("#pd-cancelar").addEventListener("click", () => { overlay.remove(); resolve(null); });
-    overlay.querySelector("#pd-continuar").addEventListener("click", () => {
+    overlay.querySelector("#pd-continuar").addEventListener("click", async () => {
+      const btnContinuar = overlay.querySelector("#pd-continuar");
+      const errorEl = overlay.querySelector("#pd-error");
       const nombre_completo = overlay.querySelector("#pd-nombre").value.trim();
       const cedula = overlay.querySelector("#pd-cedula").value.trim();
       const correo_mep = overlay.querySelector("#pd-correo-mep").value.trim();
       const correo_padre = overlay.querySelector("#pd-correo-padre").value.trim();
-      if (!nombre_completo || !cedula || !correo_mep || !correo_padre) {
-        overlay.querySelector("#pd-error").textContent = "Completá los 4 campos para continuar.";
+      const clave_prueba = overlay.querySelector("#pd-clave-prueba").value.trim().toUpperCase();
+      if (!nombre_completo || !cedula || !correo_mep || !correo_padre || !clave_prueba) {
+        errorEl.textContent = "Completá los 5 campos para continuar.";
         return;
       }
+      // Confirma que la clave corresponde al estudiante que tiene la sesión
+      // abierta — así se evita que alguien haga la prueba con la sesión de
+      // otro compañero. Si no hay sesión de estudiante (p. ej. una vista
+      // previa) o la tabla no tiene esta columna todavía, no bloquea.
+      if (typeof session !== "undefined" && session && session.role === "estudiante" && typeof sb !== "undefined") {
+        btnContinuar.disabled = true;
+        errorEl.textContent = "Verificando clave…";
+        errorEl.style.color = "var(--text-muted)";
+        const { data: est, error } = await sb.from("estudiantes").select("clave_prueba").eq("id", session.id).maybeSingle();
+        btnContinuar.disabled = false;
+        if (!error && est && est.clave_prueba) {
+          if (est.clave_prueba.trim().toUpperCase() !== clave_prueba) {
+            errorEl.style.color = "#c0392b";
+            errorEl.textContent = "Esa clave no es correcta. Pedísela de nuevo a tu profesor.";
+            return;
+          }
+        }
+        // Si el estudiante todavía no tiene clave asignada en la base de
+        // datos, se deja pasar (para no trabar pruebas mientras el
+        // profesor todavía no le ha puesto clave a todos).
+      }
+      errorEl.textContent = "";
       overlay.remove();
-      resolve({ nombre_completo, cedula, correo_mep, correo_padre });
+      resolve({ nombre_completo, cedula, correo_mep, correo_padre, clave_prueba });
     });
   });
 }
