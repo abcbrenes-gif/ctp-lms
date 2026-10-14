@@ -1918,7 +1918,9 @@ async function renderSubtema(id, soloLectura) {
       const panel = document.getElementById("actividad-interactiva-panel");
       panel.innerHTML = construirSelectorTipoActividad();
       panel.querySelector("#actividad-tipo").addEventListener("change", (e) => {
-        panel.querySelector("#actividad-constructor").innerHTML = construirPanelActividadHTML(e.target.value);
+        const constructor = panel.querySelector("#actividad-constructor");
+        constructor.innerHTML = construirPanelActividadHTML(e.target.value);
+        if (e.target.value === "prueba") inicializarConstructorPrueba(constructor);
       });
       panel.querySelector("#actividad-tipo").dispatchEvent(new Event("change"));
       panel.querySelector("#generar-actividad-ia-btn").addEventListener("click", async (iaEv) => {
@@ -2996,6 +2998,73 @@ function construirSelectorTipoActividad() {
     </div>`;
 }
 
+// Un bloque de pregunta (texto + 4 opciones) para la actividad "Prueba",
+// con cantidad libre de preguntas (sin tope fijo). "i" es un índice interno
+// único por bloque — no se reutiliza aunque se quiten preguntas — y se usa
+// para que los inputs/radios de ese bloque no choquen con los de otros.
+function bloquePreguntaPruebaHTML(i) {
+  return `
+    <div class="au-prueba-bloque" data-bloque="${i}" style="background:#F5F6FA; border-radius:8px; padding:0.8rem; margin-bottom:0.6rem;">
+      <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
+        <p class="au-prueba-numero" style="font-weight:600; font-size:0.85rem; margin:0;">Pregunta</p>
+        <button type="button" class="btn danger small au-prueba-quitar" data-bloque="${i}">Quitar</button>
+      </div>
+      <textarea class="au-pregunta" data-i="${i}" placeholder="Texto de la pregunta" rows="2" style="width:100%; margin-bottom:0.5rem; font-family:inherit; resize:vertical;"></textarea>
+      ${[0, 1, 2, 3].map(j => `
+        <div style="display:flex; align-items:flex-start; gap:0.5rem; margin-bottom:0.3rem;">
+          <input type="radio" name="au-correcta-${i}" value="${j}" ${j === 0 ? "checked" : ""} style="margin-top:0.6rem;" />
+          <textarea class="au-opcion" data-i="${i}" data-j="${j}" placeholder="Opción ${String.fromCharCode(65 + j)}" rows="1" style="flex:1; font-family:inherit; resize:vertical;"></textarea>
+        </div>`).join("")}
+    </div>`;
+}
+
+// Vuelve a numerar visualmente "Pregunta 1", "Pregunta 2"... según el orden
+// actual de los bloques (el índice interno data-bloque no cambia).
+function renumerarPreguntasPrueba(lista) {
+  lista.querySelectorAll(".au-prueba-bloque").forEach((bloque, idx) => {
+    const numero = bloque.querySelector(".au-prueba-numero");
+    if (numero) numero.textContent = `Pregunta ${idx + 1}`;
+  });
+}
+
+// Agrega un bloque de pregunta nuevo al final de la lista de preguntas de
+// una Prueba (dentro de "contenedor", que es el div que tiene adentro
+// ".au-prueba-lista" y el botón ".au-prueba-agregar"). Devuelve el bloque
+// creado.
+function agregarPreguntaPruebaBloque(contenedor) {
+  const lista = contenedor.querySelector(".au-prueba-lista");
+  if (!lista) return null;
+  const siguiente = Number(lista.dataset.auPruebaSiguiente || "0");
+  lista.dataset.auPruebaSiguiente = String(siguiente + 1);
+  const envoltura = document.createElement("div");
+  envoltura.innerHTML = bloquePreguntaPruebaHTML(siguiente);
+  const bloque = envoltura.firstElementChild;
+  lista.appendChild(bloque);
+  renumerarPreguntasPrueba(lista);
+  return bloque;
+}
+
+// Conecta el botón "+ Agregar pregunta" y los botones "Quitar" de cada
+// bloque, dentro de "contenedor" (el div donde se insertó el HTML de
+// construirPanelActividadHTML("prueba")). Hay que llamarla una vez, justo
+// después de insertar ese HTML en el DOM.
+function inicializarConstructorPrueba(contenedor) {
+  const lista = contenedor.querySelector(".au-prueba-lista");
+  const btnAgregar = contenedor.querySelector(".au-prueba-agregar");
+  if (!lista || !btnAgregar) return;
+  btnAgregar.addEventListener("click", () => agregarPreguntaPruebaBloque(contenedor));
+  lista.addEventListener("click", (e) => {
+    const quitar = e.target.closest(".au-prueba-quitar");
+    if (!quitar) return;
+    if (lista.querySelectorAll(".au-prueba-bloque").length <= 1) {
+      alert("La prueba debe tener al menos una pregunta.");
+      return;
+    }
+    quitar.closest(".au-prueba-bloque")?.remove();
+    renumerarPreguntasPrueba(lista);
+  });
+}
+
 function construirPanelActividadHTML(tipo) {
   if (tipo === "seleccion_unica") {
     const preguntas = Array.from({ length: 15 }, (_, i) => i);
@@ -3013,7 +3082,7 @@ function construirPanelActividadHTML(tipo) {
         </div>`).join("")}`;
   }
   if (tipo === "prueba") {
-    const preguntas = Array.from({ length: 15 }, (_, i) => i);
+    const preguntasIniciales = Array.from({ length: 5 }, (_, i) => i);
     return `
       <div style="background:#FFF7E8; border:1px solid #E8C777; border-radius:8px; padding:0.8rem; margin-bottom:0.8rem;">
         <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.4rem;">Hora de inicio (opcional)</label>
@@ -3025,17 +3094,11 @@ function construirPanelActividadHTML(tipo) {
         <textarea id="au-prueba-instrucciones" rows="3" placeholder="Ej. Tenés 40 minutos. No se permite usar el celular ni el libro. Una vez que empiece no podés pausar." style="width:100%; font-family:inherit; resize:vertical;"></textarea>
         <p style="font-size:0.78rem; color:var(--text-muted); margin-top:0.3rem;">Esto se le muestra al estudiante en una ventana con las reglas, antes de pedirle sus datos y de empezar la prueba.</p>
       </div>
-      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Antes de empezar, cada estudiante debe escribir su nombre completo, cédula, correo del MEP y correo del padre/encargado. Escribí las 15 preguntas y marcá con el círculo cuál opción es la correcta.</p>
-      ${preguntas.map(i => `
-        <div style="background:#F5F6FA; border-radius:8px; padding:0.8rem; margin-bottom:0.6rem;">
-          <p style="font-weight:600; margin-bottom:0.4rem; font-size:0.85rem;">Pregunta ${i + 1}</p>
-          <textarea class="au-pregunta" data-i="${i}" placeholder="Texto de la pregunta" rows="2" style="width:100%; margin-bottom:0.5rem; font-family:inherit; resize:vertical;"></textarea>
-          ${[0, 1, 2, 3].map(j => `
-            <div style="display:flex; align-items:flex-start; gap:0.5rem; margin-bottom:0.3rem;">
-              <input type="radio" name="au-correcta-${i}" value="${j}" ${j === 0 ? "checked" : ""} style="margin-top:0.6rem;" />
-              <textarea class="au-opcion" data-i="${i}" data-j="${j}" placeholder="Opción ${String.fromCharCode(65 + j)}" rows="1" style="flex:1; font-family:inherit; resize:vertical;"></textarea>
-            </div>`).join("")}
-        </div>`).join("")}`;
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Antes de empezar, cada estudiante debe escribir su nombre completo, cédula, correo del MEP y correo del padre/encargado. Agregá las preguntas que necesite la prueba (podés quitar o agregar las que quieras) y marcá con el círculo cuál opción es la correcta.</p>
+      <div class="au-prueba-lista" data-au-prueba-siguiente="${preguntasIniciales.length}">
+        ${preguntasIniciales.map(i => bloquePreguntaPruebaHTML(i)).join("")}
+      </div>
+      <button type="button" class="btn secondary small au-prueba-agregar">+ Agregar pregunta</button>`;
   }
   if (tipo === "falso_verdadero") {
     const items = Array.from({ length: 10 }, (_, i) => i);
@@ -3077,7 +3140,7 @@ function construirPanelActividadHTML(tipo) {
 // para que el profesor lo revise y edite antes de crear la actividad.
 function llenarPanelActividadConIA(tipo, el, contenido) {
   if (!contenido) return;
-  if ((tipo === "seleccion_unica" || tipo === "prueba") && Array.isArray(contenido.preguntas)) {
+  if (tipo === "seleccion_unica" && Array.isArray(contenido.preguntas)) {
     contenido.preguntas.slice(0, 15).forEach((p, i) => {
       const inputPregunta = el.querySelector(`.au-pregunta[data-i="${i}"]`);
       if (inputPregunta) inputPregunta.value = p.pregunta || "";
@@ -3088,6 +3151,29 @@ function llenarPanelActividadConIA(tipo, el, contenido) {
       const radio = el.querySelector(`input[name="au-correcta-${i}"][value="${Number(p.correcta) || 0}"]`);
       if (radio) radio.checked = true;
     });
+  }
+  if (tipo === "prueba" && Array.isArray(contenido.preguntas)) {
+    const lista = el.querySelector(".au-prueba-lista");
+    if (lista) {
+      let bloques = Array.from(lista.querySelectorAll(".au-prueba-bloque"));
+      while (bloques.length < contenido.preguntas.length) {
+        agregarPreguntaPruebaBloque(el);
+        bloques = Array.from(lista.querySelectorAll(".au-prueba-bloque"));
+      }
+      contenido.preguntas.forEach((p, idx) => {
+        const bloque = bloques[idx];
+        if (!bloque) return;
+        const i = bloque.dataset.bloque;
+        const inputPregunta = bloque.querySelector(`.au-pregunta[data-i="${i}"]`);
+        if (inputPregunta) inputPregunta.value = p.pregunta || "";
+        (p.opciones || []).slice(0, 4).forEach((op, j) => {
+          const inputOpcion = bloque.querySelector(`.au-opcion[data-i="${i}"][data-j="${j}"]`);
+          if (inputOpcion) inputOpcion.value = op || "";
+        });
+        const radio = bloque.querySelector(`input[name="au-correcta-${i}"][value="${Number(p.correcta) || 0}"]`);
+        if (radio) radio.checked = true;
+      });
+    }
   }
   if (tipo === "falso_verdadero" && Array.isArray(contenido.afirmaciones)) {
     contenido.afirmaciones.slice(0, 10).forEach((a, i) => {
@@ -3236,7 +3322,7 @@ async function construirRetroalimentacionActividad(trabajo, soloEstudianteId) {
 }
 
 function leerContenidoActividadDesdeFormulario(tipo, el) {
-  if (tipo === "seleccion_unica" || tipo === "prueba") {
+  if (tipo === "seleccion_unica") {
     const preguntas = [];
     for (let i = 0; i < 15; i++) {
       const pregunta = (el.querySelector(`.au-pregunta[data-i="${i}"]`)?.value || "").trim();
@@ -3245,7 +3331,22 @@ function leerContenidoActividadDesdeFormulario(tipo, el) {
       const marcada = el.querySelector(`input[name="au-correcta-${i}"]:checked`);
       preguntas.push({ pregunta, opciones, correcta: marcada ? Number(marcada.value) : 0 });
     }
-    const instrucciones = tipo === "prueba" ? (el.querySelector("#au-prueba-instrucciones")?.value || "").trim() : "";
+    return { valido: true, contenido: { preguntas } };
+  }
+  if (tipo === "prueba") {
+    const bloques = Array.from(el.querySelectorAll(".au-prueba-bloque"));
+    if (bloques.length === 0) return { valido: false, error: "Agregá al menos una pregunta." };
+    const preguntas = [];
+    for (let idx = 0; idx < bloques.length; idx++) {
+      const bloque = bloques[idx];
+      const i = bloque.dataset.bloque;
+      const pregunta = (bloque.querySelector(`.au-pregunta[data-i="${i}"]`)?.value || "").trim();
+      const opciones = [0, 1, 2, 3].map(j => (bloque.querySelector(`.au-opcion[data-i="${i}"][data-j="${j}"]`)?.value || "").trim());
+      if (!pregunta || opciones.some(o => !o)) return { valido: false, error: `Completá la pregunta ${idx + 1} y sus 4 opciones.` };
+      const marcada = bloque.querySelector(`input[name="au-correcta-${i}"]:checked`);
+      preguntas.push({ pregunta, opciones, correcta: marcada ? Number(marcada.value) : 0 });
+    }
+    const instrucciones = (el.querySelector("#au-prueba-instrucciones")?.value || "").trim();
     return { valido: true, contenido: instrucciones ? { preguntas, instrucciones } : { preguntas } };
   }
   if (tipo === "falso_verdadero") {
@@ -4122,6 +4223,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
           <button class="btn secondary small" id="cancelar-prueba-materia" type="button">Cancelar</button>
         </div>
       </div>`;
+    inicializarConstructorPrueba(panel.querySelector("#prueba-materia-constructor"));
 
     panel.querySelector("#cancelar-prueba-materia").addEventListener("click", () => { panel.innerHTML = ""; });
     panel.querySelector("#guardar-prueba-materia").addEventListener("click", async (btnEv) => {
