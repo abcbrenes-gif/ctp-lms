@@ -3498,6 +3498,51 @@ async function construirRetroalimentacionActividad(trabajo, soloEstudianteId) {
   </div>`;
 }
 
+// Diagnóstico agregado: de todos los que ya completaron la prueba,
+// cuántos acertaron y cuántos fallaron CADA pregunta, para detectar de
+// un vistazo las preguntas más difíciles (o mal planteadas) y qué tan
+// consistente salió la calificación automática.
+async function construirDiagnosticoPorPregunta(trabajo) {
+  const contenido = trabajo.contenido_actividad;
+  if (!contenido) return `<p class="empty" style="font-size:0.82rem;">Esta prueba no tiene contenido guardado.</p>`;
+
+  const items = (trabajo.tipo_actividad === "seleccion_unica" || trabajo.tipo_actividad === "prueba")
+    ? (contenido.preguntas || []).map(p => ({ texto: p.pregunta, correcta: Number(p.correcta) }))
+    : (contenido.afirmaciones || []).map(a => ({ texto: a.texto, correcta: a.correcta ? 1 : 0 }));
+  if (items.length === 0) return `<p class="empty" style="font-size:0.82rem;">Esta prueba no tiene preguntas guardadas.</p>`;
+
+  const { data: entregas } = await sb.from("actividades_estudiante").select("respuestas, porcentaje, puntaje").eq("trabajo_id", trabajo.id).eq("completado", true);
+  if (!entregas || entregas.length === 0) {
+    return `<p class="empty" style="font-size:0.82rem;">Todavía nadie ha completado esta prueba.</p>`;
+  }
+
+  const esCorrecta = (item, valor) => {
+    if (trabajo.tipo_actividad === "falso_verdadero") return (valor === true ? 1 : (valor === false ? 0 : -1)) === item.correcta;
+    return Number(valor) === item.correcta;
+  };
+
+  const filasPreguntas = items.map((item, i) => {
+    const respuestas = entregas.map(e => (Array.isArray(e.respuestas) ? e.respuestas[i] : undefined));
+    const correctas = respuestas.filter(v => esCorrecta(item, v)).length;
+    const total = entregas.length;
+    const pct = total ? Math.round((correctas / total) * 100) : 0;
+    const color = pct >= 70 ? "#1d7a43" : (pct >= 40 ? "#a5690a" : "#c0392b");
+    return { pct, html: `
+      <div style="padding:0.5rem 0.6rem; border-left:4px solid ${color}; background:#F5F6FA; border-radius:4px; margin-bottom:0.4rem;">
+        <div style="font-weight:600; font-size:0.85rem;">${i + 1}. ${item.texto}</div>
+        <div style="font-size:0.8rem; color:${color};">${correctas}/${total} acertaron (${pct}%)</div>
+      </div>` };
+  }).sort((a, b) => a.pct - b.pct);
+
+  const promedioPct = Math.round(entregas.reduce((acc, e) => acc + (Number(e.porcentaje) || 0), 0) / entregas.length);
+
+  return `<div style="margin-top:0.5rem;">
+    <p style="font-size:0.85rem; margin-bottom:0.6rem;"><strong>${entregas.length}</strong> estudiante${entregas.length === 1 ? "" : "s"} completaron la prueba · promedio general: <strong>${promedioPct}%</strong></p>
+    <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">Ordenado de la pregunta más difícil (menos acierto) a la más fácil:</p>
+    ${filasPreguntas.map(f => f.html).join("")}
+  </div>`;
+}
+
 function leerContenidoActividadDesdeFormulario(tipo, el) {
   if (tipo === "seleccion_unica") {
     const preguntas = [];
@@ -4537,6 +4582,13 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
     if (!t || t.tipo_actividad !== "prueba") return "";
     return `<button class="btn secondary small" data-pdf-prueba-ind="${t.id}">📄 Descargar PDF</button>`;
   }
+  // Botón para ver, sin salir de esta tarjeta, el diagnóstico por
+  // pregunta: cuántos acertaron y cuántos fallaron cada una.
+  function botonDiagnosticoTrabajo(ind) {
+    const t = trabajoPorIndicador[ind.id];
+    if (!t || !TIPOS_CON_RETRO.includes(t.tipo_actividad)) return "";
+    return `<button class="btn secondary small" data-diagnostico-ind="${t.id}">📊 Diagnóstico</button>`;
+  }
 
   const siguienteLetra = siguienteLetraDisponible((indicadores || []).map(i => i.letra));
   const esCategoriaPruebas = catNombre === "Pruebas";
@@ -4589,6 +4641,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
               ${botonHoraTrabajo(ind)}
               ${botonVerRespuestasTrabajo(ind)}
               ${botonMostrarRespuestasTrabajo(ind)}
+              ${botonDiagnosticoTrabajo(ind)}
               ${botonPdfTrabajo(ind)}
               ${linkTrabajo(ind)}
               <button class="btn danger small" data-del-indicador="${ind.id}">Eliminar</button>
@@ -4596,6 +4649,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
           </div>
           ${trabajoPorIndicador[ind.id] && trabajoPorIndicador[ind.id].tipo_actividad === "prueba" ? `<div data-hora-ind-panel="${trabajoPorIndicador[ind.id].id}"></div>` : ""}
           ${trabajoPorIndicador[ind.id] && TIPOS_CON_RETRO.includes(trabajoPorIndicador[ind.id].tipo_actividad) ? `<div data-retro-ind-panel="${trabajoPorIndicador[ind.id].id}"></div>` : ""}
+          ${trabajoPorIndicador[ind.id] && TIPOS_CON_RETRO.includes(trabajoPorIndicador[ind.id].tipo_actividad) ? `<div data-diagnostico-ind-panel="${trabajoPorIndicador[ind.id].id}"></div>` : ""}
           ${esPruebaAuto ? "" : `<div style="font-size:0.85rem;">
             ${(ind.criterios_indicador || []).sort((a, b) => a.puntaje - b.puntaje).map(c => `<div><strong>${c.nivel ? c.nivel + " — " : ""}${c.puntaje} punto${c.puntaje === 1 ? "" : "s"}:</strong> ${c.descripcion}</div>`).join("")}
           </div>`}
@@ -4698,6 +4752,18 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       if (!t) return;
       panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando…</p>`;
       panel.innerHTML = await construirRetroalimentacionActividad(t);
+    });
+  });
+  holder.querySelectorAll("[data-diagnostico-ind]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const trabajoId = btn.dataset.diagnosticoInd;
+      const panel = holder.querySelector(`[data-diagnostico-ind-panel="${trabajoId}"]`);
+      if (!panel) return;
+      if (panel.innerHTML) { panel.innerHTML = ""; return; }
+      const t = Object.values(trabajoPorIndicador).find(x => String(x.id) === String(trabajoId));
+      if (!t) return;
+      panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando…</p>`;
+      panel.innerHTML = await construirDiagnosticoPorPregunta(t);
     });
   });
   holder.querySelectorAll("[data-toggle-retro-visible-ind]").forEach(btn => {
