@@ -520,9 +520,9 @@ async function cargarEvaluacionesSeccion(sec, students, holderId = "evaluaciones
       if (prom === null) { celdas.push(`<td class="num">—</td>`); continue; }
       suma += prom * (c.porcentaje / 100);
       pesoUsado += Number(c.porcentaje);
-      celdas.push(`<td class="num ${prom < 70 ? "low" : ""}">${prom.toFixed(1)}</td>`);
+      celdas.push(`<td class="num ${prom < 70 ? "low" : ""}">${prom.toFixed(1)}%</td>`);
     }
-    const final = pesoUsado > 0 ? suma.toFixed(1) : "—";
+    const final = pesoUsado > 0 ? `${suma.toFixed(1)}%` : "—";
     return `<tr><td>${st.apellido1} ${st.apellido2}, ${st.nombre}</td>${celdas.join("")}<td class="num" style="font-weight:600;">${final}</td></tr>`;
   }))).join("");
 
