@@ -4123,7 +4123,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
   const indicadorIdsActuales = (indicadores || []).map(i => i.id);
   const trabajoPorIndicador = {};
   if (indicadorIdsActuales.length) {
-    const { data: tcVinculados } = await sb.from("trabajos_cotidianos").select("id, indicador_id, publicacion_id, subtema_id, titulo, habilitado, tipo_actividad").in("indicador_id", indicadorIdsActuales);
+    const { data: tcVinculados } = await sb.from("trabajos_cotidianos").select("id, indicador_id, publicacion_id, subtema_id, titulo, habilitado, tipo_actividad, fecha_hora_inicio").in("indicador_id", indicadorIdsActuales);
     (tcVinculados || []).forEach(t => { trabajoPorIndicador[t.indicador_id] = t; });
   }
   function linkTrabajo(ind) {
@@ -4142,6 +4142,14 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
     return habilitado
       ? `<button class="btn secondary small" data-toggle-habilitar-prueba="${t.id}" data-estado="habilitado">✅ Habilitada</button>`
       : `<button class="btn small" data-toggle-habilitar-prueba="${t.id}" data-estado="deshabilitado">Habilitar</button>`;
+  }
+  // Botón + panel para ponerle (o quitarle) la hora de inicio a la prueba,
+  // sin tener que salir de esta tarjeta tampoco.
+  function botonHoraTrabajo(ind) {
+    const t = trabajoPorIndicador[ind.id];
+    if (!t || t.tipo_actividad !== "prueba") return "";
+    const texto = t.fecha_hora_inicio ? "⏰ " + formatearFechaHora(t.fecha_hora_inicio) : "⏰ Sin hora programada";
+    return `<button class="btn secondary small" data-cambiar-hora-ind="${t.id}">${texto}</button>`;
   }
 
   const siguienteLetra = siguienteLetraDisponible((indicadores || []).map(i => i.letra));
@@ -4187,10 +4195,12 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
             </span>
             <span style="display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap;">
               ${botonHabilitarTrabajo(ind)}
+              ${botonHoraTrabajo(ind)}
               ${linkTrabajo(ind)}
               <button class="btn danger small" data-del-indicador="${ind.id}">Eliminar</button>
             </span>
           </div>
+          ${trabajoPorIndicador[ind.id] && trabajoPorIndicador[ind.id].tipo_actividad === "prueba" ? `<div data-hora-ind-panel="${trabajoPorIndicador[ind.id].id}"></div>` : ""}
           <div style="font-size:0.85rem;">
             ${(ind.criterios_indicador || []).sort((a, b) => a.puntaje - b.puntaje).map(c => `<div><strong>${c.nivel ? c.nivel + " — " : ""}${c.puntaje} punto${c.puntaje === 1 ? "" : "s"}:</strong> ${c.descripcion}</div>`).join("")}
           </div>
@@ -4281,6 +4291,35 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       if (yaHabilitada && !confirm("¿Deshabilitar esta prueba? Los estudiantes dejarán de verla.")) return;
       await sb.from("trabajos_cotidianos").update({ habilitado: !yaHabilitada }).eq("id", btn.dataset.toggleHabilitarPrueba);
       cargarIndicadoresDeMateria(materiaId, catNombre);
+    });
+  });
+  holder.querySelectorAll("[data-cambiar-hora-ind]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const trabajoId = btn.dataset.cambiarHoraInd;
+      const panel = holder.querySelector(`[data-hora-ind-panel="${trabajoId}"]`);
+      if (!panel) return;
+      if (panel.innerHTML.trim()) { panel.innerHTML = ""; return; }
+      const t = Object.values(trabajoPorIndicador).find(x => String(x.id) === String(trabajoId));
+      if (!t) return;
+      const valorActual = t.fecha_hora_inicio
+        ? new Date(new Date(t.fecha_hora_inicio).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+        : "";
+      panel.innerHTML = `
+        <div class="row" style="align-items:center; margin-top:0.3rem;">
+          <input type="datetime-local" data-hora-ind-input="${trabajoId}" value="${valorActual}" style="padding:0.4rem;" />
+          <button class="btn small" data-guardar-hora-ind="${trabajoId}">Guardar hora</button>
+          <button class="btn secondary small" data-quitar-hora-ind="${trabajoId}">Quitar hora (disponible de inmediato)</button>
+        </div>`;
+      panel.querySelector(`[data-guardar-hora-ind="${trabajoId}"]`).addEventListener("click", async () => {
+        const input = panel.querySelector(`[data-hora-ind-input="${trabajoId}"]`);
+        const nuevaHora = input && input.value ? new Date(input.value).toISOString() : null;
+        await sb.from("trabajos_cotidianos").update({ fecha_hora_inicio: nuevaHora }).eq("id", trabajoId);
+        cargarIndicadoresDeMateria(materiaId, catNombre);
+      });
+      panel.querySelector(`[data-quitar-hora-ind="${trabajoId}"]`).addEventListener("click", async () => {
+        await sb.from("trabajos_cotidianos").update({ fecha_hora_inicio: null }).eq("id", trabajoId);
+        cargarIndicadoresDeMateria(materiaId, catNombre);
+      });
     });
   });
   holder.querySelectorAll("[data-vincular-resultado]").forEach(sel => {
