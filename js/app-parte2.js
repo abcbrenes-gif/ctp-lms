@@ -98,13 +98,24 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
   // todavía no la hace, se le pone el botón "Iniciar prueba" ahí mismo, en
   // vez de obligarlo a ir hasta Materias a buscarla.
   const trabajoPorIndNota = {};
+  // Si un indicador viene de una tarea de "subir archivo" (tipo_actividad
+  // "infografia"), acá se guarda lo que ya entregó este estudiante (si
+  // entregó), para poder mostrar "Subir archivo" o "Ya entregado" en vez
+  // del selector 0-3 (eso lo sigue calificando el profesor aparte).
+  const entregaPorTrabajoArchivo = {};
   if (isSelf) {
     const todosLosIndicadorIds = Object.values(indicadoresPorMateria).flatMap(info => info.indicadores.map(i => i.id));
     if (todosLosIndicadorIds.length) {
       const { data: trabajosDeIndicadores } = await sb.from("trabajos_cotidianos")
-        .select("id, indicador_id, tipo_actividad, habilitado, fecha_hora_inicio, titulo")
+        .select("id, indicador_id, tipo_actividad, habilitado, fecha_hora_inicio, titulo, contenido_actividad")
         .in("indicador_id", todosLosIndicadorIds);
       (trabajosDeIndicadores || []).forEach(t => { trabajoPorIndNota[t.indicador_id] = t; });
+
+      const trabajoArchivoIds = (trabajosDeIndicadores || []).filter(t => t.tipo_actividad === "infografia").map(t => t.id);
+      if (trabajoArchivoIds.length) {
+        const { data: entregasArchivo } = await sb.from("actividades_estudiante").select("trabajo_id, archivo_ruta, archivo_nombre").eq("estudiante_id", s.id).in("trabajo_id", trabajoArchivoIds);
+        (entregasArchivo || []).forEach(e => { entregaPorTrabajoArchivo[e.trabajo_id] = e; });
+      }
     }
   }
 
@@ -128,6 +139,9 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
               const trabajoPrueba = isSelf ? trabajoPorIndNota[i.id] : null;
               const esPruebaPendiente = trabajoPrueba && trabajoPrueba.tipo_actividad === "prueba" && sinCalificar;
               const aunNoEsHora = esPruebaPendiente && trabajoPrueba.fecha_hora_inicio && new Date(trabajoPrueba.fecha_hora_inicio) > new Date();
+              const esArchivoPendiente = trabajoPrueba && trabajoPrueba.tipo_actividad === "infografia";
+              const entregaArchivo = esArchivoPendiente ? entregaPorTrabajoArchivo[trabajoPrueba.id] : null;
+              const instruccionesArchivo = esArchivoPendiente ? (trabajoPrueba.contenido_actividad?.instrucciones || "") : "";
               return `
               <tr>
                 <td>
@@ -136,6 +150,16 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
                   ${esPruebaPendiente ? (aunNoEsHora
                     ? `<div style="margin-top:0.3rem;"><span class="badge" style="background:#fdf1dc; color:#a5690a;">⏳ Disponible a partir de ${formatearFechaHora(trabajoPrueba.fecha_hora_inicio)}</span></div>`
                     : `<div style="margin-top:0.3rem;"><button class="btn small" data-iniciar-prueba-nota="${trabajoPrueba.id}">▶ Iniciar prueba</button></div>`) : ""}
+                  ${esArchivoPendiente ? `<div style="margin-top:0.3rem;">
+                    ${instruccionesArchivo ? `<div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.3rem;">${instruccionesArchivo}</div>` : ""}
+                    ${entregaArchivo && entregaArchivo.archivo_ruta ? `
+                      <span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Entregado: ${entregaArchivo.archivo_nombre || "archivo"}</span>
+                      <label class="link-btn" style="cursor:pointer; margin-left:0.4rem;">Reemplazar archivo<input type="file" data-subir-archivo-nota="${trabajoPrueba.id}" accept="image/*,.pdf" style="display:none;" /></label>
+                    ` : `
+                      <label class="btn small" style="cursor:pointer;">📎 Subir archivo (imagen o PDF)<input type="file" data-subir-archivo-nota="${trabajoPrueba.id}" accept="image/*,.pdf" style="display:none;" /></label>
+                    `}
+                    <span data-subir-archivo-estado="${trabajoPrueba.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
+                  </div>` : ""}
                 </td>
                 <td class="num" style="text-align:center; font-weight:600;">
                   ${sinCalificar ? `<span class="no-phone-note" style="margin:0;">Sin calificar aún</span>` : `${obtenido} / ${i.puntaje_maximo}`}
@@ -384,6 +408,29 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
         iniciarActividadInteractiva(trabajo, estudianteId, () => {
           renderNotasInterno(el, s, isSelf, activa);
         });
+      });
+    });
+
+    el.querySelectorAll("[data-subir-archivo-nota]").forEach(input => {
+      input.addEventListener("change", async () => {
+        const trabajoId = input.dataset.subirArchivoNota;
+        const archivo = input.files[0];
+        if (!archivo) return;
+        const estado = el.querySelector(`[data-subir-archivo-estado="${trabajoId}"]`);
+        if (estado) estado.textContent = "Subiendo…";
+        const estudianteId = s.id;
+        const rutaSegura = `infografias/trabajo-${trabajoId}/${estudianteId}-${Date.now()}-${archivo.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+        const { error: errorSubida } = await sb.storage.from("materiales").upload(rutaSegura, archivo);
+        if (errorSubida) {
+          if (estado) estado.textContent = "No se pudo subir: " + errorSubida.message;
+          return;
+        }
+        await upsertSinConflicto(
+          "actividades_estudiante",
+          { estudiante_id: estudianteId, trabajo_id: trabajoId },
+          { completado: true, archivo_ruta: rutaSegura, archivo_nombre: archivo.name, actualizado_en: new Date().toISOString() }
+        );
+        renderNotasInterno(el, s, isSelf, activa);
       });
     });
   }
