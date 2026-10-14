@@ -1091,8 +1091,6 @@ async function renderApartado(id, soloLectura) {
   if (!pub) { location.hash = soloLectura ? "#/" : "#/publicaciones"; return; }
   if (soloLectura && !pub.habilitado) { location.hash = "#/"; return; }
   const { data: resultado } = pub.resultado_id ? await sb.from("resultados_aprendizaje").select("*").eq("id", pub.resultado_id).maybeSingle() : { data: null };
-  const { data: trabajos } = await sb.from("trabajos_cotidianos").select("*").eq("publicacion_id", id).is("subtema_id", null).order("creado_en");
-  const { data: trabajosClase } = await sb.from("trabajos_clase").select("*").eq("publicacion_id", id).is("subtema_id", null).order("creado_en");
   const { data: materiales } = await sb.from("materiales").select("*").eq("publicacion_id", id).is("subtema_id", null).order("creado_en");
   const { data: subtemas } = await sb.from("subtemas").select("*").eq("publicacion_id", id).order("orden").order("creado_en");
 
@@ -1112,6 +1110,15 @@ async function renderApartado(id, soloLectura) {
     <div class="wrap">
       <a href="${soloLectura ? "#/" : "#/publicaciones"}" class="btn secondary small" style="margin-bottom:1rem; display:inline-block;">&larr; ${soloLectura ? "Volver a mi perfil" : "Publicaciones"}</a>
 
+      <nav class="cat-navbar" style="margin-bottom:1rem;">
+        <button class="cat-navlink active" data-tema-tab="resultado" type="button">🎯 Resultado de Aprendizaje</button>
+        <button class="cat-navlink" data-tema-tab="introduccion" type="button">📖 Introducción</button>
+        <button class="cat-navlink" data-tema-tab="subtemas" type="button">📚 Subtemas</button>
+        <button class="cat-navlink" data-tema-tab="resumen" type="button">📝 Resumen de los trabajos a realizar</button>
+        <button class="cat-navlink" data-tema-tab="material" type="button">📎 Material de apoyo</button>
+      </nav>
+
+      <div data-tema-panel="resultado">
       <div class="tema-header">
         <span class="tema-eyebrow">Resultado de aprendizaje</span>
         <h1 class="tema-title">${tituloMostrar}</h1>
@@ -1121,7 +1128,9 @@ async function renderApartado(id, soloLectura) {
           <div class="roa-cell-texto">${resultado.saberes}</div>
         </div>` : ""}
       </div>
+      </div>
 
+      <div data-tema-panel="introduccion" style="display:none;">
       <section class="tema-section">
         <h3>Introducción al tema</h3>
         ${soloLectura
@@ -1137,7 +1146,9 @@ async function renderApartado(id, soloLectura) {
                <span id="ia-estado" style="font-size:0.78rem; color:var(--text-muted); display:block; margin-top:0.4rem; min-height:1.2em;"></span>
              </div>`}
       </section>
+      </div>
 
+      <div data-tema-panel="subtemas" style="display:none;">
       <section class="tema-section">
         <h3>Subtemas</h3>
         <p style="font-size:0.85rem; color:var(--text-muted); margin-top:-0.6em;">Cada subtema tiene su propia página: ahí se escribe su introducción, se sube material de apoyo y se crean sus trabajos cotidianos.</p>
@@ -1149,54 +1160,16 @@ async function renderApartado(id, soloLectura) {
         <span id="generar-subtemas-estado" style="font-size:0.78rem; color:var(--text-muted); display:block; margin-top:0.4rem; min-height:1.2em;"></span>
         <div id="sugerir-subtemas-lista" style="margin-top:0.6rem;"></div>` : ""}
       </section>
+      </div>
 
+      <div data-tema-panel="resumen" style="display:none;">
       <section class="tema-section">
         <h3>Resumen de trabajos cotidianos por subtema</h3>
         <div class="roster" id="resumen-trabajos-lista">Cargando…</div>
       </section>
+      </div>
 
-      <section class="tema-section">
-        <h3>Trabajos cotidianos generales (sin subtema)</h3>
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-top:-0.6em;">Trabajos cotidianos de todo el tema, no ligados a un subtema específico.</p>
-        <div class="roster" id="trabajos-lista">Cargando…</div>
-        ${!soloLectura ? `
-        <form class="inline-form" id="trabajo-form" style="margin-top:0.8rem;">
-          <input name="titulo" placeholder="Título del trabajo" required style="flex:1; min-width:10rem" />
-          <input name="fecha" type="date" />
-          <div class="roa-editable js-trabajo-desc" contenteditable="true" style="flex-basis:100%; min-height:3rem;" data-placeholder="Instrucciones (opcional)"></div>
-          <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; flex-basis:100%;">
-            <input type="checkbox" name="calificable" checked /> Contar como indicador calificable en Rúbrica y Evaluaciones (categoría "Trabajo cotidiano")
-          </label>
-          <input name="puntaje_maximo" type="number" min="1" value="10" placeholder="Puntaje máximo" style="width:10rem" />
-          <button class="btn small" type="submit">Agregar trabajo</button>
-        </form>
-        <div style="margin-top:0.6rem;">
-          <label for="sugerir-trabajos-instrucciones" style="font-size:0.78rem; color:var(--text-muted); display:block; margin-bottom:0.3rem;">Instrucciones para la IA (opcional) — ej. "que sean trabajos individuales, cortos, de 15 minutos", "enfocate en la parte práctica con ejemplos numéricos"</label>
-          <textarea id="sugerir-trabajos-instrucciones" rows="2" placeholder="Dejalo en blanco para que la IA proponga trabajos solo con el resultado de aprendizaje y los saberes del programa" style="width:100%; font-family:inherit; resize:vertical; margin-bottom:0.5rem;"></textarea>
-        </div>
-        <div class="row" style="margin-top:0.2rem;">
-          <button class="btn secondary small" id="sugerir-trabajos-btn" type="button">✨ Sugerir trabajos cotidianos con IA</button>
-        </div>
-        <span id="sugerir-trabajos-estado" style="font-size:0.78rem; color:var(--text-muted); display:block; margin-top:0.4rem; min-height:1.2em;"></span>
-        <div id="sugerir-trabajos-lista" style="margin-top:0.6rem;"></div>` : ""}
-      </section>
-
-      <section class="tema-section">
-        <h3>Trabajos en clase (sin subtema)</h3>
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-top:-0.6em;">Le dan al estudiante un documento para completar; el estudiante lo descarga, lo llena y sube su propia versión. No llevan indicador — se califican con una nota manual.</p>
-        <div class="roster" id="trabajos-clase-lista">Cargando…</div>
-        ${!soloLectura ? `
-        <form class="inline-form" id="trabajo-clase-form" style="margin-top:0.8rem;">
-          <input name="titulo" placeholder="Título del trabajo en clase" required style="flex:1; min-width:10rem" />
-          <input name="fecha" type="date" />
-          <div class="roa-editable js-trabajo-clase-desc" contenteditable="true" style="flex-basis:100%; min-height:3rem;" data-placeholder="Instrucciones (opcional)"></div>
-          <label style="flex-basis:100%; font-size:0.82rem;">Documento base (plantilla) que descargarán los estudiantes:
-            <input type="file" name="plantilla" style="display:block; margin-top:0.3rem;" />
-          </label>
-          <button class="btn small" type="submit">Agregar trabajo en clase</button>
-        </form>` : ""}
-      </section>
-
+      <div data-tema-panel="material" style="display:none;">
       <section class="tema-section">
         <h3>Material de apoyo general</h3>
         <div class="roster" id="materiales-lista">Cargando…</div>
@@ -1213,8 +1186,19 @@ async function renderApartado(id, soloLectura) {
           <span id="enlace-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>
         </form>` : ""}
       </section>
+      </div>
     </div>`;
   bindTopbar();
+
+  document.querySelectorAll("[data-tema-tab]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("[data-tema-tab]").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      document.querySelectorAll("[data-tema-panel]").forEach(p => { p.style.display = "none"; });
+      const panel = document.querySelector(`[data-tema-panel="${btn.dataset.temaTab}"]`);
+      if (panel) panel.style.display = "";
+    });
+  });
 
   if (!soloLectura) {
     document.getElementById("guardar-intro").addEventListener("click", async (e) => {
@@ -1258,121 +1242,6 @@ async function renderApartado(id, soloLectura) {
         iaBtn.textContent = textoOriginal;
       }
     });
-    document.getElementById("trabajo-form").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const f = new FormData(e.target);
-      const { data: nuevo } = await sb.from("trabajos_cotidianos").insert({
-        publicacion_id: id,
-        titulo: f.get("titulo"),
-        fecha: f.get("fecha") || null,
-        descripcion: document.querySelector(".js-trabajo-desc").innerHTML || null
-      }).select().maybeSingle();
-      if (nuevo && f.get("calificable") && pub.materia_id) {
-        const puntajeMaximo = Number(f.get("puntaje_maximo")) || 10;
-        const indicadorId = await crearIndicadorParaTrabajo(pub.materia_id, f.get("titulo"), f.get("fecha"), puntajeMaximo);
-        if (indicadorId) await sb.from("trabajos_cotidianos").update({ indicador_id: indicadorId }).eq("id", nuevo.id);
-      }
-      renderApartado(id, soloLectura);
-    });
-
-    const sugerirBtn = document.getElementById("sugerir-trabajos-btn");
-    if (sugerirBtn) sugerirBtn.addEventListener("click", async () => {
-      const estado = document.getElementById("sugerir-trabajos-estado");
-      const lista = document.getElementById("sugerir-trabajos-lista");
-      const textoOriginal = sugerirBtn.textContent;
-      sugerirBtn.disabled = true;
-      sugerirBtn.textContent = "Pensando…";
-      if (estado) estado.textContent = "";
-      lista.innerHTML = "";
-      try {
-        const instruccionesSugerir = (document.getElementById("sugerir-trabajos-instrucciones")?.value || "").trim().slice(0, 800);
-        const r = await fetch("/api/generar-trabajos", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            resultado: resultado ? resultado.resultado : pub.titulo,
-            saberes: resultado ? resultado.saberes : "",
-            estrategiasEstudiante: resultado ? resultado.estrategias : "",
-            evidencias: resultado ? resultado.evidencias : "",
-            instrucciones: instruccionesSugerir
-          })
-        });
-        const datos = await r.json();
-        if (!r.ok) {
-          if (estado) estado.textContent = "No se pudo generar: " + (datos.error || "error desconocido.");
-          return;
-        }
-        const trabajosSugeridos = datos.trabajos || [];
-        if (trabajosSugeridos.length === 0) {
-          if (estado) estado.textContent = "La IA no propuso trabajos para este tema.";
-          return;
-        }
-        if (estado) estado.textContent = "Revisá las sugerencias y agregá las que le sirvan.";
-        lista.innerHTML = trabajosSugeridos.map((t, i) => `
-          <div class="roster-row" data-sugerencia="${i}" style="align-items:flex-start; flex-direction:column; gap:0.4rem;">
-            <div style="display:flex; justify-content:space-between; width:100%; gap:0.5rem;">
-              <strong style="font-size:0.9rem;">${t.titulo}</strong>
-              <button class="btn small" type="button" data-agregar-sugerencia="${i}">+ Agregar</button>
-            </div>
-            ${t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : ""}
-          </div>`).join("");
-        lista.querySelectorAll("[data-agregar-sugerencia]").forEach((btn) => {
-          btn.addEventListener("click", async () => {
-            const i = Number(btn.dataset.agregarSugerencia);
-            const t = trabajosSugeridos[i];
-            btn.disabled = true;
-            btn.textContent = "Agregando…";
-            await sb.from("trabajos_cotidianos").insert({
-              publicacion_id: id,
-              titulo: t.titulo,
-              descripcion: t.descripcion || null
-            });
-            const fila = btn.closest("[data-sugerencia]");
-            if (fila) fila.remove();
-            await pintarTrabajosCotidianos((await sb.from("trabajos_cotidianos").select("*").eq("publicacion_id", id).is("subtema_id", null).order("creado_en")).data || [], soloLectura, id, pub.materia_id);
-          });
-        });
-      } catch (err) {
-        if (estado) estado.textContent = "No se pudo conectar con la IA: " + (err.message || err);
-      } finally {
-        sugerirBtn.disabled = false;
-        sugerirBtn.textContent = textoOriginal;
-      }
-    });
-
-    document.getElementById("trabajo-clase-form").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const form = e.target;
-      const f = new FormData(form);
-      const btn = form.querySelector("button[type=submit]");
-      btn.disabled = true;
-      btn.textContent = "Agregando…";
-      let archivoRuta = null, archivoNombre = null;
-      const archivo = f.get("plantilla");
-      if (archivo && archivo.size) {
-        const rutaSegura = `plantillas-trabajo-clase/${id}-${Date.now()}-${archivo.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-        const { error: errorSubida } = await sb.storage.from("materiales").upload(rutaSegura, archivo);
-        if (errorSubida) {
-          alert("No se pudo subir el documento base: " + errorSubida.message);
-          btn.disabled = false;
-          btn.textContent = "Agregar trabajo en clase";
-          return;
-        }
-        archivoRuta = rutaSegura;
-        archivoNombre = archivo.name;
-      }
-      await sb.from("trabajos_clase").insert({
-        publicacion_id: id,
-        subtema_id: null,
-        titulo: f.get("titulo"),
-        fecha: f.get("fecha") || null,
-        instrucciones: document.querySelector(".js-trabajo-clase-desc").innerHTML || null,
-        archivo_ruta: archivoRuta,
-        archivo_nombre: archivoNombre
-      });
-      renderApartado(id, soloLectura);
-    });
-
     document.getElementById("material-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const estado = document.getElementById("material-estado");
@@ -1476,12 +1345,6 @@ async function renderApartado(id, soloLectura) {
     });
   }
 
-  await pintarTrabajosCotidianos(trabajos || [], soloLectura, id, pub.materia_id);
-  async function cargarTrabajosClaseTema() {
-    const { data } = await sb.from("trabajos_clase").select("*").eq("publicacion_id", id).is("subtema_id", null).order("creado_en");
-    await pintarTrabajosClase(data || [], soloLectura, "trabajos-clase-lista", { recargar: cargarTrabajosClaseTema });
-  }
-  await pintarTrabajosClase(trabajosClase || [], soloLectura, "trabajos-clase-lista", { recargar: cargarTrabajosClaseTema });
   await pintarMateriales(materiales || [], soloLectura);
   await pintarSubtemas(subtemas || [], soloLectura, id);
   await pintarResumenTrabajos(subtemas || [], soloLectura);
