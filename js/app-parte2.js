@@ -1975,7 +1975,7 @@ async function renderSubtema(id, soloLectura) {
         const fechaHoraInicio = (tipo === "prueba" && horaInicioInput && horaInicioInput.value) ? new Date(horaInicioInput.value).toISOString() : null;
         btnEv.target.disabled = true;
         btnEv.target.textContent = "Creando…";
-        const indicadorId = await crearIndicadorParaTrabajo(pub.materia_id, titulo, fecha, 3);
+        const indicadorId = await crearIndicadorParaTrabajo(pub.materia_id, titulo, fecha, 3, tipo === "prueba" ? "Pruebas" : null);
         const { data: nuevo } = await sb.from("trabajos_cotidianos").insert({
           publicacion_id: sub.publicacion_id,
           subtema_id: sub.id,
@@ -3297,17 +3297,18 @@ function siguienteLetraDisponible(usadas) {
 // Evaluaciones a partir de un trabajo cotidiano, para poder calificarlo por
 // estudiante igual que cualquier otro indicador. Devuelve el id del indicador
 // creado, o null si no se pudo (y avisa al profesor por qué).
-async function crearIndicadorParaTrabajo(materiaId, titulo, fecha, puntajeMaximo) {
-  const { data: categoria } = await sb.from("rubrica_categorias").select("*").eq("nombre", "Trabajo cotidiano").maybeSingle();
+async function crearIndicadorParaTrabajo(materiaId, titulo, fecha, puntajeMaximo, categoriaNombre) {
+  const nombreCategoria = categoriaNombre || "Trabajo cotidiano";
+  const { data: categoria } = await sb.from("rubrica_categorias").select("*").eq("nombre", nombreCategoria).maybeSingle();
   if (!categoria) {
-    alert('No se encontró la categoría "Trabajo cotidiano" en Rúbrica y Evaluaciones. Cree esa categoría primero si quiere que este trabajo cuente como indicador calificable.');
+    alert(`No se encontró la categoría "${nombreCategoria}" en Rúbrica y Evaluaciones. Cree esa categoría primero si quiere que esto cuente como indicador calificable.`);
     return null;
   }
-  const { data: existentes } = await sb.from("indicadores").select("id, letra").eq("materia_id", materiaId).eq("categoria", "Trabajo cotidiano");
+  const { data: existentes } = await sb.from("indicadores").select("id, letra").eq("materia_id", materiaId).eq("categoria", nombreCategoria);
   const letra = siguienteLetraDisponible((existentes || []).map(e => e.letra));
   const { data: nuevo, error } = await sb.from("indicadores").insert({
     materia_id: materiaId,
-    categoria: "Trabajo cotidiano",
+    categoria: nombreCategoria,
     letra,
     descripcion: titulo,
     puntaje_maximo: puntajeMaximo,
@@ -3847,7 +3848,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
   const { data: temasMateria } = await sb.from("publicaciones").select("id").eq("materia_id", materiaId).eq("tipo", "apartado");
   const temaIds = (temasMateria || []).map(t => t.id);
   const { data: subtemasMateria } = temaIds.length
-    ? await sb.from("subtemas").select("id, titulo").in("publicacion_id", temaIds).order("orden")
+    ? await sb.from("subtemas").select("id, titulo, publicacion_id").in("publicacion_id", temaIds).order("orden")
     : { data: [] };
 
   // Para cada indicador creado a partir de un trabajo cotidiano, busca ese
@@ -3868,6 +3869,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
   }
 
   const siguienteLetra = siguienteLetraDisponible((indicadores || []).map(i => i.letra));
+  const esCategoriaPruebas = catNombre === "Pruebas";
 
   holder.innerHTML = `
     <h3 style="margin-top:0;">Indicadores de evaluación</h3>
@@ -3933,6 +3935,11 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       }).join("") || `<p class="empty">Sin indicadores todavía en "${catNombre}".</p>`}
     </div>
 
+    ${esCategoriaPruebas ? `
+    <div style="margin-top:1rem;">
+      <button class="btn small" id="abrir-crear-prueba-materia" type="button">📝 Crear prueba</button>
+      <div id="crear-prueba-materia-panel" style="margin-top:0.8rem;"></div>
+    </div>` : `
     <form class="inline-form" id="indicador-form" style="margin-top:1rem;">
       <input name="letra" value="${siguienteLetra}" placeholder="Letra" required style="width:4rem;" />
       <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; flex-basis:100%;">Subtema (llena el título solo):
@@ -3952,7 +3959,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       <input name="fecha_evaluacion" type="date" />
       <input name="lecciones" type="number" min="1" placeholder="Lecciones (opcional)" style="width:10rem" />
       <button class="btn small" type="submit">Crear indicador</button>
-    </form>`;
+    </form>`}`;
 
   holder.querySelectorAll("[data-cat-ind]").forEach(btn => {
     btn.addEventListener("click", () => cargarIndicadoresDeMateria(materiaId, btn.dataset.catInd));
@@ -4077,6 +4084,65 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       orden: (indicadores || []).length + 1
     });
     cargarIndicadoresDeMateria(materiaId, catNombre);
+  });
+
+  const abrirPruebaBtn = document.getElementById("abrir-crear-prueba-materia");
+  if (abrirPruebaBtn) abrirPruebaBtn.addEventListener("click", () => {
+    const panel = document.getElementById("crear-prueba-materia-panel");
+    if (!panel) return;
+    panel.innerHTML = `
+      <div style="background:#fff; border:1px solid var(--paper-line); border-radius:10px; padding:1rem;">
+        <div class="row" style="margin-bottom:0.6rem;">
+          <input id="prueba-materia-titulo" placeholder="Título de la prueba" style="flex:1; min-width:12rem" />
+          <input id="prueba-materia-fecha" type="date" />
+        </div>
+        <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; margin-bottom:0.8rem; flex-wrap:wrap;">Subtema donde va a aparecer:
+          <select id="prueba-materia-subtema" style="flex:1; min-width:14rem;">
+            <option value="">— Elegir subtema —</option>
+            ${(subtemasMateria || []).map(s => `<option value="${s.id}" data-pub="${s.publicacion_id}">${s.titulo}</option>`).join("")}
+          </select>
+        </label>
+        <div id="prueba-materia-constructor">${construirPanelActividadHTML("prueba")}</div>
+        <div class="row" style="margin-top:1rem;">
+          <button class="btn small" id="guardar-prueba-materia" type="button">Crear prueba</button>
+          <button class="btn secondary small" id="cancelar-prueba-materia" type="button">Cancelar</button>
+        </div>
+      </div>`;
+
+    panel.querySelector("#cancelar-prueba-materia").addEventListener("click", () => { panel.innerHTML = ""; });
+    panel.querySelector("#guardar-prueba-materia").addEventListener("click", async (btnEv) => {
+      const titulo = panel.querySelector("#prueba-materia-titulo").value.trim();
+      const fecha = panel.querySelector("#prueba-materia-fecha").value || null;
+      const subtemaSel = panel.querySelector("#prueba-materia-subtema");
+      const subtemaId = subtemaSel.value;
+      if (!titulo) { alert("Ponele un título a la prueba."); return; }
+      if (!subtemaId) { alert("Elegí el subtema donde va a aparecer esta prueba."); return; }
+      const publicacionId = subtemaSel.selectedOptions[0]?.dataset.pub;
+      const resultado = leerContenidoActividadDesdeFormulario("prueba", panel.querySelector("#prueba-materia-constructor"));
+      if (!resultado.valido) { alert(resultado.error); return; }
+      const horaInicioInput = panel.querySelector("#au-prueba-hora-inicio");
+      const fechaHoraInicio = horaInicioInput && horaInicioInput.value ? new Date(horaInicioInput.value).toISOString() : null;
+      btnEv.target.disabled = true;
+      btnEv.target.textContent = "Creando…";
+      const indicadorId = await crearIndicadorParaTrabajo(materiaId, titulo, fecha, 3, "Pruebas");
+      const { data: nuevo, error } = await sb.from("trabajos_cotidianos").insert({
+        publicacion_id: publicacionId,
+        subtema_id: subtemaId,
+        titulo,
+        fecha,
+        tipo_actividad: "prueba",
+        contenido_actividad: resultado.contenido,
+        indicador_id: indicadorId,
+        fecha_hora_inicio: fechaHoraInicio
+      }).select().maybeSingle();
+      if (!nuevo) {
+        alert("No se pudo crear la prueba" + (error ? ": " + error.message : "."));
+        btnEv.target.disabled = false;
+        btnEv.target.textContent = "Crear prueba";
+        return;
+      }
+      cargarIndicadoresDeMateria(materiaId, catNombre);
+    });
   });
 }
 
