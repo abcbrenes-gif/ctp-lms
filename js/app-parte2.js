@@ -6072,8 +6072,24 @@ async function renderEvaluacionesGeneral() {
         <div id="rubrica-form" style="margin-top:0.8rem;">Cargando…</div>
       </details>
 
+      <div class="section-grid" style="margin-top:1.2rem;">
+        ${secciones.map(sec => `
+          <a class="section-tile flip-card" href="#" data-ir-a-seccion-rubrica="${sec}">
+            <div class="flip-card-inner">
+              <div class="flip-card-front">
+                <div class="num">${sec}</div>
+                <div class="count">${(porSeccion[sec] || []).length} estudiantes · ${INSTITUCION.especialidad}</div>
+              </div>
+              <div class="flip-card-back">
+                <div class="flip-cta">Ver rúbrica ganada →</div>
+                <div class="flip-sub">Sección ${sec}</div>
+              </div>
+            </div>
+          </a>`).join("")}
+      </div>
+
       ${secciones.map(sec => `
-        <details class="group-promo" style="margin-top:1.2rem;" open>
+        <details class="group-promo" id="detalle-sec-${sec}" style="margin-top:1.2rem;">
           <summary style="font-family:var(--serif); font-weight:600; font-size:1.02rem;">Sección ${sec}</summary>
           <div id="evaluaciones-sec-${sec}" style="margin-top:0.8rem;">Cargando…</div>
         </details>`).join("")}
@@ -6081,6 +6097,17 @@ async function renderEvaluacionesGeneral() {
   bindTopbar();
 
   document.getElementById("generar-machote-btn").addEventListener("click", () => abrirMachoteEvaluaciones(secciones));
+
+  document.querySelectorAll("[data-ir-a-seccion-rubrica]").forEach(a => {
+    a.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      const sec = a.dataset.irASeccionRubrica;
+      const detalle = document.getElementById(`detalle-sec-${sec}`);
+      if (!detalle) return;
+      detalle.open = true;
+      detalle.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
 
   await cargarRubricaForm();
   for (const sec of secciones) {
