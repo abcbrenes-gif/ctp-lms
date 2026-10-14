@@ -4123,7 +4123,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
   const indicadorIdsActuales = (indicadores || []).map(i => i.id);
   const trabajoPorIndicador = {};
   if (indicadorIdsActuales.length) {
-    const { data: tcVinculados } = await sb.from("trabajos_cotidianos").select("id, indicador_id, publicacion_id, subtema_id, titulo").in("indicador_id", indicadorIdsActuales);
+    const { data: tcVinculados } = await sb.from("trabajos_cotidianos").select("id, indicador_id, publicacion_id, subtema_id, titulo, habilitado, tipo_actividad").in("indicador_id", indicadorIdsActuales);
     (tcVinculados || []).forEach(t => { trabajoPorIndicador[t.indicador_id] = t; });
   }
   function linkTrabajo(ind) {
@@ -4131,6 +4131,17 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
     if (!t) return "";
     const href = t.subtema_id ? `#/subtema/${t.subtema_id}` : `#/apartado/${t.publicacion_id}`;
     return `<a class="btn secondary small" href="${href}" title="Ver el trabajo cotidiano: ${String(t.titulo || "").replace(/"/g, "&quot;")}">📎 Ver trabajo</a>`;
+  }
+  // Para una prueba, permite habilitarla/deshabilitarla para los
+  // estudiantes directamente desde esta tarjeta del indicador, sin tener
+  // que ir hasta la página del tema a buscarla.
+  function botonHabilitarTrabajo(ind) {
+    const t = trabajoPorIndicador[ind.id];
+    if (!t || t.tipo_actividad !== "prueba") return "";
+    const habilitado = t.habilitado !== false;
+    return habilitado
+      ? `<button class="btn secondary small" data-toggle-habilitar-prueba="${t.id}" data-estado="habilitado">✅ Habilitada</button>`
+      : `<button class="btn small" data-toggle-habilitar-prueba="${t.id}" data-estado="deshabilitado">Habilitar</button>`;
   }
 
   const siguienteLetra = siguienteLetraDisponible((indicadores || []).map(i => i.letra));
@@ -4175,6 +4186,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
                    </div>`)}
             </span>
             <span style="display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap;">
+              ${botonHabilitarTrabajo(ind)}
               ${linkTrabajo(ind)}
               <button class="btn danger small" data-del-indicador="${ind.id}">Eliminar</button>
             </span>
@@ -4259,6 +4271,15 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
   holder.querySelectorAll("[data-del-indicador]").forEach(btn => {
     btn.addEventListener("click", async () => {
       await sb.from("indicadores").delete().eq("id", btn.dataset.delIndicador);
+      cargarIndicadoresDeMateria(materiaId, catNombre);
+    });
+  });
+  holder.querySelectorAll("[data-toggle-habilitar-prueba]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const yaHabilitada = btn.dataset.estado === "habilitado";
+      if (!yaHabilitada && !confirm("¿Habilitar esta prueba para que los estudiantes puedan verla y entrar a hacerla?")) return;
+      if (yaHabilitada && !confirm("¿Deshabilitar esta prueba? Los estudiantes dejarán de verla.")) return;
+      await sb.from("trabajos_cotidianos").update({ habilitado: !yaHabilitada }).eq("id", btn.dataset.toggleHabilitarPrueba);
       cargarIndicadoresDeMateria(materiaId, catNombre);
     });
   });
