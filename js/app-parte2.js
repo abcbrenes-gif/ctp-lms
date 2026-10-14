@@ -1850,14 +1850,17 @@ async function renderSubtema(id, soloLectura) {
           <p style="font-size:0.85rem; font-weight:600; margin-bottom:0.4rem;">✨ Generar un trabajo cotidiano con IA a partir de un archivo</p>
           <p style="font-size:0.78rem; color:var(--text-muted); margin:0 0 0.5rem;">Subí uno o varios PDF/imágenes (una guía, un ejercicio, un enunciado) y decile a la IA qué tipo de trabajo querés que arme con toda esa información junta.</p>
           <form class="subtema-trabajo-ia-form" data-subtema-id="${sub.id}" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-            <label style="display:flex; align-items:center; gap:0.5rem; flex-basis:100%;">Tipo de trabajo a generar:
+            <label style="display:flex; align-items:center; gap:0.5rem;">Tipo de trabajo a generar:
               <select class="subtema-trabajo-ia-tipo">
                 <option value="normal">📝 Trabajo normal (título + instrucciones)</option>
-                <option value="seleccion_unica">🧠 Selección única (15 preguntas)</option>
-                <option value="falso_verdadero">✅ Falso y verdadero (10 afirmaciones)</option>
+                <option value="seleccion_unica">🧠 Selección única</option>
+                <option value="falso_verdadero">✅ Falso y verdadero</option>
                 <option value="crucigrama">🔤 Crucigrama</option>
                 <option value="sopa_letras">🔎 Sopa de letras</option>
               </select>
+            </label>
+            <label class="subtema-trabajo-ia-cantidad-label" style="display:none; align-items:center; gap:0.5rem;">Cantidad:
+              <input type="number" class="subtema-trabajo-ia-cantidad" min="3" max="40" value="15" style="width:5rem; padding:0.3rem;" />
             </label>
             <input type="file" class="subtema-trabajo-ia-archivo" accept=".pdf,image/png,image/jpeg,image/gif,image/webp" multiple required />
             <textarea class="subtema-trabajo-ia-instrucciones" rows="2" placeholder='Instrucciones para la IA (opcional) — ej. "que sea un ejercicio de asientos contables con estos datos"' style="width:100%; font-family:inherit; resize:vertical;"></textarea>
@@ -2074,7 +2077,8 @@ async function renderSubtema(id, soloLectura) {
       panel.querySelector("#actividad-tipo").addEventListener("change", (e) => {
         const constructor = panel.querySelector("#actividad-constructor");
         constructor.innerHTML = construirPanelActividadHTML(e.target.value);
-        if (e.target.value === "prueba") inicializarConstructorPrueba(constructor);
+        inicializarConstructorPorTipo(e.target.value, constructor);
+        ajustarCampoCantidad(panel, e.target.value);
       });
       panel.querySelector("#actividad-tipo").dispatchEvent(new Event("change"));
       panel.querySelector("#generar-actividad-ia-btn").addEventListener("click", async (iaEv) => {
@@ -2087,6 +2091,8 @@ async function renderSubtema(id, soloLectura) {
         const instrucciones = (panel.querySelector("#actividad-ia-instrucciones")?.value || "").trim().slice(0, 800);
         const archivoInput = panel.querySelector("#actividad-ia-archivo");
         const archivos = archivoInput ? Array.from(archivoInput.files || []) : [];
+        const cantidadInput = panel.querySelector("#actividad-ia-cantidad");
+        const cantidad = cantidadInput ? Number(cantidadInput.value) || null : null;
         iaEv.target.disabled = true;
         iaEv.target.textContent = "Generando…";
         if (estado) estado.textContent = "";
@@ -2105,7 +2111,7 @@ async function renderSubtema(id, soloLectura) {
           const r = await fetch("/api/generar-actividad-ia", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ tipo, tema, contexto, instrucciones, archivos: archivosPayload })
+            body: JSON.stringify({ tipo, tema, contexto, instrucciones, archivos: archivosPayload, cantidad })
           });
           const datos = await r.json();
           if (!r.ok) { if (estado) estado.textContent = "No se pudo generar: " + (datos.error || "error desconocido."); return; }
@@ -2148,12 +2154,34 @@ async function renderSubtema(id, soloLectura) {
     });
 
     const trabajoIaForm = document.querySelector(".subtema-trabajo-ia-form");
+    const RANGOS_CANTIDAD_TRABAJO_IA = {
+      seleccion_unica: { min: 3, max: 40, val: 15 },
+      falso_verdadero: { min: 3, max: 40, val: 10 },
+      crucigrama: { min: 4, max: 20, val: 7 },
+      sopa_letras: { min: 4, max: 30, val: 10 }
+    };
+    if (trabajoIaForm) {
+      const tipoSelectTrabajoIa = trabajoIaForm.querySelector(".subtema-trabajo-ia-tipo");
+      const cantidadLabelTrabajoIa = trabajoIaForm.querySelector(".subtema-trabajo-ia-cantidad-label");
+      const cantidadInputTrabajoIa = trabajoIaForm.querySelector(".subtema-trabajo-ia-cantidad");
+      const actualizarCantidadTrabajoIa = () => {
+        const r = RANGOS_CANTIDAD_TRABAJO_IA[tipoSelectTrabajoIa.value];
+        if (!r) { cantidadLabelTrabajoIa.style.display = "none"; return; }
+        cantidadLabelTrabajoIa.style.display = "flex";
+        cantidadInputTrabajoIa.min = r.min;
+        cantidadInputTrabajoIa.max = r.max;
+        cantidadInputTrabajoIa.value = r.val;
+      };
+      tipoSelectTrabajoIa.addEventListener("change", actualizarCantidadTrabajoIa);
+      actualizarCantidadTrabajoIa();
+    }
     if (trabajoIaForm) trabajoIaForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const form = e.target;
       const estado = form.querySelector(".subtema-trabajo-ia-estado");
       const tipo = form.querySelector(".subtema-trabajo-ia-tipo").value;
       const instrucciones = form.querySelector(".subtema-trabajo-ia-instrucciones").value.trim().slice(0, 800);
+      const cantidad = Number(form.querySelector(".subtema-trabajo-ia-cantidad")?.value) || null;
       const archivoInput = form.querySelector(".subtema-trabajo-ia-archivo");
       const archivos = Array.from(archivoInput.files || []);
       if (!archivos.length) return;
@@ -2162,8 +2190,8 @@ async function renderSubtema(id, soloLectura) {
       if (tipo !== "normal") {
         // Reusa el panel y la lógica de "Crear actividad interactiva" ya
         // existente: abre el panel, le pasa los mismos archivos (vía
-        // DataTransfer) y las instrucciones, y dispara su propio botón
-        // "Generar con IA".
+        // DataTransfer), las instrucciones y la cantidad, y dispara su
+        // propio botón "Generar con IA".
         boton.disabled = true;
         boton.textContent = "Abriendo…";
         document.getElementById("abrir-actividad-interactiva").click();
@@ -2175,6 +2203,8 @@ async function renderSubtema(id, soloLectura) {
         archivos.forEach(a => dt.items.add(a));
         panel.querySelector("#actividad-ia-archivo").files = dt.files;
         panel.querySelector("#actividad-ia-instrucciones").value = instrucciones;
+        const cantidadPanelInput = panel.querySelector("#actividad-ia-cantidad");
+        if (cantidadPanelInput && cantidad) cantidadPanelInput.value = cantidad;
         panel.scrollIntoView({ behavior: "smooth", block: "start" });
         panel.querySelector("#generar-actividad-ia-btn").click();
         form.reset();
@@ -3154,13 +3184,16 @@ function construirSelectorTipoActividad() {
       <div class="row" style="margin-bottom:0.8rem; align-items:center;">
         <label style="display:flex; align-items:center; gap:0.5rem;">Tipo de actividad:
           <select id="actividad-tipo">
-            <option value="seleccion_unica">🧠 Selección única (15 preguntas)</option>
-            <option value="falso_verdadero">✅ Falso y verdadero (10 afirmaciones)</option>
+            <option value="seleccion_unica">🧠 Selección única</option>
+            <option value="falso_verdadero">✅ Falso y verdadero</option>
             <option value="crucigrama">🔤 Crucigrama</option>
             <option value="sopa_letras">🔎 Sopa de letras</option>
             <option value="infografia">🖼️ Infografía (el estudiante sube un archivo, se califica a mano)</option>
             <option value="prueba">📝 Prueba (con hora de inicio y datos del estudiante)</option>
           </select>
+        </label>
+        <label id="actividad-cantidad-label" style="display:flex; align-items:center; gap:0.5rem;">Cantidad:
+          <input type="number" id="actividad-ia-cantidad" min="3" max="40" value="15" style="width:5rem; padding:0.3rem;" />
         </label>
       </div>
       <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.8rem;">Se califica automáticamente de 0 a 3 según el % de aciertos, y se hace en pantalla completa: si el estudiante sale de la actividad, queda registrado.</p>
@@ -3255,6 +3288,128 @@ function agregarParApareamientoBloque(contenedor) {
   return bloque;
 }
 
+// --- Listas dinámicas (agregar/quitar) para Falso/Verdadero y Crucigrama,
+// igual que la de preguntas de Prueba/Selección única, para no limitar la
+// cantidad de afirmaciones o palabras que el profesor puede poner. ---
+
+function bloqueAfirmacionHTML(i) {
+  return `
+    <div class="au-fv-bloque" data-bloque="${i}" style="background:#F5F6FA; border-radius:8px; padding:0.8rem; margin-bottom:0.6rem;">
+      <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
+        <p class="au-fv-numero" style="font-weight:600; font-size:0.85rem; margin:0;">Afirmación</p>
+        <button type="button" class="btn danger small au-fv-quitar" data-bloque="${i}">Quitar</button>
+      </div>
+      <textarea class="au-afirmacion" data-i="${i}" placeholder="Texto de la afirmación" rows="2" style="width:100%; margin-bottom:0.5rem; font-family:inherit; resize:vertical;"></textarea>
+      <div style="display:flex; gap:1.2rem;">
+        <label style="display:flex; align-items:center; gap:0.4rem;"><input type="radio" name="au-fv-${i}" value="true" checked /> Verdadero</label>
+        <label style="display:flex; align-items:center; gap:0.4rem;"><input type="radio" name="au-fv-${i}" value="false" /> Falso</label>
+      </div>
+    </div>`;
+}
+
+function renumerarAfirmaciones(lista) {
+  lista.querySelectorAll(".au-fv-bloque").forEach((bloque, idx) => {
+    const numero = bloque.querySelector(".au-fv-numero");
+    if (numero) numero.textContent = `Afirmación ${idx + 1}`;
+  });
+}
+
+function agregarAfirmacionBloque(contenedor) {
+  const lista = contenedor.querySelector(".au-fv-lista");
+  if (!lista) return null;
+  const siguiente = Number(lista.dataset.auFvSiguiente || "0");
+  lista.dataset.auFvSiguiente = String(siguiente + 1);
+  const envoltura = document.createElement("div");
+  envoltura.innerHTML = bloqueAfirmacionHTML(siguiente);
+  const bloque = envoltura.firstElementChild;
+  lista.appendChild(bloque);
+  renumerarAfirmaciones(lista);
+  return bloque;
+}
+
+function inicializarConstructorFalsoVerdadero(contenedor) {
+  const lista = contenedor.querySelector(".au-fv-lista");
+  const btnAgregar = contenedor.querySelector(".au-fv-agregar");
+  if (!lista || !btnAgregar) return;
+  btnAgregar.addEventListener("click", () => agregarAfirmacionBloque(contenedor));
+  lista.addEventListener("click", (e) => {
+    const quitar = e.target.closest(".au-fv-quitar");
+    if (!quitar) return;
+    if (lista.querySelectorAll(".au-fv-bloque").length <= 1) {
+      alert("La actividad debe tener al menos una afirmación.");
+      return;
+    }
+    quitar.closest(".au-fv-bloque")?.remove();
+    renumerarAfirmaciones(lista);
+  });
+}
+
+function bloqueCruciHTML(i) {
+  return `
+    <div class="au-cruci-bloque" data-bloque="${i}" style="display:flex; gap:0.5rem; margin-bottom:0.5rem; align-items:flex-start;">
+      <input class="au-cruci-palabra" data-i="${i}" placeholder="Palabra" style="width:9rem;" />
+      <textarea class="au-cruci-pista" data-i="${i}" placeholder="Pista" rows="1" style="flex:1; font-family:inherit; resize:vertical;"></textarea>
+      <button type="button" class="btn danger small au-cruci-quitar" data-bloque="${i}">Quitar</button>
+    </div>`;
+}
+
+function agregarCruciBloque(contenedor) {
+  const lista = contenedor.querySelector(".au-cruci-lista");
+  if (!lista) return null;
+  const siguiente = Number(lista.dataset.auCruciSiguiente || "0");
+  lista.dataset.auCruciSiguiente = String(siguiente + 1);
+  const envoltura = document.createElement("div");
+  envoltura.innerHTML = bloqueCruciHTML(siguiente);
+  const bloque = envoltura.firstElementChild;
+  lista.appendChild(bloque);
+  return bloque;
+}
+
+function inicializarConstructorCrucigrama(contenedor) {
+  const lista = contenedor.querySelector(".au-cruci-lista");
+  const btnAgregar = contenedor.querySelector(".au-cruci-agregar");
+  if (!lista || !btnAgregar) return;
+  btnAgregar.addEventListener("click", () => agregarCruciBloque(contenedor));
+  lista.addEventListener("click", (e) => {
+    const quitar = e.target.closest(".au-cruci-quitar");
+    if (!quitar) return;
+    if (lista.querySelectorAll(".au-cruci-bloque").length <= 1) {
+      alert("El crucigrama debe tener al menos una palabra.");
+      return;
+    }
+    quitar.closest(".au-cruci-bloque")?.remove();
+  });
+}
+
+// Conecta la lista dinámica (agregar/quitar) que le corresponda a cada tipo
+// de actividad, después de insertar el HTML de construirPanelActividadHTML.
+function inicializarConstructorPorTipo(tipo, contenedor) {
+  if (tipo === "prueba" || tipo === "seleccion_unica") inicializarConstructorPrueba(contenedor);
+  if (tipo === "falso_verdadero") inicializarConstructorFalsoVerdadero(contenedor);
+  if (tipo === "crucigrama") inicializarConstructorCrucigrama(contenedor);
+}
+
+// Muestra/oculta y ajusta el input "Cantidad" (lo que se le pide a la IA)
+// según el tipo de actividad elegido — no aplica a infografía ni prueba
+// (la prueba digitaliza un examen ya hecho, no se le pide una cantidad).
+function ajustarCampoCantidad(panel, tipo) {
+  const label = panel.querySelector("#actividad-cantidad-label");
+  const input = panel.querySelector("#actividad-ia-cantidad");
+  if (!label || !input) return;
+  const RANGOS = {
+    seleccion_unica: { min: 3, max: 40, val: 15 },
+    falso_verdadero: { min: 3, max: 40, val: 10 },
+    crucigrama: { min: 4, max: 20, val: 7 },
+    sopa_letras: { min: 4, max: 30, val: 10 }
+  };
+  const r = RANGOS[tipo];
+  if (!r) { label.style.display = "none"; return; }
+  label.style.display = "flex";
+  input.min = r.min;
+  input.max = r.max;
+  input.value = r.val;
+}
+
 function inicializarConstructorPrueba(contenedor) {
   const lista = contenedor.querySelector(".au-prueba-lista");
   const btnAgregar = contenedor.querySelector(".au-prueba-agregar");
@@ -3286,19 +3441,13 @@ function inicializarConstructorPrueba(contenedor) {
 
 function construirPanelActividadHTML(tipo) {
   if (tipo === "seleccion_unica") {
-    const preguntas = Array.from({ length: 15 }, (_, i) => i);
+    const preguntasIniciales = Array.from({ length: 15 }, (_, i) => i);
     return `
-      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Escribí las 15 preguntas y marcá con el círculo cuál opción es la correcta.</p>
-      ${preguntas.map(i => `
-        <div style="background:#F5F6FA; border-radius:8px; padding:0.8rem; margin-bottom:0.6rem;">
-          <p style="font-weight:600; margin-bottom:0.4rem; font-size:0.85rem;">Pregunta ${i + 1}</p>
-          <textarea class="au-pregunta" data-i="${i}" placeholder="Texto de la pregunta" rows="2" style="width:100%; margin-bottom:0.5rem; font-family:inherit; resize:vertical;"></textarea>
-          ${[0, 1, 2, 3].map(j => `
-            <div style="display:flex; align-items:flex-start; gap:0.5rem; margin-bottom:0.3rem;">
-              <input type="radio" name="au-correcta-${i}" value="${j}" ${j === 0 ? "checked" : ""} style="margin-top:0.6rem;" />
-              <textarea class="au-opcion" data-i="${i}" data-j="${j}" placeholder="Opción ${String.fromCharCode(65 + j)}" rows="1" style="flex:1; font-family:inherit; resize:vertical;"></textarea>
-            </div>`).join("")}
-        </div>`).join("")}`;
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Escribí las preguntas (agregá o quitá las que necesites) y marcá con el círculo cuál opción es la correcta.</p>
+      <div class="au-prueba-lista" data-au-prueba-siguiente="${preguntasIniciales.length}">
+        ${preguntasIniciales.map(i => bloquePreguntaPruebaHTML(i)).join("")}
+      </div>
+      <button type="button" class="btn secondary small au-prueba-agregar">+ Agregar pregunta</button>`;
   }
   if (tipo === "prueba") {
     const preguntasIniciales = Array.from({ length: 5 }, (_, i) => i);
@@ -3342,32 +3491,27 @@ function construirPanelActividadHTML(tipo) {
       </div>`;
   }
   if (tipo === "falso_verdadero") {
-    const items = Array.from({ length: 10 }, (_, i) => i);
+    const itemsIniciales = Array.from({ length: 10 }, (_, i) => i);
     return `
-      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Escribí las afirmaciones y marcá si cada una es verdadera o falsa.</p>
-      ${items.map(i => `
-        <div style="background:#F5F6FA; border-radius:8px; padding:0.8rem; margin-bottom:0.6rem;">
-          <textarea class="au-afirmacion" data-i="${i}" placeholder="Afirmación ${i + 1}" rows="2" style="width:100%; margin-bottom:0.5rem; font-family:inherit; resize:vertical;"></textarea>
-          <div style="display:flex; gap:1.2rem;">
-            <label style="display:flex; align-items:center; gap:0.4rem;"><input type="radio" name="au-fv-${i}" value="true" checked /> Verdadero</label>
-            <label style="display:flex; align-items:center; gap:0.4rem;"><input type="radio" name="au-fv-${i}" value="false" /> Falso</label>
-          </div>
-        </div>`).join("")}`;
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Escribí las afirmaciones (agregá o quitá las que necesites) y marcá si cada una es verdadera o falsa.</p>
+      <div class="au-fv-lista" data-au-fv-siguiente="${itemsIniciales.length}">
+        ${itemsIniciales.map(i => bloqueAfirmacionHTML(i)).join("")}
+      </div>
+      <button type="button" class="btn secondary small au-fv-agregar">+ Agregar afirmación</button>`;
   }
   if (tipo === "sopa_letras") {
     return `
-      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Escribí entre 6 y 12 palabras (sin tildes es mejor), una por línea. Se genera la sopa de letras automáticamente.</p>
-      <textarea id="au-palabras-sopa" rows="10" placeholder="CCSS&#10;RENTA&#10;SALARIO&#10;JORNADA&#10;FERIADO&#10;PLANILLA" style="width:100%; font-family:inherit;"></textarea>`;
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Escribí entre 4 y 30 palabras (sin tildes es mejor), una por línea. Se genera la sopa de letras automáticamente.</p>
+      <textarea id="au-palabras-sopa" rows="12" placeholder="CCSS&#10;RENTA&#10;SALARIO&#10;JORNADA&#10;FERIADO&#10;PLANILLA" style="width:100%; font-family:inherit;"></textarea>`;
   }
   if (tipo === "crucigrama") {
-    const filas = Array.from({ length: 8 }, (_, i) => i);
+    const filasIniciales = Array.from({ length: 8 }, (_, i) => i);
     return `
-      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Escribí entre 5 y 8 palabras con su pista. Se genera el crucigrama automáticamente, cruzando las palabras donde comparten letras.</p>
-      ${filas.map(i => `
-        <div style="display:flex; gap:0.5rem; margin-bottom:0.5rem; align-items:flex-start;">
-          <input class="au-cruci-palabra" data-i="${i}" placeholder="Palabra ${i + 1}" style="width:9rem;" />
-          <textarea class="au-cruci-pista" data-i="${i}" placeholder="Pista" rows="1" style="flex:1; font-family:inherit; resize:vertical;"></textarea>
-        </div>`).join("")}`;
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Escribí las palabras con su pista (agregá o quitá las que necesites, mínimo 4). Se genera el crucigrama automáticamente, cruzando las palabras donde comparten letras.</p>
+      <div class="au-cruci-lista" data-au-cruci-siguiente="${filasIniciales.length}">
+        ${filasIniciales.map(i => bloqueCruciHTML(i)).join("")}
+      </div>
+      <button type="button" class="btn secondary small au-cruci-agregar">+ Agregar palabra</button>`;
   }
   if (tipo === "infografia") {
     return `
@@ -3382,16 +3526,27 @@ function construirPanelActividadHTML(tipo) {
 function llenarPanelActividadConIA(tipo, el, contenido) {
   if (!contenido) return;
   if (tipo === "seleccion_unica" && Array.isArray(contenido.preguntas)) {
-    contenido.preguntas.slice(0, 15).forEach((p, i) => {
-      const inputPregunta = el.querySelector(`.au-pregunta[data-i="${i}"]`);
-      if (inputPregunta) inputPregunta.value = p.pregunta || "";
-      (p.opciones || []).slice(0, 4).forEach((op, j) => {
-        const inputOpcion = el.querySelector(`.au-opcion[data-i="${i}"][data-j="${j}"]`);
-        if (inputOpcion) inputOpcion.value = op || "";
+    const lista = el.querySelector(".au-prueba-lista");
+    if (lista) {
+      let bloques = Array.from(lista.querySelectorAll(".au-prueba-bloque"));
+      while (bloques.length < contenido.preguntas.length) {
+        agregarPreguntaPruebaBloque(el);
+        bloques = Array.from(lista.querySelectorAll(".au-prueba-bloque"));
+      }
+      contenido.preguntas.forEach((p, idx) => {
+        const bloque = bloques[idx];
+        if (!bloque) return;
+        const i = bloque.dataset.bloque;
+        const inputPregunta = bloque.querySelector(`.au-pregunta[data-i="${i}"]`);
+        if (inputPregunta) inputPregunta.value = p.pregunta || "";
+        (p.opciones || []).slice(0, 4).forEach((op, j) => {
+          const inputOpcion = bloque.querySelector(`.au-opcion[data-i="${i}"][data-j="${j}"]`);
+          if (inputOpcion) inputOpcion.value = op || "";
+        });
+        const radio = bloque.querySelector(`input[name="au-correcta-${i}"][value="${Number(p.correcta) || 0}"]`);
+        if (radio) radio.checked = true;
       });
-      const radio = el.querySelector(`input[name="au-correcta-${i}"][value="${Number(p.correcta) || 0}"]`);
-      if (radio) radio.checked = true;
-    });
+    }
   }
   if (tipo === "prueba" && Array.isArray(contenido.preguntas)) {
     const lista = el.querySelector(".au-prueba-lista");
@@ -3450,19 +3605,38 @@ function llenarPanelActividadConIA(tipo, el, contenido) {
     }
   }
   if (tipo === "falso_verdadero" && Array.isArray(contenido.afirmaciones)) {
-    contenido.afirmaciones.slice(0, 10).forEach((a, i) => {
-      const inputAfirmacion = el.querySelector(`.au-afirmacion[data-i="${i}"]`);
-      if (inputAfirmacion) inputAfirmacion.value = a.texto || "";
-      const radio = el.querySelector(`input[name="au-fv-${i}"][value="${a.correcta ? "true" : "false"}"]`);
-      if (radio) radio.checked = true;
-    });
+    const lista = el.querySelector(".au-fv-lista");
+    if (lista) {
+      let bloques = Array.from(lista.querySelectorAll(".au-fv-bloque"));
+      while (bloques.length < contenido.afirmaciones.length) {
+        agregarAfirmacionBloque(el);
+        bloques = Array.from(lista.querySelectorAll(".au-fv-bloque"));
+      }
+      contenido.afirmaciones.forEach((a, idx) => {
+        const bloque = bloques[idx];
+        if (!bloque) return;
+        const i = bloque.dataset.bloque;
+        const inputAfirmacion = bloque.querySelector(`.au-afirmacion[data-i="${i}"]`);
+        if (inputAfirmacion) inputAfirmacion.value = a.texto || "";
+        const radio = bloque.querySelector(`input[name="au-fv-${i}"][value="${a.correcta ? "true" : "false"}"]`);
+        if (radio) radio.checked = true;
+      });
+    }
   }
   if (tipo === "sopa_letras" && Array.isArray(contenido.palabras)) {
     const textarea = el.querySelector("#au-palabras-sopa");
     if (textarea) textarea.value = contenido.palabras.join("\n");
   }
   if (tipo === "crucigrama" && Array.isArray(contenido.items)) {
-    contenido.items.slice(0, 8).forEach((it, i) => {
+    const listaCruci = el.querySelector(".au-cruci-lista");
+    if (listaCruci) {
+      let bloquesCruci = Array.from(listaCruci.querySelectorAll(".au-cruci-bloque"));
+      while (bloquesCruci.length < contenido.items.length) {
+        agregarCruciBloque(el);
+        bloquesCruci = Array.from(listaCruci.querySelectorAll(".au-cruci-bloque"));
+      }
+    }
+    contenido.items.forEach((it, i) => {
       const inputPalabra = el.querySelector(`.au-cruci-palabra[data-i="${i}"]`);
       const inputPista = el.querySelector(`.au-cruci-pista[data-i="${i}"]`);
       if (inputPalabra) inputPalabra.value = it.palabra || "";
@@ -3846,12 +4020,16 @@ async function pintarPanelPuntosPorParte(panel, trabajo, indicadorId, totalPunto
 
 function leerContenidoActividadDesdeFormulario(tipo, el) {
   if (tipo === "seleccion_unica") {
+    const bloques = Array.from(el.querySelectorAll(".au-prueba-bloque"));
+    if (bloques.length === 0) return { valido: false, error: "Agregá al menos una pregunta." };
     const preguntas = [];
-    for (let i = 0; i < 15; i++) {
-      const pregunta = (el.querySelector(`.au-pregunta[data-i="${i}"]`)?.value || "").trim();
-      const opciones = [0, 1, 2, 3].map(j => (el.querySelector(`.au-opcion[data-i="${i}"][data-j="${j}"]`)?.value || "").trim());
-      if (!pregunta || opciones.some(o => !o)) return { valido: false, error: `Completá la pregunta ${i + 1} y sus 4 opciones.` };
-      const marcada = el.querySelector(`input[name="au-correcta-${i}"]:checked`);
+    for (let idx = 0; idx < bloques.length; idx++) {
+      const bloque = bloques[idx];
+      const i = bloque.dataset.bloque;
+      const pregunta = (bloque.querySelector(`.au-pregunta[data-i="${i}"]`)?.value || "").trim();
+      const opciones = [0, 1, 2, 3].map(j => (bloque.querySelector(`.au-opcion[data-i="${i}"][data-j="${j}"]`)?.value || "").trim());
+      if (!pregunta || opciones.some(o => !o)) return { valido: false, error: `Completá la pregunta ${idx + 1} y sus 4 opciones.` };
+      const marcada = bloque.querySelector(`input[name="au-correcta-${i}"]:checked`);
       preguntas.push({ pregunta, opciones, correcta: marcada ? Number(marcada.value) : 0 });
     }
     return { valido: true, contenido: { preguntas } };
@@ -3901,11 +4079,15 @@ function leerContenidoActividadDesdeFormulario(tipo, el) {
     return { valido: true, contenido };
   }
   if (tipo === "falso_verdadero") {
+    const bloques = Array.from(el.querySelectorAll(".au-fv-bloque"));
+    if (bloques.length === 0) return { valido: false, error: "Agregá al menos una afirmación." };
     const afirmaciones = [];
-    for (let i = 0; i < 10; i++) {
-      const texto = (el.querySelector(`.au-afirmacion[data-i="${i}"]`)?.value || "").trim();
-      if (!texto) return { valido: false, error: `Completá la afirmación ${i + 1}.` };
-      const marcada = el.querySelector(`input[name="au-fv-${i}"]:checked`);
+    for (let idx = 0; idx < bloques.length; idx++) {
+      const bloque = bloques[idx];
+      const i = bloque.dataset.bloque;
+      const texto = (bloque.querySelector(`.au-afirmacion[data-i="${i}"]`)?.value || "").trim();
+      if (!texto) return { valido: false, error: `Completá la afirmación ${idx + 1}.` };
+      const marcada = bloque.querySelector(`input[name="au-fv-${i}"]:checked`);
       afirmaciones.push({ texto, correcta: marcada ? marcada.value === "true" : true });
     }
     return { valido: true, contenido: { afirmaciones } };
@@ -3914,14 +4096,17 @@ function leerContenidoActividadDesdeFormulario(tipo, el) {
     const palabras = (el.querySelector("#au-palabras-sopa")?.value || "")
       .split("\n").map(p => p.trim()).filter(Boolean);
     if (palabras.length < 4) return { valido: false, error: "Escribí al menos 4 palabras para la sopa de letras." };
-    if (palabras.length > 15) return { valido: false, error: "Como máximo 15 palabras para la sopa de letras." };
+    if (palabras.length > 30) return { valido: false, error: "Como máximo 30 palabras para la sopa de letras." };
     return { valido: true, contenido: generarSopaDeLetras(palabras) };
   }
   if (tipo === "crucigrama") {
+    const bloques = Array.from(el.querySelectorAll(".au-cruci-bloque"));
     const items = [];
-    for (let i = 0; i < 8; i++) {
-      const palabra = (el.querySelector(`.au-cruci-palabra[data-i="${i}"]`)?.value || "").trim();
-      const pista = (el.querySelector(`.au-cruci-pista[data-i="${i}"]`)?.value || "").trim();
+    for (let idx = 0; idx < bloques.length; idx++) {
+      const bloque = bloques[idx];
+      const i = bloque.dataset.bloque;
+      const palabra = (bloque.querySelector(`.au-cruci-palabra[data-i="${i}"]`)?.value || "").trim();
+      const pista = (bloque.querySelector(`.au-cruci-pista[data-i="${i}"]`)?.value || "").trim();
       if (palabra && pista) items.push({ palabra, pista });
     }
     if (items.length < 4) return { valido: false, error: "Completá al menos 4 pares de palabra + pista para el crucigrama." };

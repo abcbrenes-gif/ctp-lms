@@ -398,7 +398,10 @@ function normalizarPalabra(p) {
 function generarSopaDeLetras(palabrasOriginales) {
   const palabras = palabrasOriginales.map(normalizarPalabra).filter(Boolean);
   const masLarga = Math.max(...palabras.map(p => p.length), 8);
-  const tamano = Math.min(18, Math.max(10, masLarga + 2));
+  // El tamaño de la cuadrícula crece también con la cantidad de palabras
+  // (no solo con la más larga), para que quepan bien aunque se pidan muchas.
+  const porCantidad = Math.ceil(Math.sqrt(palabras.length * 14));
+  const tamano = Math.min(24, Math.max(10, masLarga + 2, porCantidad));
   const grid = Array.from({ length: tamano }, () => Array(tamano).fill(null));
   const colocadas = [];
 

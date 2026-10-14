@@ -44,8 +44,8 @@ function extraerJson(texto) {
 }
 
 const PROMPTS = {
-  seleccion_unica: (tema, contexto, instrucciones) => `Sos un asistente para un profesor de Contabilidad de un colegio técnico (CTP) en Costa Rica.
-Generá 15 preguntas de selección única (opción múltiple) sobre este tema para una actividad de evaluación de estudiantes de secundaria.
+  seleccion_unica: (tema, contexto, instrucciones, cantidad) => `Sos un asistente para un profesor de Contabilidad de un colegio técnico (CTP) en Costa Rica.
+Generá ${cantidad} preguntas de selección única (opción múltiple) sobre este tema para una actividad de evaluación de estudiantes de secundaria.
 
 Tema: ${tema}
 ${contexto ? `Contexto adicional: ${contexto}` : ""}
@@ -53,17 +53,19 @@ ${instrucciones ? `\nInstrucciones del profesor (seguilas con prioridad sobre lo
 Reglas:
 - Devolvé ÚNICAMENTE un JSON válido, sin texto antes ni después, con esta forma exacta:
   {"preguntas": [{"pregunta": "...", "opciones": ["...", "...", "...", "..."], "correcta": 0}, ...]}
-- Exactamente 15 preguntas, cada una con exactamente 4 opciones.
+- Exactamente ${cantidad} preguntas, cada una con exactamente 4 opciones.
 - "correcta" es el índice (0, 1, 2 o 3) de la opción correcta.
 - Las 4 opciones deben ser plausibles (nada de respuestas absurdas obvias), en español de Costa Rica.
 - Variá cuál índice es el correcto entre las preguntas (no pongas siempre 0).
 - Preguntas claras, de nivel de colegio técnico, basadas en contenido real del tema.
+- Si el tema no da para ${cantidad} preguntas distintas y bien fundamentadas, generá las que sí
+  tengan sentido con contenido real (nunca menos de 3) en vez de inventar o repetir.
 - Cada pregunta y cada opción debe ser una oración u oración corta COMPLETA y bien formada en
   español de Costa Rica — nunca la cortes a la mitad, nunca termines en "..." ni dejes una idea
   sin terminar. Revisá cada una antes de responder.`,
 
-  falso_verdadero: (tema, contexto, instrucciones) => `Sos un asistente para un profesor de Contabilidad de un colegio técnico (CTP) en Costa Rica.
-Generá 10 afirmaciones de verdadero/falso sobre este tema para una actividad de evaluación de estudiantes de secundaria.
+  falso_verdadero: (tema, contexto, instrucciones, cantidad) => `Sos un asistente para un profesor de Contabilidad de un colegio técnico (CTP) en Costa Rica.
+Generá ${cantidad} afirmaciones de verdadero/falso sobre este tema para una actividad de evaluación de estudiantes de secundaria.
 
 Tema: ${tema}
 ${contexto ? `Contexto adicional: ${contexto}` : ""}
@@ -71,15 +73,17 @@ ${instrucciones ? `\nInstrucciones del profesor (seguilas con prioridad sobre lo
 Reglas:
 - Devolvé ÚNICAMENTE un JSON válido, sin texto antes ni después, con esta forma exacta:
   {"afirmaciones": [{"texto": "...", "correcta": true}, ...]}
-- Exactamente 10 afirmaciones.
+- Exactamente ${cantidad} afirmaciones.
 - "correcta" es true si la afirmación es verdadera, false si es falsa.
 - Mezclá verdaderas y falsas (no pongas todas verdaderas ni todas falsas).
 - Afirmaciones claras y concretas, en español de Costa Rica, basadas en contenido real del tema.
+- Si el tema no da para ${cantidad} afirmaciones distintas y bien fundamentadas, generá las que sí
+  tengan sentido con contenido real (nunca menos de 3) en vez de inventar o repetir.
 - Cada afirmación debe ser una oración COMPLETA y bien formada — nunca la cortes a la mitad ni
   termines en "...". Revisá cada una antes de responder.`,
 
-  sopa_letras: (tema, contexto, instrucciones) => `Sos un asistente para un profesor de Contabilidad de un colegio técnico (CTP) en Costa Rica.
-Generá una lista de 10 palabras clave (una sola palabra cada una, sin espacios ni tildes, en mayúsculas) relacionadas con este tema, para una sopa de letras.
+  sopa_letras: (tema, contexto, instrucciones, cantidad) => `Sos un asistente para un profesor de Contabilidad de un colegio técnico (CTP) en Costa Rica.
+Generá una lista de ${cantidad} palabras clave (una sola palabra cada una, sin espacios ni tildes, en mayúsculas) relacionadas con este tema, para una sopa de letras.
 
 Tema: ${tema}
 ${contexto ? `Contexto adicional: ${contexto}` : ""}
@@ -87,12 +91,12 @@ ${instrucciones ? `\nInstrucciones del profesor (seguilas con prioridad sobre lo
 Reglas:
 - Devolvé ÚNICAMENTE un JSON válido, sin texto antes ni después, con esta forma exacta:
   {"palabras": ["PALABRA1", "PALABRA2", ...]}
-- Exactamente 10 palabras.
+- Exactamente ${cantidad} palabras.
 - Cada palabra: una sola palabra (sin espacios), SIN TILDES, en MAYÚSCULAS, entre 4 y 12 letras.
-- Términos técnicos reales y relevantes del tema.`,
+- Términos técnicos reales y relevantes del tema — si no hay ${cantidad} términos distintos reales, repetí variantes relacionadas antes que inventar palabras sin sentido.`,
 
-  crucigrama: (tema, contexto, instrucciones) => `Sos un asistente para un profesor de Contabilidad de un colegio técnico (CTP) en Costa Rica.
-Generá 7 pares de palabra+pista sobre este tema para un crucigrama.
+  crucigrama: (tema, contexto, instrucciones, cantidad) => `Sos un asistente para un profesor de Contabilidad de un colegio técnico (CTP) en Costa Rica.
+Generá ${cantidad} pares de palabra+pista sobre este tema para un crucigrama.
 
 Tema: ${tema}
 ${contexto ? `Contexto adicional: ${contexto}` : ""}
@@ -100,7 +104,7 @@ ${instrucciones ? `\nInstrucciones del profesor (seguilas con prioridad sobre lo
 Reglas:
 - Devolvé ÚNICAMENTE un JSON válido, sin texto antes ni después, con esta forma exacta:
   {"items": [{"palabra": "PALABRA", "pista": "Definición o pista corta"}, ...]}
-- Exactamente 7 pares.
+- Exactamente ${cantidad} pares.
 - "palabra": una sola palabra (sin espacios), SIN TILDES, en MAYÚSCULAS, entre 4 y 12 letras.
 - "pista": una definición corta (máximo 15 palabras) pero una oración COMPLETA y bien formada, en
   español de Costa Rica, sin mencionar la palabra. Nunca la cortes a la mitad ni termines en "...".
@@ -221,12 +225,37 @@ module.exports = async (req, res) => {
     return;
   }
 
-  const prompt = PROMPTS[tipo](tema, contexto, instrucciones);
-  // La selección única (15 preguntas x 4 opciones) es la respuesta más larga —
-  // le damos más margen para que no se corte a la mitad. "prueba" puede traer
-  // muchas más preguntas (la cantidad la define el documento adjunto), así
-  // que le damos el margen más grande de todos.
-  const maxTokens = tipo === "prueba" ? 8000 : (tipo === "seleccion_unica" ? 6000 : (tipo === "falso_verdadero" || tipo === "crucigrama" ? 4000 : 2000));
+  // Cuántas preguntas/afirmaciones/palabras le pide el profesor a la IA.
+  // Cada tipo tiene su propio rango razonable (ver también los límites del
+  // formulario en el frontend) para no pedirle a la IA una cantidad
+  // absurda que no quepa en la respuesta.
+  const LIMITES_CANTIDAD = {
+    seleccion_unica: { min: 3, max: 40, def: 15 },
+    falso_verdadero: { min: 3, max: 40, def: 10 },
+    crucigrama: { min: 4, max: 20, def: 7 },
+    sopa_letras: { min: 4, max: 30, def: 10 }
+  };
+  const limiteCantidad = LIMITES_CANTIDAD[tipo];
+  let cantidad = null;
+  if (limiteCantidad) {
+    const pedida = Number(body.cantidad);
+    cantidad = Number.isFinite(pedida) && pedida > 0
+      ? Math.min(limiteCantidad.max, Math.max(limiteCantidad.min, Math.round(pedida)))
+      : limiteCantidad.def;
+  }
+
+  const prompt = PROMPTS[tipo](tema, contexto, instrucciones, cantidad);
+  // La selección única y falso/verdadero son listas de longitud variable
+  // (la cantidad la elige el profesor) — el margen de tokens escala con
+  // esa cantidad para que la respuesta nunca se corte a la mitad.
+  // "prueba" puede traer muchas más preguntas (la cantidad la define el
+  // documento adjunto), así que le damos el margen más grande de todos.
+  const maxTokens = tipo === "prueba" ? 8000
+    : tipo === "seleccion_unica" ? Math.min(16000, Math.max(2000, cantidad * 420))
+    : tipo === "falso_verdadero" ? Math.min(10000, Math.max(1500, cantidad * 320))
+    : tipo === "crucigrama" ? Math.min(9000, Math.max(1500, cantidad * 420))
+    : tipo === "sopa_letras" ? Math.min(4000, Math.max(800, cantidad * 90))
+    : 2000;
 
   async function llamarIA(promptTexto) {
     const promptConDocx = textoExtraidoDocx
