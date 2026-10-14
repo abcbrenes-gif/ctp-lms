@@ -1739,6 +1739,13 @@ async function renderSubtema(id, soloLectura) {
         <button class="btn danger small" id="eliminar-subtema-btn" type="button">Eliminar este subtema</button>
       </div>` : ""}
 
+      <nav class="cat-navbar" style="margin-bottom:1rem;">
+        <button class="cat-navlink active" data-subtema-tab="intro" type="button">📘 Introducción del tema</button>
+        <button class="cat-navlink" data-subtema-tab="trabajos" type="button">📝 Trabajos asignados</button>
+        <button class="cat-navlink" data-subtema-tab="material" type="button">📎 Material extra</button>
+      </nav>
+
+      <div data-subtema-panel="intro">
       <section class="tema-section">
         <h3>Introducción del subtema</h3>
         <div id="subtema-presentacion-${sub.id}"></div>
@@ -1775,7 +1782,9 @@ async function renderSubtema(id, soloLectura) {
                </div>
              </div>`}
       </section>
+      </div>
 
+      <div data-subtema-panel="trabajos" style="display:none;">
       <section class="tema-section">
         <h3>Trabajos cotidianos de este subtema</h3>
         <div class="roster" id="subtema-trabajos-lista">Cargando…</div>
@@ -1837,7 +1846,9 @@ async function renderSubtema(id, soloLectura) {
           <button class="btn small" type="submit">Agregar trabajo en clase</button>
         </form>` : ""}
       </section>
+      </div>
 
+      <div data-subtema-panel="material" style="display:none;">
       <section class="tema-section">
         <h3>Material de apoyo de este subtema</h3>
         <div class="roster" id="subtema-materiales-${sub.id}">Cargando…</div>
@@ -1864,8 +1875,19 @@ async function renderSubtema(id, soloLectura) {
           </form>
         </div>` : ""}
       </section>
+      </div>
     </div>`;
   bindTopbar();
+
+  document.querySelectorAll("[data-subtema-tab]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("[data-subtema-tab]").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      document.querySelectorAll("[data-subtema-panel]").forEach(p => { p.style.display = "none"; });
+      const panel = document.querySelector(`[data-subtema-panel="${btn.dataset.subtemaTab}"]`);
+      if (panel) panel.style.display = "";
+    });
+  });
 
   if (!soloLectura) {
     document.getElementById("eliminar-subtema-btn").addEventListener("click", async () => {
