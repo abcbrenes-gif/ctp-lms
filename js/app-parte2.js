@@ -3879,6 +3879,12 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
   const siguienteLetra = siguienteLetraDisponible((indicadores || []).map(i => i.letra));
   const esCategoriaPruebas = catNombre === "Pruebas";
 
+  // Mientras se está viendo la categoría "Pruebas", se oculta "Avisos y
+  // materiales" (más abajo en la misma página) para que la pantalla quede
+  // enfocada en las pruebas.
+  const publicacionesHolder = document.getElementById("materia-publicaciones");
+  if (publicacionesHolder) publicacionesHolder.style.display = esCategoriaPruebas ? "none" : "";
+
   holder.innerHTML = `
     <h3 style="margin-top:0;">Indicadores de evaluación</h3>
     <nav class="cat-navbar">
