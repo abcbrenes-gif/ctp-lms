@@ -75,9 +75,9 @@ function mostrarReglasPrueba(trabajo) {
 // informativo (de lectura), no editable.
 function construirMembreteHTML(trabajo) {
   const hoy = new Date().toLocaleDateString("es-CR", { day: "2-digit", month: "2-digit", year: "numeric" });
-  const puntosTotales = (trabajo.contenido_actividad && trabajo.contenido_actividad.preguntas)
-    ? trabajo.contenido_actividad.preguntas.length
-    : "—";
+  const contenidoAct = trabajo.contenido_actividad || {};
+  const puntosTotales = contenidoAct.puntosTotales
+    || (contenidoAct.preguntas ? contenidoAct.preguntas.length : "—");
   return `
     <div style="border:1px solid #333; border-radius:4px; margin-bottom:1rem; font-size:0.78rem;">
       <div style="text-align:center; font-weight:700; padding:0.5rem 0.4rem 0.3rem; border-bottom:1px solid #333;">MINISTERIO DE EDUCACIÓN PÚBLICA</div>

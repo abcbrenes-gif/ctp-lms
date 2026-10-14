@@ -3125,6 +3125,11 @@ function construirPanelActividadHTML(tipo) {
         <p style="font-size:0.78rem; color:var(--text-muted); margin-top:0.4rem;">Si la dejás vacía, la prueba queda disponible apenas la habilités con el botón "Habilitado" de la lista. Si ponés una hora, nadie va a poder entrar antes de esa hora aunque ya esté habilitada — y vos podés además deshabilitarla manualmente en cualquier momento para cerrarla. Solo vos podés cambiar esto.</p>
       </div>
       <div style="margin-bottom:0.8rem;">
+        <label for="au-prueba-puntos-totales" style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.4rem;">Puntos totales de la prueba (para el encabezado)</label>
+        <input type="number" id="au-prueba-puntos-totales" min="1" placeholder="Ej. 47" style="width:8rem; padding:0.4rem;" />
+        <p style="font-size:0.78rem; color:var(--text-muted); margin-top:0.3rem;">Es solo el número que se muestra en el encabezado tipo MEP ("Puntos totales: __"). La nota se sigue calculando automáticamente por % de aciertos, no por estos puntos. Si lo dejás vacío, se muestra la cantidad de preguntas.</p>
+      </div>
+      <div style="margin-bottom:0.8rem;">
         <label for="au-prueba-instrucciones" style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.4rem;">Reglas/instrucciones para el estudiante (opcional)</label>
         <textarea id="au-prueba-instrucciones" rows="3" placeholder="Ej. Tenés 40 minutos. No se permite usar el celular ni el libro. Una vez que empiece no podés pausar." style="width:100%; font-family:inherit; resize:vertical;"></textarea>
         <p style="font-size:0.78rem; color:var(--text-muted); margin-top:0.3rem;">Esto se le muestra al estudiante en una ventana con las reglas, antes de pedirle sus datos y de empezar la prueba.</p>
@@ -3228,6 +3233,8 @@ function llenarPanelActividadConIA(tipo, el, contenido) {
     }
     const instruccionesInput = el.querySelector("#au-prueba-instrucciones");
     if (instruccionesInput && typeof contenido.instrucciones === "string") instruccionesInput.value = contenido.instrucciones;
+    const puntosInput = el.querySelector("#au-prueba-puntos-totales");
+    if (puntosInput && contenido.puntosTotales) puntosInput.value = contenido.puntosTotales;
 
     if (contenido.apareamiento && Array.isArray(contenido.apareamiento.pares) && contenido.apareamiento.pares.length) {
       const instApar = el.querySelector("#au-prueba-apareamiento-instrucciones");
@@ -3488,10 +3495,14 @@ function leerContenidoActividadDesdeFormulario(tipo, el) {
     const instruccionCaso = (el.querySelector("#au-prueba-caso-instruccion")?.value || "").trim();
     const casoPractico = (enunciadoCasoTexto || instruccionCaso) ? { enunciado: enunciadoCaso, instruccion: instruccionCaso || undefined } : null;
 
+    const puntosTotalesInput = (el.querySelector("#au-prueba-puntos-totales")?.value || "").trim();
+    const puntosTotales = puntosTotalesInput ? Number(puntosTotalesInput) : null;
+
     const contenido = { preguntas };
     if (instrucciones) contenido.instrucciones = instrucciones;
     if (apareamiento) contenido.apareamiento = apareamiento;
     if (casoPractico) contenido.casoPractico = casoPractico;
+    if (puntosTotales) contenido.puntosTotales = puntosTotales;
     return { valido: true, contenido };
   }
   if (tipo === "falso_verdadero") {
