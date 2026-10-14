@@ -2658,7 +2658,9 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
           pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId);
           return;
         }
-        if (!confirm(`Vas a iniciar "${trabajo.titulo}". Se abre en pantalla completa y la nota se calcula automáticamente al terminar. ¿Listo para empezar?`)) return;
+        // Para "prueba" las reglas y la confirmación salen en la ventana de
+        // reglas propia (mostrarReglasPrueba), que aparece primero.
+        if (trabajo.tipo_actividad !== "prueba" && !confirm(`Vas a iniciar "${trabajo.titulo}". Se abre en pantalla completa y la nota se calcula automáticamente al terminar. ¿Listo para empezar?`)) return;
         iniciarActividadInteractiva(trabajo, estudianteId, (puntaje) => {
           pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId);
         });
@@ -3018,6 +3020,11 @@ function construirPanelActividadHTML(tipo) {
         <input type="datetime-local" id="au-prueba-hora-inicio" style="padding:0.4rem;" />
         <p style="font-size:0.78rem; color:var(--text-muted); margin-top:0.4rem;">Si la dejás vacía, la prueba queda disponible apenas la habilités con el botón "Habilitado" de la lista. Si ponés una hora, nadie va a poder entrar antes de esa hora aunque ya esté habilitada — y vos podés además deshabilitarla manualmente en cualquier momento para cerrarla. Solo vos podés cambiar esto.</p>
       </div>
+      <div style="margin-bottom:0.8rem;">
+        <label for="au-prueba-instrucciones" style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.4rem;">Reglas/instrucciones para el estudiante (opcional)</label>
+        <textarea id="au-prueba-instrucciones" rows="3" placeholder="Ej. Tenés 40 minutos. No se permite usar el celular ni el libro. Una vez que empiece no podés pausar." style="width:100%; font-family:inherit; resize:vertical;"></textarea>
+        <p style="font-size:0.78rem; color:var(--text-muted); margin-top:0.3rem;">Esto se le muestra al estudiante en una ventana con las reglas, antes de pedirle sus datos y de empezar la prueba.</p>
+      </div>
       <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Antes de empezar, cada estudiante debe escribir su nombre completo, cédula, correo del MEP y correo del padre/encargado. Escribí las 15 preguntas y marcá con el círculo cuál opción es la correcta.</p>
       ${preguntas.map(i => `
         <div style="background:#F5F6FA; border-radius:8px; padding:0.8rem; margin-bottom:0.6rem;">
@@ -3238,7 +3245,8 @@ function leerContenidoActividadDesdeFormulario(tipo, el) {
       const marcada = el.querySelector(`input[name="au-correcta-${i}"]:checked`);
       preguntas.push({ pregunta, opciones, correcta: marcada ? Number(marcada.value) : 0 });
     }
-    return { valido: true, contenido: { preguntas } };
+    const instrucciones = tipo === "prueba" ? (el.querySelector("#au-prueba-instrucciones")?.value || "").trim() : "";
+    return { valido: true, contenido: instrucciones ? { preguntas, instrucciones } : { preguntas } };
   }
   if (tipo === "falso_verdadero") {
     const afirmaciones = [];
@@ -3893,7 +3901,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
               <strong>${ind.letra}:</strong> <span class="ind-descripcion-text">${ind.descripcion}</span>
               <span style="color:var(--text-muted); font-size:0.8rem;"> (máx. ${ind.puntaje_maximo} pts)</span>
               ${ind.fecha_evaluacion ? `<div style="font-size:0.75rem; color:var(--text-muted);">Fecha: ${ind.fecha_evaluacion}${ind.lecciones ? " · " + ind.lecciones + " lecciones" : ""}</div>` : ""}
-              ${resultadoVinculado
+              ${esCategoriaPruebas ? "" : (resultadoVinculado
                 ? `<div style="font-size:0.75rem; color:var(--text-muted); font-style:italic;">📘 Resultado de aprendizaje: ${quitarHtmlResultado(resultadoVinculado)}</div>`
                 : `<div style="font-size:0.75rem; color:var(--brick); display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; margin-top:0.2rem;">
                      ⚠️ Sin vincular a un resultado de aprendizaje del programa
@@ -3901,7 +3909,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
                        <option value="">Elegir resultado…</option>
                        ${(resultadosMateria || []).map(r => `<option value="${r.id}">${quitarHtmlResultado(r.resultado).slice(0, 80)}</option>`).join("")}
                      </select>
-                   </div>`}
+                   </div>`)}
             </span>
             <span style="display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap;">
               ${linkTrabajo(ind)}

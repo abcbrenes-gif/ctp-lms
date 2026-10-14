@@ -40,6 +40,36 @@ function formatearFechaHora(iso) {
   }
 }
 
+// Muestra las reglas/instrucciones de la Prueba ANTES de pedir los datos del
+// estudiante y de empezar. Devuelve una Promise<boolean>: true si el
+// estudiante le da "Entendido, continuar", false si cancela.
+function mostrarReglasPrueba(trabajo) {
+  const instrucciones = (trabajo.contenido_actividad && trabajo.contenido_actividad.instrucciones) || "";
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.style.cssText = "position:fixed; inset:0; background:rgba(15,23,42,0.75); z-index:9998; display:flex; align-items:center; justify-content:center; padding:1rem;";
+    overlay.innerHTML = `
+      <div style="background:#fff; border-radius:12px; padding:1.4rem; max-width:30rem; width:100%;">
+        <h3 style="margin-bottom:0.3rem;">📝 ${trabajo.titulo || "Prueba"}</h3>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.8rem;">Antes de empezar, leé las reglas:</p>
+        <ul style="font-size:0.85rem; margin:0 0 0.8rem 1.1rem; padding:0; display:grid; gap:0.4rem;">
+          <li>Se abre en pantalla completa.</li>
+          <li>No podés salir de la pantalla ni cambiar de pestaña — si lo hacés, queda registrado y tu profesor lo va a ver.</li>
+          <li>Una vez que empezás, la prueba se guarda y no se puede volver a hacer.</li>
+          <li>La nota se calcula automáticamente al terminar.</li>
+        </ul>
+        ${instrucciones ? `<div style="background:#FFF7E8; border:1px solid #E8C777; border-radius:8px; padding:0.7rem; font-size:0.85rem; margin-bottom:0.8rem; white-space:pre-wrap;">${instrucciones.replace(/[<>]/g, "")}</div>` : ""}
+        <div class="row" style="margin-top:0.6rem; justify-content:flex-end; gap:0.5rem;">
+          <button type="button" class="btn secondary small" id="rp-cancelar">Cancelar</button>
+          <button type="button" class="btn small" id="rp-continuar">Entendido, continuar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector("#rp-cancelar").addEventListener("click", () => { overlay.remove(); resolve(false); });
+    overlay.querySelector("#rp-continuar").addEventListener("click", () => { overlay.remove(); resolve(true); });
+  });
+}
+
 // Pide los datos iniciales de un estudiante antes de empezar una Prueba
 // (nombre completo, cédula, correo del MEP y correo del padre/encargado).
 // Devuelve una Promise que resuelve con esos datos, o null si cancela.
@@ -574,6 +604,8 @@ async function iniciarActividadInteractiva(trabajo, estudianteId, onTerminado) {
 
   let datosPrueba = null;
   if (tipo === "prueba") {
+    const aceptaReglas = await mostrarReglasPrueba(trabajo);
+    if (!aceptaReglas) return; // el estudiante canceló
     datosPrueba = await pedirDatosPrueba();
     if (!datosPrueba) return; // el estudiante canceló
   }
