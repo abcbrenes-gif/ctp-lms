@@ -2981,8 +2981,8 @@ function construirSelectorTipoActividad() {
       </div>
       <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.8rem;">Se califica automáticamente de 0 a 3 según el % de aciertos, y se hace en pantalla completa: si el estudiante sale de la actividad, queda registrado.</p>
       <div style="margin-bottom:0.6rem;">
-        <label for="actividad-ia-archivo" style="font-size:0.82rem; color:var(--text-muted); display:block; margin-bottom:0.3rem;">Archivo de apoyo (opcional) — un PDF o imagen con el contenido real sobre el que querés las preguntas</label>
-        <input type="file" id="actividad-ia-archivo" accept=".pdf,image/png,image/jpeg,image/gif,image/webp" style="display:block; margin-bottom:0.5rem;" />
+        <label for="actividad-ia-archivo" style="font-size:0.82rem; color:var(--text-muted); display:block; margin-bottom:0.3rem;">Archivo de apoyo (opcional) — un PDF, Word (.docx) o imagen con el contenido real sobre el que querés las preguntas. Para "Prueba": subí el Word del examen y la IA lo digitaliza (vos marcás/revisás las respuestas correctas después, el Word no las trae).</label>
+        <input type="file" id="actividad-ia-archivo" accept=".pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/gif,image/webp" style="display:block; margin-bottom:0.5rem;" />
         <label for="actividad-ia-instrucciones" style="font-size:0.82rem; color:var(--text-muted); display:block; margin-bottom:0.3rem;">Instrucciones para la IA (opcional) — ej. "enfocate en salarios y cargas sociales, con ejemplos en colones", "nivel básico", "incluí IVA y renta"</label>
         <textarea id="actividad-ia-instrucciones" rows="2" placeholder="Dejalo en blanco para que la IA use solo el título y el tema del subtema (o el archivo, si subiste uno)" style="width:100%; font-family:inherit; resize:vertical;"></textarea>
       </div>
@@ -3225,6 +3225,37 @@ function llenarPanelActividadConIA(tipo, el, contenido) {
         const radio = bloque.querySelector(`input[name="au-correcta-${i}"][value="${Number(p.correcta) || 0}"]`);
         if (radio) radio.checked = true;
       });
+    }
+    const instruccionesInput = el.querySelector("#au-prueba-instrucciones");
+    if (instruccionesInput && typeof contenido.instrucciones === "string") instruccionesInput.value = contenido.instrucciones;
+
+    if (contenido.apareamiento && Array.isArray(contenido.apareamiento.pares) && contenido.apareamiento.pares.length) {
+      const instApar = el.querySelector("#au-prueba-apareamiento-instrucciones");
+      if (instApar && contenido.apareamiento.instrucciones) instApar.value = contenido.apareamiento.instrucciones;
+      const listaApar = el.querySelector(".au-apareamiento-lista");
+      if (listaApar) {
+        let bloquesApar = Array.from(listaApar.querySelectorAll(".au-apareamiento-par"));
+        while (bloquesApar.length < contenido.apareamiento.pares.length) {
+          agregarParApareamientoBloque(el);
+          bloquesApar = Array.from(listaApar.querySelectorAll(".au-apareamiento-par"));
+        }
+        contenido.apareamiento.pares.forEach((par, idx) => {
+          const bloque = bloquesApar[idx];
+          if (!bloque) return;
+          const i = bloque.dataset.par;
+          const inputSituacion = bloque.querySelector(`.au-apar-situacion[data-i="${i}"]`);
+          const inputRespuesta = bloque.querySelector(`.au-apar-respuesta[data-i="${i}"]`);
+          if (inputSituacion) inputSituacion.value = par.situacion || "";
+          if (inputRespuesta) inputRespuesta.value = par.respuesta || "";
+        });
+      }
+    }
+
+    if (contenido.casoPractico && (contenido.casoPractico.enunciado || contenido.casoPractico.instruccion)) {
+      const enunciadoDiv = el.querySelector("#au-prueba-caso-enunciado");
+      const instruccionInput = el.querySelector("#au-prueba-caso-instruccion");
+      if (enunciadoDiv) enunciadoDiv.innerHTML = contenido.casoPractico.enunciado || "";
+      if (instruccionInput) instruccionInput.value = contenido.casoPractico.instruccion || "";
     }
   }
   if (tipo === "falso_verdadero" && Array.isArray(contenido.afirmaciones)) {
@@ -4068,7 +4099,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
 
   // Subtemas de la materia, para poder llenar el título del indicador
   // automáticamente con el nombre del subtema (en vez de escribirlo a mano).
-  const { data: temasMateria } = await sb.from("publicaciones").select("id").eq("materia_id", materiaId).eq("tipo", "apartado");
+  const { data: temasMateria } = await sb.from("publicaciones").select("id, titulo").eq("materia_id", materiaId).eq("tipo", "apartado");
   const temaIds = (temasMateria || []).map(t => t.id);
   const { data: subtemasMateria } = temaIds.length
     ? await sb.from("subtemas").select("id, titulo, publicacion_id").in("publicacion_id", temaIds).order("orden")
@@ -4325,12 +4356,24 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
           <input id="prueba-materia-titulo" placeholder="Título de la prueba" style="flex:1; min-width:12rem" />
           <input id="prueba-materia-fecha" type="date" />
         </div>
-        <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; margin-bottom:0.8rem; flex-wrap:wrap;">Subtema donde va a aparecer:
+        <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; margin-bottom:0.4rem; flex-wrap:wrap;">Subtema donde va a aparecer (opcional):
           <select id="prueba-materia-subtema" style="flex:1; min-width:14rem;">
-            <option value="">— Elegir subtema —</option>
+            <option value="">— Sin subtema —</option>
             ${(subtemasMateria || []).map(s => `<option value="${s.id}" data-pub="${s.publicacion_id}">${s.titulo}</option>`).join("")}
           </select>
         </label>
+        <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; margin-bottom:0.8rem; flex-wrap:wrap;">Si no eligió subtema, tema donde va a quedar como trabajo general:
+          <select id="prueba-materia-tema" style="flex:1; min-width:14rem;">
+            <option value="">— Elegir tema —</option>
+            ${(temasMateria || []).map(t => `<option value="${t.id}">${t.titulo}</option>`).join("")}
+          </select>
+        </label>
+        <div style="margin-bottom:0.6rem;">
+          <label for="prueba-materia-ia-archivo" style="font-size:0.82rem; color:var(--text-muted); display:block; margin-bottom:0.3rem;">Subir un Word (.docx) o PDF con la prueba ya hecha, para que la IA la digitalice (revisá y marcá las respuestas correctas después — el documento no las trae)</label>
+          <input type="file" id="prueba-materia-ia-archivo" accept=".pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/gif,image/webp" style="display:block; margin-bottom:0.5rem;" />
+          <button class="btn secondary small" id="prueba-materia-ia-btn" type="button">✨ Digitalizar con IA</button>
+          <span id="prueba-materia-ia-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>
+        </div>
         <div id="prueba-materia-constructor">${construirPanelActividadHTML("prueba")}</div>
         <div class="row" style="margin-top:1rem;">
           <button class="btn small" id="guardar-prueba-materia" type="button">Crear prueba</button>
@@ -4340,14 +4383,54 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
     inicializarConstructorPrueba(panel.querySelector("#prueba-materia-constructor"));
 
     panel.querySelector("#cancelar-prueba-materia").addEventListener("click", () => { panel.innerHTML = ""; });
+
+    panel.querySelector("#prueba-materia-ia-btn").addEventListener("click", async (iaEv) => {
+      const estado = panel.querySelector("#prueba-materia-ia-estado");
+      const tema = panel.querySelector("#prueba-materia-titulo").value.trim();
+      if (!tema) { alert("Ponele un título a la prueba primero, para que la IA sepa qué estás subiendo."); return; }
+      const archivoInput = panel.querySelector("#prueba-materia-ia-archivo");
+      const archivo = archivoInput?.files[0];
+      if (!archivo) { alert("Elegí primero el archivo (Word, PDF o imagen) de la prueba."); return; }
+      iaEv.target.disabled = true;
+      iaEv.target.textContent = "Digitalizando…";
+      if (estado) estado.textContent = "";
+      try {
+        const leerComoBase64 = (f) => new Promise((resolve, reject) => {
+          const lector = new FileReader();
+          lector.onload = () => resolve(String(lector.result).split(",")[1] || "");
+          lector.onerror = () => reject(new Error("No se pudo leer el archivo."));
+          lector.readAsDataURL(f);
+        });
+        if (estado) estado.textContent = "Leyendo el archivo…";
+        const archivoPayload = { mimeType: archivo.type, datosBase64: await leerComoBase64(archivo) };
+        if (estado) estado.textContent = "La IA está leyendo la prueba…";
+        const r = await fetch("/api/generar-actividad-ia", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ tipo: "prueba", tema, contexto: "", instrucciones: "", archivo: archivoPayload })
+        });
+        const datos = await r.json();
+        if (!r.ok) { if (estado) estado.textContent = "No se pudo digitalizar: " + (datos.error || "error desconocido."); return; }
+        llenarPanelActividadConIA("prueba", panel.querySelector("#prueba-materia-constructor"), datos.contenido);
+        if (estado) estado.textContent = "Listo — revisá el contenido y marcá bien las respuestas correctas antes de crear la prueba.";
+      } catch (err) {
+        if (estado) estado.textContent = "No se pudo conectar con la IA: " + (err.message || err);
+      } finally {
+        iaEv.target.disabled = false;
+        iaEv.target.textContent = "✨ Digitalizar con IA";
+      }
+    });
+
     panel.querySelector("#guardar-prueba-materia").addEventListener("click", async (btnEv) => {
       const titulo = panel.querySelector("#prueba-materia-titulo").value.trim();
       const fecha = panel.querySelector("#prueba-materia-fecha").value || null;
       const subtemaSel = panel.querySelector("#prueba-materia-subtema");
-      const subtemaId = subtemaSel.value;
+      const subtemaId = subtemaSel.value || null;
+      const temaSel = panel.querySelector("#prueba-materia-tema");
+      const temaId = temaSel.value || null;
       if (!titulo) { alert("Ponele un título a la prueba."); return; }
-      if (!subtemaId) { alert("Elegí el subtema donde va a aparecer esta prueba."); return; }
-      const publicacionId = subtemaSel.selectedOptions[0]?.dataset.pub;
+      let publicacionId = subtemaId ? subtemaSel.selectedOptions[0]?.dataset.pub : temaId;
+      if (!publicacionId) { alert("Elegí el subtema, o el tema (si no va a tener subtema), donde va a aparecer esta prueba."); return; }
       const resultado = leerContenidoActividadDesdeFormulario("prueba", panel.querySelector("#prueba-materia-constructor"));
       if (!resultado.valido) { alert(resultado.error); return; }
       const horaInicioInput = panel.querySelector("#au-prueba-hora-inicio");

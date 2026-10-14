@@ -25,6 +25,13 @@ const TIPOS_ARCHIVO_PERMITIDOS = {
   "image/webp": "image"
 };
 
+// Los .docx no se pueden mandar como bloque multimodal a Claude (solo PDF e
+// imágenes); en vez de eso se les extrae el texto en el servidor (con
+// mammoth) y ese texto se agrega como contexto al prompt.
+const TIPOS_ARCHIVO_DOCX = {
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": true
+};
+
 function extraerJson(texto) {
   let limpio = String(texto || "").trim();
   limpio = limpio.replace(/^```(json)?/i, "").replace(/```$/, "").trim();
@@ -109,7 +116,30 @@ Reglas:
 - Devolvé ÚNICAMENTE un JSON válido, sin texto antes ni después, con esta forma exacta:
   {"instrucciones": "..."}
 - Instrucciones claras, en español de Costa Rica, en texto plano (sin HTML ni markdown).
-- Mencioná qué debe incluir la infografía (al menos 3 elementos concretos del tema) y que puede usar herramientas como Canva.`
+- Mencioná qué debe incluir la infografía (al menos 3 elementos concretos del tema) y que puede usar herramientas como Canva.`,
+
+  prueba: (tema, contexto, instrucciones) => `Sos un asistente para un profesor de Contabilidad de un colegio técnico (CTP) en Costa Rica, ayudando a pasar una prueba escrita a formato digital.
+
+Tema: ${tema}
+${contexto ? `Contexto adicional: ${contexto}` : ""}
+${instrucciones ? `\nInstrucciones del profesor (seguilas con prioridad sobre lo demás): ${instrucciones}\n` : ""}
+Si se adjuntó el texto de un examen real (PDF, imagen o Word ya extraído como texto), tu tarea es DIGITALIZARLO: tomá las preguntas, opciones, ítems de apareamiento y casos prácticos EXACTAMENTE como aparecen en el documento (mismo texto, mismo orden), sin inventar preguntas nuevas ni cambiar la redacción. Si no se adjuntó ningún documento, generá vos un examen razonable sobre el tema dado.
+
+IMPORTANTE sobre las respuestas correctas: el examen que se le entrega al estudiante casi nunca trae marcada la respuesta correcta ni la pareja correcta de cada ítem de apareamiento (son espacios en blanco para que el estudiante conteste). Vos SÍ tenés que determinar cuál es la respuesta/pareja correcta de cada ítem, usando tu conocimiento real de contabilidad y legislación tributaria costarricense — no copiés el orden del documento como si fuera la respuesta. El profesor va a revisar y puede corregir cualquier respuesta antes de publicar la prueba.
+
+Reglas:
+- Devolvé ÚNICAMENTE un JSON válido, sin texto antes ni después, con esta forma exacta:
+  {
+    "instrucciones": "una oración breve de instrucciones generales para la parte de selección única (o vacío)",
+    "preguntas": [{"pregunta": "...", "opciones": ["...", "...", "..."], "correcta": 0}, ...],
+    "apareamiento": {"pares": [{"situacion": "...", "respuesta": "..."}, ...], "instrucciones": "..."} ó null si el examen no tiene esa sección,
+    "casoPractico": {"enunciado": "...", "instruccion": "..."} ó null si el examen no tiene esa sección
+  }
+- "preguntas": cada una con 3 opciones (nunca 4, y nunca "todas/ninguna de las anteriores" — así lo exige el formato MEP de pruebas escritas). "correcta" es el índice (0, 1 o 2) de la opción correcta real.
+- "apareamiento.pares": cada "situacion" (columna A) emparejada con su "respuesta" correcta real (columna B) — el índice dentro del arreglo es lo que define la pareja correcta, así que ordená los pares vos mismo según la pareja real, no según el orden visual del documento. Máximo 5 pares (si el documento trae más, elegí los 5 más representativos o generá un segundo bloque con el resto en las instrucciones).
+- "casoPractico.enunciado" puede llevar HTML simple (<p>, <table>, <tr>, <td>, <strong>) si el caso incluye una tabla de datos; "instruccion" es un texto plano corto con lo que debe hacer el estudiante.
+- Si el examen original no tiene apareamiento o caso práctico, esos campos van en null (no inventes secciones que no existen).
+- Nunca cortes una pregunta, opción o enunciado a la mitad ni termines en "...". Español de Costa Rica.`
 };
 
 module.exports = async (req, res) => {
@@ -137,19 +167,37 @@ module.exports = async (req, res) => {
 
   const archivo = body.archivo || null;
   let bloqueArchivo = null;
+  let textoExtraidoDocx = "";
   if (archivo && archivo.datosBase64) {
     const mimeType = String(archivo.mimeType || "");
-    const tipoBloque = TIPOS_ARCHIVO_PERMITIDOS[mimeType];
-    if (!tipoBloque) {
-      res.status(400).json({ error: "Solo se aceptan archivos PDF o imágenes (PNG, JPG, GIF, WEBP) como apoyo para generar la actividad." });
-      return;
-    }
     const datosBase64 = String(archivo.datosBase64 || "");
     if (datosBase64.length > 3_500_000) {
       res.status(400).json({ error: "El archivo es demasiado grande. Probá con uno más liviano (máximo ~2.5MB)." });
       return;
     }
-    bloqueArchivo = { type: tipoBloque, source: { type: "base64", media_type: mimeType, data: datosBase64 } };
+    if (TIPOS_ARCHIVO_DOCX[mimeType]) {
+      // Word: no se puede mandar como bloque multimodal a Claude — se le
+      // extrae el texto en el servidor y se agrega como bloque de texto.
+      try {
+        const mammoth = require("mammoth");
+        const resultado = await mammoth.extractRawText({ buffer: Buffer.from(datosBase64, "base64") });
+        textoExtraidoDocx = String(resultado.value || "").trim().slice(0, 30000);
+      } catch (err) {
+        res.status(400).json({ error: "No se pudo leer el archivo Word: " + (err && err.message ? err.message : String(err)) });
+        return;
+      }
+      if (!textoExtraidoDocx) {
+        res.status(400).json({ error: "El archivo Word parece estar vacío o no se pudo extraer texto de él." });
+        return;
+      }
+    } else {
+      const tipoBloque = TIPOS_ARCHIVO_PERMITIDOS[mimeType];
+      if (!tipoBloque) {
+        res.status(400).json({ error: "Solo se aceptan archivos PDF, Word (.docx) o imágenes (PNG, JPG, GIF, WEBP) como apoyo para generar la actividad." });
+        return;
+      }
+      bloqueArchivo = { type: tipoBloque, source: { type: "base64", media_type: mimeType, data: datosBase64 } };
+    }
     instrucciones = `${instrucciones ? instrucciones + " " : ""}Basate en el CONTENIDO REAL del archivo adjunto (no inventes datos que no estén ahí ni en el tema/contexto dado).`.trim();
   }
 
@@ -164,13 +212,18 @@ module.exports = async (req, res) => {
 
   const prompt = PROMPTS[tipo](tema, contexto, instrucciones);
   // La selección única (15 preguntas x 4 opciones) es la respuesta más larga —
-  // le damos más margen para que no se corte a la mitad.
-  const maxTokens = tipo === "seleccion_unica" ? 6000 : (tipo === "falso_verdadero" || tipo === "crucigrama" ? 4000 : 2000);
+  // le damos más margen para que no se corte a la mitad. "prueba" puede traer
+  // muchas más preguntas (la cantidad la define el documento adjunto), así
+  // que le damos el margen más grande de todos.
+  const maxTokens = tipo === "prueba" ? 8000 : (tipo === "seleccion_unica" ? 6000 : (tipo === "falso_verdadero" || tipo === "crucigrama" ? 4000 : 2000));
 
   async function llamarIA(promptTexto) {
-    const contenidoMensaje = bloqueArchivo
-      ? [bloqueArchivo, { type: "text", text: promptTexto }]
+    const promptConDocx = textoExtraidoDocx
+      ? `${promptTexto}\n\n--- TEXTO EXTRAÍDO DEL ARCHIVO WORD ADJUNTO ---\n${textoExtraidoDocx}\n--- FIN DEL TEXTO EXTRAÍDO ---`
       : promptTexto;
+    const contenidoMensaje = bloqueArchivo
+      ? [bloqueArchivo, { type: "text", text: promptConDocx }]
+      : promptConDocx;
     const respuesta = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {

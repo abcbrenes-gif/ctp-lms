@@ -1,0 +1,7 @@
+{
+  "name": "ctp-lms",
+  "private": true,
+  "dependencies": {
+    "mammoth": "^1.8.0"
+  }
+}
