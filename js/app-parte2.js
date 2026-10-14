@@ -1,7 +1,7 @@
 async function renderTabContent(s, tab, isSelf) {
   const el = document.getElementById("tab-content");
   if (tab === "programa") return renderProgramaEstudiante(el, s);
-  if (tab === "rubrica") return renderRubricaEstudiante(el, s);
+  if (tab === "rubrica") return renderRubricaEstudiante(el, s, isSelf);
   if (tab === "asistencia") return renderAsistenciaEstudiante(el, s);
   if (tab === "avisos") return renderAvisosEstudiante(el, s);
   if (tab === "materias-est") return renderMateriasEstudiante(el, s);
@@ -48,7 +48,7 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
         detalle.push({ nombre: c.nombre, porcentaje: c.porcentaje, promedio: resultado.nota });
         continue;
       }
-      const porIndicadores = await calcularNotaIndicadores(s.id, m.id, c.nombre);
+      const porIndicadores = await calcularNotaIndicadores(s.id, m.id, c.nombre, isSelf);
       if (porIndicadores) {
         suma += porIndicadores.nota * (c.porcentaje / 100);
         pesoUsado += Number(c.porcentaje);
@@ -87,7 +87,7 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
   const indicadoresPorMateria = {};
   if (activa) {
     for (const m of materiasAsignadas) {
-      const info = await calcularNotaIndicadores(s.id, m.id, activa);
+      const info = await calcularNotaIndicadores(s.id, m.id, activa, isSelf);
       if (info) indicadoresPorMateria[m.id] = info;
     }
   }
@@ -519,7 +519,7 @@ async function renderProgramaEstudiante(el, s) {
 
 // --- Rúbrica del estudiante: solo lectura, siempre igual a la del profesor ---
 
-async function renderRubricaEstudiante(el, s) {
+async function renderRubricaEstudiante(el, s, isSelf) {
   el.innerHTML = "Cargando…";
   const { data: categorias } = await sb.from("rubrica_categorias").select("*").order("orden");
   const { data: asignadas } = await sb.from("estudiante_materias").select("materia_id, materias(id, nombre)").eq("estudiante_id", s.id);
@@ -556,7 +556,7 @@ async function renderRubricaEstudiante(el, s) {
           const resultado = await calcularNotaAsistencia(s.id, m.id);
           promedio = resultado ? resultado.nota : null;
         } else {
-          const porIndicadores = await calcularNotaIndicadores(s.id, m.id, c.nombre);
+          const porIndicadores = await calcularNotaIndicadores(s.id, m.id, c.nombre, isSelf);
           if (porIndicadores) {
             promedio = porIndicadores.nota;
           } else {

@@ -838,9 +838,24 @@ async function calcularNotaAsistenciaPeriodo(estudianteId, materiaId, fechaInici
 
 // Calcula la nota (0-100) de un estudiante en una categoría de una materia,
 // a partir de los Indicadores y Criterios de evaluación (si existen).
-async function calcularNotaIndicadores(estudianteId, materiaId, categoriaNombre) {
-  const { data: indicadores } = await sb.from("indicadores").select("*").eq("materia_id", materiaId).eq("categoria", categoriaNombre).order("orden");
-  if (!indicadores || indicadores.length === 0) return null;
+async function calcularNotaIndicadores(estudianteId, materiaId, categoriaNombre, soloHabilitados) {
+  const { data: indicadoresTodos } = await sb.from("indicadores").select("*").eq("materia_id", materiaId).eq("categoria", categoriaNombre).order("orden");
+  let indicadores = indicadoresTodos || [];
+
+  // Para el estudiante viendo su propia nota (soloHabilitados = true), un
+  // indicador que viene de una prueba todavía no habilitada no debe
+  // aparecer ni contar — el profesor la está preparando y no la ha
+  // soltado. Un indicador que NO viene de un trabajo (se creó a mano) no
+  // se toca, siempre se muestra igual que antes.
+  if (soloHabilitados && indicadores.length > 0) {
+    const idsConPosibleTrabajo = indicadores.map(i => i.id);
+    const { data: trabajosVinculados } = await sb.from("trabajos_cotidianos").select("indicador_id, habilitado").in("indicador_id", idsConPosibleTrabajo);
+    const habilitadoPorIndicador = {};
+    (trabajosVinculados || []).forEach(t => { habilitadoPorIndicador[t.indicador_id] = t.habilitado !== false; });
+    indicadores = indicadores.filter(i => !(i.id in habilitadoPorIndicador) || habilitadoPorIndicador[i.id]);
+  }
+
+  if (indicadores.length === 0) return null;
 
   const indicadorIds = indicadores.map(i => i.id);
   const { data: calificaciones } = await sb.from("calificaciones_indicador").select("*").eq("estudiante_id", estudianteId).in("indicador_id", indicadorIds);
