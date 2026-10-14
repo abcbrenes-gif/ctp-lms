@@ -93,6 +93,21 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
     }
   }
 
+  // Para el estudiante viendo su propia nota: si un indicador viene de una
+  // prueba (ya habilitada — eso ya lo filtró calcularNotaIndicadores) y
+  // todavía no la hace, se le pone el botón "Iniciar prueba" ahí mismo, en
+  // vez de obligarlo a ir hasta Materias a buscarla.
+  const trabajoPorIndNota = {};
+  if (isSelf) {
+    const todosLosIndicadorIds = Object.values(indicadoresPorMateria).flatMap(info => info.indicadores.map(i => i.id));
+    if (todosLosIndicadorIds.length) {
+      const { data: trabajosDeIndicadores } = await sb.from("trabajos_cotidianos")
+        .select("id, indicador_id, tipo_actividad, habilitado, fecha_hora_inicio, titulo")
+        .in("indicador_id", todosLosIndicadorIds);
+      (trabajosDeIndicadores || []).forEach(t => { trabajoPorIndNota[t.indicador_id] = t; });
+    }
+  }
+
   function tablaIndicadores(m, info) {
     const categoriaObj = categorias.find(c => c.nombre === activa);
     const resultadoPct = categoriaObj ? (info.nota * categoriaObj.porcentaje / 100).toFixed(1) : info.nota.toFixed(1);
@@ -110,11 +125,17 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
             ${info.indicadores.map(i => {
               const obtenido = Number(info.porIndicador[i.id] || 0);
               const sinCalificar = info.porIndicador[i.id] === undefined;
+              const trabajoPrueba = isSelf ? trabajoPorIndNota[i.id] : null;
+              const esPruebaPendiente = trabajoPrueba && trabajoPrueba.tipo_actividad === "prueba" && sinCalificar;
+              const aunNoEsHora = esPruebaPendiente && trabajoPrueba.fecha_hora_inicio && new Date(trabajoPrueba.fecha_hora_inicio) > new Date();
               return `
               <tr>
                 <td>
                   <strong>${i.descripcion}</strong>
                   ${i.fecha_evaluacion ? `<div style="font-size:0.75rem; color:var(--text-muted);">Fecha: ${i.fecha_evaluacion}${i.lecciones ? " · " + i.lecciones + " lecciones" : ""}</div>` : ""}
+                  ${esPruebaPendiente ? (aunNoEsHora
+                    ? `<div style="margin-top:0.3rem;"><span class="badge" style="background:#fdf1dc; color:#a5690a;">⏳ Disponible a partir de ${formatearFechaHora(trabajoPrueba.fecha_hora_inicio)}</span></div>`
+                    : `<div style="margin-top:0.3rem;"><button class="btn small" data-iniciar-prueba-nota="${trabajoPrueba.id}">▶ Iniciar prueba</button></div>`) : ""}
                 </td>
                 <td class="num" style="text-align:center; font-weight:600;">
                   ${sinCalificar ? `<span class="no-phone-note" style="margin:0;">Sin calificar aún</span>` : `${obtenido} / ${i.puntaje_maximo}`}
@@ -337,6 +358,33 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
         evaluacion_archivo_nombre: archivoNombre
       });
       renderNotasInterno(el, s, isSelf, f.get("rubro"));
+    });
+  }
+
+  if (isSelf) {
+    el.querySelectorAll("[data-iniciar-prueba-nota]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const trabajoId = btn.dataset.iniciarPruebaNota;
+        btn.disabled = true;
+        btn.textContent = "Cargando…";
+        const { data: trabajo } = await sb.from("trabajos_cotidianos").select("*").eq("id", trabajoId).maybeSingle();
+        if (!trabajo) { alert("No se pudo cargar la prueba."); return; }
+        const estudianteId = s.id;
+        const { data: yaHecha } = await sb.from("actividades_estudiante").select("completado").eq("trabajo_id", trabajo.id).eq("estudiante_id", estudianteId).maybeSingle();
+        if (yaHecha && yaHecha.completado) {
+          alert("Esta prueba ya está completada. No se puede volver a hacer.");
+          renderNotasInterno(el, s, isSelf, activa);
+          return;
+        }
+        if (trabajo.fecha_hora_inicio && new Date(trabajo.fecha_hora_inicio) > new Date()) {
+          alert("Esta prueba todavía no está disponible. Podés entrar a partir de " + formatearFechaHora(trabajo.fecha_hora_inicio) + ".");
+          renderNotasInterno(el, s, isSelf, activa);
+          return;
+        }
+        iniciarActividadInteractiva(trabajo, estudianteId, () => {
+          renderNotasInterno(el, s, isSelf, activa);
+        });
+      });
     });
   }
 }
