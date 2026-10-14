@@ -626,25 +626,31 @@ function jugarPrueba(trabajo, cuerpo, terminar) {
     : null;
 
   const respuestas = new Array(preguntas.length).fill(null);
+  // Orden de las preguntas, mezclado una sola vez por estudiante/intento
+  // (para que no vean la misma pregunta al mismo tiempo que el compañero de
+  // al lado). Las respuestas siempre se guardan con el índice ORIGINAL de la
+  // pregunta, así que el cálculo de la nota no cambia.
+  const ordenPreguntas = mezclar(preguntas.map((_, i) => i));
   let actual = 0;
   let apareamientoRespuestas = [];
   let casoRespuesta = "";
 
   function renderSeleccion() {
-    const p = preguntas[actual];
+    const indiceReal = ordenPreguntas[actual];
+    const p = preguntas[indiceReal];
     cuerpo.innerHTML = `
       <p style="font-size:0.85rem; color:#9FB0D6; margin-bottom:0.6rem;">Pregunta ${actual + 1} de ${preguntas.length}</p>
       <h3 style="font-size:1.3rem; margin-bottom:1rem;">${p.pregunta}</h3>
       <div id="opciones-actividad" style="display:flex; flex-direction:column; gap:0.6rem;">
         ${p.opciones.map((op, i) => `
-          <button type="button" class="btn secondary" data-opcion="${i}" style="text-align:left; background:${respuestas[actual] === i ? "#2E6FDB" : ""}; color:${respuestas[actual] === i ? "#fff" : ""};">${op}</button>`).join("")}
+          <button type="button" class="btn secondary" data-opcion="${i}" style="text-align:left; background:${respuestas[indiceReal] === i ? "#2E6FDB" : ""}; color:${respuestas[indiceReal] === i ? "#fff" : ""};">${op}</button>`).join("")}
       </div>
       <div class="row" style="margin-top:1.5rem; justify-content:space-between;">
         <button type="button" class="btn secondary small" id="act-anterior" ${actual === 0 ? "disabled" : ""}>&larr; Anterior</button>
         <button type="button" class="btn small" id="act-siguiente">${actual === preguntas.length - 1 ? "Siguiente parte →" : "Siguiente →"}</button>
       </div>`;
     cuerpo.querySelectorAll("[data-opcion]").forEach(btn => {
-      btn.addEventListener("click", () => { respuestas[actual] = Number(btn.dataset.opcion); renderSeleccion(); });
+      btn.addEventListener("click", () => { respuestas[indiceReal] = Number(btn.dataset.opcion); renderSeleccion(); });
     });
     cuerpo.querySelector("#act-anterior").addEventListener("click", () => { actual--; renderSeleccion(); });
     cuerpo.querySelector("#act-siguiente").addEventListener("click", () => {
