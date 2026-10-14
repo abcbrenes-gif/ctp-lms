@@ -4390,7 +4390,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
   const indicadorIdsActuales = (indicadores || []).map(i => i.id);
   const trabajoPorIndicador = {};
   if (indicadorIdsActuales.length) {
-    const { data: tcVinculados } = await sb.from("trabajos_cotidianos").select("id, indicador_id, publicacion_id, subtema_id, titulo, habilitado, tipo_actividad, fecha_hora_inicio").in("indicador_id", indicadorIdsActuales);
+    const { data: tcVinculados } = await sb.from("trabajos_cotidianos").select("id, indicador_id, publicacion_id, subtema_id, titulo, habilitado, tipo_actividad, fecha_hora_inicio, contenido_actividad, retro_visible").in("indicador_id", indicadorIdsActuales);
     (tcVinculados || []).forEach(t => { trabajoPorIndicador[t.indicador_id] = t; });
   }
   function linkTrabajo(ind) {
@@ -4417,6 +4417,13 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
     if (!t || t.tipo_actividad !== "prueba") return "";
     const texto = t.fecha_hora_inicio ? "⏰ " + formatearFechaHora(t.fecha_hora_inicio) : "⏰ Sin hora programada";
     return `<button class="btn secondary small" data-cambiar-hora-ind="${t.id}">${texto}</button>`;
+  }
+  // Botón para ver, sin salir de esta tarjeta, qué respondió cada
+  // estudiante en la prueba (pregunta por pregunta) y su nota.
+  function botonVerRespuestasTrabajo(ind) {
+    const t = trabajoPorIndicador[ind.id];
+    if (!t || !TIPOS_CON_RETRO.includes(t.tipo_actividad)) return "";
+    return `<button class="btn secondary small" data-ver-retro-ind="${t.id}">📝 Ver respuestas</button>`;
   }
 
   const siguienteLetra = siguienteLetraDisponible((indicadores || []).map(i => i.letra));
@@ -4463,11 +4470,13 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
             <span style="display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap;">
               ${botonHabilitarTrabajo(ind)}
               ${botonHoraTrabajo(ind)}
+              ${botonVerRespuestasTrabajo(ind)}
               ${linkTrabajo(ind)}
               <button class="btn danger small" data-del-indicador="${ind.id}">Eliminar</button>
             </span>
           </div>
           ${trabajoPorIndicador[ind.id] && trabajoPorIndicador[ind.id].tipo_actividad === "prueba" ? `<div data-hora-ind-panel="${trabajoPorIndicador[ind.id].id}"></div>` : ""}
+          ${trabajoPorIndicador[ind.id] && TIPOS_CON_RETRO.includes(trabajoPorIndicador[ind.id].tipo_actividad) ? `<div data-retro-ind-panel="${trabajoPorIndicador[ind.id].id}"></div>` : ""}
           <div style="font-size:0.85rem;">
             ${(ind.criterios_indicador || []).sort((a, b) => a.puntaje - b.puntaje).map(c => `<div><strong>${c.nivel ? c.nivel + " — " : ""}${c.puntaje} punto${c.puntaje === 1 ? "" : "s"}:</strong> ${c.descripcion}</div>`).join("")}
           </div>
@@ -4558,6 +4567,18 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       if (yaHabilitada && !confirm("¿Deshabilitar esta prueba? Los estudiantes dejarán de verla.")) return;
       await sb.from("trabajos_cotidianos").update({ habilitado: !yaHabilitada }).eq("id", btn.dataset.toggleHabilitarPrueba);
       cargarIndicadoresDeMateria(materiaId, catNombre);
+    });
+  });
+  holder.querySelectorAll("[data-ver-retro-ind]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const trabajoId = btn.dataset.verRetroInd;
+      const panel = holder.querySelector(`[data-retro-ind-panel="${trabajoId}"]`);
+      if (!panel) return;
+      if (panel.innerHTML) { panel.innerHTML = ""; return; }
+      const t = Object.values(trabajoPorIndicador).find(x => String(x.id) === String(trabajoId));
+      if (!t) return;
+      panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando…</p>`;
+      panel.innerHTML = await construirRetroalimentacionActividad(t);
     });
   });
   holder.querySelectorAll("[data-cambiar-hora-ind]").forEach(btn => {
