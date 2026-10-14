@@ -502,10 +502,19 @@ async function cargarEvaluacionesSeccion(sec, students, holderId = "evaluaciones
     const celdas = [];
     for (const c of (categorias || [])) {
       let prom = null;
+      let aporteDirecto = null; // ya viene ponderado (0-c.porcentaje), no es un promedio 0-100
       if (c.nombre.trim().toLowerCase() === "asistencia") {
         for (const mid of materiaIds) {
           const r = await calcularNotaAsistencia(st.id, mid);
           if (r) { prom = r.nota; break; }
+        }
+      } else if (c.nombre.trim().toLowerCase() === "pruebas") {
+        // Cada prueba puede valer un % distinto de la nota final (lo que
+        // el profesor puso en "Calificar por puntos"), así que no se usa
+        // el % de la categoría — se suma el aporte propio de cada prueba.
+        for (const mid of materiaIds) {
+          const a = await calcularAportePruebas(st.id, mid, c.nombre, c.porcentaje);
+          if (a !== null) { aporteDirecto = a; break; }
         }
       } else {
         for (const mid of materiaIds) {
@@ -517,16 +526,17 @@ async function cargarEvaluacionesSeccion(sec, students, holderId = "evaluaciones
           prom = notasCat.length ? notasCat.reduce((a, n) => a + Number(n.nota), 0) / notasCat.length : null;
         }
       }
+      if (aporteDirecto !== null) {
+        suma += aporteDirecto;
+        pesoUsado += Number(c.porcentaje);
+        const limite = Number(c.porcentaje) * 0.7;
+        celdas.push(`<td class="num ${aporteDirecto < limite ? "low" : ""}">${aporteDirecto.toFixed(1)}%</td>`);
+        continue;
+      }
       if (prom === null) { celdas.push(`<td class="num">—</td>`); continue; }
-      const aporte = prom * (c.porcentaje / 100);
-      suma += aporte;
+      suma += prom * (c.porcentaje / 100);
       pesoUsado += Number(c.porcentaje);
-      // En "Pruebas" mostramos directamente el aporte a la nota final
-      // (el mismo valor que sale en rojo en "Calificar por puntos"),
-      // no el promedio crudo de la categoría.
-      const esPruebas = c.nombre.trim().toLowerCase() === "pruebas";
-      const valorMostrado = esPruebas ? aporte : prom;
-      celdas.push(`<td class="num ${prom < 70 ? "low" : ""}">${valorMostrado.toFixed(1)}%</td>`);
+      celdas.push(`<td class="num ${prom < 70 ? "low" : ""}">${prom.toFixed(1)}%</td>`);
     }
     const final = pesoUsado > 0 ? `${suma.toFixed(1)}%` : "—";
     return `<tr><td>${st.apellido1} ${st.apellido2}, ${st.nombre}</td>${celdas.join("")}<td class="num" style="font-weight:600;">${final}</td></tr>`;
@@ -893,6 +903,35 @@ async function calcularNotaIndicadores(estudianteId, materiaId, categoriaNombre,
   const sumaObtenida = indicadores.reduce((a, i) => a + Number(porIndicador[i.id] || 0), 0);
   const nota = sumaMaxima > 0 ? (sumaObtenida / sumaMaxima) * 100 : null;
   return { nota, indicadores, porIndicador, sumaObtenida, sumaMaxima };
+}
+
+// Para la categoría "Pruebas": cada prueba puede tener su propio peso
+// hacia la nota final (lo que el profesor definió en "Calificar por
+// puntos", guardado en indicadores.peso_prueba). Esta función suma el
+// aporte de cada prueba en vez de promediar todas a la vez, para que
+// el aporte nunca pueda pasarse del peso que esa prueba realmente vale.
+// Si una prueba todavía no tiene peso_prueba guardado (nunca se usó ese
+// panel), usa el % de la categoría como respaldo (comportamiento viejo).
+async function calcularAportePruebas(estudianteId, materiaId, categoriaNombre, categoriaPorcentaje) {
+  const { data: indicadoresTodos } = await sb.from("indicadores").select("*").eq("materia_id", materiaId).eq("categoria", categoriaNombre).order("orden");
+  const indicadores = indicadoresTodos || [];
+  if (indicadores.length === 0) return null;
+
+  const indicadorIds = indicadores.map(i => i.id);
+  const { data: calificaciones } = await sb.from("calificaciones_indicador").select("*").eq("estudiante_id", estudianteId).in("indicador_id", indicadorIds);
+  const porIndicador = {};
+  (calificaciones || []).forEach(c => { porIndicador[c.indicador_id] = c.puntaje_obtenido; });
+
+  let aporte = 0, huboAlguno = false;
+  indicadores.forEach(ind => {
+    const max = Number(ind.puntaje_maximo) || 0;
+    if (max <= 0) return;
+    const obtenido = Number(porIndicador[ind.id] || 0);
+    const pesoInd = (ind.peso_prueba !== null && ind.peso_prueba !== undefined) ? Number(ind.peso_prueba) : Number(categoriaPorcentaje);
+    aporte += (obtenido / max) * pesoInd;
+    huboAlguno = true;
+  });
+  return huboAlguno ? aporte : null;
 }
 
 async function renderHorario() {

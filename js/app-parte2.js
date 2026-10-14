@@ -3670,7 +3670,7 @@ async function pintarPanelPuntosPorParte(panel, trabajo, indicadorId, totalPunto
     const sumaFinal = p1 + p2 + p3;
     const nuevosDatos = { ...(entrega.datos_prueba || {}), puntos_parte3: p3 };
     await sb.from("actividades_estudiante").update({ datos_prueba: nuevosDatos }).eq("trabajo_id", trabajo.id).eq("estudiante_id", estudianteId);
-    await sb.from("indicadores").update({ puntaje_maximo: total }).eq("id", indicadorId);
+    await sb.from("indicadores").update({ puntaje_maximo: total, peso_prueba: peso }).eq("id", indicadorId);
     await upsertSinConflicto("calificaciones_indicador", { estudiante_id: estudianteId, indicador_id: indicadorId }, { puntaje_obtenido: sumaFinal });
     entrega.datos_prueba = nuevosDatos;
     const pctFinal = total ? Math.round((sumaFinal / total) * 100) : 0;
@@ -4953,7 +4953,14 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       const indicadorId = panel.dataset.indicadorParaPuntos;
       if (!t || !indicadorId) return;
       panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando…</p>`;
-      await pintarPanelPuntosPorParte(panel, t, indicadorId);
+      // Solo confiamos en el total guardado si ya se usó este panel antes
+      // (lo marcamos guardando peso_prueba) — si no, un indicador nuevo
+      // trae puntaje_maximo=3 (escala MEP) y no debe usarse como total.
+      const { data: indicadorActual } = await sb.from("indicadores").select("puntaje_maximo, peso_prueba").eq("id", indicadorId).maybeSingle();
+      const yaConfigurado = indicadorActual && indicadorActual.peso_prueba !== null && indicadorActual.peso_prueba !== undefined;
+      const totalGuardado = yaConfigurado ? indicadorActual.puntaje_maximo : null;
+      const pesoGuardado = yaConfigurado ? indicadorActual.peso_prueba : null;
+      await pintarPanelPuntosPorParte(panel, t, indicadorId, totalGuardado, pesoGuardado);
     });
   });
   holder.querySelectorAll("[data-toggle-retro-visible-ind]").forEach(btn => {
