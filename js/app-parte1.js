@@ -201,6 +201,42 @@ async function renderHome() {
   const counts = {};
   (estudiantes || []).forEach(e => { counts[e.seccion] = (counts[e.seccion] || 0) + 1; });
 
+  // Entregas recientes de pruebas: para que el profesor vea de inmediato,
+  // en su propia pantalla de inicio, cuando le "llegaron" las respuestas de
+  // un estudiante (sin tener que entrar a cada materia a revisar).
+  const { data: entregas, error: errorEntregas } = await sb
+    .from("actividades_estudiante")
+    .select("porcentaje, actualizado_en, estudiantes(nombre, apellido1, apellido2, seccion), trabajos_cotidianos!inner(titulo, tipo_actividad, publicaciones(titulo, materias(nombre)))")
+    .eq("completado", true)
+    .eq("trabajos_cotidianos.tipo_actividad", "prueba")
+    .order("actualizado_en", { ascending: false })
+    .limit(15);
+  if (errorEntregas) console.error("No se pudieron cargar las entregas recientes:", errorEntregas.message);
+
+  const entregasHTML = (entregas || []).length
+    ? `<div class="list" style="margin-top:0.6rem;">
+        ${(entregas || []).map(e => {
+          const est = e.estudiantes;
+          const nombreEst = est ? `${est.apellido1} ${est.apellido2}, ${est.nombre}` : "Estudiante";
+          const trabajo = e.trabajos_cotidianos || {};
+          const materiaNombre = trabajo.publicaciones?.materias?.nombre || "";
+          const fecha = e.actualizado_en ? new Date(e.actualizado_en).toLocaleString("es-CR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+          const pct = typeof e.porcentaje === "number" ? `${e.porcentaje.toFixed(1)}%` : "—";
+          return `
+            <div class="list-item" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.3rem; padding:0.6rem 0; border-bottom:1px solid var(--border, #eee);">
+              <div>
+                <b>${nombreEst}</b>${est?.seccion ? ` <span style="color:var(--text-muted); font-size:0.78rem;">(${est.seccion})</span>` : ""}
+                <div style="font-size:0.82rem; color:var(--text-muted);">${trabajo.titulo || "Prueba"}${materiaNombre ? " — " + materiaNombre : ""}</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-weight:600;">${pct}</div>
+                <div style="font-size:0.75rem; color:var(--text-muted);">${fecha}</div>
+              </div>
+            </div>`;
+        }).join("")}
+      </div>`
+    : `<p class="empty">Todavía no hay entregas de pruebas.</p>`;
+
   const tiles = secciones.map(sec => `
     <a class="section-tile flip-card" href="#/seccion/${encodeURIComponent(sec)}">
       <div class="flip-card-inner">
@@ -241,6 +277,10 @@ async function renderHome() {
 
       <h2 style="margin-top:2.2rem;">Accesos rápidos</h2>
       <div class="section-grid">${accesos}</div>
+
+      <h2 style="margin-top:2.2rem;">📥 Entregas recientes de pruebas</h2>
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-top:-0.4rem; margin-bottom:0.4rem;">Apenas un estudiante termina una prueba, aparece aquí para que sepa que ya le llegaron las respuestas.</p>
+      ${entregasHTML}
 
       <p class="footer-note">Datos guardados en la base de datos — visibles desde cualquier dispositivo.</p>
     </div>`;
