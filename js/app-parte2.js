@@ -3843,13 +3843,18 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
     holder.innerHTML = trabajos.map(t => `
       <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem; ${t.habilitado === false ? "opacity:0.55;" : ""}">
         <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
-          <span class="name">${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+          <span class="name">${t.tipo_actividad === "prueba" ? "📝 " : (t.tipo_actividad && t.tipo_actividad !== "simple" ? "🧠 " : "")}${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
           <span style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+            ${t.tipo_actividad && t.tipo_actividad !== "simple" ? `<span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>` : ""}
+            ${t.tipo_actividad === "prueba" ? `<span class="badge" style="font-weight:400;">${t.fecha_hora_inicio ? "⏰ Inicia: " + formatearFechaHora(t.fecha_hora_inicio) : "⏰ Sin hora programada"}</span>
+            <button class="btn secondary small" data-cambiar-hora-prueba-tema="${t.id}">⏰ Cambiar hora</button>` : ""}
             <span class="badge">${conteos[t.id] || 0} completaron</span>
             <button class="btn ${t.habilitado === false ? "" : "secondary"} small" data-toggle-trabajo-habilitado="${t.id}" data-estado-actual="${t.habilitado !== false}">
               ${t.habilitado === false ? "Habilitar" : "Habilitado"}
             </button>
-            <button class="btn secondary small" data-editar-trabajo="${t.id}">✏️ Editar</button>
+            ${TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<button class="btn secondary small" data-ver-retro-tema="${t.id}">📝 Ver retroalimentación</button>` : ""}
+            ${TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<button class="btn ${t.retro_visible ? "" : "secondary"} small" data-toggle-retro-visible-tema="${t.id}" data-estado-actual="${t.retro_visible === true}">${t.retro_visible ? "🙈 Ocultar respuestas a estudiantes" : "👁️ Mostrar respuestas a estudiantes"}</button>` : ""}
+            ${(!t.tipo_actividad || t.tipo_actividad === "simple") ? `<button class="btn secondary small" data-editar-trabajo="${t.id}">✏️ Editar</button>` : ""}
             <button class="btn secondary small" data-ver-entregas-trabajo-tema="${t.id}">📎 Ver archivos entregados</button>
             ${t.indicador_id
               ? `<span class="badge" style="font-weight:400;">📊 Indicador calificable</span>`
@@ -3867,7 +3872,61 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
           <button class="btn secondary small" type="button" data-cancelar-editar-trabajo="${t.id}">Cancelar</button>
         </form>
         <div data-entregas-trabajo-tema-panel="${t.id}" style="width:100%;"></div>
+        ${TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<div data-retro-panel-tema="${t.id}"></div>` : ""}
+        ${t.tipo_actividad === "prueba" ? `<div data-hora-prueba-panel-tema="${t.id}" style="width:100%;"></div>` : ""}
       </div>`).join("");
+
+    holder.querySelectorAll("[data-ver-retro-tema]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const trabajoId = btn.dataset.verRetroTema;
+        const panel = holder.querySelector(`[data-retro-panel-tema="${trabajoId}"]`);
+        if (!panel) return;
+        if (panel.innerHTML) { panel.innerHTML = ""; return; }
+        const trabajo = trabajos.find(x => String(x.id) === String(trabajoId));
+        if (!trabajo) return;
+        panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando…</p>`;
+        panel.innerHTML = await construirRetroalimentacionActividad(trabajo);
+      });
+    });
+
+    holder.querySelectorAll("[data-toggle-retro-visible-tema]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const trabajoId = btn.dataset.toggleRetroVisibleTema;
+        const actual = btn.dataset.estadoActual === "true";
+        await sb.from("trabajos_cotidianos").update({ retro_visible: !actual }).eq("id", trabajoId);
+        renderApartado(publicacionId, soloLectura);
+      });
+    });
+
+    holder.querySelectorAll("[data-cambiar-hora-prueba-tema]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const trabajoId = btn.dataset.cambiarHoraPruebaTema;
+        const panel = holder.querySelector(`[data-hora-prueba-panel-tema="${trabajoId}"]`);
+        if (!panel) return;
+        if (panel.innerHTML.trim()) { panel.innerHTML = ""; return; }
+        const trabajo = trabajos.find(x => String(x.id) === String(trabajoId));
+        if (!trabajo) return;
+        const valorActual = trabajo.fecha_hora_inicio
+          ? new Date(new Date(trabajo.fecha_hora_inicio).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+          : "";
+        panel.innerHTML = `
+          <div class="row" style="align-items:center; margin-top:0.3rem;">
+            <input type="datetime-local" data-hora-prueba-tema-input="${trabajoId}" value="${valorActual}" style="padding:0.4rem;" />
+            <button class="btn small" data-guardar-hora-prueba-tema="${trabajoId}">Guardar hora</button>
+            <button class="btn secondary small" data-quitar-hora-prueba-tema="${trabajoId}">Quitar hora (disponible de inmediato)</button>
+          </div>`;
+        panel.querySelector(`[data-guardar-hora-prueba-tema="${trabajoId}"]`).addEventListener("click", async () => {
+          const input = panel.querySelector(`[data-hora-prueba-tema-input="${trabajoId}"]`);
+          const nuevaHora = input && input.value ? new Date(input.value).toISOString() : null;
+          await sb.from("trabajos_cotidianos").update({ fecha_hora_inicio: nuevaHora }).eq("id", trabajoId);
+          renderApartado(publicacionId, soloLectura);
+        });
+        panel.querySelector(`[data-quitar-hora-prueba-tema="${trabajoId}"]`).addEventListener("click", async () => {
+          await sb.from("trabajos_cotidianos").update({ fecha_hora_inicio: null }).eq("id", trabajoId);
+          renderApartado(publicacionId, soloLectura);
+        });
+      });
+    });
 
     holder.querySelectorAll("[data-editar-trabajo]").forEach(btn => {
       btn.addEventListener("click", () => {
