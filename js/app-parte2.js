@@ -4077,8 +4077,14 @@ async function pintarPanelIdeas(panel, trabajoId) {
 // por estudiante y ordenadas de la más reciente a la más vieja.
 async function pintarPanelEntregasProyecto(panel, trabajoId) {
   const { data: entregas } = await sb.from("proyecto_entregas").select("*").eq("trabajo_id", trabajoId).order("creado_en", { ascending: false });
+  const { data: trabajo } = await sb.from("trabajos_cotidianos").select("id, indicador_id, contenido_actividad").eq("id", trabajoId).maybeSingle();
+  const cantidadEsperada = Number(trabajo?.contenido_actividad?.cantidad_esperada) || 0;
+
   if (!entregas || entregas.length === 0) {
-    panel.innerHTML = `<p class="empty" style="font-size:0.82rem;">Todavía nadie ha entregado.</p>`;
+    panel.innerHTML = `
+      <p class="empty" style="font-size:0.82rem;">Todavía nadie ha entregado.</p>
+      ${trabajo ? botonConfigurarCantidadHTML(trabajoId, cantidadEsperada) : ""}`;
+    if (trabajo) ligarBotonConfigurarCantidad(panel, trabajoId, trabajo, () => pintarPanelEntregasProyecto(panel, trabajoId));
     return;
   }
 
@@ -4091,30 +4097,151 @@ async function pintarPanelEntregasProyecto(panel, trabajoId) {
   entregas.forEach(e => { (porEstudiante[e.estudiante_id] = porEstudiante[e.estudiante_id] || []).push(e); });
   const estudiantesOrdenados = Object.keys(porEstudiante).sort((a, b) => (nombrePorId[a] || a).localeCompare(nombrePorId[b] || b));
 
+  // El promedio de cada estudiante se saca sobre la cantidad esperada de
+  // entregas (si está configurada) — lo que falte cuenta como 0. Si no hay
+  // cantidad configurada, se promedia solo sobre lo que sí entregó.
+  function promedioDe(propias) {
+    const notas = propias.map(e => Number(e.nota_ia)).filter(n => Number.isFinite(n));
+    if (!notas.length) return null;
+    const denominador = cantidadEsperada > 0 ? cantidadEsperada : propias.length;
+    const suma = notas.reduce((a, n) => a + n, 0);
+    return suma / denominador;
+  }
+
   panel.innerHTML = `
     <div style="margin-top:0.5rem; background:#F5F6FA; border-radius:8px; padding:0.7rem;">
-      <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.6rem;">${estudiantesOrdenados.length} estudiante${estudiantesOrdenados.length === 1 ? "" : "s"} entregaron. Si alguien entregó más de una vez, se ve la más reciente primero.</p>
+      <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.4rem;">${estudiantesOrdenados.length} estudiante${estudiantesOrdenados.length === 1 ? "" : "s"} entregaron. Si alguien entregó más de una vez, se ve la más reciente primero.</p>
+      ${botonConfigurarCantidadHTML(trabajoId, cantidadEsperada)}
+      ${cantidadEsperada > 0 ? `<button class="btn small" data-calificar-proyecto-ia="${trabajoId}" style="margin-top:0.5rem;">🤖 Calificar con IA y aplicar notas</button>
+      <span data-calificar-ia-estado="${trabajoId}" style="font-size:0.78rem; color:var(--text-muted); margin-left:0.5rem;"></span>` : `<p style="font-size:0.78rem; color:var(--brick); margin-top:0.5rem;">Configurá primero la cantidad esperada de entregas para poder calificar con IA.</p>`}
       ${estudiantesOrdenados.map(estId => {
         const propias = porEstudiante[estId];
+        const promedio = promedioDe(propias);
         return `
-        <details style="margin-bottom:0.5rem; background:#fff; border-radius:8px; padding:0.6rem 0.8rem; border:1px solid var(--paper-line);">
+        <details style="margin-top:0.6rem; margin-bottom:0.5rem; background:#fff; border-radius:8px; padding:0.6rem 0.8rem; border:1px solid var(--paper-line);">
           <summary style="cursor:pointer; font-size:0.85rem; display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
             <span>${nombrePorId[estId] || estId}</span>
-            <span style="font-size:0.78rem; color:var(--text-muted);">${propias.length} entrega${propias.length === 1 ? "" : "s"}</span>
+            <span style="font-size:0.78rem; color:var(--text-muted);">${propias.length}${cantidadEsperada ? "/" + cantidadEsperada : ""} entrega${propias.length === 1 ? "" : "s"}${promedio != null ? ` · promedio IA: ${promedio.toFixed(1)}/100 → ${(promedio / 100 * 3).toFixed(1)}/3` : ""}</span>
           </summary>
           <div style="margin-top:0.5rem; display:grid; gap:0.4rem;">
             ${propias.map(e => {
               const { data: pub } = sb.storage.from("materiales").getPublicUrl(e.archivo_ruta);
-              return `<div style="font-size:0.85rem; padding:0.4rem 0.5rem; border-left:3px solid var(--paper-line);">
+              return `<div style="font-size:0.85rem; padding:0.4rem 0.5rem; border-left:3px solid ${e.nota_ia != null ? (e.nota_ia >= 70 ? "#1d7a43" : (e.nota_ia >= 40 ? "#a5690a" : "#c0392b")) : "var(--paper-line)"};">
                 <strong>${e.titulo}</strong> <span style="color:var(--text-muted);">· ${formatearFechaHora(e.creado_en)}</span>
                 ${e.descripcion ? `<div style="margin-top:0.2rem;">${e.descripcion}</div>` : ""}
                 <a class="btn secondary small" style="margin-top:0.3rem;" href="${pub.publicUrl}" target="_blank" rel="noopener">📄 ${e.archivo_nombre || "Ver archivo"}</a>
+                ${e.nota_ia != null ? `<div style="margin-top:0.3rem; font-size:0.8rem;"><strong>Nota IA: ${e.nota_ia}/100</strong>${e.justificacion_ia ? ` — ${e.justificacion_ia}` : ""}</div>` : `<div style="margin-top:0.3rem; font-size:0.78rem; color:var(--text-muted);">Sin calificar con IA todavía.</div>`}
               </div>`;
             }).join("")}
           </div>
         </details>`;
       }).join("")}
+      ${cantidadEsperada > 0 && estudiantesOrdenados.some(id => !porEstudiante[id].length) ? "" : ""}
     </div>`;
+
+  if (trabajo) ligarBotonConfigurarCantidad(panel, trabajoId, trabajo, () => pintarPanelEntregasProyecto(panel, trabajoId));
+
+  const botonIA = panel.querySelector(`[data-calificar-proyecto-ia="${trabajoId}"]`);
+  if (botonIA) {
+    botonIA.addEventListener("click", async () => {
+      await calificarEntregasProyectoConIA(panel, trabajoId, trabajo, entregas, estudiantesOrdenados, porEstudiante, cantidadEsperada);
+      pintarPanelEntregasProyecto(panel, trabajoId);
+    });
+  }
+}
+
+// Botón pequeño para fijar (o cambiar) la cantidad esperada de entregas de
+// este trabajo — es lo que define sobre qué número se promedia cada
+// estudiante (lo que le falte a alguien cuenta como 0 en el promedio).
+function botonConfigurarCantidadHTML(trabajoId, cantidadActual) {
+  return `<button class="btn secondary small" data-configurar-cantidad="${trabajoId}">⚙️ ${cantidadActual > 0 ? `Cantidad esperada: ${cantidadActual}` : "Configurar cantidad esperada"}</button>`;
+}
+function ligarBotonConfigurarCantidad(panel, trabajoId, trabajo, alGuardar) {
+  const btn = panel.querySelector(`[data-configurar-cantidad="${trabajoId}"]`);
+  if (!btn) return;
+  btn.addEventListener("click", async () => {
+    const actual = Number(trabajo?.contenido_actividad?.cantidad_esperada) || "";
+    const respuesta = prompt("¿Cuántas entregas se esperan por estudiante (ej. cantidad de leyes)?", actual || "");
+    if (respuesta === null) return;
+    const cantidad = Number(respuesta);
+    if (!Number.isFinite(cantidad) || cantidad <= 0) { alert("Poné un número mayor que 0."); return; }
+    const nuevoContenido = { ...(trabajo.contenido_actividad || {}), cantidad_esperada: cantidad };
+    await sb.from("trabajos_cotidianos").update({ contenido_actividad: nuevoContenido }).eq("id", trabajoId);
+    alGuardar();
+  });
+}
+
+// Manda a calificar con IA cada entrega que todavía no tenga nota_ia, y al
+// terminar aplica la nota final (promedio sobre la cantidad esperada, 0 a
+// las que falten) como la calificación del indicador para cada estudiante.
+async function calificarEntregasProyectoConIA(panel, trabajoId, trabajo, entregas, estudiantesOrdenados, porEstudiante, cantidadEsperada) {
+  const estado = panel.querySelector(`[data-calificar-ia-estado="${trabajoId}"]`);
+  const boton = panel.querySelector(`[data-calificar-proyecto-ia="${trabajoId}"]`);
+  if (boton) boton.disabled = true;
+
+  const indicadorId = trabajo?.indicador_id;
+  const { data: indicador } = indicadorId ? await sb.from("indicadores").select("*").eq("id", indicadorId).maybeSingle() : { data: null };
+  const { data: criteriosRows } = indicadorId ? await sb.from("criterios_indicador").select("*").eq("indicador_id", indicadorId).order("puntaje") : { data: [] };
+  const criteriosTexto = (criteriosRows || []).map(c => `${c.puntaje} punto${c.puntaje === 1 ? "" : "s"}${c.nivel ? ` (${c.nivel})` : ""}: ${c.descripcion}`).join("\n");
+  const cp = trabajo?.contenido_actividad || {};
+  const campoTitulo = cp.placeholder_titulo || "Título";
+  const campoDescripcion = cp.placeholder_descripcion || "Descripción";
+
+  const pendientes = entregas.filter(e => e.nota_ia == null);
+  let i = 0;
+  for (const entrega of pendientes) {
+    i++;
+    if (estado) estado.textContent = `Calificando ${i}/${pendientes.length}…`;
+    try {
+      const { data: pub } = sb.storage.from("materiales").getPublicUrl(entrega.archivo_ruta);
+      const respuestaArchivo = await fetch(pub.publicUrl);
+      if (!respuestaArchivo.ok) throw new Error("No se pudo descargar el archivo de esta entrega.");
+      const blob = await respuestaArchivo.blob();
+      const datosBase64 = await new Promise((resolve, reject) => {
+        const lector = new FileReader();
+        lector.onload = () => resolve(String(lector.result).split(",")[1] || "");
+        lector.onerror = () => reject(new Error("No se pudo leer el archivo."));
+        lector.readAsDataURL(blob);
+      });
+      const mimeType = blob.type || "application/octet-stream";
+      const r = await fetch("/api/calificar-entrega-ia", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          instrucciones: cp.instrucciones || "",
+          criterios: criteriosTexto,
+          campoTitulo, campoDescripcion,
+          titulo: entrega.titulo, descripcion: entrega.descripcion,
+          archivo: { mimeType, datosBase64, nombre: entrega.archivo_nombre }
+        })
+      });
+      const { datos, error } = await leerRespuestaIA(r);
+      if (!datos || !r.ok) throw new Error(error || (datos && datos.error) || "error desconocido");
+      await sb.from("proyecto_entregas").update({ nota_ia: datos.contenido.nota, justificacion_ia: datos.contenido.justificacion }).eq("id", entrega.id);
+      entrega.nota_ia = datos.contenido.nota;
+    } catch (err) {
+      if (estado) estado.textContent = `No se pudo calificar una entrega: ${err.message || err}`;
+    }
+  }
+
+  if (estado) estado.textContent = "Aplicando notas finales…";
+  const puntajeMaximo = indicador ? indicador.puntaje_maximo : 3;
+  for (const estId of estudiantesOrdenados) {
+    const propias = porEstudiante[estId];
+    const notas = propias.map(e => Number(e.nota_ia)).filter(n => Number.isFinite(n));
+    if (!notas.length) continue;
+    const denominador = cantidadEsperada > 0 ? cantidadEsperada : propias.length;
+    const promedio100 = notas.reduce((a, n) => a + n, 0) / denominador;
+    const notaFinal = Math.round((promedio100 / 100) * puntajeMaximo);
+    if (indicadorId) {
+      await sb.from("calificaciones_indicador").upsert(
+        { indicador_id: indicadorId, estudiante_id: estId, puntaje_obtenido: Math.max(0, Math.min(puntajeMaximo, notaFinal)) },
+        { onConflict: "indicador_id,estudiante_id" }
+      );
+    }
+  }
+  if (estado) estado.textContent = "✓ Notas aplicadas en Rúbrica y Evaluaciones.";
+  if (boton) boton.disabled = false;
 }
 
 // Diagnóstico agregado: de todos los que ya completaron la prueba,
