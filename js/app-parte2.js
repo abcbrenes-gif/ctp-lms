@@ -5469,7 +5469,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
   // proyecto que se divide en partes calificadas por separado.
   function botonPedirProyectoTrabajo(ind) {
     if (trabajoPorIndicador[ind.id]) return "";
-    return `<button class="btn secondary small" data-pedir-proyecto-ind="${ind.id}">📁 Pedir entrega de proyecto</button>`;
+    return `<button class="btn secondary small" data-pedir-proyecto-ind="${ind.id}">📎 Pedir entrega</button>`;
   }
   // Una vez que el indicador ya tiene el trabajo de "subir archivo"
   // vinculado, permite revisar/descargar lo que fueron entregando.
@@ -5539,7 +5539,6 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
               ${botonDiagnosticoTrabajo(ind)}
               ${botonPuntosTrabajo(ind)}
               ${botonPdfTrabajo(ind)}
-              ${botonPedirArchivoTrabajo(ind)}
               ${botonVerEntregasIndicador(ind)}
               ${botonPedirProyectoTrabajo(ind)}
               ${botonVerEntregasProyectoIndicador(ind)}
@@ -5829,19 +5828,24 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       const ind = (indicadores || []).find(i => String(i.id) === String(indicadorId));
       panel.innerHTML = `
         <div style="background:#F5F6FA; border-radius:8px; padding:0.7rem; margin-top:0.4rem;">
-          <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">El estudiante entrega título + descripción + archivo, y puede volver a entregar las veces que necesite. Esta entrega queda disponible directamente acá, en este indicador — no necesita estar dentro de un tema o subtema.</p>
+          <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">El estudiante va a poder entregar un título, una descripción y un archivo, las veces que necesite. Queda disponible directo acá, en este indicador.</p>
           <textarea data-proyecto-instrucciones="${indicadorId}" rows="3" placeholder="Instrucciones para el estudiante (opcional)" style="width:100%; font-family:inherit; margin-bottom:0.6rem;"></textarea>
-          <div class="row" style="gap:0.6rem; margin-bottom:0.6rem;">
-            <label style="flex:1; min-width:10rem; font-size:0.82rem;">Etiqueta del campo "Título" (opcional)
-              <input data-proyecto-placeholder-titulo="${indicadorId}" placeholder="Ej. Nombre de la ley" style="width:100%; margin-top:0.2rem;" />
-            </label>
-            <label style="flex:1; min-width:10rem; font-size:0.82rem;">Etiqueta del campo "Descripción" (opcional)
-              <input data-proyecto-placeholder-descripcion="${indicadorId}" placeholder="Ej. Descripción general de la ley" style="width:100%; margin-top:0.2rem;" />
-            </label>
-          </div>
-          <label style="display:block; font-size:0.82rem; margin-bottom:0.6rem;">Mínimo de caracteres exigidos en la descripción (opcional, 0 = sin mínimo)
-            <input data-proyecto-min-caracteres="${indicadorId}" type="number" min="0" step="10" value="0" style="width:8rem; margin-top:0.2rem; display:block;" />
-          </label>
+          <details style="margin-bottom:0.6rem;">
+            <summary style="font-size:0.8rem; color:var(--text-muted); cursor:pointer;">Opciones avanzadas (opcional)</summary>
+            <div style="margin-top:0.5rem;">
+              <div class="row" style="gap:0.6rem; margin-bottom:0.6rem;">
+                <label style="flex:1; min-width:10rem; font-size:0.82rem;">Nombre del campo "Título"
+                  <input data-proyecto-placeholder-titulo="${indicadorId}" placeholder="Ej. Nombre de la ley" style="width:100%; margin-top:0.2rem;" />
+                </label>
+                <label style="flex:1; min-width:10rem; font-size:0.82rem;">Nombre del campo "Descripción"
+                  <input data-proyecto-placeholder-descripcion="${indicadorId}" placeholder="Ej. Descripción general de la ley" style="width:100%; margin-top:0.2rem;" />
+                </label>
+              </div>
+              <label style="display:block; font-size:0.82rem;">Mínimo de caracteres exigidos en la descripción (0 = sin mínimo)
+                <input data-proyecto-min-caracteres="${indicadorId}" type="number" min="0" step="10" value="0" style="width:8rem; margin-top:0.2rem; display:block;" />
+              </label>
+            </div>
+          </details>
           <button class="btn small" data-crear-proyecto-ind="${indicadorId}" type="button">Pedir entrega</button>
           <button class="btn secondary small" data-cancelar-proyecto-ind="${indicadorId}" type="button">Cancelar</button>
         </div>`;
