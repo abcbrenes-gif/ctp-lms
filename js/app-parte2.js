@@ -1942,6 +1942,8 @@ async function renderSubtema(id, soloLectura) {
         constructor.innerHTML = construirPanelActividadHTML(e.target.value);
         inicializarConstructorPorTipo(e.target.value, constructor);
         ajustarCampoCantidad(panel, e.target.value);
+        const iaBloque = panel.querySelector("#actividad-ia-bloque");
+        if (iaBloque) iaBloque.style.display = e.target.value === "lluvia_ideas" ? "none" : "";
       });
       panel.querySelector("#actividad-tipo").dispatchEvent(new Event("change"));
       panel.querySelector("#generar-actividad-ia-btn").addEventListener("click", async (iaEv) => {
@@ -2627,8 +2629,38 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
     const resultadoPorTrabajo = {};
     (misResultados || []).forEach(r => { resultadoPorTrabajo[r.trabajo_id] = r; });
 
+    const trabajosLluviaMios = trabajos.filter(t => t.tipo_actividad === "lluvia_ideas");
+    const { data: misIdeas } = trabajosLluviaMios.length
+      ? await sb.from("trabajo_ideas").select("*").eq("estudiante_id", estudianteId).in("trabajo_id", trabajosLluviaMios.map(t => t.id)).order("creado_en")
+      : { data: [] };
+    const ideasPorTrabajo = {};
+    (misIdeas || []).forEach(i => { (ideasPorTrabajo[i.trabajo_id] = ideasPorTrabajo[i.trabajo_id] || []).push(i); });
+
     holder.innerHTML = trabajos.map(t => {
       const esActividad = t.tipo_actividad && t.tipo_actividad !== "simple";
+      if (esActividad && t.tipo_actividad === "lluvia_ideas") {
+        const misIdeasTrabajo = ideasPorTrabajo[t.id] || [];
+        const pregunta = (t.contenido_actividad && t.contenido_actividad.pregunta) || "";
+        return `
+        <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.4rem;">
+          <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
+            <span class="name">💡 ${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+            <span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>
+          </div>
+          ${pregunta ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${pregunta}</div>` : ""}
+          <div style="display:flex; gap:0.5rem; width:100%; flex-wrap:wrap;">
+            <input type="text" data-idea-input="${t.id}" placeholder="Escribí tu idea…" maxlength="300" style="flex:1; min-width:12rem; padding:0.5rem 0.6rem; border:1px solid var(--paper-line); border-radius:var(--radius); font-family:var(--sans); font-size:0.85rem;" />
+            <button class="btn small" data-idea-enviar="${t.id}">Enviar idea</button>
+          </div>
+          <span data-idea-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
+          ${misIdeasTrabajo.length ? `<div style="width:100%; display:grid; gap:0.3rem;">
+            ${misIdeasTrabajo.map(idea => `
+              <div style="font-size:0.82rem; padding:0.35rem 0.5rem; border-left:3px solid ${idea.calificacion === "buena" ? "#1d7a43" : (idea.calificacion === "mala" ? "#c0392b" : "#bbb")}; background:#F5F6FA;">
+                ${idea.texto}${idea.calificacion === "buena" ? " · 👍" : (idea.calificacion === "mala" ? " · 👎" : "")}
+              </div>`).join("")}
+          </div>` : ""}
+        </div>`;
+      }
       if (esActividad && t.tipo_actividad === "infografia") {
         const res = resultadoPorTrabajo[t.id];
         const instrucciones = (t.contenido_actividad && t.contenido_actividad.instrucciones) || "";
@@ -2779,6 +2811,35 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
       });
     });
 
+    holder.querySelectorAll("[data-idea-input]").forEach(input => {
+      input.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter") return;
+        e.preventDefault();
+        holder.querySelector(`[data-idea-enviar="${input.dataset.ideaInput}"]`)?.click();
+      });
+    });
+
+    holder.querySelectorAll("[data-idea-enviar]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const trabajoId = btn.dataset.ideaEnviar;
+        const input = holder.querySelector(`[data-idea-input="${trabajoId}"]`);
+        const estado = holder.querySelector(`[data-idea-estado="${trabajoId}"]`);
+        const texto = (input.value || "").trim();
+        if (!texto) return;
+        btn.disabled = true;
+        const textoOriginal = btn.textContent;
+        btn.textContent = "Enviando…";
+        const { error } = await sb.from("trabajo_ideas").insert({ trabajo_id: trabajoId, estudiante_id: estudianteId, texto });
+        btn.disabled = false;
+        btn.textContent = textoOriginal;
+        if (error) {
+          if (estado) estado.textContent = "No se pudo enviar: " + error.message;
+          return;
+        }
+        pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId);
+      });
+    });
+
     holder.querySelectorAll("[data-ver-mi-retro]").forEach(btn => {
       btn.addEventListener("click", async () => {
         const trabajoId = btn.dataset.verMiRetro;
@@ -2800,6 +2861,20 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
       conteos[e.trabajo_id] = (conteos[e.trabajo_id] || 0) + 1;
     });
 
+    // La "Lluvia de ideas" no usa trabajos_cotidianos_estudiante (no hay un
+    // único "completado": cada estudiante puede mandar varias ideas) — el
+    // conteo sale de cuántos estudiantes distintos tienen al menos una idea.
+    const trabajosLluvia = trabajos.filter(t => t.tipo_actividad === "lluvia_ideas");
+    if (trabajosLluvia.length) {
+      const { data: todasIdeas } = await sb.from("trabajo_ideas").select("trabajo_id, estudiante_id").in("trabajo_id", trabajosLluvia.map(t => t.id));
+      const participantesPorTrabajo = {};
+      (todasIdeas || []).forEach(i => {
+        const set = participantesPorTrabajo[i.trabajo_id] || (participantesPorTrabajo[i.trabajo_id] = new Set());
+        set.add(i.estudiante_id);
+      });
+      Object.keys(participantesPorTrabajo).forEach(tid => { conteos[tid] = participantesPorTrabajo[tid].size; });
+    }
+
     const esEditable = (t) => !t.tipo_actividad || t.tipo_actividad === "simple";
     holder.innerHTML = trabajos.map(t => `
       <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem; ${t.habilitado === false ? "opacity:0.55;" : ""}">
@@ -2809,7 +2884,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
             ${t.tipo_actividad && t.tipo_actividad !== "simple" ? `<span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>` : ""}
             ${t.tipo_actividad === "prueba" ? `<span class="badge" style="font-weight:400;">${t.fecha_hora_inicio ? "⏰ Inicia: " + formatearFechaHora(t.fecha_hora_inicio) : "⏰ Sin hora programada"}</span>
             <button class="btn secondary small" data-cambiar-hora-prueba="${t.id}">⏰ Cambiar hora</button>` : ""}
-            <span class="badge">${conteos[t.id] || 0} completaron</span>
+            <span class="badge">${conteos[t.id] || 0} ${t.tipo_actividad === "lluvia_ideas" ? "participaron" : "completaron"}</span>
             <button class="btn ${t.habilitado === false ? "" : "secondary"} small" data-toggle-trabajo-subtema-habilitado="${t.id}" data-estado-actual="${t.habilitado !== false}">
               ${t.habilitado === false ? "Habilitar" : "Habilitado"}
             </button>
@@ -2818,6 +2893,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
             ${ACTIVIDADES_BLOQUEADAS.includes(t.tipo_actividad) ? `<button class="btn secondary small" data-ver-preguntas="${t.id}">👁️ Ver preguntas</button>` : ""}
             ${TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<button class="btn secondary small" data-ver-retro="${t.id}">📝 Ver retroalimentación</button>` : ""}
             ${TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<button class="btn ${t.retro_visible ? "" : "secondary"} small" data-toggle-retro-visible="${t.id}" data-estado-actual="${t.retro_visible === true}">${t.retro_visible ? "🙈 Ocultar respuestas a estudiantes" : "👁️ Mostrar respuestas a estudiantes"}</button>` : ""}
+            ${t.tipo_actividad === "lluvia_ideas" ? `<button class="btn secondary small" data-ver-ideas="${t.id}">💡 Ver intervenciones</button>` : ""}
             ${esEditable(t) ? `<button class="btn secondary small" data-editar-trabajo-subtema="${t.id}">✏️ Editar</button>` : ""}
             ${t.indicador_id
               ? `<span class="badge" style="font-weight:400;">📊 Indicador calificable</span>`
@@ -2835,10 +2911,11 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
           <button class="btn small" type="submit">Guardar</button>
           <button class="btn secondary small" type="button" data-cancelar-editar-trabajo-subtema="${t.id}">Cancelar</button>
         </form>
-        <div data-entregas-trabajo-panel="${t.id}" style="width:100%;"></div>` : (t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : "")}
+        <div data-entregas-trabajo-panel="${t.id}" style="width:100%;"></div>` : (t.tipo_actividad === "lluvia_ideas" && t.contenido_actividad && t.contenido_actividad.pregunta ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.contenido_actividad.pregunta}</div>` : (t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : ""))}
         ${t.tipo_actividad === "infografia" ? `<div data-entregas-panel="${t.id}"></div>` : ""}
         ${ACTIVIDADES_BLOQUEADAS.includes(t.tipo_actividad) ? `<div data-preguntas-panel="${t.id}"></div>` : ""}
         ${TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<div data-retro-panel="${t.id}"></div>` : ""}
+        ${t.tipo_actividad === "lluvia_ideas" ? `<div data-ideas-panel="${t.id}" style="width:100%;"></div>` : ""}
         ${t.tipo_actividad === "prueba" ? `<div data-hora-prueba-panel="${t.id}" style="width:100%;"></div>` : ""}
       </div>`).join("");
 
@@ -2852,6 +2929,17 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         if (!trabajo) return;
         panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando…</p>`;
         panel.innerHTML = await construirRetroalimentacionActividad(trabajo);
+      });
+    });
+
+    holder.querySelectorAll("[data-ver-ideas]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const trabajoId = btn.dataset.verIdeas;
+        const panel = holder.querySelector(`[data-ideas-panel="${trabajoId}"]`);
+        if (!panel) return;
+        if (panel.innerHTML) { panel.innerHTML = ""; return; }
+        panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando…</p>`;
+        await pintarPanelIdeas(panel, trabajoId);
       });
     });
 
@@ -3064,6 +3152,7 @@ function construirSelectorTipoActividad() {
             <option value="sopa_letras">🔎 Sopa de letras</option>
             <option value="infografia">🖼️ Infografía (el estudiante sube un archivo, se califica a mano)</option>
             <option value="prueba">📝 Prueba (con hora de inicio y datos del estudiante)</option>
+            <option value="lluvia_ideas">💡 Lluvia de ideas</option>
           </select>
         </label>
         <label id="actividad-cantidad-label" style="display:flex; align-items:center; gap:0.5rem;">Cantidad:
@@ -3071,6 +3160,7 @@ function construirSelectorTipoActividad() {
         </label>
       </div>
       <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.8rem;">Se califica automáticamente de 0 a 3 según el % de aciertos, y se hace en pantalla completa: si el estudiante sale de la actividad, queda registrado.</p>
+      <div id="actividad-ia-bloque">
       <div style="margin-bottom:0.6rem;">
         <label for="actividad-ia-archivo" style="font-size:0.82rem; color:var(--text-muted); display:block; margin-bottom:0.3rem;">Archivo(s) de apoyo (opcional) — podés subir varios PDF, Word (.docx) o imágenes con el contenido real sobre el que querés las preguntas; la IA usa toda la información junta. Para "Prueba": subí el Word del examen y la IA lo digitaliza (vos marcás/revisás las respuestas correctas después, el Word no las trae).</label>
         <input type="file" id="actividad-ia-archivo" accept=".pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/gif,image/webp" multiple style="display:block; margin-bottom:0.5rem;" />
@@ -3080,6 +3170,7 @@ function construirSelectorTipoActividad() {
       <div class="row" style="margin-bottom:0.8rem; align-items:center;">
         <button class="btn secondary small" id="generar-actividad-ia-btn" type="button">✨ Generar con IA</button>
         <span id="generar-actividad-ia-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>
+      </div>
       </div>
       <div id="actividad-constructor"></div>
       <div class="row" style="margin-top:1rem;">
@@ -3392,6 +3483,12 @@ function construirPanelActividadHTML(tipo) {
       <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Esta es la única actividad en la que el estudiante SÍ puede salir de la plataforma (por ejemplo, para usar Canva). Entrega un archivo (imagen o PDF) que vos calificás a mano en Rúbrica y Evaluaciones.</p>
       <textarea id="au-infografia-instrucciones" rows="4" placeholder="Instrucciones para el estudiante (ej. haz una infografía que resuma los descuentos obligatorios de ley...)" style="width:100%; font-family:inherit;"></textarea>`;
   }
+  if (tipo === "lluvia_ideas") {
+    return `
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Cada estudiante va a poder escribir una o varias ideas (cada una queda registrada como una intervención suya). Después vos las revisás todas, agrupadas por estudiante, y marcás cuáles son buenas o malas — así medís la participación real de cada quien.</p>
+      <label for="au-lluvia-pregunta" style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.4rem;">Pregunta o consigna para la lluvia de ideas (opcional)</label>
+      <textarea id="au-lluvia-pregunta" rows="2" placeholder="Ej. ¿Qué gastos debería incluir el presupuesto de una pulpería?" style="width:100%; font-family:inherit; resize:vertical;"></textarea>`;
+  }
   return `<p class="empty">Este tipo todavía no está disponible — contame y lo agrego.</p>`;
 }
 
@@ -3679,6 +3776,66 @@ async function construirRetroalimentacionActividad(trabajo, soloEstudianteId) {
     <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">La nota es la cantidad de preguntas correctas sobre el total (cada pregunta vale 1 punto). Hacé clic en un estudiante para ver el detalle.</p>
     ${filas}
   </div>`;
+}
+
+// Panel del profesor para la "Lluvia de ideas": todas las ideas enviadas,
+// agrupadas por estudiante, con botones para marcar cada una como buena o
+// mala (clic de nuevo en la misma la deja sin marcar). Mide la
+// participación (cuántas intervenciones hizo cada quien) además de la
+// calidad de cada idea.
+async function pintarPanelIdeas(panel, trabajoId) {
+  const { data: ideas } = await sb.from("trabajo_ideas").select("*").eq("trabajo_id", trabajoId).order("creado_en");
+  if (!ideas || ideas.length === 0) {
+    panel.innerHTML = `<p class="empty" style="font-size:0.82rem;">Todavía nadie ha enviado ideas.</p>`;
+    return;
+  }
+
+  const estudianteIds = [...new Set(ideas.map(i => i.estudiante_id))];
+  const { data: estudiantes } = await sb.from("estudiantes").select("id, nombre, apellido1, apellido2").in("id", estudianteIds);
+  const nombrePorId = {};
+  (estudiantes || []).forEach(e => { nombrePorId[e.id] = [e.apellido1, e.apellido2, e.nombre].filter(Boolean).join(" "); });
+
+  const porEstudiante = {};
+  ideas.forEach(i => { (porEstudiante[i.estudiante_id] = porEstudiante[i.estudiante_id] || []).push(i); });
+  const estudiantesOrdenados = Object.keys(porEstudiante).sort((a, b) => (nombrePorId[a] || a).localeCompare(nombrePorId[b] || b));
+
+  panel.innerHTML = `
+    <div style="margin-top:0.5rem; background:#F5F6FA; border-radius:8px; padding:0.7rem;">
+      <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.6rem;">${estudiantesOrdenados.length} estudiante${estudiantesOrdenados.length === 1 ? "" : "s"} participaron · ${ideas.length} idea${ideas.length === 1 ? "" : "s"} en total. Marcá cada idea como buena o mala — un segundo clic en la misma la deja sin marcar.</p>
+      ${estudiantesOrdenados.map(estId => {
+        const propias = porEstudiante[estId];
+        const buenas = propias.filter(i => i.calificacion === "buena").length;
+        const malas = propias.filter(i => i.calificacion === "mala").length;
+        return `
+        <details open style="margin-bottom:0.5rem; background:#fff; border-radius:8px; padding:0.6rem 0.8rem; border:1px solid var(--paper-line);">
+          <summary style="cursor:pointer; font-size:0.85rem; display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
+            <span>${nombrePorId[estId] || estId}</span>
+            <span style="font-size:0.78rem; color:var(--text-muted);">${propias.length} intervención${propias.length === 1 ? "" : "es"} · 👍 ${buenas} · 👎 ${malas}</span>
+          </summary>
+          <div style="margin-top:0.5rem; display:grid; gap:0.4rem;">
+            ${propias.map(idea => `
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; padding:0.4rem 0.5rem; border-left:3px solid ${idea.calificacion === "buena" ? "#1d7a43" : (idea.calificacion === "mala" ? "#c0392b" : "#ccc")}; font-size:0.85rem;">
+                <span>${idea.texto}</span>
+                <span style="display:flex; gap:0.3rem; flex-shrink:0;">
+                  <button class="btn ${idea.calificacion === "buena" ? "" : "secondary"} small" data-calificar-idea="${idea.id}" data-calificacion="buena">👍 Buena</button>
+                  <button class="btn ${idea.calificacion === "mala" ? "danger" : "secondary"} small" data-calificar-idea="${idea.id}" data-calificacion="mala">👎 Mala</button>
+                </span>
+              </div>`).join("")}
+          </div>
+        </details>`;
+      }).join("")}
+    </div>`;
+
+  panel.querySelectorAll("[data-calificar-idea]").forEach(b => {
+    b.addEventListener("click", async () => {
+      const ideaId = b.dataset.calificarIdea;
+      const nueva = b.dataset.calificacion;
+      const idea = ideas.find(i => String(i.id) === String(ideaId));
+      const valorFinal = (idea && idea.calificacion === nueva) ? null : nueva;
+      await sb.from("trabajo_ideas").update({ calificacion: valorFinal }).eq("id", ideaId);
+      await pintarPanelIdeas(panel, trabajoId);
+    });
+  });
 }
 
 // Diagnóstico agregado: de todos los que ya completaron la prueba,
@@ -3989,6 +4146,10 @@ function leerContenidoActividadDesdeFormulario(tipo, el) {
   if (tipo === "infografia") {
     const instrucciones = (el.querySelector("#au-infografia-instrucciones")?.value || "").trim();
     return { valido: true, contenido: { instrucciones } };
+  }
+  if (tipo === "lluvia_ideas") {
+    const pregunta = (el.querySelector("#au-lluvia-pregunta")?.value || "").trim();
+    return { valido: true, contenido: { pregunta } };
   }
   return { valido: false, error: "Tipo de actividad no soportado todavía." };
 }

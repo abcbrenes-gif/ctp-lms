@@ -17,7 +17,8 @@ const NOMBRES_ACTIVIDAD = {
   crucigrama: "Crucigrama",
   sopa_letras: "Sopa de letras",
   infografia: "Infografía",
-  prueba: "Prueba"
+  prueba: "Prueba",
+  lluvia_ideas: "Lluvia de ideas"
 };
 
 // Todas estas actividades, salvo la infografía, se hacen en modo "pantalla
