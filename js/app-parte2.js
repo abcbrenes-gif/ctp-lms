@@ -2007,7 +2007,7 @@ async function renderSubtema(id, soloLectura) {
         const fechaHoraInicio = (tipo === "prueba" && horaInicioInput && horaInicioInput.value) ? new Date(horaInicioInput.value).toISOString() : null;
         btnEv.target.disabled = true;
         btnEv.target.textContent = "Creando…";
-        const indicadorId = await crearIndicadorParaTrabajo(pub.materia_id, titulo, fecha, 3, tipo === "prueba" ? "Pruebas" : null);
+        const indicadorId = await crearIndicadorParaTrabajo(pub.materia_id, titulo, fecha, 3, tipo === "prueba" ? "Pruebas" : (tipo === "proyecto" ? "Proyectos" : null));
         const { data: nuevo } = await sb.from("trabajos_cotidianos").insert({
           publicacion_id: sub.publicacion_id,
           subtema_id: sub.id,
@@ -5604,36 +5604,25 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       const ind = (indicadores || []).find(i => String(i.id) === String(indicadorId));
       panel.innerHTML = `
         <div style="background:#F5F6FA; border-radius:8px; padding:0.7rem; margin-top:0.4rem;">
-          <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; margin-bottom:0.4rem; flex-wrap:wrap;">Subtema donde va a aparecer (opcional):
-            <select data-archivo-subtema="${indicadorId}" style="flex:1; min-width:14rem;">
-              <option value="">— Sin subtema —</option>
-              ${(subtemasMateria || []).map(s => `<option value="${s.id}" data-pub="${s.publicacion_id}">${s.titulo}</option>`).join("")}
-            </select>
-          </label>
-          <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; margin-bottom:0.6rem; flex-wrap:wrap;">Si no eligió subtema, tema donde va a quedar:
-            <select data-archivo-tema="${indicadorId}" style="flex:1; min-width:14rem;">
-              <option value="">— Elegir tema —</option>
-              ${(temasMateria || []).map(t => `<option value="${t.id}">${t.titulo}</option>`).join("")}
-            </select>
-          </label>
+          <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">Esta entrega queda disponible directamente acá, en este indicador — no necesita estar dentro de un tema o subtema.</p>
           <textarea data-archivo-instrucciones="${indicadorId}" rows="3" placeholder="Instrucciones para el estudiante (opcional)" style="width:100%; font-family:inherit; margin-bottom:0.6rem;"></textarea>
           <button class="btn small" data-crear-archivo-ind="${indicadorId}" type="button">Pedir entrega</button>
           <button class="btn secondary small" data-cancelar-archivo-ind="${indicadorId}" type="button">Cancelar</button>
         </div>`;
       panel.querySelector(`[data-cancelar-archivo-ind="${indicadorId}"]`).addEventListener("click", () => { panel.innerHTML = ""; });
       panel.querySelector(`[data-crear-archivo-ind="${indicadorId}"]`).addEventListener("click", async (btnEv) => {
-        const subtemaSel = panel.querySelector(`[data-archivo-subtema="${indicadorId}"]`);
-        const subtemaId = subtemaSel.value || null;
-        const temaSel = panel.querySelector(`[data-archivo-tema="${indicadorId}"]`);
-        const temaId = temaSel.value || null;
-        const publicacionId = subtemaId ? subtemaSel.selectedOptions[0]?.dataset.pub : temaId;
-        if (!publicacionId) { alert("Elegí el subtema, o el tema (si no va a tener subtema), donde va a quedar esta entrega."); return; }
+        // Criterio abierto: esta entrega no se amarra a ningún tema/subtema
+        // específico — simplemente se cuelga del primer tema de la materia
+        // (si existe) solo para cumplir el campo técnico; de ahí en adelante
+        // el estudiante y el profesor la ven y la usan únicamente desde este
+        // indicador en Notas/Rúbrica, nunca navegando por Temas.
+        const publicacionId = (temasMateria || [])[0]?.id || null;
         const instrucciones = (panel.querySelector(`[data-archivo-instrucciones="${indicadorId}"]`)?.value || "").trim();
         btnEv.target.disabled = true;
         btnEv.target.textContent = "Creando…";
         const { data: nuevo, error } = await sb.from("trabajos_cotidianos").insert({
           publicacion_id: publicacionId,
-          subtema_id: subtemaId,
+          subtema_id: null,
           titulo: ind ? ind.descripcion : "Entrega de archivo",
           tipo_actividad: "infografia",
           contenido_actividad: { instrucciones }
