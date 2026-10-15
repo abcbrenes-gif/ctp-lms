@@ -103,6 +103,10 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
   // entregó), para poder mostrar "Subir archivo" o "Ya entregado" en vez
   // del selector 0-3 (eso lo sigue calificando el profesor aparte).
   const entregaPorTrabajoArchivo = {};
+  // Igual, pero para un indicador vinculado a una actividad tipo "proyecto"
+  // (título + descripción + archivo, con entregas múltiples): acá se junta
+  // el historial de entregas de este estudiante, por trabajo.
+  const entregaProyectoPorTrabajo = {};
   if (isSelf) {
     const todosLosIndicadorIds = Object.values(indicadoresPorMateria).flatMap(info => info.indicadores.map(i => i.id));
     if (todosLosIndicadorIds.length) {
@@ -115,6 +119,12 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
       if (trabajoArchivoIds.length) {
         const { data: entregasArchivo } = await sb.from("actividades_estudiante").select("trabajo_id, archivo_ruta, archivo_nombre").eq("estudiante_id", s.id).in("trabajo_id", trabajoArchivoIds);
         (entregasArchivo || []).forEach(e => { entregaPorTrabajoArchivo[e.trabajo_id] = e; });
+      }
+
+      const trabajoProyectoIds = (trabajosDeIndicadores || []).filter(t => t.tipo_actividad === "proyecto").map(t => t.id);
+      if (trabajoProyectoIds.length) {
+        const { data: entregasProyecto } = await sb.from("proyecto_entregas").select("*").eq("estudiante_id", s.id).in("trabajo_id", trabajoProyectoIds).order("creado_en", { ascending: false });
+        (entregasProyecto || []).forEach(e => { (entregaProyectoPorTrabajo[e.trabajo_id] = entregaProyectoPorTrabajo[e.trabajo_id] || []).push(e); });
       }
     }
   }
@@ -142,6 +152,10 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
               const esArchivoPendiente = trabajoPrueba && trabajoPrueba.tipo_actividad === "infografia";
               const entregaArchivo = esArchivoPendiente ? entregaPorTrabajoArchivo[trabajoPrueba.id] : null;
               const instruccionesArchivo = esArchivoPendiente ? (trabajoPrueba.contenido_actividad?.instrucciones || "") : "";
+              const esProyectoPendiente = trabajoPrueba && trabajoPrueba.tipo_actividad === "proyecto";
+              const entregasProyectoNota = esProyectoPendiente ? (entregaProyectoPorTrabajo[trabajoPrueba.id] || []) : [];
+              const cp = esProyectoPendiente ? (trabajoPrueba.contenido_actividad || {}) : {};
+              const minCaracteresProyecto = Number(cp.min_caracteres_descripcion) || 0;
               return `
               <tr>
                 <td>
@@ -159,6 +173,30 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
                       <label class="btn small" style="cursor:pointer;">📎 Subir archivo (imagen o PDF)<input type="file" data-subir-archivo-nota="${trabajoPrueba.id}" accept="image/*,.pdf" style="display:none;" /></label>
                     `}
                     <span data-subir-archivo-estado="${trabajoPrueba.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
+                  </div>` : ""}
+                  ${esProyectoPendiente ? `<div style="margin-top:0.4rem; background:#F5F6FA; border-radius:8px; padding:0.6rem;">
+                    ${cp.instrucciones ? `<div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.4rem;">${cp.instrucciones}</div>` : ""}
+                    ${entregasProyectoNota.length ? `<p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.4rem;">✓ Ya entregaste ${entregasProyectoNota.length} ve${entregasProyectoNota.length === 1 ? "z" : "ces"} — podés volver a entregar si necesitás corregir algo.</p>` : ""}
+                    <form data-proyecto-nota-form="${trabajoPrueba.id}" style="display:grid; gap:0.4rem;">
+                      <input name="titulo" placeholder="${cp.placeholder_titulo || "Título"}" required style="width:100%;" />
+                      <textarea name="descripcion" data-proyecto-nota-descripcion="${trabajoPrueba.id}" placeholder="${cp.placeholder_descripcion || "Descripción"}" rows="3" required minlength="${minCaracteresProyecto || 1}" style="width:100%; font-family:inherit; resize:vertical;"></textarea>
+                      ${minCaracteresProyecto ? `<span data-proyecto-nota-contador="${trabajoPrueba.id}" style="font-size:0.75rem; color:var(--text-muted);">0 / ${minCaracteresProyecto} caracteres mínimo</span>` : ""}
+                      <label style="font-size:0.82rem;">Archivo:
+                        <input type="file" name="archivo" required style="display:block; margin-top:0.3rem;" />
+                      </label>
+                      <button class="btn small" type="submit" style="justify-self:start;">Enviar entrega</button>
+                      <span data-proyecto-nota-estado="${trabajoPrueba.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
+                    </form>
+                    ${entregasProyectoNota.length ? `<div style="margin-top:0.5rem; display:grid; gap:0.3rem;">
+                      ${entregasProyectoNota.map(e => {
+                        const { data: pub } = sb.storage.from("materiales").getPublicUrl(e.archivo_ruta);
+                        return `<div style="font-size:0.8rem; border-left:3px solid var(--paper-line); padding:0.3rem 0.5rem; background:#fff;">
+                          <strong>${e.titulo}</strong> <span style="color:var(--text-muted);">· ${formatearFechaHora(e.creado_en)}</span>
+                          ${e.descripcion ? `<div style="margin-top:0.15rem;">${e.descripcion}</div>` : ""}
+                          <a class="btn secondary small" style="margin-top:0.3rem;" href="${pub.publicUrl}" target="_blank" rel="noopener">📄 ${e.archivo_nombre || "Ver archivo"}</a>
+                        </div>`;
+                      }).join("")}
+                    </div>` : ""}
                   </div>` : ""}
                 </td>
                 <td class="num" style="text-align:center; font-weight:600;">
@@ -430,6 +468,62 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
           { estudiante_id: estudianteId, trabajo_id: trabajoId },
           { completado: true, archivo_ruta: rutaSegura, archivo_nombre: archivo.name, actualizado_en: new Date().toISOString() }
         );
+        renderNotasInterno(el, s, isSelf, activa);
+      });
+    });
+
+    el.querySelectorAll("[data-proyecto-nota-descripcion]").forEach(textarea => {
+      const trabajoId = textarea.dataset.proyectoNotaDescripcion;
+      const contador = el.querySelector(`[data-proyecto-nota-contador="${trabajoId}"]`);
+      if (!contador) return;
+      const minimo = Number(textarea.getAttribute("minlength")) || 1;
+      const actualizar = () => {
+        const n = textarea.value.length;
+        contador.textContent = `${n} / ${minimo} caracteres mínimo`;
+        contador.style.color = n >= minimo ? "#1d7a43" : "var(--text-muted)";
+      };
+      textarea.addEventListener("input", actualizar);
+      actualizar();
+    });
+
+    el.querySelectorAll("[data-proyecto-nota-form]").forEach(form => {
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const trabajoId = form.dataset.proyectoNotaForm;
+        const estado = el.querySelector(`[data-proyecto-nota-estado="${trabajoId}"]`);
+        const f = new FormData(form);
+        const archivo = f.get("archivo");
+        const descripcion = (f.get("descripcion") || "").toString();
+        const minimo = Number(form.querySelector("[data-proyecto-nota-descripcion]")?.getAttribute("minlength")) || 1;
+        if (descripcion.length < minimo) { if (estado) estado.textContent = `La descripción necesita al menos ${minimo} caracteres (lleva ${descripcion.length}).`; return; }
+        if (!archivo || !archivo.size) { if (estado) estado.textContent = "Adjuntá un archivo."; return; }
+        const boton = form.querySelector("button[type=submit]");
+        boton.disabled = true;
+        boton.textContent = "Enviando…";
+        if (estado) estado.textContent = "Subiendo…";
+        const estudianteId = s.id;
+        const rutaSegura = `proyectos/trabajo-${trabajoId}/${estudianteId}-${Date.now()}-${archivo.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+        const { error: errorSubida } = await sb.storage.from("materiales").upload(rutaSegura, archivo);
+        if (errorSubida) {
+          if (estado) estado.textContent = "No se pudo subir: " + errorSubida.message;
+          boton.disabled = false;
+          boton.textContent = "Enviar entrega";
+          return;
+        }
+        const { error: errorInsert } = await sb.from("proyecto_entregas").insert({
+          trabajo_id: trabajoId,
+          estudiante_id: estudianteId,
+          titulo: f.get("titulo"),
+          descripcion,
+          archivo_ruta: rutaSegura,
+          archivo_nombre: archivo.name
+        });
+        if (errorInsert) {
+          if (estado) estado.textContent = "No se pudo guardar la entrega: " + errorInsert.message;
+          boton.disabled = false;
+          boton.textContent = "Enviar entrega";
+          return;
+        }
         renderNotasInterno(el, s, isSelf, activa);
       });
     });
@@ -5369,12 +5463,26 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
     if (trabajoPorIndicador[ind.id]) return "";
     return `<button class="btn secondary small" data-pedir-archivo-ind="${ind.id}">📎 Pedir entrega de archivo</button>`;
   }
+  // Igual que arriba, pero para una entrega de "proyecto" (título +
+  // descripción + archivo, con mínimo de caracteres opcional y entregas
+  // múltiples) — para indicadores que no pertenecen a ningún tema, como un
+  // proyecto que se divide en partes calificadas por separado.
+  function botonPedirProyectoTrabajo(ind) {
+    if (trabajoPorIndicador[ind.id]) return "";
+    return `<button class="btn secondary small" data-pedir-proyecto-ind="${ind.id}">📁 Pedir entrega de proyecto</button>`;
+  }
   // Una vez que el indicador ya tiene el trabajo de "subir archivo"
   // vinculado, permite revisar/descargar lo que fueron entregando.
   function botonVerEntregasIndicador(ind) {
     const t = trabajoPorIndicador[ind.id];
     if (!t || t.tipo_actividad !== "infografia") return "";
     return `<button class="btn secondary small" data-ver-entregas-ind="${t.id}">📂 Ver entregas</button>`;
+  }
+  // Igual que arriba, pero para un trabajo tipo "proyecto".
+  function botonVerEntregasProyectoIndicador(ind) {
+    const t = trabajoPorIndicador[ind.id];
+    if (!t || t.tipo_actividad !== "proyecto") return "";
+    return `<button class="btn secondary small" data-ver-entregas-proyecto-ind="${t.id}">📂 Ver entregas</button>`;
   }
 
   const siguienteLetra = siguienteLetraDisponible((indicadores || []).map(i => i.letra));
@@ -5433,6 +5541,8 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
               ${botonPdfTrabajo(ind)}
               ${botonPedirArchivoTrabajo(ind)}
               ${botonVerEntregasIndicador(ind)}
+              ${botonPedirProyectoTrabajo(ind)}
+              ${botonVerEntregasProyectoIndicador(ind)}
               ${linkTrabajo(ind)}
               <button class="btn danger small" data-del-indicador="${ind.id}">Eliminar</button>
             </span>
@@ -5442,7 +5552,9 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
           ${trabajoPorIndicador[ind.id] && TIPOS_CON_RETRO.includes(trabajoPorIndicador[ind.id].tipo_actividad) ? `<div data-diagnostico-ind-panel="${trabajoPorIndicador[ind.id].id}"></div>` : ""}
           ${trabajoPorIndicador[ind.id] && trabajoPorIndicador[ind.id].tipo_actividad === "prueba" ? `<div data-puntos-ind-panel="${trabajoPorIndicador[ind.id].id}" data-indicador-para-puntos="${ind.id}"></div>` : ""}
           ${!trabajoPorIndicador[ind.id] ? `<div data-pedir-archivo-panel="${ind.id}"></div>` : ""}
+          ${!trabajoPorIndicador[ind.id] ? `<div data-pedir-proyecto-panel="${ind.id}"></div>` : ""}
           ${trabajoPorIndicador[ind.id] && trabajoPorIndicador[ind.id].tipo_actividad === "infografia" ? `<div data-entregas-ind-panel="${trabajoPorIndicador[ind.id].id}"></div>` : ""}
+          ${trabajoPorIndicador[ind.id] && trabajoPorIndicador[ind.id].tipo_actividad === "proyecto" ? `<div data-entregas-proyecto-ind-panel="${trabajoPorIndicador[ind.id].id}"></div>` : ""}
           ${esPruebaAuto ? "" : `<div style="font-size:0.85rem;">
             ${(ind.criterios_indicador || []).sort((a, b) => a.puntaje - b.puntaje).map(c => `<div><strong>${c.nivel ? c.nivel + " — " : ""}${c.puntaje} punto${c.puntaje === 1 ? "" : "s"}:</strong> ${c.descripcion}</div>`).join("")}
           </div>`}
@@ -5701,6 +5813,73 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
               </div>`;
             }).join("")}
         </div>`;
+    });
+  });
+  // Igual que "Pedir entrega de archivo", pero para una actividad tipo
+  // "proyecto": título + descripción (con mínimo de caracteres opcional) +
+  // archivo, con entregas ilimitadas. Útil para dividir un proyecto grande
+  // en partes, cada una como su propio indicador — sin que tenga que
+  // pertenecer a ningún tema o subtema del programa.
+  holder.querySelectorAll("[data-pedir-proyecto-ind]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const indicadorId = btn.dataset.pedirProyectoInd;
+      const panel = holder.querySelector(`[data-pedir-proyecto-panel="${indicadorId}"]`);
+      if (!panel) return;
+      if (panel.innerHTML.trim()) { panel.innerHTML = ""; return; }
+      const ind = (indicadores || []).find(i => String(i.id) === String(indicadorId));
+      panel.innerHTML = `
+        <div style="background:#F5F6FA; border-radius:8px; padding:0.7rem; margin-top:0.4rem;">
+          <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">El estudiante entrega título + descripción + archivo, y puede volver a entregar las veces que necesite. Esta entrega queda disponible directamente acá, en este indicador — no necesita estar dentro de un tema o subtema.</p>
+          <textarea data-proyecto-instrucciones="${indicadorId}" rows="3" placeholder="Instrucciones para el estudiante (opcional)" style="width:100%; font-family:inherit; margin-bottom:0.6rem;"></textarea>
+          <div class="row" style="gap:0.6rem; margin-bottom:0.6rem;">
+            <label style="flex:1; min-width:10rem; font-size:0.82rem;">Etiqueta del campo "Título" (opcional)
+              <input data-proyecto-placeholder-titulo="${indicadorId}" placeholder="Ej. Nombre de la ley" style="width:100%; margin-top:0.2rem;" />
+            </label>
+            <label style="flex:1; min-width:10rem; font-size:0.82rem;">Etiqueta del campo "Descripción" (opcional)
+              <input data-proyecto-placeholder-descripcion="${indicadorId}" placeholder="Ej. Descripción general de la ley" style="width:100%; margin-top:0.2rem;" />
+            </label>
+          </div>
+          <label style="display:block; font-size:0.82rem; margin-bottom:0.6rem;">Mínimo de caracteres exigidos en la descripción (opcional, 0 = sin mínimo)
+            <input data-proyecto-min-caracteres="${indicadorId}" type="number" min="0" step="10" value="0" style="width:8rem; margin-top:0.2rem; display:block;" />
+          </label>
+          <button class="btn small" data-crear-proyecto-ind="${indicadorId}" type="button">Pedir entrega</button>
+          <button class="btn secondary small" data-cancelar-proyecto-ind="${indicadorId}" type="button">Cancelar</button>
+        </div>`;
+      panel.querySelector(`[data-cancelar-proyecto-ind="${indicadorId}"]`).addEventListener("click", () => { panel.innerHTML = ""; });
+      panel.querySelector(`[data-crear-proyecto-ind="${indicadorId}"]`).addEventListener("click", async (btnEv) => {
+        const publicacionId = (temasMateria || [])[0]?.id || null;
+        const instrucciones = (panel.querySelector(`[data-proyecto-instrucciones="${indicadorId}"]`)?.value || "").trim();
+        const placeholder_titulo = (panel.querySelector(`[data-proyecto-placeholder-titulo="${indicadorId}"]`)?.value || "").trim();
+        const placeholder_descripcion = (panel.querySelector(`[data-proyecto-placeholder-descripcion="${indicadorId}"]`)?.value || "").trim();
+        const min_caracteres_descripcion = Number(panel.querySelector(`[data-proyecto-min-caracteres="${indicadorId}"]`)?.value) || 0;
+        btnEv.target.disabled = true;
+        btnEv.target.textContent = "Creando…";
+        const { data: nuevo, error } = await sb.from("trabajos_cotidianos").insert({
+          publicacion_id: publicacionId,
+          subtema_id: null,
+          titulo: ind ? ind.descripcion : "Entrega de proyecto",
+          tipo_actividad: "proyecto",
+          contenido_actividad: { instrucciones, placeholder_titulo, placeholder_descripcion, min_caracteres_descripcion }
+        , indicador_id: indicadorId
+        }).select().maybeSingle();
+        if (!nuevo) {
+          alert("No se pudo crear la entrega" + (error ? ": " + error.message : "."));
+          btnEv.target.disabled = false;
+          btnEv.target.textContent = "Pedir entrega";
+          return;
+        }
+        cargarIndicadoresDeMateria(materiaId, catNombre);
+      });
+    });
+  });
+  holder.querySelectorAll("[data-ver-entregas-proyecto-ind]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const trabajoId = btn.dataset.verEntregasProyectoInd;
+      const panel = holder.querySelector(`[data-entregas-proyecto-ind-panel="${trabajoId}"]`);
+      if (!panel) return;
+      if (panel.innerHTML.trim()) { panel.innerHTML = ""; return; }
+      panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando entregas…</p>`;
+      await pintarPanelEntregasProyecto(panel, trabajoId);
     });
   });
   holder.querySelectorAll("[data-vincular-resultado]").forEach(sel => {
