@@ -1943,7 +1943,7 @@ async function renderSubtema(id, soloLectura) {
         inicializarConstructorPorTipo(e.target.value, constructor);
         ajustarCampoCantidad(panel, e.target.value);
         const iaBloque = panel.querySelector("#actividad-ia-bloque");
-        if (iaBloque) iaBloque.style.display = e.target.value === "lluvia_ideas" ? "none" : "";
+        if (iaBloque) iaBloque.style.display = (e.target.value === "lluvia_ideas" || e.target.value === "proyecto") ? "none" : "";
       });
       panel.querySelector("#actividad-tipo").dispatchEvent(new Event("change"));
       panel.querySelector("#generar-actividad-ia-btn").addEventListener("click", async (iaEv) => {
@@ -2636,8 +2636,47 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
     const ideasPorTrabajo = {};
     (misIdeas || []).forEach(i => { (ideasPorTrabajo[i.trabajo_id] = ideasPorTrabajo[i.trabajo_id] || []).push(i); });
 
+    const trabajosProyectoMios = trabajos.filter(t => t.tipo_actividad === "proyecto");
+    const { data: misEntregasProyecto } = trabajosProyectoMios.length
+      ? await sb.from("proyecto_entregas").select("*").eq("estudiante_id", estudianteId).in("trabajo_id", trabajosProyectoMios.map(t => t.id)).order("creado_en", { ascending: false })
+      : { data: [] };
+    const entregasProyectoPorTrabajo = {};
+    (misEntregasProyecto || []).forEach(e => { (entregasProyectoPorTrabajo[e.trabajo_id] = entregasProyectoPorTrabajo[e.trabajo_id] || []).push(e); });
+
     holder.innerHTML = trabajos.map(t => {
       const esActividad = t.tipo_actividad && t.tipo_actividad !== "simple";
+      if (esActividad && t.tipo_actividad === "proyecto") {
+        const misEntregas = entregasProyectoPorTrabajo[t.id] || [];
+        const instrucciones = (t.contenido_actividad && t.contenido_actividad.instrucciones) || "";
+        return `
+        <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.4rem;">
+          <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
+            <span class="name">📁 ${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+            <span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>
+          </div>
+          ${instrucciones ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${instrucciones}</div>` : ""}
+          ${misEntregas.length ? `<span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Ya entregaste ${misEntregas.length} ve${misEntregas.length === 1 ? "z" : "ces"} — podés volver a entregar si necesitás corregir algo</span>` : ""}
+          <form class="inline-form" data-proyecto-form="${t.id}" style="margin-top:0.3rem; width:100%;">
+            <input name="titulo" placeholder="Título de tu entrega" required style="flex:1; min-width:10rem" />
+            <textarea name="descripcion" placeholder="Descripción de tu entrega" rows="2" required style="flex-basis:100%; font-family:inherit; resize:vertical;"></textarea>
+            <label style="flex-basis:100%; font-size:0.82rem;">Archivo:
+              <input type="file" name="archivo" required style="display:block; margin-top:0.3rem;" />
+            </label>
+            <button class="btn small" type="submit">Enviar entrega</button>
+            <span data-proyecto-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
+          </form>
+          ${misEntregas.length ? `<div style="width:100%; display:grid; gap:0.4rem; margin-top:0.3rem;">
+            ${misEntregas.map(e => {
+              const { data: pub } = sb.storage.from("materiales").getPublicUrl(e.archivo_ruta);
+              return `<div style="font-size:0.82rem; padding:0.4rem 0.5rem; background:#F5F6FA; border-radius:6px;">
+                <strong>${e.titulo}</strong> <span style="color:var(--text-muted);">· ${formatearFechaHora(e.creado_en)}</span>
+                ${e.descripcion ? `<div style="margin-top:0.2rem;">${e.descripcion}</div>` : ""}
+                <a class="btn secondary small" style="margin-top:0.3rem;" href="${pub.publicUrl}" target="_blank" rel="noopener">📄 ${e.archivo_nombre || "Ver archivo"}</a>
+              </div>`;
+            }).join("")}
+          </div>` : ""}
+        </div>`;
+      }
       if (esActividad && t.tipo_actividad === "lluvia_ideas") {
         const misIdeasTrabajo = ideasPorTrabajo[t.id] || [];
         const pregunta = (t.contenido_actividad && t.contenido_actividad.pregunta) || "";
@@ -2811,6 +2850,44 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
       });
     });
 
+    holder.querySelectorAll("[data-proyecto-form]").forEach(form => {
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const trabajoId = form.dataset.proyectoForm;
+        const estado = holder.querySelector(`[data-proyecto-estado="${trabajoId}"]`);
+        const f = new FormData(form);
+        const archivo = f.get("archivo");
+        if (!archivo || !archivo.size) { if (estado) estado.textContent = "Adjuntá un archivo."; return; }
+        const boton = form.querySelector("button[type=submit]");
+        boton.disabled = true;
+        boton.textContent = "Enviando…";
+        if (estado) estado.textContent = "Subiendo…";
+        const rutaSegura = `proyectos/trabajo-${trabajoId}/${estudianteId}-${Date.now()}-${archivo.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+        const { error: errorSubida } = await sb.storage.from("materiales").upload(rutaSegura, archivo);
+        if (errorSubida) {
+          if (estado) estado.textContent = "No se pudo subir: " + errorSubida.message;
+          boton.disabled = false;
+          boton.textContent = "Enviar entrega";
+          return;
+        }
+        const { error: errorInsert } = await sb.from("proyecto_entregas").insert({
+          trabajo_id: trabajoId,
+          estudiante_id: estudianteId,
+          titulo: f.get("titulo"),
+          descripcion: f.get("descripcion"),
+          archivo_ruta: rutaSegura,
+          archivo_nombre: archivo.name
+        });
+        if (errorInsert) {
+          if (estado) estado.textContent = "No se pudo guardar la entrega: " + errorInsert.message;
+          boton.disabled = false;
+          boton.textContent = "Enviar entrega";
+          return;
+        }
+        pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId);
+      });
+    });
+
     holder.querySelectorAll("[data-idea-input]").forEach(input => {
       input.addEventListener("keydown", (e) => {
         if (e.key !== "Enter") return;
@@ -2875,6 +2952,20 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
       Object.keys(participantesPorTrabajo).forEach(tid => { conteos[tid] = participantesPorTrabajo[tid].size; });
     }
 
+    // El "Proyecto" tampoco usa trabajos_cotidianos_estudiante (un estudiante
+    // puede entregar varias veces) — el conteo es cuántos estudiantes
+    // distintos tienen al menos una entrega.
+    const trabajosProyecto = trabajos.filter(t => t.tipo_actividad === "proyecto");
+    if (trabajosProyecto.length) {
+      const { data: todasEntregasProyecto } = await sb.from("proyecto_entregas").select("trabajo_id, estudiante_id").in("trabajo_id", trabajosProyecto.map(t => t.id));
+      const participantesProyecto = {};
+      (todasEntregasProyecto || []).forEach(e => {
+        const set = participantesProyecto[e.trabajo_id] || (participantesProyecto[e.trabajo_id] = new Set());
+        set.add(e.estudiante_id);
+      });
+      Object.keys(participantesProyecto).forEach(tid => { conteos[tid] = participantesProyecto[tid].size; });
+    }
+
     const esEditable = (t) => !t.tipo_actividad || t.tipo_actividad === "simple";
     holder.innerHTML = trabajos.map(t => `
       <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem; ${t.habilitado === false ? "opacity:0.55;" : ""}">
@@ -2884,11 +2975,12 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
             ${t.tipo_actividad && t.tipo_actividad !== "simple" ? `<span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>` : ""}
             ${t.tipo_actividad === "prueba" ? `<span class="badge" style="font-weight:400;">${t.fecha_hora_inicio ? "⏰ Inicia: " + formatearFechaHora(t.fecha_hora_inicio) : "⏰ Sin hora programada"}</span>
             <button class="btn secondary small" data-cambiar-hora-prueba="${t.id}">⏰ Cambiar hora</button>` : ""}
-            <span class="badge">${conteos[t.id] || 0} ${t.tipo_actividad === "lluvia_ideas" ? "participaron" : "completaron"}</span>
+            <span class="badge">${conteos[t.id] || 0} ${t.tipo_actividad === "lluvia_ideas" ? "participaron" : (t.tipo_actividad === "proyecto" ? "entregaron" : "completaron")}</span>
             <button class="btn ${t.habilitado === false ? "" : "secondary"} small" data-toggle-trabajo-subtema-habilitado="${t.id}" data-estado-actual="${t.habilitado !== false}">
               ${t.habilitado === false ? "Habilitar" : "Habilitado"}
             </button>
             ${t.tipo_actividad === "infografia" ? `<button class="btn secondary small" data-ver-entregas="${t.id}">📂 Ver entregas</button>` : ""}
+            ${t.tipo_actividad === "proyecto" ? `<button class="btn secondary small" data-ver-entregas-proyecto="${t.id}">📂 Ver entregas</button>` : ""}
             ${esEditable(t) ? `<button class="btn secondary small" data-ver-entregas-trabajo="${t.id}">📎 Ver archivos entregados</button>` : ""}
             ${ACTIVIDADES_BLOQUEADAS.includes(t.tipo_actividad) ? `<button class="btn secondary small" data-ver-preguntas="${t.id}">👁️ Ver preguntas</button>` : ""}
             ${TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<button class="btn secondary small" data-ver-retro="${t.id}">📝 Ver retroalimentación</button>` : ""}
@@ -2911,8 +3003,9 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
           <button class="btn small" type="submit">Guardar</button>
           <button class="btn secondary small" type="button" data-cancelar-editar-trabajo-subtema="${t.id}">Cancelar</button>
         </form>
-        <div data-entregas-trabajo-panel="${t.id}" style="width:100%;"></div>` : (t.tipo_actividad === "lluvia_ideas" && t.contenido_actividad && t.contenido_actividad.pregunta ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.contenido_actividad.pregunta}</div>` : (t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : ""))}
+        <div data-entregas-trabajo-panel="${t.id}" style="width:100%;"></div>` : (t.tipo_actividad === "lluvia_ideas" && t.contenido_actividad && t.contenido_actividad.pregunta ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.contenido_actividad.pregunta}</div>` : (t.tipo_actividad === "proyecto" && t.contenido_actividad && t.contenido_actividad.instrucciones ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.contenido_actividad.instrucciones}</div>` : (t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : "")))}
         ${t.tipo_actividad === "infografia" ? `<div data-entregas-panel="${t.id}"></div>` : ""}
+        ${t.tipo_actividad === "proyecto" ? `<div data-entregas-proyecto-panel="${t.id}" style="width:100%;"></div>` : ""}
         ${ACTIVIDADES_BLOQUEADAS.includes(t.tipo_actividad) ? `<div data-preguntas-panel="${t.id}"></div>` : ""}
         ${TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<div data-retro-panel="${t.id}"></div>` : ""}
         ${t.tipo_actividad === "lluvia_ideas" ? `<div data-ideas-panel="${t.id}" style="width:100%;"></div>` : ""}
@@ -2929,6 +3022,17 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         if (!trabajo) return;
         panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando…</p>`;
         panel.innerHTML = await construirRetroalimentacionActividad(trabajo);
+      });
+    });
+
+    holder.querySelectorAll("[data-ver-entregas-proyecto]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const trabajoId = btn.dataset.verEntregasProyecto;
+        const panel = holder.querySelector(`[data-entregas-proyecto-panel="${trabajoId}"]`);
+        if (!panel) return;
+        if (panel.innerHTML) { panel.innerHTML = ""; return; }
+        panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando…</p>`;
+        await pintarPanelEntregasProyecto(panel, trabajoId);
       });
     });
 
@@ -3153,6 +3257,7 @@ function construirSelectorTipoActividad() {
             <option value="infografia">🖼️ Infografía (el estudiante sube un archivo, se califica a mano)</option>
             <option value="prueba">📝 Prueba (con hora de inicio y datos del estudiante)</option>
             <option value="lluvia_ideas">💡 Lluvia de ideas</option>
+            <option value="proyecto">📁 Proyecto (título + descripción + archivo, se puede volver a entregar)</option>
           </select>
         </label>
         <label id="actividad-cantidad-label" style="display:flex; align-items:center; gap:0.5rem;">Cantidad:
@@ -3488,6 +3593,12 @@ function construirPanelActividadHTML(tipo) {
       <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Cada estudiante va a poder escribir una o varias ideas (cada una queda registrada como una intervención suya). Después vos las revisás todas, agrupadas por estudiante, y marcás cuáles son buenas o malas — así medís la participación real de cada quien.</p>
       <label for="au-lluvia-pregunta" style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.4rem;">Pregunta o consigna para la lluvia de ideas (opcional)</label>
       <textarea id="au-lluvia-pregunta" rows="2" placeholder="Ej. ¿Qué gastos debería incluir el presupuesto de una pulpería?" style="width:100%; font-family:inherit; resize:vertical;"></textarea>`;
+  }
+  if (tipo === "proyecto") {
+    return `
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">El estudiante entrega poniendo un título, una descripción y un archivo. Puede volver a entregar las veces que necesite (por ejemplo si se equivocó de archivo) — cada entrega queda guardada y vos las ves todas en orden, no se borra la anterior. Útil para dividir un proyecto grande en partes: creá una actividad de este tipo por cada parte (ej. "Proyecto — Parte 1", "Proyecto — Parte 2"...) y cada una queda como su propio indicador calificable.</p>
+      <label for="au-proyecto-instrucciones" style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.4rem;">Instrucciones para el estudiante (qué debe entregar en esta parte)</label>
+      <textarea id="au-proyecto-instrucciones" rows="4" placeholder="Ej. Parte 1: Subí el documento con la investigación inicial del proyecto, con al menos 3 fuentes citadas." style="width:100%; font-family:inherit; resize:vertical;"></textarea>`;
   }
   return `<p class="empty">Este tipo todavía no está disponible — contame y lo agrego.</p>`;
 }
@@ -3838,6 +3949,51 @@ async function pintarPanelIdeas(panel, trabajoId) {
   });
 }
 
+// Panel del profesor para un "Proyecto": todas las entregas (puede haber
+// varias por estudiante, porque se permite volver a entregar), agrupadas
+// por estudiante y ordenadas de la más reciente a la más vieja.
+async function pintarPanelEntregasProyecto(panel, trabajoId) {
+  const { data: entregas } = await sb.from("proyecto_entregas").select("*").eq("trabajo_id", trabajoId).order("creado_en", { ascending: false });
+  if (!entregas || entregas.length === 0) {
+    panel.innerHTML = `<p class="empty" style="font-size:0.82rem;">Todavía nadie ha entregado.</p>`;
+    return;
+  }
+
+  const estudianteIds = [...new Set(entregas.map(e => e.estudiante_id))];
+  const { data: estudiantes } = await sb.from("estudiantes").select("id, nombre, apellido1, apellido2").in("id", estudianteIds);
+  const nombrePorId = {};
+  (estudiantes || []).forEach(e => { nombrePorId[e.id] = [e.apellido1, e.apellido2, e.nombre].filter(Boolean).join(" "); });
+
+  const porEstudiante = {};
+  entregas.forEach(e => { (porEstudiante[e.estudiante_id] = porEstudiante[e.estudiante_id] || []).push(e); });
+  const estudiantesOrdenados = Object.keys(porEstudiante).sort((a, b) => (nombrePorId[a] || a).localeCompare(nombrePorId[b] || b));
+
+  panel.innerHTML = `
+    <div style="margin-top:0.5rem; background:#F5F6FA; border-radius:8px; padding:0.7rem;">
+      <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.6rem;">${estudiantesOrdenados.length} estudiante${estudiantesOrdenados.length === 1 ? "" : "s"} entregaron. Si alguien entregó más de una vez, se ve la más reciente primero.</p>
+      ${estudiantesOrdenados.map(estId => {
+        const propias = porEstudiante[estId];
+        return `
+        <details style="margin-bottom:0.5rem; background:#fff; border-radius:8px; padding:0.6rem 0.8rem; border:1px solid var(--paper-line);">
+          <summary style="cursor:pointer; font-size:0.85rem; display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
+            <span>${nombrePorId[estId] || estId}</span>
+            <span style="font-size:0.78rem; color:var(--text-muted);">${propias.length} entrega${propias.length === 1 ? "" : "s"}</span>
+          </summary>
+          <div style="margin-top:0.5rem; display:grid; gap:0.4rem;">
+            ${propias.map(e => {
+              const { data: pub } = sb.storage.from("materiales").getPublicUrl(e.archivo_ruta);
+              return `<div style="font-size:0.85rem; padding:0.4rem 0.5rem; border-left:3px solid var(--paper-line);">
+                <strong>${e.titulo}</strong> <span style="color:var(--text-muted);">· ${formatearFechaHora(e.creado_en)}</span>
+                ${e.descripcion ? `<div style="margin-top:0.2rem;">${e.descripcion}</div>` : ""}
+                <a class="btn secondary small" style="margin-top:0.3rem;" href="${pub.publicUrl}" target="_blank" rel="noopener">📄 ${e.archivo_nombre || "Ver archivo"}</a>
+              </div>`;
+            }).join("")}
+          </div>
+        </details>`;
+      }).join("")}
+    </div>`;
+}
+
 // Diagnóstico agregado: de todos los que ya completaron la prueba,
 // cuántos acertaron y cuántos fallaron CADA pregunta, para detectar de
 // un vistazo las preguntas más difíciles (o mal planteadas) y qué tan
@@ -4150,6 +4306,10 @@ function leerContenidoActividadDesdeFormulario(tipo, el) {
   if (tipo === "lluvia_ideas") {
     const pregunta = (el.querySelector("#au-lluvia-pregunta")?.value || "").trim();
     return { valido: true, contenido: { pregunta } };
+  }
+  if (tipo === "proyecto") {
+    const instrucciones = (el.querySelector("#au-proyecto-instrucciones")?.value || "").trim();
+    return { valido: true, contenido: { instrucciones } };
   }
   return { valido: false, error: "Tipo de actividad no soportado todavía." };
 }
