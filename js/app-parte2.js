@@ -2657,8 +2657,9 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
           ${instrucciones ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${instrucciones}</div>` : ""}
           ${misEntregas.length ? `<span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Ya entregaste ${misEntregas.length} ve${misEntregas.length === 1 ? "z" : "ces"} — podés volver a entregar si necesitás corregir algo</span>` : ""}
           <form class="inline-form" data-proyecto-form="${t.id}" style="margin-top:0.3rem; width:100%;">
-            <input name="titulo" placeholder="Título de tu entrega" required style="flex:1; min-width:10rem" />
-            <textarea name="descripcion" placeholder="Descripción de tu entrega" rows="2" required style="flex-basis:100%; font-family:inherit; resize:vertical;"></textarea>
+            <input name="titulo" placeholder="${t.contenido_actividad?.placeholder_titulo || "Título de tu entrega"}" required style="flex:1; min-width:10rem" />
+            <textarea name="descripcion" data-proyecto-descripcion="${t.id}" placeholder="${t.contenido_actividad?.placeholder_descripcion || "Descripción de tu entrega"}" rows="3" required minlength="${t.contenido_actividad?.min_caracteres_descripcion || 1}" style="flex-basis:100%; font-family:inherit; resize:vertical;"></textarea>
+            ${t.contenido_actividad?.min_caracteres_descripcion ? `<span data-proyecto-contador="${t.id}" style="flex-basis:100%; font-size:0.75rem; color:var(--text-muted);">0 / ${t.contenido_actividad.min_caracteres_descripcion} caracteres mínimo</span>` : ""}
             <label style="flex-basis:100%; font-size:0.82rem;">Archivo:
               <input type="file" name="archivo" required style="display:block; margin-top:0.3rem;" />
             </label>
@@ -2850,6 +2851,20 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
       });
     });
 
+    holder.querySelectorAll("[data-proyecto-descripcion]").forEach(textarea => {
+      const trabajoId = textarea.dataset.proyectoDescripcion;
+      const contador = holder.querySelector(`[data-proyecto-contador="${trabajoId}"]`);
+      if (!contador) return;
+      const minimo = Number(textarea.getAttribute("minlength")) || 1;
+      const actualizarContador = () => {
+        const n = textarea.value.length;
+        contador.textContent = `${n} / ${minimo} caracteres mínimo`;
+        contador.style.color = n >= minimo ? "#1d7a43" : "var(--text-muted)";
+      };
+      textarea.addEventListener("input", actualizarContador);
+      actualizarContador();
+    });
+
     holder.querySelectorAll("[data-proyecto-form]").forEach(form => {
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -2857,6 +2872,9 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         const estado = holder.querySelector(`[data-proyecto-estado="${trabajoId}"]`);
         const f = new FormData(form);
         const archivo = f.get("archivo");
+        const descripcion = (f.get("descripcion") || "").toString();
+        const minimo = Number(form.querySelector("[data-proyecto-descripcion]")?.getAttribute("minlength")) || 1;
+        if (descripcion.length < minimo) { if (estado) estado.textContent = `La descripción necesita al menos ${minimo} caracteres (lleva ${descripcion.length}).`; return; }
         if (!archivo || !archivo.size) { if (estado) estado.textContent = "Adjuntá un archivo."; return; }
         const boton = form.querySelector("button[type=submit]");
         boton.disabled = true;
@@ -3598,7 +3616,18 @@ function construirPanelActividadHTML(tipo) {
     return `
       <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">El estudiante entrega poniendo un título, una descripción y un archivo. Puede volver a entregar las veces que necesite (por ejemplo si se equivocó de archivo) — cada entrega queda guardada y vos las ves todas en orden, no se borra la anterior. Útil para dividir un proyecto grande en partes: creá una actividad de este tipo por cada parte (ej. "Proyecto — Parte 1", "Proyecto — Parte 2"...) y cada una queda como su propio indicador calificable.</p>
       <label for="au-proyecto-instrucciones" style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.4rem;">Instrucciones para el estudiante (qué debe entregar en esta parte)</label>
-      <textarea id="au-proyecto-instrucciones" rows="4" placeholder="Ej. Parte 1: Subí el documento con la investigación inicial del proyecto, con al menos 3 fuentes citadas." style="width:100%; font-family:inherit; resize:vertical;"></textarea>`;
+      <textarea id="au-proyecto-instrucciones" rows="4" placeholder="Ej. Parte 1: Subí el documento con la investigación inicial del proyecto, con al menos 3 fuentes citadas." style="width:100%; font-family:inherit; resize:vertical; margin-bottom:0.6rem;"></textarea>
+      <div class="row" style="gap:0.6rem; margin-bottom:0.6rem;">
+        <label style="flex:1; min-width:10rem; font-size:0.82rem;">Etiqueta del campo "Título" (opcional)
+          <input id="au-proyecto-placeholder-titulo" placeholder="Ej. Nombre de la ley" style="width:100%; margin-top:0.2rem;" />
+        </label>
+        <label style="flex:1; min-width:10rem; font-size:0.82rem;">Etiqueta del campo "Descripción" (opcional)
+          <input id="au-proyecto-placeholder-descripcion" placeholder="Ej. Descripción general de la ley" style="width:100%; margin-top:0.2rem;" />
+        </label>
+      </div>
+      <label style="display:block; font-size:0.82rem;">Mínimo de caracteres exigidos en la descripción (opcional, dejalo en 0 si no querés exigir un mínimo)
+        <input id="au-proyecto-min-caracteres" type="number" min="0" step="10" value="0" style="width:8rem; margin-top:0.2rem; display:block;" />
+      </label>`;
   }
   return `<p class="empty">Este tipo todavía no está disponible — contame y lo agrego.</p>`;
 }
@@ -4309,7 +4338,10 @@ function leerContenidoActividadDesdeFormulario(tipo, el) {
   }
   if (tipo === "proyecto") {
     const instrucciones = (el.querySelector("#au-proyecto-instrucciones")?.value || "").trim();
-    return { valido: true, contenido: { instrucciones } };
+    const placeholder_titulo = (el.querySelector("#au-proyecto-placeholder-titulo")?.value || "").trim();
+    const placeholder_descripcion = (el.querySelector("#au-proyecto-placeholder-descripcion")?.value || "").trim();
+    const min_caracteres_descripcion = Number(el.querySelector("#au-proyecto-min-caracteres")?.value) || 0;
+    return { valido: true, contenido: { instrucciones, placeholder_titulo, placeholder_descripcion, min_caracteres_descripcion } };
   }
   return { valido: false, error: "Tipo de actividad no soportado todavía." };
 }
