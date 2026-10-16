@@ -3267,7 +3267,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         const tipo = trabajo.tipo_actividad;
         panel.innerHTML = `
           <div style="background:#F5F6FA; border-radius:8px; padding:0.8rem; margin-top:0.5rem;">
-            <p style="font-size:0.8rem; color:var(--brick); margin-bottom:0.6rem;">⚠️ Si algún estudiante ya resolvió esta actividad, su nota ya guardada no cambia — esto solo afecta a quienes la hagan (o la repitan) después de guardar. Si sobran bloques vacíos que no vas a usar, quitalos con "Quitar" antes de guardar.</p>
+            <p style="font-size:0.8rem; color:var(--brick); margin-bottom:0.6rem;">⚠️ ${TIPOS_CON_RETRO.includes(tipo) ? "Si algún estudiante ya resolvió esta actividad, al guardar se le recalcula la nota automáticamente con las preguntas que queden (las que borres no cuentan ni a favor ni en contra, sin que tenga que repetirla)." : "Si algún estudiante ya resolvió esta actividad, su nota ya guardada no cambia — esto solo afecta a quienes la hagan (o la repitan) después de guardar."} Si sobran bloques vacíos que no vas a usar, quitalos con "Quitar" antes de guardar.</p>
             <div data-editar-preguntas-constructor="${trabajoId}">${construirPanelActividadHTML(tipo)}</div>
             <div class="row" style="margin-top:0.8rem; gap:0.5rem; align-items:center;">
               <button class="btn small" data-guardar-preguntas="${trabajoId}">Guardar cambios</button>
