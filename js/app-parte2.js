@@ -3289,10 +3289,46 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
           const resultado = leerContenidoActividadDesdeFormulario(tipo, constructor);
           const estadoEl = panel.querySelector(`[data-guardar-preguntas-estado="${trabajoId}"]`);
           if (!resultado.valido) { if (estadoEl) estadoEl.textContent = resultado.error; return; }
+          const contenidoViejo = trabajo.contenido_actividad;
+          const btnGuardar = panel.querySelector(`[data-guardar-preguntas="${trabajoId}"]`);
+          btnGuardar.disabled = true;
+          if (estadoEl) estadoEl.textContent = "Guardando…";
           const { error } = await sb.from("trabajos_cotidianos").update({ contenido_actividad: resultado.contenido }).eq("id", trabajoId);
-          if (error) { if (estadoEl) estadoEl.textContent = "No se pudo guardar: " + error.message; return; }
+          if (error) {
+            btnGuardar.disabled = false;
+            if (estadoEl) estadoEl.textContent = "No se pudo guardar: " + error.message;
+            return;
+          }
           trabajo.contenido_actividad = resultado.contenido;
-          panel.innerHTML = `<p style="font-size:0.82rem; color:#1d7a43; margin-top:0.4rem;">✓ Cambios guardados.</p>`;
+
+          // Recalcula automáticamente la nota de quienes ya habían resuelto
+          // esta actividad, contra las preguntas/afirmaciones que quedaron
+          // después de editar — sin obligarlos a repetirla.
+          let mensajeRecalculo = "";
+          if (TIPOS_CON_RETRO.includes(tipo)) {
+            if (estadoEl) estadoEl.textContent = "Guardado — recalculando notas ya registradas…";
+            const { data: entregas } = await sb.from("actividades_estudiante").select("*").eq("trabajo_id", trabajoId).eq("completado", true);
+            const tieneCasoPractico = !!(resultado.contenido && resultado.contenido.casoPractico
+              && ((resultado.contenido.casoPractico.enunciado || "").trim() || (resultado.contenido.casoPractico.instruccion || "").trim()));
+            let recalculadas = 0;
+            for (const entrega of (entregas || [])) {
+              const r = recalcularResultadoActividad(tipo, contenidoViejo, resultado.contenido, entrega);
+              if (!r) continue;
+              const nuevoPuntaje = puntajeDesdePorcentaje(r.porcentaje);
+              const datosUpdate = { respuestas: r.respuestas, porcentaje: r.porcentaje, puntaje: nuevoPuntaje };
+              if (tipo === "prueba" && r.apareamientoRespuestas) {
+                datosUpdate.datos_prueba = { ...(entrega.datos_prueba || {}), apareamiento_respuestas: r.apareamientoRespuestas };
+              }
+              await sb.from("actividades_estudiante").update(datosUpdate).eq("id", entrega.id);
+              if (trabajo.indicador_id && !tieneCasoPractico) {
+                await upsertSinConflicto("calificaciones_indicador", { indicador_id: trabajo.indicador_id, estudiante_id: entrega.estudiante_id }, { puntaje_obtenido: nuevoPuntaje });
+              }
+              recalculadas++;
+            }
+            mensajeRecalculo = recalculadas > 0 ? ` Se recalculó la nota de ${recalculadas} estudiante${recalculadas === 1 ? "" : "s"} que ya la habían resuelto.` : "";
+          }
+
+          panel.innerHTML = `<p style="font-size:0.82rem; color:#1d7a43; margin-top:0.4rem;">✓ Cambios guardados.${mensajeRecalculo}</p>`;
           const panelVer = holder.querySelector(`[data-preguntas-panel="${trabajoId}"]`);
           if (panelVer) panelVer.innerHTML = "";
         });

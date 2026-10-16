@@ -180,6 +180,90 @@ function puntajeDesdePorcentaje(pct) {
   return 0;
 }
 
+// Cuando el profesor edita las preguntas/afirmaciones/pares de una
+// actividad ya resuelta por estudiantes (por ejemplo, borra preguntas de un
+// tema que no se alcanzó a cubrir), esto recalcula la nota de UNA entrega ya
+// guardada contra el contenido NUEVO, sin obligar al estudiante a repetirla.
+//
+// Empareja cada pregunta/afirmación/par VIEJO con su versión nueva por el
+// texto exacto (no por posición, porque al borrar una pregunta del medio
+// las que quedan se recorren de lugar):
+//  - si una pregunta ya no existe en la versión nueva, se descarta por
+//    completo (no cuenta ni a favor ni en contra de la nota);
+//  - si sigue existiendo, se revisa si lo que el estudiante había
+//    contestado sigue siendo la opción correcta en la versión nueva.
+// Devuelve null si el tipo no se recalcula automáticamente.
+function recalcularResultadoActividad(tipo, contenidoViejo, contenidoNuevo, entregaVieja) {
+  const respuestasViejas = Array.isArray(entregaVieja.respuestas) ? entregaVieja.respuestas : [];
+
+  if (tipo === "seleccion_unica" || tipo === "prueba") {
+    const preguntasViejas = (contenidoViejo && contenidoViejo.preguntas) || [];
+    const preguntasNuevas = (contenidoNuevo && contenidoNuevo.preguntas) || [];
+    const textoRespondidoPorPregunta = {};
+    preguntasViejas.forEach((p, i) => {
+      const r = respuestasViejas[i];
+      textoRespondidoPorPregunta[p.pregunta] = (r === null || r === undefined) ? null : (p.opciones || [])[r];
+    });
+    let correctasSeleccion = 0;
+    const respuestasNuevas = preguntasNuevas.map(p => {
+      const textoRespuesta = textoRespondidoPorPregunta.hasOwnProperty(p.pregunta) ? textoRespondidoPorPregunta[p.pregunta] : undefined;
+      if (textoRespuesta == null) return null;
+      const idx = (p.opciones || []).indexOf(textoRespuesta);
+      if (idx !== -1 && idx === Number(p.correcta)) correctasSeleccion++;
+      return idx === -1 ? null : idx;
+    });
+
+    if (tipo === "seleccion_unica") {
+      const porcentaje = preguntasNuevas.length ? (correctasSeleccion / preguntasNuevas.length) * 100 : 0;
+      return { respuestas: respuestasNuevas, porcentaje };
+    }
+
+    // "prueba" puede llevar además una sección de apareamiento, que también
+    // cuenta en el % automático — se recalcula igual, emparejando por el
+    // texto de la situación.
+    const paresViejos = (contenidoViejo && contenidoViejo.apareamiento && contenidoViejo.apareamiento.pares) || [];
+    const paresNuevos = (contenidoNuevo && contenidoNuevo.apareamiento && contenidoNuevo.apareamiento.pares) || [];
+    const apareamientoRespuestasViejas = (entregaVieja.datos_prueba && entregaVieja.datos_prueba.apareamiento_respuestas) || [];
+    let correctasApareamiento = 0;
+    let apareamientoRespuestasNuevas = null;
+    if (paresNuevos.length) {
+      const respuestaTextoPorSituacion = {};
+      paresViejos.forEach((par, i) => {
+        const r = apareamientoRespuestasViejas[i];
+        respuestaTextoPorSituacion[par.situacion] = (r === null || r === undefined) ? null : (paresViejos[r] || {}).respuesta;
+      });
+      apareamientoRespuestasNuevas = paresNuevos.map((par, i) => {
+        const textoRespuesta = respuestaTextoPorSituacion.hasOwnProperty(par.situacion) ? respuestaTextoPorSituacion[par.situacion] : undefined;
+        if (textoRespuesta == null) return null;
+        const idx = paresNuevos.findIndex(p2 => p2.respuesta === textoRespuesta);
+        if (idx === i && idx !== -1) correctasApareamiento++;
+        return idx === -1 ? null : idx;
+      });
+    }
+    const totalAuto = preguntasNuevas.length + paresNuevos.length;
+    const porcentaje = totalAuto ? ((correctasSeleccion + correctasApareamiento) / totalAuto) * 100 : 0;
+    return { respuestas: respuestasNuevas, porcentaje, apareamientoRespuestas: apareamientoRespuestasNuevas };
+  }
+
+  if (tipo === "falso_verdadero") {
+    const itemsViejos = (contenidoViejo && contenidoViejo.afirmaciones) || [];
+    const itemsNuevos = (contenidoNuevo && contenidoNuevo.afirmaciones) || [];
+    const respuestaPorTexto = {};
+    itemsViejos.forEach((it, i) => { respuestaPorTexto[it.texto] = respuestasViejas[i]; });
+    let correctas = 0;
+    const respuestasNuevas = itemsNuevos.map(it => {
+      const r = respuestaPorTexto.hasOwnProperty(it.texto) ? respuestaPorTexto[it.texto] : undefined;
+      if (r === undefined) return null;
+      if (r !== null && r === it.correcta) correctas++;
+      return r === undefined ? null : r;
+    });
+    const porcentaje = itemsNuevos.length ? (correctas / itemsNuevos.length) * 100 : 0;
+    return { respuestas: respuestasNuevas, porcentaje };
+  }
+
+  return null;
+}
+
 function mezclar(arr) {
   const copia = arr.slice();
   for (let i = copia.length - 1; i > 0; i--) {
