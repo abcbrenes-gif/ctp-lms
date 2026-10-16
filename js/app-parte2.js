@@ -3095,6 +3095,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
             ${t.tipo_actividad === "proyecto" ? `<button class="btn secondary small" data-ver-entregas-proyecto="${t.id}">📂 Ver entregas</button>` : ""}
             ${esEditable(t) ? `<button class="btn secondary small" data-ver-entregas-trabajo="${t.id}">📎 Ver archivos entregados</button>` : ""}
             ${ACTIVIDADES_BLOQUEADAS.includes(t.tipo_actividad) ? `<button class="btn secondary small" data-ver-preguntas="${t.id}">👁️ Ver preguntas</button>` : ""}
+            ${ACTIVIDADES_BLOQUEADAS.includes(t.tipo_actividad) ? `<button class="btn secondary small" data-editar-preguntas="${t.id}">✏️ Editar preguntas</button>` : ""}
             ${TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<button class="btn secondary small" data-ver-retro="${t.id}">📝 Ver retroalimentación</button>` : ""}
             ${TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<button class="btn ${t.retro_visible ? "" : "secondary"} small" data-toggle-retro-visible="${t.id}" data-estado-actual="${t.retro_visible === true}">${t.retro_visible ? "🙈 Ocultar respuestas a estudiantes" : "👁️ Mostrar respuestas a estudiantes"}</button>` : ""}
             ${t.tipo_actividad === "lluvia_ideas" ? `<button class="btn secondary small" data-ver-ideas="${t.id}">💡 Ver intervenciones</button>` : ""}
@@ -3119,6 +3120,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         ${t.tipo_actividad === "infografia" ? `<div data-entregas-panel="${t.id}"></div>` : ""}
         ${t.tipo_actividad === "proyecto" ? `<div data-entregas-proyecto-panel="${t.id}" style="width:100%;"></div>` : ""}
         ${ACTIVIDADES_BLOQUEADAS.includes(t.tipo_actividad) ? `<div data-preguntas-panel="${t.id}"></div>` : ""}
+        ${ACTIVIDADES_BLOQUEADAS.includes(t.tipo_actividad) ? `<div data-editar-preguntas-panel="${t.id}" style="width:100%;"></div>` : ""}
         ${TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<div data-retro-panel="${t.id}"></div>` : ""}
         ${t.tipo_actividad === "lluvia_ideas" ? `<div data-ideas-panel="${t.id}" style="width:100%;"></div>` : ""}
         ${t.tipo_actividad === "prueba" ? `<div data-hora-prueba-panel="${t.id}" style="width:100%;"></div>` : ""}
@@ -3251,6 +3253,49 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         const trabajo = trabajos.find(x => String(x.id) === String(trabajoId));
         if (!trabajo) return;
         panel.innerHTML = construirRevisionContenidoActividad(trabajo.tipo_actividad, trabajo.contenido_actividad);
+      });
+    });
+
+    holder.querySelectorAll("[data-editar-preguntas]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const trabajoId = btn.dataset.editarPreguntas;
+        const panel = holder.querySelector(`[data-editar-preguntas-panel="${trabajoId}"]`);
+        if (!panel) return;
+        if (panel.innerHTML) { panel.innerHTML = ""; return; }
+        const trabajo = trabajos.find(x => String(x.id) === String(trabajoId));
+        if (!trabajo) return;
+        const tipo = trabajo.tipo_actividad;
+        panel.innerHTML = `
+          <div style="background:#F5F6FA; border-radius:8px; padding:0.8rem; margin-top:0.5rem;">
+            <p style="font-size:0.8rem; color:var(--brick); margin-bottom:0.6rem;">⚠️ Si algún estudiante ya resolvió esta actividad, su nota ya guardada no cambia — esto solo afecta a quienes la hagan (o la repitan) después de guardar. Si sobran bloques vacíos que no vas a usar, quitalos con "Quitar" antes de guardar.</p>
+            <div data-editar-preguntas-constructor="${trabajoId}">${construirPanelActividadHTML(tipo)}</div>
+            <div class="row" style="margin-top:0.8rem; gap:0.5rem; align-items:center;">
+              <button class="btn small" data-guardar-preguntas="${trabajoId}">Guardar cambios</button>
+              <button class="btn secondary small" data-cancelar-editar-preguntas="${trabajoId}">Cancelar</button>
+              <span data-guardar-preguntas-estado="${trabajoId}" style="font-size:0.8rem; color:var(--text-muted);"></span>
+            </div>
+          </div>`;
+        const constructor = panel.querySelector(`[data-editar-preguntas-constructor="${trabajoId}"]`);
+        inicializarConstructorPorTipo(tipo, constructor);
+        const contenidoAdaptado = contenidoGuardadoParaEditar(tipo, trabajo.contenido_actividad);
+        if (tipo === "sopa_letras") {
+          const textarea = constructor.querySelector("#au-palabras-sopa");
+          if (textarea && contenidoAdaptado) textarea.value = (contenidoAdaptado.palabras || []).join("\n");
+        } else if (contenidoAdaptado) {
+          llenarPanelActividadConIA(tipo, constructor, contenidoAdaptado);
+        }
+        panel.querySelector(`[data-cancelar-editar-preguntas="${trabajoId}"]`).addEventListener("click", () => { panel.innerHTML = ""; });
+        panel.querySelector(`[data-guardar-preguntas="${trabajoId}"]`).addEventListener("click", async () => {
+          const resultado = leerContenidoActividadDesdeFormulario(tipo, constructor);
+          const estadoEl = panel.querySelector(`[data-guardar-preguntas-estado="${trabajoId}"]`);
+          if (!resultado.valido) { if (estadoEl) estadoEl.textContent = resultado.error; return; }
+          const { error } = await sb.from("trabajos_cotidianos").update({ contenido_actividad: resultado.contenido }).eq("id", trabajoId);
+          if (error) { if (estadoEl) estadoEl.textContent = "No se pudo guardar: " + error.message; return; }
+          trabajo.contenido_actividad = resultado.contenido;
+          panel.innerHTML = `<p style="font-size:0.82rem; color:#1d7a43; margin-top:0.4rem;">✓ Cambios guardados.</p>`;
+          const panelVer = holder.querySelector(`[data-preguntas-panel="${trabajoId}"]`);
+          if (panelVer) panelVer.innerHTML = "";
+        });
       });
     });
 
@@ -3852,6 +3897,24 @@ function llenarPanelActividadConIA(tipo, el, contenido) {
     const textarea = el.querySelector("#au-infografia-instrucciones");
     if (textarea) textarea.value = contenido.instrucciones;
   }
+}
+
+// El contenido YA GUARDADO de una actividad (lo que quedó en
+// trabajos_cotidianos.contenido_actividad al crearla) no siempre tiene la
+// misma forma que espera llenarPanelActividadConIA (pensada para lo que
+// devuelve la IA): sopa de letras y crucigrama guardan el resultado ya
+// generado ("colocadas"), no la lista de palabras/pistas que el profesor
+// escribió. Esto lo adapta para poder reutilizar el mismo formulario al
+// editar una actividad que ya existe.
+function contenidoGuardadoParaEditar(tipo, contenido) {
+  if (!contenido) return null;
+  if (tipo === "sopa_letras") {
+    return { palabras: (contenido.colocadas || []).map(c => c.palabra) };
+  }
+  if (tipo === "crucigrama") {
+    return { items: (contenido.colocadas || []).map(c => ({ palabra: c.palabra, pista: c.pista })) };
+  }
+  return contenido;
 }
 
 // Muestra (solo lectura) el contenido ya creado de una actividad, para que el
