@@ -883,6 +883,7 @@ async function iniciarActividadInteractiva(trabajo, estudianteId, onTerminado) {
       ? { ...datosPrueba, apareamiento_respuestas: resultado.apareamientoRespuestas || null, caso_respuesta: resultado.casoRespuesta || null }
       : null;
     const puntaje = await guardarResultadoActividad(trabajo, estudianteId, { ...resultado, datosPrueba: datosPruebaCompleto });
+    if (resultado.porcentaje >= 85 && typeof window !== "undefined" && window.lanzarConfeti) window.lanzarConfeti();
     onTerminado(puntaje, resultado.porcentaje, resultado.intentosSalida);
   });
 }

@@ -162,19 +162,19 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
                   <strong>${i.descripcion}</strong>
                   ${i.fecha_evaluacion ? `<div style="font-size:0.75rem; color:var(--text-muted);">Fecha: ${i.fecha_evaluacion}${i.lecciones ? " · " + i.lecciones + " lecciones" : ""}</div>` : ""}
                   ${esPruebaPendiente ? (aunNoEsHora
-                    ? `<div style="margin-top:0.3rem;"><span class="badge" style="background:#fdf1dc; color:#a5690a;">⏳ Disponible a partir de ${formatearFechaHora(trabajoPrueba.fecha_hora_inicio)}</span></div>`
+                    ? `<div style="margin-top:0.3rem;"><span class="badge" style="background:var(--warn-bg); color:var(--warn-text);">⏳ Disponible a partir de ${formatearFechaHora(trabajoPrueba.fecha_hora_inicio)}</span></div>`
                     : `<div style="margin-top:0.3rem;"><button class="btn small" data-iniciar-prueba-nota="${trabajoPrueba.id}">▶ Iniciar prueba</button></div>`) : ""}
                   ${esArchivoPendiente ? `<div style="margin-top:0.3rem;">
                     ${instruccionesArchivo ? `<div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.3rem;">${instruccionesArchivo}</div>` : ""}
                     ${entregaArchivo && entregaArchivo.archivo_ruta ? `
-                      <span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Entregado: ${entregaArchivo.archivo_nombre || "archivo"}</span>
+                      <span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Entregado: ${entregaArchivo.archivo_nombre || "archivo"}</span>
                       <label class="link-btn" style="cursor:pointer; margin-left:0.4rem;">Reemplazar archivo<input type="file" data-subir-archivo-nota="${trabajoPrueba.id}" accept="image/*,.pdf" style="display:none;" /></label>
                     ` : `
                       <label class="btn small" style="cursor:pointer;">📎 Subir archivo (imagen o PDF)<input type="file" data-subir-archivo-nota="${trabajoPrueba.id}" accept="image/*,.pdf" style="display:none;" /></label>
                     `}
                     <span data-subir-archivo-estado="${trabajoPrueba.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
                   </div>` : ""}
-                  ${esProyectoPendiente ? `<div style="margin-top:0.4rem; background:#F5F6FA; border-radius:8px; padding:0.6rem;">
+                  ${esProyectoPendiente ? `<div style="margin-top:0.4rem; background:var(--surface-soft); border-radius:8px; padding:0.6rem;">
                     ${cp.instrucciones ? `<div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.4rem;">${cp.instrucciones}</div>` : ""}
                     ${entregasProyectoNota.length ? `<p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.4rem;">✓ Ya entregaste ${entregasProyectoNota.length} ve${entregasProyectoNota.length === 1 ? "z" : "ces"} — podés volver a entregar si necesitás corregir algo.</p>` : ""}
                     <form data-proyecto-nota-form="${trabajoPrueba.id}" style="display:grid; gap:0.4rem;">
@@ -190,7 +190,7 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
                     ${entregasProyectoNota.length ? `<div style="margin-top:0.5rem; display:grid; gap:0.3rem;">
                       ${entregasProyectoNota.map(e => {
                         const { data: pub } = sb.storage.from("materiales").getPublicUrl(e.archivo_ruta);
-                        return `<div style="font-size:0.8rem; border-left:3px solid var(--paper-line); padding:0.3rem 0.5rem; background:#fff;">
+                        return `<div style="font-size:0.8rem; border-left:3px solid var(--paper-line); padding:0.3rem 0.5rem; background:var(--surface);">
                           <strong>${e.titulo}</strong> <span style="color:var(--text-muted);">· ${formatearFechaHora(e.creado_en)}</span>
                           ${e.descripcion ? `<div style="margin-top:0.15rem;">${e.descripcion}</div>` : ""}
                           <a class="btn secondary small" style="margin-top:0.3rem;" href="${pub.publicUrl}" target="_blank" rel="noopener">📄 ${e.archivo_nombre || "Ver archivo"}</a>
@@ -1637,9 +1637,9 @@ function pintarPresentacionSubtema(subtemaId, diapositivas, soloLectura) {
     <div class="presentacion-visor" style="margin-bottom:1.2rem; background:#0f172a; border-radius:14px; overflow:hidden;">
       <div style="position:relative; width:100%; aspect-ratio:16/9; background:#0f172a; display:flex; align-items:center; justify-content:center;">
         <img id="presentacion-img-${subtemaId}" src="${urls[0]}" alt="Diapositiva 1" style="width:100%; height:100%; object-fit:contain; display:block;" />
-        <button type="button" id="presentacion-prev-${subtemaId}" aria-label="Diapositiva anterior" style="position:absolute; left:0.5rem; top:50%; transform:translateY(-50%); background:rgba(15,23,42,0.6); color:#fff; border:none; border-radius:999px; width:2.4rem; height:2.4rem; font-size:1.2rem; cursor:pointer;">&larr;</button>
-        <button type="button" id="presentacion-next-${subtemaId}" aria-label="Siguiente diapositiva" style="position:absolute; right:0.5rem; top:50%; transform:translateY(-50%); background:rgba(15,23,42,0.6); color:#fff; border:none; border-radius:999px; width:2.4rem; height:2.4rem; font-size:1.2rem; cursor:pointer;">&rarr;</button>
-        <button type="button" id="presentacion-full-${subtemaId}" aria-label="Pantalla completa" style="position:absolute; right:0.5rem; bottom:0.5rem; background:rgba(15,23,42,0.6); color:#fff; border:none; border-radius:8px; padding:0.3rem 0.6rem; font-size:0.78rem; cursor:pointer;">⛶ Pantalla completa</button>
+        <button type="button" id="presentacion-prev-${subtemaId}" aria-label="Diapositiva anterior" style="position:absolute; left:0.5rem; top:50%; transform:translateY(-50%); background:rgba(15,23,42,0.6); color:var(--white); border:none; border-radius:999px; width:2.4rem; height:2.4rem; font-size:1.2rem; cursor:pointer;">&larr;</button>
+        <button type="button" id="presentacion-next-${subtemaId}" aria-label="Siguiente diapositiva" style="position:absolute; right:0.5rem; top:50%; transform:translateY(-50%); background:rgba(15,23,42,0.6); color:var(--white); border:none; border-radius:999px; width:2.4rem; height:2.4rem; font-size:1.2rem; cursor:pointer;">&rarr;</button>
+        <button type="button" id="presentacion-full-${subtemaId}" aria-label="Pantalla completa" style="position:absolute; right:0.5rem; bottom:0.5rem; background:rgba(15,23,42,0.6); color:var(--white); border:none; border-radius:8px; padding:0.3rem 0.6rem; font-size:0.78rem; cursor:pointer;">⛶ Pantalla completa</button>
       </div>
       <div style="display:flex; align-items:center; justify-content:center; gap:0.6rem; padding:0.5rem; background:#1b2340;">
         <span id="presentacion-contador-${subtemaId}" style="color:#C7D0E8; font-size:0.82rem;">1 / ${urls.length}</span>
@@ -1680,9 +1680,9 @@ function pintarVisorDocumentoSubtema(subtemaId, doc, holder) {
 
   holder.innerHTML = `
     <div class="presentacion-visor" id="presentacion-doc-visor-${subtemaId}" style="margin-bottom:1.2rem; background:#0f172a; border-radius:14px; overflow:hidden;">
-      <div style="position:relative; width:100%; aspect-ratio:16/9; background:#fff;">
+      <div style="position:relative; width:100%; aspect-ratio:16/9; background:var(--surface);">
         <iframe src="${srcVisor}" title="Documento de la introducción" style="width:100%; height:100%; border:none; display:block;" allowfullscreen></iframe>
-        <button type="button" id="presentacion-doc-full-${subtemaId}" aria-label="Pantalla completa" style="position:absolute; right:0.5rem; bottom:0.5rem; background:rgba(15,23,42,0.6); color:#fff; border:none; border-radius:8px; padding:0.3rem 0.6rem; font-size:0.78rem; cursor:pointer;">⛶ Pantalla completa</button>
+        <button type="button" id="presentacion-doc-full-${subtemaId}" aria-label="Pantalla completa" style="position:absolute; right:0.5rem; bottom:0.5rem; background:rgba(15,23,42,0.6); color:var(--white); border:none; border-radius:8px; padding:0.3rem 0.6rem; font-size:0.78rem; cursor:pointer;">⛶ Pantalla completa</button>
       </div>
       <div style="display:flex; align-items:center; justify-content:space-between; gap:0.6rem; padding:0.5rem 0.8rem; background:#1b2340;">
         <span style="color:#C7D0E8; font-size:0.82rem;">📄 ${doc.nombre || "Documento"}</span>
@@ -2550,7 +2550,7 @@ async function pintarTrabajosClase(trabajos, soloLectura, holderId, opts) {
         <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
           <span class="name">${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
           ${yaEntregado
-            ? `<span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Entregado${miEntrega.nota != null ? " · Nota: " + miEntrega.nota : ""}</span>`
+            ? `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Entregado${miEntrega.nota != null ? " · Nota: " + miEntrega.nota : ""}</span>`
             : ""}
         </div>
         ${t.instrucciones ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.instrucciones}</div>` : ""}
@@ -2749,7 +2749,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
             <span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>
           </div>
           ${instrucciones ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${instrucciones}</div>` : ""}
-          ${misEntregas.length ? `<span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Ya entregaste ${misEntregas.length} ve${misEntregas.length === 1 ? "z" : "ces"} — podés volver a entregar si necesitás corregir algo</span>` : ""}
+          ${misEntregas.length ? `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Ya entregaste ${misEntregas.length} ve${misEntregas.length === 1 ? "z" : "ces"} — podés volver a entregar si necesitás corregir algo</span>` : ""}
           <form class="inline-form" data-proyecto-form="${t.id}" style="margin-top:0.3rem; width:100%;">
             <input name="titulo" placeholder="${t.contenido_actividad?.placeholder_titulo || "Título de tu entrega"}" required style="flex:1; min-width:10rem" />
             <textarea name="descripcion" data-proyecto-descripcion="${t.id}" placeholder="${t.contenido_actividad?.placeholder_descripcion || "Descripción de tu entrega"}" rows="3" required minlength="${t.contenido_actividad?.min_caracteres_descripcion || 1}" style="flex-basis:100%; font-family:inherit; resize:vertical;"></textarea>
@@ -2763,7 +2763,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
           ${misEntregas.length ? `<div style="width:100%; display:grid; gap:0.4rem; margin-top:0.3rem;">
             ${misEntregas.map(e => {
               const { data: pub } = sb.storage.from("materiales").getPublicUrl(e.archivo_ruta);
-              return `<div style="font-size:0.82rem; padding:0.4rem 0.5rem; background:#F5F6FA; border-radius:6px;">
+              return `<div style="font-size:0.82rem; padding:0.4rem 0.5rem; background:var(--surface-soft); border-radius:6px;">
                 <strong>${e.titulo}</strong> <span style="color:var(--text-muted);">· ${formatearFechaHora(e.creado_en)}</span>
                 ${e.descripcion ? `<div style="margin-top:0.2rem;">${e.descripcion}</div>` : ""}
                 <a class="btn secondary small" style="margin-top:0.3rem;" href="${pub.publicUrl}" target="_blank" rel="noopener">📄 ${e.archivo_nombre || "Ver archivo"}</a>
@@ -2789,7 +2789,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
           <span data-idea-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
           ${misIdeasTrabajo.length ? `<div style="width:100%; display:grid; gap:0.3rem;">
             ${misIdeasTrabajo.map(idea => `
-              <div style="font-size:0.82rem; padding:0.35rem 0.5rem; border-left:3px solid ${idea.calificacion === "buena" ? "#1d7a43" : (idea.calificacion === "mala" ? "#c0392b" : "#bbb")}; background:#F5F6FA;">
+              <div style="font-size:0.82rem; padding:0.35rem 0.5rem; border-left:3px solid ${idea.calificacion === "buena" ? "#1d7a43" : (idea.calificacion === "mala" ? "#c0392b" : "#bbb")}; background:var(--surface-soft);">
                 ${idea.texto}${idea.calificacion === "buena" ? " · 👍" : (idea.calificacion === "mala" ? " · 👎" : "")}
               </div>`).join("")}
           </div>` : ""}
@@ -2808,7 +2808,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
           ${res && res.archivo_ruta
             ? (() => {
                 const { data: pub } = sb.storage.from("materiales").getPublicUrl(res.archivo_ruta);
-                return `<span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Entregado: ${res.archivo_nombre || "archivo"}${res.puntaje != null ? " — Nota: " + res.puntaje + "/3" : " (pendiente de calificación)"}</span>
+                return `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Entregado: ${res.archivo_nombre || "archivo"}${res.puntaje != null ? " — Nota: " + res.puntaje + "/3" : " (pendiente de calificación)"}</span>
                <a class="btn secondary small" href="${pub.publicUrl}" target="_blank" rel="noopener">👁️ Consultar mi entrega</a>`;
               })()
             : `<label class="btn small" style="cursor:pointer;">📎 Subir archivo (imagen o PDF)<input type="file" data-infografia-subir="${t.id}" accept="image/*,.pdf" style="display:none;" /></label>`}
@@ -2822,9 +2822,9 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         const aunNoEsHora = t.tipo_actividad === "prueba" && t.fecha_hora_inicio && new Date(t.fecha_hora_inicio) > new Date();
         let accionInicio;
         if (completo) {
-          accionInicio = `<span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Completado — Nota: ${res.puntaje}/3</span>`;
+          accionInicio = `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Completado — Nota: ${res.puntaje}/3</span>`;
         } else if (aunNoEsHora) {
-          accionInicio = `<span class="badge" style="background:#fdf1dc; color:#a5690a;">⏳ Disponible a partir de ${formatearFechaHora(t.fecha_hora_inicio)}</span>`;
+          accionInicio = `<span class="badge" style="background:var(--warn-bg); color:var(--warn-text);">⏳ Disponible a partir de ${formatearFechaHora(t.fecha_hora_inicio)}</span>`;
         } else {
           accionInicio = `<button class="btn small" data-iniciar-actividad="${t.id}">▶ Iniciar actividad</button>`;
         }
@@ -2850,7 +2850,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
           <span class="name">${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
           ${yaEntregado
-            ? `<span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Entregado</span>`
+            ? `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Entregado</span>`
             : `<label style="display:flex; align-items:center; gap:0.4rem; font-size:0.85rem;">
                  <input type="checkbox" data-mi-trabajo-subtema="${t.id}" /> Completado
                </label>`}
@@ -3266,7 +3266,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         if (!trabajo) return;
         const tipo = trabajo.tipo_actividad;
         panel.innerHTML = `
-          <div style="background:#F5F6FA; border-radius:8px; padding:0.8rem; margin-top:0.5rem;">
+          <div style="background:var(--surface-soft); border-radius:8px; padding:0.8rem; margin-top:0.5rem;">
             <p style="font-size:0.8rem; color:var(--brick); margin-bottom:0.6rem;">⚠️ ${TIPOS_CON_RETRO.includes(tipo) ? "Si algún estudiante ya resolvió esta actividad, al guardar se le recalcula la nota automáticamente con las preguntas que queden (las que borres no cuentan ni a favor ni en contra, sin que tenga que repetirla)." : "Si algún estudiante ya resolvió esta actividad, su nota ya guardada no cambia — esto solo afecta a quienes la hagan (o la repitan) después de guardar."} Si sobran bloques vacíos que no vas a usar, quitalos con "Quitar" antes de guardar.</p>
             <div data-editar-preguntas-constructor="${trabajoId}">${construirPanelActividadHTML(tipo)}</div>
             <div class="row" style="margin-top:0.8rem; gap:0.5rem; align-items:center;">
@@ -3328,7 +3328,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
             mensajeRecalculo = recalculadas > 0 ? ` Se recalculó la nota de ${recalculadas} estudiante${recalculadas === 1 ? "" : "s"} que ya la habían resuelto.` : "";
           }
 
-          panel.innerHTML = `<p style="font-size:0.82rem; color:#1d7a43; margin-top:0.4rem;">✓ Cambios guardados.${mensajeRecalculo}</p>`;
+          panel.innerHTML = `<p style="font-size:0.82rem; color:var(--success-text); margin-top:0.4rem;">✓ Cambios guardados.${mensajeRecalculo}</p>`;
           const panelVer = holder.querySelector(`[data-preguntas-panel="${trabajoId}"]`);
           if (panelVer) panelVer.innerHTML = "";
         });
@@ -3352,7 +3352,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         const nombrePorId = {};
         (estudiantes || []).forEach(e => { nombrePorId[e.id] = [e.nombre, e.apellido1, e.apellido2].filter(Boolean).join(" "); });
         panel.innerHTML = `
-          <div style="background:#F5F6FA; border-radius:8px; padding:0.7rem; margin-top:0.4rem;">
+          <div style="background:var(--surface-soft); border-radius:8px; padding:0.7rem; margin-top:0.4rem;">
             <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">La nota se pone en la sección "Rúbrica y Evaluaciones" (0 a 3), ya que el indicador quedó creado.</p>
             ${entregas.map(e => {
               const { data: pub } = sb.storage.from("materiales").getPublicUrl(e.archivo_ruta);
@@ -3382,7 +3382,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         const nombrePorId = {};
         (estudiantes || []).forEach(e => { nombrePorId[e.id] = [e.nombre, e.apellido1, e.apellido2].filter(Boolean).join(" "); });
         panel.innerHTML = `
-          <div style="background:#F5F6FA; border-radius:8px; padding:0.7rem; margin-top:0.4rem;">
+          <div style="background:var(--surface-soft); border-radius:8px; padding:0.7rem; margin-top:0.4rem;">
             <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">El estudiante ya no puede volver a entregar este trabajo una vez marcado. Si alguien se equivocó, usá "↺ Permitir reintento". La nota se pone en la sección "Rúbrica y Evaluaciones" (0 a 3), si este trabajo quedó marcado como indicador.</p>
             ${entregas.map(e => {
               const link = e.archivo_ruta ? sb.storage.from("materiales").getPublicUrl(e.archivo_ruta).data.publicUrl : "";
@@ -3435,7 +3435,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
 
 function construirSelectorTipoActividad() {
   return `
-    <div style="background:#fff; border:1px solid var(--paper-line); border-radius:10px; padding:1rem;">
+    <div style="background:var(--surface); border:1px solid var(--paper-line); border-radius:10px; padding:1rem;">
       <div class="row" style="margin-bottom:0.6rem;">
         <input id="actividad-titulo" placeholder="Título de la actividad" style="flex:1; min-width:12rem" />
         <input id="actividad-fecha" type="date" />
@@ -3484,7 +3484,7 @@ function construirSelectorTipoActividad() {
 // para que los inputs/radios de ese bloque no choquen con los de otros.
 function bloquePreguntaPruebaHTML(i) {
   return `
-    <div class="au-prueba-bloque" data-bloque="${i}" style="background:#F5F6FA; border-radius:8px; padding:0.8rem; margin-bottom:0.6rem;">
+    <div class="au-prueba-bloque" data-bloque="${i}" style="background:var(--surface-soft); border-radius:8px; padding:0.8rem; margin-bottom:0.6rem;">
       <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
         <p class="au-prueba-numero" style="font-weight:600; font-size:0.85rem; margin:0;">Pregunta</p>
         <button type="button" class="btn danger small au-prueba-quitar" data-bloque="${i}">Quitar</button>
@@ -3557,7 +3557,7 @@ function agregarParApareamientoBloque(contenedor) {
 
 function bloqueAfirmacionHTML(i) {
   return `
-    <div class="au-fv-bloque" data-bloque="${i}" style="background:#F5F6FA; border-radius:8px; padding:0.8rem; margin-bottom:0.6rem;">
+    <div class="au-fv-bloque" data-bloque="${i}" style="background:var(--surface-soft); border-radius:8px; padding:0.8rem; margin-bottom:0.6rem;">
       <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
         <p class="au-fv-numero" style="font-weight:600; font-size:0.85rem; margin:0;">Afirmación</p>
         <button type="button" class="btn danger small au-fv-quitar" data-bloque="${i}">Quitar</button>
@@ -3715,7 +3715,7 @@ function construirPanelActividadHTML(tipo) {
   if (tipo === "prueba") {
     const preguntasIniciales = Array.from({ length: 5 }, (_, i) => i);
     return `
-      <div style="background:#FFF7E8; border:1px solid #E8C777; border-radius:8px; padding:0.8rem; margin-bottom:0.8rem;">
+      <div style="background:var(--warn-bg); border:1px solid #E8C777; border-radius:8px; padding:0.8rem; margin-bottom:0.8rem;">
         <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.4rem;">Hora de inicio (opcional)</label>
         <input type="datetime-local" id="au-prueba-hora-inicio" style="padding:0.4rem;" />
         <p style="font-size:0.78rem; color:var(--text-muted); margin-top:0.4rem;">Si la dejás vacía, la prueba queda disponible apenas la habilités con el botón "Habilitado" de la lista. Si ponés una hora, nadie va a poder entrar antes de esa hora aunque ya esté habilitada — y vos podés además deshabilitarla manualmente en cualquier momento para cerrarla. Solo vos podés cambiar esto.</p>
@@ -3748,7 +3748,7 @@ function construirPanelActividadHTML(tipo) {
         <p style="font-weight:600; font-size:0.9rem; margin-bottom:0.3rem;">Caso práctico / desarrollo (opcional)</p>
         <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.6rem;">Se agrega como última parte de la prueba. El estudiante escribe su respuesta en un cuadro de texto y vos la calificás a mano en Rúbrica y Evaluaciones, igual que con una Infografía. Dejalo vacío si esta prueba no lleva caso práctico.</p>
         <label style="font-size:0.82rem; display:block; margin-bottom:0.3rem;">Enunciado del caso (podés pegar texto y tablas)</label>
-        <div id="au-prueba-caso-enunciado" contenteditable="true" style="min-height:6rem; border:1px solid var(--paper-line); border-radius:6px; padding:0.6rem; margin-bottom:0.6rem; font-size:0.85rem; background:#fff;"></div>
+        <div id="au-prueba-caso-enunciado" contenteditable="true" style="min-height:6rem; border:1px solid var(--paper-line); border-radius:6px; padding:0.6rem; margin-bottom:0.6rem; font-size:0.85rem; background:var(--surface);"></div>
         <label style="font-size:0.82rem; display:block; margin-bottom:0.3rem;">Qué debe entregar el estudiante</label>
         <textarea id="au-prueba-caso-instruccion" rows="2" placeholder="Ej. Elaborar el libro de compras del trimestre con los datos del caso." style="width:100%; font-family:inherit; resize:vertical;"></textarea>
       </div>`;
@@ -3958,14 +3958,14 @@ function contenidoGuardadoParaEditar(tipo, contenido) {
 // como estudiante.
 function construirRevisionContenidoActividad(tipo, contenido) {
   if (!contenido) return `<p class="empty" style="font-size:0.82rem;">Esta actividad no tiene contenido guardado.</p>`;
-  const envoltura = (html) => `<div style="background:#F5F6FA; border-radius:8px; padding:0.8rem; margin-top:0.5rem; font-size:0.85rem;">${html}</div>`;
+  const envoltura = (html) => `<div style="background:var(--surface-soft); border-radius:8px; padding:0.8rem; margin-top:0.5rem; font-size:0.85rem;">${html}</div>`;
 
   if ((tipo === "seleccion_unica" || tipo === "prueba") && Array.isArray(contenido.preguntas)) {
     return envoltura(contenido.preguntas.map((p, i) => `
       <div style="margin-bottom:0.7rem;">
         <p style="font-weight:600;">${i + 1}. ${p.pregunta}</p>
         <ul style="margin:0.2rem 0 0 1.2rem; padding:0;">
-          ${(p.opciones || []).map((op, j) => `<li style="${j === Number(p.correcta) ? "color:#1d7a43; font-weight:600;" : ""}">${op}${j === Number(p.correcta) ? " ✓" : ""}</li>`).join("")}
+          ${(p.opciones || []).map((op, j) => `<li style="${j === Number(p.correcta) ? "color:var(--success-text); font-weight:600;" : ""}">${op}${j === Number(p.correcta) ? " ✓" : ""}</li>`).join("")}
         </ul>
       </div>`).join(""));
   }
@@ -4057,7 +4057,7 @@ async function construirRetroalimentacionActividad(trabajo, soloEstudianteId) {
       html += `
         <div style="margin-top:0.6rem;">
           <p style="font-weight:600; font-size:0.82rem; margin-bottom:0.3rem;">Caso práctico (calificar a mano en Rúbrica y Evaluaciones):</p>
-          <div style="font-size:0.82rem; background:#fff; border:1px solid var(--paper-line); border-radius:6px; padding:0.5rem 0.6rem; white-space:pre-wrap;">${dp.caso_respuesta ? dp.caso_respuesta.replace(/[<>]/g, "") : "<em>Sin respuesta</em>"}</div>
+          <div style="font-size:0.82rem; background:var(--surface); border:1px solid var(--paper-line); border-radius:6px; padding:0.5rem 0.6rem; white-space:pre-wrap;">${dp.caso_respuesta ? dp.caso_respuesta.replace(/[<>]/g, "") : "<em>Sin respuesta</em>"}</div>
         </div>`;
     }
     return html;
@@ -4080,7 +4080,7 @@ async function construirRetroalimentacionActividad(trabajo, soloEstudianteId) {
 
   if (soloEstudianteId) {
     const { correctas, preguntas } = detalleDe(entregas[0]);
-    return `<div style="margin-top:0.5rem; background:#F5F6FA; border-radius:8px; padding:0.6rem 0.8rem;">
+    return `<div style="margin-top:0.5rem; background:var(--surface-soft); border-radius:8px; padding:0.6rem 0.8rem;">
       <p style="font-weight:600; margin-bottom:0.5rem;">Tu nota: ${correctas}/${items.length} (${items.length ? Math.round((correctas / items.length) * 100) : 0}%)</p>
       <div style="display:grid; gap:0.4rem;">${preguntas}</div>
     </div>`;
@@ -4096,7 +4096,7 @@ async function construirRetroalimentacionActividad(trabajo, soloEstudianteId) {
     .map(e => {
       const { correctas, preguntas } = detalleDe(e);
       return `
-      <details style="margin-bottom:0.5rem; background:#F5F6FA; border-radius:8px; padding:0.6rem 0.8rem;">
+      <details style="margin-bottom:0.5rem; background:var(--surface-soft); border-radius:8px; padding:0.6rem 0.8rem;">
         <summary style="cursor:pointer; font-size:0.85rem; display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
           <span>${nombrePorId[e.estudiante_id] || e.estudiante_id}</span>
           <strong>Nota: ${correctas}/${items.length} (${items.length ? Math.round((correctas / items.length) * 100) : 0}%)</strong>
@@ -4133,14 +4133,14 @@ async function pintarPanelIdeas(panel, trabajoId) {
   const estudiantesOrdenados = Object.keys(porEstudiante).sort((a, b) => (nombrePorId[a] || a).localeCompare(nombrePorId[b] || b));
 
   panel.innerHTML = `
-    <div style="margin-top:0.5rem; background:#F5F6FA; border-radius:8px; padding:0.7rem;">
+    <div style="margin-top:0.5rem; background:var(--surface-soft); border-radius:8px; padding:0.7rem;">
       <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.6rem;">${estudiantesOrdenados.length} estudiante${estudiantesOrdenados.length === 1 ? "" : "s"} participaron · ${ideas.length} idea${ideas.length === 1 ? "" : "s"} en total. Marcá cada idea como buena o mala — un segundo clic en la misma la deja sin marcar.</p>
       ${estudiantesOrdenados.map(estId => {
         const propias = porEstudiante[estId];
         const buenas = propias.filter(i => i.calificacion === "buena").length;
         const malas = propias.filter(i => i.calificacion === "mala").length;
         return `
-        <details open style="margin-bottom:0.5rem; background:#fff; border-radius:8px; padding:0.6rem 0.8rem; border:1px solid var(--paper-line);">
+        <details open style="margin-bottom:0.5rem; background:var(--surface); border-radius:8px; padding:0.6rem 0.8rem; border:1px solid var(--paper-line);">
           <summary style="cursor:pointer; font-size:0.85rem; display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
             <span>${nombrePorId[estId] || estId}</span>
             <span style="font-size:0.78rem; color:var(--text-muted);">${propias.length} intervención${propias.length === 1 ? "" : "es"} · 👍 ${buenas} · 👎 ${malas}</span>
@@ -4208,7 +4208,7 @@ async function pintarPanelEntregasProyecto(panel, trabajoId) {
   }
 
   panel.innerHTML = `
-    <div style="margin-top:0.5rem; background:#F5F6FA; border-radius:8px; padding:0.7rem;">
+    <div style="margin-top:0.5rem; background:var(--surface-soft); border-radius:8px; padding:0.7rem;">
       <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.4rem;">${estudiantesOrdenados.length} estudiante${estudiantesOrdenados.length === 1 ? "" : "s"} entregaron. Si alguien entregó más de una vez, se ve la más reciente primero.</p>
       ${botonConfigurarCantidadHTML(trabajoId, cantidadEsperada)}
       ${cantidadEsperada > 0 ? `<button class="btn small" data-calificar-proyecto-ia="${trabajoId}" style="margin-top:0.5rem;">🤖 Calificar con IA y aplicar notas</button>
@@ -4217,7 +4217,7 @@ async function pintarPanelEntregasProyecto(panel, trabajoId) {
         const propias = porEstudiante[estId];
         const promedio = promedioDe(propias);
         return `
-        <details style="margin-top:0.6rem; margin-bottom:0.5rem; background:#fff; border-radius:8px; padding:0.6rem 0.8rem; border:1px solid var(--paper-line);">
+        <details style="margin-top:0.6rem; margin-bottom:0.5rem; background:var(--surface); border-radius:8px; padding:0.6rem 0.8rem; border:1px solid var(--paper-line);">
           <summary style="cursor:pointer; font-size:0.85rem; display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
             <span>${nombrePorId[estId] || estId}</span>
             <span style="font-size:0.78rem; color:var(--text-muted);">${propias.length}${cantidadEsperada ? "/" + cantidadEsperada : ""} entrega${propias.length === 1 ? "" : "s"}${promedio != null ? ` · promedio IA: ${promedio.toFixed(1)}/100 → ${(promedio / 100 * 3).toFixed(1)}/3` : ""}</span>
@@ -4373,7 +4373,7 @@ async function construirDiagnosticoPorPregunta(trabajo) {
     const pct = total ? Math.round((correctas / total) * 100) : 0;
     const color = pct >= 70 ? "#1d7a43" : (pct >= 40 ? "#a5690a" : "#c0392b");
     return { pct, html: `
-      <div style="padding:0.5rem 0.6rem; border-left:4px solid ${color}; background:#F5F6FA; border-radius:4px; margin-bottom:0.4rem;">
+      <div style="padding:0.5rem 0.6rem; border-left:4px solid ${color}; background:var(--surface-soft); border-radius:4px; margin-bottom:0.4rem;">
         <div style="font-weight:600; font-size:0.85rem;">${i + 1}. ${item.texto}</div>
         <div style="font-size:0.8rem; color:${color};">${correctas}/${total} acertaron (${pct}%)</div>
       </div>` };
@@ -4481,7 +4481,7 @@ async function pintarPanelPuntosPorParte(panel, trabajo, indicadorId, totalPunto
     }).join("");
 
   panel.innerHTML = `
-    <div style="margin-top:0.6rem; background:#F5F6FA; border-radius:8px; padding:0.8rem;">
+    <div style="margin-top:0.6rem; background:var(--surface-soft); border-radius:8px; padding:0.8rem;">
       <div class="row" style="align-items:center; margin-bottom:0.6rem; flex-wrap:wrap; gap:0.5rem;">
         <label style="font-size:0.82rem; display:flex; align-items:center; gap:0.4rem;">Total de puntos de la prueba:
           <input type="number" min="1" value="${total}" data-total-puntos-input style="width:5rem;" />
@@ -4762,7 +4762,7 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
           ${res && res.archivo_ruta
             ? (() => {
                 const { data: pub } = sb.storage.from("materiales").getPublicUrl(res.archivo_ruta);
-                return `<span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Entregado: ${res.archivo_nombre || "archivo"}${res.puntaje != null ? " — Nota: " + res.puntaje + "/3" : " (pendiente de calificación)"}</span>
+                return `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Entregado: ${res.archivo_nombre || "archivo"}${res.puntaje != null ? " — Nota: " + res.puntaje + "/3" : " (pendiente de calificación)"}</span>
                <a class="btn secondary small" href="${pub.publicUrl}" target="_blank" rel="noopener">👁️ Consultar mi entrega</a>`;
               })()
             : `<label class="btn small" style="cursor:pointer;">📎 Subir archivo (imagen o PDF)<input type="file" data-infografia-subir-tema="${t.id}" accept="image/*,.pdf" style="display:none;" /></label>`}
@@ -4776,9 +4776,9 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
         const aunNoEsHora = t.tipo_actividad === "prueba" && t.fecha_hora_inicio && new Date(t.fecha_hora_inicio) > new Date();
         let accionInicio;
         if (completo) {
-          accionInicio = `<span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Completado — Nota: ${res.puntaje}/3</span>`;
+          accionInicio = `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Completado — Nota: ${res.puntaje}/3</span>`;
         } else if (aunNoEsHora) {
-          accionInicio = `<span class="badge" style="background:#fdf1dc; color:#a5690a;">⏳ Disponible a partir de ${formatearFechaHora(t.fecha_hora_inicio)}</span>`;
+          accionInicio = `<span class="badge" style="background:var(--warn-bg); color:var(--warn-text);">⏳ Disponible a partir de ${formatearFechaHora(t.fecha_hora_inicio)}</span>`;
         } else {
           accionInicio = `<button class="btn small" data-iniciar-actividad-tema="${t.id}">▶ ${t.tipo_actividad === "prueba" ? "Iniciar prueba" : "Iniciar actividad"}</button>`;
         }
@@ -4804,7 +4804,7 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
         <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
           <span class="name">${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
           ${yaEntregado
-            ? `<span class="badge" style="background:#e3f6ea; color:#1d7a43;">✓ Entregado</span>`
+            ? `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Entregado</span>`
             : `<label style="display:flex; align-items:center; gap:0.4rem; font-size:0.85rem;">
                  <input type="checkbox" data-mi-trabajo="${t.id}" /> Completado
                </label>`}
@@ -5063,7 +5063,7 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
         const nombrePorId = {};
         (estudiantes || []).forEach(e => { nombrePorId[e.id] = [e.nombre, e.apellido1, e.apellido2].filter(Boolean).join(" "); });
         panel.innerHTML = `
-          <div style="background:#F5F6FA; border-radius:8px; padding:0.7rem; margin-top:0.4rem;">
+          <div style="background:var(--surface-soft); border-radius:8px; padding:0.7rem; margin-top:0.4rem;">
             <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">El estudiante ya no puede volver a entregar este trabajo una vez marcado. Si alguien se equivocó, usá "↺ Permitir reintento". La nota se pone en la sección "Rúbrica y Evaluaciones" (0 a 3), si este trabajo quedó marcado como indicador.</p>
             ${entregas.map(e => {
               const link = e.archivo_ruta ? sb.storage.from("materiales").getPublicUrl(e.archivo_ruta).data.publicUrl : "";
@@ -5972,7 +5972,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       if (panel.innerHTML.trim()) { panel.innerHTML = ""; return; }
       const ind = (indicadores || []).find(i => String(i.id) === String(indicadorId));
       panel.innerHTML = `
-        <div style="background:#F5F6FA; border-radius:8px; padding:0.7rem; margin-top:0.4rem;">
+        <div style="background:var(--surface-soft); border-radius:8px; padding:0.7rem; margin-top:0.4rem;">
           <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">Esta entrega queda disponible directamente acá, en este indicador — no necesita estar dentro de un tema o subtema.</p>
           <textarea data-archivo-instrucciones="${indicadorId}" rows="3" placeholder="Instrucciones para el estudiante (opcional)" style="width:100%; font-family:inherit; margin-bottom:0.6rem;"></textarea>
           <button class="btn small" data-crear-archivo-ind="${indicadorId}" type="button">Pedir entrega</button>
@@ -6026,7 +6026,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       const nombrePorId = {};
       (estudiantes || []).forEach(e => { nombrePorId[e.id] = [e.apellido1, e.apellido2, e.nombre].filter(Boolean).join(" "); });
       panel.innerHTML = `
-        <div style="background:#F5F6FA; border-radius:8px; padding:0.7rem; margin-top:0.4rem;">
+        <div style="background:var(--surface-soft); border-radius:8px; padding:0.7rem; margin-top:0.4rem;">
           <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">La nota se pone arriba, en el selector de este mismo indicador (0 a ${ind ? ind.puntaje_maximo : 3}).</p>
           ${entregas
             .sort((a, b) => (nombrePorId[a.estudiante_id] || "").localeCompare(nombrePorId[b.estudiante_id] || ""))
@@ -6053,7 +6053,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       if (panel.innerHTML.trim()) { panel.innerHTML = ""; return; }
       const ind = (indicadores || []).find(i => String(i.id) === String(indicadorId));
       panel.innerHTML = `
-        <div style="background:#F5F6FA; border-radius:8px; padding:0.7rem; margin-top:0.4rem;">
+        <div style="background:var(--surface-soft); border-radius:8px; padding:0.7rem; margin-top:0.4rem;">
           <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">El estudiante va a poder entregar un título, una descripción y un archivo, las veces que necesite. Queda disponible directo acá, en este indicador.</p>
           <textarea data-proyecto-instrucciones="${indicadorId}" rows="3" placeholder="Instrucciones para el estudiante (opcional)" style="width:100%; font-family:inherit; margin-bottom:0.6rem;"></textarea>
           <details style="margin-bottom:0.6rem;">
@@ -6212,7 +6212,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
     const panel = document.getElementById("crear-prueba-materia-panel");
     if (!panel) return;
     panel.innerHTML = `
-      <div style="background:#fff; border:1px solid var(--paper-line); border-radius:10px; padding:1rem;">
+      <div style="background:var(--surface); border:1px solid var(--paper-line); border-radius:10px; padding:1rem;">
         <div class="row" style="margin-bottom:0.6rem;">
           <input id="prueba-materia-titulo" placeholder="Título de la prueba" style="flex:1; min-width:12rem" />
           <input id="prueba-materia-fecha" type="date" />

@@ -298,8 +298,8 @@ async function renderSeccion(sec) {
       <span class="name">${s.apellido1} ${s.apellido2}, ${s.nombre}</span>
       <span style="display:flex; align-items:center; gap:0.8rem;">
         <span class="cedula">${s.id}</span>
-        ${s.pin ? `<span class="badge" style="font-family:monospace;">🔐 ${s.pin}</span>` : `<span class="badge" style="background:#fdecea; color:#c0392b;">Sin PIN</span>`}
-        ${s.clave_prueba ? `<span class="badge" style="font-family:monospace;">🎫 ${s.clave_prueba}</span>` : `<span class="badge" style="background:#fdecea; color:#c0392b;">Sin clave de prueba</span>`}
+        ${s.pin ? `<span class="badge" style="font-family:monospace;">🔐 ${s.pin}</span>` : `<span class="badge" style="background:var(--danger-bg); color:var(--danger-text);">Sin PIN</span>`}
+        ${s.clave_prueba ? `<span class="badge" style="font-family:monospace;">🎫 ${s.clave_prueba}</span>` : `<span class="badge" style="background:var(--danger-bg); color:var(--danger-text);">Sin clave de prueba</span>`}
       </span>
     </a>`).join("");
 
