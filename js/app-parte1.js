@@ -1333,6 +1333,75 @@ function initials(s) { return (s.apellido1[0] || "") + (s.nombre[0] || ""); }
 
 // ---------- PERFIL (notas, tareas, whatsapp, materias) ----------
 
+// --- Logros / progreso del estudiante (gamificación) ---
+// Se calcula en el momento a partir de lo que ya existe en la base de datos
+// (no necesita tablas nuevas): actividades interactivas completadas,
+// entregas de proyecto, y el promedio de los indicadores ya calificados.
+const DEFINICION_LOGROS = [
+  { id: "primeros-pasos", icono: "🎯", nombre: "Primeros pasos", cumple: (m) => m.actividadesCompletadas + m.entregasProyecto >= 1 },
+  { id: "racha-5", icono: "🔥", nombre: "Racha de 5", cumple: (m) => m.actividadesCompletadas + m.entregasProyecto >= 5 },
+  { id: "imparable", icono: "📚", nombre: "Imparable", cumple: (m) => m.actividadesCompletadas + m.entregasProyecto >= 15 },
+  { id: "nota-perfecta", icono: "🏆", nombre: "Nota perfecta", cumple: (m) => m.algunaNotaPerfecta },
+  { id: "mente-brillante", icono: "🧠", nombre: "Mente brillante", cumple: (m) => m.indicadoresCalificados >= 3 && m.promedioIndicadores >= 90 }
+];
+
+async function calcularMetricasLogros(estudianteId) {
+  const [{ count: actividadesCompletadas }, { data: actividades }, { count: entregasProyecto }, { data: calificaciones }] = await Promise.all([
+    sb.from("actividades_estudiante").select("id", { count: "exact", head: true }).eq("estudiante_id", estudianteId).eq("completado", true),
+    sb.from("actividades_estudiante").select("porcentaje").eq("estudiante_id", estudianteId).eq("completado", true),
+    sb.from("proyecto_entregas").select("id", { count: "exact", head: true }).eq("estudiante_id", estudianteId),
+    sb.from("calificaciones_indicador").select("indicador_id, puntaje_obtenido").eq("estudiante_id", estudianteId).not("puntaje_obtenido", "is", null)
+  ]);
+  const algunaNotaPerfecta = (actividades || []).some(a => Number(a.porcentaje) >= 100);
+  let filasIndicadores = [];
+  if (calificaciones && calificaciones.length) {
+    const { data: indicadoresInfo } = await sb.from("indicadores").select("id, puntaje_maximo").in("id", calificaciones.map(c => c.indicador_id));
+    const maximoPorIndicador = {};
+    (indicadoresInfo || []).forEach(i => { maximoPorIndicador[i.id] = i.puntaje_maximo; });
+    filasIndicadores = calificaciones
+      .map(c => ({ obtenido: c.puntaje_obtenido, maximo: maximoPorIndicador[c.indicador_id] }))
+      .filter(f => f.maximo);
+  }
+  const indicadoresCalificados = filasIndicadores.length;
+  const promedioIndicadores = indicadoresCalificados
+    ? (filasIndicadores.reduce((acc, f) => acc + (f.obtenido / f.maximo) * 100, 0) / indicadoresCalificados)
+    : 0;
+  return {
+    actividadesCompletadas: actividadesCompletadas || 0,
+    entregasProyecto: entregasProyecto || 0,
+    algunaNotaPerfecta,
+    indicadoresCalificados,
+    promedioIndicadores
+  };
+}
+
+async function pintarPanelLogros(estudianteId) {
+  const panel = document.getElementById("logros-panel");
+  if (!panel) return;
+  panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando logros…</p>`;
+  let metricas;
+  try {
+    metricas = await calcularMetricasLogros(estudianteId);
+  } catch (e) {
+    panel.innerHTML = "";
+    return;
+  }
+  const pct = Math.round(metricas.promedioIndicadores);
+  panel.innerHTML = `
+    <div class="xp-progress">
+      <div class="xp-label"><span>Desempeño general ${metricas.indicadoresCalificados ? `(${metricas.indicadoresCalificados} indicador${metricas.indicadoresCalificados === 1 ? "" : "es"} calificado${metricas.indicadoresCalificados === 1 ? "" : "s"})` : "(sin indicadores calificados todavía)"}</span><span>${pct}%</span></div>
+      <div class="xp-progress-track"><div class="xp-progress-fill" style="width:${pct}%;"></div></div>
+    </div>
+    <div class="badges-row">
+      ${DEFINICION_LOGROS.map(l => {
+        const desbloqueado = l.cumple(metricas);
+        return `<div class="badge-pill${desbloqueado ? " unlocked" : ""}" title="${l.nombre}${desbloqueado ? "" : " (todavía bloqueada)"}">
+          <span class="badge-icon">${l.icono}</span><span>${l.nombre}</span>
+        </div>`;
+      }).join("")}
+    </div>`;
+}
+
 async function renderPerfil(id, isSelf) {
   const { data: s } = await sb.from("estudiantes").select("*").eq("id", id).maybeSingle();
   if (!s) { location.hash = isSelf ? "#/login" : "#/"; return; }
@@ -1373,6 +1442,8 @@ async function renderPerfil(id, isSelf) {
       </div>
       ${!isSelf ? `<div id="reporte-oficial-selector" style="display:none; margin-bottom:1.2rem;"></div>` : ""}
 
+      <div id="logros-panel" style="margin-bottom:1.3rem;"></div>
+
       <div class="tabs">
         <button class="tab-btn ${(activeTab === "notas" || activeTab === "tareas") ? "active" : ""}" data-tab="notas"><span class="tab-icon">📝</span><span class="tab-label">Notas y Tareas</span></button>
         <button class="tab-btn ${activeTab === "rubrica" ? "active" : ""}" data-tab="rubrica"><span class="tab-icon">📊</span><span class="tab-label">Rúbrica</span></button>
@@ -1402,6 +1473,8 @@ async function renderPerfil(id, isSelf) {
       renderTabContent(s, btn.dataset.tab, isSelf);
     });
   });
+
+  pintarPanelLogros(s.id);
 
   if (!isSelf) {
     const photoInput = document.getElementById("photo-input");

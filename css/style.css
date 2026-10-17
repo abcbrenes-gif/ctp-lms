@@ -761,6 +761,26 @@ table.grades td.num.low { color: var(--danger-text); font-weight: 700; }
 .badge-pill:hover { transform: translateY(-3px) scale(1.05); }
 @keyframes badgePop { 0% { transform: scale(0.5); opacity: 0; } 70% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } }
 
+/* La actividad en pantalla completa (quiz, prueba, etc.) siempre se ve
+   oscura/neón, sin importar si el sitio está en modo claro — así nunca se
+   mezclan superficies claras sobre el fondo oscuro del overlay. */
+.actividad-overlay {
+  --surface: rgba(255,255,255,0.065);
+  --surface-soft: rgba(255,255,255,0.04);
+  --glass-border: rgba(255,255,255,0.10);
+  --ink: #F1F5F9;
+  --text: #E2E8F0;
+  --text-muted: #94A3B8;
+  --ledger-green: #8B5CF6;
+  --white: #ffffff;
+  --cta-gradient: linear-gradient(135deg, #EC4899 0%, #F97316 100%);
+  --glow-cta: 0 0 22px rgba(236,72,153,0.55), 0 0 46px rgba(249,115,22,0.28);
+  --success-bg: rgba(74, 222, 128, 0.16);
+  --success-text: #4ADE80;
+  --danger-bg: rgba(244, 63, 94, 0.16);
+  --danger-text: #FB7185;
+}
+
 /* =====================================================================
    QUIZ / ENCUESTAS — feedback instantáneo
    ===================================================================== */
@@ -772,6 +792,8 @@ table.grades td.num.low { color: var(--danger-text); font-weight: 700; }
   min-height: 48px;
 }
 .quiz-option:hover { border-color: var(--ledger-green); transform: translateX(3px); }
+.quiz-option:active { transform: translateX(3px) scale(0.98); }
+.quiz-option.selected { background: var(--cta-gradient); border-color: transparent; color: var(--white); box-shadow: var(--glow-cta); font-weight: 700; }
 .quiz-option.correct { background: var(--success-bg); border-color: var(--success-text); color: var(--success-text); animation: popIn 0.3s ease; }
 .quiz-option.incorrect { background: var(--danger-bg); border-color: var(--danger-text); color: var(--danger-text); animation: shake 0.4s ease; }
 @keyframes popIn { 0% { transform: scale(0.95); } 60% { transform: scale(1.03); } 100% { transform: scale(1); } }

@@ -343,13 +343,13 @@ function lanzarActividadBloqueada(trabajo, construirContenido, onListo) {
 
   const overlay = document.createElement("div");
   overlay.className = "actividad-overlay";
-  overlay.style.cssText = "position:fixed; inset:0; background:#0f172a; z-index:9999; display:flex; flex-direction:column; color:#fff; overflow:auto;";
+  overlay.style.cssText = "position:fixed; inset:0; z-index:9999; display:flex; flex-direction:column; color:#F1F5F9; overflow:auto; font-family:'Plus Jakarta Sans','Poppins',-apple-system,sans-serif; background:radial-gradient(900px 500px at 100% -10%, rgba(139,92,246,0.25), transparent 60%), radial-gradient(800px 450px at -10% 10%, rgba(6,182,212,0.18), transparent 55%), #0B0F19;";
   overlay.innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:center; padding:0.8rem 1.2rem; background:#1b2340; flex-wrap:wrap; gap:0.5rem;">
-      <strong>${trabajo.titulo}</strong>
-      <span id="actividad-aviso" style="font-size:0.82rem; color:#ffb4a2; min-height:1.2em;"></span>
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:0.9rem 1.3rem; background:rgba(255,255,255,0.05); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-bottom:1px solid rgba(255,255,255,0.1); flex-wrap:wrap; gap:0.5rem; position:sticky; top:0; z-index:2;">
+      <strong style="background:linear-gradient(135deg,#EC4899,#F97316); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;">${trabajo.titulo}</strong>
+      <span id="actividad-aviso" style="font-size:0.82rem; color:#FB7185; min-height:1.2em;"></span>
     </div>
-    <div id="actividad-cuerpo" style="flex:1; padding:1.2rem; max-width:48rem; margin:0 auto; width:100%;"></div>`;
+    <div id="actividad-cuerpo" style="flex:1; padding:1.4rem; max-width:48rem; margin:0 auto; width:100%;"></div>`;
   document.body.appendChild(overlay);
 
   const aviso = overlay.querySelector("#actividad-aviso");
@@ -387,6 +387,22 @@ function lanzarActividadBloqueada(trabajo, construirContenido, onListo) {
   construirContenido(cuerpo, terminar, () => intentosSalida);
 }
 
+// Barra de progreso compacta para las actividades tipo "pregunta a la vez"
+// (selección única, prueba) — degradado neón animado, igual que el resto
+// de la plataforma.
+function barraProgresoActividad(actual, total) {
+  const pct = total ? Math.round(((actual + 1) / total) * 100) : 0;
+  return `
+    <div style="margin-bottom:1rem;">
+      <div style="display:flex; justify-content:space-between; font-size:0.78rem; color:#94A3B8; font-weight:600; margin-bottom:0.35rem;">
+        <span>Pregunta ${actual + 1} de ${total}</span><span>${pct}%</span>
+      </div>
+      <div style="width:100%; height:10px; border-radius:999px; background:rgba(255,255,255,0.08); overflow:hidden;">
+        <div style="height:100%; width:${pct}%; border-radius:999px; background:linear-gradient(90deg,#8B5CF6,#06B6D4,#8B5CF6); background-size:200% 100%; animation:xpShimmer 2.4s linear infinite; transition:width 0.4s cubic-bezier(.34,1.56,.64,1);"></div>
+      </div>
+    </div>`;
+}
+
 // --- Selección única ---
 
 function jugarSeleccionUnica(trabajo, cuerpo, terminar) {
@@ -397,11 +413,11 @@ function jugarSeleccionUnica(trabajo, cuerpo, terminar) {
   function render() {
     const p = preguntas[actual];
     cuerpo.innerHTML = `
-      <p style="font-size:0.85rem; color:#9FB0D6; margin-bottom:0.6rem;">Pregunta ${actual + 1} de ${preguntas.length}</p>
+      ${barraProgresoActividad(actual, preguntas.length)}
       <h3 style="font-size:1.3rem; margin-bottom:1rem;">${p.pregunta}</h3>
       <div id="opciones-actividad" style="display:flex; flex-direction:column; gap:0.6rem;">
         ${p.opciones.map((op, i) => `
-          <button type="button" class="btn secondary" data-opcion="${i}" style="text-align:left; background:${respuestas[actual] === i ? "#2E6FDB" : ""}; color:${respuestas[actual] === i ? "#fff" : ""};">${op}</button>`).join("")}
+          <button type="button" class="quiz-option${respuestas[actual] === i ? " selected" : ""}" data-opcion="${i}">${op}</button>`).join("")}
       </div>
       <div class="row" style="margin-top:1.5rem; justify-content:space-between;">
         <button type="button" class="btn secondary small" id="act-anterior" ${actual === 0 ? "disabled" : ""}>&larr; Anterior</button>
@@ -434,15 +450,17 @@ function jugarFalsoVerdadero(trabajo, cuerpo, terminar) {
   const respuestas = new Array(items.length).fill(null);
 
   function render() {
+    const respondidas = respuestas.filter(r => r !== null).length;
     cuerpo.innerHTML = `
+      ${barraProgresoActividad(Math.max(0, respondidas - 1), items.length)}
       <h3 style="margin-bottom:1rem;">Marcá si cada afirmación es verdadera o falsa</h3>
       <div style="display:flex; flex-direction:column; gap:0.8rem;">
         ${items.map((it, i) => `
-          <div style="background:#1b2340; border-radius:10px; padding:0.9rem;">
+          <div style="background:rgba(255,255,255,0.05); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:0.9rem; transition:border-color 0.2s ease;">
             <p style="margin-bottom:0.6rem;">${i + 1}. ${it.texto}</p>
             <div style="display:flex; gap:0.6rem;">
-              <button type="button" class="btn secondary small" data-fv="${i}" data-val="true" style="background:${respuestas[i] === true ? "#27AE60" : ""}; color:${respuestas[i] === true ? "#fff" : ""};">Verdadero</button>
-              <button type="button" class="btn secondary small" data-fv="${i}" data-val="false" style="background:${respuestas[i] === false ? "#E8604C" : ""}; color:${respuestas[i] === false ? "#fff" : ""};">Falso</button>
+              <button type="button" class="btn ${respuestas[i] === true ? "" : "secondary"} small" data-fv="${i}" data-val="true" style="${respuestas[i] === true ? "background:linear-gradient(135deg,#22C55E,#4ADE80); box-shadow:0 0 18px rgba(74,222,128,0.45);" : ""}">✔ Verdadero</button>
+              <button type="button" class="btn ${respuestas[i] === false ? "" : "secondary"} small" data-fv="${i}" data-val="false" style="${respuestas[i] === false ? "background:linear-gradient(135deg,#F43F5E,#FB7185); box-shadow:0 0 18px rgba(244,63,94,0.45);" : ""}">✘ Falso</button>
             </div>
           </div>`).join("")}
       </div>
@@ -546,7 +564,7 @@ function jugarSopaDeLetras(trabajo, cuerpo, terminar) {
       <div style="display:flex; flex-wrap:wrap; gap:1.2rem;">
         <div id="sopa-grid" style="display:grid; grid-template-columns:repeat(${tamano}, 1.8rem); gap:2px; user-select:none;">
           ${grid.map((fila, f) => fila.map((letra, c) => `
-            <div data-f="${f}" data-c="${c}" class="sopa-celda" style="width:1.8rem; height:1.8rem; display:flex; align-items:center; justify-content:center; background:#1b2340; border-radius:4px; cursor:pointer; font-weight:600; font-size:0.85rem;">${letra}</div>`).join("")).join("")}
+            <div data-f="${f}" data-c="${c}" class="sopa-celda" style="width:1.8rem; height:1.8rem; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.05); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.08); border-radius:4px; cursor:pointer; font-weight:600; font-size:0.85rem;">${letra}</div>`).join("")).join("")}
         </div>
         <div style="min-width:10rem;">
           <p style="font-weight:600; margin-bottom:0.5rem;">Palabras</p>
@@ -562,7 +580,7 @@ function jugarSopaDeLetras(trabajo, cuerpo, terminar) {
     celdas.forEach(el => {
       el.addEventListener("click", () => {
         const f = Number(el.dataset.f), c = Number(el.dataset.c);
-        if (!origen) { origen = { f, c }; el.style.background = "#2E6FDB"; return; }
+        if (!origen) { origen = { f, c }; el.style.background = "linear-gradient(135deg,#8B5CF6,#06B6D4)"; el.style.boxShadow = "0 0 14px rgba(139,92,246,0.6)"; return; }
         // Buscar si la línea entre origen y destino forma alguna palabra colocada
         const df = Math.sign(f - origen.f), dc = Math.sign(c - origen.c);
         for (const col of colocadas) {
@@ -704,7 +722,7 @@ function jugarCrucigrama(trabajo, cuerpo, terminar) {
           const esInicio = colocadas.find(p => p.fila === f && p.col === c);
           return `<div style="position:relative; width:1.9rem; height:1.9rem;">
             ${esInicio ? `<span style="position:absolute; top:0; left:2px; font-size:0.6rem; color:#9FB0D6;">${esInicio.numero}</span>` : ""}
-            <input maxlength="1" data-f="${f}" data-c="${c}" style="width:100%; height:100%; text-align:center; text-transform:uppercase; background:#1b2340; color:#fff; border:1px solid #2c3660; border-radius:3px; font-weight:600;" />
+            <input maxlength="1" data-f="${f}" data-c="${c}" style="width:100%; height:100%; text-align:center; text-transform:uppercase; background:rgba(255,255,255,0.05); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.14); color:#fff; border-radius:3px; font-weight:600;" />
           </div>`;
         }).join("")).join("")}
       </div>
@@ -764,11 +782,11 @@ function jugarPrueba(trabajo, cuerpo, terminar) {
     const indiceReal = ordenPreguntas[actual];
     const p = preguntas[indiceReal];
     cuerpo.innerHTML = `
-      <p style="font-size:0.85rem; color:#9FB0D6; margin-bottom:0.6rem;">Pregunta ${actual + 1} de ${preguntas.length}</p>
+      ${barraProgresoActividad(actual, preguntas.length)}
       <h3 style="font-size:1.3rem; margin-bottom:1rem;">${p.pregunta}</h3>
       <div id="opciones-actividad" style="display:flex; flex-direction:column; gap:0.6rem;">
         ${p.opciones.map((op, i) => `
-          <button type="button" class="btn secondary" data-opcion="${i}" style="text-align:left; background:${respuestas[indiceReal] === i ? "#2E6FDB" : ""}; color:${respuestas[indiceReal] === i ? "#fff" : ""};">${op}</button>`).join("")}
+          <button type="button" class="quiz-option${respuestas[indiceReal] === i ? " selected" : ""}" data-opcion="${i}">${op}</button>`).join("")}
       </div>
       <div class="row" style="margin-top:1.5rem; justify-content:space-between;">
         <button type="button" class="btn secondary small" id="act-anterior" ${actual === 0 ? "disabled" : ""}>&larr; Anterior</button>
@@ -797,7 +815,7 @@ function jugarPrueba(trabajo, cuerpo, terminar) {
         <p style="font-size:0.85rem; color:#9FB0D6; margin-bottom:1rem;">${(apareamiento.instrucciones || "Relacioná cada situación con la opción que corresponde.").replace(/[<>]/g, "")}</p>
         <div style="display:flex; flex-direction:column; gap:0.8rem;">
           ${pares.map((p, i) => `
-            <div style="background:#1b2340; border-radius:10px; padding:0.9rem;">
+            <div style="background:rgba(255,255,255,0.05); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:0.9rem;">
               <p style="margin-bottom:0.5rem;">${i + 1}. ${p.situacion}</p>
               <select data-apar="${i}" style="width:100%; padding:0.4rem;">
                 <option value="">— Elegir —</option>
@@ -824,7 +842,7 @@ function jugarPrueba(trabajo, cuerpo, terminar) {
     if (!casoPractico) { finalizar(); return; }
     cuerpo.innerHTML = `
       <h3 style="margin-bottom:0.6rem;">Caso práctico</h3>
-      <div style="background:#1b2340; border-radius:10px; padding:0.9rem; margin-bottom:0.8rem; font-size:0.9rem; line-height:1.5;">${casoPractico.enunciado || ""}</div>
+      <div style="background:rgba(255,255,255,0.05); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:0.9rem; margin-bottom:0.8rem; font-size:0.9rem; line-height:1.5;">${casoPractico.enunciado || ""}</div>
       ${casoPractico.instruccion ? `<p style="font-size:0.85rem; color:#9FB0D6; margin-bottom:0.6rem;">${casoPractico.instruccion.replace(/[<>]/g, "")}</p>` : ""}
       <textarea id="act-caso-respuesta" rows="12" placeholder="Escribí aquí tu respuesta..." style="width:100%; font-family:inherit; padding:0.6rem; box-sizing:border-box; resize:vertical;">${casoRespuesta}</textarea>
       <p style="font-size:0.78rem; color:#9FB0D6; margin-top:0.4rem;">Esta parte la revisa y califica tu profesor a mano; no se corrige automáticamente.</p>
