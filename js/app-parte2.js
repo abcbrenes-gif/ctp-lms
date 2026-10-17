@@ -4015,17 +4015,17 @@ function construirPanelActividadHTML(tipo, presetKey) {
     return `
       <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">El estudiante entrega poniendo un título, una descripción y un archivo. Puede volver a entregar las veces que necesite (por ejemplo si se equivocó de archivo) — cada entrega queda guardada y vos las ves todas en orden, no se borra la anterior. Útil para dividir un proyecto grande en partes: creá una actividad de este tipo por cada parte (ej. "Proyecto — Parte 1", "Proyecto — Parte 2"...) y cada una queda como su propio indicador calificable.</p>
       <label for="au-proyecto-instrucciones" style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.4rem;">Instrucciones para el estudiante (qué debe entregar en esta parte)</label>
-      <textarea id="au-proyecto-instrucciones" rows="4" placeholder="Ej. Parte 1: Subí el documento con la investigación inicial del proyecto, con al menos 3 fuentes citadas." style="width:100%; font-family:inherit; resize:vertical; margin-bottom:0.6rem;"></textarea>
+      <textarea id="au-proyecto-instrucciones" rows="4" placeholder="Ej. Parte 1: Subí el documento con la investigación inicial del proyecto, con al menos 3 fuentes citadas." style="width:100%; font-family:inherit; resize:vertical; margin-bottom:0.6rem;">${preset ? preset.instrucciones.replace(/</g, "&lt;") : ""}</textarea>
       <div class="row" style="gap:0.6rem; margin-bottom:0.6rem;">
         <label style="flex:1; min-width:10rem; font-size:0.82rem;">Etiqueta del campo "Título" (opcional)
-          <input id="au-proyecto-placeholder-titulo" placeholder="Ej. Nombre de la ley" style="width:100%; margin-top:0.2rem;" />
+          <input id="au-proyecto-placeholder-titulo" placeholder="Ej. Nombre de la ley" value="${preset && preset.placeholder_titulo ? preset.placeholder_titulo.replace(/"/g, "&quot;") : ""}" style="width:100%; margin-top:0.2rem;" />
         </label>
         <label style="flex:1; min-width:10rem; font-size:0.82rem;">Etiqueta del campo "Descripción" (opcional)
-          <input id="au-proyecto-placeholder-descripcion" placeholder="Ej. Descripción general de la ley" style="width:100%; margin-top:0.2rem;" />
+          <input id="au-proyecto-placeholder-descripcion" placeholder="Ej. Descripción general de la ley" value="${preset && preset.placeholder_descripcion ? preset.placeholder_descripcion.replace(/"/g, "&quot;") : ""}" style="width:100%; margin-top:0.2rem;" />
         </label>
       </div>
       <label style="display:block; font-size:0.82rem;">Mínimo de caracteres exigidos en la descripción (opcional, dejalo en 0 si no querés exigir un mínimo)
-        <input id="au-proyecto-min-caracteres" type="number" min="0" step="10" value="0" style="width:8rem; margin-top:0.2rem; display:block;" />
+        <input id="au-proyecto-min-caracteres" type="number" min="0" step="10" value="${preset && preset.min_caracteres_descripcion ? preset.min_caracteres_descripcion : 0}" style="width:8rem; margin-top:0.2rem; display:block;" />
       </label>`;
   }
   if (tipo === "respuesta_abierta") {

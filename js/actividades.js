@@ -187,6 +187,13 @@ const ESTRATEGIAS_EVALUACION = {
       "Puedo explicarle este tema a un compañero"
     ]
   },
+  proyecto_aula_contable: {
+    tipo: "proyecto", grupo: "Proyectos con herramientas externas", icono: "📊", etiqueta: "Proyecto — Ciclo contable (Aula Contable NIIF)",
+    instrucciones: 'Entrá a la aplicación "Aula Contable NIIF" (https://claude.ai/artifact/AsaxiVxRcTT2XhB2zQUYYH) con el usuario y la empresa que te indique tu profesor, y completá ahí todo el ciclo contable que se te pida (catálogo de cuentas, diario, mayor, balanza de comprobación y estados financieros). Cuando termines, entregá acá una captura o PDF de tus estados financieros finales junto con un resumen de lo que hiciste.',
+    placeholder_titulo: "Nombre de tu empresa en Aula Contable",
+    placeholder_descripcion: "Resumen de los asientos y estados financieros que obtuviste",
+    min_caracteres_descripcion: 50
+  },
   coevaluacion_pares: {
     tipo: "autoevaluacion", grupo: "Autoevaluación y coevaluación", icono: "🤝", etiqueta: "Coevaluación entre pares",
     instrucciones: "Evaluá el trabajo de tu compañero(a) de grupo con sinceridad y respeto.",
