@@ -50,7 +50,8 @@ const ESTRATEGIAS_EVALUACION = {
       { nombre: "Entrega a tiempo", puntos_max: 1 },
       { nombre: "Presentación ordenada y clara", puntos_max: 1 },
       { nombre: "El contenido es correcto", puntos_max: 1 }
-    ]
+    ],
+    demo: { escenario: "Resumen escrito sobre el ciclo contable.", puntajes: [1, 1, 1, 0] }
   },
   rubrica_exposicion_oral: {
     tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "🎤", etiqueta: "Exposición oral",
@@ -60,7 +61,8 @@ const ESTRATEGIAS_EVALUACION = {
       { nombre: "Claridad al hablar", puntos_max: 3 },
       { nombre: "Uso de recursos de apoyo (diapositivas, material, etc.)", puntos_max: 3 },
       { nombre: "Manejo del tiempo asignado", puntos_max: 3 }
-    ]
+    ],
+    demo: { escenario: "Exposición sobre los tipos de empresas (Unidad 1).", puntajes: [3, 3, 2, 3] }
   },
   rubrica_debate: {
     tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "🗣️", etiqueta: "Debate",
@@ -70,7 +72,8 @@ const ESTRATEGIAS_EVALUACION = {
       { nombre: "Respeto al turno y a la posición contraria", puntos_max: 3 },
       { nombre: "Uso de evidencia o ejemplos", puntos_max: 3 },
       { nombre: "Capacidad de responder a contraargumentos", puntos_max: 3 }
-    ]
+    ],
+    demo: { escenario: "Debate: \"¿Depreciación lineal o acelerada?\"", puntajes: [2, 3, 2, 3] }
   },
   rubrica_estudio_caso: {
     tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "📋", etiqueta: "Estudio de caso (presentación)",
@@ -80,7 +83,8 @@ const ESTRATEGIAS_EVALUACION = {
       { nombre: "Aplicación de conceptos contables", puntos_max: 3 },
       { nombre: "Calidad de la propuesta de solución", puntos_max: 3 },
       { nombre: "Justificación de la respuesta", puntos_max: 3 }
-    ]
+    ],
+    demo: { escenario: "Caso: una empresa detecta un faltante de caja.", puntajes: [3, 3, 3, 2] }
   },
   rubrica_portafolio: {
     tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "🗂️", etiqueta: "Portafolio de evidencias",
@@ -90,7 +94,8 @@ const ESTRATEGIAS_EVALUACION = {
       { nombre: "Organización y orden", puntos_max: 3 },
       { nombre: "Reflexión sobre su propio aprendizaje", puntos_max: 3 },
       { nombre: "Presentación general", puntos_max: 3 }
-    ]
+    ],
+    demo: { escenario: "Portafolio del primer trimestre.", puntajes: [3, 2, 2, 3] }
   },
   rubrica_proyecto_grupal: {
     tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "👥", etiqueta: "Proyecto grupal",
@@ -100,7 +105,8 @@ const ESTRATEGIAS_EVALUACION = {
       { nombre: "Calidad del producto final", puntos_max: 3 },
       { nombre: "Cumplimiento del rol asignado", puntos_max: 3 },
       { nombre: "Puntualidad en las entregas", puntos_max: 3 }
-    ]
+    ],
+    demo: { escenario: "Proyecto grupal: simulación de apertura de un negocio.", puntajes: [3, 3, 3, 3] }
   },
   rubrica_simulacion: {
     tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "🎭", etiqueta: "Simulación / rol de juego",
@@ -110,7 +116,8 @@ const ESTRATEGIAS_EVALUACION = {
       { nombre: "Aplicación correcta de los conceptos", puntos_max: 3 },
       { nombre: "Interacción con sus compañeros", puntos_max: 3 },
       { nombre: "Creatividad", puntos_max: 3 }
-    ]
+    ],
+    demo: { escenario: "Juego de roles: un cliente consulta a su contador sobre un estado financiero.", puntajes: [2, 3, 3, 2] }
   },
   rubrica_linea_tiempo: {
     tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "📅", etiqueta: "Línea de tiempo",
@@ -119,7 +126,8 @@ const ESTRATEGIAS_EVALUACION = {
       { nombre: "Orden cronológico correcto", puntos_max: 3 },
       { nombre: "Información relevante incluida", puntos_max: 3 },
       { nombre: "Presentación visual", puntos_max: 3 }
-    ]
+    ],
+    demo: { escenario: "Línea de tiempo de la evolución de la contabilidad.", puntajes: [3, 2, 3] }
   },
   rubrica_mapa_conceptual: {
     tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "🧩", etiqueta: "Mapa conceptual",
@@ -128,7 +136,8 @@ const ESTRATEGIAS_EVALUACION = {
       { nombre: "Jerarquía correcta de los conceptos", puntos_max: 3 },
       { nombre: "Conexiones correctas entre conceptos", puntos_max: 3 },
       { nombre: "Claridad visual", puntos_max: 3 }
-    ]
+    ],
+    demo: { escenario: "Mapa conceptual de las cuentas del activo.", puntajes: [3, 3, 2] }
   },
   rubrica_infografia_cartel: {
     tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "🖼️", etiqueta: "Presentación con infografía/cartel",
@@ -137,7 +146,8 @@ const ESTRATEGIAS_EVALUACION = {
       { nombre: "Síntesis de la información", puntos_max: 3 },
       { nombre: "Diseño visual", puntos_max: 3 },
       { nombre: "Precisión del contenido", puntos_max: 3 }
-    ]
+    ],
+    demo: { escenario: "Infografía sobre los principios de contabilidad generalmente aceptados.", puntajes: [2, 3, 2] }
   },
   rubrica_ensayo: {
     tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "✒️", etiqueta: "Ensayo",
@@ -146,7 +156,8 @@ const ESTRATEGIAS_EVALUACION = {
       { nombre: "Estructura (introducción, desarrollo, conclusión)", puntos_max: 3 },
       { nombre: "Calidad de la argumentación", puntos_max: 3 },
       { nombre: "Ortografía y redacción", puntos_max: 3 }
-    ]
+    ],
+    demo: { escenario: "Ensayo sobre la importancia de la ética en la contabilidad.", puntajes: [2, 2, 3] }
   },
   lista_cotejo_entrevista: {
     tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "🎙️", etiqueta: "Entrevista oral / interrogatorio",
@@ -156,31 +167,38 @@ const ESTRATEGIAS_EVALUACION = {
       { nombre: "Domina el vocabulario técnico", puntos_max: 1 },
       { nombre: "Justifica sus respuestas", puntos_max: 1 },
       { nombre: "Actitud profesional", puntos_max: 1 }
-    ]
+    ],
+    demo: { escenario: "Interrogatorio oral sobre el libro diario y el mayor.", puntajes: [1, 1, 0, 1] }
   },
   diario_reflexivo: {
     tipo: "respuesta_abierta", grupo: "Respuesta abierta / reflexión", icono: "📔", etiqueta: "Diario reflexivo",
-    instrucciones: "Escribí una reflexión sobre lo que aprendiste hoy en clase: ¿qué entendiste mejor?, ¿qué te costó?, ¿cómo lo aplicarías en la vida real?"
+    instrucciones: "Escribí una reflexión sobre lo que aprendiste hoy en clase: ¿qué entendiste mejor?, ¿qué te costó?, ¿cómo lo aplicarías en la vida real?",
+    demo: { escenario: "Clase de hoy: la depreciación de activos fijos.", respuesta: "Hoy entendí mejor por qué los activos pierden valor con el tiempo y cómo se registra ese gasto cada mes. Lo que más me costó fue recordar la fórmula del método de línea recta. Creo que lo podría aplicar si algún día tengo un negocio propio, para saber cuánto vale realmente mi equipo." }
   },
   ticket_salida: {
     tipo: "respuesta_abierta", grupo: "Respuesta abierta / reflexión", icono: "🎫", etiqueta: "Ticket de salida",
-    instrucciones: "Antes de salir de la clase, respondé en pocas líneas: ¿cuál fue la idea más importante de hoy?"
+    instrucciones: "Antes de salir de la clase, respondé en pocas líneas: ¿cuál fue la idea más importante de hoy?",
+    demo: { escenario: "Clase de hoy: la ecuación contable.", respuesta: "La idea más importante fue que Activo siempre es igual a Pasivo más Patrimonio, y que esa igualdad nunca se rompe, aunque cambien los montos de cada cuenta." }
   },
   bitacora_doble_entrada: {
     tipo: "respuesta_abierta", grupo: "Respuesta abierta / reflexión", icono: "📒", etiqueta: "Diario de doble entrada",
-    instrucciones: "Dividí tu respuesta en dos partes: 1) una cita o dato del tema visto en clase, 2) tu comentario u opinión personal sobre esa cita o dato."
+    instrucciones: "Dividí tu respuesta en dos partes: 1) una cita o dato del tema visto en clase, 2) tu comentario u opinión personal sobre esa cita o dato.",
+    demo: { escenario: "Tema visto: el principio de partida doble.", respuesta: "Cita/dato: \"Toda transacción afecta al menos dos cuentas, una se debita y otra se acredita.\"\nMi comentario: Al principio me parecía complicado, pero ahora veo que es como un balance: si algo entra por un lado, tiene que salir o registrarse por otro, para que todo cuadre." }
   },
   estudio_caso_escrito: {
     tipo: "respuesta_abierta", grupo: "Respuesta abierta / reflexión", icono: "📝", etiqueta: "Estudio de caso (respuesta escrita)",
-    instrucciones: "Leé el caso planteado por tu profesor y escribí tu análisis: ¿cuál es el problema?, ¿qué harías?, ¿por qué?"
+    instrucciones: "Leé el caso planteado por tu profesor y escribí tu análisis: ¿cuál es el problema?, ¿qué harías?, ¿por qué?",
+    demo: { escenario: "Caso: una pulpería no sabe si está ganando o perdiendo dinero.", respuesta: "El problema es que la pulpería no lleva ningún registro contable, solo guarda el dinero en una caja. Yo le recomendaría empezar con un libro diario sencillo donde anote cada venta y cada gasto, para poder sacar un estado de resultados al final del mes y saber si realmente está ganando." }
   },
   ensayo_corto: {
     tipo: "respuesta_abierta", grupo: "Respuesta abierta / reflexión", icono: "🖋️", etiqueta: "Ensayo corto",
-    instrucciones: "Escribí un ensayo corto (mínimo 150 palabras) sobre el tema indicado por tu profesor."
+    instrucciones: "Escribí un ensayo corto (mínimo 150 palabras) sobre el tema indicado por tu profesor.",
+    demo: { escenario: "Tema: la importancia de los estados financieros para una empresa.", respuesta: "(Ejemplo resumido — el ensayo real debe tener mínimo 150 palabras) Los estados financieros son importantes porque le muestran al dueño de una empresa, de forma ordenada, cómo está su negocio: cuánto tiene, cuánto debe y si está ganando o perdiendo. Sin ellos, las decisiones se tomarían a ciegas…" }
   },
   tecnica_kwl: {
     tipo: "respuesta_abierta", grupo: "Respuesta abierta / reflexión", icono: "🔎", etiqueta: "Técnica KWL (Qué sé / Qué quiero saber / Qué aprendí)",
-    instrucciones: "Completá: ¿Qué sabías del tema ANTES de la clase? ¿Qué querías aprender? ¿Qué aprendiste AL FINAL?"
+    instrucciones: "Completá: ¿Qué sabías del tema ANTES de la clase? ¿Qué querías aprender? ¿Qué aprendiste AL FINAL?",
+    demo: { escenario: "Tema: el libro mayor.", respuesta: "Qué sabía antes: que existía un \"libro diario\" donde se anotan las transacciones.\nQué quería aprender: para qué sirve el libro mayor y en qué se diferencia del diario.\nQué aprendí: que el mayor agrupa todos los movimientos de UNA sola cuenta, para saber su saldo final." }
   },
   autoevaluacion_estudiante: {
     tipo: "autoevaluacion", grupo: "Autoevaluación y coevaluación", icono: "🪞", etiqueta: "Autoevaluación",
@@ -190,11 +208,13 @@ const ESTRATEGIAS_EVALUACION = {
       "Participé activamente en las actividades de la clase",
       "Cumplí con mis tareas a tiempo",
       "Puedo explicarle este tema a un compañero"
-    ]
+    ],
+    demo: { escenario: "Autoevaluación de la Unidad 2 — Ciclo contable.", respuestas: [2, 3, 2, 1] }
   },
   practica_aula_contable: {
     tipo: "respuesta_abierta", grupo: "Prácticas diarias con herramientas externas", icono: "📊", etiqueta: "Práctica diaria — Ciclo contable (Aula Contable NIIF)",
-    instrucciones: `Entrá a la aplicación "Aula Contable NIIF" (${AULA_CONTABLE_URL}) con el usuario y la empresa que te indique tu profesor, y hacé ahí la práctica de hoy (por ejemplo: registrar asientos en el diario, pasar al mayor, sacar la balanza de comprobación). Cuando termines, contá acá qué hiciste: qué asientos registraste, si la balanza cuadró, y qué te costó o qué dudas te quedaron.`
+    instrucciones: `Entrá a la aplicación "Aula Contable NIIF" (${AULA_CONTABLE_URL}) con el usuario y la empresa que te indique tu profesor, y hacé ahí la práctica de hoy (por ejemplo: registrar asientos en el diario, pasar al mayor, sacar la balanza de comprobación). Cuando termines, contá acá qué hiciste: qué asientos registraste, si la balanza cuadró, y qué te costó o qué dudas te quedaron.`,
+    demo: { escenario: "Práctica de hoy: registrar la compra de mercadería al crédito.", respuesta: "Entré a Aula Contable NIIF y registré el asiento de compra de mercadería a crédito: débito a Inventario y crédito a Cuentas por pagar. Pasé el asiento al mayor y saqué la balanza de comprobación: sí cuadró, los débitos y créditos quedaron iguales. Lo que me costó fue identificar bien a qué cuenta iba el IVA." }
   },
   coevaluacion_pares: {
     tipo: "autoevaluacion", grupo: "Autoevaluación y coevaluación", icono: "🤝", etiqueta: "Coevaluación entre pares",
@@ -204,7 +224,8 @@ const ESTRATEGIAS_EVALUACION = {
       "Mi compañero(a) participó activamente en el grupo",
       "Mi compañero(a) mostró buena actitud y respeto",
       "Volvería a trabajar en equipo con esta persona"
-    ]
+    ],
+    demo: { escenario: "Coevaluación del proyecto grupal \"Apertura de un negocio\".", respuestas: [3, 3, 2, 3] }
   }
 };
 

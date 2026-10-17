@@ -33,13 +33,17 @@ async function render() {
   const apartadoMatch = hash.match(/^#\/apartado\/(.+)$/);
   const cursoMatch = hash.match(/^#\/curso\/(.+)$/);
   const subtemaMatch = hash.match(/^#\/subtema\/(.+)$/);
+  const demoEstrategiaMatch = hash.match(/^#\/estrategias\/demo\/(.+)$/);
 
   if (session.role === "estudiante" || previewEstudianteId) {
     // El estudiante (o el profesor en "Ver como estudiante") solo ve su propio
-    // perfil, salvo apartado, subtema o curso interactivo (todos solo lectura/jugable).
+    // perfil, salvo apartado, subtema o curso interactivo (todos solo lectura/jugable),
+    // y la guía de estrategias de evaluación (también de solo lectura).
     if (apartadoMatch) return renderApartado(decodeURIComponent(apartadoMatch[1]), true);
     if (subtemaMatch) return renderSubtema(Number(subtemaMatch[1]), true);
     if (cursoMatch) return renderCurso(Number(cursoMatch[1]), true);
+    if (hash === "#/estrategias") return renderEstrategiasEvaluacion(true);
+    if (demoEstrategiaMatch) return renderDemoEstrategia(decodeURIComponent(demoEstrategiaMatch[1]), true);
     return renderPerfil(previewEstudianteId || session.id, true);
   }
 
@@ -55,7 +59,8 @@ async function render() {
   const materiaDetalleMatch = hash.match(/^#\/materia\/(.+)$/);
   if (materiaDetalleMatch) return renderMateriaDetalle(Number(materiaDetalleMatch[1]));
   if (hash === "#/evaluaciones") return renderEvaluacionesGeneral();
-  if (hash === "#/estrategias") return renderEstrategiasEvaluacion();
+  if (hash === "#/estrategias") return renderEstrategiasEvaluacion(false);
+  if (demoEstrategiaMatch) return renderDemoEstrategia(decodeURIComponent(demoEstrategiaMatch[1]), false);
   if (hash === "#/asistencia") return renderAsistenciaGeneral();
   if (hash === "#/horario") return renderHorario();
   if (hash === "#/asistencia/resumen") return renderResumenAsistencia();
@@ -295,28 +300,29 @@ async function renderHome() {
 // (ESTRATEGIAS_EVALUACION, en actividades.js) para que nunca quede
 // desactualizada. No crea nada — para usar una estrategia hay que entrar
 // al subtema correspondiente y elegirla al "Agregar actividad interactiva".
-function renderEstrategiasEvaluacion() {
+function renderEstrategiasEvaluacion(esEstudiante) {
   const NOMBRE_MOTOR = { rubrica_directa: "🧮 Rúbrica / Lista de cotejo", respuesta_abierta: "✍️ Respuesta abierta", autoevaluacion: "🪞 Autoevaluación / Coevaluación", proyecto: "📁 Proyecto" };
   const porMotor = {};
-  Object.values(ESTRATEGIAS_EVALUACION).forEach(e => { (porMotor[e.tipo] = porMotor[e.tipo] || []).push(e); });
+  Object.entries(ESTRATEGIAS_EVALUACION).forEach(([clave, e]) => { (porMotor[e.tipo] = porMotor[e.tipo] || []).push({ clave, ...e }); });
 
   const bloques = Object.entries(porMotor).map(([tipo, lista]) => `
     <div class="panel" style="margin-bottom:1rem;">
       <h3 style="margin-bottom:0.3rem;">${NOMBRE_MOTOR[tipo] || tipo}</h3>
       <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.8rem;">${{
-        rubrica_directa: "El estudiante no entrega nada — vos calificás directo a cada estudiante con los criterios, y la nota 0-3 se calcula sola.",
-        respuesta_abierta: "El estudiante entrega un texto y vos lo calificás a mano desde \"📨 Ver entregas\".",
+        rubrica_directa: "El estudiante no entrega nada — el profesor califica directo a cada estudiante con los criterios, y la nota 0-3 se calcula sola.",
+        respuesta_abierta: "El estudiante entrega un texto y el profesor lo califica a mano.",
         autoevaluacion: "El estudiante responde una escala de Nunca a Siempre y se califica sola.",
-        proyecto: "El estudiante entrega título + descripción + archivo, y vos lo calificás a mano desde \"📂 Ver entregas\"."
+        proyecto: "El estudiante entrega título + descripción + archivo, y el profesor lo califica a mano."
       }[tipo] || ""}</p>
       <div style="display:grid; gap:0.5rem;">
         ${lista.map(e => `
           <div style="display:flex; align-items:flex-start; gap:0.6rem; padding:0.5rem 0.6rem; background:var(--surface-soft); border-radius:8px;">
             <span style="font-size:1.1rem;">${e.icono}</span>
-            <div>
+            <div style="flex:1;">
               <strong style="font-size:0.9rem;">${e.etiqueta}</strong>
               <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.15rem;">${e.instrucciones}</div>
             </div>
+            <a href="#/estrategias/demo/${e.clave}" class="btn secondary small" style="white-space:nowrap;">Ver demo →</a>
           </div>`).join("")}
       </div>
     </div>`).join("");
@@ -324,11 +330,91 @@ function renderEstrategiasEvaluacion() {
   app.innerHTML = `
     ${topbar()}
     <div class="wrap">
-      <a href="#/" class="btn secondary small" style="margin-bottom:1rem; display:inline-block;">&larr; Inicio</a>
+      <a href="${esEstudiante ? "#/" : "#/"}" class="btn secondary small" style="margin-bottom:1rem; display:inline-block;">&larr; Inicio</a>
       <h1>Estrategias de evaluación</h1>
-      <p style="color:var(--text-muted); margin-top:-0.6em; margin-bottom:1.2rem;">${Object.keys(ESTRATEGIAS_EVALUACION).length} estrategias listas para usar, agrupadas por cómo se califican. Para crear una: entrá al subtema donde la querés, "+ Agregar actividad interactiva" → elegí el tipo dentro del grupo "Estrategias de evaluación".</p>
+      <p style="color:var(--text-muted); margin-top:-0.6em; margin-bottom:1.2rem;">${esEstudiante
+        ? `Así se evalúan los distintos tipos de trabajos que tu profesor puede asignarte. Tocá "Ver demo" en cualquiera para ver un ejemplo de cómo se ve y se califica.`
+        : `${Object.keys(ESTRATEGIAS_EVALUACION).length} estrategias listas para usar, agrupadas por cómo se califican. Para crear una: entrá al subtema donde la querés, "+ Agregar actividad interactiva" → elegí el tipo dentro del grupo "Estrategias de evaluación". Tocá "Ver demo" en cualquiera para mostrársela a tus estudiantes.`}</p>
       ${bloques}
-      <p class="footer-note">¿Querés que agregue una estrategia nueva a este catálogo? Avisame.</p>
+      ${esEstudiante ? "" : `<p class="footer-note">¿Querés que agregue una estrategia nueva a este catálogo? Avisame.</p>`}
+    </div>`;
+  bindTopbar();
+}
+
+// ---------- Demo de una estrategia de evaluación (ejemplo, no se guarda) ----------
+// Página de solo lectura (para profesor Y estudiante) que muestra, con datos
+// de ejemplo, cómo se ve y cómo se califica una estrategia específica. No
+// escribe nada en la base de datos — es puramente ilustrativa.
+function renderDemoEstrategia(clave, esEstudiante) {
+  const preset = ESTRATEGIAS_EVALUACION[clave];
+  if (!preset) { location.hash = "#/estrategias"; return; }
+  const demo = preset.demo || {};
+  const volver = `#/estrategias`;
+
+  let cuerpoDemo = "";
+  if (preset.tipo === "rubrica_directa") {
+    const criterios = preset.criterios || [];
+    const puntajes = demo.puntajes || criterios.map(c => c.puntos_max);
+    const pct = porcentajeDesdeCriterios(criterios, puntajes);
+    const puntaje03 = puntajeDesdePorcentaje(pct);
+    cuerpoDemo = `
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.8rem;">El estudiante no ve ni entrega nada en la plataforma para este tipo. El profesor abre "🧮 Calificar" en el trabajo y llena esto, criterio por criterio, mientras observa al estudiante o revisa lo entregado en clase:</p>
+      <div class="panel" style="background:var(--surface-soft);">
+        ${criterios.map((c, i) => `
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0; border-bottom:1px solid var(--border, #eee);">
+            <span style="font-size:0.88rem;">${c.nombre}</span>
+            <strong style="font-size:0.88rem; white-space:nowrap; margin-left:0.6rem;">${puntajes[i]} / ${c.puntos_max}</strong>
+          </div>`).join("")}
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:0.7rem 0 0.1rem; margin-top:0.4rem;">
+          <strong>Resultado</strong>
+          <strong>${pct.toFixed(1)}% → nota ${puntaje03}/3</strong>
+        </div>
+      </div>`;
+  } else if (preset.tipo === "respuesta_abierta") {
+    cuerpoDemo = `
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.8rem;">El estudiante ve la consigna y escribe su respuesta en un cuadro de texto. Ejemplo de una entrega real:</p>
+      <div class="panel" style="background:var(--surface-soft);">
+        <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.3rem;">Respuesta del estudiante (ejemplo):</div>
+        <div style="white-space:pre-wrap; font-size:0.88rem; line-height:1.5;">${demo.respuesta || "(sin ejemplo)"}</div>
+      </div>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.8rem;">El profesor la lee desde "📨 Ver entregas" y le pone una nota de 0 a 3 a mano, con retroalimentación si quiere.</p>`;
+  } else if (preset.tipo === "autoevaluacion") {
+    const items = preset.afirmaciones || [];
+    const respuestas = demo.respuestas || items.map(() => 3);
+    const maximoPorItem = NIVELES_LIKERT.length - 1;
+    const suma = respuestas.reduce((a, r) => a + r, 0);
+    const pct = items.length ? (suma / (items.length * maximoPorItem)) * 100 : 0;
+    const puntaje03 = puntajeDesdePorcentaje(pct);
+    cuerpoDemo = `
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.8rem;">El estudiante responde cada afirmación tocando un nivel. Ejemplo de respuestas:</p>
+      <div class="panel" style="background:var(--surface-soft);">
+        ${items.map((texto, i) => `
+          <div style="padding:0.4rem 0; border-bottom:1px solid var(--border, #eee);">
+            <div style="font-size:0.88rem; margin-bottom:0.3rem;">${i + 1}. ${texto}</div>
+            <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+              ${NIVELES_LIKERT.map((nivel, nv) => `<span class="badge" style="${respuestas[i] === nv ? "background:var(--accent, #4b6b8f); color:#fff;" : ""}">${nivel}</span>`).join("")}
+            </div>
+          </div>`).join("")}
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:0.7rem 0 0.1rem; margin-top:0.4rem;">
+          <strong>Resultado (se calcula solo)</strong>
+          <strong>${pct.toFixed(1)}% → nota ${puntaje03}/3</strong>
+        </div>
+      </div>`;
+  }
+
+  app.innerHTML = `
+    ${topbar()}
+    <div class="wrap">
+      <a href="${volver}" class="btn secondary small" style="margin-bottom:1rem; display:inline-block;">&larr; Estrategias de evaluación</a>
+      <h1>${preset.icono} ${preset.etiqueta}</h1>
+      <p style="color:var(--text-muted); margin-top:-0.6em; margin-bottom:1rem;">DEMO — este ejemplo es solo para explicar cómo funciona. No se guarda nada.</p>
+      <div class="panel" style="margin-bottom:1rem;">
+        <strong>Consigna que vería el estudiante:</strong>
+        <p style="font-size:0.9rem; margin-top:0.4rem;">${preset.instrucciones}</p>
+        ${demo.escenario ? `<p style="font-size:0.82rem; color:var(--text-muted); margin-top:0.5rem;">Ejemplo de uso: ${demo.escenario}</p>` : ""}
+      </div>
+      ${cuerpoDemo}
+      <p class="footer-note">Para usar esta estrategia de verdad: entrá al subtema donde la querés asignar y elegila en "+ Agregar actividad interactiva".</p>
     </div>`;
   bindTopbar();
 }
@@ -1490,6 +1576,7 @@ async function renderPerfil(id, isSelf) {
 
       <div id="logros-panel" style="margin-bottom:1.3rem;"></div>
 
+      ${isSelf ? `<div style="margin-bottom:0.8rem;"><a href="#/estrategias" class="btn secondary small">🧪 Cómo se evalúa cada tipo de trabajo</a></div>` : ""}
       <div class="tabs">
         <button class="tab-btn ${(activeTab === "notas" || activeTab === "tareas") ? "active" : ""}" data-tab="notas"><span class="tab-icon">📝</span><span class="tab-label">Notas y Tareas</span></button>
         <button class="tab-btn ${activeTab === "rubrica" ? "active" : ""}" data-tab="rubrica"><span class="tab-icon">📊</span><span class="tab-label">Rúbrica</span></button>
