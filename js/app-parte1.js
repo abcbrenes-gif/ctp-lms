@@ -55,6 +55,7 @@ async function render() {
   const materiaDetalleMatch = hash.match(/^#\/materia\/(.+)$/);
   if (materiaDetalleMatch) return renderMateriaDetalle(Number(materiaDetalleMatch[1]));
   if (hash === "#/evaluaciones") return renderEvaluacionesGeneral();
+  if (hash === "#/estrategias") return renderEstrategiasEvaluacion();
   if (hash === "#/asistencia") return renderAsistenciaGeneral();
   if (hash === "#/horario") return renderHorario();
   if (hash === "#/asistencia/resumen") return renderResumenAsistencia();
@@ -254,9 +255,11 @@ async function renderHome() {
   const accesos = [
     { href: "#/materias", icono: "📚", titulo: "Materias", sub: "Temas, apartados y publicaciones", cta: "Ver materias →" },
     { href: "#/programa", icono: "🗂️", titulo: "Programa", sub: "Unidades y resultados de aprendizaje", cta: "Ver programa →" },
-    { href: "#/evaluaciones", icono: "📊", titulo: "Rúbrica y Evaluaciones", sub: "Categorías e indicadores de nota", cta: "Ver rúbrica →" }
+    { href: "#/evaluaciones", icono: "📊", titulo: "Rúbrica y Evaluaciones", sub: "Categorías e indicadores de nota", cta: "Ver rúbrica →" },
+    { href: "#/estrategias", icono: "🧪", titulo: "Estrategias de evaluación", sub: `Catálogo de ${Object.keys(ESTRATEGIAS_EVALUACION).length} estrategias para trabajos asignados`, cta: "Ver catálogo →" },
+    { href: AULA_CONTABLE_URL, externo: true, icono: "🧮", titulo: "Aula de Conta", sub: "Simulador del ciclo contable (NIC/NIIF)", cta: "Abrir aula →" }
   ].map(a => `
-    <a class="section-tile flip-card" href="${a.href}">
+    <a class="section-tile flip-card" href="${a.href}" ${a.externo ? 'target="_blank" rel="noopener"' : ""}>
       <div class="flip-card-inner">
         <div class="flip-card-front">
           <div class="num" style="font-size:1.3rem;">${a.icono} ${a.titulo}</div>
@@ -283,6 +286,49 @@ async function renderHome() {
       ${entregasHTML}
 
       <p class="footer-note">Datos guardados en la base de datos — visibles desde cualquier dispositivo.</p>
+    </div>`;
+  bindTopbar();
+}
+
+// ---------- Catálogo de estrategias de evaluación (referencia) ----------
+// Página informativa: se genera directamente del catálogo real
+// (ESTRATEGIAS_EVALUACION, en actividades.js) para que nunca quede
+// desactualizada. No crea nada — para usar una estrategia hay que entrar
+// al subtema correspondiente y elegirla al "Agregar actividad interactiva".
+function renderEstrategiasEvaluacion() {
+  const NOMBRE_MOTOR = { rubrica_directa: "🧮 Rúbrica / Lista de cotejo", respuesta_abierta: "✍️ Respuesta abierta", autoevaluacion: "🪞 Autoevaluación / Coevaluación", proyecto: "📁 Proyecto" };
+  const porMotor = {};
+  Object.values(ESTRATEGIAS_EVALUACION).forEach(e => { (porMotor[e.tipo] = porMotor[e.tipo] || []).push(e); });
+
+  const bloques = Object.entries(porMotor).map(([tipo, lista]) => `
+    <div class="panel" style="margin-bottom:1rem;">
+      <h3 style="margin-bottom:0.3rem;">${NOMBRE_MOTOR[tipo] || tipo}</h3>
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.8rem;">${{
+        rubrica_directa: "El estudiante no entrega nada — vos calificás directo a cada estudiante con los criterios, y la nota 0-3 se calcula sola.",
+        respuesta_abierta: "El estudiante entrega un texto y vos lo calificás a mano desde \"📨 Ver entregas\".",
+        autoevaluacion: "El estudiante responde una escala de Nunca a Siempre y se califica sola.",
+        proyecto: "El estudiante entrega título + descripción + archivo, y vos lo calificás a mano desde \"📂 Ver entregas\"."
+      }[tipo] || ""}</p>
+      <div style="display:grid; gap:0.5rem;">
+        ${lista.map(e => `
+          <div style="display:flex; align-items:flex-start; gap:0.6rem; padding:0.5rem 0.6rem; background:var(--surface-soft); border-radius:8px;">
+            <span style="font-size:1.1rem;">${e.icono}</span>
+            <div>
+              <strong style="font-size:0.9rem;">${e.etiqueta}</strong>
+              <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.15rem;">${e.instrucciones}</div>
+            </div>
+          </div>`).join("")}
+      </div>
+    </div>`).join("");
+
+  app.innerHTML = `
+    ${topbar()}
+    <div class="wrap">
+      <a href="#/" class="btn secondary small" style="margin-bottom:1rem; display:inline-block;">&larr; Inicio</a>
+      <h1>Estrategias de evaluación</h1>
+      <p style="color:var(--text-muted); margin-top:-0.6em; margin-bottom:1.2rem;">${Object.keys(ESTRATEGIAS_EVALUACION).length} estrategias listas para usar, agrupadas por cómo se califican. Para crear una: entrá al subtema donde la querés, "+ Agregar actividad interactiva" → elegí el tipo dentro del grupo "Estrategias de evaluación".</p>
+      ${bloques}
+      <p class="footer-note">¿Querés que agregue una estrategia nueva a este catálogo? Avisame.</p>
     </div>`;
   bindTopbar();
 }

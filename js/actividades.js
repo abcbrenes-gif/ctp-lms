@@ -25,6 +25,11 @@ const NOMBRES_ACTIVIDAD = {
   autoevaluacion: "Autoevaluación / Coevaluación"
 };
 
+// Artifact del profesor con el simulador del ciclo contable (NIC/NIIF),
+// usado tanto en la práctica diaria de más abajo como en el acceso rápido
+// "Aula de Conta" del inicio del profesor.
+const AULA_CONTABLE_URL = "https://claude.ai/artifact/AsaxiVxRcTT2XhB2zQUYYH";
+
 // Catálogo de "estrategias de evaluación" que el profesor puede elegir al
 // crear un trabajo asignado. Cada una es un NOMBRE pedagógico distinto,
 // pero por debajo usa uno de estos 3 motores genéricos para no duplicar
@@ -189,7 +194,7 @@ const ESTRATEGIAS_EVALUACION = {
   },
   practica_aula_contable: {
     tipo: "respuesta_abierta", grupo: "Prácticas diarias con herramientas externas", icono: "📊", etiqueta: "Práctica diaria — Ciclo contable (Aula Contable NIIF)",
-    instrucciones: 'Entrá a la aplicación "Aula Contable NIIF" (https://claude.ai/artifact/AsaxiVxRcTT2XhB2zQUYYH) con el usuario y la empresa que te indique tu profesor, y hacé ahí la práctica de hoy (por ejemplo: registrar asientos en el diario, pasar al mayor, sacar la balanza de comprobación). Cuando termines, contá acá qué hiciste: qué asientos registraste, si la balanza cuadró, y qué te costó o qué dudas te quedaron.'
+    instrucciones: `Entrá a la aplicación "Aula Contable NIIF" (${AULA_CONTABLE_URL}) con el usuario y la empresa que te indique tu profesor, y hacé ahí la práctica de hoy (por ejemplo: registrar asientos en el diario, pasar al mayor, sacar la balanza de comprobación). Cuando termines, contá acá qué hiciste: qué asientos registraste, si la balanza cuadró, y qué te costó o qué dudas te quedaron.`
   },
   coevaluacion_pares: {
     tipo: "autoevaluacion", grupo: "Autoevaluación y coevaluación", icono: "🤝", etiqueta: "Coevaluación entre pares",
