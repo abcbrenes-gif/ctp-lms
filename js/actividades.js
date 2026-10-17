@@ -19,7 +19,184 @@ const NOMBRES_ACTIVIDAD = {
   infografia: "Infografía",
   prueba: "Prueba",
   lluvia_ideas: "Lluvia de ideas",
-  proyecto: "Proyecto"
+  proyecto: "Proyecto",
+  rubrica_directa: "Rúbrica / Lista de cotejo",
+  respuesta_abierta: "Respuesta abierta",
+  autoevaluacion: "Autoevaluación / Coevaluación"
+};
+
+// Catálogo de "estrategias de evaluación" que el profesor puede elegir al
+// crear un trabajo asignado. Cada una es un NOMBRE pedagógico distinto,
+// pero por debajo usa uno de estos 3 motores genéricos para no duplicar
+// código: "rubrica_directa" (el profesor califica a cada estudiante con
+// criterios, sin que el estudiante entregue nada en la plataforma —
+// sirve tanto para una lista de cotejo binaria como para una rúbrica
+// analítica con niveles), "respuesta_abierta" (el estudiante escribe un
+// texto, el profesor lo lee y pone la nota a mano) y "autoevaluacion"
+// (el estudiante se autoevalúa o evalúa a un compañero con una escala,
+// se califica solo). Esto permite ofrecer 20 estrategias con solo 3
+// motores reales que sí funcionan de principio a fin.
+const ESTRATEGIAS_EVALUACION = {
+  lista_cotejo_general: {
+    tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "✅", etiqueta: "Lista de cotejo general",
+    instrucciones: "Marcá si el estudiante cumplió o no con cada punto.",
+    criterios: [
+      { nombre: "Cumple con las instrucciones dadas", puntos_max: 1 },
+      { nombre: "Entrega a tiempo", puntos_max: 1 },
+      { nombre: "Presentación ordenada y clara", puntos_max: 1 },
+      { nombre: "El contenido es correcto", puntos_max: 1 }
+    ]
+  },
+  rubrica_exposicion_oral: {
+    tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "🎤", etiqueta: "Exposición oral",
+    instrucciones: "Calificá al estudiante mientras expone, con estos criterios.",
+    criterios: [
+      { nombre: "Dominio del tema", puntos_max: 3 },
+      { nombre: "Claridad al hablar", puntos_max: 3 },
+      { nombre: "Uso de recursos de apoyo (diapositivas, material, etc.)", puntos_max: 3 },
+      { nombre: "Manejo del tiempo asignado", puntos_max: 3 }
+    ]
+  },
+  rubrica_debate: {
+    tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "🗣️", etiqueta: "Debate",
+    instrucciones: "Calificá la participación del estudiante en el debate.",
+    criterios: [
+      { nombre: "Calidad de la argumentación", puntos_max: 3 },
+      { nombre: "Respeto al turno y a la posición contraria", puntos_max: 3 },
+      { nombre: "Uso de evidencia o ejemplos", puntos_max: 3 },
+      { nombre: "Capacidad de responder a contraargumentos", puntos_max: 3 }
+    ]
+  },
+  rubrica_estudio_caso: {
+    tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "📋", etiqueta: "Estudio de caso (presentación)",
+    instrucciones: "Calificá la presentación/exposición del caso resuelto.",
+    criterios: [
+      { nombre: "Identificación correcta del problema", puntos_max: 3 },
+      { nombre: "Aplicación de conceptos contables", puntos_max: 3 },
+      { nombre: "Calidad de la propuesta de solución", puntos_max: 3 },
+      { nombre: "Justificación de la respuesta", puntos_max: 3 }
+    ]
+  },
+  rubrica_portafolio: {
+    tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "🗂️", etiqueta: "Portafolio de evidencias",
+    instrucciones: "Revisá el portafolio del estudiante (físico o digital) y calificá con estos criterios.",
+    criterios: [
+      { nombre: "Incluye todas las evidencias pedidas", puntos_max: 3 },
+      { nombre: "Organización y orden", puntos_max: 3 },
+      { nombre: "Reflexión sobre su propio aprendizaje", puntos_max: 3 },
+      { nombre: "Presentación general", puntos_max: 3 }
+    ]
+  },
+  rubrica_proyecto_grupal: {
+    tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "👥", etiqueta: "Proyecto grupal",
+    instrucciones: "Calificá el desempeño de cada estudiante dentro de su grupo.",
+    criterios: [
+      { nombre: "Trabajo en equipo", puntos_max: 3 },
+      { nombre: "Calidad del producto final", puntos_max: 3 },
+      { nombre: "Cumplimiento del rol asignado", puntos_max: 3 },
+      { nombre: "Puntualidad en las entregas", puntos_max: 3 }
+    ]
+  },
+  rubrica_simulacion: {
+    tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "🎭", etiqueta: "Simulación / rol de juego",
+    instrucciones: "Calificá al estudiante durante la simulación o juego de roles.",
+    criterios: [
+      { nombre: "Fidelidad al rol asignado", puntos_max: 3 },
+      { nombre: "Aplicación correcta de los conceptos", puntos_max: 3 },
+      { nombre: "Interacción con sus compañeros", puntos_max: 3 },
+      { nombre: "Creatividad", puntos_max: 3 }
+    ]
+  },
+  rubrica_linea_tiempo: {
+    tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "📅", etiqueta: "Línea de tiempo",
+    instrucciones: "Calificá la línea de tiempo entregada por el estudiante.",
+    criterios: [
+      { nombre: "Orden cronológico correcto", puntos_max: 3 },
+      { nombre: "Información relevante incluida", puntos_max: 3 },
+      { nombre: "Presentación visual", puntos_max: 3 }
+    ]
+  },
+  rubrica_mapa_conceptual: {
+    tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "🧩", etiqueta: "Mapa conceptual",
+    instrucciones: "Calificá el mapa conceptual entregado por el estudiante.",
+    criterios: [
+      { nombre: "Jerarquía correcta de los conceptos", puntos_max: 3 },
+      { nombre: "Conexiones correctas entre conceptos", puntos_max: 3 },
+      { nombre: "Claridad visual", puntos_max: 3 }
+    ]
+  },
+  rubrica_infografia_cartel: {
+    tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "🖼️", etiqueta: "Presentación con infografía/cartel",
+    instrucciones: "Calificá la infografía o cartel presentado por el estudiante.",
+    criterios: [
+      { nombre: "Síntesis de la información", puntos_max: 3 },
+      { nombre: "Diseño visual", puntos_max: 3 },
+      { nombre: "Precisión del contenido", puntos_max: 3 }
+    ]
+  },
+  rubrica_ensayo: {
+    tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "✒️", etiqueta: "Ensayo",
+    instrucciones: "Calificá el ensayo entregado por el estudiante (en papel o por otro medio).",
+    criterios: [
+      { nombre: "Estructura (introducción, desarrollo, conclusión)", puntos_max: 3 },
+      { nombre: "Calidad de la argumentación", puntos_max: 3 },
+      { nombre: "Ortografía y redacción", puntos_max: 3 }
+    ]
+  },
+  lista_cotejo_entrevista: {
+    tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "🎙️", etiqueta: "Entrevista oral / interrogatorio",
+    instrucciones: "Marcá si el estudiante cumplió cada punto durante la entrevista o interrogatorio oral.",
+    criterios: [
+      { nombre: "Responde con seguridad", puntos_max: 1 },
+      { nombre: "Domina el vocabulario técnico", puntos_max: 1 },
+      { nombre: "Justifica sus respuestas", puntos_max: 1 },
+      { nombre: "Actitud profesional", puntos_max: 1 }
+    ]
+  },
+  diario_reflexivo: {
+    tipo: "respuesta_abierta", grupo: "Respuesta abierta / reflexión", icono: "📔", etiqueta: "Diario reflexivo",
+    instrucciones: "Escribí una reflexión sobre lo que aprendiste hoy en clase: ¿qué entendiste mejor?, ¿qué te costó?, ¿cómo lo aplicarías en la vida real?"
+  },
+  ticket_salida: {
+    tipo: "respuesta_abierta", grupo: "Respuesta abierta / reflexión", icono: "🎫", etiqueta: "Ticket de salida",
+    instrucciones: "Antes de salir de la clase, respondé en pocas líneas: ¿cuál fue la idea más importante de hoy?"
+  },
+  bitacora_doble_entrada: {
+    tipo: "respuesta_abierta", grupo: "Respuesta abierta / reflexión", icono: "📒", etiqueta: "Diario de doble entrada",
+    instrucciones: "Dividí tu respuesta en dos partes: 1) una cita o dato del tema visto en clase, 2) tu comentario u opinión personal sobre esa cita o dato."
+  },
+  estudio_caso_escrito: {
+    tipo: "respuesta_abierta", grupo: "Respuesta abierta / reflexión", icono: "📝", etiqueta: "Estudio de caso (respuesta escrita)",
+    instrucciones: "Leé el caso planteado por tu profesor y escribí tu análisis: ¿cuál es el problema?, ¿qué harías?, ¿por qué?"
+  },
+  ensayo_corto: {
+    tipo: "respuesta_abierta", grupo: "Respuesta abierta / reflexión", icono: "🖋️", etiqueta: "Ensayo corto",
+    instrucciones: "Escribí un ensayo corto (mínimo 150 palabras) sobre el tema indicado por tu profesor."
+  },
+  tecnica_kwl: {
+    tipo: "respuesta_abierta", grupo: "Respuesta abierta / reflexión", icono: "🔎", etiqueta: "Técnica KWL (Qué sé / Qué quiero saber / Qué aprendí)",
+    instrucciones: "Completá: ¿Qué sabías del tema ANTES de la clase? ¿Qué querías aprender? ¿Qué aprendiste AL FINAL?"
+  },
+  autoevaluacion_estudiante: {
+    tipo: "autoevaluacion", grupo: "Autoevaluación y coevaluación", icono: "🪞", etiqueta: "Autoevaluación",
+    instrucciones: "Respondé con sinceridad qué tan de acuerdo estás con cada afirmación sobre tu propio trabajo.",
+    afirmaciones: [
+      "Entendí los conceptos principales del tema",
+      "Participé activamente en las actividades de la clase",
+      "Cumplí con mis tareas a tiempo",
+      "Puedo explicarle este tema a un compañero"
+    ]
+  },
+  coevaluacion_pares: {
+    tipo: "autoevaluacion", grupo: "Autoevaluación y coevaluación", icono: "🤝", etiqueta: "Coevaluación entre pares",
+    instrucciones: "Evaluá el trabajo de tu compañero(a) de grupo con sinceridad y respeto.",
+    afirmaciones: [
+      "Mi compañero(a) cumplió con su parte del trabajo",
+      "Mi compañero(a) participó activamente en el grupo",
+      "Mi compañero(a) mostró buena actitud y respeto",
+      "Volvería a trabajar en equipo con esta persona"
+    ]
+  }
 };
 
 // Todas estas actividades, salvo la infografía, se hacen en modo "pantalla
@@ -332,6 +509,63 @@ async function guardarResultadoActividad(trabajo, estudianteId, { respuestas, po
   return puntaje;
 }
 
+// Guarda la entrega de una "Respuesta abierta" (diario, ticket de salida,
+// ensayo, estudio de caso escrito, etc.): el estudiante entrega el texto,
+// pero NO se autocalifica — queda "completado" (para que no se le vuelva a
+// pedir) y sin puntaje hasta que el profesor la lea y la califique a mano
+// desde el panel de "Ver entregas" de esa actividad.
+async function guardarEntregaRespuestaAbierta(trabajo, estudianteId, texto) {
+  const { error: errorActividad } = await upsertSinConflicto(
+    "actividades_estudiante",
+    { trabajo_id: trabajo.id, estudiante_id: estudianteId },
+    { respuestas: { texto }, completado: true, actualizado_en: new Date().toISOString() }
+  );
+  if (errorActividad) {
+    alert("No se pudo guardar tu entrega (" + errorActividad.message + ").");
+    return false;
+  }
+  const { error: errorEstado } = await upsertSinConflicto(
+    "trabajos_cotidianos_estudiante",
+    { trabajo_id: trabajo.id, estudiante_id: estudianteId },
+    { completado: true, entregado_en: new Date().toISOString() }
+  );
+  if (errorEstado) console.error("No se pudo actualizar trabajos_cotidianos_estudiante:", errorEstado.message);
+  return true;
+}
+
+// Guarda una nota puesta A MANO por el profesor (respuesta abierta ya
+// leída, o rúbrica/lista de cotejo ya llenada) para un estudiante puntual:
+// actualiza actividades_estudiante, marca el trabajo como completado para
+// ese estudiante, y — si el trabajo tiene indicador — también
+// calificaciones_indicador, para que aparezca de inmediato en Rúbrica y
+// Evaluaciones sin pasos adicionales.
+async function guardarNotaManualActividad(trabajo, estudianteId, puntaje, datosExtra) {
+  const datosActividad = { puntaje, completado: true, actualizado_en: new Date().toISOString(), ...(datosExtra || {}) };
+  const { error: errorActividad } = await upsertSinConflicto(
+    "actividades_estudiante",
+    { trabajo_id: trabajo.id, estudiante_id: estudianteId },
+    datosActividad
+  );
+  if (errorActividad) return { error: errorActividad.message };
+
+  const { error: errorEstado } = await upsertSinConflicto(
+    "trabajos_cotidianos_estudiante",
+    { trabajo_id: trabajo.id, estudiante_id: estudianteId },
+    { completado: true, entregado_en: new Date().toISOString() }
+  );
+  if (errorEstado) console.error("No se pudo actualizar trabajos_cotidianos_estudiante:", errorEstado.message);
+
+  if (trabajo.indicador_id) {
+    const { error: errorIndicador } = await upsertSinConflicto(
+      "calificaciones_indicador",
+      { indicador_id: trabajo.indicador_id, estudiante_id: estudianteId },
+      { puntaje_obtenido: puntaje }
+    );
+    if (errorIndicador) console.error("No se pudo actualizar calificaciones_indicador:", errorIndicador.message);
+  }
+  return { error: null };
+}
+
 // Crea el overlay de pantalla completa, maneja el aviso de "saliste de la
 // actividad", y delega el contenido real (las preguntas) a `construirContenido`.
 // `construirContenido(cuerpoEl, terminar)` debe llenar cuerpoEl con la UI de
@@ -483,6 +717,69 @@ function jugarFalsoVerdadero(trabajo, cuerpo, terminar) {
     });
   }
   render();
+}
+
+// --- Autoevaluación / Coevaluación ---
+// Escala tipo Likert de 4 niveles por afirmación. No hay "respuesta
+// correcta" — es autopercepción — así que el puntaje refleja qué tan
+// positivamente se autoevaluó el estudiante (sirve como nota formativa).
+const NIVELES_LIKERT = ["Nunca", "A veces", "Casi siempre", "Siempre"];
+
+function jugarAutoevaluacion(trabajo, cuerpo, terminar) {
+  const contenido = trabajo.contenido_actividad || {};
+  const items = contenido.afirmaciones || [];
+  const respuestas = new Array(items.length).fill(null);
+
+  function render() {
+    const respondidas = respuestas.filter(r => r !== null).length;
+    cuerpo.innerHTML = `
+      ${barraProgresoActividad(Math.max(0, respondidas - 1), items.length)}
+      ${contenido.instrucciones ? `<p style="margin-bottom:1rem; color:#CBD5E1;">${contenido.instrucciones}</p>` : ""}
+      <div style="display:flex; flex-direction:column; gap:0.9rem;">
+        ${items.map((texto, i) => `
+          <div style="background:rgba(255,255,255,0.05); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:0.9rem;">
+            <p style="margin-bottom:0.6rem;">${i + 1}. ${texto}</p>
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+              ${NIVELES_LIKERT.map((nivel, nv) => `
+                <button type="button" class="btn ${respuestas[i] === nv ? "" : "secondary"} small" data-lik="${i}" data-val="${nv}" style="${respuestas[i] === nv ? "background:linear-gradient(135deg,#8B5CF6,#06B6D4); box-shadow:0 0 18px rgba(139,92,246,0.45);" : ""}">${nivel}</button>`).join("")}
+            </div>
+          </div>`).join("")}
+      </div>
+      <div class="row" style="margin-top:1.5rem; justify-content:flex-end;">
+        <button type="button" class="btn small" id="act-terminar-lik">Terminar</button>
+      </div>`;
+
+    cuerpo.querySelectorAll("[data-lik]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        respuestas[Number(btn.dataset.lik)] = Number(btn.dataset.val);
+        render();
+      });
+    });
+    cuerpo.querySelector("#act-terminar-lik").addEventListener("click", () => {
+      const sinResponder = respuestas.some(r => r === null);
+      if (sinResponder && !confirm("Todavía hay afirmaciones sin responder. ¿Terminar de todos modos?")) return;
+      const maximoPorItem = NIVELES_LIKERT.length - 1;
+      const suma = respuestas.reduce((acc, r) => acc + (r || 0), 0);
+      const porcentaje = items.length ? (suma / (items.length * maximoPorItem)) * 100 : 0;
+      terminar({ respuestas, porcentaje });
+    });
+  }
+  render();
+}
+
+// --- Rúbrica / Lista de cotejo (la llena el profesor, el estudiante no
+// participa) --- Dado un arreglo de criterios [{nombre, puntos_max}] y los
+// puntos que el profesor le dio al estudiante en cada uno, calcula el %
+// y lo redondea a 0-3 con la misma escala que el resto de la plataforma.
+function porcentajeDesdeCriterios(criterios, puntosObtenidos) {
+  const maximo = (criterios || []).reduce((acc, c) => acc + (Number(c.puntos_max) || 0), 0);
+  if (!maximo) return 0;
+  const obtenido = (criterios || []).reduce((acc, c, i) => {
+    const v = Number(puntosObtenidos[i]);
+    const max = Number(c.puntos_max) || 0;
+    return acc + Math.max(0, Math.min(isNaN(v) ? 0 : v, max));
+  }, 0);
+  return (obtenido / maximo) * 100;
 }
 
 // --- Sopa de letras ---
@@ -883,7 +1180,8 @@ async function iniciarActividadInteractiva(trabajo, estudianteId, onTerminado) {
     falso_verdadero: jugarFalsoVerdadero,
     sopa_letras: jugarSopaDeLetras,
     crucigrama: jugarCrucigrama,
-    prueba: jugarPrueba
+    prueba: jugarPrueba,
+    autoevaluacion: jugarAutoevaluacion
   };
   const jugador = jugadores[tipo];
   if (!jugador) { alert("Este tipo de actividad todavía no está disponible para jugar."); return; }

@@ -2033,11 +2033,12 @@ async function renderSubtema(id, soloLectura) {
       panel.innerHTML = construirSelectorTipoActividad();
       panel.querySelector("#actividad-tipo").addEventListener("change", (e) => {
         const constructor = panel.querySelector("#actividad-constructor");
-        constructor.innerHTML = construirPanelActividadHTML(e.target.value);
-        inicializarConstructorPorTipo(e.target.value, constructor);
-        ajustarCampoCantidad(panel, e.target.value);
+        const tipoReal = tipoRealDeActividad(e.target.value);
+        constructor.innerHTML = construirPanelActividadHTML(tipoReal, e.target.value);
+        inicializarConstructorPorTipo(tipoReal, constructor);
+        ajustarCampoCantidad(panel, tipoReal);
         const iaBloque = panel.querySelector("#actividad-ia-bloque");
-        if (iaBloque) iaBloque.style.display = (e.target.value === "lluvia_ideas" || e.target.value === "proyecto") ? "none" : "";
+        if (iaBloque) iaBloque.style.display = ["lluvia_ideas", "proyecto", "rubrica_directa", "respuesta_abierta", "autoevaluacion"].includes(tipoReal) ? "none" : "";
       });
       panel.querySelector("#actividad-tipo").dispatchEvent(new Event("change"));
       panel.querySelector("#generar-actividad-ia-btn").addEventListener("click", async (iaEv) => {
@@ -2090,7 +2091,8 @@ async function renderSubtema(id, soloLectura) {
       });
       panel.querySelector("#cancelar-actividad-interactiva").addEventListener("click", () => { panel.innerHTML = ""; });
       panel.querySelector("#guardar-actividad-interactiva").addEventListener("click", async (btnEv) => {
-        const tipo = panel.querySelector("#actividad-tipo").value;
+        const valorSelect = panel.querySelector("#actividad-tipo").value;
+        const tipo = tipoRealDeActividad(valorSelect);
         const titulo = panel.querySelector("#actividad-titulo").value.trim();
         const fecha = panel.querySelector("#actividad-fecha").value || null;
         if (!titulo) { alert("Ponele un título a la actividad."); return; }
@@ -2815,6 +2817,44 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
           <span data-infografia-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
         </div>`;
       }
+      if (esActividad && t.tipo_actividad === "respuesta_abierta") {
+        const res = resultadoPorTrabajo[t.id];
+        const instrucciones = (t.contenido_actividad && t.contenido_actividad.instrucciones) || "";
+        const minCaracteres = (t.contenido_actividad && t.contenido_actividad.min_caracteres) || 0;
+        const yaEntrego = !!(res && res.completado);
+        return `
+        <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.4rem;">
+          <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
+            <span class="name">✍️ ${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+            <span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>
+          </div>
+          ${instrucciones ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${instrucciones}</div>` : ""}
+          ${yaEntrego
+            ? `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Entregado${res.puntaje != null ? " — Nota: " + res.puntaje + "/3" : " (pendiente de calificación)"}</span>
+               <div class="roa-cell-texto" style="font-size:0.85rem; white-space:pre-wrap;">${(res.respuestas && res.respuestas.texto) || ""}</div>`
+            : `<form class="inline-form" data-abierta-form="${t.id}" style="width:100%;">
+                 <textarea name="texto" data-abierta-texto="${t.id}" rows="5" required minlength="${minCaracteres || 1}" placeholder="Escribí tu respuesta…" style="width:100%; font-family:inherit; resize:vertical;"></textarea>
+                 ${minCaracteres ? `<span data-abierta-contador="${t.id}" style="font-size:0.75rem; color:var(--text-muted);">0 / ${minCaracteres} caracteres mínimo</span>` : ""}
+                 <button class="btn small" type="submit">Entregar respuesta</button>
+                 <span data-abierta-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
+               </form>`}
+        </div>`;
+      }
+      if (esActividad && t.tipo_actividad === "rubrica_directa") {
+        const res = resultadoPorTrabajo[t.id];
+        const instrucciones = (t.contenido_actividad && t.contenido_actividad.instrucciones) || "";
+        return `
+        <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.4rem;">
+          <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
+            <span class="name">🧮 ${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+            <span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>
+          </div>
+          ${instrucciones ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${instrucciones}</div>` : ""}
+          ${res && res.completado
+            ? `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Calificado por tu profesor${res.puntaje != null ? " — Nota: " + res.puntaje + "/3" : ""}</span>`
+            : `<span class="badge" style="background:var(--warn-bg); color:var(--warn-text);">⏳ Tu profesor te va a calificar directamente, no tenés que entregar nada acá</span>`}
+        </div>`;
+      }
       if (esActividad) {
         const res = resultadoPorTrabajo[t.id];
         const completo = res && res.completado;
@@ -2959,6 +2999,39 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
       actualizarContador();
     });
 
+    holder.querySelectorAll("[data-abierta-texto]").forEach(textarea => {
+      const trabajoId = textarea.dataset.abiertaTexto;
+      const contador = holder.querySelector(`[data-abierta-contador="${trabajoId}"]`);
+      if (!contador) return;
+      const minimo = Number(textarea.getAttribute("minlength")) || 1;
+      const actualizarContador = () => {
+        const n = textarea.value.length;
+        contador.textContent = `${n} / ${minimo} caracteres mínimo`;
+        contador.style.color = n >= minimo ? "#1d7a43" : "var(--text-muted)";
+      };
+      textarea.addEventListener("input", actualizarContador);
+      actualizarContador();
+    });
+
+    holder.querySelectorAll("[data-abierta-form]").forEach(form => {
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const trabajoId = form.dataset.abiertaForm;
+        const trabajo = trabajos.find(t => String(t.id) === String(trabajoId));
+        if (!trabajo) return;
+        const estado = holder.querySelector(`[data-abierta-estado="${trabajoId}"]`);
+        const texto = (new FormData(form).get("texto") || "").toString().trim();
+        const minimo = Number(form.querySelector("[data-abierta-texto]")?.getAttribute("minlength")) || 1;
+        if (texto.length < minimo) { if (estado) estado.textContent = `Tu respuesta necesita al menos ${minimo} caracteres (lleva ${texto.length}).`; return; }
+        const boton = form.querySelector("button[type=submit]");
+        boton.disabled = true;
+        boton.textContent = "Entregando…";
+        const ok = await guardarEntregaRespuestaAbierta(trabajo, estudianteId, texto);
+        if (!ok) { boton.disabled = false; boton.textContent = "Entregar respuesta"; return; }
+        pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId);
+      });
+    });
+
     holder.querySelectorAll("[data-proyecto-form]").forEach(form => {
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -3082,12 +3155,12 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
     holder.innerHTML = trabajos.map(t => `
       <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem; ${t.habilitado === false ? "opacity:0.55;" : ""}">
         <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
-          <span class="name">${t.tipo_actividad === "prueba" ? "📝 " : (t.tipo_actividad && t.tipo_actividad !== "simple" ? "🧠 " : "")}${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+          <span class="name">${t.tipo_actividad === "prueba" ? "📝 " : (t.tipo_actividad === "rubrica_directa" ? "🧮 " : (t.tipo_actividad === "respuesta_abierta" ? "✍️ " : (t.tipo_actividad === "autoevaluacion" ? "🪞 " : (t.tipo_actividad && t.tipo_actividad !== "simple" ? "🧠 " : ""))))}${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
           <span style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
             ${t.tipo_actividad && t.tipo_actividad !== "simple" ? `<span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>` : ""}
             ${t.tipo_actividad === "prueba" ? `<span class="badge" style="font-weight:400;">${t.fecha_hora_inicio ? "⏰ Inicia: " + formatearFechaHora(t.fecha_hora_inicio) : "⏰ Sin hora programada"}</span>
             <button class="btn secondary small" data-cambiar-hora-prueba="${t.id}">⏰ Cambiar hora</button>` : ""}
-            <span class="badge">${conteos[t.id] || 0} ${t.tipo_actividad === "lluvia_ideas" ? "participaron" : (t.tipo_actividad === "proyecto" ? "entregaron" : "completaron")}</span>
+            ${t.tipo_actividad !== "rubrica_directa" ? `<span class="badge">${conteos[t.id] || 0} ${t.tipo_actividad === "lluvia_ideas" ? "participaron" : (t.tipo_actividad === "proyecto" || t.tipo_actividad === "respuesta_abierta" ? "entregaron" : "completaron")}</span>` : ""}
             <button class="btn ${t.habilitado === false ? "" : "secondary"} small" data-toggle-trabajo-subtema-habilitado="${t.id}" data-estado-actual="${t.habilitado !== false}">
               ${t.habilitado === false ? "Habilitar" : "Habilitado"}
             </button>
@@ -3099,6 +3172,9 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
             ${TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<button class="btn secondary small" data-ver-retro="${t.id}">📝 Ver retroalimentación</button>` : ""}
             ${TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<button class="btn ${t.retro_visible ? "" : "secondary"} small" data-toggle-retro-visible="${t.id}" data-estado-actual="${t.retro_visible === true}">${t.retro_visible ? "🙈 Ocultar respuestas a estudiantes" : "👁️ Mostrar respuestas a estudiantes"}</button>` : ""}
             ${t.tipo_actividad === "lluvia_ideas" ? `<button class="btn secondary small" data-ver-ideas="${t.id}">💡 Ver intervenciones</button>` : ""}
+            ${t.tipo_actividad === "respuesta_abierta" ? `<button class="btn secondary small" data-ver-entregas-abiertas="${t.id}">📨 Ver entregas</button>` : ""}
+            ${t.tipo_actividad === "autoevaluacion" ? `<button class="btn secondary small" data-ver-autoeval="${t.id}">🪞 Ver respuestas</button>` : ""}
+            ${t.tipo_actividad === "rubrica_directa" ? `<button class="btn secondary small" data-calificar-rubrica="${t.id}">🧮 Calificar</button>` : ""}
             ${esEditable(t) ? `<button class="btn secondary small" data-editar-trabajo-subtema="${t.id}">✏️ Editar</button>` : ""}
             ${t.indicador_id
               ? `<span class="badge" style="font-weight:400;">📊 Indicador calificable</span>`
@@ -3116,13 +3192,16 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
           <button class="btn small" type="submit">Guardar</button>
           <button class="btn secondary small" type="button" data-cancelar-editar-trabajo-subtema="${t.id}">Cancelar</button>
         </form>
-        <div data-entregas-trabajo-panel="${t.id}" style="width:100%;"></div>` : (t.tipo_actividad === "lluvia_ideas" && t.contenido_actividad && t.contenido_actividad.pregunta ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.contenido_actividad.pregunta}</div>` : (t.tipo_actividad === "proyecto" && t.contenido_actividad && t.contenido_actividad.instrucciones ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.contenido_actividad.instrucciones}</div>` : (t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : "")))}
+        <div data-entregas-trabajo-panel="${t.id}" style="width:100%;"></div>` : (t.tipo_actividad === "lluvia_ideas" && t.contenido_actividad && t.contenido_actividad.pregunta ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.contenido_actividad.pregunta}</div>` : (t.contenido_actividad && t.contenido_actividad.instrucciones && ["proyecto", "respuesta_abierta", "rubrica_directa", "autoevaluacion"].includes(t.tipo_actividad) ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.contenido_actividad.instrucciones}</div>` : (t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : "")))}
         ${t.tipo_actividad === "infografia" ? `<div data-entregas-panel="${t.id}"></div>` : ""}
         ${t.tipo_actividad === "proyecto" ? `<div data-entregas-proyecto-panel="${t.id}" style="width:100%;"></div>` : ""}
         ${ACTIVIDADES_BLOQUEADAS.includes(t.tipo_actividad) ? `<div data-preguntas-panel="${t.id}"></div>` : ""}
         ${ACTIVIDADES_BLOQUEADAS.includes(t.tipo_actividad) ? `<div data-editar-preguntas-panel="${t.id}" style="width:100%;"></div>` : ""}
         ${TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<div data-retro-panel="${t.id}"></div>` : ""}
         ${t.tipo_actividad === "lluvia_ideas" ? `<div data-ideas-panel="${t.id}" style="width:100%;"></div>` : ""}
+        ${t.tipo_actividad === "respuesta_abierta" ? `<div data-entregas-abiertas-panel="${t.id}" style="width:100%;"></div>` : ""}
+        ${t.tipo_actividad === "autoevaluacion" ? `<div data-autoeval-panel="${t.id}" style="width:100%;"></div>` : ""}
+        ${t.tipo_actividad === "rubrica_directa" ? `<div data-rubrica-panel="${t.id}" style="width:100%;"></div>` : ""}
         ${t.tipo_actividad === "prueba" ? `<div data-hora-prueba-panel="${t.id}" style="width:100%;"></div>` : ""}
       </div>`).join("");
 
@@ -3158,6 +3237,45 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         if (panel.innerHTML) { panel.innerHTML = ""; return; }
         panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando…</p>`;
         await pintarPanelIdeas(panel, trabajoId);
+      });
+    });
+
+    holder.querySelectorAll("[data-ver-entregas-abiertas]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const trabajoId = btn.dataset.verEntregasAbiertas;
+        const panel = holder.querySelector(`[data-entregas-abiertas-panel="${trabajoId}"]`);
+        if (!panel) return;
+        if (panel.innerHTML) { panel.innerHTML = ""; return; }
+        const trabajo = trabajos.find(x => String(x.id) === String(trabajoId));
+        if (!trabajo) return;
+        panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando…</p>`;
+        await pintarPanelEntregasAbiertas(panel, trabajo, () => pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId));
+      });
+    });
+
+    holder.querySelectorAll("[data-ver-autoeval]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const trabajoId = btn.dataset.verAutoeval;
+        const panel = holder.querySelector(`[data-autoeval-panel="${trabajoId}"]`);
+        if (!panel) return;
+        if (panel.innerHTML) { panel.innerHTML = ""; return; }
+        const trabajo = trabajos.find(x => String(x.id) === String(trabajoId));
+        if (!trabajo) return;
+        panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando…</p>`;
+        await pintarPanelAutoevaluaciones(panel, trabajo);
+      });
+    });
+
+    holder.querySelectorAll("[data-calificar-rubrica]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const trabajoId = btn.dataset.calificarRubrica;
+        const panel = holder.querySelector(`[data-rubrica-panel="${trabajoId}"]`);
+        if (!panel) return;
+        if (panel.innerHTML) { panel.innerHTML = ""; return; }
+        const trabajo = trabajos.find(x => String(x.id) === String(trabajoId));
+        if (!trabajo) return;
+        panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando…</p>`;
+        await pintarPanelCalificarRubrica(panel, trabajo, materiaId);
       });
     });
 
@@ -3433,6 +3551,16 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
 
 // --- Constructor de actividades interactivas (selección única, falso y verdadero) ---
 
+// El <select> de tipo de actividad incluye, además de los tipos "motor"
+// de siempre, 20 "estrategias de evaluación" con nombre pedagógico
+// (ESTRATEGIAS_EVALUACION, en actividades.js) que por debajo usan uno de
+// 3 motores genéricos. Esta función traduce el valor elegido en el
+// select al tipo_actividad real que se guarda en la base de datos.
+function tipoRealDeActividad(valorSelect) {
+  const preset = ESTRATEGIAS_EVALUACION[valorSelect];
+  return preset ? preset.tipo : valorSelect;
+}
+
 function construirSelectorTipoActividad() {
   return `
     <div style="background:var(--surface); border:1px solid var(--paper-line); border-radius:10px; padding:1rem;">
@@ -3451,6 +3579,9 @@ function construirSelectorTipoActividad() {
             <option value="prueba">📝 Prueba (con hora de inicio y datos del estudiante)</option>
             <option value="lluvia_ideas">💡 Lluvia de ideas</option>
             <option value="proyecto">📁 Proyecto (título + descripción + archivo, se puede volver a entregar)</option>
+            <optgroup label="Estrategias de evaluación">
+              ${Object.entries(ESTRATEGIAS_EVALUACION).map(([clave, e]) => `<option value="${clave}">${e.icono} ${e.etiqueta}</option>`).join("")}
+            </optgroup>
           </select>
         </label>
         <label id="actividad-cantidad-label" style="display:flex; align-items:center; gap:0.5rem;">Cantidad:
@@ -3644,12 +3775,104 @@ function inicializarConstructorCrucigrama(contenedor) {
   });
 }
 
+// --- Afirmaciones tipo Likert (Autoevaluación / Coevaluación) — igual
+// patrón que falso/verdadero, pero sin marcar "correcta" (es autopercepción).
+function bloqueAfirmacionLikertHTML(i, texto) {
+  return `
+    <div class="au-lik-bloque" data-bloque="${i}" style="background:var(--surface-soft); border-radius:8px; padding:0.8rem; margin-bottom:0.6rem;">
+      <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
+        <p class="au-lik-numero" style="font-weight:600; font-size:0.85rem; margin:0;">Afirmación</p>
+        <button type="button" class="btn danger small au-lik-quitar" data-bloque="${i}">Quitar</button>
+      </div>
+      <textarea class="au-lik-texto" data-i="${i}" placeholder="Ej. Entendí los conceptos principales del tema" rows="2" style="width:100%; font-family:inherit; resize:vertical;">${texto ? texto.replace(/</g, "&lt;") : ""}</textarea>
+    </div>`;
+}
+
+function renumerarLikert(lista) {
+  lista.querySelectorAll(".au-lik-bloque").forEach((bloque, idx) => {
+    const numero = bloque.querySelector(".au-lik-numero");
+    if (numero) numero.textContent = `Afirmación ${idx + 1}`;
+  });
+}
+
+function agregarLikertBloque(contenedor, texto) {
+  const lista = contenedor.querySelector(".au-lik-lista");
+  if (!lista) return null;
+  const siguiente = Number(lista.dataset.auLikSiguiente || "0");
+  lista.dataset.auLikSiguiente = String(siguiente + 1);
+  const envoltura = document.createElement("div");
+  envoltura.innerHTML = bloqueAfirmacionLikertHTML(siguiente, texto);
+  const bloque = envoltura.firstElementChild;
+  lista.appendChild(bloque);
+  renumerarLikert(lista);
+  return bloque;
+}
+
+function inicializarConstructorAutoevaluacion(contenedor) {
+  const lista = contenedor.querySelector(".au-lik-lista");
+  const btnAgregar = contenedor.querySelector(".au-lik-agregar");
+  if (!lista || !btnAgregar) return;
+  btnAgregar.addEventListener("click", () => agregarLikertBloque(contenedor));
+  lista.addEventListener("click", (e) => {
+    const quitar = e.target.closest(".au-lik-quitar");
+    if (!quitar) return;
+    if (lista.querySelectorAll(".au-lik-bloque").length <= 1) {
+      alert("Debe haber al menos una afirmación.");
+      return;
+    }
+    quitar.closest(".au-lik-bloque")?.remove();
+    renumerarLikert(lista);
+  });
+}
+
+// --- Criterios de una Rúbrica / Lista de cotejo (la llena el profesor) ---
+function bloqueCriterioHTML(i, nombre, puntosMax) {
+  return `
+    <div class="au-crit-bloque" data-bloque="${i}" style="display:flex; gap:0.5rem; margin-bottom:0.5rem; align-items:flex-start;">
+      <textarea class="au-crit-nombre" data-i="${i}" placeholder="Nombre del criterio (ej. Dominio del tema)" rows="1" style="flex:1; font-family:inherit; resize:vertical;">${nombre ? nombre.replace(/</g, "&lt;") : ""}</textarea>
+      <label style="font-size:0.78rem; color:var(--text-muted); display:flex; flex-direction:column; align-items:center;">Puntos máx.
+        <input type="number" class="au-crit-max" data-i="${i}" min="1" max="10" value="${puntosMax || 3}" style="width:4rem; padding:0.3rem; margin-top:0.2rem;" />
+      </label>
+      <button type="button" class="btn danger small au-crit-quitar" data-bloque="${i}" style="margin-top:0.1rem;">Quitar</button>
+    </div>`;
+}
+
+function agregarCriterioBloque(contenedor, nombre, puntosMax) {
+  const lista = contenedor.querySelector(".au-crit-lista");
+  if (!lista) return null;
+  const siguiente = Number(lista.dataset.auCritSiguiente || "0");
+  lista.dataset.auCritSiguiente = String(siguiente + 1);
+  const envoltura = document.createElement("div");
+  envoltura.innerHTML = bloqueCriterioHTML(siguiente, nombre, puntosMax);
+  const bloque = envoltura.firstElementChild;
+  lista.appendChild(bloque);
+  return bloque;
+}
+
+function inicializarConstructorRubricaDirecta(contenedor) {
+  const lista = contenedor.querySelector(".au-crit-lista");
+  const btnAgregar = contenedor.querySelector(".au-crit-agregar");
+  if (!lista || !btnAgregar) return;
+  btnAgregar.addEventListener("click", () => agregarCriterioBloque(contenedor));
+  lista.addEventListener("click", (e) => {
+    const quitar = e.target.closest(".au-crit-quitar");
+    if (!quitar) return;
+    if (lista.querySelectorAll(".au-crit-bloque").length <= 1) {
+      alert("Debe haber al menos un criterio.");
+      return;
+    }
+    quitar.closest(".au-crit-bloque")?.remove();
+  });
+}
+
 // Conecta la lista dinámica (agregar/quitar) que le corresponda a cada tipo
 // de actividad, después de insertar el HTML de construirPanelActividadHTML.
 function inicializarConstructorPorTipo(tipo, contenedor) {
   if (tipo === "prueba" || tipo === "seleccion_unica") inicializarConstructorPrueba(contenedor);
   if (tipo === "falso_verdadero") inicializarConstructorFalsoVerdadero(contenedor);
   if (tipo === "crucigrama") inicializarConstructorCrucigrama(contenedor);
+  if (tipo === "autoevaluacion") inicializarConstructorAutoevaluacion(contenedor);
+  if (tipo === "rubrica_directa") inicializarConstructorRubricaDirecta(contenedor);
 }
 
 // Muestra/oculta y ajusta el input "Cantidad" (lo que se le pide a la IA)
@@ -3702,7 +3925,8 @@ function inicializarConstructorPrueba(contenedor) {
   }
 }
 
-function construirPanelActividadHTML(tipo) {
+function construirPanelActividadHTML(tipo, presetKey) {
+  const preset = presetKey ? ESTRATEGIAS_EVALUACION[presetKey] : null;
   if (tipo === "seleccion_unica") {
     const preguntasIniciales = Array.from({ length: 15 }, (_, i) => i);
     return `
@@ -3803,6 +4027,39 @@ function construirPanelActividadHTML(tipo) {
       <label style="display:block; font-size:0.82rem;">Mínimo de caracteres exigidos en la descripción (opcional, dejalo en 0 si no querés exigir un mínimo)
         <input id="au-proyecto-min-caracteres" type="number" min="0" step="10" value="0" style="width:8rem; margin-top:0.2rem; display:block;" />
       </label>`;
+  }
+  if (tipo === "respuesta_abierta") {
+    return `
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">El estudiante escribe su respuesta en un cuadro de texto y la entrega. Vos la leés y le ponés la nota a mano desde "📨 Ver entregas" — no se califica sola.</p>
+      <label for="au-abierta-instrucciones" style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.4rem;">Consigna para el estudiante</label>
+      <textarea id="au-abierta-instrucciones" rows="4" placeholder="Ej. Escribí una reflexión sobre lo que aprendiste hoy en clase…" style="width:100%; font-family:inherit; resize:vertical; margin-bottom:0.6rem;">${preset ? preset.instrucciones.replace(/</g, "&lt;") : ""}</textarea>
+      <label style="display:block; font-size:0.82rem;">Mínimo de caracteres exigidos (opcional, dejalo en 0 si no querés exigir un mínimo)
+        <input id="au-abierta-min-caracteres" type="number" min="0" step="10" value="0" style="width:8rem; margin-top:0.2rem; display:block;" />
+      </label>`;
+  }
+  if (tipo === "autoevaluacion") {
+    const afirmacionesIniciales = preset ? preset.afirmaciones : ["", "", ""];
+    return `
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">El estudiante responde cada afirmación en una escala de "Nunca" a "Siempre" — se califica solo según qué tan positivamente se evaluó (sirve como nota formativa, revisala en "🪞 Ver respuestas").</p>
+      <label for="au-lik-instrucciones" style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.4rem;">Instrucciones para el estudiante (opcional)</label>
+      <textarea id="au-lik-instrucciones" rows="2" placeholder="Ej. Respondé con sinceridad qué tan de acuerdo estás con cada afirmación." style="width:100%; font-family:inherit; resize:vertical; margin-bottom:0.8rem;">${preset ? preset.instrucciones.replace(/</g, "&lt;") : ""}</textarea>
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Escribí las afirmaciones (agregá o quitá las que necesites).</p>
+      <div class="au-lik-lista" data-au-lik-siguiente="${afirmacionesIniciales.length}">
+        ${afirmacionesIniciales.map((t, i) => bloqueAfirmacionLikertHTML(i, t)).join("")}
+      </div>
+      <button type="button" class="btn secondary small au-lik-agregar">+ Agregar afirmación</button>`;
+  }
+  if (tipo === "rubrica_directa") {
+    const criteriosIniciales = preset ? preset.criterios : [{ nombre: "", puntos_max: 3 }, { nombre: "", puntos_max: 3 }, { nombre: "", puntos_max: 3 }];
+    return `
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">El estudiante NO entrega nada en la plataforma — vos calificás directamente a cada estudiante con estos criterios desde "🧮 Calificar" (por ejemplo mientras expone, o revisando un trabajo físico). La nota se calcula sola según los puntos que le pongas en cada criterio.</p>
+      <label for="au-crit-instrucciones" style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.4rem;">Descripción de la actividad (opcional, es solo para recordar de qué se trata)</label>
+      <textarea id="au-crit-instrucciones" rows="2" placeholder="Ej. Exposición oral sobre descuentos de ley." style="width:100%; font-family:inherit; resize:vertical; margin-bottom:0.8rem;">${preset ? preset.instrucciones.replace(/</g, "&lt;") : ""}</textarea>
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Criterios a calificar (agregá o quitá los que necesites, y ajustá los puntos máximos de cada uno).</p>
+      <div class="au-crit-lista" data-au-crit-siguiente="${criteriosIniciales.length}">
+        ${criteriosIniciales.map((c, i) => bloqueCriterioHTML(i, c.nombre, c.puntos_max)).join("")}
+      </div>
+      <button type="button" class="btn secondary small au-crit-agregar">+ Agregar criterio</button>`;
   }
   return `<p class="empty">Este tipo todavía no está disponible — contame y lo agrego.</p>`;
 }
@@ -4167,6 +4424,159 @@ async function pintarPanelIdeas(panel, trabajoId) {
       const valorFinal = (idea && idea.calificacion === nueva) ? null : nueva;
       await sb.from("trabajo_ideas").update({ calificacion: valorFinal }).eq("id", ideaId);
       await pintarPanelIdeas(panel, trabajoId);
+    });
+  });
+}
+
+// Panel del profesor para "Respuesta abierta": cada entrega de texto, con
+// un selector 0-3 para ponerle la nota a mano ahí mismo. Al guardar, la
+// nota queda en actividades_estudiante y (si el trabajo tiene indicador)
+// en calificaciones_indicador — aparece de una vez en Rúbrica y Evaluaciones.
+async function pintarPanelEntregasAbiertas(panel, trabajo, onCalificado) {
+  const { data: entregas } = await sb.from("actividades_estudiante").select("*").eq("trabajo_id", trabajo.id).eq("completado", true);
+  if (!entregas || entregas.length === 0) {
+    panel.innerHTML = `<p class="empty" style="font-size:0.82rem;">Todavía nadie ha entregado.</p>`;
+    return;
+  }
+  const estudianteIds = entregas.map(e => e.estudiante_id);
+  const { data: estudiantes } = await sb.from("estudiantes").select("id, nombre, apellido1, apellido2").in("id", estudianteIds);
+  const nombrePorId = {};
+  (estudiantes || []).forEach(e => { nombrePorId[e.id] = [e.apellido1, e.apellido2, e.nombre].filter(Boolean).join(" "); });
+
+  const filas = entregas
+    .sort((a, b) => (nombrePorId[a.estudiante_id] || "").localeCompare(nombrePorId[b.estudiante_id] || ""))
+    .map(e => `
+      <details style="margin-bottom:0.5rem; background:var(--surface-soft); border-radius:8px; padding:0.6rem 0.8rem;">
+        <summary style="cursor:pointer; font-size:0.85rem; display:flex; justify-content:space-between; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+          <span>${nombrePorId[e.estudiante_id] || e.estudiante_id}</span>
+          <span class="badge" style="font-weight:400;">${e.puntaje != null ? "Nota: " + e.puntaje + "/3" : "Pendiente de calificar"}</span>
+        </summary>
+        <div style="margin-top:0.6rem; font-size:0.85rem; white-space:pre-wrap; background:var(--surface); border-radius:6px; padding:0.6rem;">${(e.respuestas && e.respuestas.texto) || ""}</div>
+        <div class="row" style="margin-top:0.6rem; align-items:center; gap:0.5rem;">
+          <label style="font-size:0.82rem;">Nota:
+            <select data-nota-abierta="${e.estudiante_id}" style="margin-left:0.3rem;">
+              ${[0, 1, 2, 3].map(n => `<option value="${n}" ${e.puntaje === n ? "selected" : ""}>${n}</option>`).join("")}
+            </select>
+          </label>
+          <button class="btn small" data-guardar-nota-abierta="${e.estudiante_id}">Guardar nota</button>
+          <span data-nota-abierta-estado="${e.estudiante_id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
+        </div>
+      </details>`).join("");
+
+  panel.innerHTML = `<div style="margin-top:0.5rem;">${filas}</div>`;
+
+  panel.querySelectorAll("[data-guardar-nota-abierta]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const estudianteId = btn.dataset.guardarNotaAbierta;
+      const select = panel.querySelector(`[data-nota-abierta="${estudianteId}"]`);
+      const estado = panel.querySelector(`[data-nota-abierta-estado="${estudianteId}"]`);
+      const puntaje = Number(select.value);
+      btn.disabled = true;
+      if (estado) estado.textContent = "Guardando…";
+      const { error } = await guardarNotaManualActividad(trabajo, estudianteId, puntaje);
+      btn.disabled = false;
+      if (error) { if (estado) estado.textContent = "No se pudo guardar: " + error; return; }
+      if (estado) estado.textContent = "✓ Guardado.";
+      if (onCalificado) onCalificado();
+    });
+  });
+}
+
+// Panel del profesor para "Autoevaluación / Coevaluación": solo lectura —
+// ya se califica sola al terminar, esto es para que el profesor vea qué
+// contestó cada estudiante en cada afirmación.
+async function pintarPanelAutoevaluaciones(panel, trabajo) {
+  const afirmaciones = (trabajo.contenido_actividad && trabajo.contenido_actividad.afirmaciones) || [];
+  const { data: entregas } = await sb.from("actividades_estudiante").select("*").eq("trabajo_id", trabajo.id).eq("completado", true);
+  if (!entregas || entregas.length === 0) {
+    panel.innerHTML = `<p class="empty" style="font-size:0.82rem;">Todavía nadie la ha respondido.</p>`;
+    return;
+  }
+  const estudianteIds = entregas.map(e => e.estudiante_id);
+  const { data: estudiantes } = await sb.from("estudiantes").select("id, nombre, apellido1, apellido2").in("id", estudianteIds);
+  const nombrePorId = {};
+  (estudiantes || []).forEach(e => { nombrePorId[e.id] = [e.apellido1, e.apellido2, e.nombre].filter(Boolean).join(" "); });
+
+  const filas = entregas
+    .sort((a, b) => (nombrePorId[a.estudiante_id] || "").localeCompare(nombrePorId[b.estudiante_id] || ""))
+    .map(e => {
+      const respuestas = Array.isArray(e.respuestas) ? e.respuestas : [];
+      return `
+      <details style="margin-bottom:0.5rem; background:var(--surface-soft); border-radius:8px; padding:0.6rem 0.8rem;">
+        <summary style="cursor:pointer; font-size:0.85rem; display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
+          <span>${nombrePorId[e.estudiante_id] || e.estudiante_id}</span>
+          <strong>${Math.round(e.porcentaje || 0)}%</strong>
+        </summary>
+        <div style="margin-top:0.6rem; display:grid; gap:0.3rem;">
+          ${afirmaciones.map((texto, i) => `<div style="font-size:0.82rem; padding:0.3rem 0.4rem; border-left:3px solid var(--ledger-green);">${texto} — <strong>${NIVELES_LIKERT[respuestas[i]] || "Sin responder"}</strong></div>`).join("")}
+        </div>
+      </details>`;
+    }).join("");
+
+  panel.innerHTML = `<div style="margin-top:0.5rem;">${filas}</div>`;
+}
+
+// Panel del profesor para "Rúbrica / Lista de cotejo": NO hay entrega del
+// estudiante — el profesor califica directamente a cada integrante de la
+// sección con los criterios definidos, y se calcula la nota 0-3 sola.
+async function pintarPanelCalificarRubrica(panel, trabajo, materiaId) {
+  const criterios = (trabajo.contenido_actividad && trabajo.contenido_actividad.criterios) || [];
+  const { data: inscritos } = await sb.from("estudiante_materias").select("estudiante_id").eq("materia_id", materiaId);
+  const estudianteIds = (inscritos || []).map(i => i.estudiante_id);
+  if (estudianteIds.length === 0) {
+    panel.innerHTML = `<p class="empty" style="font-size:0.82rem;">No hay estudiantes inscritos en esta materia todavía.</p>`;
+    return;
+  }
+  const { data: estudiantes } = await sb.from("estudiantes").select("id, nombre, apellido1, apellido2").in("id", estudianteIds);
+  const nombrePorId = {};
+  (estudiantes || []).forEach(e => { nombrePorId[e.id] = [e.apellido1, e.apellido2, e.nombre].filter(Boolean).join(" "); });
+  const ordenados = estudianteIds.slice().sort((a, b) => (nombrePorId[a] || "").localeCompare(nombrePorId[b] || ""));
+
+  const { data: entregas } = await sb.from("actividades_estudiante").select("*").eq("trabajo_id", trabajo.id).in("estudiante_id", estudianteIds);
+  const entregaPorEstudiante = {};
+  (entregas || []).forEach(e => { entregaPorEstudiante[e.estudiante_id] = e; });
+
+  const filaEstudiante = (estId) => {
+    const entrega = entregaPorEstudiante[estId];
+    const puntosGuardados = (entrega && Array.isArray(entrega.respuestas) && entrega.respuestas) || [];
+    return `
+    <details style="margin-bottom:0.5rem; background:var(--surface-soft); border-radius:8px; padding:0.6rem 0.8rem;" data-rubrica-fila="${estId}">
+      <summary style="cursor:pointer; font-size:0.85rem; display:flex; justify-content:space-between; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+        <span>${nombrePorId[estId] || estId}</span>
+        <span class="badge" style="font-weight:400;">${entrega && entrega.puntaje != null ? "Nota: " + entrega.puntaje + "/3" : "Sin calificar"}</span>
+      </summary>
+      <div style="margin-top:0.6rem; display:grid; gap:0.5rem;">
+        ${criterios.map((c, i) => `
+          <label style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; font-size:0.82rem;">
+            <span style="flex:1;">${c.nombre}</span>
+            <input type="number" data-rubrica-criterio="${estId}" data-i="${i}" min="0" max="${c.puntos_max}" value="${puntosGuardados[i] != null ? puntosGuardados[i] : ""}" placeholder="0-${c.puntos_max}" style="width:4.5rem; padding:0.3rem;" />
+          </label>`).join("")}
+      </div>
+      <div class="row" style="margin-top:0.6rem; align-items:center; gap:0.5rem;">
+        <button class="btn small" data-guardar-rubrica="${estId}">Guardar nota</button>
+        <span data-rubrica-estado="${estId}" style="font-size:0.78rem; color:var(--text-muted);"></span>
+      </div>
+    </details>`;
+  };
+
+  panel.innerHTML = `
+    <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">Ponele puntos a cada criterio por estudiante (podés dejar algunos sin calificar y volver después). La nota 0-3 se calcula sola según el % del total de puntos.</p>
+    <div>${ordenados.map(filaEstudiante).join("")}</div>`;
+
+  panel.querySelectorAll("[data-guardar-rubrica]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const estId = btn.dataset.guardarRubrica;
+      const estado = panel.querySelector(`[data-rubrica-estado="${estId}"]`);
+      const inputs = Array.from(panel.querySelectorAll(`[data-rubrica-criterio="${estId}"]`)).sort((a, b) => Number(a.dataset.i) - Number(b.dataset.i));
+      const puntos = inputs.map(inp => inp.value === "" ? 0 : Number(inp.value));
+      const porcentaje = porcentajeDesdeCriterios(criterios, puntos);
+      const puntaje = puntajeDesdePorcentaje(porcentaje);
+      btn.disabled = true;
+      if (estado) estado.textContent = "Guardando…";
+      const { error } = await guardarNotaManualActividad(trabajo, estId, puntaje, { respuestas: puntos, porcentaje });
+      btn.disabled = false;
+      if (error) { if (estado) estado.textContent = "No se pudo guardar: " + error; return; }
+      if (estado) estado.textContent = `✓ Guardado — ${Math.round(porcentaje)}% → nota ${puntaje}/3.`;
     });
   });
 }
@@ -4662,6 +5072,45 @@ function leerContenidoActividadDesdeFormulario(tipo, el) {
     const placeholder_descripcion = (el.querySelector("#au-proyecto-placeholder-descripcion")?.value || "").trim();
     const min_caracteres_descripcion = Number(el.querySelector("#au-proyecto-min-caracteres")?.value) || 0;
     return { valido: true, contenido: { instrucciones, placeholder_titulo, placeholder_descripcion, min_caracteres_descripcion } };
+  }
+  if (tipo === "respuesta_abierta") {
+    const instrucciones = (el.querySelector("#au-abierta-instrucciones")?.value || "").trim();
+    const min_caracteres = Number(el.querySelector("#au-abierta-min-caracteres")?.value) || 0;
+    if (!instrucciones) return { valido: false, error: "Escribí la consigna para el estudiante." };
+    return { valido: true, contenido: { instrucciones, min_caracteres } };
+  }
+  if (tipo === "autoevaluacion") {
+    const instrucciones = (el.querySelector("#au-lik-instrucciones")?.value || "").trim();
+    const bloques = Array.from(el.querySelectorAll(".au-lik-bloque"));
+    if (bloques.length === 0) return { valido: false, error: "Agregá al menos una afirmación." };
+    const afirmaciones = [];
+    for (let idx = 0; idx < bloques.length; idx++) {
+      const bloque = bloques[idx];
+      const i = bloque.dataset.bloque;
+      const texto = (bloque.querySelector(`.au-lik-texto[data-i="${i}"]`)?.value || "").trim();
+      if (!texto) return { valido: false, error: `Completá la afirmación ${idx + 1}.` };
+      afirmaciones.push(texto);
+    }
+    const contenido = { afirmaciones };
+    if (instrucciones) contenido.instrucciones = instrucciones;
+    return { valido: true, contenido };
+  }
+  if (tipo === "rubrica_directa") {
+    const instrucciones = (el.querySelector("#au-crit-instrucciones")?.value || "").trim();
+    const bloques = Array.from(el.querySelectorAll(".au-crit-bloque"));
+    if (bloques.length === 0) return { valido: false, error: "Agregá al menos un criterio." };
+    const criterios = [];
+    for (let idx = 0; idx < bloques.length; idx++) {
+      const bloque = bloques[idx];
+      const i = bloque.dataset.bloque;
+      const nombre = (bloque.querySelector(`.au-crit-nombre[data-i="${i}"]`)?.value || "").trim();
+      const puntos_max = Number(bloque.querySelector(`.au-crit-max[data-i="${i}"]`)?.value) || 0;
+      if (!nombre || puntos_max <= 0) return { valido: false, error: `Completá el nombre y los puntos máximos del criterio ${idx + 1}.` };
+      criterios.push({ nombre, puntos_max });
+    }
+    const contenido = { criterios };
+    if (instrucciones) contenido.instrucciones = instrucciones;
+    return { valido: true, contenido };
   }
   return { valido: false, error: "Tipo de actividad no soportado todavía." };
 }
