@@ -9,6 +9,7 @@ async function renderTabContent(s, tab, isSelf) {
   if (tab === "acceso" && !isSelf) return renderAcceso(el, s);
   if (tab === "pin" && !isSelf) return renderPin(el, s);
   if (tab === "clave-prueba" && !isSelf) return renderClavePrueba(el, s);
+  if (tab === "aula-conta" && !isSelf) return renderAulaContaCredenciales(el, s);
   return renderNotas(el, s, isSelf);
 }
 
@@ -5741,6 +5742,81 @@ function renderClavePrueba(el, s) {
     await sb.from("estudiantes").update({ clave_prueba: nuevaClave }).eq("id", s.id);
     s.clave_prueba = nuevaClave;
     estado.textContent = "Guardado ✓ — ya se la puede pedir en cualquier prueba.";
+  });
+}
+
+// --- Usuario y clave de Aula de Conta (Aula Contable NIIF): esa app es un
+// artifact aparte, con su propio sistema de cuentas (el estudiante se crea
+// la cuenta ahí mismo, con "Crear mi cuenta", guardada cifrada en SU equipo
+// — no en esta base de datos). Lo que hacemos aquí es GENERAR un usuario y
+// una clave estándar por estudiante para que todos usen el mismo formato y
+// el profesor tenga un registro de qué le entregó a cada uno; el estudiante
+// los escribe tal cual la primera vez que se registra en esa app. ---
+
+function normalizarParaUsuarioAulaContable(texto) {
+  return (texto || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function generarUsuarioAulaContable(s) {
+  const nombre = normalizarParaUsuarioAulaContable(s.nombre).slice(0, 10) || "est";
+  const apellido = normalizarParaUsuarioAulaContable(s.apellido1).slice(0, 10) || "cr";
+  const sufijo = onlyDigits(s.id).slice(-3) || String(Math.floor(100 + Math.random() * 900));
+  return `${nombre}.${apellido}${sufijo}`.slice(0, 30);
+}
+
+function generarClaveAulaContableAleatoria() {
+  // Aula Contable exige mínimo 6 caracteres combinando letras y números;
+  // generamos 4 letras + 4 números y los mezclamos para cumplirlo siempre.
+  const letras = "ABCDEFGHJKMNPQRSTUVWXYZ";
+  const digitos = "23456789";
+  const piezas = [];
+  for (let i = 0; i < 4; i++) piezas.push(letras[Math.floor(Math.random() * letras.length)]);
+  for (let i = 0; i < 4; i++) piezas.push(digitos[Math.floor(Math.random() * digitos.length)]);
+  for (let i = piezas.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [piezas[i], piezas[j]] = [piezas[j], piezas[i]];
+  }
+  return piezas.join("");
+}
+
+function renderAulaContaCredenciales(el, s) {
+  el.innerHTML = `
+    <div class="whatsapp-panel">
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.6rem;">
+        "Aula de Conta" (Aula Contable NIIF) es una aplicación aparte, con su propio sistema de cuentas. ${s.nombre} debe entrar ahí y, la PRIMERA vez, usar "Crear mi cuenta" escribiendo exactamente este usuario y esta clave — así quedan parejos para toda la sección y vos llevás el registro de a quién se los diste. Esa app los guarda cifrados en el propio equipo del estudiante; esta plataforma no se conecta con ella.
+      </p>
+      <label for="aula-conta-usuario-input">Usuario</label>
+      <div class="row" style="align-items:center;">
+        <input id="aula-conta-usuario-input" value="${s.usuario_aula_contable || ""}" placeholder="Sin usuario asignado" style="max-width:14rem; font-size:1.05rem;" />
+      </div>
+      <label for="aula-conta-clave-input" style="margin-top:0.6rem; display:block;">Clave</label>
+      <div class="row" style="align-items:center;">
+        <input id="aula-conta-clave-input" value="${s.clave_aula_contable || ""}" placeholder="Sin clave asignada" style="max-width:10rem; font-size:1.1rem; letter-spacing:0.1em;" />
+        <button class="btn secondary small" id="generar-aula-conta-par-btn" type="button">🎲 Generar usuario y clave nuevos</button>
+        <button class="btn small" id="guardar-aula-conta-btn" type="button">Guardar</button>
+      </div>
+      <span id="aula-conta-estado" style="font-size:0.78rem; color:var(--text-muted); display:block; margin-top:0.5rem;"></span>
+    </div>`;
+
+  document.getElementById("generar-aula-conta-par-btn").addEventListener("click", () => {
+    document.getElementById("aula-conta-usuario-input").value = generarUsuarioAulaContable(s);
+    document.getElementById("aula-conta-clave-input").value = generarClaveAulaContableAleatoria();
+  });
+
+  document.getElementById("guardar-aula-conta-btn").addEventListener("click", async () => {
+    const nuevoUsuario = document.getElementById("aula-conta-usuario-input").value.trim().toLowerCase();
+    const nuevaClave = document.getElementById("aula-conta-clave-input").value.trim();
+    const estado = document.getElementById("aula-conta-estado");
+    if (!nuevoUsuario || !nuevaClave) { estado.textContent = "Escribe o genera un usuario y una clave antes de guardar."; return; }
+    if (!/^[a-z0-9._-]{3,30}$/.test(nuevoUsuario)) { estado.textContent = "El usuario debe tener de 3 a 30 caracteres: minúsculas, números, punto, guion o guion bajo (es lo que exige Aula de Conta)."; return; }
+    if (nuevaClave.length < 6 || !/[a-zA-Z]/.test(nuevaClave) || !/[0-9]/.test(nuevaClave)) { estado.textContent = "La clave debe tener al menos 6 caracteres combinando letras y números (es lo que exige Aula de Conta)."; return; }
+    await sb.from("estudiantes").update({ usuario_aula_contable: nuevoUsuario, clave_aula_contable: nuevaClave }).eq("id", s.id);
+    s.usuario_aula_contable = nuevoUsuario;
+    s.clave_aula_contable = nuevaClave;
+    estado.textContent = "Guardado ✓ — comunicáselos para que los use en \"Crear mi cuenta\" dentro de Aula de Conta.";
   });
 }
 

@@ -449,6 +449,10 @@ async function renderSeccion(sec) {
         <button class="btn secondary small" id="generar-claves-prueba-btn" type="button">🎫 Generar clave de prueba a los que no tienen</button>
         <span id="generar-claves-prueba-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>
       </div>
+      <div class="row" style="margin:0.6rem 0;">
+        <button class="btn secondary small" id="generar-aula-conta-btn" type="button">🧮 Generar usuario/clave de Aula de Conta a los que no tienen</button>
+        <span id="generar-aula-conta-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>
+      </div>
       <div class="roster">${rows || '<p class="empty">No hay estudiantes registrados en esta sección.</p>'}</div>
 
       <details class="group-promo" open>
@@ -517,6 +521,24 @@ async function renderSeccion(sec) {
       st.clave_prueba = nuevaClave;
     }
     estado.textContent = `Listo — se generó clave de prueba para ${sinClave.length} estudiante(s). Entra al perfil de cada uno (pestaña "Clave de prueba") para verla y comunicársela.`;
+    renderSeccion(sec);
+  });
+
+  const generarAulaContaBtn = document.getElementById("generar-aula-conta-btn");
+  if (generarAulaContaBtn) generarAulaContaBtn.addEventListener("click", async () => {
+    const estado = document.getElementById("generar-aula-conta-estado");
+    const sinUsuario = (students || []).filter(st => !st.usuario_aula_contable);
+    if (sinUsuario.length === 0) { estado.textContent = "Todos los estudiantes de esta sección ya tienen usuario de Aula de Conta."; return; }
+    generarAulaContaBtn.disabled = true;
+    estado.textContent = "Generando…";
+    for (const st of sinUsuario) {
+      const usuario = generarUsuarioAulaContable(st);
+      const clave = generarClaveAulaContableAleatoria();
+      await sb.from("estudiantes").update({ usuario_aula_contable: usuario, clave_aula_contable: clave }).eq("id", st.id);
+      st.usuario_aula_contable = usuario;
+      st.clave_aula_contable = clave;
+    }
+    estado.textContent = `Listo — se generó usuario y clave de Aula de Conta para ${sinUsuario.length} estudiante(s). Entra al perfil de cada uno (pestaña "Aula de Conta") para verlos y comunicárselos.`;
     renderSeccion(sec);
   });
 
@@ -1585,7 +1607,8 @@ async function renderPerfil(id, isSelf) {
         ${!isSelf ? `<button class="tab-btn ${activeTab === "whatsapp" ? "active" : ""}" data-tab="whatsapp"><span class="tab-icon">💬</span><span class="tab-label">WhatsApp</span></button>
         <button class="tab-btn ${activeTab === "acceso" ? "active" : ""}" data-tab="acceso"><span class="tab-icon">🔑</span><span class="tab-label">Materias</span></button>
         <button class="tab-btn ${activeTab === "pin" ? "active" : ""}" data-tab="pin"><span class="tab-icon">🔐</span><span class="tab-label">PIN de acceso</span></button>
-        <button class="tab-btn ${activeTab === "clave-prueba" ? "active" : ""}" data-tab="clave-prueba"><span class="tab-icon">🎫</span><span class="tab-label">Clave de prueba</span></button>` : ""}
+        <button class="tab-btn ${activeTab === "clave-prueba" ? "active" : ""}" data-tab="clave-prueba"><span class="tab-icon">🎫</span><span class="tab-label">Clave de prueba</span></button>
+        <button class="tab-btn ${activeTab === "aula-conta" ? "active" : ""}" data-tab="aula-conta"><span class="tab-icon">🧮</span><span class="tab-label">Aula de Conta</span></button>` : ""}
       </div>
 
       <div id="tab-content">Cargando…</div>
