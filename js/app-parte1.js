@@ -657,7 +657,8 @@ async function cargarEvaluacionesSeccion(sec, students, holderId = "evaluaciones
     const celdas = [];
     for (const c of (categorias || [])) {
       let prom = null;
-      let aporteDirecto = null; // ya viene ponderado (0-c.porcentaje), no es un promedio 0-100
+      let aporteDirecto = null; // ya viene ponderado (0-c.porcentaje), se usa solo para la nota final
+      let notaRealPruebas = null; // % real obtenido en las pruebas (0-100), lo que pide el MEP
       if (c.nombre.trim().toLowerCase() === "asistencia") {
         for (const mid of materiaIds) {
           const r = await calcularNotaAsistencia(st.id, mid);
@@ -667,9 +668,11 @@ async function cargarEvaluacionesSeccion(sec, students, holderId = "evaluaciones
         // Cada prueba puede valer un % distinto de la nota final (lo que
         // el profesor puso en "Calificar por puntos"), así que no se usa
         // el % de la categoría — se suma el aporte propio de cada prueba.
+        // Pero en la tabla se muestra el % real obtenido (puntos ganados
+        // sobre puntos posibles), no el aporte ya ponderado.
         for (const mid of materiaIds) {
           const a = await calcularAportePruebas(st.id, mid, c.nombre, c.porcentaje);
-          if (a !== null) { aporteDirecto = a; break; }
+          if (a !== null) { aporteDirecto = a.aporte; notaRealPruebas = a.notaReal; break; }
         }
       } else {
         for (const mid of materiaIds) {
@@ -684,8 +687,7 @@ async function cargarEvaluacionesSeccion(sec, students, holderId = "evaluaciones
       if (aporteDirecto !== null) {
         suma += aporteDirecto;
         pesoUsado += Number(c.porcentaje);
-        const limite = Number(c.porcentaje) * 0.7;
-        celdas.push(`<td class="num ${aporteDirecto < limite ? "low" : ""}">${aporteDirecto.toFixed(1)}%</td>`);
+        celdas.push(`<td class="num ${notaRealPruebas < 70 ? "low" : ""}">${notaRealPruebas.toFixed(1)}%</td>`);
         continue;
       }
       if (prom === null) { celdas.push(`<td class="num">—</td>`); continue; }
@@ -1079,16 +1081,24 @@ async function calcularAportePruebas(estudianteId, materiaId, categoriaNombre, c
   const porIndicador = {};
   (calificaciones || []).forEach(c => { porIndicador[c.indicador_id] = c.puntaje_obtenido; });
 
-  let aporte = 0, huboAlguno = false;
+  let aporte = 0, huboAlguno = false, sumaObtenida = 0, sumaMaxima = 0;
   indicadores.forEach(ind => {
     if (ind.peso_prueba === null || ind.peso_prueba === undefined) return; // todavía sin configurar, no cuenta
     const max = Number(ind.puntaje_maximo) || 0;
     if (max <= 0) return;
     const obtenido = Number(porIndicador[ind.id] || 0);
     aporte += (obtenido / max) * Number(ind.peso_prueba);
+    sumaObtenida += obtenido;
+    sumaMaxima += max;
     huboAlguno = true;
   });
-  return huboAlguno ? aporte : null;
+  if (!huboAlguno) return null;
+  // notaReal: el % realmente obtenido (puntos ganados sobre puntos
+  // posibles en las pruebas que ya cuentan), para mostrar en pantalla.
+  // aporte: lo mismo pero ya ponderado por el peso de cada prueba, para
+  // sumarlo a la nota final.
+  const notaReal = sumaMaxima > 0 ? (sumaObtenida / sumaMaxima) * 100 : null;
+  return { aporte, notaReal };
 }
 
 async function renderHorario() {
