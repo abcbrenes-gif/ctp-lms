@@ -1059,15 +1059,62 @@ function plProcedure(k,e){
 
 /* Vistas del módulo */
 const PL_TABS=[["param","Parámetros legales"],["planilla","Colaboradores y planilla"],["practica","Práctica y evaluación"],["asiento","Asiento contable"],["colillas","Colillas de pago"]];
+const PL_TAB_ENTREGA=["entrega","Guardar entrega"];
 VIEWS.planillas=()=>{
   const c=co(),p=ensurePayroll(c);
   if(APP.readOnly&&APP.plTab==="practica"&&!p.evals.length)APP.plTab="planilla";
-  const body={param:plViewParams,planilla:plViewPlanilla,practica:plViewPractica,asiento:plViewAsiento,colillas:plViewColillas}[APP.plTab]||plViewPlanilla;
+  const tabs=isTeacher()?PL_TABS:[...PL_TABS,PL_TAB_ENTREGA];
+  const body={param:plViewParams,planilla:plViewPlanilla,practica:plViewPractica,asiento:plViewAsiento,colillas:plViewColillas,entrega:plViewEntrega}[APP.plTab]||plViewPlanilla;
   return `<div class="head"><div><div class="eyebrow">Módulo · Código de Trabajo, CCSS y Ley de Protección al Trabajador</div><h2>Planillas</h2>
     <p>Calcula la planilla con los porcentajes legales de Costa Rica, practica los cálculos, genera el asiento de diario y emite las colillas de pago.</p></div></div>
-   <div class="subtabs" role="tablist">${PL_TABS.map(([k,t],i)=>`<button class="subtab ${APP.plTab===k?"on":""}" data-pact="tab" data-k="${k}" role="tab">${i+1} · ${t}</button>`).join("")}</div>
+   <div class="subtabs" role="tablist">${tabs.map(([k,t],i)=>`<button class="subtab ${APP.plTab===k?"on":""}" data-pact="tab" data-k="${k}" role="tab">${i+1} · ${t}</button>`).join("")}</div>
    ${plVistaToggle()}${body(c,p)}`;
 };
+
+// Guarda la empresa actual (colaboradores, planilla procesada, asiento y
+// colillas tal como están en este momento) directamente en las "Entregas
+// recibidas" del profesor — sin que el estudiante tenga que generar un
+// código y mandarlo por Teams. Usa las mismas tablas y el mismo formato
+// de "meta" (con resumen) que ya usa el flujo de código, para que salga
+// igual en el panel del profesor.
+async function guardarEntregaDirecta(companies){
+  const {data:doc,error:e0}=await sb.from("docentes").select("id").limit(1).maybeSingle();
+  if(e0)throw e0;
+  if(!doc)throw new Error("No se encontró el perfil del profesor.");
+  const ahora=new Date().toISOString();
+  const meta={id:uid(),usuario:APP.me.usuario,nombre:APP.me.nombre,fecha:ahora,recibida:ahora,check:null,
+    resumen:plResumen(companies,APP.modulosHabilitados||[]),empresas:companies.length,asientos:companies.reduce((s,x)=>s+(x.entries||[]).length,0)};
+  const {error:e1}=await sb.from("aula_conta_entregas").upsert({id:meta.id,docente_id:doc.id,usuario:meta.usuario,nombre:meta.nombre,fecha:meta.fecha,meta});
+  if(e1)throw e1;
+  for(const c0 of companies){
+    const {error:e2}=await sb.from("aula_conta_entregas_empresas").upsert({entrega_id:meta.id,empresa_id:c0.id,data:c0});
+    if(e2)throw e2;
+  }
+  return meta;
+}
+
+function plViewEntrega(c,p){
+  const runs=p.runs||[];
+  const tieneAsiento=runs.some(r=>r.entryId);
+  const items=[
+    {ok:(p.employees||[]).length>0,texto:`${(p.employees||[]).length} colaborador(es) en la planilla`},
+    {ok:runs.length>0,texto:runs.length?`${runs.length} planilla(s) procesada(s)`:"Todavía no procesaste ninguna planilla del mes"},
+    {ok:tieneAsiento,texto:tieneAsiento?"Asiento de diario de la planilla registrado":"Falta registrar el asiento de diario de la planilla"}
+  ];
+  const puedeGuardar=runs.length>0;
+  return `<div class="stack">
+    <div class="panel stack">
+      <h3>Guardar esta planilla como entrega</h3>
+      <p class="muted" style="margin:0">Se guarda tal como está ahora mismo — colaboradores, planilla, asiento y colillas de <b>${esc(c.name)}</b> — directo en las entregas que ve tu profesor. No hace falta generar ningún código.</p>
+      <div class="stack" style="gap:6px">
+        ${items.map(it=>`<div class="row" style="align-items:center;gap:8px"><span style="color:${it.ok?"var(--ok)":"var(--bad)"}">${it.ok?"✓":"○"}</span><span>${esc(it.texto)}</span></div>`).join("")}
+      </div>
+      ${p.ultimaEntrega?`<div class="status ok"><span class="dot"></span>Guardada como entrega el ${esc(fmtDate(p.ultimaEntrega))}.</div>`:""}
+      <div><button class="btn primary" data-pact="guardarEntregaPlanilla" ${puedeGuardar?"":"disabled"}>💾 Guardar como entrega</button></div>
+      ${!puedeGuardar?`<p class="note" style="margin:0">Primero procesá al menos una planilla del mes, en "Colaboradores y planilla".</p>`:`<p class="note" style="margin:0">Podés guardarla varias veces — cada vez que avancés más, volvé a guardar y tu profesor va a ver la versión más reciente arriba de todas.</p>`}
+    </div>
+  </div>`;
+}
 
 function plViewParams(c,p){
   const P=p.params,ro=APP.readOnly?"disabled":"";
@@ -1587,6 +1634,18 @@ document.addEventListener("click",async e=>{
   if(a==="newCase"){plNewCase();render();return}
   if(a==="proc"){APP.plShowProc=!APP.plShowProc;render();return}
   if(a==="pdfAll"||a==="pdfOne"){b.disabled=true;await plPDF(b.dataset.id,a==="pdfOne"?+b.dataset.i:null);b.disabled=false;return}
+  if(a==="guardarEntregaPlanilla"){
+    if(!p.runs||!p.runs.length){toast("Procesá al menos una planilla antes de guardar la entrega.");return}
+    b.disabled=true;const txt=b.textContent;b.textContent="Guardando…";
+    try{
+      const meta=await guardarEntregaDirecta([clone(c)]);
+      p.ultimaEntrega=meta.fecha;touch(c);
+      toast("Entrega guardada ✓");
+    }catch(err){
+      toast("No se pudo guardar la entrega: "+(err.message||err));
+    }
+    b.disabled=false;b.textContent=txt;render();return;
+  }
   if(APP.readOnly){toast("Estás en modo de solo lectura");return}
   if(a==="editEmp"){APP.plEditEmp=b.dataset.id;render();document.getElementById("plEmp")?.scrollIntoView({behavior:"smooth"});return}
   if(a==="cancelEmp"){APP.plEditEmp=null;render();return}
