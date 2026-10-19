@@ -2070,6 +2070,26 @@ async function renderSubtema(id, soloLectura) {
         if (iaBloque) iaBloque.style.display = ["lluvia_ideas", "proyecto", "rubrica_directa", "respuesta_abierta", "autoevaluacion"].includes(tipoReal) ? "none" : "";
       });
       panel.querySelector("#actividad-tipo").dispatchEvent(new Event("change"));
+      // Si se vino desde "▶ Iniciar" en la página de una estrategia de
+      // evaluación (Estrategias de evaluación → demo), se preselecciona
+      // esa estrategia acá y se avisa con un mensaje, para no tener que
+      // buscarla de nuevo en el selector.
+      const estrategiaPendiente = sessionStorage.getItem("ctp_lms_estrategia_pendiente");
+      if (estrategiaPendiente) {
+        sessionStorage.removeItem("ctp_lms_estrategia_pendiente");
+        const selectTipo = panel.querySelector("#actividad-tipo");
+        const opcionExiste = Array.from(selectTipo.options).some(o => o.value === estrategiaPendiente);
+        if (opcionExiste) {
+          selectTipo.value = estrategiaPendiente;
+          selectTipo.dispatchEvent(new Event("change"));
+          const preset = ESTRATEGIAS_EVALUACION[estrategiaPendiente];
+          const aviso = document.createElement("p");
+          aviso.style.cssText = "font-size:0.82rem; background:var(--warn-bg); border:1px solid #E8C777; border-radius:8px; padding:0.6rem 0.8rem; margin:0 0 0.8rem;";
+          aviso.textContent = `✓ Vas a crear esta actividad con la estrategia "${preset ? preset.etiqueta : estrategiaPendiente}" — ya está elegida abajo. Ponele título y, si querés, ajustá la consigna.`;
+          panel.insertBefore(aviso, panel.firstChild);
+        }
+      }
+      panel.scrollIntoView({ behavior: "smooth", block: "start" });
       panel.querySelector("#generar-actividad-ia-btn").addEventListener("click", async (iaEv) => {
         const tipo = panel.querySelector("#actividad-tipo").value;
         const estado = panel.querySelector("#generar-actividad-ia-estado");

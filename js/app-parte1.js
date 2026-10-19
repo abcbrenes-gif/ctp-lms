@@ -401,6 +401,17 @@ function renderDemoEstrategia(clave, esEstudiante) {
           <strong>${pct.toFixed(1)}% → nota ${puntaje03}/3</strong>
         </div>
       </div>`;
+  } else if (preset.tipo === "lluvia_ideas") {
+    const ideasEjemplo = demo.ideas || [];
+    cuerpoDemo = `
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.8rem;">Cada estudiante escribe una o varias ideas cortas, y TODOS ven en el momento las ideas de sus compañeros con su nombre — como una pizarra compartida. Ejemplo de cómo se vería llenándose:</p>
+      <div class="panel" style="background:var(--surface-soft);">
+        ${ideasEjemplo.length ? ideasEjemplo.map((idea, i) => `
+          <div style="font-size:0.88rem; padding:0.4rem 0; border-bottom:1px solid var(--border, #eee);">
+            <strong>Estudiante ${i + 1}:</strong> ${idea}
+          </div>`).join("") : `<p style="font-size:0.85rem; color:var(--text-muted);">(sin ejemplo)</p>`}
+      </div>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.8rem;">El profesor abre "💡 Ver ideas" en el trabajo: las ve agrupadas por estudiante, con el total de intervenciones de cada quien, y puede marcar cada idea como 👍 buena o 👎 mala.</p>`;
   }
 
   app.innerHTML = `
@@ -415,9 +426,20 @@ function renderDemoEstrategia(clave, esEstudiante) {
         ${demo.escenario ? `<p style="font-size:0.82rem; color:var(--text-muted); margin-top:0.5rem;">Ejemplo de uso: ${demo.escenario}</p>` : ""}
       </div>
       ${cuerpoDemo}
-      <p class="footer-note">Para usar esta estrategia de verdad: entrá al subtema donde la querés asignar y elegila en "+ Agregar actividad interactiva".</p>
+      ${esEstudiante ? "" : `
+      <div class="panel" style="margin-top:1rem; display:flex; justify-content:space-between; align-items:center; gap:0.8rem; flex-wrap:wrap;">
+        <p style="font-size:0.85rem; margin:0;">Para usarla de verdad, elegí primero en qué materia y subtema la vas a asignar.</p>
+        <button class="btn" id="iniciar-estrategia-btn">▶ Iniciar — elegir subtema</button>
+      </div>`}
     </div>`;
   bindTopbar();
+  const iniciarBtn = document.getElementById("iniciar-estrategia-btn");
+  if (iniciarBtn) {
+    iniciarBtn.addEventListener("click", () => {
+      sessionStorage.setItem("ctp_lms_estrategia_pendiente", clave);
+      location.hash = "#/materias";
+    });
+  }
 }
 
 // ---------- SECCIÓN (lista de estudiantes) — solo docente ----------
