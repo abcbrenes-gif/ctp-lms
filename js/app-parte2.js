@@ -1819,6 +1819,7 @@ async function renderSubtema(id, soloLectura) {
             <input type="checkbox" name="calificable" checked /> Contar como indicador calificable en Rúbrica y Evaluaciones (categoría "Trabajo cotidiano")
           </label>
           <input name="puntaje_maximo" type="number" min="1" value="10" placeholder="Puntaje máximo" style="width:10rem" />
+          <input name="aula_contable_empresa" placeholder="🧮 Empresa en Aula de Conta (opcional — solo si este trabajo se hace ahí)" style="flex-basis:100%;" />
           <button class="btn small" type="submit">Agregar trabajo</button>
         </form>
         <div style="margin-top:0.6rem;">
@@ -2013,7 +2014,8 @@ async function renderSubtema(id, soloLectura) {
         subtema_id: sub.id,
         titulo: f.get("titulo"),
         fecha: f.get("fecha") || null,
-        descripcion: document.querySelector(".js-subtema-trabajo-desc").innerHTML || null
+        descripcion: document.querySelector(".js-subtema-trabajo-desc").innerHTML || null,
+        aula_contable_empresa: (f.get("aula_contable_empresa") || "").trim() || null
       }).select().maybeSingle();
       if (nuevo && f.get("calificable") && pub.materia_id) {
         const puntajeMaximo = Number(f.get("puntaje_maximo")) || 10;
@@ -2962,6 +2964,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
                </label>`}
         </div>
         ${t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : ""}
+        ${t.aula_contable_empresa ? `<a class="btn secondary small" href="${AULA_CONTABLE_URL}" target="_blank" rel="noopener">🧮 Abrir en Aula de Conta — Empresa: ${t.aula_contable_empresa}</a>` : ""}
         ${yaEntregado
           ? (linkArchivo ? `<a class="btn secondary small" href="${linkArchivo}" target="_blank" rel="noopener">👁️ Consultar mi entrega: ${miEstado.archivo_nombre || "archivo"}</a>` : "")
           : `<label class="btn small" style="cursor:pointer;">📎 Adjuntar archivo para que lo califiquen<input type="file" data-trabajo-subtema-subir="${t.id}" style="display:none;" /></label>`}
@@ -3257,10 +3260,12 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         ${esEditable(t) ? `
         <div data-trabajo-subtema-lectura="${t.id}" style="width:100%;">
           ${t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : `<p class="empty" style="font-size:0.8rem; color:var(--brick);">⚠️ Sin instrucciones todavía — dale "✏️ Editar" para agregarlas.</p>`}
+          ${t.aula_contable_empresa ? `<a class="btn secondary small" href="${AULA_CONTABLE_URL}" target="_blank" rel="noopener" style="margin-top:0.3rem;">🧮 Este trabajo se hace en Aula de Conta — Empresa: ${t.aula_contable_empresa}</a>` : ""}
         </div>
         <form class="inline-form" data-trabajo-subtema-editar-form="${t.id}" style="display:none; width:100%;">
           <input name="titulo" value="${String(t.titulo || "").replace(/"/g, "&quot;")}" required style="flex:1; min-width:10rem;" />
           <div class="roa-editable" contenteditable="true" data-trabajo-subtema-editar-desc="${t.id}" style="flex-basis:100%; min-height:4rem;">${t.descripcion || ""}</div>
+          <input name="aula_contable_empresa" value="${String(t.aula_contable_empresa || "").replace(/"/g, "&quot;")}" placeholder="🧮 Empresa en Aula de Conta (opcional)" style="flex-basis:100%;" />
           <button class="btn small" type="submit">Guardar</button>
           <button class="btn secondary small" type="button" data-cancelar-editar-trabajo-subtema="${t.id}">Cancelar</button>
         </form>
@@ -3420,7 +3425,8 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         const descDiv = form.querySelector(`[data-trabajo-subtema-editar-desc="${id}"]`);
         await sb.from("trabajos_cotidianos").update({
           titulo: f.get("titulo"),
-          descripcion: descDiv ? descDiv.innerHTML : null
+          descripcion: descDiv ? descDiv.innerHTML : null,
+          aula_contable_empresa: (f.get("aula_contable_empresa") || "").trim() || null
         }).eq("id", id);
         renderSubtema(subtemaId, soloLectura);
       });
@@ -3562,9 +3568,15 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         if (!panel) return;
         if (panel.innerHTML) { panel.innerHTML = ""; return; }
         panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando entregas…</p>`;
+        const trabajoActual = trabajos.find(x => String(x.id) === String(trabajoId));
+        const avisoAulaConta = trabajoActual && trabajoActual.aula_contable_empresa
+          ? `<p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">🧮 Este trabajo se hace en Aula de Conta (empresa "${trabajoActual.aula_contable_empresa}") — el detalle real de cada entrega (planilla, asientos, si quedó correcta) está en "Entregas recibidas" dentro de Aula de Conta. Con "Ver en Aula de Conta" entrás directo a la cuenta de cada estudiante.</p>`
+          : "";
         const { data: entregas } = await sb.from("trabajos_cotidianos_estudiante").select("*").eq("trabajo_id", trabajoId).or("completado.eq.true,archivo_ruta.not.is.null");
         if (!entregas || entregas.length === 0) {
-          panel.innerHTML = `<p class="empty" style="font-size:0.82rem;">Todavía nadie ha entregado este trabajo.</p>`;
+          panel.innerHTML = avisoAulaConta
+            ? `<div style="background:var(--surface-soft); border-radius:8px; padding:0.7rem; margin-top:0.4rem;">${avisoAulaConta}<p class="empty" style="font-size:0.82rem; margin:0;">Todavía nadie marcó este trabajo como completado acá — revisá Aula de Conta directamente.</p></div>`
+            : `<p class="empty" style="font-size:0.82rem;">Todavía nadie ha entregado este trabajo.</p>`;
           return;
         }
         const estudianteIds = entregas.map(e => e.estudiante_id);
@@ -3573,12 +3585,14 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         (estudiantes || []).forEach(e => { nombrePorId[e.id] = [e.nombre, e.apellido1, e.apellido2].filter(Boolean).join(" "); });
         panel.innerHTML = `
           <div style="background:var(--surface-soft); border-radius:8px; padding:0.7rem; margin-top:0.4rem;">
+            ${avisoAulaConta}
             <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">El estudiante ya no puede volver a entregar este trabajo una vez marcado. Si alguien se equivocó, usá "↺ Permitir reintento". La nota se pone en la sección "Rúbrica y Evaluaciones" (0 a 3), si este trabajo quedó marcado como indicador.</p>
             ${entregas.map(e => {
               const link = e.archivo_ruta ? sb.storage.from("materiales").getPublicUrl(e.archivo_ruta).data.publicUrl : "";
               return `<div class="roster-row" style="padding:0.3rem 0; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
                 <span class="name">${nombrePorId[e.estudiante_id] || e.estudiante_id}</span>
                 ${link ? `<a class="btn small" href="${link}" target="_blank" rel="noopener">📄 ${e.archivo_nombre || "Ver archivo"}</a>` : `<span class="badge">Completado (sin archivo)</span>`}
+                ${trabajoActual && trabajoActual.aula_contable_empresa ? `<a class="btn secondary small" href="${AULA_CONTABLE_URL}?como_estudiante=${encodeURIComponent(e.estudiante_id)}" target="_blank" rel="noopener">🧮 Ver en Aula de Conta</a>` : ""}
                 <button class="btn secondary small" data-permitir-reintento-trabajo="${trabajoId}" data-permitir-reintento-estudiante="${e.estudiante_id}">↺ Permitir reintento</button>
               </div>`;
             }).join("")}

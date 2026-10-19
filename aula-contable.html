@@ -1662,8 +1662,8 @@ document.addEventListener("click",async e=>{
     b.disabled=true;const txt=b.textContent;b.textContent="Guardando…";
     try{
       const ev=plEvaluarTrabajo(p);
+      p.ultimaEntrega=new Date().toISOString();p.ultimaEntregaEval=ev;touch(c);
       const meta=await guardarEntregaDirecta([clone(c)]);
-      p.ultimaEntrega=meta.fecha;p.ultimaEntregaEval=ev;touch(c);
       toast(ev.bueno?"Entrega guardada ✓ — ¡tu trabajo está correcto! 🎉":"Entrega guardada ✓ — todavía tiene errores, revisá el detalle.");
     }catch(err){
       toast("No se pudo guardar la entrega: "+(err.message||err));
