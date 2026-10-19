@@ -342,13 +342,12 @@ async function sha256hex(txt){const b=await crypto.subtle.digest("SHA-256",TE.en
 function supabaseStudentStore(estudianteId){
   return {mode:"local",
     async loadWork(){
-      const {data,error}=await sb.from("aula_conta_trabajos_estudiante").select("companies,desbloqueos").eq("estudiante_id",estudianteId).maybeSingle();
+      const {data,error}=await sb.from("aula_conta_trabajos_estudiante").select("companies").eq("estudiante_id",estudianteId).maybeSingle();
       if(error)throw error;
-      APP.unlocked=(data&&data.desbloqueos)||[];
       return (data&&data.companies)||[];
     },
     async saveWork(_u,_dk,companies){
-      const {error}=await sb.from("aula_conta_trabajos_estudiante").upsert({estudiante_id:estudianteId,companies,desbloqueos:APP.unlocked||[],actualizado_en:new Date().toISOString()});
+      const {error}=await sb.from("aula_conta_trabajos_estudiante").upsert({estudiante_id:estudianteId,companies,actualizado_en:new Date().toISOString()});
       if(error)throw error;
     }
   };
@@ -475,7 +474,7 @@ function renderChrome(){
   if(!logged)return;
   document.getElementById("steps").innerHTML=STEPS.map(([k,t,s],i)=>
    (i?'<span class="arrow" aria-hidden="true">→</span>':'')+
-   `<button class="step ${APP.view===k?"on":""} ${stepDone(k)&&isUnlocked(k)?"done":""} ${isUnlocked(k)?"":"locked"}" data-go="${k}" ${APP.view===k?'aria-current="step"':""} ${isUnlocked(k)?"":'title="Módulo bloqueado: necesitas la clave"'}>
+   `<button class="step ${APP.view===k?"on":""} ${stepDone(k)&&isUnlocked(k)?"done":""} ${isUnlocked(k)?"":"locked"}" data-go="${k}" ${APP.view===k?'aria-current="step"':""} ${isUnlocked(k)?"":'title="Módulo no habilitado por el profesor"'}>
      <span class="n">${!isUnlocked(k)?"🔒":stepDone(k)&&APP.view!==k?"✓":({empresas:0,catalogo:1,planillas:"₡",diario:2,mayor:3,balanza:4,estados:5})[k]}</span><span class="t"><b>${t}</b><small>${s}</small></span></button>`).join("");
   const pick=document.getElementById("coPick");
   pick.innerHTML=APP.companies.length?sortCos(APP.companies).map(c=>`<option value="${c.id}" ${c.id===co().id?"selected":""}>${esc(c.code||"")} · ${esc(c.name)}</option>`).join(""):'<option>Sin empresas</option>';
@@ -609,11 +608,12 @@ function viewEntregas(){
      <p>Pega aquí el código que te envía cada estudiante. La entrega queda guardada en línea, solo visible para ti, y puedes revisarla paso a paso.</p></div>
      <button class="btn ghost" data-act="reloadEntregas">Actualizar</button></div>
    <div class="stack">
-    <details class="panel"${APP.clavesOpen!==false?" open":""} id="clavesBox" style="border:2px solid var(--pop)"><summary style="cursor:pointer;font-weight:700;font-family:var(--f-display);font-size:1.05rem">🔑 Claves de los módulos</summary>
-     <p class="muted" style="margin:8px 0 10px">Los estudiantes ven estos módulos con candado. Dicta o escribe en Teams la clave del módulo que quieras abrir; una vez abierto queda abierto en su cuenta. Empresas y Catálogo están abiertos desde el inicio.</p>
-     ${APP.claves?`<div class="tbl"><table><thead><tr><th>Orden sugerido</th><th>Módulo</th><th>Clave</th></tr></thead><tbody>
-      ${["diario","mayor","balanza","estados","planillas"].map((k,i)=>`<tr><td class="num">${i+1}</td><td>${esc(LOCK_NAMES[k])}</td><td><b class="num" style="font-size:1.05rem;letter-spacing:.05em">${esc(APP.claves[k]||"—")}</b></td></tr>`).join("")}</tbody></table></div>`
-      :'<p class="muted" style="margin:0">No se pudieron cargar las claves.</p>'}
+    <details class="panel"${APP.modulosOpen!==false?" open":""} id="modulosBox" style="border:2px solid var(--pop)"><summary style="cursor:pointer;font-weight:700;font-family:var(--f-display);font-size:1.05rem">🔓 Módulos habilitados</summary>
+     <p class="muted" style="margin:8px 0 10px">Activá o desactivá cada módulo para todos los estudiantes a la vez. Empresas y Catálogo están disponibles siempre.</p>
+     <div class="row" style="flex-wrap:wrap;gap:8px">
+      ${MODULOS_DEFAULT.map(k=>{const on=(APP.modulosHabilitados||MODULOS_DEFAULT).includes(k);
+        return `<button class="btn sm ${on?"primary":"ghost"}" type="button" data-act="toggleModulo" data-k="${k}">${on?"✓":"○"} ${esc(LOCK_NAMES[k])}</button>`}).join("")}
+     </div>
     </details>
     <div class="panel stack">
       <h3>Recibir una entrega</h3>
@@ -1653,31 +1653,28 @@ document.addEventListener("submit",e=>{
   }
 });
 
-/* ============ Claves de los módulos ============ */
-const LOCKS={"planillas": "18fb84ba30196a7ad6bc78f7cdedf87072856e5d0c8248f4b7dfd631f5fea3c9", "diario": "73d9dbe028f1bdc3cd326170aba32dd6ab2b29e4987181c037b5cfad38c7df13", "mayor": "88e76df3baf189d9d23d69bd358bf6b169554e5bab20c64bb8674c2dd9087ddc", "balanza": "23ac3a4abb285056d6761462d8c30318d53f1cbf64454e09c06ea41aaa9aa764", "estados": "05681605d3926bc619bf6c07fec39e19a3178c8f1dbf90c71312f8eb8ff23921"};
+/* ============ Módulos habilitados por el profesor ============ */
+const MODULOS_DEFAULT=["diario","mayor","balanza","estados","planillas"];
 const LOCK_NAMES={planillas:"Planillas",diario:"Libro Diario",mayor:"Libro Mayor",balanza:"Balanza de comprobación",estados:"Estados financieros"};
-const isUnlocked=k=>!LOCKS[k]||isTeacher()||(APP.unlocked||[]).includes(k);
+const isUnlocked=k=>isTeacher()||!LOCK_NAMES[k]||(APP.modulosHabilitados||MODULOS_DEFAULT).includes(k);
+async function loadModulosHabilitados(){
+  try{
+    const {data,error}=await sb.from("aula_conta_modulos").select("habilitados").eq("id","global").maybeSingle();
+    if(error||!data||!Array.isArray(data.habilitados))return [...MODULOS_DEFAULT];
+    return data.habilitados;
+  }catch(e){return [...MODULOS_DEFAULT]}
+}
+async function guardarModulosHabilitados(arr){
+  const {error}=await sb.from("aula_conta_modulos").upsert({id:"global",habilitados:arr,actualizado_en:new Date().toISOString()});
+  if(error)throw error;
+}
 function viewLocked(k){
   return `<div class="login" style="margin-top:12px"><div class="panel stack" style="text-align:center;align-items:center">
-    <div class="lockicon" aria-hidden="true">🔒</div><div class="eyebrow">Módulo bloqueado</div><h2>${esc(LOCK_NAMES[k]||k)}</h2>
-    <p class="muted" style="margin:0;max-width:40ch">Tu profesor te dará la clave cuando sea momento de abrir este módulo. Escríbela tal como te la dio.</p>
-    <form id="fUnlock" data-k="${k}" class="stack" style="width:100%;max-width:320px">
-     <div class="field"><label for="ulKey">Clave del módulo</label><input id="ulKey" autocomplete="off" autocapitalize="characters" spellcheck="false" class="num" style="text-align:center;font-size:1.15rem;letter-spacing:.06em" required></div>
-     <button class="btn primary" type="submit">Abrir módulo</button></form>
+    <div class="lockicon" aria-hidden="true">🔒</div><div class="eyebrow">Módulo no habilitado</div><h2>${esc(LOCK_NAMES[k]||k)}</h2>
+    <p class="muted" style="margin:0;max-width:40ch">Tu profesor todavía no habilitó este módulo para la clase. Mientras tanto podés trabajar en Empresas y Catálogo.</p>
     <button class="btn ghost" data-go="empresas">Volver a Empresas</button></div></div>`;
 }
-let ulFails=0,ulUntil=0;
-document.addEventListener("toggle",e=>{if(e.target.id==="clavesBox")APP.clavesOpen=e.target.open},true);
-document.addEventListener("submit",async e=>{
-  if(e.target.id!=="fUnlock")return;e.preventDefault();e.stopImmediatePropagation();
-  const k=e.target.dataset.k,inp=document.getElementById("ulKey");
-  if(Date.now()<ulUntil){toast("Espera un minuto antes de intentar de nuevo");return}
-  const key=String(inp.value||"").trim().toUpperCase().replace(/\s+/g,"");
-  if(await sha256hex(`aula-contable|${k}|${key}`)!==LOCKS[k]){ulFails++;if(ulFails>=5){ulFails=0;ulUntil=Date.now()+60000;toast("Demasiados intentos. Espera un minuto.")}else toast("Esa clave no es correcta");inp.select();return}
-  ulFails=0;APP.unlocked=[...new Set([...(APP.unlocked||[]),k])];
-  if(APP.store.mode==="local"){try{await APP.store.saveWork(null,null,APP.companies)}catch(err){}}
-  render();toast("¡Módulo "+(LOCK_NAMES[k]||k)+" abierto!");
-},true);
+document.addEventListener("toggle",e=>{if(e.target.id==="modulosBox")APP.modulosOpen=e.target.open},true);
 
 /* ============ Eventos ============ */
 const val=id=>(document.getElementById(id)?.value??"");
@@ -1693,6 +1690,14 @@ document.addEventListener("click",async e=>{
   const c=co(),a=b.dataset.act;
   try{
   if(a==="logout"){await logout();return}
+  if(a==="toggleModulo"){
+    const k=b.dataset.k;const set=new Set(APP.modulosHabilitados||MODULOS_DEFAULT);
+    if(set.has(k))set.delete(k);else set.add(k);
+    APP.modulosHabilitados=MODULOS_DEFAULT.filter(x=>set.has(x));
+    render();
+    try{await guardarModulosHabilitados(APP.modulosHabilitados)}catch(err){toast("No se pudo guardar el cambio. Revisa tu conexión.")}
+    return;
+  }
   if(a==="copyRec"){copyText(APP.showRecovery,"recTa");return}
   if(a==="recDone"){APP.showRecovery=null;render();return}
   if(a==="openCo"){APP.activeId=b.dataset.id;APP.editAcc=null;resetDraft();render();toast("Empresa abierta");return}
@@ -1799,6 +1804,7 @@ async function boot(){
     document.getElementById("main").innerHTML='<div class="empty"><h3>No hay sesión</h3><p>Abrí Aula de Conta desde adentro de ctp-lms (la pestaña Materias, si sos estudiante, o el acceso rápido del profesor).</p><p><a class="btn primary" href="./index.html">Ir a ctp-lms</a></p></div>';
     return;
   }
+  APP.modulosHabilitados=await loadModulosHabilitados();
   if(session.role==="docente"){
     APP.store=supabaseTeacherStore(session.id);
     await enter({usuario:session.id,nombre:session.nombre||"Profesor",rol:"profesor"});
