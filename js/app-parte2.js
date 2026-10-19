@@ -785,7 +785,7 @@ async function renderMateriasEstudiante(el, s) {
 
   const accesoAulaConta = `
     <div class="section-grid" style="margin-bottom:1.4rem; max-width:420px;">
-      <a class="section-tile flip-card" href="${AULA_CONTABLE_URL}" target="_blank" rel="noopener" style="height:180px;">
+      <a class="section-tile flip-card" href="${AULA_CONTABLE_URL}" style="height:180px;">
         <div class="flip-card-inner">
           <div class="flip-card-front">
             <div class="num" style="font-size:1.7rem;">🧮 Aula de Conta</div>
