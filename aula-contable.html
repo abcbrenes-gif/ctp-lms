@@ -399,6 +399,9 @@ const APP={store:null,me:null,dk:null,companies:[],activeId:null,view:"empresas"
   showRecovery:null,lastDelivery:null,preview:null};
 const isTeacher=()=>APP.me&&APP.me.rol==="profesor";
 const co=()=>APP.companies.find(c=>c.id===APP.activeId)||APP.companies[0]||null;
+/* Categoría del trabajo: "practica" se puede repetir las veces que haga falta;
+   "tarea" (trabajo cotidiano) queda bloqueada en cuanto el estudiante la entrega. */
+const tareaBloqueada=c=>!isTeacher()&&!!(c&&c.categoria==="tarea"&&c.entregado);
 
 /* Guardado agrupado: una escritura a la vez */
 const pending=new Set();let saveTimer=null,flushing=false;
@@ -419,8 +422,9 @@ function setSave(t,err){APP.saveState=t;const el=document.getElementById("saveBa
 
 let draft=null;
 function resetDraft(){const c=co();draft={date:`${c?c.period:2026}-01-31`,desc:"",lines:[{code:"",d:"",c:""},{code:"",d:"",c:""}]}}
-function newCompany({name,code,cedula,currency,period,base=true,sample=false}){
-  return {id:uid(),code,name,cedula,currency,period:+period,accounts:base?BASE.map(a=>({...a})):[],entries:sample?sampleEntries(+period):[],
+function newCompany({name,code,cedula,currency,period,base=true,sample=false,categoria="practica"}){
+  return {id:uid(),code,name,cedula,currency,period:+period,categoria:categoria==="tarea"?"tarea":"practica",entregado:false,
+    accounts:base?BASE.map(a=>({...a})):[],entries:sample?sampleEntries(+period):[],
     payroll:sample?{params:clone(PL_DEFAULT),employees:plSampleEmployees(),runs:[],evals:[]}:undefined};
 }
 function nextCoCode(){let n=APP.companies.length+1;let c;do{c="EMP-"+String(n).padStart(3,"0");n++}while(APP.companies.some(x=>x.code===c));return c}
@@ -493,6 +497,7 @@ function render(){
   const main=document.getElementById("main");
   const pv=APP.studentPreview&&APP.owner?`<div class="banner"><span>👀 Vista de estudiante: así ven la plataforma tus estudiantes. Lo que hagas aquí se guarda solo en este equipo.</span><button class="btn sm" data-act="asTeacher">Volver al acceso del profesor</button></div>`:"";
   if(!APP.me){main.innerHTML='<div class="empty"><h3>No hay sesión</h3><p>Volvé a <a href="./index.html">ctp-lms</a> y entrá primero ahí.</p></div>';return}
+  APP.readOnly=!!APP.viewing||(APP.view!=="empresas"&&APP.view!=="entregar"&&tareaBloqueada(co()));
   let html=pv;
   if(APP.demo)html+=`<div class="banner"><span>Modo demostración: practica libremente, los cambios no se guardan.</span><button class="btn sm" data-act="logout">Salir de la demostración</button></div>`;
   if(APP.viewing)html+=`<div class="banner"><span>Revisando la entrega de ${esc(APP.viewing.nombre)} · ${esc(fmtDate(APP.viewing.fecha))} (solo lectura)</span><button class="btn sm" data-act="stopViewing">Volver a las entregas</button></div>`;
@@ -549,7 +554,7 @@ function viewEntregar(){
   <div class="grid2">
    <div class="panel stack">
     <h3>1 · Empresas a entregar</h3>
-    ${APP.companies.length?sortCos(APP.companies).map(c=>`<label class="check"><input type="checkbox" class="dsel" value="${c.id}" checked> <span class="code">${esc(c.code)}</span> ${esc(c.name)} <small class="muted">· ${c.entries.length} asientos</small></label>`).join("")
+    ${APP.companies.length?sortCos(APP.companies).map(c=>`<label class="check"><input type="checkbox" class="dsel" value="${c.id}" checked> <span class="code">${esc(c.code)}</span> ${esc(c.name)} <small class="muted">· ${c.entries.length} asientos · ${c.categoria==="tarea"?(c.entregado?"📌 tarea, ya entregada":"📌 tarea — se bloqueará al entregar"):"🔄 práctica"}</small></label>`).join("")
       :'<p class="muted" style="margin:0">Todavía no tienes empresas para entregar.</p>'}
     <div><button class="btn primary" data-act="genDelivery" ${APP.companies.length?"":"disabled"}>Generar código de entrega</button></div>
    </div>
@@ -640,15 +645,18 @@ function viewEntregas(){
 const VIEWS={};
 VIEWS.empresas=()=>{
   const ed=APP.editCo?APP.companies.find(c=>c.id===APP.editCo):null;
-  const cards=sortCos(APP.companies).map(c=>`<article class="co ${co()&&c.id===co().id?"on":""}">
-    <div><div class="row" style="gap:6px;align-items:center"><span class="code">${esc(c.code||"Sin código")}</span><span class="eyebrow">Periodo ${c.period}</span></div>
+  const cards=sortCos(APP.companies).map(c=>{const bloq=tareaBloqueada(c);return `<article class="co ${co()&&c.id===co().id?"on":""}">
+    <div><div class="row" style="gap:6px;align-items:center;flex-wrap:wrap"><span class="code">${esc(c.code||"Sin código")}</span><span class="eyebrow">Periodo ${c.period}</span>
+      ${c.categoria==="tarea"?'<span class="chip tG" style="font-size:.7rem">📌 Tarea</span>':'<span class="chip tI" style="font-size:.7rem">🔄 Práctica</span>'}
+      ${c.entregado?'<span class="chip tC" style="font-size:.7rem">✓ Entregada</span>':""}</div>
       <h3 style="margin-top:6px">${esc(c.name)}</h3><div class="muted" style="font-size:.85rem">Céd. jurídica ${esc(c.cedula||"—")}</div></div>
     <div class="stats"><span><b>${c.accounts.length}</b>cuentas</span><span><b>${c.entries.length}</b>asientos</span><span><b>${esc(c.currency)}</b>moneda</span></div>
     <div class="acts">${co()&&c.id===co().id?'<span class="chip tI">Empresa activa</span>':`<button class="btn sm primary" data-act="openCo" data-id="${c.id}">Abrir</button>`}
+      ${bloq?'<small class="muted">Esta tarea ya fue entregada: no se puede editar ni borrar.</small>':`
       <button class="btn sm ghost edit-only" data-act="editCo" data-id="${c.id}">Editar datos</button>
       <button class="btn sm ghost edit-only" data-act="dupCo" data-id="${c.id}">Duplicar</button>
-      <button class="btn sm danger edit-only" data-act="delCo" data-id="${c.id}">Eliminar</button></div>
-  </article>`).join("");
+      <button class="btn sm danger edit-only" data-act="delCo" data-id="${c.id}">Eliminar</button>`}</div>
+  </article>`}).join("");
   return `<div class="head"><div><div class="eyebrow">Paso 0</div><h2>${APP.viewing?"Empresas entregadas":"Mis empresas"}</h2>
     <p>Crea todas las empresas que necesites. Cada una lleva un código propio y tiene su catálogo, asientos y estados financieros.</p></div></div>
   <div class="stack">
@@ -662,7 +670,12 @@ VIEWS.empresas=()=>{
         <div class="field"><label for="coCed">Cédula jurídica</label><input id="coCed" value="${esc(ed?ed.cedula:"")}" placeholder="3-101-123456"></div>
         <div class="field"><label for="coCur">Moneda funcional (NIC 21)</label><select id="coCur">${[["₡","₡ Colones"],["$","$ Dólares"],["€","€ Euros"]].map(([v,l])=>`<option value="${v}" ${ed&&ed.currency===v?"selected":""}>${l}</option>`).join("")}</select></div>
         <div class="field"><label for="coPer">Periodo</label><input id="coPer" type="number" value="${ed?ed.period:2026}" min="2000" max="2100"></div>
+        <div class="field"><label for="coCat">Tipo de trabajo</label><select id="coCat" ${ed&&tareaBloqueada(ed)?"disabled":""}>
+          <option value="practica" ${(!ed||ed.categoria!=="tarea")?"selected":""}>🔄 Práctica (podés hacer varios ejemplos)</option>
+          <option value="tarea" ${ed&&ed.categoria==="tarea"?"selected":""}>📌 Trabajo cotidiano / Tarea (se entrega una sola vez)</option>
+        </select></div>
       </div>
+      ${ed&&ed.categoria==="tarea"?'<p class="note" style="margin:0">En cuanto generes el código de entrega para esta tarea, quedará bloqueada y no se podrá volver a editar.</p>':""}
       ${ed?"":`<label class="check"><input type="checkbox" id="coBase" checked> Cargar el catálogo de cuentas base NIIF</label>
       <label class="check"><input type="checkbox" id="coSample"> Incluir asientos de ejemplo para practicar</label>`}
       <div class="row"><button class="btn primary" type="submit">${ed?"Guardar cambios":"＋ Crear empresa"}</button>${ed?'<button type="button" class="btn ghost" data-act="cancelEditCo">Cancelar</button>':""}</div>
@@ -1705,7 +1718,9 @@ document.addEventListener("click",async e=>{
   /* Estudiante: entregar */
   if(a==="genDelivery"){const ids=[...document.querySelectorAll(".dsel:checked")].map(x=>x.value);
     if(!ids.length){toast("Marca al menos una empresa");return}
-    await flush();APP.lastDelivery=await buildDelivery(clone(APP.companies.filter(x=>ids.includes(x.id))));render();toast("Código generado");return}
+    const sel=APP.companies.filter(x=>ids.includes(x.id)),ahora=new Date().toISOString();
+    for(const x of sel)if(x.categoria==="tarea"&&!x.entregado){x.entregado=true;x.entregadoFecha=ahora;touch(x)}
+    await flush();APP.lastDelivery=await buildDelivery(clone(sel));render();toast("Código generado");return}
   if(a==="copyDelivery"){copyText(APP.lastDelivery.code,"dlvTa");return}
   if(a==="importBk"){const {payload}=await readDelivery(val("bkText"));
     if(payload.usuario!==APP.me.usuario){toast("Ese código pertenece a otro usuario. Solo puedes traer tu propio trabajo.");return}
@@ -1728,10 +1743,10 @@ document.addEventListener("click",async e=>{
   if(a==="delEntrega"){armDelete(b,async()=>{try{await APP.store.deleteEntrega(b.dataset.id);toast("Entrega eliminada");loadEntregas()}catch(err){toast("No se pudo eliminar")}});return}
   /* Edición */
   if(APP.readOnly&&!["addLine","rmLine","clearDraft"].includes(a)){toast("Estás en modo de solo lectura");return}
-  if(a==="editCo"){APP.editCo=b.dataset.id;render();document.getElementById("fCo")?.scrollIntoView({behavior:"smooth"});return}
+  if(a==="editCo"){if(tareaBloqueada(APP.companies.find(x=>x.id===b.dataset.id))){toast("Esta tarea ya fue entregada y no se puede editar");return}APP.editCo=b.dataset.id;render();document.getElementById("fCo")?.scrollIntoView({behavior:"smooth"});return}
   if(a==="cancelEditCo"){APP.editCo=null;render();return}
-  if(a==="dupCo"){const s=APP.companies.find(x=>x.id===b.dataset.id);const n=clone(s);n.id=uid();n.name=s.name+" (copia)";n.code=nextCoCode();APP.companies.push(n);touch(n);render();toast("Empresa duplicada como "+n.code);return}
-  if(a==="delCo"){armDelete(b,async()=>{const id=b.dataset.id;APP.companies=APP.companies.filter(x=>x.id!==id);
+  if(a==="dupCo"){const s=APP.companies.find(x=>x.id===b.dataset.id);if(tareaBloqueada(s)){toast("Esta tarea ya fue entregada: creá una empresa nueva en vez de duplicarla");return}const n=clone(s);n.id=uid();n.name=s.name+" (copia)";n.code=nextCoCode();n.entregado=false;APP.companies.push(n);touch(n);render();toast("Empresa duplicada como "+n.code);return}
+  if(a==="delCo"){if(tareaBloqueada(APP.companies.find(x=>x.id===b.dataset.id))){toast("Esta tarea ya fue entregada y no se puede eliminar");return}armDelete(b,async()=>{const id=b.dataset.id;APP.companies=APP.companies.filter(x=>x.id!==id);
     try{if(APP.store.mode==="local"){pending.add("_");await flush()}else{pending.delete(id);await APP.store.deleteCompany(id)}}catch(err){toast("No se pudo eliminar")}
     if(APP.activeId===id)APP.activeId=sortCos(APP.companies)[0]?.id||null;resetDraft();render();toast("Empresa eliminada")});return}
   if(a==="loadBase"){c.accounts=BASE.map(x=>({...x}));touch(c);render();toast("Catálogo base cargado");return}
@@ -1768,8 +1783,10 @@ document.addEventListener("submit",async e=>{
   if(id==="fCo"){
     const code=val("coCode").trim().toUpperCase(),name=val("coName").trim();if(!name||!code)return;
     if(APP.companies.some(x=>x.code===code&&x.id!==APP.editCo)){toast("Ya tienes una empresa con el código "+code);return}
-    if(APP.editCo){const x=APP.companies.find(y=>y.id===APP.editCo);Object.assign(x,{code,name,cedula:val("coCed").trim(),currency:val("coCur"),period:+val("coPer")||x.period});touch(x);APP.editCo=null;render();toast("Datos actualizados");return}
-    const n=newCompany({name,code,cedula:val("coCed").trim(),currency:val("coCur"),period:val("coPer")||2026,base:document.getElementById("coBase").checked,sample:document.getElementById("coSample").checked});
+    if(APP.editCo){const x=APP.companies.find(y=>y.id===APP.editCo);
+      if(tareaBloqueada(x)){toast("Esta tarea ya fue entregada y no se puede editar");APP.editCo=null;render();return}
+      Object.assign(x,{code,name,cedula:val("coCed").trim(),currency:val("coCur"),period:+val("coPer")||x.period,categoria:val("coCat")==="tarea"?"tarea":"practica"});touch(x);APP.editCo=null;render();toast("Datos actualizados");return}
+    const n=newCompany({name,code,cedula:val("coCed").trim(),currency:val("coCur"),period:val("coPer")||2026,base:document.getElementById("coBase").checked,sample:document.getElementById("coSample").checked,categoria:val("coCat")});
     APP.companies.push(n);APP.activeId=n.id;APP.view="catalogo";touch(n);resetDraft();render();toast(`Empresa ${code} creada`);
   }
   if(id==="fAcc"){
