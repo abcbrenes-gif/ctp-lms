@@ -1077,14 +1077,27 @@ VIEWS.planillas=()=>{
 // código y mandarlo por Teams. Usa las mismas tablas y el mismo formato
 // de "meta" (con resumen) que ya usa el flujo de código, para que salga
 // igual en el panel del profesor.
+async function registrarDocenteActual(docenteId){
+  // Deja registrado, en un lugar fijo y compartido, cuál es el id del
+  // profesor que está usando el sistema ahora mismo — así, cuando un
+  // estudiante guarda una entrega directa, no tiene que adivinar a cuál
+  // profesor pertenece: lee este mismo valor.
+  try{await sb.from("aula_conta_modulos").upsert({id:"global",docente_id:String(docenteId)})}catch(e){/* no bloquea el ingreso */}
+}
+async function obtenerDocenteIdActual(){
+  const {data:cfg}=await sb.from("aula_conta_modulos").select("docente_id").eq("id","global").maybeSingle();
+  if(cfg&&cfg.docente_id)return cfg.docente_id;
+  // Respaldo por si el profesor nunca entró desde que existe este registro.
+  const {data:doc}=await sb.from("docentes").select("id").limit(1).maybeSingle();
+  return doc?doc.id:null;
+}
 async function guardarEntregaDirecta(companies){
-  const {data:doc,error:e0}=await sb.from("docentes").select("id").limit(1).maybeSingle();
-  if(e0)throw e0;
-  if(!doc)throw new Error("No se encontró el perfil del profesor.");
+  const docenteId=await obtenerDocenteIdActual();
+  if(!docenteId)throw new Error("No se encontró el perfil del profesor.");
   const ahora=new Date().toISOString();
   const meta={id:uid(),usuario:APP.me.usuario,nombre:APP.me.nombre,fecha:ahora,recibida:ahora,check:null,
     resumen:plResumen(companies,APP.modulosHabilitados||[]),empresas:companies.length,asientos:companies.reduce((s,x)=>s+(x.entries||[]).length,0)};
-  const {error:e1}=await sb.from("aula_conta_entregas").upsert({id:meta.id,docente_id:doc.id,usuario:meta.usuario,nombre:meta.nombre,fecha:meta.fecha,meta});
+  const {error:e1}=await sb.from("aula_conta_entregas").upsert({id:meta.id,docente_id:docenteId,usuario:meta.usuario,nombre:meta.nombre,fecha:meta.fecha,meta});
   if(e1)throw e1;
   for(const c0 of companies){
     const {error:e2}=await sb.from("aula_conta_entregas_empresas").upsert({entrega_id:meta.id,empresa_id:c0.id,data:c0});
@@ -1922,6 +1935,7 @@ async function boot(){
       }
     }
     APP.store=supabaseTeacherStore(session.id);
+    registrarDocenteActual(session.id);
     await enter({usuario:session.id,nombre:session.nombre||"Profesor",rol:"profesor"});
     return;
   }
