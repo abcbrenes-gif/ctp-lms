@@ -942,12 +942,64 @@ function plSampleEmployees(){return [
   {id:uid(),nombre:"María José Quesada Chaves",cedula:"1-1789-0234",puesto:"Encargada de bodega",base:410000,horasExtra:0,comisiones:0,diasAusencia:1,horasTarde:2,hijos:2,conyuge:false,jornada:"mixta",tipoPago:"mensual",rebajos:{asoc:{on:true,valor:5}}},
   {id:uid(),nombre:"Luis Fernando Arias Méndez",cedula:"3-0512-0876",puesto:"Oficial de seguridad",base:480000,horasExtra:3,comisiones:0,diasAusencia:0,horasTarde:0,hijos:1,conyuge:true,jornada:"nocturna",tipoPago:"quincenal",rebajos:{}}
 ]}
+// Colaboradores "de catálogo" para armar prácticas completas de un clic,
+// con datos ya variados (jornadas, tipos de pago, rebajos) — así nadie
+// los tiene que escribir a mano y no hay riesgo de error de digitación
+// entre la copia del profesor y la de cada estudiante.
+const PL_POOL_PRACTICA=[
+  {nombre:"Ana Lucía Vargas Mora",puesto:"Contadora",base:1150000,horasExtra:4,comisiones:0,diasAusencia:0,horasTarde:0,hijos:1,conyuge:true,jornada:"diurna",tipoPago:"mensual",rebajos:{ahorro:{on:true,valor:25000}}},
+  {nombre:"Carlos Andrés Solís Rojas",puesto:"Vendedor",base:520000,horasExtra:6,comisiones:85000,diasAusencia:0,horasTarde:0,hijos:0,conyuge:false,jornada:"diurna",tipoPago:"mensual",rebajos:{asoc:{on:true,valor:5}}},
+  {nombre:"María José Quesada Chaves",puesto:"Encargada de bodega",base:410000,horasExtra:0,comisiones:0,diasAusencia:1,horasTarde:2,hijos:2,conyuge:false,jornada:"mixta",tipoPago:"mensual",rebajos:{asoc:{on:true,valor:5}}},
+  {nombre:"Luis Fernando Arias Méndez",puesto:"Oficial de seguridad",base:480000,horasExtra:3,comisiones:0,diasAusencia:0,horasTarde:0,hijos:1,conyuge:true,jornada:"nocturna",tipoPago:"quincenal",rebajos:{}},
+  {nombre:"Paola Andrea Jiménez Castro",puesto:"Recepcionista",base:340000,horasExtra:2,comisiones:0,diasAusencia:0,horasTarde:1,hijos:0,conyuge:false,jornada:"diurna",tipoPago:"mensual",rebajos:{}},
+  {nombre:"Esteban Rojas Fallas",puesto:"Técnico de soporte",base:460000,horasExtra:5,comisiones:0,diasAusencia:0,horasTarde:0,hijos:0,conyuge:false,jornada:"mixta",tipoPago:"quincenal",rebajos:{asoc:{on:true,valor:5}}},
+  {nombre:"Gabriela Mora Alvarado",puesto:"Asistente administrativa",base:380000,horasExtra:0,comisiones:0,diasAusencia:0,horasTarde:0,hijos:1,conyuge:false,jornada:"diurna",tipoPago:"mensual",rebajos:{ahorro:{on:true,valor:15000}}},
+  {nombre:"Jonathan Vindas Pérez",puesto:"Supervisor de turno",base:650000,horasExtra:8,comisiones:0,diasAusencia:1,horasTarde:0,hijos:2,conyuge:true,jornada:"diurna",tipoPago:"mensual",rebajos:{ahorro:{on:true,valor:20000}}}
+];
+function plCedulaAleatoria(){const r=()=>Math.floor(1000+Math.random()*9000);return `${1+Math.floor(Math.random()*9)}-${r()}-${r()}`}
+function generarColaboradoresPractica(n){
+  return PL_POOL_PRACTICA.slice(0,Math.max(1,Math.min(n,PL_POOL_PRACTICA.length))).map(t=>({id:uid(),cedula:plCedulaAleatoria(),...t}));
+}
+function nextCodeFor(arr){let n=(arr||[]).length+1;let c;do{c="EMP-"+String(n).padStart(3,"0");n++}while((arr||[]).some(x=>x.code===c));return c}
+// Crea una empresa de práctica con colaboradores ya cargados: una copia
+// para el profesor (para revisar/tener la solución) y la MISMA empresa,
+// con los mismos datos, directo en la cuenta de cada estudiante — así
+// nadie tiene que digitarla a mano y no hay margen de error de copiado.
+async function crearPracticaParaClase({nombreEmpresa,cantidad,seccion}){
+  const colaboradoresBase=generarColaboradoresPractica(cantidad);
+  const anio=new Date().getFullYear();
+  const armarEmpresa=(code)=>({
+    id:uid(),code,name:nombreEmpresa,cedula:"",currency:"₡",period:anio,categoria:"practica",entregado:false,
+    accounts:BASE.map(a=>({...a})),entries:[],
+    payroll:{params:clone(PL_DEFAULT),employees:colaboradoresBase.map(e=>({...e,id:uid()})),runs:[],evals:[]}
+  });
+  // 1) Copia de referencia para el profesor
+  const refCo=armarEmpresa(nextCoCode());
+  await APP.store.saveCompany(refCo);
+  APP.companies.push(refCo);
+  // 2) Misma empresa para cada estudiante (de la sección elegida, o todos)
+  let q=sb.from("estudiantes").select("id,nombre,apellido1,apellido2,seccion");
+  if(seccion&&seccion!=="todas")q=q.eq("seccion",seccion);
+  const {data:estudiantes,error}=await q;
+  if(error)throw error;
+  let ok=0;const fallidos=[];
+  for(const est of (estudiantes||[])){
+    try{
+      const store=supabaseStudentStore(est.id);
+      const companias=await store.loadWork();
+      companias.push(armarEmpresa(nextCodeFor(companias)));
+      await store.saveWork(null,null,companias);
+      ok++;
+    }catch(e){fallidos.push(`${est.nombre} ${est.apellido1}`)}
+  }
+  return {ok,total:(estudiantes||[]).length,fallidos};
+}
 function ensurePayroll(c){
   c.payroll??={};const p=c.payroll;
   p.params??=clone(PL_DEFAULT);for(const k of ["jornadas","pagos","rebajos"])p.params[k]??=clone(PL_DEFAULT[k]);p.employees??=[];p.runs??=[];p.evals??=[];
   return p;
 }
-Object.assign(APP,{plTab:"planilla",plRun:null,plEditEmp:null,plShow:null,plMode:"practica",plCase:null,plAns:{},plChecked:null,plShowProc:false,plLocked:false});
+Object.assign(APP,{plTab:"planilla",plRun:null,plEditEmp:null,plShow:null,plMode:"practica",plCase:null,plAns:{},plChecked:null,plShowProc:false,plLocked:false,plCrearPracticaAbierto:false,seccionesDisponibles:null});
 
 /* B · Motor de cálculo */
 const plAct=l=>(l||[]).filter(x=>x.activa!==false);
@@ -1058,10 +1110,37 @@ VIEWS.planillas=()=>{
   const tabs=isTeacher()?PL_TABS:[...PL_TABS,PL_TAB_ENTREGA];
   const body={param:plViewParams,planilla:plViewPlanilla,practica:plViewPractica,asiento:plViewAsiento,colillas:plViewColillas,entrega:plViewEntrega}[APP.plTab]||plViewPlanilla;
   return `<div class="head"><div><div class="eyebrow">Módulo · Código de Trabajo, CCSS y Ley de Protección al Trabajador</div><h2>Planillas</h2>
-    <p>Calcula la planilla con los porcentajes legales de Costa Rica, practica los cálculos, genera el asiento de diario y emite las colillas de pago.</p></div></div>
+    <p>Calcula la planilla con los porcentajes legales de Costa Rica, practica los cálculos, genera el asiento de diario y emite las colillas de pago.</p></div>
+    ${isTeacher()?`<div><button class="btn secondary" data-pact="abrirCrearPractica">⚙️ Crear práctica para toda la clase</button></div>`:""}</div>
+   ${isTeacher()&&APP.plCrearPracticaAbierto?panelCrearPractica():""}
    <div class="subtabs" role="tablist">${tabs.map(([k,t],i)=>`<button class="subtab ${APP.plTab===k?"on":""}" data-pact="tab" data-k="${k}" role="tab">${i+1} · ${t}</button>`).join("")}</div>
    ${plVistaToggle()}${body(c,p)}`;
 };
+function panelCrearPractica(){
+  return `<div class="panel stack" style="margin-bottom:10px">
+    <h3>⚙️ Crear práctica para toda la clase</h3>
+    <p class="muted" style="margin:0">Elegís el nombre y cuántos colaboradores lleva — el sistema arma la empresa con datos ya listos (sin que nadie los escriba a mano), te deja una copia a vos para revisar, y crea automáticamente esa misma empresa, con los mismos datos, en la cuenta de cada estudiante.</p>
+    <form id="formCrearPractica" class="stack" style="gap:8px">
+      <label>Nombre de la empresa<input id="ppNombre" required placeholder="Ej. Prueba 4" style="display:block;width:100%;margin-top:4px"></label>
+      <label>Cantidad de colaboradores
+        <select id="ppCantidad" style="display:block;margin-top:4px">
+          ${[3,4,5,6,7,8].map(n=>`<option value="${n}" ${n===4?"selected":""}>${n}</option>`).join("")}
+        </select>
+      </label>
+      <label>¿Para quién?
+        <select id="ppSeccion" style="display:block;margin-top:4px">
+          <option value="todas">Todas las secciones</option>
+          ${(APP.seccionesDisponibles||[]).map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join("")}
+        </select>
+      </label>
+      <div class="row">
+        <button class="btn primary" type="submit">Crear práctica</button>
+        <button class="btn ghost" type="button" data-pact="cerrarCrearPractica">Cancelar</button>
+      </div>
+      <p id="crearPracticaEstado" class="muted" style="margin:0"></p>
+    </form>
+  </div>`;
+}
 
 // Guarda la empresa actual (colaboradores, planilla procesada, asiento y
 // colillas tal como están en este momento) directamente en las "Entregas
@@ -1651,6 +1730,14 @@ document.addEventListener("click",async e=>{
   const c=co();if(!c)return;const p=ensurePayroll(c),a=b.dataset.pact;
   try{
   if(a==="tab"){APP.plTab=b.dataset.k;render();return}
+  if(a==="abrirCrearPractica"){
+    if(!APP.seccionesDisponibles){
+      const {data}=await sb.from("estudiantes").select("seccion");
+      APP.seccionesDisponibles=[...new Set((data||[]).map(x=>x.seccion).filter(Boolean))].sort();
+    }
+    APP.plCrearPracticaAbierto=true;render();return;
+  }
+  if(a==="cerrarCrearPractica"){APP.plCrearPracticaAbierto=false;render();return}
   if(a==="show"){APP.plShow=APP.plShow===b.dataset.id?null:b.dataset.id;render();return}
   if(a==="openRun"){APP.plRun=b.dataset.id;APP.plTab="asiento";render();return}
   if(a==="mode"){if(APP.plMode!==b.dataset.m){APP.plMode=b.dataset.m;plNewCase()}render();return}
@@ -1877,6 +1964,21 @@ document.addEventListener("change",e=>{
 });
 document.addEventListener("submit",async e=>{
   e.preventDefault();const c=co(),id=e.target.id;
+  if(id==="formCrearPractica"){
+    const nombre=val("ppNombre").trim(),cantidad=+val("ppCantidad")||4,seccion=val("ppSeccion")||"todas";
+    const estadoEl=document.getElementById("crearPracticaEstado"),btn=e.target.querySelector("button[type=submit]");
+    if(!nombre){if(estadoEl)estadoEl.textContent="Ponele un nombre a la empresa.";return}
+    if(btn)btn.disabled=true;if(estadoEl)estadoEl.textContent="Creando la empresa y repartiéndola entre los estudiantes…";
+    try{
+      const r=await crearPracticaParaClase({nombreEmpresa:nombre,cantidad,seccion});
+      APP.plCrearPracticaAbierto=false;render();
+      toast(`Práctica "${nombre}" creada ✓ — ${r.ok} de ${r.total} estudiante(s)`+(r.fallidos.length?`. No se pudo con: ${r.fallidos.join(", ")}`:""));
+    }catch(err){
+      if(estadoEl)estadoEl.textContent="No se pudo crear la práctica: "+(err.message||err);
+      if(btn)btn.disabled=false;
+    }
+    return;
+  }
   if(id==="fCo"){
     const code=val("coCode").trim().toUpperCase(),name=val("coName").trim();if(!name||!code)return;
     if(APP.companies.some(x=>x.code===code&&x.id!==APP.editCo)){toast("Ya tienes una empresa con el código "+code);return}
