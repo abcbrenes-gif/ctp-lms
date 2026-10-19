@@ -1527,6 +1527,11 @@ const DEFINICION_LOGROS = [
   { id: "mente-brillante", icono: "🧠", nombre: "Mente brillante", cumple: (m) => m.indicadoresCalificados >= 3 && m.promedioIndicadores >= 90 }
 ];
 
+function formatearPuntos(n) {
+  const num = Number(n) || 0;
+  return Number.isInteger(num) ? String(num) : num.toFixed(1);
+}
+
 async function calcularMetricasLogros(estudianteId) {
   const [{ count: actividadesCompletadas }, { data: actividades }, { count: entregasProyecto }, { data: calificaciones }] = await Promise.all([
     sb.from("actividades_estudiante").select("id", { count: "exact", head: true }).eq("estudiante_id", estudianteId).eq("completado", true),
@@ -1548,12 +1553,18 @@ async function calcularMetricasLogros(estudianteId) {
   const promedioIndicadores = indicadoresCalificados
     ? (filasIndicadores.reduce((acc, f) => acc + (f.obtenido / f.maximo) * 100, 0) / indicadoresCalificados)
     : 0;
+  // Puntos reales (no promedio de %): cuánto ha ganado el estudiante de
+  // todo lo que ha podido ganar en los trabajos ya calificados.
+  const totalPuntosGanados = filasIndicadores.reduce((acc, f) => acc + Number(f.obtenido || 0), 0);
+  const totalPuntosPosibles = filasIndicadores.reduce((acc, f) => acc + Number(f.maximo || 0), 0);
   return {
     actividadesCompletadas: actividadesCompletadas || 0,
     entregasProyecto: entregasProyecto || 0,
     algunaNotaPerfecta,
     indicadoresCalificados,
-    promedioIndicadores
+    promedioIndicadores,
+    totalPuntosGanados,
+    totalPuntosPosibles
   };
 }
 
@@ -1569,11 +1580,17 @@ async function pintarPanelLogros(estudianteId) {
     return;
   }
   const pct = Math.round(metricas.promedioIndicadores);
+  const pctPuntos = metricas.totalPuntosPosibles > 0 ? Math.round((metricas.totalPuntosGanados / metricas.totalPuntosPosibles) * 100) : 0;
   panel.innerHTML = `
     <div class="xp-progress">
       <div class="xp-label"><span>Desempeño general ${metricas.indicadoresCalificados ? `(${metricas.indicadoresCalificados} indicador${metricas.indicadoresCalificados === 1 ? "" : "es"} calificado${metricas.indicadoresCalificados === 1 ? "" : "s"})` : "(sin indicadores calificados todavía)"}</span><span>${pct}%</span></div>
       <div class="xp-progress-track"><div class="xp-progress-fill" style="width:${pct}%;"></div></div>
     </div>
+    ${metricas.totalPuntosPosibles > 0 ? `
+    <div class="xp-progress" style="margin-top:0.7rem;">
+      <div class="xp-label"><span>Puntos ganados en los trabajos realizados</span><span>${formatearPuntos(metricas.totalPuntosGanados)} de ${formatearPuntos(metricas.totalPuntosPosibles)}</span></div>
+      <div class="xp-progress-track"><div class="xp-progress-fill" style="width:${pctPuntos}%;"></div></div>
+    </div>` : ""}
     <div class="badges-row">
       ${DEFINICION_LOGROS.map(l => {
         const desbloqueado = l.cumple(metricas);
