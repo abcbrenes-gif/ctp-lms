@@ -396,7 +396,7 @@ function supabaseTeacherStore(docenteId){
 /* ============ Estado ============ */
 const APP={store:null,me:null,dk:null,companies:[],activeId:null,view:"empresas",eeTab:"er",mayorF:"",
   viewing:null,readOnly:false,authTab:"in",hasTeacher:true,entregas:null,editCo:null,editAcc:null,saveState:"",
-  showRecovery:null,lastDelivery:null,preview:null};
+  showRecovery:null,lastDelivery:null,lastEntregaGeneral:null,preview:null};
 const isTeacher=()=>APP.me&&APP.me.rol==="profesor";
 const co=()=>APP.companies.find(c=>c.id===APP.activeId)||APP.companies[0]||null;
 /* Categoría del trabajo: "practica" se puede repetir las veces que haga falta;
@@ -548,24 +548,16 @@ async function readDelivery(txt){
 const vcode=h=>(h.slice(0,4)+"-"+h.slice(4,8)).toUpperCase();
 
 function viewEntregar(){
-  const d=APP.lastDelivery;
+  const le=APP.lastEntregaGeneral;
   return `<div class="head"><div><div class="eyebrow">Entrega al profesor</div><h2>Entregar trabajo</h2>
-    <p>Entrega tu avance al final de cada clase: así tu profesor ve lo que hiciste. Elige las empresas, genera el código y pégalo en el chat de Teams de tu profesor. El código lleva tu nombre, la fecha y una huella de verificación: si alguien lo altera, el sistema lo detecta.</p></div></div>
-  <div class="grid2">
-   <div class="panel stack">
-    <h3>1 · Empresas a entregar</h3>
+    <p>Entrega tu avance al final de cada clase: elegí las empresas y guardalas — quedan directo en las "Entregas recibidas" de tu profesor. No hace falta generar ningún código ni enviarlo por Teams.</p></div></div>
+  <div class="panel stack">
+    <h3>Empresas a entregar</h3>
     ${APP.companies.length?sortCos(APP.companies).map(c=>`<label class="check"><input type="checkbox" class="dsel" value="${c.id}" checked> <span class="code">${esc(c.code)}</span> ${esc(c.name)} <small class="muted">· ${c.entries.length} asientos · ${c.categoria==="tarea"?(c.entregado?"📌 tarea, ya entregada":"📌 tarea — se bloqueará al entregar"):"🔄 práctica"}</small></label>`).join("")
       :'<p class="muted" style="margin:0">Todavía no tienes empresas para entregar.</p>'}
-    <div><button class="btn primary" data-act="genDelivery" ${APP.companies.length?"":"disabled"}>Generar código de entrega</button></div>
-   </div>
-   <div class="panel stack">
-    <h3>2 · Copia y envía</h3>
-    ${d?`<div class="status ok"><span class="dot"></span>Código listo · verificación ${vcode(d.check)}</div>
-      <textarea id="dlvTa" rows="5" class="num" readonly>${esc(d.code)}</textarea>
-      <div class="row"><button class="btn pop" data-act="copyDelivery">Copiar código</button></div>
-      <p class="note" style="margin:0">Dile a tu profesor tu código de verificación <b class="num">${vcode(d.check)}</b>. Al recibirlo, él verá el mismo número. Este código también te sirve como respaldo para llevar tu trabajo a otra computadora.</p>`
-      :'<p class="muted" style="margin:0">Aquí aparecerá tu código cuando lo generes.</p>'}
-   </div>
+    ${le?`<div class="status ok"><span class="dot"></span>Guardada como entrega el ${esc(fmtDate(le))}.</div>`:""}
+    <div><button class="btn primary" data-act="guardarEntregaGeneral" ${APP.companies.length?"":"disabled"}>💾 Guardar entrega</button></div>
+    <p class="note" style="margin:0">Podés guardar varias veces — cada vez que avancés más, tu profesor va a ver la versión más reciente.</p>
   </div>`;
 }
 
@@ -1813,12 +1805,20 @@ document.addEventListener("click",async e=>{
   if(a==="openCo"){APP.activeId=b.dataset.id;APP.editAcc=null;resetDraft();render();toast("Empresa abierta");return}
   if(a==="stopViewing"){await stopViewing();return}
   /* Estudiante: entregar */
-  if(a==="genDelivery"){const ids=[...document.querySelectorAll(".dsel:checked")].map(x=>x.value);
+  if(a==="guardarEntregaGeneral"){const ids=[...document.querySelectorAll(".dsel:checked")].map(x=>x.value);
     if(!ids.length){toast("Marca al menos una empresa");return}
     const sel=APP.companies.filter(x=>ids.includes(x.id)),ahora=new Date().toISOString();
     for(const x of sel)if(x.categoria==="tarea"&&!x.entregado){x.entregado=true;x.entregadoFecha=ahora;touch(x)}
-    await flush();APP.lastDelivery=await buildDelivery(clone(sel));render();toast("Código generado");return}
-  if(a==="copyDelivery"){copyText(APP.lastDelivery.code,"dlvTa");return}
+    await flush();
+    b.disabled=true;const txt=b.textContent;b.textContent="Guardando…";
+    try{
+      const meta=await guardarEntregaDirecta(clone(sel));
+      APP.lastEntregaGeneral=meta.fecha;
+      toast("Entrega guardada ✓");
+    }catch(err){
+      toast("No se pudo guardar la entrega: "+(err.message||err));
+    }
+    b.disabled=false;b.textContent=txt;render();return}
   if(a==="importBk"){const {payload}=await readDelivery(val("bkText"));
     if(payload.usuario!==APP.me.usuario){toast("Ese código pertenece a otro usuario. Solo puedes traer tu propio trabajo.");return}
     for(const x of payload.companies){const n=clone(x);n.id=uid();if(!n.code||APP.companies.some(y=>y.code===n.code))n.code=nextCoCode();APP.companies.push(n);touch(n)}
