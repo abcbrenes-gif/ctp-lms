@@ -490,7 +490,7 @@ function construirDemoEstrategiaContenidoHTML(preset, esEstudiante) {
 async function abrirModalPizarraRapida(preset) {
   const overlay = document.createElement("div");
   overlay.id = "pizarra-rapida-overlay";
-  overlay.style.cssText = "position:fixed; inset:0; background:rgba(15,23,42,0.6); z-index:9999; display:flex; align-items:center; justify-content:center; padding:1rem;";
+  overlay.style.cssText = "position:fixed; inset:0; background:rgba(8,11,20,0.78); z-index:9999; display:flex; align-items:center; justify-content:center; padding:1rem;";
   document.body.appendChild(overlay);
 
   function cerrar() { overlay.remove(); }
@@ -501,7 +501,7 @@ async function abrirModalPizarraRapida(preset) {
 
   function pintarFormulario() {
     overlay.innerHTML = `
-      <div class="panel" style="max-width:420px; width:100%; max-height:90vh; overflow:auto;" data-pizarra-panel>
+      <div class="panel" style="max-width:420px; width:100%; max-height:90vh; overflow:auto; background:var(--paper); border:1px solid var(--glass-border); border-radius:var(--radius); padding:1.2rem; box-shadow:var(--shadow-sm);" data-pizarra-panel>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.6rem;">
           <h3 style="margin:0;">💡 Iniciar pizarra</h3>
           <button type="button" class="link-btn" data-pizarra-cerrar aria-label="Cerrar">✕</button>
@@ -555,7 +555,7 @@ async function abrirModalPizarraRapida(preset) {
     const participantes = new Set(listaIdeas.map(i => i.estudiante_id)).size;
 
     overlay.innerHTML = `
-      <div class="panel" style="max-width:520px; width:100%; max-height:90vh; overflow:auto;" data-pizarra-panel>
+      <div class="panel" style="max-width:520px; width:100%; max-height:90vh; overflow:auto; background:var(--paper); border:1px solid var(--glass-border); border-radius:var(--radius); padding:1.2rem; box-shadow:var(--shadow-sm);" data-pizarra-panel>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
           <h3 style="margin:0;">💡 ${pizarra.titulo}</h3>
           <button type="button" class="link-btn" data-pizarra-cerrar aria-label="Cerrar">✕</button>
