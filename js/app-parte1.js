@@ -985,12 +985,19 @@ async function calcularNotaAsistencia(estudianteId, materiaId) {
   const leccionIds = (lecciones || []).map(l => l.id);
   if (leccionIds.length === 0) return null;
 
-  const { data: todas } = await sb.from("asistencia_lecciones").select("leccion_id, fecha, estudiante_id, estado").in("leccion_id", leccionIds);
-  if (!todas || todas.length === 0) return null;
+  // Dos consultas separadas: el total de lecciones impartidas (de todos
+  // los estudiantes de la materia, para contar combinaciones distintas
+  // de lección+fecha) y las del estudiante puntual, filtradas en el
+  // servidor. Si se trae todo junto y se filtra en el navegador, con
+  // varias secciones eso fácilmente pasa de las 1000 filas que Supabase
+  // devuelve por consulta, y los registros de algunos estudiantes
+  // quedaban fuera del corte (dando 0 ausencias = 100% de nota).
+  const { data: todosRegistros } = await sb.from("asistencia_lecciones").select("leccion_id, fecha").in("leccion_id", leccionIds);
+  if (!todosRegistros || todosRegistros.length === 0) return null;
+  const { data: delEstudiante } = await sb.from("asistencia_lecciones").select("estado").eq("estudiante_id", estudianteId).in("leccion_id", leccionIds);
 
-  const impartidas = new Set(todas.map(r => `${r.leccion_id}-${r.fecha}`)).size;
-  const delEstudiante = todas.filter(r => r.estudiante_id === estudianteId);
-  const ausenciasComputadas = delEstudiante.reduce((acc, r) => acc + pesoAusencia(r.estado), 0);
+  const impartidas = new Set(todosRegistros.map(r => `${r.leccion_id}-${r.fecha}`)).size;
+  const ausenciasComputadas = (delEstudiante || []).reduce((acc, r) => acc + pesoAusencia(r.estado), 0);
 
   if (impartidas === 0) return null;
   const nota = Math.max(0, (1 - ausenciasComputadas / impartidas) * 100);
@@ -1007,12 +1014,17 @@ async function calcularNotaAsistenciaPeriodo(estudianteId, materiaId, fechaInici
   (lecciones || []).forEach(l => { leccionPorId[l.id] = l; });
   if (leccionIds.length === 0) return null;
 
-  const { data: todas } = await sb.from("asistencia_lecciones").select("leccion_id, fecha, estudiante_id, estado")
+  // Igual que en calcularNotaAsistencia: dos consultas separadas para no
+  // perder registros del estudiante si la materia completa pasa de las
+  // 1000 filas que Supabase devuelve por consulta.
+  const { data: todosRegistros } = await sb.from("asistencia_lecciones").select("leccion_id, fecha")
     .in("leccion_id", leccionIds).gte("fecha", fechaInicio).lte("fecha", fechaFin);
-  if (!todas || todas.length === 0) return null;
+  if (!todosRegistros || todosRegistros.length === 0) return null;
+  const { data: delEstudianteRaw } = await sb.from("asistencia_lecciones").select("leccion_id, fecha, estado")
+    .eq("estudiante_id", estudianteId).in("leccion_id", leccionIds).gte("fecha", fechaInicio).lte("fecha", fechaFin);
+  const delEstudiante = delEstudianteRaw || [];
 
-  const impartidas = new Set(todas.map(r => `${r.leccion_id}-${r.fecha}`)).size;
-  const delEstudiante = todas.filter(r => r.estudiante_id === estudianteId);
+  const impartidas = new Set(todosRegistros.map(r => `${r.leccion_id}-${r.fecha}`)).size;
 
   const justificadas = delEstudiante.filter(r => r.estado === "ausente_justificada" || r.estado === "tardia_justificada").length;
   const tardias = delEstudiante.filter(r => r.estado === "tardia_leve" || r.estado === "tardia_grave");
