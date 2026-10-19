@@ -577,7 +577,8 @@ async function loadEntregas(){
   render();
 }
 function plResumen(cs,unl){
-  const R={modulos:Array.isArray(unl)?unl.length:null,empresas:cs.length,asientos:0,planillas:0,colab:0,casOk:0,casTot:0,asPlIntentos:0,asPlOk:0,solucion:0,evalBest:null,evals:0,practicas:0};
+  const R={empresas:cs.length,empTareas:cs.filter(c=>c.categoria==="tarea").length,empPracticas:cs.filter(c=>c.categoria!=="tarea").length,
+    asientos:0,planillas:0,colab:0,casOk:0,casTot:0,asPlIntentos:0,asPlOk:0,solucion:0,evalBest:null,evals:0,practicas:0};
   for(const c of cs){R.asientos+=(c.entries||[]).length;const p=c.payroll;if(!p)continue;
     try{const P=p.params;R.colab+=(p.employees||[]).length;
       if(p.sheet&&p.employees?.length){const wr=p.employees.some(e=>plCalc(e,P).totReb>0);
@@ -593,14 +594,14 @@ function viewSeguimiento(l){
   const q=(APP.entF||"").toLowerCase();
   const rows=Object.values(by).filter(e=>!q||(e.nombre+" "+e.usuario).toLowerCase().includes(q)).sort((a,b)=>a.nombre.localeCompare(b.nombre));
   const bar=(n,d)=>{const v=d?Math.round(100*n/d):0;return `<div class="pbar" title="${v} %"><span style="width:${v}%;background:${v===100?"var(--ok)":v>=60?"var(--pop)":"var(--bad)"}"></span></div><small class="muted num">${n}/${d}</small>`};
-  return `<div class="tbl"><table><thead><tr><th>Estudiante</th><th>Última entrega</th><th>Módulos abiertos</th><th class="r">Empresas</th><th class="r">Asientos</th><th>Machote de planilla</th><th>Asiento de planilla</th><th>Evaluación de planillas</th><th></th></tr></thead><tbody>
+  return `<div class="tbl"><table><thead><tr><th>Estudiante</th><th>Última entrega</th><th>Tareas / Prácticas</th><th class="r">Asientos</th><th>Machote de planilla</th><th>Asiento de planilla</th><th>Evaluación de planillas</th><th></th></tr></thead><tbody>
    ${rows.map(e=>{const R=e.resumen;return `<tr><td><b>${esc(e.nombre)}</b><br><span class="code">${esc(e.usuario)}</span></td>
      <td>${esc(fmtDate(e.fecha))}<br><small class="muted">${e._n} entrega(s)</small></td>
-     ${R?`<td>${R.modulos==null?"—":bar(R.modulos,5)}</td><td class="r num">${R.empresas}</td><td class="r num">${R.asientos}</td>
+     ${R?`<td><span class="chip tG" style="font-size:.7rem">📌 ${R.empTareas}</span> <span class="chip tI" style="font-size:.7rem">🔄 ${R.empPracticas}</span></td><td class="r num">${R.asientos}</td>
        <td>${R.casTot?bar(R.casOk,R.casTot):'<small class="muted">Sin empezar</small>'}</td>
        <td>${R.asPlIntentos?`${R.asPlOk?'<span class="chip tI">Resuelto</span>':'<span class="chip tG">Pendiente</span>'}<br><small class="muted">${R.asPlIntentos} intento(s)${R.solucion?" · vio la solución":""}</small>`:'<small class="muted">Sin empezar</small>'}</td>
        <td>${R.evalBest!=null?`<b class="num">${R.evalBest} %</b><br><small class="muted">${R.evals} evaluación(es) · ${R.practicas} práctica(s)</small>`:R.practicas?`<small class="muted">${R.practicas} práctica(s)</small>`:'<small class="muted">—</small>'}</td>`
-      :`<td colspan="6"><small class="muted">Entrega anterior sin resumen. Pídele que entregue de nuevo para ver su avance.</small></td>`}
+      :`<td colspan="5"><small class="muted">Entrega anterior sin resumen. Pídele que entregue de nuevo para ver su avance.</small></td>`}
      <td><button class="btn sm primary" data-act="viewEntrega" data-id="${e.id}">Revisar</button></td></tr>`}).join("")}
    </tbody></table></div>
    <p class="note" style="margin:0">Cada fila muestra la entrega más reciente de cada estudiante. Para ver el avance de hoy, pídeles que generen su código de entrega al final de la clase.</p>`;
@@ -632,10 +633,10 @@ function viewEntregas(){
     ${!l?'<div class="loading">Cargando entregas…</div>':l.length?`
      <div class="row" style="align-items:flex-end"><div class="tabs" style="margin:0;margin-right:auto"><button class="tab ${APP.entTab!=="todas"?"on":""}" data-act="entTab" data-t="seg">Seguimiento por estudiante</button><button class="tab ${APP.entTab==="todas"?"on":""}" data-act="entTab" data-t="todas">Todas las entregas</button></div>
       <div class="field" style="flex:0 1 280px"><label for="entF">Buscar estudiante</label><input id="entF" value="${esc(APP.entF||"")}" placeholder="Nombre o usuario"></div></div>
-     ${APP.entTab!=="todas"?viewSeguimiento(l):`<div class="tbl"><table><thead><tr><th>Estudiante</th><th>Generada</th><th>Recibida</th><th class="r">Empresas</th><th class="r">Asientos</th><th>Verificación</th><th></th></tr></thead><tbody>
-     ${shown.map(e=>`<tr><td><b>${esc(e.nombre)}</b><br><span class="code">${esc(e.usuario)}</span></td><td>${esc(fmtDate(e.fecha))}</td><td>${esc(fmtDate(e.recibida))}</td>
-       <td class="r num">${e.empresas}</td><td class="r num">${e.asientos}</td><td class="num">${vcode(e.check)}</td>
-       <td><div class="row" style="flex-wrap:nowrap;justify-content:flex-end"><button class="btn sm primary" data-act="viewEntrega" data-id="${e.id}">Revisar</button><button class="btn sm danger" data-act="delEntrega" data-id="${e.id}">Eliminar</button></div></td></tr>`).join("")}
+     ${APP.entTab!=="todas"?viewSeguimiento(l):`<div class="tbl"><table><thead><tr><th>Estudiante</th><th>Generada</th><th>Recibida</th><th>Tareas / Prácticas</th><th class="r">Asientos</th><th>Verificación</th><th></th></tr></thead><tbody>
+     ${shown.map(e=>{const R=e.resumen;return `<tr><td><b>${esc(e.nombre)}</b><br><span class="code">${esc(e.usuario)}</span></td><td>${esc(fmtDate(e.fecha))}</td><td>${esc(fmtDate(e.recibida))}</td>
+       <td>${R?`<span class="chip tG" style="font-size:.7rem">📌 ${R.empTareas}</span> <span class="chip tI" style="font-size:.7rem">🔄 ${R.empPracticas}</span>`:`<span class="num">${e.empresas}</span>`}</td><td class="r num">${e.asientos}</td><td class="num">${vcode(e.check)}</td>
+       <td><div class="row" style="flex-wrap:nowrap;justify-content:flex-end"><button class="btn sm primary" data-act="viewEntrega" data-id="${e.id}">Revisar</button><button class="btn sm danger" data-act="delEntrega" data-id="${e.id}">Eliminar</button></div></td></tr>`}).join("")}
      </tbody></table></div>`}`
      :`<div class="empty"><h3>Aún no hay entregas</h3><p>Cuando un estudiante te envíe su código por Teams, pégalo arriba.</p></div>`}
    </div>`;
