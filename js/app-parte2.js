@@ -2755,11 +2755,20 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
     (misResultados || []).forEach(r => { resultadoPorTrabajo[r.trabajo_id] = r; });
 
     const trabajosLluviaMios = trabajos.filter(t => t.tipo_actividad === "lluvia_ideas");
-    const { data: misIdeas } = trabajosLluviaMios.length
-      ? await sb.from("trabajo_ideas").select("*").eq("estudiante_id", estudianteId).in("trabajo_id", trabajosLluviaMios.map(t => t.id)).order("creado_en")
+    // Se trae la pizarra completa (las ideas de TODOS los estudiantes, no
+    // solo las propias) para que la "Lluvia de ideas" se vea como una
+    // pizarra compartida en vivo, donde se nota quién va participando.
+    const { data: todasIdeasLluvia } = trabajosLluviaMios.length
+      ? await sb.from("trabajo_ideas").select("*").in("trabajo_id", trabajosLluviaMios.map(t => t.id)).order("creado_en")
       : { data: [] };
+    const autoresIds = [...new Set((todasIdeasLluvia || []).map(i => i.estudiante_id))];
+    const { data: autoresInfo } = autoresIds.length
+      ? await sb.from("estudiantes").select("id, nombre, apellido1").in("id", autoresIds)
+      : { data: [] };
+    const nombreAutorPorId = {};
+    (autoresInfo || []).forEach(e => { nombreAutorPorId[e.id] = `${e.nombre} ${e.apellido1}`; });
     const ideasPorTrabajo = {};
-    (misIdeas || []).forEach(i => { (ideasPorTrabajo[i.trabajo_id] = ideasPorTrabajo[i.trabajo_id] || []).push(i); });
+    (todasIdeasLluvia || []).forEach(i => { (ideasPorTrabajo[i.trabajo_id] = ideasPorTrabajo[i.trabajo_id] || []).push(i); });
 
     const trabajosProyectoMios = trabajos.filter(t => t.tipo_actividad === "proyecto");
     const { data: misEntregasProyecto } = trabajosProyectoMios.length
@@ -2804,7 +2813,8 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         </div>`;
       }
       if (esActividad && t.tipo_actividad === "lluvia_ideas") {
-        const misIdeasTrabajo = ideasPorTrabajo[t.id] || [];
+        const ideasTrabajo = ideasPorTrabajo[t.id] || [];
+        const participantes = new Set(ideasTrabajo.map(i => i.estudiante_id)).size;
         const pregunta = (t.contenido_actividad && t.contenido_actividad.pregunta) || "";
         return `
         <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.4rem;">
@@ -2816,14 +2826,21 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
           <div style="display:flex; gap:0.5rem; width:100%; flex-wrap:wrap;">
             <input type="text" data-idea-input="${t.id}" placeholder="Escribí tu idea…" maxlength="300" style="flex:1; min-width:12rem; padding:0.5rem 0.6rem; border:1px solid var(--paper-line); border-radius:var(--radius); font-family:var(--sans); font-size:0.85rem;" />
             <button class="btn small" data-idea-enviar="${t.id}">Enviar idea</button>
+            <button class="btn secondary small" data-idea-refrescar="${t.id}" title="Actualizar la pizarra para ver las ideas nuevas de tus compañeros">🔄 Actualizar pizarra</button>
           </div>
           <span data-idea-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
-          ${misIdeasTrabajo.length ? `<div style="width:100%; display:grid; gap:0.3rem;">
-            ${misIdeasTrabajo.map(idea => `
-              <div style="font-size:0.82rem; padding:0.35rem 0.5rem; border-left:3px solid ${idea.calificacion === "buena" ? "#1d7a43" : (idea.calificacion === "mala" ? "#c0392b" : "#bbb")}; background:var(--surface-soft);">
-                ${idea.texto}${idea.calificacion === "buena" ? " · 👍" : (idea.calificacion === "mala" ? " · 👎" : "")}
-              </div>`).join("")}
-          </div>` : ""}
+          <div style="width:100%; margin-top:0.3rem;">
+            <p style="font-size:0.76rem; color:var(--text-muted); margin:0 0 0.4rem;">🗒️ Pizarra compartida — ${participantes} compañero${participantes === 1 ? "" : "s"} participando · ${ideasTrabajo.length} idea${ideasTrabajo.length === 1 ? "" : "s"} en total</p>
+            ${ideasTrabajo.length ? `<div style="width:100%; display:grid; gap:0.3rem;">
+              ${ideasTrabajo.map(idea => {
+                const esMia = String(idea.estudiante_id) === String(estudianteId);
+                return `
+              <div style="font-size:0.82rem; padding:0.35rem 0.5rem; border-left:3px solid ${idea.calificacion === "buena" ? "#1d7a43" : (idea.calificacion === "mala" ? "#c0392b" : "#bbb")}; background:${esMia ? "var(--warn-bg)" : "var(--surface-soft)"};">
+                <strong>${nombreAutorPorId[idea.estudiante_id] || "Compañero"}${esMia ? " (vos)" : ""}:</strong> ${idea.texto}${idea.calificacion === "buena" ? " · 👍" : (idea.calificacion === "mala" ? " · 👎" : "")}
+              </div>`;
+              }).join("")}
+            </div>` : `<p class="empty" style="font-size:0.8rem;">Todavía nadie ha escrito una idea — ¡sé el primero!</p>`}
+          </div>
         </div>`;
       }
       if (esActividad && t.tipo_actividad === "infografia") {
@@ -3127,6 +3144,12 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
           if (estado) estado.textContent = "No se pudo enviar: " + error.message;
           return;
         }
+        pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId);
+      });
+    });
+
+    holder.querySelectorAll("[data-idea-refrescar]").forEach(btn => {
+      btn.addEventListener("click", () => {
         pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId);
       });
     });
