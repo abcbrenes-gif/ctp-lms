@@ -785,7 +785,7 @@ async function renderMateriasEstudiante(el, s) {
 
   const accesoAulaConta = `
     <div class="section-grid" style="margin-bottom:1.4rem; max-width:860px;">
-      <a class="section-tile flip-card" href="${AULA_CONTABLE_URL}" style="height:180px;">
+      <a class="section-tile flip-card" href="${AULA_CONTABLE_URL}?como_estudiante=${encodeURIComponent(s.id)}" style="height:180px;">
         <div class="flip-card-inner">
           <div class="flip-card-front">
             <div class="num" style="font-size:1.7rem;">🧮 Aula de Conta</div>
@@ -5855,6 +5855,11 @@ function generarClaveAulaContableAleatoria() {
 
 function renderAulaContaCredenciales(el, s) {
   el.innerHTML = `
+    <div class="whatsapp-panel" style="border-left:4px solid var(--ledger-green); margin-bottom:1rem;">
+      <strong style="font-family:var(--serif);">🧮 Entrar al Aula de Conta de ${s.nombre}</strong>
+      <p style="font-size:0.82rem; color:var(--text-muted); margin:0.3rem 0 0.8rem;">Ves y editás directamente las empresas y asientos reales de ${s.nombre} — lo que hagas ahí queda guardado en su cuenta, igual que si lo hiciera la persona misma.</p>
+      <a class="btn small" href="${AULA_CONTABLE_URL}?como_estudiante=${encodeURIComponent(s.id)}">🧮 Abrir Aula de Conta como ${s.nombre} →</a>
+    </div>
     <div class="whatsapp-panel">
       <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.6rem;">
         "Aula de Conta" (Aula Contable NIIF) es una aplicación aparte, con su propio sistema de cuentas. ${s.nombre} debe entrar ahí y, la PRIMERA vez, usar "Crear mi cuenta" escribiendo exactamente este usuario y esta clave — así quedan parejos para toda la sección y vos llevás el registro de a quién se los diste. Esa app los guarda cifrados en el propio equipo del estudiante; esta plataforma no se conecta con ella.

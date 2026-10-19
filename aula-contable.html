@@ -495,7 +495,7 @@ function renderChrome(){
 function render(){
   renderChrome();
   const main=document.getElementById("main");
-  const pv=APP.studentPreview&&APP.owner?`<div class="banner"><span>👀 Vista de estudiante: así ven la plataforma tus estudiantes. Lo que hagas aquí se guarda solo en este equipo.</span><button class="btn sm" data-act="asTeacher">Volver al acceso del profesor</button></div>`:"";
+  const pv=APP.comoEstudiante?`<div class="banner"><span>👀 Estás dentro de la cuenta de ${esc(APP.me.nombre)} (modo profesor) — lo que agregues o cambies se guarda en la cuenta real del estudiante.</span><button class="btn sm" data-act="volverPerfilEstudiante">Volver al perfil</button></div>`:"";
   if(!APP.me){main.innerHTML='<div class="empty"><h3>No hay sesión</h3><p>Volvé a <a href="./index.html">ctp-lms</a> y entrá primero ahí.</p></div>';return}
   APP.readOnly=!!APP.viewing||(APP.view!=="empresas"&&APP.view!=="entregar"&&tareaBloqueada(co()));
   let html=pv;
@@ -1704,6 +1704,11 @@ document.addEventListener("click",async e=>{
   const c=co(),a=b.dataset.act;
   try{
   if(a==="logout"){await logout();return}
+  if(a==="volverPerfilEstudiante"){
+    await flush();
+    window.location.href="./index.html#/perfil/"+encodeURIComponent(APP.me.usuario);
+    return;
+  }
   if(a==="toggleModulo"){
     const k=b.dataset.k;const set=new Set(APP.modulosHabilitados||MODULOS_DEFAULT);
     if(set.has(k))set.delete(k);else set.add(k);
@@ -1824,6 +1829,20 @@ async function boot(){
   }
   APP.modulosHabilitados=await loadModulosHabilitados();
   if(session.role==="docente"){
+    // Si el profesor llega con ?como_estudiante=<cédula> (desde el perfil
+    // de un estudiante en ctp-lms), entra DIRECTO a la cuenta real de ese
+    // estudiante en Aula de Conta, con el mismo acceso que tendría él —
+    // en vez de abrir siempre la cuenta del profesor.
+    const comoEstudianteId=new URLSearchParams(location.search).get("como_estudiante");
+    if(comoEstudianteId){
+      const {data:est}=await sb.from("estudiantes").select("id,nombre,apellido1").eq("id",comoEstudianteId).maybeSingle();
+      if(est){
+        APP.store=supabaseStudentStore(est.id);
+        APP.comoEstudiante=true;
+        await enter({usuario:est.id,nombre:`${est.nombre} ${est.apellido1}`,rol:"estudiante"});
+        return;
+      }
+    }
     APP.store=supabaseTeacherStore(session.id);
     await enter({usuario:session.id,nombre:session.nombre||"Profesor",rol:"profesor"});
     return;
