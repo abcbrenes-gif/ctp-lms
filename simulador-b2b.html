@@ -203,6 +203,19 @@ async function calificarContrato(contrato,satisfaccion,feedback){
   await cargarTodoDocente();render();
 }
 
+async function aprobarBorrador(id){
+  const {error}=await sb.from("b2b_solicitudes").update({estado:"abierta"}).eq("id",id).eq("estado","borrador");
+  if(error){toast("No se pudo aprobar el borrador.");return;}
+  toast("Caso aprobado y publicado al mercado.");
+  await cargarTodoDocente();render();
+}
+async function descartarBorrador(id){
+  const {error}=await sb.from("b2b_solicitudes").delete().eq("id",id).eq("estado","borrador");
+  if(error){toast("No se pudo descartar el borrador.");return;}
+  toast("Borrador descartado.");
+  await cargarTodoDocente();render();
+}
+
 async function crearSolicitud(obj){
   const row={id:uid(),docente_id:APP.me.id,titulo:obj.titulo,descripcion:obj.descripcion,
     categoria:obj.categoria,dificultad:obj.dificultad,recompensa_creditos:obj.recompensa_creditos,
@@ -242,7 +255,8 @@ function renderTop(){
 }
 function renderNav(){
   const tabsEst=[["mercado","🏪 Mercado"],["contratos","📁 Mis contratos"],["firma","🏢 Mi firma"],["ranking","🏆 Ranking"]];
-  const tabsDoc=[["solicitudes","📋 Solicitudes"],["revisar","✅ Revisar entregas"],["firmas","🏢 Firmas"],["ranking","🏆 Ranking"]];
+  const borradoresPend=APP.solicitudes.filter(s=>s.estado==="borrador").length;
+  const tabsDoc=[["solicitudes","📋 Solicitudes"],["borradores",`📝 Borradores${borradoresPend?` (${borradoresPend})`:""}`],["revisar","✅ Revisar entregas"],["firmas","🏢 Firmas"],["ranking","🏆 Ranking"]];
   const tabs=isTeacher()?tabsDoc:tabsEst;
   document.getElementById("nav").innerHTML=`<div class="wrap"><div class="nav">
     ${tabs.map(([k,l])=>`<button data-go="${k}" class="${APP.view===k?"active":""}">${l}</button>`).join("")}
@@ -384,8 +398,29 @@ function viewSolicitudesDoc(){
   </div>
   <h2 style="margin:20px 0 10px;">Solicitudes publicadas</h2>
   <div class="card" style="padding:0;overflow:auto;"><table><thead><tr><th>Título</th><th>Estado</th><th>Recompensa</th><th>Plazo</th></tr></thead><tbody>
-  ${APP.solicitudes.map(s=>`<tr><td>${s.titulo}</td><td><span class="badge warn">${s.estado}</span></td><td class="num">${fmtCr(s.recompensa_creditos)} / ${s.recompensa_reputacion} rep.</td><td>${s.plazo_horas}h</td></tr>`).join("")||`<tr><td colspan="4" class="empty">Sin solicitudes todavía.</td></tr>`}
+  ${APP.solicitudes.filter(s=>s.estado!=="borrador").map(s=>`<tr><td>${s.titulo}</td><td><span class="badge warn">${s.estado}</span></td><td class="num">${fmtCr(s.recompensa_creditos)} / ${s.recompensa_reputacion} rep.</td><td>${s.plazo_horas}h</td></tr>`).join("")||`<tr><td colspan="4" class="empty">Sin solicitudes todavía.</td></tr>`}
   </tbody></table></div>`;
+}
+
+function viewBorradoresDoc(){
+  const borradores=APP.solicitudes.filter(s=>s.estado==="borrador");
+  return `<h2 style="margin-bottom:6px;">Borradores pendientes de aprobación</h2>
+  <p class="muted" style="font-size:.86rem;margin-top:-4px;margin-bottom:14px;">Casos generados para que revisés. Mientras estén acá, los estudiantes no los ven. Aprobá para publicarlos al Mercado, o descartá los que no quieras usar.</p>
+  ${borradores.map(s=>`
+    <div class="card">
+      <div class="row" style="justify-content:space-between;"><h3>${s.titulo}</h3><span class="badge warn">${s.categoria} · ${s.dificultad}</span></div>
+      <p class="muted" style="font-size:.88rem;">${s.descripcion}</p>
+      <table style="margin:8px 0;"><thead><tr><th>Campo a calificar</th><th>Valor oficial</th><th>Tolerancia</th></tr></thead><tbody>
+      ${Object.entries(s.campos||{}).map(([k,c])=>`<tr><td>${c.label}</td><td class="num">${c.valor_oficial}</td><td>±${c.tolerancia}%</td></tr>`).join("")}
+      </tbody></table>
+      <div class="row">
+        <span class="num">+${fmtCr(s.recompensa_creditos)}</span><span class="num">+${s.recompensa_reputacion} rep.</span><span class="muted">· plazo ${s.plazo_horas}h</span>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <button class="btn sec" data-aprobar="${s.id}">✓ Aprobar y publicar</button>
+        <button class="btn warn ghost" data-descartar="${s.id}">Descartar</button>
+      </div>
+    </div>`).join("")||'<div class="empty">No hay borradores pendientes por ahora.</div>'}`;
 }
 
 function filaCampo(n){
@@ -430,7 +465,7 @@ function render(){
   renderTop();renderNav();
   const main=document.getElementById("main");
   if(isTeacher()){
-    main.innerHTML=({solicitudes:viewSolicitudesDoc,revisar:viewRevisarDoc,firmas:viewFirmasDoc,ranking:viewRanking})[APP.view]?.()||"";
+    main.innerHTML=({solicitudes:viewSolicitudesDoc,borradores:viewBorradoresDoc,revisar:viewRevisarDoc,firmas:viewFirmasDoc,ranking:viewRanking})[APP.view]?.()||"";
     if(APP.view==="solicitudes"){
       const wrap=document.getElementById("camposWrap");
       wrap.dataset.n=wrap.dataset.n||"0";
@@ -457,6 +492,10 @@ function render(){
       e.preventDefault();const id=f.getAttribute("data-calificar");const fd=new FormData(f);
       const c=APP.contratos.find(x=>x.id===id);
       await calificarContrato(c,Number(fd.get("satisfaccion")),fd.get("feedback")||"");
+    });
+    document.querySelectorAll("[data-aprobar]").forEach(b=>b.onclick=()=>aprobarBorrador(b.getAttribute("data-aprobar")));
+    document.querySelectorAll("[data-descartar]").forEach(b=>b.onclick=()=>{
+      if(confirm("¿Descartar este borrador? No se puede deshacer."))descartarBorrador(b.getAttribute("data-descartar"));
     });
   }else{
     main.innerHTML=({mercado:viewMercado,contratos:viewContratosEst,firma:viewFirmaEst,ranking:viewRanking})[APP.view]?.()||"";
