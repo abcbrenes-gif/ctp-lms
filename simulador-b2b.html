@@ -403,9 +403,15 @@ function viewSolicitudesDoc(){
 }
 
 function viewBorradoresDoc(){
-  const borradores=APP.solicitudes.filter(s=>s.estado==="borrador");
+  const todos=APP.solicitudes.filter(s=>s.estado==="borrador");
+  const filtro=APP.filtroBorrador||"todos";
+  const borradores=filtro==="todos"?todos:todos.filter(s=>s.dificultad===filtro);
+  const cuenta=d=>todos.filter(s=>d==="todos"||s.dificultad===d).length;
+  const botonesFiltro=[["todos","Todos"],["facil","🟢 Fácil"],["media","🟡 Media"],["dificil","🔴 Difícil"]]
+    .map(([k,l])=>`<button type="button" class="btn ${filtro===k?"":"ghost"} small" data-filtro-dif="${k}">${l} (${cuenta(k)})</button>`).join("");
   return `<h2 style="margin-bottom:6px;">Borradores pendientes de aprobación</h2>
   <p class="muted" style="font-size:.86rem;margin-top:-4px;margin-bottom:14px;">Casos generados para que revisés. Mientras estén acá, los estudiantes no los ven. Aprobá para publicarlos al Mercado, o descartá los que no quieras usar.</p>
+  <div class="row" style="margin-bottom:14px;">${botonesFiltro}</div>
   ${borradores.map(s=>`
     <div class="card">
       <div class="row" style="justify-content:space-between;"><h3>${s.titulo}</h3><span class="badge warn">${s.categoria} · ${s.dificultad}</span></div>
@@ -496,6 +502,9 @@ function render(){
     document.querySelectorAll("[data-aprobar]").forEach(b=>b.onclick=()=>aprobarBorrador(b.getAttribute("data-aprobar")));
     document.querySelectorAll("[data-descartar]").forEach(b=>b.onclick=()=>{
       if(confirm("¿Descartar este borrador? No se puede deshacer."))descartarBorrador(b.getAttribute("data-descartar"));
+    });
+    document.querySelectorAll("[data-filtro-dif]").forEach(b=>b.onclick=()=>{
+      APP.filtroBorrador=b.getAttribute("data-filtro-dif");render();
     });
   }else{
     main.innerHTML=({mercado:viewMercado,contratos:viewContratosEst,firma:viewFirmaEst,ranking:viewRanking})[APP.view]?.()||"";
