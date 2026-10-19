@@ -548,30 +548,49 @@ async function abrirModalPizarraRapida(preset) {
     const listaIdeas = ideas || [];
     const autoresIds = [...new Set(listaIdeas.map(i => i.estudiante_id))];
     const { data: autoresInfo } = autoresIds.length
-      ? await sb.from("estudiantes").select("id, nombre, apellido1").in("id", autoresIds)
+      ? await sb.from("estudiantes").select("id, nombre, apellido1, apellido2").in("id", autoresIds)
       : { data: [] };
     const nombrePorId = {};
-    (autoresInfo || []).forEach(e => { nombrePorId[e.id] = `${e.nombre} ${e.apellido1}`; });
-    const participantes = new Set(listaIdeas.map(i => i.estudiante_id)).size;
+    (autoresInfo || []).forEach(e => { nombrePorId[e.id] = [e.apellido1, e.apellido2, e.nombre].filter(Boolean).join(" "); });
+
+    const porEstudiante = {};
+    listaIdeas.forEach(i => { (porEstudiante[i.estudiante_id] = porEstudiante[i.estudiante_id] || []).push(i); });
+    const estudiantesOrdenados = Object.keys(porEstudiante).sort((a, b) => (nombrePorId[a] || a).localeCompare(nombrePorId[b] || b));
 
     overlay.innerHTML = `
-      <div class="panel" style="max-width:520px; width:100%; max-height:90vh; overflow:auto; background:var(--paper); border:1px solid var(--glass-border); border-radius:var(--radius); padding:1.2rem; box-shadow:var(--shadow-sm);" data-pizarra-panel>
+      <div class="panel" style="max-width:560px; width:100%; max-height:90vh; overflow:auto; background:var(--paper); border:1px solid var(--glass-border); border-radius:var(--radius); padding:1.2rem; box-shadow:var(--shadow-sm);" data-pizarra-panel>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
           <h3 style="margin:0;">💡 ${pizarra.titulo}</h3>
           <button type="button" class="link-btn" data-pizarra-cerrar aria-label="Cerrar">✕</button>
         </div>
-        <p style="font-size:0.78rem; color:var(--text-muted); margin:0 0 0.6rem;">Sección ${pizarra.seccion} — los estudiantes ya la pueden ver y escribir desde su pantalla de inicio.</p>
+        <p style="font-size:0.78rem; color:var(--text-muted); margin:0 0 0.6rem;">Sección ${pizarra.seccion} — los estudiantes ya la pueden ver y escribir desde su pantalla de inicio (entrando con su cédula y PIN, no en "Ver como estudiante").</p>
         <div style="display:flex; gap:0.5rem; margin-bottom:0.6rem; flex-wrap:wrap;">
           <button type="button" class="btn secondary small" data-pizarra-refrescar>🔄 Actualizar</button>
           <button type="button" class="btn secondary small" data-pizarra-finalizar style="margin-left:auto;">Finalizar pizarra</button>
         </div>
-        <p style="font-size:0.76rem; color:var(--text-muted); margin:0 0 0.4rem;">🗒️ ${participantes} estudiante${participantes === 1 ? "" : "s"} participando · ${listaIdeas.length} idea${listaIdeas.length === 1 ? "" : "s"}</p>
-        ${listaIdeas.length ? `<div style="display:grid; gap:0.3rem;">
-          ${listaIdeas.map(idea => `
-            <div style="font-size:0.85rem; padding:0.4rem 0.55rem; border-left:3px solid #bbb; background:var(--surface-soft);">
-              <strong>${nombrePorId[idea.estudiante_id] || "Estudiante"}:</strong> ${idea.texto}
-            </div>`).join("")}
-        </div>` : `<p class="empty" style="font-size:0.82rem;">Todavía nadie ha escrito una idea.</p>`}
+        <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.6rem;">${estudiantesOrdenados.length} estudiante${estudiantesOrdenados.length === 1 ? "" : "s"} participaron · ${listaIdeas.length} idea${listaIdeas.length === 1 ? "" : "s"} en total. Marcá cada idea como buena o mala para llevar la participación — un segundo clic en la misma la deja sin marcar.</p>
+        ${estudiantesOrdenados.length ? estudiantesOrdenados.map(estId => {
+          const propias = porEstudiante[estId];
+          const buenas = propias.filter(i => i.calificacion === "buena").length;
+          const malas = propias.filter(i => i.calificacion === "mala").length;
+          return `
+          <details open style="margin-bottom:0.5rem; background:var(--surface-soft); border-radius:8px; padding:0.6rem 0.8rem; border:1px solid var(--glass-border);">
+            <summary style="cursor:pointer; font-size:0.85rem; display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
+              <span>${nombrePorId[estId] || estId}</span>
+              <span style="font-size:0.78rem; color:var(--text-muted);">${propias.length} intervención${propias.length === 1 ? "" : "es"} · 👍 ${buenas} · 👎 ${malas}</span>
+            </summary>
+            <div style="margin-top:0.5rem; display:grid; gap:0.4rem;">
+              ${propias.map(idea => `
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; padding:0.4rem 0.5rem; border-left:3px solid ${idea.calificacion === "buena" ? "#1d7a43" : (idea.calificacion === "mala" ? "#c0392b" : "#ccc")}; font-size:0.85rem;">
+                  <span>${idea.texto}</span>
+                  <span style="display:flex; gap:0.3rem; flex-shrink:0;">
+                    <button type="button" class="btn ${idea.calificacion === "buena" ? "" : "secondary"} small" data-pizarra-calificar-idea="${idea.id}" data-calificacion="buena">👍</button>
+                    <button type="button" class="btn ${idea.calificacion === "mala" ? "danger" : "secondary"} small" data-pizarra-calificar-idea="${idea.id}" data-calificacion="mala">👎</button>
+                  </span>
+                </div>`).join("")}
+            </div>
+          </details>`;
+        }).join("") : `<p class="empty" style="font-size:0.82rem;">Todavía nadie ha escrito una idea.</p>`}
       </div>`;
     overlay.querySelectorAll("[data-pizarra-cerrar]").forEach(b => b.addEventListener("click", cerrar));
     overlay.querySelector("[data-pizarra-refrescar]").addEventListener("click", () => pintarEnVivo(pizarra));
@@ -579,6 +598,16 @@ async function abrirModalPizarraRapida(preset) {
       if (!confirm("¿Finalizar esta pizarra? Los estudiantes dejarán de verla.")) return;
       await sb.from("pizarras_rapidas").update({ activa: false }).eq("id", pizarra.id);
       cerrar();
+    });
+    overlay.querySelectorAll("[data-pizarra-calificar-idea]").forEach(b => {
+      b.addEventListener("click", async () => {
+        const ideaId = b.dataset.pizarraCalificarIdea;
+        const nueva = b.dataset.calificacion;
+        const idea = listaIdeas.find(i => String(i.id) === String(ideaId));
+        const valorFinal = (idea && idea.calificacion === nueva) ? null : nueva;
+        await sb.from("pizarra_rapida_ideas").update({ calificacion: valorFinal }).eq("id", ideaId);
+        pintarEnVivo(pizarra);
+      });
     });
   }
 
