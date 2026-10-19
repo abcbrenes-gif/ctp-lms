@@ -373,6 +373,13 @@ function renderEstrategiasEvaluacion(esEstudiante) {
           sessionStorage.setItem("ctp_lms_estrategia_pendiente", clave);
           location.hash = "#/materias";
         }
+        return;
+      }
+      const iniciarPizarraBtn = ev.target.closest("[data-iniciar-pizarra-rapida]");
+      if (iniciarPizarraBtn) {
+        const clave = iniciarPizarraBtn.getAttribute("data-iniciar-pizarra-rapida");
+        const preset = ESTRATEGIAS_EVALUACION[clave];
+        if (preset) abrirModalPizarraRapida({ ...preset, clave });
       }
     });
   }
@@ -464,11 +471,118 @@ function construirDemoEstrategiaContenidoHTML(preset, esEstudiante) {
       ${demo.escenario ? `<p style="font-size:0.82rem; color:var(--text-muted); margin-top:0.5rem;">Ejemplo de uso: ${demo.escenario}</p>` : ""}
     </div>
     ${cuerpoDemo}
-    ${esEstudiante ? "" : `
+    ${esEstudiante ? "" : (preset.tipo === "lluvia_ideas" ? `
+    <div class="panel" style="margin-top:1rem; display:flex; justify-content:space-between; align-items:center; gap:0.8rem; flex-wrap:wrap;">
+      <p style="font-size:0.85rem; margin:0;">Se abre al instante — elegís solo el título y la sección, sin pasar por materia ni subtema.</p>
+      <button class="btn" data-iniciar-pizarra-rapida="${preset.clave || ""}">▶ Iniciar pizarra ahora</button>
+    </div>` : `
     <div class="panel" style="margin-top:1rem; display:flex; justify-content:space-between; align-items:center; gap:0.8rem; flex-wrap:wrap;">
       <p style="font-size:0.85rem; margin:0;">Para usarla de verdad, elegí primero en qué materia y subtema la vas a asignar.</p>
       <button class="btn" data-iniciar-estrategia="${preset.clave || ""}">▶ Iniciar — elegir subtema</button>
-    </div>`}`;
+    </div>`)}`;
+}
+
+// ---------- Pizarra rápida (lluvia de ideas "en el momento") ----------
+// A diferencia de una actividad normal, esta NO se liga a ninguna materia
+// ni subtema: el profesor solo pone un título y elige la sección, y los
+// estudiantes de esa sección la ven de una vez en su pantalla de inicio.
+// No queda guardada dentro del curso ni se usa para calificar.
+async function abrirModalPizarraRapida(preset) {
+  const overlay = document.createElement("div");
+  overlay.id = "pizarra-rapida-overlay";
+  overlay.style.cssText = "position:fixed; inset:0; background:rgba(15,23,42,0.6); z-index:9999; display:flex; align-items:center; justify-content:center; padding:1rem;";
+  document.body.appendChild(overlay);
+
+  function cerrar() { overlay.remove(); }
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) cerrar(); });
+
+  const { data: estudiantesTodos } = await sb.from("estudiantes").select("seccion");
+  const secciones = [...new Set((estudiantesTodos || []).map(e => e.seccion))].filter(Boolean).sort();
+
+  function pintarFormulario() {
+    overlay.innerHTML = `
+      <div class="panel" style="max-width:420px; width:100%; max-height:90vh; overflow:auto;" data-pizarra-panel>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.6rem;">
+          <h3 style="margin:0;">💡 Iniciar pizarra</h3>
+          <button type="button" class="link-btn" data-pizarra-cerrar aria-label="Cerrar">✕</button>
+        </div>
+        <p style="font-size:0.82rem; color:var(--text-muted); margin-top:0; margin-bottom:0.8rem;">Se abre al instante — no queda guardada en ningún curso ni se usa para calificar.</p>
+        <form id="pizarra-rapida-form">
+          <label style="display:block; font-size:0.85rem; margin-bottom:0.3rem;">Título
+            <input name="titulo" required maxlength="120" placeholder="Ej: ¿Qué sabés de planillas?" style="display:block; width:100%; margin-top:0.3rem; padding:0.5rem 0.6rem; border:1px solid var(--paper-line); border-radius:var(--radius); font-family:var(--sans);" />
+          </label>
+          <label style="display:block; font-size:0.85rem; margin:0.7rem 0 0.3rem;">Sección
+            <select name="seccion" required style="display:block; width:100%; margin-top:0.3rem; padding:0.5rem 0.6rem; border:1px solid var(--paper-line); border-radius:var(--radius); font-family:var(--sans);">
+              <option value="" disabled selected>Elegí una sección…</option>
+              ${secciones.map(s => `<option value="${s}">${s}</option>`).join("")}
+            </select>
+          </label>
+          <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+            <button type="button" class="btn secondary small" data-pizarra-cerrar>Cancelar</button>
+            <button type="submit" class="btn small">▶ Iniciar</button>
+          </div>
+        </form>
+      </div>`;
+    overlay.querySelectorAll("[data-pizarra-cerrar]").forEach(b => b.addEventListener("click", cerrar));
+    overlay.querySelector("#pizarra-rapida-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      const btn = e.target.querySelector("button[type=submit]");
+      btn.disabled = true;
+      btn.textContent = "Creando…";
+      const { data: nueva, error } = await sb.from("pizarras_rapidas").insert({
+        titulo: f.get("titulo").trim(), seccion: f.get("seccion"), activa: true
+      }).select().maybeSingle();
+      if (error || !nueva) {
+        alert("No se pudo crear la pizarra: " + (error ? error.message : "intentá de nuevo"));
+        btn.disabled = false;
+        btn.textContent = "▶ Iniciar";
+        return;
+      }
+      pintarEnVivo(nueva);
+    });
+  }
+
+  async function pintarEnVivo(pizarra) {
+    const { data: ideas } = await sb.from("pizarra_rapida_ideas").select("*").eq("pizarra_id", pizarra.id).order("creado_en");
+    const listaIdeas = ideas || [];
+    const autoresIds = [...new Set(listaIdeas.map(i => i.estudiante_id))];
+    const { data: autoresInfo } = autoresIds.length
+      ? await sb.from("estudiantes").select("id, nombre, apellido1").in("id", autoresIds)
+      : { data: [] };
+    const nombrePorId = {};
+    (autoresInfo || []).forEach(e => { nombrePorId[e.id] = `${e.nombre} ${e.apellido1}`; });
+    const participantes = new Set(listaIdeas.map(i => i.estudiante_id)).size;
+
+    overlay.innerHTML = `
+      <div class="panel" style="max-width:520px; width:100%; max-height:90vh; overflow:auto;" data-pizarra-panel>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
+          <h3 style="margin:0;">💡 ${pizarra.titulo}</h3>
+          <button type="button" class="link-btn" data-pizarra-cerrar aria-label="Cerrar">✕</button>
+        </div>
+        <p style="font-size:0.78rem; color:var(--text-muted); margin:0 0 0.6rem;">Sección ${pizarra.seccion} — los estudiantes ya la pueden ver y escribir desde su pantalla de inicio.</p>
+        <div style="display:flex; gap:0.5rem; margin-bottom:0.6rem; flex-wrap:wrap;">
+          <button type="button" class="btn secondary small" data-pizarra-refrescar>🔄 Actualizar</button>
+          <button type="button" class="btn secondary small" data-pizarra-finalizar style="margin-left:auto;">Finalizar pizarra</button>
+        </div>
+        <p style="font-size:0.76rem; color:var(--text-muted); margin:0 0 0.4rem;">🗒️ ${participantes} estudiante${participantes === 1 ? "" : "s"} participando · ${listaIdeas.length} idea${listaIdeas.length === 1 ? "" : "s"}</p>
+        ${listaIdeas.length ? `<div style="display:grid; gap:0.3rem;">
+          ${listaIdeas.map(idea => `
+            <div style="font-size:0.85rem; padding:0.4rem 0.55rem; border-left:3px solid #bbb; background:var(--surface-soft);">
+              <strong>${nombrePorId[idea.estudiante_id] || "Estudiante"}:</strong> ${idea.texto}
+            </div>`).join("")}
+        </div>` : `<p class="empty" style="font-size:0.82rem;">Todavía nadie ha escrito una idea.</p>`}
+      </div>`;
+    overlay.querySelectorAll("[data-pizarra-cerrar]").forEach(b => b.addEventListener("click", cerrar));
+    overlay.querySelector("[data-pizarra-refrescar]").addEventListener("click", () => pintarEnVivo(pizarra));
+    overlay.querySelector("[data-pizarra-finalizar]").addEventListener("click", async () => {
+      if (!confirm("¿Finalizar esta pizarra? Los estudiantes dejarán de verla.")) return;
+      await sb.from("pizarras_rapidas").update({ activa: false }).eq("id", pizarra.id);
+      cerrar();
+    });
+  }
+
+  pintarFormulario();
 }
 
 function renderDemoEstrategia(clave, esEstudiante) {
@@ -490,6 +604,10 @@ function renderDemoEstrategia(clave, esEstudiante) {
       sessionStorage.setItem("ctp_lms_estrategia_pendiente", clave);
       location.hash = "#/materias";
     });
+  }
+  const iniciarPizarraBtn = document.querySelector("[data-iniciar-pizarra-rapida]");
+  if (iniciarPizarraBtn) {
+    iniciarPizarraBtn.addEventListener("click", () => abrirModalPizarraRapida({ ...preset, clave }));
   }
 }
 
@@ -1641,6 +1759,70 @@ async function calcularMetricasLogros(estudianteId) {
   };
 }
 
+// Banner de "pizarra rápida" activa para la sección del estudiante (ver
+// abrirModalPizarraRapida más arriba). No depende de ninguna materia ni
+// subtema — se liga solo por sección.
+async function pintarBannerPizarraRapida(s, soloLectura) {
+  const cont = document.getElementById("pizarra-rapida-banner");
+  if (!cont) return;
+  const { data: activas } = await sb.from("pizarras_rapidas").select("*").eq("seccion", s.seccion).eq("activa", true).order("creado_en", { ascending: false }).limit(1);
+  const pizarra = (activas || [])[0];
+  if (!pizarra) { cont.innerHTML = ""; return; }
+
+  const { data: ideas } = await sb.from("pizarra_rapida_ideas").select("*").eq("pizarra_id", pizarra.id).order("creado_en");
+  const listaIdeas = ideas || [];
+  const autoresIds = [...new Set(listaIdeas.map(i => i.estudiante_id))];
+  const { data: autoresInfo } = autoresIds.length
+    ? await sb.from("estudiantes").select("id, nombre, apellido1").in("id", autoresIds)
+    : { data: [] };
+  const nombrePorId = {};
+  (autoresInfo || []).forEach(e => { nombrePorId[e.id] = `${e.nombre} ${e.apellido1}`; });
+  const participantes = new Set(listaIdeas.map(i => i.estudiante_id)).size;
+
+  cont.innerHTML = `
+    <div class="panel" style="border-left:4px solid var(--ledger-green); margin-bottom:1rem;">
+      <strong style="font-family:var(--serif);">💡 Pizarra en vivo: ${pizarra.titulo}</strong>
+      <p style="font-size:0.78rem; color:var(--text-muted); margin:0.3rem 0 0.6rem;">Tu profesor la abrió para esta clase${soloLectura ? " (vista previa — acá no se envía nada de verdad)" : " — escribí tu idea"}.</p>
+      ${soloLectura ? "" : `
+      <div style="display:flex; gap:0.5rem; width:100%; flex-wrap:wrap;">
+        <input type="text" id="pr-idea-input" placeholder="Escribí tu idea…" maxlength="300" style="flex:1; min-width:12rem; padding:0.5rem 0.6rem; border:1px solid var(--paper-line); border-radius:var(--radius); font-family:var(--sans); font-size:0.85rem;" />
+        <button class="btn small" id="pr-idea-enviar">Enviar idea</button>
+        <button class="btn secondary small" id="pr-idea-refrescar">🔄 Actualizar</button>
+      </div>
+      <span id="pr-idea-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>`}
+      <div style="width:100%; margin-top:0.5rem;">
+        <p style="font-size:0.76rem; color:var(--text-muted); margin:0 0 0.4rem;">🗒️ ${participantes} compañero${participantes === 1 ? "" : "s"} participando · ${listaIdeas.length} idea${listaIdeas.length === 1 ? "" : "s"}</p>
+        ${listaIdeas.length ? `<div style="display:grid; gap:0.3rem;">
+          ${listaIdeas.map(idea => {
+            const esMia = String(idea.estudiante_id) === String(s.id);
+            return `<div style="font-size:0.82rem; padding:0.35rem 0.5rem; border-left:3px solid #bbb; background:${esMia ? "var(--warn-bg)" : "var(--surface-soft)"};">
+              <strong>${nombrePorId[idea.estudiante_id] || "Compañero"}${esMia ? " (vos)" : ""}:</strong> ${idea.texto}
+            </div>`;
+          }).join("")}
+        </div>` : `<p class="empty" style="font-size:0.8rem;">Todavía nadie ha escrito una idea — ¡sé el primero!</p>`}
+      </div>
+    </div>`;
+
+  if (soloLectura) return;
+  const input = document.getElementById("pr-idea-input");
+  const enviarBtn = document.getElementById("pr-idea-enviar");
+  const estado = document.getElementById("pr-idea-estado");
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); enviarBtn.click(); } });
+  enviarBtn.addEventListener("click", async () => {
+    const texto = (input.value || "").trim();
+    if (!texto) return;
+    enviarBtn.disabled = true;
+    enviarBtn.textContent = "Enviando…";
+    const { error } = await sb.from("pizarra_rapida_ideas").insert({ pizarra_id: pizarra.id, estudiante_id: s.id, texto });
+    enviarBtn.disabled = false;
+    enviarBtn.textContent = "Enviar idea";
+    if (error) { estado.textContent = "No se pudo enviar: " + error.message; return; }
+    input.value = "";
+    pintarBannerPizarraRapida(s, soloLectura);
+  });
+  document.getElementById("pr-idea-refrescar").addEventListener("click", () => pintarBannerPizarraRapida(s, soloLectura));
+}
+
 async function pintarPanelLogros(estudianteId) {
   const panel = document.getElementById("logros-panel");
   if (!panel) return;
@@ -1714,6 +1896,8 @@ async function renderPerfil(id, isSelf) {
       </div>
       ${!isSelf ? `<div id="reporte-oficial-selector" style="display:none; margin-bottom:1.2rem;"></div>` : ""}
 
+      ${isSelf ? `<div id="pizarra-rapida-banner"></div>` : ""}
+
       <div id="logros-panel" style="margin-bottom:1.3rem;"></div>
 
       ${isSelf ? `<div style="margin-bottom:0.8rem;"><a href="#/estrategias" class="btn secondary small">🧪 Cómo se evalúa cada tipo de trabajo</a></div>` : ""}
@@ -1749,6 +1933,7 @@ async function renderPerfil(id, isSelf) {
   });
 
   pintarPanelLogros(s.id);
+  if (isSelf) pintarBannerPizarraRapida(s, previewing);
 
   if (!isSelf) {
     const photoInput = document.getElementById("photo-input");
