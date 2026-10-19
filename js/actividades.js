@@ -239,6 +239,124 @@ const ESTRATEGIAS_EVALUACION = {
   }
 };
 
+// Catálogo de "estrategias de mediación" — a diferencia de las de
+// evaluación (de arriba), estas NO califican a nadie: son formas de dar
+// la clase (metodología). Cada una trae los pasos concretos para
+// ejecutarla con el grupo. El botón "Iniciar" usa uno de dos motores:
+// "pizarra_rapida" (reutiliza la pizarra en vivo de lluvia de ideas, ver
+// abrirModalPizarraRapida) o "guia_pasos" (abre una guía paso a paso que
+// el profesor va marcando en clase y que, al guardar, queda registrada
+// — fecha, sección y cuántos pasos se completaron — ver
+// abrirModalGuiaPasos). Pensadas para una clase de Contabilidad, pero
+// sirven para cualquier tema.
+const ESTRATEGIAS_MEDIACION = {
+  mediacion_lluvia_ideas: {
+    motor: "pizarra_rapida", estrategiaEvaluacionClave: "lluvia_ideas_introduccion",
+    grupo: "Para activar ideas y participación", icono: "💡", etiqueta: "Lluvia de ideas",
+    descripcion: "Para activar lo que el grupo ya sabe, o generar ideas rápido antes de empezar un tema nuevo.",
+    pasos: [
+      "Planteá una pregunta corta y concreta sobre el tema.",
+      "Dales 2-3 minutos para que cada quien piense antes de escribir.",
+      "Recogé las ideas en la pizarra compartida, sin juzgar en el momento.",
+      "Agrupá las ideas parecidas y destacá las que se conectan con el tema.",
+      "Cerrá retomando 2-3 ideas para enlazar con la clase."
+    ]
+  },
+  mediacion_phillips_66: {
+    motor: "guia_pasos", grupo: "Para activar ideas y participación", icono: "🧩", etiqueta: "Phillips 66",
+    descripcion: "Para que todo el grupo opine rápido sobre una pregunta puntual: grupos de 6, 6 minutos.",
+    pasos: [
+      "Formá grupos de 6 estudiantes.",
+      "Planteá una pregunta concreta y cronometrá 6 minutos exactos.",
+      "Cada grupo nombra a alguien que anota y a alguien que luego expone.",
+      "Al sonar el tiempo, cada grupo comparte su conclusión en 1 minuto.",
+      "Anotá en la pizarra las ideas que se repiten entre grupos.",
+      "Cerrá con una síntesis de lo que el grupo, en conjunto, concluyó."
+    ]
+  },
+  mediacion_debate: {
+    motor: "guia_pasos", grupo: "Para activar ideas y participación", icono: "🗣️", etiqueta: "Debate dirigido",
+    descripcion: "Para discutir un criterio o una decisión contable con posturas distintas.",
+    pasos: [
+      "Planteá una pregunta o dilema con al menos dos posturas defendibles.",
+      "Dividí al grupo en posturas (pueden ser asignadas, no elegidas).",
+      "Dales unos minutos para preparar argumentos con lo visto en clase.",
+      "Moderá el debate con turnos de palabra cortos, sin interrupciones.",
+      "Cerrá resumiendo los argumentos más sólidos de cada lado, sin imponer \"quién ganó\".",
+      "Conectá la discusión con el contenido técnico que se debía reforzar."
+    ]
+  },
+  mediacion_exposicion_dialogada: {
+    motor: "guia_pasos", grupo: "Para activar ideas y participación", icono: "🎤", etiqueta: "Exposición dialogada",
+    descripcion: "Para explicar contenido nuevo sin perder la participación del grupo.",
+    pasos: [
+      "Explicá una idea corta (5-8 minutos máximo) de lo nuevo.",
+      "Hacé una pregunta al grupo antes de seguir, para comprobar que van siguiendo.",
+      "Pedí un ejemplo propio al grupo, relacionado con lo explicado.",
+      "Continuá con la siguiente idea, repitiendo el ciclo explicar-preguntar-ejemplo.",
+      "Cerrá con una pregunta final que integre todo lo explicado."
+    ]
+  },
+  mediacion_trabajo_colaborativo: {
+    motor: "guia_pasos", grupo: "Para trabajar en equipo", icono: "👥", etiqueta: "Trabajo colaborativo en equipos",
+    descripcion: "Para resolver un caso o ejercicio contable en grupos pequeños, repartiendo roles.",
+    pasos: [
+      "Formá equipos de 3-4 estudiantes, mezclando niveles si se puede.",
+      "Asigná un rol a cada quien: quien calcula, quien revisa, quien expone, quien cronometra.",
+      "Entregá el ejercicio o caso con instrucciones claras y el tiempo disponible.",
+      "Circulá entre los equipos resolviendo dudas puntuales, sin dar la respuesta directa.",
+      "Pedí a 1-2 equipos que compartan su solución y comparen resultados.",
+      "Cerrá aclarando los errores comunes que viste mientras circulabas."
+    ]
+  },
+  mediacion_estudio_caso: {
+    motor: "guia_pasos", grupo: "Para trabajar en equipo", icono: "📑", etiqueta: "Estudio de caso",
+    descripcion: "Para aplicar contenido contable a una situación realista de una empresa.",
+    pasos: [
+      "Presentá un caso breve y realista: una empresa, una situación contable concreta.",
+      "Planteá 2-3 preguntas guía que el grupo debe responder sobre el caso.",
+      "Dales tiempo para analizar el caso en parejas o grupos pequeños.",
+      "Guiá una puesta en común donde cada grupo comparte su análisis.",
+      "Conectá las respuestas con la teoría o la norma contable que aplica.",
+      "Cerrá con una conclusión clara de qué se debía aprender del caso."
+    ]
+  },
+  mediacion_juego_roles: {
+    motor: "guia_pasos", grupo: "Para trabajar en equipo", icono: "🎭", etiqueta: "Juego de roles / simulación",
+    descripcion: "Para simular una situación laboral contable: atención a un cliente, una auditoría, una negociación.",
+    pasos: [
+      "Definí la situación a simular y los roles necesarios (ej. contador, cliente, jefatura).",
+      "Repartí los roles y dale a cada quien una mínima guía de su personaje.",
+      "Dales unos minutos para prepararse antes de actuar.",
+      "Dejá que la simulación corra sin interrumpir, salvo que se trabe por completo.",
+      "Al terminar, preguntá primero cómo se sintieron en el rol, y luego qué aprendieron.",
+      "Cerrá conectando lo actuado con el procedimiento o norma contable correcta."
+    ]
+  },
+  mediacion_mapa_conceptual: {
+    motor: "guia_pasos", grupo: "Para organizar y practicar contenido", icono: "🗺️", etiqueta: "Mapa conceptual colaborativo",
+    descripcion: "Para organizar y conectar entre todos los conceptos de un tema.",
+    pasos: [
+      "Escribí el concepto central en la pizarra o en un documento compartido.",
+      "Pedí que, por turnos o en equipos, vayan agregando conceptos relacionados.",
+      "Guiá para que conecten los conceptos con palabras de enlace, no solo líneas sueltas.",
+      "Revisá en conjunto si falta alguna conexión importante del tema.",
+      "Cerrá con una lectura grupal del mapa ya completo."
+    ]
+  },
+  mediacion_resolucion_problemas: {
+    motor: "guia_pasos", grupo: "Para organizar y practicar contenido", icono: "🧮", etiqueta: "Resolución guiada de problemas",
+    descripcion: "Para practicar un procedimiento contable paso a paso, de lo guiado a lo independiente.",
+    pasos: [
+      "Resolvé un primer ejercicio completo en la pizarra, pensando en voz alta.",
+      "Resolvé un segundo ejercicio con ayuda del grupo, preguntando el siguiente paso.",
+      "Dales un tercer ejercicio similar para resolver en parejas, sin tu ayuda directa.",
+      "Circulá revisando avances y corrigiendo errores de procedimiento, no solo el resultado.",
+      "Cerrá resolviendo en conjunto los errores más comunes que viste."
+    ]
+  }
+};
+
 // Todas estas actividades, salvo la infografía, se hacen en modo "pantalla
 // completa + aviso": no se puede impedir al 100% que el estudiante salga,
 // pero si cambia de pestaña o sale de pantalla completa queda registrado.

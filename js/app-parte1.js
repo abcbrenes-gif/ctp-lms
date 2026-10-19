@@ -61,6 +61,7 @@ async function render() {
   if (hash === "#/evaluaciones") return renderEvaluacionesGeneral();
   if (hash === "#/estrategias") return renderEstrategiasEvaluacion(false);
   if (demoEstrategiaMatch) return renderDemoEstrategia(decodeURIComponent(demoEstrategiaMatch[1]), false);
+  if (hash === "#/mediacion") return renderEstrategiasMediacion();
   if (hash === "#/asistencia") return renderAsistenciaGeneral();
   if (hash === "#/horario") return renderHorario();
   if (hash === "#/asistencia/resumen") return renderResumenAsistencia();
@@ -262,6 +263,7 @@ async function renderHome() {
     { href: "#/programa", icono: "🗂️", titulo: "Programa", sub: "Unidades y resultados de aprendizaje", cta: "Ver programa →" },
     { href: "#/evaluaciones", icono: "📊", titulo: "Rúbrica y Evaluaciones", sub: "Categorías e indicadores de nota", cta: "Ver rúbrica →" },
     { href: "#/estrategias", icono: "🧪", titulo: "Estrategias de evaluación", sub: `Catálogo de ${Object.keys(ESTRATEGIAS_EVALUACION).length} estrategias para trabajos asignados`, cta: "Ver catálogo →" },
+    { href: "#/mediacion", icono: "🎓", titulo: "Estrategias de mediación", sub: `Catálogo de ${Object.keys(ESTRATEGIAS_MEDIACION).length} formas de dar la clase, con pasos y guía en vivo`, cta: "Ver catálogo →" },
     { href: AULA_CONTABLE_URL, icono: "🧮", titulo: "Aula de Conta", sub: "Simulador del ciclo contable (NIC/NIIF)", cta: "Abrir aula →" },
     { href: SIMULADOR_B2B_URL, icono: "🏆", titulo: "ContaRed", sub: "Simulador B2B de firmas contables (gamificado)", cta: "Abrir ContaRed →" }
   ].map(a => `
@@ -685,6 +687,214 @@ function generarPdfPizarraRapida(pizarra, bloquesPorEstudiante) {
   w.document.open();
   w.document.write(html);
   w.document.close();
+}
+
+// ---------- Estrategias de mediación (metodología de clase, no califican) ----------
+// Ver ESTRATEGIAS_MEDIACION en actividades.js. A diferencia de las de
+// evaluación, estas no entran a Rúbrica y Evaluaciones: son una guía de
+// cómo dar la clase, con un registro simple (fecha, sección, pasos
+// hechos) de cada vez que se usan, para tener evidencia propia.
+function renderEstrategiasMediacion() {
+  const grupos = {};
+  Object.entries(ESTRATEGIAS_MEDIACION).forEach(([clave, e]) => { (grupos[e.grupo] = grupos[e.grupo] || []).push({ clave, ...e }); });
+
+  const bloques = Object.entries(grupos).map(([grupo, lista]) => `
+    <div class="panel" style="background:var(--surface); border:1px solid var(--glass-border); border-radius:var(--radius); padding:1rem; margin-bottom:1rem;">
+      <h3 style="margin-bottom:0.6rem;">${grupo}</h3>
+      <div style="display:grid; gap:0.5rem;">
+        ${lista.map(e => `
+          <div class="estrategia-item" style="background:var(--surface-soft); border-radius:8px; overflow:hidden;">
+            <div style="display:flex; align-items:flex-start; gap:0.6rem; padding:0.5rem 0.6rem;">
+              <span style="font-size:1.1rem;">${e.icono}</span>
+              <div style="flex:1;">
+                <strong style="font-size:0.9rem;">${e.etiqueta}</strong>
+                <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.15rem;">${e.descripcion}</div>
+              </div>
+              <button type="button" class="btn secondary small" data-toggle-mediacion="${e.clave}" style="white-space:nowrap;">Ver pasos →</button>
+            </div>
+            <div data-mediacion-contenedor="${e.clave}" style="display:none; padding:0 0.6rem 0.8rem 0.6rem;"></div>
+          </div>`).join("")}
+      </div>
+    </div>`).join("");
+
+  app.innerHTML = `
+    ${topbar()}
+    <div class="wrap">
+      <a href="#/" class="btn secondary small" style="margin-bottom:1rem; display:inline-block;">&larr; Inicio</a>
+      <h1>🎓 Estrategias de mediación</h1>
+      <p style="color:var(--text-muted); margin-top:-0.6em; margin-bottom:1.2rem;">${Object.keys(ESTRATEGIAS_MEDIACION).length} formas de dar la clase, con los pasos para ejecutarlas. Tocá "Ver pasos" y después "▶ Iniciar" para seguirlos en vivo durante la clase — al terminar, se guarda que la usaste (fecha, sección y pasos hechos).</p>
+      ${bloques}
+      <div id="mediacion-historial" style="margin-top:1.5rem;"></div>
+    </div>`;
+  bindTopbar();
+
+  const contenedorLista = app.querySelector(".wrap");
+  if (contenedorLista) {
+    contenedorLista.addEventListener("click", (ev) => {
+      const toggleBtn = ev.target.closest("[data-toggle-mediacion]");
+      if (toggleBtn) {
+        const clave = toggleBtn.getAttribute("data-toggle-mediacion");
+        const preset = ESTRATEGIAS_MEDIACION[clave];
+        const cont = contenedorLista.querySelector(`[data-mediacion-contenedor="${clave}"]`);
+        if (!preset || !cont) return;
+        const abierto = cont.style.display !== "none";
+        if (abierto) {
+          cont.style.display = "none";
+          toggleBtn.textContent = "Ver pasos →";
+        } else {
+          if (!cont.innerHTML.trim()) {
+            cont.innerHTML = `
+              <ol style="margin:0 0 0.8rem; padding-left:1.2rem; display:grid; gap:0.3rem;">
+                ${preset.pasos.map(p => `<li style="font-size:0.85rem;">${p}</li>`).join("")}
+              </ol>
+              <button type="button" class="btn" data-iniciar-mediacion="${clave}">▶ Iniciar</button>`;
+          }
+          cont.style.display = "block";
+          toggleBtn.textContent = "Ocultar pasos ↑";
+        }
+        return;
+      }
+      const iniciarBtn = ev.target.closest("[data-iniciar-mediacion]");
+      if (iniciarBtn) {
+        const clave = iniciarBtn.getAttribute("data-iniciar-mediacion");
+        const preset = ESTRATEGIAS_MEDIACION[clave];
+        if (!preset) return;
+        if (preset.motor === "pizarra_rapida") {
+          const presetEvaluacion = ESTRATEGIAS_EVALUACION[preset.estrategiaEvaluacionClave];
+          if (presetEvaluacion) abrirModalPizarraRapida({ ...presetEvaluacion, clave: preset.estrategiaEvaluacionClave });
+        } else {
+          abrirModalGuiaPasos({ ...preset, clave });
+        }
+      }
+    });
+  }
+
+  pintarHistorialMediacion();
+}
+
+async function pintarHistorialMediacion() {
+  const cont = document.getElementById("mediacion-historial");
+  if (!cont) return;
+  const { data: registros } = await sb.from("mediacion_registros").select("*").order("creado_en", { ascending: false }).limit(15);
+  if (!registros || registros.length === 0) { cont.innerHTML = ""; return; }
+  cont.innerHTML = `
+    <h3 style="margin-bottom:0.5rem;">Historial reciente</h3>
+    <div style="display:grid; gap:0.3rem;">
+      ${registros.map(r => `
+        <div style="display:flex; justify-content:space-between; gap:0.6rem; flex-wrap:wrap; font-size:0.82rem; padding:0.4rem 0.6rem; background:var(--surface-soft); border-radius:6px;">
+          <span><strong>${r.etiqueta}</strong>${r.tema ? " — " + r.tema : ""} · Sección ${r.seccion}</span>
+          <span style="color:var(--text-muted);">${formatearFechaHora(r.creado_en)} · ${r.pasos_completados}/${r.pasos_totales} pasos</span>
+        </div>`).join("")}
+    </div>`;
+}
+
+// Guía paso a paso para una estrategia de mediación: el profesor elige
+// sección (y opcionalmente el tema), va marcando los pasos durante la
+// clase, y al guardar queda un registro simple en mediacion_registros
+// (no califica a nadie, es solo evidencia de que se usó la estrategia).
+async function abrirModalGuiaPasos(preset) {
+  const overlay = document.createElement("div");
+  overlay.id = "mediacion-guia-overlay";
+  overlay.style.cssText = "position:fixed; inset:0; background:rgba(8,11,20,0.78); z-index:9999; display:flex; align-items:center; justify-content:center; padding:1rem;";
+  document.body.appendChild(overlay);
+
+  function cerrar() { overlay.remove(); }
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) cerrar(); });
+
+  const { data: estudiantesTodos } = await sb.from("estudiantes").select("seccion");
+  const secciones = [...new Set((estudiantesTodos || []).map(e => e.seccion))].filter(Boolean).sort();
+  const panelStyle = "max-width:520px; width:100%; max-height:90vh; overflow:auto; background:var(--paper); border:1px solid var(--glass-border); border-radius:var(--radius); padding:1.2rem; box-shadow:var(--shadow-sm);";
+
+  function pintarFormulario() {
+    overlay.innerHTML = `
+      <div class="panel" style="${panelStyle}">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.6rem;">
+          <h3 style="margin:0;">${preset.icono} ${preset.etiqueta}</h3>
+          <button type="button" class="link-btn" data-guia-cerrar aria-label="Cerrar">✕</button>
+        </div>
+        <p style="font-size:0.82rem; color:var(--text-muted); margin-top:0; margin-bottom:0.8rem;">${preset.descripcion}</p>
+        <form id="guia-pasos-form">
+          <label style="display:block; font-size:0.85rem; margin-bottom:0.3rem;">Sección
+            <select name="seccion" required style="display:block; width:100%; margin-top:0.3rem; padding:0.5rem 0.6rem; border:1px solid var(--paper-line); border-radius:var(--radius); font-family:var(--sans);">
+              <option value="" disabled selected>Elegí una sección…</option>
+              ${secciones.map(s => `<option value="${s}">${s}</option>`).join("")}
+            </select>
+          </label>
+          <label style="display:block; font-size:0.85rem; margin:0.7rem 0 0.3rem;">Tema de la clase (opcional)
+            <input name="tema" maxlength="120" placeholder="Ej: Planillas y cargas sociales" style="display:block; width:100%; margin-top:0.3rem; padding:0.5rem 0.6rem; border:1px solid var(--paper-line); border-radius:var(--radius); font-family:var(--sans);" />
+          </label>
+          <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+            <button type="button" class="btn secondary small" data-guia-cerrar>Cancelar</button>
+            <button type="submit" class="btn small">▶ Comenzar</button>
+          </div>
+        </form>
+      </div>`;
+    overlay.querySelectorAll("[data-guia-cerrar]").forEach(b => b.addEventListener("click", cerrar));
+    overlay.querySelector("#guia-pasos-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      pintarChecklist(f.get("seccion"), (f.get("tema") || "").trim());
+    });
+  }
+
+  function pintarChecklist(seccion, tema) {
+    const hechos = new Set();
+    function actualizarProgreso() {
+      const contador = overlay.querySelector("[data-guia-progreso]");
+      if (contador) contador.textContent = `${hechos.size}/${preset.pasos.length} pasos completados`;
+    }
+    overlay.innerHTML = `
+      <div class="panel" style="${panelStyle}">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
+          <h3 style="margin:0;">${preset.icono} ${preset.etiqueta}</h3>
+          <button type="button" class="link-btn" data-guia-cerrar aria-label="Cerrar">✕</button>
+        </div>
+        <p style="font-size:0.78rem; color:var(--text-muted); margin:0 0 0.6rem;">Sección ${seccion}${tema ? " · " + tema : ""} — marcá cada paso según lo vas haciendo en clase.</p>
+        <div style="display:grid; gap:0.4rem; margin-bottom:0.8rem;">
+          ${preset.pasos.map((p, i) => `
+            <label style="display:flex; align-items:flex-start; gap:0.5rem; font-size:0.85rem; padding:0.4rem 0.5rem; background:var(--surface-soft); border-radius:6px; cursor:pointer;">
+              <input type="checkbox" data-guia-paso="${i}" style="margin-top:0.2rem;" />
+              <span>${p}</span>
+            </label>`).join("")}
+        </div>
+        <p data-guia-progreso style="font-size:0.78rem; color:var(--text-muted); margin:0 0 0.8rem;">0/${preset.pasos.length} pasos completados</p>
+        <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+          <button type="button" class="btn secondary small" data-guia-cerrar>Cancelar sin guardar</button>
+          <button type="button" class="btn small" data-guia-guardar>💾 Guardar y finalizar</button>
+        </div>
+      </div>`;
+    overlay.querySelectorAll("[data-guia-cerrar]").forEach(b => b.addEventListener("click", cerrar));
+    overlay.querySelectorAll("[data-guia-paso]").forEach(chk => {
+      chk.addEventListener("change", () => {
+        const i = chk.getAttribute("data-guia-paso");
+        if (chk.checked) hechos.add(i); else hechos.delete(i);
+        actualizarProgreso();
+      });
+    });
+    overlay.querySelector("[data-guia-guardar]").addEventListener("click", async (ev) => {
+      const btn = ev.target;
+      btn.disabled = true;
+      btn.textContent = "Guardando…";
+      const { error } = await sb.from("mediacion_registros").insert({
+        estrategia_clave: preset.clave,
+        etiqueta: preset.etiqueta,
+        seccion,
+        tema: tema || null,
+        pasos_totales: preset.pasos.length,
+        pasos_completados: hechos.size
+      });
+      if (error) {
+        alert("No se pudo guardar: " + error.message);
+        btn.disabled = false;
+        btn.textContent = "💾 Guardar y finalizar";
+        return;
+      }
+      cerrar();
+      pintarHistorialMediacion();
+    });
+  }
+
+  pintarFormulario();
 }
 
 function renderDemoEstrategia(clave, esEstudiante) {
