@@ -566,6 +566,7 @@ async function abrirModalPizarraRapida(preset) {
         <p style="font-size:0.78rem; color:var(--text-muted); margin:0 0 0.6rem;">Sección ${pizarra.seccion} — los estudiantes ya la pueden ver y escribir desde su pantalla de inicio (entrando con su cédula y PIN, no en "Ver como estudiante").</p>
         <div style="display:flex; gap:0.5rem; margin-bottom:0.6rem; flex-wrap:wrap;">
           <button type="button" class="btn secondary small" data-pizarra-refrescar>🔄 Actualizar</button>
+          <button type="button" class="btn secondary small" data-pizarra-guardar>📄 Guardar / Imprimir</button>
           <button type="button" class="btn secondary small" data-pizarra-finalizar style="margin-left:auto;">Finalizar pizarra</button>
         </div>
         <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.6rem;">${estudiantesOrdenados.length} estudiante${estudiantesOrdenados.length === 1 ? "" : "s"} participaron · ${listaIdeas.length} idea${listaIdeas.length === 1 ? "" : "s"} en total. Marcá cada idea como buena o mala para llevar la participación — un segundo clic en la misma la deja sin marcar.</p>
@@ -594,6 +595,12 @@ async function abrirModalPizarraRapida(preset) {
       </div>`;
     overlay.querySelectorAll("[data-pizarra-cerrar]").forEach(b => b.addEventListener("click", cerrar));
     overlay.querySelector("[data-pizarra-refrescar]").addEventListener("click", () => pintarEnVivo(pizarra));
+    overlay.querySelector("[data-pizarra-guardar]").addEventListener("click", () => {
+      generarPdfPizarraRapida(pizarra, estudiantesOrdenados.map(estId => ({
+        nombre: nombrePorId[estId] || estId,
+        ideas: porEstudiante[estId]
+      })));
+    });
     overlay.querySelector("[data-pizarra-finalizar]").addEventListener("click", async () => {
       if (!confirm("¿Finalizar esta pizarra? Los estudiantes dejarán de verla.")) return;
       await sb.from("pizarras_rapidas").update({ activa: false }).eq("id", pizarra.id);
@@ -612,6 +619,72 @@ async function abrirModalPizarraRapida(preset) {
   }
 
   pintarFormulario();
+}
+
+// Genera una página imprimible/"Guardar como PDF" (mismo patrón que
+// generarPdfPrueba en app-parte2.js) con el detalle de una pizarra
+// rápida, para que el profesor la pueda subir o archivar aparte, ya
+// que la pizarra en sí no queda guardada dentro de ningún curso.
+function generarPdfPizarraRapida(pizarra, bloquesPorEstudiante) {
+  const hoy = new Date().toLocaleDateString("es-CR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const totalIdeas = bloquesPorEstudiante.reduce((acc, b) => acc + b.ideas.length, 0);
+
+  const cuerpoHtml = bloquesPorEstudiante.length ? bloquesPorEstudiante.map(b => `
+    <div style="margin-bottom:0.9rem; break-inside:avoid;">
+      <p style="font-weight:700; margin:0 0 0.3rem;">${b.nombre}</p>
+      <div style="padding-left:1.2rem; display:grid; gap:0.2rem;">
+        ${b.ideas.map(i => `<div>• ${i.texto}${i.calificacion === "buena" ? " (👍)" : (i.calificacion === "mala" ? " (👎)" : "")}</div>`).join("")}
+      </div>
+    </div>`).join("") : `<p>Todavía nadie había escrito una idea al momento de guardar.</p>`;
+
+  const html = `<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>${(pizarra.titulo || "Pizarra").replace(/[<>]/g, "")}</title>
+<style>
+  @page { size: letter; margin: 1.6cm; }
+  body { font-family: 'IBM Plex Sans', Arial, sans-serif; color: #232323; margin: 0; padding: 1.5rem; font-size: 0.92rem; }
+  .no-print { margin-bottom: 1.2rem; display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+  .no-print button { padding: 0.5rem 1rem; font-size: 0.9rem; cursor: pointer; }
+  header.membrete { text-align: center; border: 1px solid #16232e; padding: 0.6rem; margin-bottom: 1rem; }
+  header.membrete .mep { font-weight: 700; }
+  .datos { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 1.5rem; margin-bottom: 1.3rem; font-size: 0.85rem; }
+  .datos .campo { border-bottom: 1px solid #999; padding: 0.3rem 0.1rem; }
+  @media print { .no-print { display: none; } body { padding: 0; } }
+</style>
+</head>
+<body>
+  <div class="no-print">
+    <button id="btn-print">Imprimir / Guardar PDF</button>
+  </div>
+
+  <header class="membrete">
+    <div class="mep">${INSTITUCION.nombre}</div>
+    <div>Especialidad: ${INSTITUCION.especialidad}</div>
+    <div>Pizarra rápida — Lluvia de ideas</div>
+  </header>
+
+  <div class="datos">
+    <div class="campo"><b>Título:</b> ${(pizarra.titulo || "").replace(/[<>]/g, "")}</div>
+    <div class="campo"><b>Sección:</b> ${pizarra.seccion}</div>
+    <div class="campo"><b>Fecha de guardado:</b> ${hoy}</div>
+    <div class="campo"><b>Participantes / ideas:</b> ${bloquesPorEstudiante.length} / ${totalIdeas}</div>
+  </div>
+
+  ${cuerpoHtml}
+
+  <script>
+    document.getElementById("btn-print").addEventListener("click", () => window.print());
+  </script>
+</body>
+</html>`;
+
+  const w = window.open("", "_blank");
+  if (!w) { alert("El navegador bloqueó la ventana nueva. Permite ventanas emergentes para generar el PDF."); return; }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
 }
 
 function renderDemoEstrategia(clave, esEstudiante) {
