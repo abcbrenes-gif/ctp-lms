@@ -784,9 +784,20 @@ async function renderMateriasEstudiante(el, s) {
   const materiasAsignadas = (asignadas || []).map(a => a.materias).filter(Boolean);
 
   const accesoAulaConta = `
-    <a href="${AULA_CONTABLE_URL}" target="_blank" rel="noopener" class="btn secondary small" style="display:inline-flex; align-items:center; gap:0.4rem; margin-bottom:1rem;">
-      🧮 Abrir Aula de Conta
-    </a>`;
+    <div class="section-grid" style="margin-bottom:1.4rem; max-width:420px;">
+      <a class="section-tile flip-card" href="${AULA_CONTABLE_URL}" target="_blank" rel="noopener" style="height:180px;">
+        <div class="flip-card-inner">
+          <div class="flip-card-front">
+            <div class="num" style="font-size:1.7rem;">🧮 Aula de Conta</div>
+            <div class="count" style="font-size:0.95rem;">Simulador del ciclo contable (NIC/NIIF)</div>
+          </div>
+          <div class="flip-card-back">
+            <div class="flip-cta" style="font-size:1.3rem;">Abrir aula →</div>
+            <div class="flip-sub" style="font-size:0.9rem;">Aula de Conta</div>
+          </div>
+        </div>
+      </a>
+    </div>`;
 
   if (materiasAsignadas.length === 0) {
     el.innerHTML = `${accesoAulaConta}<p class="empty">Todavía no tienes materias asignadas.</p>`;
