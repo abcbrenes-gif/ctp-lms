@@ -784,7 +784,7 @@ async function renderMateriasEstudiante(el, s) {
   const materiasAsignadas = (asignadas || []).map(a => a.materias).filter(Boolean);
 
   const accesoAulaConta = `
-    <div class="section-grid" style="margin-bottom:1.4rem; max-width:420px;">
+    <div class="section-grid" style="margin-bottom:1.4rem; max-width:860px;">
       <a class="section-tile flip-card" href="${AULA_CONTABLE_URL}" style="height:180px;">
         <div class="flip-card-inner">
           <div class="flip-card-front">
@@ -794,6 +794,18 @@ async function renderMateriasEstudiante(el, s) {
           <div class="flip-card-back">
             <div class="flip-cta" style="font-size:1.3rem;">Abrir aula →</div>
             <div class="flip-sub" style="font-size:0.9rem;">Aula de Conta</div>
+          </div>
+        </div>
+      </a>
+      <a class="section-tile flip-card" href="${SIMULADOR_B2B_URL}" style="height:180px;">
+        <div class="flip-card-inner">
+          <div class="flip-card-front">
+            <div class="num" style="font-size:1.7rem;">🏆 ContaRed</div>
+            <div class="count" style="font-size:0.95rem;">Simulador B2B: fundá tu firma y competí</div>
+          </div>
+          <div class="flip-card-back">
+            <div class="flip-cta" style="font-size:1.3rem;">Abrir ContaRed →</div>
+            <div class="flip-sub" style="font-size:0.9rem;">ContaRed</div>
           </div>
         </div>
       </a>

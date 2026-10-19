@@ -1,0 +1,488 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ContaRed · Simulador B2B de Contabilidad</title>
+<style>
+:root{
+  --bg:#F4F6F8; --surface:#FFFFFF; --ink:#1A2B33; --muted:#5C7076; --line:#DCE3E6;
+  --primario:#0B4F6C; --secundario:#1E8A74; --acento:#F2A541; --alerta:#D64545;
+  --okbg:#E6F4EE; --okink:#1E8A74; --warnbg:#FDF1DD; --warnink:#B3790F; --badbg:#FBE7E6; --badink:#D64545;
+  --shadow:0 2px 10px rgba(11,79,108,.08);
+  --f-display:"Segoe UI",system-ui,sans-serif; --f-body:"Segoe UI",system-ui,sans-serif; --f-num:ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121A1F; --surface:#1B262C; --ink:#E7EEF0; --muted:#8FA3A9; --line:#2C3A40;
+  --primario:#3E9BC0; --secundario:#3FBFA0; --acento:#F2B35E; --alerta:#F08A8A;
+  --okbg:#1B332B; --okink:#4FD6B0; --warnbg:#332A17; --warnink:#F2B35E; --badbg:#3A2020; --badink:#F08A8A;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:1100px;margin:0 auto;padding:0 16px}
+h1,h2,h3{font-family:var(--f-display);margin:0;line-height:1.2}
+h2{font-size:1.4rem;font-weight:800}
+h3{font-size:1.05rem;font-weight:700}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+a{color:var(--primario)}
+.top{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.top .wrap{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 16px}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.logo{width:36px;height:36px;border-radius:9px;background:var(--primario);display:grid;place-items:center;color:#fff;font-weight:800}
+.brand b{font-size:1.1rem}
+.brand small{color:var(--muted);display:block;font-size:.76rem}
+.firmachip{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:5px 12px 5px 6px;font-size:.85rem}
+.firmachip .dot{width:20px;height:20px;border-radius:50%;flex:none}
+.nav{display:flex;gap:6px;flex-wrap:wrap;padding:8px 16px 12px}
+.nav button{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:7px 13px;font:inherit;cursor:pointer}
+.nav button.active{background:var(--primario);color:#fff;border-color:var(--primario)}
+main{padding:20px 0 60px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.btn{border:none;border-radius:10px;padding:9px 15px;font:inherit;font-weight:600;cursor:pointer;background:var(--primario);color:#fff}
+.btn.sec{background:var(--secundario)}
+.btn.ghost{background:transparent;color:var(--primario);border:1px solid var(--line)}
+.btn.warn{background:var(--alerta);color:#fff}
+.btn.small{padding:5px 10px;font-size:.82rem}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:9px;padding:7px 10px;width:100%}
+label{font-size:.82rem;color:var(--muted);display:block;margin-bottom:3px}
+.field{margin-bottom:10px}
+.badge{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:3px 10px;font-size:.76rem;font-weight:700}
+.badge.oro{background:var(--warnbg);color:var(--warnink)}
+.badge.plata{background:#EDEFF1;color:#5C7076}
+.badge.bronce{background:#F3E2D0;color:#8A5A1E}
+.badge.platino{background:#E3EAFB;color:#2F4FA8}
+.badge.ok{background:var(--okbg);color:var(--okink)}
+.badge.bad{background:var(--badbg);color:var(--badink)}
+.badge.warn{background:var(--warnbg);color:var(--warnink)}
+.statbar{display:flex;gap:18px;flex-wrap:wrap}
+.stat{min-width:90px}
+.stat .v{font-family:var(--f-num);font-size:1.5rem;font-weight:800}
+.stat .l{font-size:.75rem;color:var(--muted)}
+.empty{color:var(--muted);text-align:center;padding:30px 10px}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);font-size:.88rem}
+th{color:var(--muted);font-weight:600;font-size:.76rem;text-transform:uppercase}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:10px;font-size:.88rem;z-index:50;box-shadow:var(--shadow)}
+.insig{display:inline-flex;align-items:center;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:.78rem}
+.pbar{height:8px;border-radius:5px;background:var(--line);overflow:hidden}
+.pbar>div{height:100%;background:var(--secundario)}
+.lemma{font-size:.85rem;color:var(--muted);font-style:italic}
+</style>
+</head><body>
+<div id="top"></div>
+<div id="nav"></div>
+<main class="wrap" id="main">Cargando…</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js?v=20261018g"></script>
+<script>
+/* ===================== ContaRed · Simulador B2B de Contabilidad =====================
+   Firmas de estudiantes compiten/colaboran resolviendo "solicitudes" (casos contables
+   y de planillas) publicadas por el docente. Economía dual: Créditos (gastables,
+   suben y bajan) y Reputación (no transferible, solo sube, define el nivel de la firma).
+   Autenticación: reutiliza la sesión de ctp-lms (sessionStorage "ctp_lms_session_v2"),
+   igual que Aula de Conta. Persistencia: Supabase. */
+
+const APP={me:null,view:"mercado",firma:null,solicitudes:[],contratos:[],ranking:[],firmas:[]};
+
+const NIVELES=[{min:0,nombre:"Bronce",emoji:"🥉"},{min:50,nombre:"Plata",emoji:"🥈"},{min:150,nombre:"Oro",emoji:"🥇"},{min:400,nombre:"Platino",emoji:"💎"}];
+const nivelDe=rep=>{let n=NIVELES[0];for(const x of NIVELES)if(rep>=x.min)n=x;return n;};
+const isTeacher=()=>APP.me&&APP.me.rol==="docente";
+const uid=()=>crypto.randomUUID?crypto.randomUUID():"id-"+Date.now()+"-"+Math.random().toString(36).slice(2);
+const toast=msg=>{const d=document.createElement("div");d.className="toast";d.textContent=msg;document.body.appendChild(d);setTimeout(()=>d.remove(),2600);};
+const fmtCr=n=>"₡"+Math.round(n||0).toLocaleString("es-CR");
+
+/* ---------- Datos: Supabase ---------- */
+async function cargarFirmaDe(estudianteId){
+  const {data}=await sb.from("b2b_firmas").select("*").eq("estudiante_id",estudianteId).maybeSingle();
+  return data||null;
+}
+async function cargarSolicitudes(){
+  const {data}=await sb.from("b2b_solicitudes").select("*").order("creado_en",{ascending:false});
+  return data||[];
+}
+async function cargarContratosDeFirma(firmaId){
+  const {data}=await sb.from("b2b_contratos").select("*").eq("firma_id",firmaId).order("tomado_en",{ascending:false});
+  return data||[];
+}
+async function cargarContratosTodos(){
+  const {data}=await sb.from("b2b_contratos").select("*").order("tomado_en",{ascending:false});
+  return data||[];
+}
+async function cargarRanking(){
+  const {data}=await sb.from("b2b_firmas").select("*").order("reputacion",{ascending:false}).limit(50);
+  return data||[];
+}
+
+async function crearFirma({nombre,lema,color}){
+  const row={id:uid(),estudiante_id:APP.me.id,nombre,lema:lema||"",color:color||"#0B4F6C",
+    creditos:100,reputacion:0,nivel:"Bronce",racha:0,insignias:[],actualizado_en:new Date().toISOString()};
+  const {error}=await sb.from("b2b_firmas").insert(row);
+  if(error){toast("No se pudo crear la firma. Revisa tu conexión.");return null;}
+  return row;
+}
+
+async function tomarContrato(solicitud){
+  if(solicitud.estado!=="abierta")return;
+  const contrato={id:uid(),solicitud_id:solicitud.id,firma_id:APP.firma.id,estudiante_id:APP.me.id,
+    estado:"en_progreso",respuestas:{},precision_pct:null,satisfaccion:null,nota_final:null,feedback:"",
+    tomado_en:new Date().toISOString(),entregado_en:null,calificado_en:null};
+  const {error:e1}=await sb.from("b2b_contratos").insert(contrato);
+  if(e1){toast("No se pudo tomar el contrato.");return;}
+  const {error:e2}=await sb.from("b2b_solicitudes").update({estado:"tomada"}).eq("id",solicitud.id).eq("estado","abierta");
+  if(e2){toast("No se pudo reservar la solicitud (puede que otra firma la tomó primero).");await sb.from("b2b_contratos").delete().eq("id",contrato.id);return;}
+  toast("Contrato tomado. Entrá a «Mis contratos» para resolverlo.");
+  await cargarTodoEstudiante();render();
+}
+
+function precisionDeRespuestas(campos,respuestas){
+  const claves=Object.keys(campos||{});
+  if(claves.length===0)return 0;
+  let suma=0;
+  for(const k of claves){
+    const c=campos[k];const oficial=Number(c.valor_oficial);const tol=Number(c.tolerancia||5);
+    const s=Number(respuestas[k]);
+    if(!isFinite(s)){continue;}
+    const difPct=oficial===0?(s===0?0:100):Math.abs((s-oficial)/oficial)*100;
+    let score=100;
+    if(difPct>tol)score=Math.max(0,100-((difPct-tol)/(tol*2||1))*100);
+    suma+=score;
+  }
+  return Math.round(suma/claves.length);
+}
+
+async function entregarContrato(contrato,respuestas){
+  const sol=APP.solicitudes.find(s=>s.id===contrato.solicitud_id);
+  const precision_pct=precisionDeRespuestas(sol?.campos||{},respuestas);
+  const {error}=await sb.from("b2b_contratos").update({
+    estado:"entregado",respuestas,precision_pct,entregado_en:new Date().toISOString()
+  }).eq("id",contrato.id);
+  if(error){toast("No se pudo entregar el contrato.");return;}
+  await sb.from("b2b_solicitudes").update({estado:"entregada"}).eq("id",contrato.solicitud_id);
+  toast("Contrato entregado. El docente lo revisará y calificará.");
+  await cargarTodoEstudiante();render();
+}
+
+function tierDe(precision_pct){
+  if(precision_pct>=90)return{nombre:"Oro",mult:1,clase:"oro"};
+  if(precision_pct>=70)return{nombre:"Plata",mult:0.7,clase:"plata"};
+  if(precision_pct>=40)return{nombre:"Bronce",mult:0.4,clase:"bronce"};
+  return{nombre:"Insuficiente",mult:0.15,clase:"bad"};
+}
+
+async function calificarContrato(contrato,satisfaccion,feedback){
+  const sol=APP.solicitudes.find(s=>s.id===contrato.solicitud_id);
+  const tier=tierDe(contrato.precision_pct||0);
+  const creditos_otorgados=Math.round((sol?.recompensa_creditos||0)*tier.mult);
+  const reputacion_otorgada=Math.round((sol?.recompensa_reputacion||0)*(0.6*((contrato.precision_pct||0)/100)+0.4*(satisfaccion/5)));
+  const {data:firma}=await sb.from("b2b_firmas").select("*").eq("id",contrato.firma_id).maybeSingle();
+  if(!firma)return;
+  const plazoMs=(sol?.plazo_horas||9999)*3600*1000;
+  const aTiempo=(new Date(contrato.entregado_en)-new Date(contrato.tomado_en))<=plazoMs;
+  const racha=aTiempo?(firma.racha||0)+1:0;
+  const nuevosCreditos=(firma.creditos||0)+creditos_otorgados;
+  const nuevaReputacion=(firma.reputacion||0)+reputacion_otorgada;
+  const nivel=nivelDe(nuevaReputacion).nombre;
+  const insignias=new Set(firma.insignias||[]);
+  const {data:previos}=await sb.from("b2b_contratos").select("id").eq("firma_id",firma.id).eq("estado","calificado");
+  if((previos||[]).length===0)insignias.add("🏁 Primer contrato cerrado");
+  if(racha>=3)insignias.add("🔥 Racha de 3");
+  if(racha>=5)insignias.add("🔥🔥 Racha de 5");
+  if((contrato.precision_pct||0)>=98)insignias.add("🎯 Precisión perfecta");
+  if(nivel==="Platino")insignias.add("💎 Nivel Platino");
+
+  const {error:e1}=await sb.from("b2b_firmas").update({
+    creditos:nuevosCreditos,reputacion:nuevaReputacion,nivel,racha,
+    insignias:[...insignias],actualizado_en:new Date().toISOString()
+  }).eq("id",firma.id);
+  const {error:e2}=await sb.from("b2b_contratos").update({
+    estado:"calificado",satisfaccion,feedback,nota_final:tier.nombre,calificado_en:new Date().toISOString()
+  }).eq("id",contrato.id);
+  await sb.from("b2b_solicitudes").update({estado:"cerrada"}).eq("id",contrato.solicitud_id);
+  if(e1||e2){toast("No se pudo guardar la calificación.");return;}
+  toast(`Contrato calificado: ${tier.nombre} · +${creditos_otorgados} créditos · +${reputacion_otorgada} reputación`);
+  await cargarTodoDocente();render();
+}
+
+async function crearSolicitud(obj){
+  const row={id:uid(),docente_id:APP.me.id,titulo:obj.titulo,descripcion:obj.descripcion,
+    categoria:obj.categoria,dificultad:obj.dificultad,recompensa_creditos:obj.recompensa_creditos,
+    recompensa_reputacion:obj.recompensa_reputacion,plazo_horas:obj.plazo_horas,estado:"abierta",
+    campos:obj.campos,creado_en:new Date().toISOString()};
+  const {error}=await sb.from("b2b_solicitudes").insert(row);
+  if(error){toast("No se pudo publicar la solicitud.");return null;}
+  toast("Solicitud publicada en el mercado.");
+  return row;
+}
+
+/* ---------- Carga agregada ---------- */
+async function cargarTodoEstudiante(){
+  APP.solicitudes=await cargarSolicitudes();
+  APP.firma=await cargarFirmaDe(APP.me.id);
+  if(APP.firma)APP.contratos=await cargarContratosDeFirma(APP.firma.id);
+  APP.ranking=await cargarRanking();
+}
+async function cargarTodoDocente(){
+  APP.solicitudes=await cargarSolicitudes();
+  APP.contratos=await cargarContratosTodos();
+  APP.ranking=await cargarRanking();
+}
+
+/* ---------- Render: chrome ---------- */
+function renderTop(){
+  const f=APP.firma;
+  document.getElementById("top").innerHTML=`
+  <div class="top"><div class="wrap">
+    <div class="brand"><div class="logo">CR</div><div><b>ContaRed</b><small>Simulador B2B de firmas contables</small></div></div>
+    ${isTeacher()?`<span class="muted">👩‍🏫 ${APP.me.nombre}</span>`:
+      f?`<div class="firmachip"><span class="dot" style="background:${f.color}"></span><b>${f.nombre}</b>
+         <span class="badge ${nivelDe(f.reputacion).nombre.toLowerCase()}">${nivelDe(f.reputacion).emoji} ${nivelDe(f.reputacion).nombre}</span>
+         <span class="num">${fmtCr(f.creditos)}</span></div>`:`<span class="muted">Sin firma todavía</span>`}
+    <a class="btn ghost small" href="./index.html">← ctp-lms</a>
+  </div></div>`;
+}
+function renderNav(){
+  const tabsEst=[["mercado","🏪 Mercado"],["contratos","📁 Mis contratos"],["firma","🏢 Mi firma"],["ranking","🏆 Ranking"]];
+  const tabsDoc=[["solicitudes","📋 Solicitudes"],["revisar","✅ Revisar entregas"],["firmas","🏢 Firmas"],["ranking","🏆 Ranking"]];
+  const tabs=isTeacher()?tabsDoc:tabsEst;
+  document.getElementById("nav").innerHTML=`<div class="wrap"><div class="nav">
+    ${tabs.map(([k,l])=>`<button data-go="${k}" class="${APP.view===k?"active":""}">${l}</button>`).join("")}
+  </div></div>`;
+  document.getElementById("nav").querySelectorAll("button").forEach(b=>b.onclick=()=>{APP.view=b.dataset.go;render();});
+}
+
+/* ---------- Render: vistas estudiante ---------- */
+function viewFirmaEst(){
+  if(!APP.firma){
+    return `<div class="card" style="max-width:480px;margin:0 auto;">
+      <h2>Fundá tu firma contable</h2>
+      <p class="muted">Tu firma participa en el mercado, acumula créditos y reputación, y sube de nivel.</p>
+      <form id="fFirma">
+        <div class="field"><label>Nombre de la firma</label><input name="nombre" required placeholder="Ej: Brenes & Asociados"></div>
+        <div class="field"><label>Lema (opcional)</label><input name="lema" placeholder="Ej: Precisión que genera confianza"></div>
+        <div class="field"><label>Color de marca</label><input type="color" name="color" value="#0B4F6C" style="height:40px;padding:3px;"></div>
+        <button class="btn" type="submit">Crear firma (capital inicial: ${fmtCr(100)})</button>
+      </form>
+    </div>`;
+  }
+  const f=APP.firma;const n=nivelDe(f.reputacion);
+  const sig=NIVELES.find(x=>x.min>n.min);
+  const pct=sig?Math.min(100,Math.round(((f.reputacion-n.min)/(sig.min-n.min))*100)):100;
+  return `<div class="card">
+    <div class="row" style="justify-content:space-between;">
+      <div><h2>${f.nombre}</h2><div class="lemma">${f.lema||""}</div></div>
+      <span class="badge ${n.nombre.toLowerCase()}" style="font-size:.95rem;">${n.emoji} ${n.nombre}</span>
+    </div>
+    <div class="statbar" style="margin-top:14px;">
+      <div class="stat"><div class="v">${fmtCr(f.creditos)}</div><div class="l">Créditos</div></div>
+      <div class="stat"><div class="v">${f.reputacion}</div><div class="l">Reputación</div></div>
+      <div class="stat"><div class="v">🔥 ${f.racha||0}</div><div class="l">Racha entregas a tiempo</div></div>
+    </div>
+    ${sig?`<p class="muted" style="margin-top:12px;">Próximo nivel: ${sig.emoji} ${sig.nombre} (${sig.min} rep.)</p><div class="pbar"><div style="width:${pct}%"></div></div>`:`<p class="muted" style="margin-top:12px;">Nivel máximo alcanzado 🎉</p>`}
+    <h3 style="margin-top:18px;">Insignias</h3>
+    <div class="row">${(f.insignias||[]).length?f.insignias.map(i=>`<span class="insig">${i}</span>`).join(""):'<span class="muted">Todavía sin insignias — completá tu primer contrato.</span>'}</div>
+  </div>`;
+}
+
+function viewMercado(){
+  const abiertas=APP.solicitudes.filter(s=>s.estado==="abierta");
+  if(!APP.firma)return `<div class="empty">Primero creá tu firma en la pestaña «Mi firma».</div>`;
+  return `<h2 style="margin-bottom:10px;">Mercado de solicitudes</h2>
+  <div class="grid">${abiertas.map(s=>`
+    <div class="card">
+      <div class="row" style="justify-content:space-between;"><h3>${s.titulo}</h3><span class="badge warn">${s.dificultad}</span></div>
+      <p class="muted" style="font-size:.88rem;">${s.descripcion}</p>
+      <div class="row" style="margin-top:8px;">
+        <span class="num">+${fmtCr(s.recompensa_creditos)}</span>
+        <span class="num">+${s.recompensa_reputacion} rep.</span>
+        <span class="muted">· plazo ${s.plazo_horas}h</span>
+      </div>
+      <button class="btn sec" style="margin-top:10px;width:100%" data-tomar="${s.id}">Tomar contrato</button>
+    </div>`).join("")||'<div class="empty">No hay solicitudes abiertas en este momento. Volvé a revisar más tarde.</div>'}
+  </div>`;
+}
+
+function viewContratosEst(){
+  if(!APP.firma)return `<div class="empty">Primero creá tu firma en la pestaña «Mi firma».</div>`;
+  if(!APP.contratos.length)return `<div class="empty">Todavía no tomaste ningún contrato. Visitá el Mercado.</div>`;
+  return `<h2 style="margin-bottom:10px;">Mis contratos</h2>` + APP.contratos.map(c=>{
+    const sol=APP.solicitudes.find(s=>s.id===c.solicitud_id);
+    if(!sol)return "";
+    if(c.estado==="en_progreso")return `
+      <div class="card">
+        <h3>${sol.titulo}</h3><p class="muted" style="font-size:.86rem;">${sol.descripcion}</p>
+        <form data-entregar="${c.id}">
+          ${Object.entries(sol.campos||{}).map(([k,cfg])=>`
+            <div class="field"><label>${cfg.label}</label><input type="number" step="any" name="${k}" required></div>`).join("")}
+          <button class="btn" type="submit">Entregar contrato</button>
+        </form>
+      </div>`;
+    const tier=c.precision_pct!=null?tierDe(c.precision_pct):null;
+    return `<div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <h3>${sol.titulo}</h3>
+        <span class="badge ${c.estado==="calificado"?"ok":"warn"}">${c.estado==="calificado"?"Calificado":"Esperando revisión"}</span>
+      </div>
+      ${c.precision_pct!=null?`<p>Precisión técnica: <b>${c.precision_pct}%</b> ${tier?`<span class="badge ${tier.clase}">${tier.nombre}</span>`:""}</p>`:""}
+      ${c.estado==="calificado"?`<p>Satisfacción del cliente: ${"⭐".repeat(c.satisfaccion||0)}</p>${c.feedback?`<p class="muted">"${c.feedback}"</p>`:""}`:""}
+    </div>`;
+  }).join("");
+}
+
+function viewRanking(){
+  return `<h2 style="margin-bottom:10px;">🏆 Ranking de firmas</h2>
+  <div class="card" style="padding:0;overflow:auto;">
+  <table><thead><tr><th>#</th><th>Firma</th><th>Nivel</th><th>Reputación</th><th>Créditos</th><th>Racha</th></tr></thead><tbody>
+  ${APP.ranking.map((f,i)=>{const n=nivelDe(f.reputacion);return `<tr>
+    <td>${i+1}</td>
+    <td><span class="dot" style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${f.color};margin-right:6px;"></span>${f.nombre}</td>
+    <td><span class="badge ${n.nombre.toLowerCase()}">${n.emoji} ${n.nombre}</span></td>
+    <td class="num">${f.reputacion}</td><td class="num">${fmtCr(f.creditos)}</td><td>🔥 ${f.racha||0}</td>
+  </tr>`;}).join("")||`<tr><td colspan="6" class="empty">Todavía no hay firmas.</td></tr>`}
+  </tbody></table></div>`;
+}
+
+/* ---------- Render: vistas docente ---------- */
+function viewSolicitudesDoc(){
+  return `<h2 style="margin-bottom:10px;">Publicar nueva solicitud</h2>
+  <div class="card">
+    <form id="fSolicitud">
+      <div class="field"><label>Título</label><input name="titulo" required placeholder="Ej: Planilla de febrero — Comercial El Roble"></div>
+      <div class="field"><label>Descripción / instrucciones</label><textarea name="descripcion" rows="3" required></textarea></div>
+      <div class="row">
+        <div class="field" style="flex:1;"><label>Categoría</label>
+          <select name="categoria"><option>Diario y Mayor</option><option>Estados Financieros</option><option>Planillas</option><option>Balanza de comprobación</option></select></div>
+        <div class="field" style="flex:1;"><label>Dificultad</label>
+          <select name="dificultad"><option>facil</option><option selected>media</option><option>dificil</option></select></div>
+      </div>
+      <div class="row">
+        <div class="field" style="flex:1;"><label>Recompensa en créditos</label><input type="number" name="recompensa_creditos" value="50" required></div>
+        <div class="field" style="flex:1;"><label>Recompensa en reputación</label><input type="number" name="recompensa_reputacion" value="20" required></div>
+        <div class="field" style="flex:1;"><label>Plazo (horas)</label><input type="number" name="plazo_horas" value="72" required></div>
+      </div>
+      <h3>Campos de respuesta numérica a calificar</h3>
+      <p class="muted" style="font-size:.82rem;">Cada campo se compara contra tu valor oficial, con una tolerancia en %. El promedio define la precisión técnica.</p>
+      <div id="camposWrap"></div>
+      <button class="btn ghost small" type="button" id="btnAddCampo">+ Agregar campo</button>
+      <div style="margin-top:14px;"><button class="btn" type="submit">Publicar al mercado</button></div>
+    </form>
+  </div>
+  <h2 style="margin:20px 0 10px;">Solicitudes publicadas</h2>
+  <div class="card" style="padding:0;overflow:auto;"><table><thead><tr><th>Título</th><th>Estado</th><th>Recompensa</th><th>Plazo</th></tr></thead><tbody>
+  ${APP.solicitudes.map(s=>`<tr><td>${s.titulo}</td><td><span class="badge warn">${s.estado}</span></td><td class="num">${fmtCr(s.recompensa_creditos)} / ${s.recompensa_reputacion} rep.</td><td>${s.plazo_horas}h</td></tr>`).join("")||`<tr><td colspan="4" class="empty">Sin solicitudes todavía.</td></tr>`}
+  </tbody></table></div>`;
+}
+
+function filaCampo(n){
+  return `<div class="row campo-row" data-campo="${n}">
+    <input placeholder="Etiqueta (ej: Total planilla)" data-f="label" style="flex:2;">
+    <input type="number" step="any" placeholder="Valor oficial" data-f="valor_oficial" style="flex:1;">
+    <input type="number" placeholder="Tolerancia %" data-f="tolerancia" value="5" style="flex:1;">
+    <button type="button" class="btn warn small" data-quitar-campo>✕</button>
+  </div>`;
+}
+
+function viewRevisarDoc(){
+  const pendientes=APP.contratos.filter(c=>c.estado==="entregado");
+  if(!pendientes.length)return `<div class="empty">No hay entregas pendientes de revisión.</div>`;
+  return `<h2 style="margin-bottom:10px;">Entregas por revisar</h2>` + pendientes.map(c=>{
+    const sol=APP.solicitudes.find(s=>s.id===c.solicitud_id);
+    const tier=tierDe(c.precision_pct||0);
+    return `<div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <h3>${sol?.titulo||"(solicitud eliminada)"}</h3>
+        <span class="badge ${tier.clase}">Precisión ${c.precision_pct}% · ${tier.nombre}</span>
+      </div>
+      <table style="margin:8px 0;"><thead><tr><th>Campo</th><th>Oficial</th><th>Entregado</th></tr></thead><tbody>
+      ${Object.entries(sol?.campos||{}).map(([k,cfg])=>`<tr><td>${cfg.label}</td><td class="num">${cfg.valor_oficial}</td><td class="num">${c.respuestas?.[k]??"—"}</td></tr>`).join("")}
+      </tbody></table>
+      <form data-calificar="${c.id}" class="row">
+        <div class="field" style="flex:1;"><label>Satisfacción del cliente (1-5)</label>
+          <select name="satisfaccion"><option value="5">⭐⭐⭐⭐⭐</option><option value="4">⭐⭐⭐⭐</option><option value="3" selected>⭐⭐⭐</option><option value="2">⭐⭐</option><option value="1">⭐</option></select></div>
+        <div class="field" style="flex:2;"><label>Comentario (opcional)</label><input name="feedback" placeholder="Retroalimentación para la firma"></div>
+        <button class="btn sec" type="submit" style="align-self:flex-end;">Calificar y cerrar</button>
+      </form>
+    </div>`;
+  }).join("");
+}
+
+function viewFirmasDoc(){
+  return viewRanking();
+}
+
+/* ---------- Render principal ---------- */
+function render(){
+  renderTop();renderNav();
+  const main=document.getElementById("main");
+  if(isTeacher()){
+    main.innerHTML=({solicitudes:viewSolicitudesDoc,revisar:viewRevisarDoc,firmas:viewFirmasDoc,ranking:viewRanking})[APP.view]?.()||"";
+    if(APP.view==="solicitudes"){
+      const wrap=document.getElementById("camposWrap");
+      wrap.dataset.n=wrap.dataset.n||"0";
+      for(let i=0;i<3;i++)agregarCampoUI();
+      document.getElementById("btnAddCampo").onclick=agregarCampoUI;
+      document.getElementById("fSolicitud").onsubmit=async e=>{
+        e.preventDefault();const fd=new FormData(e.target);
+        const campos={};
+        document.querySelectorAll(".campo-row").forEach((row,i)=>{
+          const label=row.querySelector('[data-f="label"]').value.trim();
+          const valor_oficial=row.querySelector('[data-f="valor_oficial"]').value;
+          const tolerancia=row.querySelector('[data-f="tolerancia"]').value;
+          if(label&&valor_oficial!=="")campos["c"+i]={label,valor_oficial:Number(valor_oficial),tolerancia:Number(tolerancia||5)};
+        });
+        await crearSolicitud({
+          titulo:fd.get("titulo"),descripcion:fd.get("descripcion"),categoria:fd.get("categoria"),
+          dificultad:fd.get("dificultad"),recompensa_creditos:Number(fd.get("recompensa_creditos")),
+          recompensa_reputacion:Number(fd.get("recompensa_reputacion")),plazo_horas:Number(fd.get("plazo_horas")),campos
+        });
+        await cargarTodoDocente();render();
+      };
+    }
+    document.querySelectorAll("[data-calificar]").forEach(f=>f.onsubmit=async e=>{
+      e.preventDefault();const id=f.getAttribute("data-calificar");const fd=new FormData(f);
+      const c=APP.contratos.find(x=>x.id===id);
+      await calificarContrato(c,Number(fd.get("satisfaccion")),fd.get("feedback")||"");
+    });
+  }else{
+    main.innerHTML=({mercado:viewMercado,contratos:viewContratosEst,firma:viewFirmaEst,ranking:viewRanking})[APP.view]?.()||"";
+    const fFirma=document.getElementById("fFirma");
+    if(fFirma)fFirma.onsubmit=async e=>{
+      e.preventDefault();const fd=new FormData(e.target);
+      const f=await crearFirma({nombre:fd.get("nombre"),lema:fd.get("lema"),color:fd.get("color")});
+      if(f){APP.firma=f;APP.view="mercado";await cargarTodoEstudiante();render();}
+    };
+    document.querySelectorAll("[data-tomar]").forEach(b=>b.onclick=()=>{
+      const s=APP.solicitudes.find(x=>x.id===b.getAttribute("data-tomar"));if(s)tomarContrato(s);
+    });
+    document.querySelectorAll("[data-entregar]").forEach(f=>f.onsubmit=async e=>{
+      e.preventDefault();const id=f.getAttribute("data-entregar");const c=APP.contratos.find(x=>x.id===id);
+      const fd=new FormData(f);const respuestas={};for(const[k,v]of fd.entries())respuestas[k]=v;
+      await entregarContrato(c,respuestas);
+    });
+  }
+}
+function agregarCampoUI(){
+  const wrap=document.getElementById("camposWrap");if(!wrap)return;
+  const n=Number(wrap.dataset.n||0)+1;wrap.dataset.n=n;
+  const div=document.createElement("div");div.innerHTML=filaCampo(n);const row=div.firstElementChild;
+  wrap.appendChild(row);
+  row.querySelector("[data-quitar-campo]").onclick=()=>row.remove();
+}
+
+/* ---------- Arranque ---------- */
+async function boot(){
+  const SESSION_KEY="ctp_lms_session_v2";
+  let session=null;
+  try{session=JSON.parse(sessionStorage.getItem(SESSION_KEY))}catch(e){session=null}
+  if(!session||!session.id||!session.role){
+    document.getElementById("top").hidden=true;document.getElementById("nav").hidden=true;
+    document.getElementById("main").innerHTML='<div class="empty"><h3>No hay sesión</h3><p>Abrí ContaRed desde adentro de ctp-lms (la pestaña Materias si sos estudiante, o el acceso rápido del profesor).</p><p><a class="btn" href="./index.html">Ir a ctp-lms</a></p></div>';
+    return;
+  }
+  APP.me={id:session.id,nombre:session.nombre||(session.role==="docente"?"Profesor":"Estudiante"),rol:session.role};
+  APP.view=isTeacher()?"solicitudes":"mercado";
+  if(isTeacher())await cargarTodoDocente();else await cargarTodoEstudiante();
+  render();
+}
+boot();
+</script>
+</body></html>

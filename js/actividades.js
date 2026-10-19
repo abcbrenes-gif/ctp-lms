@@ -31,6 +31,10 @@ const NOMBRES_ACTIVIDAD = {
 // empresas/entregas se respaldan en Supabase junto con el resto del curso.
 const AULA_CONTABLE_URL = "aula-contable.html";
 
+// ContaRed: simulador B2B de firmas contables (gamificado), también alojado
+// dentro de la plataforma y conectado con la misma sesión/Supabase.
+const SIMULADOR_B2B_URL = "simulador-b2b.html";
+
 // Catálogo de "estrategias de evaluación" que el profesor puede elegir al
 // crear un trabajo asignado. Cada una es un NOMBRE pedagógico distinto,
 // pero por debajo usa uno de estos 3 motores genéricos para no duplicar
