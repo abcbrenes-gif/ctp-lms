@@ -994,12 +994,38 @@ async function crearPracticaParaClase({nombreEmpresa,cantidad,seccion}){
   }
   return {ok,total:(estudiantes||[]).length,fallidos};
 }
+// Elimina, por nombre exacto, una empresa de la cuenta del profesor y de
+// la cuenta de cada estudiante que la tenga — el "deshacer" de
+// crearPracticaParaClase, para cuando una práctica se creó mal.
+async function eliminarPracticaDeClase({nombreEmpresa,seccion}){
+  const nombreNorm=String(nombreEmpresa||"").trim().toLowerCase();
+  let propiasEliminadas=0;
+  for(const c of APP.companies.filter(x=>String(x.name||"").trim().toLowerCase()===nombreNorm)){
+    try{await APP.store.deleteCompany(c.id);propiasEliminadas++}catch(e){/* seguimos igual */}
+  }
+  APP.companies=APP.companies.filter(x=>String(x.name||"").trim().toLowerCase()!==nombreNorm);
+  if(!APP.companies.some(x=>x.id===APP.activeId))APP.activeId=APP.companies[0]?.id||null;
+  let q=sb.from("estudiantes").select("id,nombre,apellido1");
+  if(seccion&&seccion!=="todas")q=q.eq("seccion",seccion);
+  const {data:estudiantes,error}=await q;
+  if(error)throw error;
+  let ok=0,sinCambio=0;const fallidos=[];
+  for(const est of (estudiantes||[])){
+    try{
+      const store=supabaseStudentStore(est.id);
+      const companias=await store.loadWork();
+      const nuevas=companias.filter(c=>String(c.name||"").trim().toLowerCase()!==nombreNorm);
+      if(nuevas.length!==companias.length){await store.saveWork(null,null,nuevas);ok++}else sinCambio++;
+    }catch(e){fallidos.push(`${est.nombre} ${est.apellido1}`)}
+  }
+  return {ok,sinCambio,total:(estudiantes||[]).length,fallidos,propiasEliminadas};
+}
 function ensurePayroll(c){
   c.payroll??={};const p=c.payroll;
   p.params??=clone(PL_DEFAULT);for(const k of ["jornadas","pagos","rebajos"])p.params[k]??=clone(PL_DEFAULT[k]);p.employees??=[];p.runs??=[];p.evals??=[];
   return p;
 }
-Object.assign(APP,{plTab:"planilla",plRun:null,plEditEmp:null,plShow:null,plMode:"practica",plCase:null,plAns:{},plChecked:null,plShowProc:false,plLocked:false,plCrearPracticaAbierto:false,seccionesDisponibles:null});
+Object.assign(APP,{plTab:"planilla",plRun:null,plEditEmp:null,plShow:null,plMode:"practica",plCase:null,plAns:{},plChecked:null,plShowProc:false,plLocked:false,plCrearPracticaAbierto:false,plEliminarPracticaAbierto:false,seccionesDisponibles:null});
 
 /* B · Motor de cálculo */
 const plAct=l=>(l||[]).filter(x=>x.activa!==false);
@@ -1111,11 +1137,37 @@ VIEWS.planillas=()=>{
   const body={param:plViewParams,planilla:plViewPlanilla,practica:plViewPractica,asiento:plViewAsiento,colillas:plViewColillas,entrega:plViewEntrega}[APP.plTab]||plViewPlanilla;
   return `<div class="head"><div><div class="eyebrow">Módulo · Código de Trabajo, CCSS y Ley de Protección al Trabajador</div><h2>Planillas</h2>
     <p>Calcula la planilla con los porcentajes legales de Costa Rica, practica los cálculos, genera el asiento de diario y emite las colillas de pago.</p></div>
-    ${isTeacher()?`<div><button class="btn secondary" data-pact="abrirCrearPractica">⚙️ Crear práctica para toda la clase</button></div>`:""}</div>
+    ${isTeacher()?`<div class="row" style="gap:6px">
+      <button class="btn secondary" data-pact="abrirCrearPractica">⚙️ Crear práctica para toda la clase</button>
+      <button class="btn secondary" data-pact="abrirEliminarPractica">🗑️ Eliminar práctica de toda la clase</button>
+    </div>`:""}</div>
    ${isTeacher()&&APP.plCrearPracticaAbierto?panelCrearPractica():""}
+   ${isTeacher()&&APP.plEliminarPracticaAbierto?panelEliminarPractica():""}
    <div class="subtabs" role="tablist">${tabs.map(([k,t],i)=>`<button class="subtab ${APP.plTab===k?"on":""}" data-pact="tab" data-k="${k}" role="tab">${i+1} · ${t}</button>`).join("")}</div>
    ${plVistaToggle()}${body(c,p)}`;
 };
+function panelEliminarPractica(){
+  const nombres=[...new Set(APP.companies.map(c=>c.name))].sort();
+  return `<div class="panel stack" style="margin-bottom:10px; border-color:var(--bad)">
+    <h3>🗑️ Eliminar práctica de toda la clase</h3>
+    <p class="muted" style="margin:0">Escribí el nombre EXACTO de la empresa (tal como aparece en "Mis empresas"). Se borra de tu cuenta y de la cuenta de cada estudiante que la tenga — útil si una práctica se creó mal. <b>Esto no se puede deshacer.</b></p>
+    <form id="formEliminarPractica" class="stack" style="gap:8px">
+      <label>Nombre exacto de la empresa<input id="epNombre" required list="epNombresLista" placeholder="Ej. Prueba 4" style="display:block;width:100%;margin-top:4px"></label>
+      <datalist id="epNombresLista">${nombres.map(n=>`<option value="${esc(n)}">`).join("")}</datalist>
+      <label>¿De quién?
+        <select id="epSeccion" style="display:block;margin-top:4px">
+          <option value="todas">Todas las secciones</option>
+          ${(APP.seccionesDisponibles||[]).map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join("")}
+        </select>
+      </label>
+      <div class="row">
+        <button class="btn danger" type="submit">Eliminar de toda la clase</button>
+        <button class="btn ghost" type="button" data-pact="cerrarEliminarPractica">Cancelar</button>
+      </div>
+      <p id="eliminarPracticaEstado" class="muted" style="margin:0"></p>
+    </form>
+  </div>`;
+}
 function panelCrearPractica(){
   return `<div class="panel stack" style="margin-bottom:10px">
     <h3>⚙️ Crear práctica para toda la clase</h3>
@@ -1738,6 +1790,14 @@ document.addEventListener("click",async e=>{
     APP.plCrearPracticaAbierto=true;render();return;
   }
   if(a==="cerrarCrearPractica"){APP.plCrearPracticaAbierto=false;render();return}
+  if(a==="abrirEliminarPractica"){
+    if(!APP.seccionesDisponibles){
+      const {data}=await sb.from("estudiantes").select("seccion");
+      APP.seccionesDisponibles=[...new Set((data||[]).map(x=>x.seccion).filter(Boolean))].sort();
+    }
+    APP.plEliminarPracticaAbierto=true;render();return;
+  }
+  if(a==="cerrarEliminarPractica"){APP.plEliminarPracticaAbierto=false;render();return}
   if(a==="show"){APP.plShow=APP.plShow===b.dataset.id?null:b.dataset.id;render();return}
   if(a==="openRun"){APP.plRun=b.dataset.id;APP.plTab="asiento";render();return}
   if(a==="mode"){if(APP.plMode!==b.dataset.m){APP.plMode=b.dataset.m;plNewCase()}render();return}
@@ -1975,6 +2035,22 @@ document.addEventListener("submit",async e=>{
       toast(`Práctica "${nombre}" creada ✓ — ${r.ok} de ${r.total} estudiante(s)`+(r.fallidos.length?`. No se pudo con: ${r.fallidos.join(", ")}`:""));
     }catch(err){
       if(estadoEl)estadoEl.textContent="No se pudo crear la práctica: "+(err.message||err);
+      if(btn)btn.disabled=false;
+    }
+    return;
+  }
+  if(id==="formEliminarPractica"){
+    const nombre=val("epNombre").trim(),seccion=val("epSeccion")||"todas";
+    const estadoEl=document.getElementById("eliminarPracticaEstado"),btn=e.target.querySelector("button[type=submit]");
+    if(!nombre){if(estadoEl)estadoEl.textContent="Escribí el nombre exacto de la empresa.";return}
+    if(!confirm(`¿Eliminar la empresa "${nombre}" de tu cuenta y de la cuenta de cada estudiante${seccion==="todas"?"":" de la sección "+seccion} que la tenga? Esto no se puede deshacer.`))return;
+    if(btn)btn.disabled=true;if(estadoEl)estadoEl.textContent="Eliminando…";
+    try{
+      const r=await eliminarPracticaDeClase({nombreEmpresa:nombre,seccion});
+      APP.plEliminarPracticaAbierto=false;render();
+      toast(`Empresa "${nombre}" eliminada ✓ — de ${r.ok} de ${r.total} estudiante(s)`+(r.fallidos.length?`. No se pudo con: ${r.fallidos.join(", ")}`:""));
+    }catch(err){
+      if(estadoEl)estadoEl.textContent="No se pudo eliminar: "+(err.message||err);
       if(btn)btn.disabled=false;
     }
     return;
