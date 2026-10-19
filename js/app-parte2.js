@@ -4061,7 +4061,7 @@ function construirPanelActividadHTML(tipo, presetKey) {
     return `
       <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Cada estudiante va a poder escribir una o varias ideas (cada una queda registrada como una intervención suya). Después vos las revisás todas, agrupadas por estudiante, y marcás cuáles son buenas o malas — así medís la participación real de cada quien.</p>
       <label for="au-lluvia-pregunta" style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.4rem;">Pregunta o consigna para la lluvia de ideas (opcional)</label>
-      <textarea id="au-lluvia-pregunta" rows="2" placeholder="Ej. ¿Qué gastos debería incluir el presupuesto de una pulpería?" style="width:100%; font-family:inherit; resize:vertical;"></textarea>`;
+      <textarea id="au-lluvia-pregunta" rows="2" placeholder="Ej. ¿Qué gastos debería incluir el presupuesto de una pulpería?" style="width:100%; font-family:inherit; resize:vertical;">${preset ? preset.instrucciones.replace(/</g, "&lt;") : ""}</textarea>`;
   }
   if (tipo === "proyecto") {
     return `

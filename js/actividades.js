@@ -231,6 +231,11 @@ const ESTRATEGIAS_EVALUACION = {
       "Volvería a trabajar en equipo con esta persona"
     ],
     demo: { escenario: "Coevaluación del proyecto grupal \"Apertura de un negocio\".", respuestas: [3, 3, 2, 3] }
+  },
+  lluvia_ideas_introduccion: {
+    tipo: "lluvia_ideas", grupo: "Introducción de tema / construcción colectiva", icono: "💡", etiqueta: "Lluvia de ideas (introducir un tema)",
+    instrucciones: "¿Qué sabés o qué se te ocurre sobre este tema? Escribí una o varias ideas, cortas, en tus propias palabras.",
+    demo: { escenario: "Antes de empezar \"Planillas y cargas sociales\", se le pregunta al grupo qué saben del tema.", ideas: ["Que al salario le rebajan algo para la CCSS", "Creo que también se paga el aguinaldo en diciembre", "Las horas extra se pagan más caras"] }
   }
 };
 
