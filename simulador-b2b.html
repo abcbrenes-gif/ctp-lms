@@ -283,10 +283,22 @@ function viewFirmaEst(){
   </div>`;
 }
 
+function bannerComoResolver(){
+  return `<div class="card" style="background:var(--okbg);border-color:var(--secundario);">
+    <div class="row" style="justify-content:space-between;align-items:flex-start;">
+      <div>
+        <h3 style="color:var(--okink);">🧮 ¿Dónde hago el cálculo?</h3>
+        <p style="margin:4px 0 0;font-size:.88rem;">ContaRed es donde <b>entregás el resultado</b> al "cliente" — como un contador real. El cálculo (empleados, CCSS, renta, deducciones) lo hacés en <b>Aula de Conta</b>, y acá solo escribís los totales que te piden.</p>
+      </div>
+      <a class="btn ghost small" href="aula-contable.html" style="white-space:nowrap;">Abrir Aula de Conta →</a>
+    </div>
+  </div>`;
+}
 function viewMercado(){
   const abiertas=APP.solicitudes.filter(s=>s.estado==="abierta");
   if(!APP.firma)return `<div class="empty">Primero creá tu firma en la pestaña «Mi firma».</div>`;
   return `<h2 style="margin-bottom:10px;">Mercado de solicitudes</h2>
+  ${bannerComoResolver()}
   <div class="grid">${abiertas.map(s=>`
     <div class="card">
       <div class="row" style="justify-content:space-between;"><h3>${s.titulo}</h3><span class="badge warn">${s.dificultad}</span></div>
@@ -310,9 +322,13 @@ function viewContratosEst(){
     if(c.estado==="en_progreso")return `
       <div class="card">
         <h3>${sol.titulo}</h3><p class="muted" style="font-size:.86rem;">${sol.descripcion}</p>
+        <div class="row" style="background:var(--bg);border:1px dashed var(--line);border-radius:10px;padding:10px 12px;margin:10px 0;justify-content:space-between;">
+          <span style="font-size:.84rem;">👉 Primero resolvé este caso en <b>Aula de Conta</b> (ahí hacés el cálculo real). Cuando tengas los totales, volvé acá y escribilos abajo.</span>
+          <a class="btn ghost small" href="aula-contable.html" style="white-space:nowrap;">Abrir Aula de Conta →</a>
+        </div>
         <form data-entregar="${c.id}">
           ${Object.entries(sol.campos||{}).map(([k,cfg])=>`
-            <div class="field"><label>${cfg.label}</label><input type="number" step="any" name="${k}" required></div>`).join("")}
+            <div class="field"><label>${cfg.label} <span class="muted">(tolerancia ±${cfg.tolerancia}%)</span></label><input type="number" step="any" name="${k}" required placeholder="Escribí aquí el resultado que ya calculaste"></div>`).join("")}
           <button class="btn" type="submit">Entregar contrato</button>
         </form>
       </div>`;
