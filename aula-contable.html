@@ -1093,6 +1093,19 @@ async function guardarEntregaDirecta(companies){
   return meta;
 }
 
+function plEvaluarTrabajo(p){
+  const st=plSheetStatus(p);
+  const runs=(p.runs||[]).filter(r=>r.entryId);
+  const asTotal=runs.length,asOk=runs.filter(r=>r.machoteOk).length;
+  const evs=(p.evals||[]).filter(e=>e.modo==="evaluacion");
+  const evalPct=evs.length?Math.round(100*evs.reduce((s,e)=>s+e.puntaje/e.total,0)/evs.length):null;
+  const detalles=[];
+  if(st.total>0)detalles.push({ok:st.all,texto:st.all?`Machote de planilla: ${st.ok}/${st.total} casillas correctas`:`Machote de planilla: ${st.ok}/${st.total} casillas correctas — todavía tiene errores`});
+  if(asTotal>0)detalles.push({ok:asOk===asTotal,texto:asOk===asTotal?`Asiento(s) de diario: ${asOk}/${asTotal} correcto(s)`:`Asiento(s) de diario: ${asOk}/${asTotal} correcto(s) — todavía tiene errores`});
+  if(evs.length)detalles.push({ok:evalPct>=70,texto:`Práctica y evaluación: ${evalPct}% en promedio`});
+  const bueno=detalles.length>0&&detalles.every(d=>d.ok);
+  return {bueno,detalles,fecha:new Date().toISOString()};
+}
 function plViewEntrega(c,p){
   const runs=p.runs||[];
   const tieneAsiento=runs.some(r=>r.entryId);
@@ -1102,6 +1115,7 @@ function plViewEntrega(c,p){
     {ok:tieneAsiento,texto:tieneAsiento?"Asiento de diario de la planilla registrado":"Falta registrar el asiento de diario de la planilla"}
   ];
   const puedeGuardar=runs.length>0;
+  const ev=p.ultimaEntregaEval;
   return `<div class="stack">
     <div class="panel stack">
       <h3>Guardar esta planilla como entrega</h3>
@@ -1109,9 +1123,13 @@ function plViewEntrega(c,p){
       <div class="stack" style="gap:6px">
         ${items.map(it=>`<div class="row" style="align-items:center;gap:8px"><span style="color:${it.ok?"var(--ok)":"var(--bad)"}">${it.ok?"✓":"○"}</span><span>${esc(it.texto)}</span></div>`).join("")}
       </div>
-      ${p.ultimaEntrega?`<div class="status ok"><span class="dot"></span>Guardada como entrega el ${esc(fmtDate(p.ultimaEntrega))}.</div>`:""}
+      <p class="note" style="margin:0">No te decimos si está bien o mal hasta que guardés la entrega — así primero lo resolvés vos solo(a).</p>
+      ${p.ultimaEntrega?`<div class="status ${ev&&ev.bueno?"ok":ev?"bad":"ok"}"><span class="dot"></span>Guardada como entrega el ${esc(fmtDate(p.ultimaEntrega))}${ev?(ev.bueno?" — tu trabajo está correcto 🎉":" — todavía tiene errores, revisá el detalle"):""}.</div>`:""}
+      ${ev&&ev.detalles.length?`<div class="stack" style="gap:6px">
+        ${ev.detalles.map(d=>`<div class="row" style="align-items:center;gap:8px"><span style="color:${d.ok?"var(--ok)":"var(--bad)"}">${d.ok?"✓":"✗"}</span><span>${esc(d.texto)}</span></div>`).join("")}
+      </div>`:""}
       <div><button class="btn primary" data-pact="guardarEntregaPlanilla" ${puedeGuardar?"":"disabled"}>💾 Guardar como entrega</button></div>
-      ${!puedeGuardar?`<p class="note" style="margin:0">Primero procesá al menos una planilla del mes, en "Colaboradores y planilla".</p>`:`<p class="note" style="margin:0">Podés guardarla varias veces — cada vez que avancés más, volvé a guardar y tu profesor va a ver la versión más reciente arriba de todas.</p>`}
+      ${!puedeGuardar?`<p class="note" style="margin:0">Primero procesá al menos una planilla del mes, en "Colaboradores y planilla".</p>`:`<p class="note" style="margin:0">Podés guardarla varias veces — cada vez que avancés más, volvé a guardar y vas a ver si ya quedó bien, y tu profesor va a ver la versión más reciente arriba de todas.</p>`}
     </div>
   </div>`;
 }
@@ -1638,9 +1656,10 @@ document.addEventListener("click",async e=>{
     if(!p.runs||!p.runs.length){toast("Procesá al menos una planilla antes de guardar la entrega.");return}
     b.disabled=true;const txt=b.textContent;b.textContent="Guardando…";
     try{
+      const ev=plEvaluarTrabajo(p);
       const meta=await guardarEntregaDirecta([clone(c)]);
-      p.ultimaEntrega=meta.fecha;touch(c);
-      toast("Entrega guardada ✓");
+      p.ultimaEntrega=meta.fecha;p.ultimaEntregaEval=ev;touch(c);
+      toast(ev.bueno?"Entrega guardada ✓ — ¡tu trabajo está correcto! 🎉":"Entrega guardada ✓ — todavía tiene errores, revisá el detalle.");
     }catch(err){
       toast("No se pudo guardar la entrega: "+(err.message||err));
     }
