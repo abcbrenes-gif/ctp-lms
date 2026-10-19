@@ -783,12 +783,17 @@ async function renderMateriasEstudiante(el, s) {
   const { data: asignadas } = await sb.from("estudiante_materias").select("materia_id, materias(id, nombre)").eq("estudiante_id", s.id);
   const materiasAsignadas = (asignadas || []).map(a => a.materias).filter(Boolean);
 
+  const accesoAulaConta = `
+    <a href="${AULA_CONTABLE_URL}" target="_blank" rel="noopener" class="btn secondary small" style="display:inline-flex; align-items:center; gap:0.4rem; margin-bottom:1rem;">
+      🧮 Abrir Aula de Conta
+    </a>`;
+
   if (materiasAsignadas.length === 0) {
-    el.innerHTML = `<p class="empty">Todavía no tienes materias asignadas.</p>`;
+    el.innerHTML = `${accesoAulaConta}<p class="empty">Todavía no tienes materias asignadas.</p>`;
     return;
   }
 
-  let html = "";
+  let html = accesoAulaConta;
   const panelDataPorMateria = {};
   for (const m of materiasAsignadas) {
     html += `<h3 style="margin-top:1.4rem;">${m.nombre}</h3>`;
