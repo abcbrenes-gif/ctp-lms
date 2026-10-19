@@ -657,9 +657,12 @@ async function cargarEvaluacionesSeccion(sec, students, holderId = "evaluaciones
     const celdas = [];
     for (const c of (categorias || [])) {
       let prom = null;
-      let aporteDirecto = null; // ya viene ponderado (0-c.porcentaje), se usa solo para la nota final
-      let notaRealPruebas = null; // % real obtenido en las pruebas (0-100), lo que pide el MEP
-      if (c.nombre.trim().toLowerCase() === "asistencia") {
+      let aporteDirecto = null; // ya viene ponderado (0-c.porcentaje)
+      const esAsistencia = c.nombre.trim().toLowerCase() === "asistencia";
+      if (esAsistencia) {
+        // La Asistencia siempre se reporta como % directo (0-100), según
+        // el Reglamento de Evaluación — no se reparte entre el máximo de
+        // la categoría como las demás.
         for (const mid of materiaIds) {
           const r = await calcularNotaAsistencia(st.id, mid);
           if (r) { prom = r.nota; break; }
@@ -668,11 +671,9 @@ async function cargarEvaluacionesSeccion(sec, students, holderId = "evaluaciones
         // Cada prueba puede valer un % distinto de la nota final (lo que
         // el profesor puso en "Calificar por puntos"), así que no se usa
         // el % de la categoría — se suma el aporte propio de cada prueba.
-        // Pero en la tabla se muestra el % real obtenido (puntos ganados
-        // sobre puntos posibles), no el aporte ya ponderado.
         for (const mid of materiaIds) {
           const a = await calcularAportePruebas(st.id, mid, c.nombre, c.porcentaje);
-          if (a !== null) { aporteDirecto = a.aporte; notaRealPruebas = a.notaReal; break; }
+          if (a !== null) { aporteDirecto = a.aporte; break; }
         }
       } else {
         for (const mid of materiaIds) {
@@ -684,16 +685,28 @@ async function cargarEvaluacionesSeccion(sec, students, holderId = "evaluaciones
           prom = notasCat.length ? notasCat.reduce((a, n) => a + Number(n.nota), 0) / notasCat.length : null;
         }
       }
+      // Las columnas de categoría muestran los puntos que el estudiante
+      // ya ganó del máximo que esa categoría aporta a la nota final de
+      // 100 (ej. Pruebas: 6.1 de un máximo de 45) — no el % real que
+      // sacó en esa categoría. La Asistencia es la excepción: se muestra
+      // siempre como % directo.
       if (aporteDirecto !== null) {
         suma += aporteDirecto;
         pesoUsado += Number(c.porcentaje);
-        celdas.push(`<td class="num ${notaRealPruebas < 70 ? "low" : ""}">${notaRealPruebas.toFixed(1)}%</td>`);
+        const limite = Number(c.porcentaje) * 0.7;
+        celdas.push(`<td class="num ${aporteDirecto < limite ? "low" : ""}">${aporteDirecto.toFixed(1)}%</td>`);
         continue;
       }
       if (prom === null) { celdas.push(`<td class="num">—</td>`); continue; }
-      suma += prom * (c.porcentaje / 100);
+      const aporte = prom * (c.porcentaje / 100);
+      suma += aporte;
       pesoUsado += Number(c.porcentaje);
-      celdas.push(`<td class="num ${prom < 70 ? "low" : ""}">${prom.toFixed(1)}%</td>`);
+      if (esAsistencia) {
+        celdas.push(`<td class="num ${prom < 70 ? "low" : ""}">${prom.toFixed(1)}%</td>`);
+      } else {
+        const limite = Number(c.porcentaje) * 0.7;
+        celdas.push(`<td class="num ${aporte < limite ? "low" : ""}">${aporte.toFixed(1)}%</td>`);
+      }
     }
     const final = pesoUsado > 0 ? `${suma.toFixed(1)}%` : "—";
     return `<tr><td>${st.apellido1} ${st.apellido2}, ${st.nombre}</td>${celdas.join("")}<td class="num" style="font-weight:600;">${final}</td></tr>`;
