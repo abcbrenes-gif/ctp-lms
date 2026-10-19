@@ -317,13 +317,16 @@ function renderEstrategiasEvaluacion(esEstudiante) {
       }[tipo] || ""}</p>
       <div style="display:grid; gap:0.5rem;">
         ${lista.map(e => `
-          <div style="display:flex; align-items:flex-start; gap:0.6rem; padding:0.5rem 0.6rem; background:var(--surface-soft); border-radius:8px;">
-            <span style="font-size:1.1rem;">${e.icono}</span>
-            <div style="flex:1;">
-              <strong style="font-size:0.9rem;">${e.etiqueta}</strong>
-              <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.15rem;">${e.instrucciones}</div>
+          <div class="estrategia-item" style="background:var(--surface-soft); border-radius:8px; overflow:hidden;">
+            <div style="display:flex; align-items:flex-start; gap:0.6rem; padding:0.5rem 0.6rem;">
+              <span style="font-size:1.1rem;">${e.icono}</span>
+              <div style="flex:1;">
+                <strong style="font-size:0.9rem;">${e.etiqueta}</strong>
+                <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.15rem;">${e.instrucciones}</div>
+              </div>
+              <button type="button" class="btn secondary small" data-toggle-demo="${e.clave}" style="white-space:nowrap;">Ver demo →</button>
             </div>
-            <a href="#/estrategias/demo/${e.clave}" class="btn secondary small" style="white-space:nowrap;">Ver demo →</a>
+            <div data-demo-contenedor="${e.clave}" style="display:none; padding:0 0.6rem 0.8rem 0.6rem;"></div>
           </div>`).join("")}
       </div>
     </div>`).join("");
@@ -340,18 +343,47 @@ function renderEstrategiasEvaluacion(esEstudiante) {
       ${esEstudiante ? "" : `<p class="footer-note">¿Querés que agregue una estrategia nueva a este catálogo? Avisame.</p>`}
     </div>`;
   bindTopbar();
+
+  const contenedorLista = app.querySelector(".wrap");
+  if (contenedorLista) {
+    contenedorLista.addEventListener("click", (ev) => {
+      const toggleBtn = ev.target.closest("[data-toggle-demo]");
+      if (toggleBtn) {
+        const clave = toggleBtn.getAttribute("data-toggle-demo");
+        const preset = ESTRATEGIAS_EVALUACION[clave];
+        const cont = contenedorLista.querySelector(`[data-demo-contenedor="${clave}"]`);
+        if (!preset || !cont) return;
+        const abierto = cont.style.display !== "none";
+        if (abierto) {
+          cont.style.display = "none";
+          toggleBtn.textContent = "Ver demo →";
+        } else {
+          if (!cont.innerHTML.trim()) {
+            cont.innerHTML = construirDemoEstrategiaContenidoHTML({ ...preset, clave }, esEstudiante);
+          }
+          cont.style.display = "block";
+          toggleBtn.textContent = "Ocultar demo ↑";
+        }
+        return;
+      }
+      const iniciarBtn = ev.target.closest("[data-iniciar-estrategia]");
+      if (iniciarBtn) {
+        const clave = iniciarBtn.getAttribute("data-iniciar-estrategia");
+        if (clave) {
+          sessionStorage.setItem("ctp_lms_estrategia_pendiente", clave);
+          location.hash = "#/materias";
+        }
+      }
+    });
+  }
 }
 
 // ---------- Demo de una estrategia de evaluación (ejemplo, no se guarda) ----------
 // Página de solo lectura (para profesor Y estudiante) que muestra, con datos
 // de ejemplo, cómo se ve y cómo se califica una estrategia específica. No
 // escribe nada en la base de datos — es puramente ilustrativa.
-function renderDemoEstrategia(clave, esEstudiante) {
-  const preset = ESTRATEGIAS_EVALUACION[clave];
-  if (!preset) { location.hash = "#/estrategias"; return; }
+function construirCuerpoDemoEstrategia(preset) {
   const demo = preset.demo || {};
-  const volver = `#/estrategias`;
-
   let cuerpoDemo = "";
   if (preset.tipo === "rubrica_directa") {
     const criterios = preset.criterios || [];
@@ -413,27 +445,46 @@ function renderDemoEstrategia(clave, esEstudiante) {
       </div>
       <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.8rem;">El profesor abre "💡 Ver ideas" en el trabajo: las ve agrupadas por estudiante, con el total de intervenciones de cada quien, y puede marcar cada idea como 👍 buena o 👎 mala.</p>`;
   }
+  return cuerpoDemo;
+}
+
+// Contenido de la demo de una estrategia (consigna + ejemplo + botón
+// "Iniciar"), sin topbar ni envoltorio de página — se usa tanto para
+// desplegarla en el mismo lugar dentro de la lista de estrategias, como
+// dentro de renderDemoEstrategia (enlace directo, por si alguien lo
+// tiene guardado).
+function construirDemoEstrategiaContenidoHTML(preset, esEstudiante) {
+  const demo = preset.demo || {};
+  const cuerpoDemo = construirCuerpoDemoEstrategia(preset);
+  return `
+    <p style="color:var(--text-muted); margin-top:0; margin-bottom:1rem;">DEMO — este ejemplo es solo para explicar cómo funciona. No se guarda nada.</p>
+    <div class="panel" style="margin-bottom:1rem;">
+      <strong>Consigna que vería el estudiante:</strong>
+      <p style="font-size:0.9rem; margin-top:0.4rem;">${preset.instrucciones}</p>
+      ${demo.escenario ? `<p style="font-size:0.82rem; color:var(--text-muted); margin-top:0.5rem;">Ejemplo de uso: ${demo.escenario}</p>` : ""}
+    </div>
+    ${cuerpoDemo}
+    ${esEstudiante ? "" : `
+    <div class="panel" style="margin-top:1rem; display:flex; justify-content:space-between; align-items:center; gap:0.8rem; flex-wrap:wrap;">
+      <p style="font-size:0.85rem; margin:0;">Para usarla de verdad, elegí primero en qué materia y subtema la vas a asignar.</p>
+      <button class="btn" data-iniciar-estrategia="${preset.clave || ""}">▶ Iniciar — elegir subtema</button>
+    </div>`}`;
+}
+
+function renderDemoEstrategia(clave, esEstudiante) {
+  const preset = ESTRATEGIAS_EVALUACION[clave];
+  if (!preset) { location.hash = "#/estrategias"; return; }
+  const volver = `#/estrategias`;
 
   app.innerHTML = `
     ${topbar()}
     <div class="wrap">
       <a href="${volver}" class="btn secondary small" style="margin-bottom:1rem; display:inline-block;">&larr; Estrategias de evaluación</a>
       <h1>${preset.icono} ${preset.etiqueta}</h1>
-      <p style="color:var(--text-muted); margin-top:-0.6em; margin-bottom:1rem;">DEMO — este ejemplo es solo para explicar cómo funciona. No se guarda nada.</p>
-      <div class="panel" style="margin-bottom:1rem;">
-        <strong>Consigna que vería el estudiante:</strong>
-        <p style="font-size:0.9rem; margin-top:0.4rem;">${preset.instrucciones}</p>
-        ${demo.escenario ? `<p style="font-size:0.82rem; color:var(--text-muted); margin-top:0.5rem;">Ejemplo de uso: ${demo.escenario}</p>` : ""}
-      </div>
-      ${cuerpoDemo}
-      ${esEstudiante ? "" : `
-      <div class="panel" style="margin-top:1rem; display:flex; justify-content:space-between; align-items:center; gap:0.8rem; flex-wrap:wrap;">
-        <p style="font-size:0.85rem; margin:0;">Para usarla de verdad, elegí primero en qué materia y subtema la vas a asignar.</p>
-        <button class="btn" id="iniciar-estrategia-btn">▶ Iniciar — elegir subtema</button>
-      </div>`}
+      ${construirDemoEstrategiaContenidoHTML({ ...preset, clave }, esEstudiante)}
     </div>`;
   bindTopbar();
-  const iniciarBtn = document.getElementById("iniciar-estrategia-btn");
+  const iniciarBtn = document.querySelector("[data-iniciar-estrategia]");
   if (iniciarBtn) {
     iniciarBtn.addEventListener("click", () => {
       sessionStorage.setItem("ctp_lms_estrategia_pendiente", clave);
