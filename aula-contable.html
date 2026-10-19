@@ -644,10 +644,12 @@ VIEWS.empresas=()=>{
       ${c.entregado?'<span class="chip tC" style="font-size:.7rem">✓ Entregada</span>':""}</div>
       <h3 style="margin-top:6px">${esc(c.name)}</h3><div class="muted" style="font-size:.85rem">Céd. jurídica ${esc(c.cedula||"—")}</div></div>
     <div class="stats"><span><b>${c.accounts.length}</b>cuentas</span><span><b>${c.entries.length}</b>asientos</span><span><b>${esc(c.currency)}</b>moneda</span></div>
+    ${c.pdfInstrucciones?`<div><a class="btn sm secondary" href="${c.pdfInstrucciones}" target="_blank" rel="noopener">📄 Instrucciones (PDF)</a></div>`:""}
     <div class="acts">${co()&&c.id===co().id?'<span class="chip tI">Empresa activa</span>':`<button class="btn sm primary" data-act="openCo" data-id="${c.id}">Abrir</button>`}
       ${bloq?'<small class="muted">Esta tarea ya fue entregada: no se puede editar ni borrar.</small>':`
       <button class="btn sm ghost edit-only" data-act="editCo" data-id="${c.id}">Editar datos</button>
       <button class="btn sm ghost edit-only" data-act="dupCo" data-id="${c.id}">Duplicar</button>
+      ${isTeacher()?`<label class="btn sm ghost edit-only" style="cursor:pointer;">📎 Adjuntar PDF<input type="file" accept="application/pdf" data-adjuntar-pdf="${c.id}" style="display:none"></label>`:""}
       <button class="btn sm danger edit-only" data-act="delCo" data-id="${c.id}">Eliminar</button>`}</div>
   </article>`}).join("");
   return `<div class="head"><div><div class="eyebrow">Paso 0</div><h2>${APP.viewing?"Empresas entregadas":"Mis empresas"}</h2>
@@ -957,27 +959,118 @@ const PL_POOL_PRACTICA=[
   {nombre:"Jonathan Vindas Pérez",puesto:"Supervisor de turno",base:650000,horasExtra:8,comisiones:0,diasAusencia:1,horasTarde:0,hijos:2,conyuge:true,jornada:"diurna",tipoPago:"mensual",rebajos:{ahorro:{on:true,valor:20000}}}
 ];
 function plCedulaAleatoria(){const r=()=>Math.floor(1000+Math.random()*9000);return `${1+Math.floor(Math.random()*9)}-${r()}-${r()}`}
-function generarColaboradoresPractica(n){
-  return PL_POOL_PRACTICA.slice(0,Math.max(1,Math.min(n,PL_POOL_PRACTICA.length))).map(t=>({id:uid(),cedula:plCedulaAleatoria(),...t}));
+// A partir del nivel 2 combina los dos tipos de rebajo en algunos
+// colaboradores, y desde el nivel 3 sube horas extra, ausencias y
+// tardías — cada práctica nueva queda, a propósito, un poco más
+// complicada que la anterior.
+function escalarDificultadPractica(base,nivel){
+  return base.map((e,i)=>{
+    const emp={...e,rebajos:{...e.rebajos}};
+    if(nivel>=2&&i%2===0)emp.rebajos={asoc:{on:true,valor:5},ahorro:{on:true,valor:emp.rebajos?.ahorro?.valor||20000}};
+    if(nivel>=3){
+      emp.horasExtra=(emp.horasExtra||0)+2;
+      if(i%3===0)emp.diasAusencia=(emp.diasAusencia||0)+1;
+      if(i%2===1)emp.horasTarde=(emp.horasTarde||0)+1;
+    }
+    if(nivel>=4&&i%2===1)emp.comisiones=(emp.comisiones||0)+40000;
+    return emp;
+  });
+}
+function generarColaboradoresPractica(n,nivel=1){
+  const base=PL_POOL_PRACTICA.slice(0,Math.max(1,Math.min(n,PL_POOL_PRACTICA.length)));
+  return escalarDificultadPractica(base,nivel).map(t=>({id:uid(),cedula:plCedulaAleatoria(),...t}));
 }
 function nextCodeFor(arr){let n=(arr||[]).length+1;let c;do{c="EMP-"+String(n).padStart(3,"0");n++}while((arr||[]).some(x=>x.code===c));return c}
-// Crea una empresa de práctica con colaboradores ya cargados: una copia
-// para el profesor (para revisar/tener la solución) y la MISMA empresa,
-// con los mismos datos, directo en la cuenta de cada estudiante — así
-// nadie tiene que digitarla a mano y no hay margen de error de copiado.
+function proximoNivelPractica(){return (APP.companies||[]).filter(x=>x.nivelPractica).length+1}
+
+/* Instrucciones en PDF, generadas con los datos reales de la práctica */
+let jsPDFAutoTableP=null;
+function loadJsPDFAutoTable(){
+  if(window.jspdf&&window.jspdf.jsPDF&&window.jspdf.jsPDF.API&&window.jspdf.jsPDF.API.autoTable)return Promise.resolve();
+  jsPDFAutoTableP??=new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js";s.onload=()=>res();s.onerror=()=>{jsPDFAutoTableP=null;rej(new Error("No se pudo cargar el generador de tablas PDF."))};document.head.appendChild(s)});
+  return jsPDFAutoTableP;
+}
+async function generarPdfInstruccionesPractica(c,nivel){
+  const J=await loadJsPDF();await loadJsPDFAutoTable();
+  const doc=new J({unit:"pt",format:"letter",orientation:"landscape"});
+  const W=792,M=36;
+  doc.setFillColor(14,124,102);doc.rect(0,0,W,66,"F");doc.setTextColor(255,255,255);
+  doc.setFont("helvetica","bold");doc.setFontSize(14);doc.text("MINISTERIO DE EDUCACIÓN PÚBLICA",W/2,26,{align:"center"});
+  doc.setFont("helvetica","normal");doc.setFontSize(9);doc.text("CTP Mercedes Norte — Especialidad de Contabilidad · Docente: Andrés Brenes Conejo",W/2,42,{align:"center"});
+  doc.setTextColor(16,40,44);let y=88;
+  doc.setFont("helvetica","bold");doc.setFontSize(14);doc.text("Práctica — Colaboradores y Planilla",M,y);y+=16;
+  doc.setFont("helvetica","normal");doc.setFontSize(9.5);
+  doc.text(`Empresa: ${c.name}   ·   Nivel de dificultad: ${nivel}   ·   Módulo "Colaboradores y planilla" de Aula de Conta`,M,y);y+=18;
+  doc.text("Nombre del estudiante: ______________________________        Sección: ____________        Fecha: ____________",M,y);y+=18;
+  doc.setFont("helvetica","bold");doc.setFontSize(10.5);doc.text("Instrucciones",M,y);y+=4;
+  doc.setDrawColor(16,40,44);doc.line(M,y,W-M,y);y+=12;
+  doc.setFont("helvetica","normal");doc.setFontSize(8.6);
+  const emps=c.payroll?.employees||[];
+  const pasos=[
+    `Entrá a Aula de Conta desde ctp-lms y abrí la empresa "${c.name}" — ya la tenés asignada, no hace falta crearla.`,
+    `Andá a la pestaña "Colaboradores y planilla" y revisá que estén los ${emps.length} colaboradores de la tabla de abajo.`,
+    `Completá el machote de planilla del mes (el sistema te deja revisar tus cálculos antes de procesarla).`,
+    `Una vez el machote esté correcto, procesá la planilla del mes que te indique tu profesor.`,
+    `Resolvé la pestaña "Práctica y evaluación" con los casos de cálculo que te presenta el sistema.`,
+    `Hacé el asiento de diario de la planilla (pestaña "Asiento contable").`,
+    `Revisá las colillas de pago generadas para cada colaborador.`,
+    `En la pestaña "Guardar entrega", presioná "Guardar como entrega" — ahí mismo te dice si tu trabajo quedó correcto.`
+  ];
+  pasos.forEach((t,i)=>{const lines=doc.splitTextToSize(`${i+1}. ${t}`,W-2*M);doc.text(lines,M,y);y+=11*lines.length});
+  y+=8;
+  const rebajoTxt=e=>{const r=e.rebajos||{};const parts=[];if(r.asoc?.on)parts.push(`Asoc. solidarista ${r.asoc.valor}%`);if(r.ahorro?.on)parts.push(`Ahorro ₡${NF.format(r.ahorro.valor)}`);return parts.length?parts.join(" + "):"Ninguno"};
+  const jornadaTxt={diurna:"Diurna",mixta:"Mixta",nocturna:"Nocturna"};
+  const pagoTxt={mensual:"Mensual",quincenal:"Quincenal"};
+  doc.autoTable({
+    startY:y,margin:{left:M,right:M},
+    styles:{fontSize:7.3,cellPadding:3.5},
+    headStyles:{fillColor:[16,40,44],textColor:255},
+    head:[["Colaborador(a)","Cédula","Puesto","Salario base","H. extra","Comisiones","Días aus.","H. tardía","Hijos","Cónyuge","Jornada","Tipo de pago","Rebajo autorizado"]],
+    body:emps.map(e=>[e.nombre,e.cedula,e.puesto,"₡"+NF.format(e.base),e.horasExtra||0,"₡"+NF.format(e.comisiones||0),e.diasAusencia||0,e.horasTarde||0,e.hijos||0,e.conyuge?"Sí":"No",jornadaTxt[e.jornada||"diurna"],pagoTxt[e.tipoPago||"mensual"],rebajoTxt(e)])
+  });
+  y=doc.lastAutoTable.finalY+18;
+  doc.setFont("helvetica","bold");doc.setFontSize(9.5);doc.text("Qué se evalúa",M,y);y+=13;
+  doc.setFont("helvetica","normal");doc.setFontSize(8.6);
+  [`Los ${emps.length} colaboradores están en la planilla con los datos de la tabla.`,"El machote de planilla queda correcto (el sistema lo revisa automáticamente).","Se completa la pestaña \"Práctica y evaluación\".","El asiento de diario de la planilla es correcto.","Se guarda a tiempo como entrega desde \"Guardar como entrega\"."]
+    .forEach((t,i)=>{doc.text(`${i+1}. ${t}`,M,y);y+=12});
+  y+=8;doc.setFontSize(7.6);doc.setTextColor(86,112,110);
+  doc.text("El profesor revisa cada entrega desde \"Entregas recibidas\" dentro de Aula de Conta — no hace falta calificarlo aparte.",M,y);
+  return doc.output("blob");
+}
+async function subirPdfPractica(blob,companyId){
+  const path=`aula-conta-practicas/${companyId}-${Date.now()}.pdf`;
+  const {error}=await sb.storage.from("materiales").upload(path,blob,{contentType:"application/pdf"});
+  if(error)throw error;
+  const {data}=sb.storage.from("materiales").getPublicUrl(path);
+  return data.publicUrl;
+}
+// Crea una empresa de práctica con colaboradores ya cargados y su PDF de
+// instrucciones ya lleno: una copia para el profesor (para revisar/tener
+// la solución) y la MISMA empresa, con los mismos datos y el mismo PDF,
+// directo en la cuenta de cada estudiante — así nadie tiene que digitarla
+// a mano ni armar el PDF aparte, y no hay margen de error de copiado.
 async function crearPracticaParaClase({nombreEmpresa,cantidad,seccion}){
-  const colaboradoresBase=generarColaboradoresPractica(cantidad);
+  const nivel=proximoNivelPractica();
+  const colaboradoresBase=generarColaboradoresPractica(cantidad,nivel);
   const anio=new Date().getFullYear();
-  const armarEmpresa=(code)=>({
+  const armarEmpresa=(code,pdfUrl)=>({
     id:uid(),code,name:nombreEmpresa,cedula:"",currency:"₡",period:anio,categoria:"practica",entregado:false,
+    nivelPractica:nivel,pdfInstrucciones:pdfUrl||null,
     accounts:BASE.map(a=>({...a})),entries:[],
     payroll:{params:clone(PL_DEFAULT),employees:colaboradoresBase.map(e=>({...e,id:uid()})),runs:[],evals:[]}
   });
+  // 0) PDF de instrucciones, con los datos reales de esta práctica
+  let pdfUrl=null;
+  try{
+    const blob=await generarPdfInstruccionesPractica({name:nombreEmpresa,payroll:{employees:colaboradoresBase}},nivel);
+    pdfUrl=await subirPdfPractica(blob,uid());
+  }catch(e){/* si falla el PDF, la práctica se crea igual sin él */}
   // 1) Copia de referencia para el profesor
-  const refCo=armarEmpresa(nextCoCode());
+  const refCo=armarEmpresa(nextCoCode(),pdfUrl);
   await APP.store.saveCompany(refCo);
   APP.companies.push(refCo);
-  // 2) Misma empresa para cada estudiante (de la sección elegida, o todos)
+  APP.activeId=refCo.id;APP.view="empresas";
+  // 2) Misma empresa (y mismo PDF) para cada estudiante de la sección elegida, o todos
   let q=sb.from("estudiantes").select("id,nombre,apellido1,apellido2,seccion");
   if(seccion&&seccion!=="todas")q=q.eq("seccion",seccion);
   const {data:estudiantes,error}=await q;
@@ -987,12 +1080,34 @@ async function crearPracticaParaClase({nombreEmpresa,cantidad,seccion}){
     try{
       const store=supabaseStudentStore(est.id);
       const companias=await store.loadWork();
-      companias.push(armarEmpresa(nextCodeFor(companias)));
+      companias.push(armarEmpresa(nextCodeFor(companias),pdfUrl));
       await store.saveWork(null,null,companias);
       ok++;
     }catch(e){fallidos.push(`${est.nombre} ${est.apellido1}`)}
   }
-  return {ok,total:(estudiantes||[]).length,fallidos};
+  return {ok,total:(estudiantes||[]).length,fallidos,nivel,pdfUrl};
+}
+// Sube un PDF propio (del profesor) y lo adjunta a una práctica que ya
+// existe — en su propia cuenta y en la de cada estudiante que tenga una
+// empresa con el mismo nombre.
+async function adjuntarPdfPracticaDeClase(companiaId,file){
+  const c=APP.companies.find(x=>x.id===companiaId);
+  if(!c)throw new Error("No se encontró esa empresa.");
+  const url=await subirPdfPractica(file,c.id);
+  c.pdfInstrucciones=url;await APP.store.saveCompany(c);
+  const nombreNorm=String(c.name||"").trim().toLowerCase();
+  const {data:estudiantes}=await sb.from("estudiantes").select("id");
+  let ok=0;
+  for(const est of (estudiantes||[])){
+    try{
+      const store=supabaseStudentStore(est.id);
+      const companias=await store.loadWork();
+      let cambiado=false;
+      for(const x of companias)if(String(x.name||"").trim().toLowerCase()===nombreNorm){x.pdfInstrucciones=url;cambiado=true}
+      if(cambiado){await store.saveWork(null,null,companias);ok++}
+    }catch(e){/* seguimos con los demás */}
+  }
+  return {url,ok};
 }
 // Elimina, por nombre exacto, una empresa de la cuenta del profesor y de
 // la cuenta de cada estudiante que la tenga — el "deshacer" de
@@ -1143,6 +1258,7 @@ VIEWS.planillas=()=>{
     </div>`:""}</div>
    ${isTeacher()&&APP.plCrearPracticaAbierto?panelCrearPractica():""}
    ${isTeacher()&&APP.plEliminarPracticaAbierto?panelEliminarPractica():""}
+   ${c&&c.pdfInstrucciones?`<div style="margin-bottom:10px"><a class="btn secondary" href="${c.pdfInstrucciones}" target="_blank" rel="noopener">📄 Descargar instrucciones (PDF)</a></div>`:""}
    <div class="subtabs" role="tablist">${tabs.map(([k,t],i)=>`<button class="subtab ${APP.plTab===k?"on":""}" data-pact="tab" data-k="${k}" role="tab">${i+1} · ${t}</button>`).join("")}</div>
    ${plVistaToggle()}${body(c,p)}`;
 };
@@ -1169,14 +1285,16 @@ function panelEliminarPractica(){
   </div>`;
 }
 function panelCrearPractica(){
+  const nivel=APP.proximoNivelPractica||proximoNivelPractica();
+  const cantidadSugerida=Math.min(3+nivel,8);
   return `<div class="panel stack" style="margin-bottom:10px">
-    <h3>⚙️ Crear práctica para toda la clase</h3>
-    <p class="muted" style="margin:0">Elegís el nombre y cuántos colaboradores lleva — el sistema arma la empresa con datos ya listos (sin que nadie los escriba a mano), te deja una copia a vos para revisar, y crea automáticamente esa misma empresa, con los mismos datos, en la cuenta de cada estudiante.</p>
+    <h3>⚙️ Crear práctica para toda la clase — Nivel ${nivel}</h3>
+    <p class="muted" style="margin:0">El sistema arma la empresa con colaboradores ya listos (nadie los escribe a mano) y un poco más difícil que la práctica anterior, genera el PDF de instrucciones ya lleno con esos datos, te deja una copia a vos para revisar, y crea automáticamente esa misma empresa — con el mismo PDF — en la cuenta de cada estudiante.</p>
     <form id="formCrearPractica" class="stack" style="gap:8px">
-      <label>Nombre de la empresa<input id="ppNombre" required placeholder="Ej. Prueba 4" style="display:block;width:100%;margin-top:4px"></label>
+      <label>Nombre de la empresa<input id="ppNombre" required value="Práctica ${nivel}" style="display:block;width:100%;margin-top:4px"></label>
       <label>Cantidad de colaboradores
         <select id="ppCantidad" style="display:block;margin-top:4px">
-          ${[3,4,5,6,7,8].map(n=>`<option value="${n}" ${n===4?"selected":""}>${n}</option>`).join("")}
+          ${[3,4,5,6,7,8].map(n=>`<option value="${n}" ${n===cantidadSugerida?"selected":""}>${n}</option>`).join("")}
         </select>
       </label>
       <label>¿Para quién?
@@ -1787,6 +1905,7 @@ document.addEventListener("click",async e=>{
       const {data}=await sb.from("estudiantes").select("seccion");
       APP.seccionesDisponibles=[...new Set((data||[]).map(x=>x.seccion).filter(Boolean))].sort();
     }
+    APP.proximoNivelPractica=proximoNivelPractica();
     APP.plCrearPracticaAbierto=true;render();return;
   }
   if(a==="cerrarCrearPractica"){APP.plCrearPracticaAbierto=false;render();return}
@@ -2021,6 +2140,16 @@ document.addEventListener("change",e=>{
   if(e.target.id==="coPick"){APP.activeId=e.target.value;APP.editAcc=null;resetDraft();if(["entregas","entregar"].includes(APP.view))APP.view="diario";render();toast("Trabajando en: "+co().name)}
   if(e.target.id==="mayorF"){APP.mayorF=e.target.value;render()}
   if(e.target.id==="aType"){const t=e.target.value;document.getElementById("aCls").innerHTML=Object.entries(CLS[t]).map(([k,v])=>`<option value="${k}">${v}</option>`).join("")}
+});
+document.addEventListener("change",async e=>{
+  if(!e.target.matches("[data-adjuntar-pdf]"))return;
+  const file=e.target.files[0];if(!file)return;
+  const id=e.target.dataset.adjuntarPdf,label=e.target.closest("label");
+  if(label)label.textContent="Subiendo…";
+  try{
+    const r=await adjuntarPdfPracticaDeClase(id,file);
+    toast(`PDF adjuntado ✓ — actualizado en ${r.ok} estudiante(s)`);render();
+  }catch(err){toast("No se pudo subir el PDF: "+(err.message||err));if(label)label.textContent="📎 Adjuntar PDF"}
 });
 document.addEventListener("submit",async e=>{
   e.preventDefault();const c=co(),id=e.target.id;
