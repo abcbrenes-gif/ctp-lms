@@ -25,10 +25,11 @@ const NOMBRES_ACTIVIDAD = {
   autoevaluacion: "Autoevaluación / Coevaluación"
 };
 
-// Artifact del profesor con el simulador del ciclo contable (NIC/NIIF),
-// usado tanto en la práctica diaria de más abajo como en el acceso rápido
-// "Aula de Conta" del inicio del profesor.
-const AULA_CONTABLE_URL = "https://claude.ai/artifact/AsaxiVxRcTT2XhB2zQUYYH";
+// Simulador del ciclo contable (NIC/NIIF), ahora alojado dentro de la misma
+// plataforma (aula-contable.html) y conectado a la base de datos de ctp-lms:
+// entra con la sesión que ya tenés acá, sin usuario ni clave aparte, y las
+// empresas/entregas se respaldan en Supabase junto con el resto del curso.
+const AULA_CONTABLE_URL = "aula-contable.html";
 
 // Catálogo de "estrategias de evaluación" que el profesor puede elegir al
 // crear un trabajo asignado. Cada una es un NOMBRE pedagógico distinto,
@@ -213,7 +214,7 @@ const ESTRATEGIAS_EVALUACION = {
   },
   practica_aula_contable: {
     tipo: "respuesta_abierta", grupo: "Prácticas diarias con herramientas externas", icono: "📊", etiqueta: "Práctica diaria — Ciclo contable (Aula Contable NIIF)",
-    instrucciones: `Entrá a la aplicación "Aula Contable NIIF" (${AULA_CONTABLE_URL}) con el usuario y la empresa que te indique tu profesor, y hacé ahí la práctica de hoy (por ejemplo: registrar asientos en el diario, pasar al mayor, sacar la balanza de comprobación). Cuando termines, contá acá qué hiciste: qué asientos registraste, si la balanza cuadró, y qué te costó o qué dudas te quedaron.`,
+    instrucciones: `Entrá a "Aula de Conta" desde tu pestaña Materias (entrás automáticamente, sin usuario ni clave aparte) y hacé ahí la práctica de hoy con la empresa que te indique tu profesor (por ejemplo: registrar asientos en el diario, pasar al mayor, sacar la balanza de comprobación). Cuando termines, contá acá qué hiciste: qué asientos registraste, si la balanza cuadró, y qué te costó o qué dudas te quedaron.`,
     demo: { escenario: "Práctica de hoy: registrar la compra de mercadería al crédito.", respuesta: "Entré a Aula Contable NIIF y registré el asiento de compra de mercadería a crédito: débito a Inventario y crédito a Cuentas por pagar. Pasé el asiento al mayor y saqué la balanza de comprobación: sí cuadró, los débitos y créditos quedaron iguales. Lo que me costó fue identificar bien a qué cuenta iba el IVA." }
   },
   coevaluacion_pares: {

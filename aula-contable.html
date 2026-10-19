@@ -1,0 +1,1813 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Aula Contable NIIF</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: barra superior con empresa activa → riel del ciclo contable (pasos reales en orden) → área de trabajo */
+:root{
+  --bg:#ECF2F0; --surface:#FFFFFF; --surface2:#F6FAF8; --ink:#10282C; --muted:#56706E; --line:#D3DFDB;
+  --accent:#0E7C66; --accent-ink:#FFFFFF; --pop:#F2B63D; --pop-ink:#2B1E00;
+  --debe:#2457B8; --haber:#C2501C; --ok:#1E8A4C; --bad:#C23A3A; --okbg:#E3F4EA; --badbg:#FBE7E6;
+  --tA:#1F7A8C; --tP:#C2501C; --tPT:#7A4FB0; --tI:#1E8A4C; --tC:#A86F00; --tG:#B03A5B;
+  --shadow:0 3px 0 rgba(16,40,44,.18);
+  --f-display:"Bricolage Grotesque", "Trebuchet MS", sans-serif;
+  --f-body:"Figtree", "Segoe UI", system-ui, sans-serif;
+  --f-num:"JetBrains Mono", ui-monospace, "Consolas", monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0D1B1D; --surface:#14272A; --surface2:#183034; --ink:#E4F0EC; --muted:#93AEAA; --line:#2A4448;
+  --accent:#2BB596; --accent-ink:#06201A; --pop:#F5C45A; --pop-ink:#2B1E00;
+  --debe:#7FA6F0; --haber:#F08A5A; --ok:#5ACB89; --bad:#F07A7A; --okbg:#173A28; --badbg:#3E1C1C;
+  --tA:#5CC3D6; --tP:#F08A5A; --tPT:#B597E8; --tI:#5ACB89; --tC:#E0B048; --tG:#EE7FA0;
+  --shadow:0 3px 0 rgba(0,0,0,.45); color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0D1B1D; --surface:#14272A; --surface2:#183034; --ink:#E4F0EC; --muted:#93AEAA; --line:#2A4448;
+  --accent:#2BB596; --accent-ink:#06201A; --pop:#F5C45A; --pop-ink:#2B1E00;
+  --debe:#7FA6F0; --haber:#F08A5A; --ok:#5ACB89; --bad:#F07A7A; --okbg:#173A28; --badbg:#3E1C1C;
+  --tA:#5CC3D6; --tP:#F08A5A; --tPT:#B597E8; --tI:#5ACB89; --tC:#E0B048; --tG:#EE7FA0;
+  --shadow:0 3px 0 rgba(0,0,0,.45); color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
+h2{font-size:1.65rem;font-weight:800}
+h3{font-size:1.1rem;font-weight:600}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums;white-space:nowrap}
+.muted{color:var(--muted)}
+.eyebrow{font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;font-weight:700;color:var(--muted)}
+
+/* Top bar */
+.top{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.top .wrap{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding-block:12px}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.logo{width:38px;height:38px;border-radius:10px;background:var(--accent);display:grid;place-items:center;color:var(--accent-ink);font-family:var(--f-display);font-weight:800;font-size:1.05rem;box-shadow:var(--shadow)}
+.brand b{font-family:var(--f-display);font-size:1.25rem;font-weight:800;display:block;line-height:1}
+.brand small{color:var(--muted);font-size:.78rem}
+.cosel{display:flex;align-items:center;gap:8px}
+select,input,textarea{font:inherit;color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0}
+select:focus,input:focus,textarea:focus{outline:3px solid color-mix(in srgb,var(--accent) 35%,transparent);border-color:var(--accent)}
+
+/* Riel del ciclo */
+.rail{overflow-x:auto;padding-block:18px 6px}
+.steps{display:flex;gap:8px;min-width:max-content}
+.step{display:flex;align-items:center;gap:10px;padding:10px 16px 10px 10px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);cursor:pointer;font:inherit;color:var(--ink);box-shadow:var(--shadow);transition:transform .12s, box-shadow .12s}
+.step:hover{transform:translateY(-2px)}
+.step:active{transform:translateY(2px);box-shadow:none}
+.step:focus-visible{outline:3px solid var(--pop);outline-offset:2px}
+.step .n{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-display);font-weight:800;background:var(--surface2);border:1.5px solid var(--line)}
+.step.done .n{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.step.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.step.on .n{background:var(--pop);border-color:var(--pop);color:var(--pop-ink)}
+.step .t{text-align:left;line-height:1.15}
+.step .t b{display:block;font-weight:700}
+.step .t small{font-size:.72rem;opacity:.8}
+.arrow{align-self:center;color:var(--muted);font-weight:700}
+
+main{padding-block:18px 60px}
+.head{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.head > div{margin-right:auto;min-width:0}
+.head p{margin:4px 0 0;color:var(--muted);max-width:70ch}
+
+/* Buttons */
+.btn{font:inherit;font-weight:700;border:1.5px solid var(--ink);background:var(--surface);color:var(--ink);padding:9px 16px;border-radius:12px;cursor:pointer;box-shadow:var(--shadow);transition:transform .1s, box-shadow .1s;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{transform:translateY(-1px)}
+.btn:active{transform:translateY(3px);box-shadow:none}
+.btn:focus-visible{outline:3px solid var(--pop);outline-offset:2px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.pop{background:var(--pop);border-color:var(--pop);color:var(--pop-ink)}
+.btn.ghost{box-shadow:none;border-color:var(--line)}
+.btn.danger{color:var(--bad);border-color:var(--bad);box-shadow:none}
+.btn.danger.arm{background:var(--bad);color:#fff}
+.btn.sm{padding:5px 10px;font-size:.85rem;border-radius:9px}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:16px}
+.stack{display:flex;flex-direction:column;gap:16px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1 1 140px}
+.field label{font-size:.8rem;font-weight:600;color:var(--muted)}
+.check{display:flex;gap:8px;align-items:center;font-size:.9rem}
+
+/* Chips */
+.chip{display:inline-block;font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:99px;border:1.5px solid currentColor;white-space:nowrap}
+.tA{color:var(--tA)}.tP{color:var(--tP)}.tPT{color:var(--tPT)}.tI{color:var(--tI)}.tC{color:var(--tC)}.tG{color:var(--tG)}
+.niif{font-family:var(--f-num);font-size:.75rem;background:var(--surface2);border:1px solid var(--line);padding:1px 6px;border-radius:6px;white-space:nowrap}
+
+/* Tables */
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--surface2);font-weight:700}
+td.r,th.r{text-align:right}
+tr.grp td{background:var(--surface2);font-weight:700;font-family:var(--f-display)}
+tr.tot td{font-weight:700;border-top:2px solid var(--ink)}
+.dcol{color:var(--debe)}.hcol{color:var(--haber)}
+.indent{padding-left:40px}
+
+/* Status */
+.status{display:flex;gap:10px;align-items:center;padding:10px 14px;border-radius:12px;font-weight:600}
+.status.ok{background:var(--okbg);color:var(--ok)}
+.status.bad{background:var(--badbg);color:var(--bad)}
+.dot{width:10px;height:10px;border-radius:50%;background:currentColor;flex:none}
+
+/* Company cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:14px}
+.co{background:var(--surface);border:1.5px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.co.on{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent)}
+.co h3{font-size:1.15rem}
+.co .stats{display:flex;gap:16px;font-size:.85rem;color:var(--muted)}
+.co .stats b{font-family:var(--f-display);font-size:1.3rem;color:var(--ink);display:block}
+.co .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto}
+
+/* Journal */
+.lines{display:flex;flex-direction:column;gap:8px}
+.line{display:grid;grid-template-columns:minmax(0,1fr) 130px 130px 36px;gap:8px;align-items:center}
+.line input.amt{text-align:right;font-family:var(--f-num)}
+.line .d{border-color:color-mix(in srgb,var(--debe) 45%,var(--line))}
+.line .h{border-color:color-mix(in srgb,var(--haber) 45%,var(--line))}
+.xbtn{width:36px;height:36px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer;font-size:1.1rem}
+.xbtn:hover{color:var(--bad);border-color:var(--bad)}
+.lhead{display:grid;grid-template-columns:minmax(0,1fr) 130px 130px 36px;gap:8px;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.totals{display:grid;grid-template-columns:minmax(0,1fr) 130px 130px 36px;gap:8px;align-items:center;padding-top:8px;border-top:2px dashed var(--line);font-weight:700}
+.totals .num{text-align:right;padding-right:10px}
+@media (max-width:640px){
+  .line,.lhead,.totals{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 36px}
+  .line select{grid-column:1 / -1}
+  .lhead span:first-child,.totals span:first-child{grid-column:1 / -1}
+  .lhead span:last-child,.totals span:last-child{display:none}
+}
+.entry-desc td{font-style:italic;color:var(--muted);font-size:.85rem;border-bottom:2px solid var(--line)}
+.badge-n{font-family:var(--f-display);font-weight:800;background:var(--pop);color:var(--pop-ink);border-radius:8px;padding:1px 8px}
+
+/* Cuentas T */
+.tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:14px}
+.tacc{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px}
+.tacc header{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;margin-bottom:6px}
+.tacc header h3{font-size:1rem}
+.tbody{display:grid;grid-template-columns:1fr 1fr;border-top:3px solid var(--ink)}
+.tbody > div{padding:6px 8px;min-width:0}
+.tbody > div:first-child{border-right:3px solid var(--ink)}
+.tline{display:flex;justify-content:space-between;gap:6px;font-size:.86rem}
+.tline small{color:var(--muted);font-family:var(--f-num)}
+.tsum{border-top:1px solid var(--line);margin-top:4px;padding-top:4px;font-weight:700}
+.tsaldo{margin-top:8px;display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-radius:10px;background:var(--surface2);font-weight:700}
+
+/* Estados */
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.tab{font:inherit;font-weight:700;padding:8px 14px;border-radius:99px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.tab.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.stmt{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px;max-width:860px}
+.stmt .sh{text-align:center;margin-bottom:16px}
+.stmt .sh h3{font-size:1.3rem}
+.stmt .sh div{color:var(--muted);font-size:.9rem}
+.stmt table td,.stmt table th{border-bottom:none;padding:5px 8px}
+.stmt tr.sec td{font-family:var(--f-display);font-weight:700;padding-top:14px;font-size:1rem}
+.stmt tr.sub td{font-weight:700;border-top:1px solid var(--ink)}
+.stmt tr.big td{font-weight:800;border-top:1px solid var(--ink);border-bottom:3px double var(--ink);font-size:1.02rem}
+.note{font-size:.82rem;color:var(--muted);margin-top:14px;max-width:75ch}
+
+.empty{text-align:center;padding:40px 16px;border:2px dashed var(--line);border-radius:16px;color:var(--muted)}
+.empty h3{color:var(--ink);margin-bottom:6px}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(120px);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:12px;font-weight:600;transition:transform .25s;z-index:20;max-width:calc(100% - 32px)}
+.toast.show{transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<style>
+/* Acceso y sesión */
+.login{max-width:440px;margin:40px auto 60px;display:flex;flex-direction:column;gap:16px}
+.login .panel{padding:24px}
+.login h2{font-size:1.8rem}
+.who{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--pop);color:var(--pop-ink);display:grid;place-items:center;font-family:var(--f-display);font-weight:800}
+.who .nm{line-height:1.1;font-size:.88rem}
+.who .nm b{display:block}
+.save{font-size:.75rem;font-weight:700;padding:3px 9px;border-radius:99px;background:var(--surface2);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.save.err{color:var(--bad);border-color:var(--bad)}
+.banner{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 16px;border-radius:14px;background:var(--pop);color:var(--pop-ink);font-weight:600;margin-bottom:14px}
+.banner span{margin-right:auto}
+body.ro .edit-only{display:none!important}
+.code{font-family:var(--f-num);font-size:.8rem;background:var(--surface2);border:1px solid var(--line);padding:1px 7px;border-radius:6px}
+.loading{text-align:center;padding:80px 16px;color:var(--muted);font-weight:600}
+</style>
+
+<style>
+/* Módulo de planillas */
+.subtabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;padding:6px;background:var(--surface);border:1px solid var(--line);border-radius:14px;width:fit-content;max-width:100%}
+.subtab{font:inherit;font-weight:700;font-size:.9rem;padding:8px 14px;border-radius:10px;border:0;background:transparent;color:var(--muted);cursor:pointer}
+.subtab:hover{color:var(--ink)}
+.subtab.on{background:var(--accent);color:var(--accent-ink)}
+.subtab:focus-visible{outline:3px solid var(--pop);outline-offset:2px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:10px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;min-width:0}
+.kpi small{display:block;color:var(--muted);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.kpi b{font-family:var(--f-num);font-size:1rem;overflow-wrap:anywhere}
+.kpi.hl{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.kpi.hl small{color:inherit;opacity:.85}
+.proc{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:10px}
+.proc li{padding-left:4px}
+.formula{font-family:var(--f-num);font-size:.84rem;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:3px 8px;display:inline-block;margin:3px 4px 0 0;overflow-wrap:anywhere}
+.case{background:var(--pop);color:var(--pop-ink);border-radius:16px;padding:18px 20px}
+.case dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px 16px;margin:12px 0 0}
+.case dt{font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;font-weight:700;opacity:.75}
+.case dd{margin:0;font-family:var(--f-num);font-weight:600}
+.qrow{display:grid;grid-template-columns:minmax(0,1fr) 190px 26px;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.qrow input{text-align:right;font-family:var(--f-num)}
+.qrow .ic{font-weight:800;font-size:1.15rem;text-align:center}
+.qfb{grid-column:1/-1;font-size:.88rem;padding:8px 12px;border-radius:10px}
+.qfb.bad{background:var(--badbg);color:var(--bad)}
+.colilla{background:var(--surface);border:1px solid var(--line);border-radius:6px;max-width:780px;box-shadow:var(--shadow);overflow:hidden}
+.colilla .ch{background:var(--accent);color:var(--accent-ink);padding:14px 18px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.colilla .cb{padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+.ccols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:18px}
+.ccols table{font-size:.88rem}
+.ccols td{padding:5px 4px;border-bottom:1px dashed var(--line)}
+.ccols tr.tot td{border-top:2px solid var(--ink);border-bottom:none}
+.cneto{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;border:2px solid var(--ink);border-radius:10px;font-weight:800;font-family:var(--f-display);font-size:1.12rem}
+.firmas{display:grid;grid-template-columns:1fr 1fr;gap:24px;padding-top:28px}
+.firmas div{border-top:1.5px solid var(--ink);padding-top:4px;font-size:.78rem;color:var(--muted);text-align:center}
+.cfoot{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:.75rem;color:var(--muted);border-top:2px dashed var(--line);padding:10px 18px}
+.ptable input{width:84px;text-align:right;font-family:var(--f-num);padding:6px 8px}
+.ptable input.cta{width:76px;text-align:left}
+.ptable input.nm{width:100%;min-width:200px;text-align:left;font-family:var(--f-body)}
+.ptable td{padding:6px 8px}
+.sheet input{width:120px;text-align:right;font-family:var(--f-num);padding:6px 8px}
+.sheet td{vertical-align:top}
+.cell-ok input{border-color:var(--ok);background:var(--okbg)}
+.cell-bad input{border-color:var(--bad);background:var(--badbg)}
+tr.cell-ok td,tr.cell-bad td{background:transparent}
+.step.locked{opacity:.62;border-style:dashed;box-shadow:none}
+.step.locked .n{background:var(--surface2)}
+.pbar{height:8px;border-radius:99px;background:var(--surface2);border:1px solid var(--line);overflow:hidden;width:110px;margin:4px 0 2px}
+.pbar span{display:block;height:100%}
+.lockicon{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;font-size:1.8rem;background:var(--pop);box-shadow:var(--shadow)}
+.hints{margin:0;padding:12px 12px 12px 30px;background:var(--badbg);color:var(--bad);border-radius:12px;display:flex;flex-direction:column;gap:6px;font-size:.9rem}
+.hints b{color:var(--ink)}
+@media (max-width:640px){.qrow{grid-template-columns:minmax(0,1fr) 130px 22px}.firmas{grid-template-columns:1fr}}
+</style>
+<header class="top" id="top" hidden>
+  <div class="wrap">
+    <div class="brand"><div class="logo">Σ</div><div><b>Aula Contable</b><small>Ciclo contable bajo NIC / NIIF</small></div></div>
+    <div class="cosel"><label for="coPick" class="eyebrow">Empresa</label><select id="coPick"></select></div>
+    <div class="who" id="who"></div>
+  </div>
+</header>
+<div class="wrap" id="railWrap" hidden><nav class="rail" aria-label="Ciclo contable"><div class="steps" id="steps"></div></nav></div>
+<main class="wrap" id="main"><div class="loading">Preparando el aula…</div></main>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js?v=20261018d"></script>
+<script>
+
+
+/* ============ Datos base ============ */
+const TYPES={A:"Activo",P:"Pasivo",PT:"Patrimonio",I:"Ingresos",C:"Costos",G:"Gastos"};
+const CLS={
+  A:{C:"Activo corriente",NC:"Activo no corriente"},
+  P:{C:"Pasivo corriente",NC:"Pasivo no corriente"},
+  PT:{CAP:"Capital",RES:"Reservas",UR:"Utilidades retenidas"},
+  I:{ORD:"Ingresos de actividades ordinarias",OTR:"Otros ingresos"},
+  C:{CV:"Costo de ventas"},
+  G:{OP:"Gastos de operación",FIN:"Gastos financieros",ISR:"Impuesto sobre la renta"}
+};
+const DEFNAT={A:"D",P:"A",PT:"A",I:"A",C:"D",G:"D"};
+const BASE=[
+["1101","Caja general","A","C","D","NIC 7"],["1102","Bancos","A","C","D","NIC 7"],
+["1103","Cuentas por cobrar comerciales","A","C","D","NIIF 9"],["1104","Estimación por pérdidas crediticias","A","C","A","NIIF 9"],
+["1105","Inventario de mercadería","A","C","D","NIC 2"],["1106","IVA soportado (crédito fiscal)","A","C","D","Ley 9635"],
+["1107","Gastos pagados por anticipado","A","C","D","NIC 1"],
+["1201","Terrenos","A","NC","D","NIC 16"],["1202","Edificios","A","NC","D","NIC 16"],["1203","Mobiliario y equipo","A","NC","D","NIC 16"],
+["1204","Vehículos","A","NC","D","NIC 16"],["1205","Depreciación acumulada","A","NC","A","NIC 16"],["1206","Activos intangibles","A","NC","D","NIC 38"],
+["2101","Cuentas por pagar comerciales","P","C","A","NIIF 9"],["2102","IVA por pagar","P","C","A","Ley 9635"],
+["2103","Impuesto sobre la renta por pagar","P","C","A","NIC 12"],["2104","Salarios y cargas sociales por pagar","P","C","A","NIC 19"],
+["2105","Préstamos por pagar a corto plazo","P","C","A","NIIF 9"],["2106","Ingresos diferidos","P","C","A","NIIF 15"],
+["2201","Préstamos bancarios a largo plazo","P","NC","A","NIIF 9"],["2202","Provisiones a largo plazo","P","NC","A","NIC 37"],
+["3101","Capital social","PT","CAP","A","NIC 1"],["3102","Reserva legal","PT","RES","A","NIC 1"],["3103","Utilidades retenidas","PT","UR","A","NIC 1"],
+["4101","Ventas","I","ORD","A","NIIF 15"],["4102","Devoluciones y descuentos sobre ventas","I","ORD","D","NIIF 15"],
+["4201","Ingresos por servicios","I","ORD","A","NIIF 15"],["4301","Otros ingresos","I","OTR","A","NIC 1"],["4302","Ingresos financieros","I","OTR","A","NIIF 9"],
+["5101","Costo de ventas","C","CV","D","NIC 2"],
+["6101","Salarios","G","OP","D","NIC 19"],["6102","Cargas sociales","G","OP","D","NIC 19"],["6103","Alquileres","G","OP","D","NIIF 16"],
+["6104","Servicios públicos","G","OP","D","NIC 1"],["6105","Gasto por depreciación","G","OP","D","NIC 16"],["6106","Publicidad","G","OP","D","NIC 1"],
+["6107","Gasto por pérdidas crediticias","G","OP","D","NIIF 9"],["6201","Gastos por intereses","G","FIN","D","NIIF 9"],
+["6301","Gasto por impuesto sobre la renta","G","ISR","D","NIC 12"],
+["2107","CCSS por pagar","P","C","A","NIC 19"],["2108","Banco Popular por pagar","P","C","A","Ley 7983"],["2109","FCL por pagar","P","C","A","Ley 7983"],
+["2110","Retención de renta sobre salarios por pagar","P","C","A","Ley 7092"],["2111","Provisión para aguinaldo","P","C","A","NIC 19"],
+["2112","Provisión para vacaciones","P","C","A","NIC 19"],["2113","Provisión para cesantía","P","C","A","NIC 37"],
+["2114","Asociación solidarista por pagar","P","C","A","Ley 6970"],["2115","Ahorros de colaboradores por pagar","P","C","A","NIC 19"],
+["6108","Gasto por aguinaldo","G","OP","D","NIC 19"],["6109","Gasto por vacaciones","G","OP","D","NIC 19"],["6110","Gasto por cesantía","G","OP","D","NIC 19"]
+].map(([code,name,type,cls,nature,niif])=>({code,name,type,cls,nature,niif}));
+
+function sampleEntries(y){
+  const L=(code,d,c)=>({code,d,c});
+  return [
+   ["01-02","Aporte inicial de capital de los socios",[L("1102",10000000,0),L("3101",0,10000000)]],
+   ["01-05","Compra de mobiliario de oficina al contado",[L("1203",2000000,0),L("1102",0,2000000)]],
+   ["01-08","Compra de mercadería a crédito, IVA 13 %",[L("1105",3000000,0),L("1106",390000,0),L("2101",0,3390000)]],
+   ["01-15","Venta de mercadería a crédito, IVA 13 %",[L("1103",4520000,0),L("4101",0,4000000),L("2102",0,520000)]],
+   ["01-15","Costo de la mercadería vendida",[L("5101",2400000,0),L("1105",0,2400000)]],
+   ["01-20","Cobro parcial a clientes",[L("1102",2000000,0),L("1103",0,2000000)]],
+   ["01-31","Pago de salarios del mes",[L("6101",800000,0),L("1102",0,800000)]],
+   ["01-31","Pago del alquiler del local",[L("6103",300000,0),L("1102",0,300000)]],
+   ["01-31","Depreciación mensual del mobiliario",[L("6105",25000,0),L("1205",0,25000)]],
+   ["01-31","Impuesto sobre la renta del periodo (30 %)",[L("6301",142500,0),L("2103",0,142500)]]
+  ].map(([md,desc,lines],i)=>({id:uid(),n:i+1,date:`${y}-${md}`,desc,lines}));
+}
+
+/* ============ Utilidades ============ */
+function uid(){const b=new Uint8Array(6);crypto.getRandomValues(b);return Date.now().toString(36)+[...b].map(x=>x.toString(36).padStart(2,"0")).join("").slice(0,8)}
+const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+const NF=new Intl.NumberFormat("es-CR",{minimumFractionDigits:2,maximumFractionDigits:2});
+const r2=n=>Math.round((+n||0)*100)/100;
+const clone=o=>JSON.parse(JSON.stringify(o));
+function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function lsSet(k,v){try{v===null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}
+const USER_RE=/^[a-z0-9._-]{3,30}$/;
+const MAX_FAILS=5,LOCK_MIN=5,IDLE_MIN=20;
+
+/* ============ Criptografía (Web Crypto) ============ */
+const TE=new TextEncoder(),TD=new TextDecoder();
+const b64=buf=>{const b=new Uint8Array(buf);let s="";for(let i=0;i<b.length;i+=8192)s+=String.fromCharCode.apply(null,b.subarray(i,i+8192));return btoa(s)};
+const unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+async function sha256hex(txt){const b=await crypto.subtle.digest("SHA-256",TE.encode(txt));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}
+
+/* ============ Almacenamiento ============
+   Estudiantes: este navegador, cada trabajo cifrado con su clave (AES-256).
+   Profesor (dueño del aula): la nube, visible solo para él. */
+function supabaseStudentStore(estudianteId){
+  return {mode:"local",
+    async loadWork(){
+      const {data,error}=await sb.from("aula_conta_trabajos_estudiante").select("companies,desbloqueos").eq("estudiante_id",estudianteId).maybeSingle();
+      if(error)throw error;
+      APP.unlocked=(data&&data.desbloqueos)||[];
+      return (data&&data.companies)||[];
+    },
+    async saveWork(_u,_dk,companies){
+      const {error}=await sb.from("aula_conta_trabajos_estudiante").upsert({estudiante_id:estudianteId,companies,desbloqueos:APP.unlocked||[],actualizado_en:new Date().toISOString()});
+      if(error)throw error;
+    }
+  };
+}
+function supabaseTeacherStore(docenteId){
+  return {mode:"nube",
+    async getTeacher(){return {usuario:docenteId,nombre:(APP.me&&APP.me.nombre)||"Profesor",rol:"profesor"}},
+    async setTeacher(){ /* la identidad del profesor viene de la sesión de ctp-lms */ },
+    async listCompanies(){
+      const {data,error}=await sb.from("aula_conta_empresas").select("data").eq("docente_id",docenteId);
+      if(error)throw error;return (data||[]).map(r=>r.data);
+    },
+    async saveCompany(c){
+      const {error}=await sb.from("aula_conta_empresas").upsert({id:c.id,docente_id:docenteId,data:c,actualizado_en:new Date().toISOString()});
+      if(error)throw error;
+    },
+    async deleteCompany(id){
+      const {error}=await sb.from("aula_conta_empresas").delete().eq("id",id).eq("docente_id",docenteId);
+      if(error)throw error;
+    },
+    async listEntregas(){
+      const {data,error}=await sb.from("aula_conta_entregas").select("*").eq("docente_id",docenteId);
+      if(error)throw error;
+      return (data||[]).map(r=>({id:r.id,usuario:r.usuario,nombre:r.nombre,fecha:r.fecha,...(r.meta||{})}));
+    },
+    async saveEntrega(meta,companies){
+      const {error:e1}=await sb.from("aula_conta_entregas").upsert({id:meta.id,docente_id:docenteId,usuario:meta.usuario,nombre:meta.nombre,fecha:meta.fecha,meta});
+      if(e1)throw e1;
+      for(const c of companies){
+        const {error:e2}=await sb.from("aula_conta_entregas_empresas").upsert({entrega_id:meta.id,empresa_id:c.id,data:c});
+        if(e2)throw e2;
+      }
+    },
+    async entregaCompanies(id){
+      const {data,error}=await sb.from("aula_conta_entregas_empresas").select("data").eq("entrega_id",id);
+      if(error)throw error;return (data||[]).map(r=>r.data);
+    },
+    async deleteEntrega(id){
+      await sb.from("aula_conta_entregas_empresas").delete().eq("entrega_id",id);
+      const {error}=await sb.from("aula_conta_entregas").delete().eq("id",id);
+      if(error)throw error;
+    }
+  };
+}
+
+/* ============ Estado ============ */
+const APP={store:null,me:null,dk:null,companies:[],activeId:null,view:"empresas",eeTab:"er",mayorF:"",
+  viewing:null,readOnly:false,authTab:"in",hasTeacher:true,entregas:null,editCo:null,editAcc:null,saveState:"",
+  showRecovery:null,lastDelivery:null,preview:null};
+const isTeacher=()=>APP.me&&APP.me.rol==="profesor";
+const co=()=>APP.companies.find(c=>c.id===APP.activeId)||APP.companies[0]||null;
+
+/* Guardado agrupado: una escritura a la vez */
+const pending=new Set();let saveTimer=null,flushing=false;
+function touch(c){if(APP.readOnly||!c)return;pending.add(c.id);setSave("Guardando…");clearTimeout(saveTimer);saveTimer=setTimeout(flush,600)}
+async function flush(){
+  if(!APP.me||APP.demo||APP.readOnly||!pending.size)return;
+  if(flushing){clearTimeout(saveTimer);saveTimer=setTimeout(flush,400);return}
+  flushing=true;
+  try{
+    const ids=[...pending];pending.clear();
+    if(APP.store.mode==="local")await APP.store.saveWork(APP.me.usuario,APP.dk,APP.companies);
+    else for(const id of ids){const c=APP.companies.find(x=>x.id===id);if(c)await APP.store.saveCompany(c)}
+    setSave("Guardado ✓");
+  }catch(e){setSave("No se pudo guardar",true);toast(e&&e.code==="quota_exceeded"?"El espacio del aula está lleno. Elimina entregas o empresas que ya no uses.":"No se pudo guardar. Inténtalo de nuevo.")}
+  flushing=false;
+}
+function setSave(t,err){APP.saveState=t;const el=document.getElementById("saveBadge");if(el){el.textContent=t;el.classList.toggle("err",!!err)}}
+
+let draft=null;
+function resetDraft(){const c=co();draft={date:`${c?c.period:2026}-01-31`,desc:"",lines:[{code:"",d:"",c:""},{code:"",d:"",c:""}]}}
+function newCompany({name,code,cedula,currency,period,base=true,sample=false}){
+  return {id:uid(),code,name,cedula,currency,period:+period,accounts:base?BASE.map(a=>({...a})):[],entries:sample?sampleEntries(+period):[],
+    payroll:sample?{params:clone(PL_DEFAULT),employees:plSampleEmployees(),runs:[],evals:[]}:undefined};
+}
+function nextCoCode(){let n=APP.companies.length+1;let c;do{c="EMP-"+String(n).padStart(3,"0");n++}while(APP.companies.some(x=>x.code===c));return c}
+
+/* ============ Cálculos ============ */
+function money(n,sym=true){n=r2(n);const s=NF.format(Math.abs(n));const p=(sym?co().currency+" ":"")+s;return n<0?`(${p})`:p}
+const acc=code=>co().accounts.find(a=>a.code===code);
+const sortAcc=a=>[...a].sort((x,y)=>x.code.localeCompare(y.code,undefined,{numeric:true}));
+function movs(c=co()){const m={};for(const e of c.entries)for(const l of e.lines){m[l.code]??={d:0,c:0};m[l.code].d+=+l.d||0;m[l.code].c+=+l.c||0}return m}
+function signed(a,m){const x=m[a.code]||{d:0,c:0};return ["A","C","G"].includes(a.type)?x.d-x.c:x.c-x.d}
+function sumWhere(m,f){return co().accounts.filter(f).reduce((s,a)=>s+signed(a,m),0)}
+function results(m=movs()){
+  const ing=sumWhere(m,a=>a.type==="I"&&a.cls==="ORD"),cv=sumWhere(m,a=>a.type==="C"),ub=ing-cv;
+  const gop=sumWhere(m,a=>a.type==="G"&&a.cls==="OP"),uop=ub-gop;
+  const otr=sumWhere(m,a=>a.type==="I"&&a.cls==="OTR"),gfin=sumWhere(m,a=>a.type==="G"&&a.cls==="FIN");
+  const uai=uop+otr-gfin,isr=sumWhere(m,a=>a.type==="G"&&a.cls==="ISR"),un=uai-isr;
+  return {ing,cv,ub,gop,uop,otr,gfin,uai,isr,un};
+}
+function trial(m=movs()){let d=0,c=0;for(const k in m){d+=m[k].d;c+=m[k].c}return {d:r2(d),c:r2(c),ok:r2(d)===r2(c)}}
+function position(m=movs()){
+  const A=sumWhere(m,a=>a.type==="A"),P=sumWhere(m,a=>a.type==="P"),PT=sumWhere(m,a=>a.type==="PT")+results(m).un;
+  return {A,P,PT,ok:r2(A)===r2(P+PT)};
+}
+function toast(t){const el=document.getElementById("toast");el.textContent=t;el.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove("show"),3000)}
+function armDelete(btn,fn){if(btn.classList.contains("arm")){fn();return}btn.classList.add("arm");const old=btn.textContent;btn.textContent="¿Seguro? Toca de nuevo";setTimeout(()=>{if(btn.isConnected){btn.classList.remove("arm");btn.textContent=old}},3000)}
+const longDate=y=>`Del 1 de enero al 31 de diciembre de ${y}`;
+const curName=s=>({"₡":"colones costarricenses","$":"dólares estadounidenses","€":"euros"}[s]||s);
+const initials=n=>String(n||"?").trim().split(/\s+/).slice(0,2).map(w=>w[0]).join("").toUpperCase();
+const fmtDate=iso=>{try{return new Date(iso).toLocaleString("es-CR",{dateStyle:"medium",timeStyle:"short"})}catch(e){return iso}};
+const sortCos=a=>[...a].sort((x,y)=>String(x.code||"").localeCompare(String(y.code||""),undefined,{numeric:true}));
+async function copyText(txt,taId){try{await navigator.clipboard.writeText(txt);toast("Copiado")}catch(e){const ta=document.getElementById(taId);if(ta){ta.value=txt;ta.focus();ta.select()}toast("Selecciona el texto y cópialo con Ctrl+C")}}
+
+/* ============ Navegación ============ */
+const STEPS=[
+ ["empresas","Empresas","Crear y codificar"],
+ ["catalogo","Catálogo","de cuentas"],
+ ["planillas","Planillas","Módulo CR"],
+ ["diario","Libro Diario","Asientos"],
+ ["mayor","Libro Mayor","Cuentas T"],
+ ["balanza","Balanza","de comprobación"],
+ ["estados","Estados","financieros"]
+];
+function stepDone(k){const c=co();if(!c)return false;const m=movs();return {
+  empresas:APP.companies.length>0,catalogo:c.accounts.length>0,diario:c.entries.length>0,planillas:!!(c.payroll&&c.payroll.runs&&c.payroll.runs.some(r=>r.entryId)),
+  mayor:c.entries.length>0,balanza:c.entries.length>0&&trial(m).ok,estados:c.entries.length>0&&position(m).ok}[k]}
+function renderChrome(){
+  const logged=!!APP.me&&!APP.showRecovery;
+  document.getElementById("top").hidden=!logged;
+  document.getElementById("railWrap").hidden=!logged||["entregas","entregar"].includes(APP.view);
+  document.body.classList.toggle("ro",APP.readOnly);
+  if(!logged)return;
+  document.getElementById("steps").innerHTML=STEPS.map(([k,t,s],i)=>
+   (i?'<span class="arrow" aria-hidden="true">→</span>':'')+
+   `<button class="step ${APP.view===k?"on":""} ${stepDone(k)&&isUnlocked(k)?"done":""} ${isUnlocked(k)?"":"locked"}" data-go="${k}" ${APP.view===k?'aria-current="step"':""} ${isUnlocked(k)?"":'title="Módulo bloqueado: necesitas la clave"'}>
+     <span class="n">${!isUnlocked(k)?"🔒":stepDone(k)&&APP.view!==k?"✓":({empresas:0,catalogo:1,planillas:"₡",diario:2,mayor:3,balanza:4,estados:5})[k]}</span><span class="t"><b>${t}</b><small>${s}</small></span></button>`).join("");
+  const pick=document.getElementById("coPick");
+  pick.innerHTML=APP.companies.length?sortCos(APP.companies).map(c=>`<option value="${c.id}" ${c.id===co().id?"selected":""}>${esc(c.code||"")} · ${esc(c.name)}</option>`).join(""):'<option>Sin empresas</option>';
+  pick.disabled=!APP.companies.length;
+  const t=isTeacher();
+  document.getElementById("who").innerHTML=`
+    <span class="save" id="saveBadge">${esc(APP.saveState||"☁ Guardado en la nube")}</span>
+    ${t?`<button class="btn sm ${APP.view==="entregas"?"primary":"pop"}" data-go="entregas">Entregas recibidas</button>`
+       :`<button class="btn sm ${APP.view==="entregar"?"primary":"pop"}" data-go="entregar">Entregar trabajo</button>`}
+    <span class="avatar" aria-hidden="true">${esc(initials(APP.me.nombre))}</span>
+    <span class="nm"><b>${esc(APP.me.nombre)}</b><small class="muted">${t?"Profesor":"Estudiante"} · ${esc(APP.me.usuario)}</small></span>
+    <button class="btn sm ghost" data-act="logout">Salir</button>`;
+}
+function render(){
+  renderChrome();
+  const main=document.getElementById("main");
+  const pv=APP.studentPreview&&APP.owner?`<div class="banner"><span>👀 Vista de estudiante: así ven la plataforma tus estudiantes. Lo que hagas aquí se guarda solo en este equipo.</span><button class="btn sm" data-act="asTeacher">Volver al acceso del profesor</button></div>`:"";
+  if(!APP.me){main.innerHTML='<div class="empty"><h3>No hay sesión</h3><p>Volvé a <a href="./index.html">ctp-lms</a> y entrá primero ahí.</p></div>';return}
+  let html=pv;
+  if(APP.demo)html+=`<div class="banner"><span>Modo demostración: practica libremente, los cambios no se guardan.</span><button class="btn sm" data-act="logout">Salir de la demostración</button></div>`;
+  if(APP.viewing)html+=`<div class="banner"><span>Revisando la entrega de ${esc(APP.viewing.nombre)} · ${esc(fmtDate(APP.viewing.fecha))} (solo lectura)</span><button class="btn sm" data-act="stopViewing">Volver a las entregas</button></div>`;
+  if(!isUnlocked(APP.view))html+=viewLocked(APP.view);
+  else if(APP.view==="entregas")html+=viewEntregas();
+  else if(APP.view==="entregar")html+=viewEntregar();
+  else if(!co()&&APP.view!=="empresas")html+=`<div class="empty"><h3>Primero crea una empresa</h3><p>Todo el ciclo contable se trabaja dentro de una empresa.</p><button class="btn pop" data-go="empresas">Ir a Empresas</button></div>`;
+  else html+=(VIEWS[APP.view]||VIEWS.empresas)();
+  main.innerHTML=html;
+}
+function acctOptions(sel){
+  const groups={};for(const a of sortAcc(co().accounts))(groups[a.type]??=[]).push(a);
+  return `<option value="">— Elegir cuenta —</option>`+Object.keys(TYPES).filter(t=>groups[t]).map(t=>
+    `<optgroup label="${TYPES[t]}">${groups[t].map(a=>`<option value="${esc(a.code)}" ${a.code===sel?"selected":""}>${esc(a.code)} · ${esc(a.name)}</option>`).join("")}</optgroup>`).join("");
+}
+const chip=t=>`<span class="chip t${t}">${TYPES[t]}</span>`;
+
+async function enter(a){
+  APP.me={usuario:a.usuario,nombre:a.nombre,rol:a.rol};APP.viewing=null;APP.readOnly=false;APP.lastDelivery=null;
+  APP.unlocked=[];
+  APP.companies=APP.store.mode==="local"?await APP.store.loadWork():await APP.store.listCompanies();
+  APP.activeId=sortCos(APP.companies)[0]?.id||null;
+  APP.view=isTeacher()?"entregas":(APP.companies.length?(isUnlocked("diario")?"diario":"catalogo"):"empresas");
+  APP.saveState="";resetDraft();
+  if(isTeacher())loadEntregas();else render();
+}
+async function logout(){
+  await flush();
+  window.location.href="./index.html";
+}
+
+/* ============ Entregas (código verificable) ============ */
+const PREFIX="AULA-ENTREGA:";
+async function buildDelivery(companies){
+  const payload={v:1,usuario:APP.me.usuario,nombre:APP.me.nombre,fecha:new Date().toISOString(),desbloqueos:APP.unlocked||[],companies};
+  const body=JSON.stringify(payload);
+  const check=await sha256hex(body);
+  return {code:PREFIX+b64(TE.encode(JSON.stringify({p:body,h:check}))),check,payload};
+}
+async function readDelivery(txt){
+  txt=String(txt||"").trim();
+  if(!txt.startsWith(PREFIX))throw new Error("Eso no es un código de entrega de Aula Contable.");
+  let w;try{w=JSON.parse(TD.decode(unb64(txt.slice(PREFIX.length).replace(/\s+/g,""))))}catch(e){throw new Error("El código está incompleto o dañado. Pide que lo copien completo.")}
+  if(await sha256hex(w.p)!==w.h)throw new Error("El código fue modificado: la verificación no coincide.");
+  const p=JSON.parse(w.p);if(!Array.isArray(p.companies))throw new Error("El código no contiene empresas.");
+  return {payload:p,check:w.h};
+}
+const vcode=h=>(h.slice(0,4)+"-"+h.slice(4,8)).toUpperCase();
+
+function viewEntregar(){
+  const d=APP.lastDelivery;
+  return `<div class="head"><div><div class="eyebrow">Entrega al profesor</div><h2>Entregar trabajo</h2>
+    <p>Entrega tu avance al final de cada clase: así tu profesor ve lo que hiciste. Elige las empresas, genera el código y pégalo en el chat de Teams de tu profesor. El código lleva tu nombre, la fecha y una huella de verificación: si alguien lo altera, el sistema lo detecta.</p></div></div>
+  <div class="grid2">
+   <div class="panel stack">
+    <h3>1 · Empresas a entregar</h3>
+    ${APP.companies.length?sortCos(APP.companies).map(c=>`<label class="check"><input type="checkbox" class="dsel" value="${c.id}" checked> <span class="code">${esc(c.code)}</span> ${esc(c.name)} <small class="muted">· ${c.entries.length} asientos</small></label>`).join("")
+      :'<p class="muted" style="margin:0">Todavía no tienes empresas para entregar.</p>'}
+    <div><button class="btn primary" data-act="genDelivery" ${APP.companies.length?"":"disabled"}>Generar código de entrega</button></div>
+   </div>
+   <div class="panel stack">
+    <h3>2 · Copia y envía</h3>
+    ${d?`<div class="status ok"><span class="dot"></span>Código listo · verificación ${vcode(d.check)}</div>
+      <textarea id="dlvTa" rows="5" class="num" readonly>${esc(d.code)}</textarea>
+      <div class="row"><button class="btn pop" data-act="copyDelivery">Copiar código</button></div>
+      <p class="note" style="margin:0">Dile a tu profesor tu código de verificación <b class="num">${vcode(d.check)}</b>. Al recibirlo, él verá el mismo número. Este código también te sirve como respaldo para llevar tu trabajo a otra computadora.</p>`
+      :'<p class="muted" style="margin:0">Aquí aparecerá tu código cuando lo generes.</p>'}
+   </div>
+  </div>`;
+}
+
+async function loadEntregas(){
+  APP.entregas=null;render();
+  try{if(APP.store.getClaves)APP.claves=await APP.store.getClaves()}catch(e){}
+  try{APP.entregas=(await APP.store.listEntregas()).sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)))}
+  catch(e){APP.entregas=[];toast("No se pudieron cargar las entregas.")}
+  render();
+}
+function plResumen(cs,unl){
+  const R={modulos:Array.isArray(unl)?unl.length:null,empresas:cs.length,asientos:0,planillas:0,colab:0,casOk:0,casTot:0,asPlIntentos:0,asPlOk:0,solucion:0,evalBest:null,evals:0,practicas:0};
+  for(const c of cs){R.asientos+=(c.entries||[]).length;const p=c.payroll;if(!p)continue;
+    try{const P=p.params;R.colab+=(p.employees||[]).length;
+      if(p.sheet&&p.employees?.length){const wr=p.employees.some(e=>plCalc(e,P).totReb>0);
+        for(const e of p.employees){const k=plCalc(e,P),ans=p.sheet[e.id]||{};for(const [q] of plSheetFields(k,wr)){R.casTot++;const v=parseNum(ans[q]);if(!isNaN(v)&&near(v,plSol(k,q)))R.casOk++}}}
+      for(const r of [...(p.runs||[]),...(p.draft?[p.draft]:[])]){if(r.entryId)R.planillas++;R.asPlIntentos+=r.intentos||0;if(r.machoteOk)R.asPlOk++;if(r.vioSolucion)R.solucion++}
+      for(const ev of p.evals||[]){if(ev.modo==="evaluacion"){R.evals++;const pc=Math.round(100*ev.puntaje/ev.total);R.evalBest=Math.max(R.evalBest??0,pc)}else R.practicas++}
+    }catch(err){}}
+  return R;
+}
+function viewSeguimiento(l){
+  const by={};for(const e of l){const u=e.usuario;if(!by[u]||String(e.fecha)>String(by[u].fecha))by[u]={...e,_n:0};}
+  for(const e of l)by[e.usuario]._n++;
+  const q=(APP.entF||"").toLowerCase();
+  const rows=Object.values(by).filter(e=>!q||(e.nombre+" "+e.usuario).toLowerCase().includes(q)).sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  const bar=(n,d)=>{const v=d?Math.round(100*n/d):0;return `<div class="pbar" title="${v} %"><span style="width:${v}%;background:${v===100?"var(--ok)":v>=60?"var(--pop)":"var(--bad)"}"></span></div><small class="muted num">${n}/${d}</small>`};
+  return `<div class="tbl"><table><thead><tr><th>Estudiante</th><th>Última entrega</th><th>Módulos abiertos</th><th class="r">Empresas</th><th class="r">Asientos</th><th>Machote de planilla</th><th>Asiento de planilla</th><th>Evaluación de planillas</th><th></th></tr></thead><tbody>
+   ${rows.map(e=>{const R=e.resumen;return `<tr><td><b>${esc(e.nombre)}</b><br><span class="code">${esc(e.usuario)}</span></td>
+     <td>${esc(fmtDate(e.fecha))}<br><small class="muted">${e._n} entrega(s)</small></td>
+     ${R?`<td>${R.modulos==null?"—":bar(R.modulos,5)}</td><td class="r num">${R.empresas}</td><td class="r num">${R.asientos}</td>
+       <td>${R.casTot?bar(R.casOk,R.casTot):'<small class="muted">Sin empezar</small>'}</td>
+       <td>${R.asPlIntentos?`${R.asPlOk?'<span class="chip tI">Resuelto</span>':'<span class="chip tG">Pendiente</span>'}<br><small class="muted">${R.asPlIntentos} intento(s)${R.solucion?" · vio la solución":""}</small>`:'<small class="muted">Sin empezar</small>'}</td>
+       <td>${R.evalBest!=null?`<b class="num">${R.evalBest} %</b><br><small class="muted">${R.evals} evaluación(es) · ${R.practicas} práctica(s)</small>`:R.practicas?`<small class="muted">${R.practicas} práctica(s)</small>`:'<small class="muted">—</small>'}</td>`
+      :`<td colspan="6"><small class="muted">Entrega anterior sin resumen. Pídele que entregue de nuevo para ver su avance.</small></td>`}
+     <td><button class="btn sm primary" data-act="viewEntrega" data-id="${e.id}">Revisar</button></td></tr>`}).join("")}
+   </tbody></table></div>
+   <p class="note" style="margin:0">Cada fila muestra la entrega más reciente de cada estudiante. Para ver el avance de hoy, pídeles que generen su código de entrega al final de la clase.</p>`;
+}
+function viewEntregas(){
+  const l=APP.entregas,p=APP.preview;
+  const q=(APP.entF||"").toLowerCase();
+  const shown=l?l.filter(e=>!q||(e.nombre+" "+e.usuario).toLowerCase().includes(q)):[];
+  return `<div class="head"><div><div class="eyebrow">Panel del profesor</div><h2>Entregas recibidas</h2>
+     <p>Pega aquí el código que te envía cada estudiante. La entrega queda guardada en línea, solo visible para ti, y puedes revisarla paso a paso.</p></div>
+     <button class="btn ghost" data-act="reloadEntregas">Actualizar</button></div>
+   <div class="stack">
+    <details class="panel"${APP.clavesOpen!==false?" open":""} id="clavesBox" style="border:2px solid var(--pop)"><summary style="cursor:pointer;font-weight:700;font-family:var(--f-display);font-size:1.05rem">🔑 Claves de los módulos</summary>
+     <p class="muted" style="margin:8px 0 10px">Los estudiantes ven estos módulos con candado. Dicta o escribe en Teams la clave del módulo que quieras abrir; una vez abierto queda abierto en su cuenta. Empresas y Catálogo están abiertos desde el inicio.</p>
+     ${APP.claves?`<div class="tbl"><table><thead><tr><th>Orden sugerido</th><th>Módulo</th><th>Clave</th></tr></thead><tbody>
+      ${["diario","mayor","balanza","estados","planillas"].map((k,i)=>`<tr><td class="num">${i+1}</td><td>${esc(LOCK_NAMES[k])}</td><td><b class="num" style="font-size:1.05rem;letter-spacing:.05em">${esc(APP.claves[k]||"—")}</b></td></tr>`).join("")}</tbody></table></div>`
+      :'<p class="muted" style="margin:0">No se pudieron cargar las claves.</p>'}
+    </details>
+    <div class="panel stack">
+      <h3>Recibir una entrega</h3>
+      <textarea id="rcvTa" rows="3" class="num" placeholder="AULA-ENTREGA:…"></textarea>
+      <div class="row"><button class="btn primary" data-act="checkDelivery">Verificar código</button></div>
+      ${p?`<div class="status ok"><span class="dot"></span>Código válido · verificación ${vcode(p.check)}</div>
+        <div class="row" style="align-items:center"><div style="margin-right:auto"><b>${esc(p.payload.nombre)}</b> <span class="code">${esc(p.payload.usuario)}</span><br>
+          <small class="muted">Generado el ${esc(fmtDate(p.payload.fecha))} · ${p.payload.companies.length} empresa(s) · ${p.payload.companies.reduce((s,c)=>s+(c.entries||[]).length,0)} asientos</small></div>
+          <button class="btn ghost" data-act="cancelPreview">Descartar</button><button class="btn pop" data-act="saveDelivery">Guardar entrega</button></div>`:""}
+    </div>
+    ${!l?'<div class="loading">Cargando entregas…</div>':l.length?`
+     <div class="row" style="align-items:flex-end"><div class="tabs" style="margin:0;margin-right:auto"><button class="tab ${APP.entTab!=="todas"?"on":""}" data-act="entTab" data-t="seg">Seguimiento por estudiante</button><button class="tab ${APP.entTab==="todas"?"on":""}" data-act="entTab" data-t="todas">Todas las entregas</button></div>
+      <div class="field" style="flex:0 1 280px"><label for="entF">Buscar estudiante</label><input id="entF" value="${esc(APP.entF||"")}" placeholder="Nombre o usuario"></div></div>
+     ${APP.entTab!=="todas"?viewSeguimiento(l):`<div class="tbl"><table><thead><tr><th>Estudiante</th><th>Generada</th><th>Recibida</th><th class="r">Empresas</th><th class="r">Asientos</th><th>Verificación</th><th></th></tr></thead><tbody>
+     ${shown.map(e=>`<tr><td><b>${esc(e.nombre)}</b><br><span class="code">${esc(e.usuario)}</span></td><td>${esc(fmtDate(e.fecha))}</td><td>${esc(fmtDate(e.recibida))}</td>
+       <td class="r num">${e.empresas}</td><td class="r num">${e.asientos}</td><td class="num">${vcode(e.check)}</td>
+       <td><div class="row" style="flex-wrap:nowrap;justify-content:flex-end"><button class="btn sm primary" data-act="viewEntrega" data-id="${e.id}">Revisar</button><button class="btn sm danger" data-act="delEntrega" data-id="${e.id}">Eliminar</button></div></td></tr>`).join("")}
+     </tbody></table></div>`}`
+     :`<div class="empty"><h3>Aún no hay entregas</h3><p>Cuando un estudiante te envíe su código por Teams, pégalo arriba.</p></div>`}
+   </div>`;
+}
+
+/* ============ Vistas del ciclo ============ */
+const VIEWS={};
+VIEWS.empresas=()=>{
+  const ed=APP.editCo?APP.companies.find(c=>c.id===APP.editCo):null;
+  const cards=sortCos(APP.companies).map(c=>`<article class="co ${co()&&c.id===co().id?"on":""}">
+    <div><div class="row" style="gap:6px;align-items:center"><span class="code">${esc(c.code||"Sin código")}</span><span class="eyebrow">Periodo ${c.period}</span></div>
+      <h3 style="margin-top:6px">${esc(c.name)}</h3><div class="muted" style="font-size:.85rem">Céd. jurídica ${esc(c.cedula||"—")}</div></div>
+    <div class="stats"><span><b>${c.accounts.length}</b>cuentas</span><span><b>${c.entries.length}</b>asientos</span><span><b>${esc(c.currency)}</b>moneda</span></div>
+    <div class="acts">${co()&&c.id===co().id?'<span class="chip tI">Empresa activa</span>':`<button class="btn sm primary" data-act="openCo" data-id="${c.id}">Abrir</button>`}
+      <button class="btn sm ghost edit-only" data-act="editCo" data-id="${c.id}">Editar datos</button>
+      <button class="btn sm ghost edit-only" data-act="dupCo" data-id="${c.id}">Duplicar</button>
+      <button class="btn sm danger edit-only" data-act="delCo" data-id="${c.id}">Eliminar</button></div>
+  </article>`).join("");
+  return `<div class="head"><div><div class="eyebrow">Paso 0</div><h2>${APP.viewing?"Empresas entregadas":"Mis empresas"}</h2>
+    <p>Crea todas las empresas que necesites. Cada una lleva un código propio y tiene su catálogo, asientos y estados financieros.</p></div></div>
+  <div class="stack">
+   ${APP.companies.length?`<div class="cards">${cards}</div>`:`<div class="empty"><h3>Aún no tienes empresas</h3><p>Crea la primera con el formulario. Si quieres practicar, marca “Incluir asientos de ejemplo”.</p></div>`}
+   <div class="grid2 edit-only">
+    <form class="panel stack" id="fCo">
+      <h3>${ed?"Editar datos de la empresa":"Nueva empresa"}</h3>
+      <div class="row">
+        <div class="field" style="flex:0 1 140px"><label for="coCode">Código de empresa</label><input id="coCode" required value="${esc(ed?ed.code||"":nextCoCode())}" autocapitalize="characters"></div>
+        <div class="field" style="flex:2 1 240px"><label for="coName">Nombre o razón social</label><input id="coName" required value="${esc(ed?ed.name:"")}" placeholder="Ej.: Distribuidora Las Palmas S.A."></div>
+        <div class="field"><label for="coCed">Cédula jurídica</label><input id="coCed" value="${esc(ed?ed.cedula:"")}" placeholder="3-101-123456"></div>
+        <div class="field"><label for="coCur">Moneda funcional (NIC 21)</label><select id="coCur">${[["₡","₡ Colones"],["$","$ Dólares"],["€","€ Euros"]].map(([v,l])=>`<option value="${v}" ${ed&&ed.currency===v?"selected":""}>${l}</option>`).join("")}</select></div>
+        <div class="field"><label for="coPer">Periodo</label><input id="coPer" type="number" value="${ed?ed.period:2026}" min="2000" max="2100"></div>
+      </div>
+      ${ed?"":`<label class="check"><input type="checkbox" id="coBase" checked> Cargar el catálogo de cuentas base NIIF</label>
+      <label class="check"><input type="checkbox" id="coSample"> Incluir asientos de ejemplo para practicar</label>`}
+      <div class="row"><button class="btn primary" type="submit">${ed?"Guardar cambios":"＋ Crear empresa"}</button>${ed?'<button type="button" class="btn ghost" data-act="cancelEditCo">Cancelar</button>':""}</div>
+    </form>
+    <div class="stack">
+     ${isTeacher()?"":`<div class="panel stack">
+      <h3>Traer mi trabajo de otra computadora</h3>
+      <p class="muted" style="margin:0">Pega un código de entrega generado con tu mismo usuario. Sus empresas se agregan a las que ya tienes.</p>
+      <textarea id="bkText" rows="3" class="num" placeholder="AULA-ENTREGA:…"></textarea>
+      <div><button class="btn ghost" data-act="importBk">Agregar empresas</button></div></div>`}
+    </div>
+   </div>
+  </div>`;
+};
+VIEWS.catalogo=()=>{
+  const m=movs(),used=new Set(Object.keys(m));
+  const ed=APP.editAcc?acc(APP.editAcc):null;
+  const t0=ed?ed.type:"A";
+  let rows="",last="";
+  for(const a of sortAcc(co().accounts)){
+    const g=a.type+a.cls;
+    if(g!==last){rows+=`<tr class="grp"><td colspan="6">${TYPES[a.type]} · ${CLS[a.type][a.cls]||""}</td></tr>`;last=g}
+    rows+=`<tr><td class="num">${esc(a.code)}</td><td>${esc(a.name)}</td><td>${chip(a.type)}</td>
+     <td>${a.nature==="D"?'<span class="dcol">Deudora</span>':'<span class="hcol">Acreedora</span>'}${a.nature!==DEFNAT[a.type]?' <small class="muted">(correctora)</small>':""}</td>
+     <td><span class="niif">${esc(a.niif||"—")}</span></td>
+     <td class="r"><div class="row edit-only" style="justify-content:flex-end;flex-wrap:nowrap"><button class="btn sm ghost" data-act="editAcc" data-code="${esc(a.code)}">Editar</button>${used.has(a.code)?'<small class="muted" style="align-self:center">En uso</small>':`<button class="btn sm danger" data-act="delAcc" data-code="${esc(a.code)}">Eliminar</button>`}</div></td></tr>`;
+  }
+  return `<div class="head"><div><div class="eyebrow">Paso 1 · NIC 1 Presentación de estados financieros</div><h2>Catálogo de cuentas</h2>
+   <p>Codifica tus cuentas a tu gusto: el primer dígito suele indicar el elemento (1 Activo, 2 Pasivo, 3 Patrimonio, 4 Ingresos, 5 Costos, 6 Gastos). La clasificación corriente / no corriente sigue la NIC 1.</p></div></div>
+  <div class="stack">
+   <form class="panel stack edit-only" id="fAcc">
+    <h3>${ed?`Editar cuenta ${esc(ed.code)}`:"Agregar cuenta"}</h3>
+    <div class="row">
+      <div class="field" style="flex:0 1 120px"><label for="aCode">Código</label><input id="aCode" required placeholder="1108" value="${esc(ed?ed.code:"")}"></div>
+      <div class="field" style="flex:2 1 220px"><label for="aName">Nombre de la cuenta</label><input id="aName" required placeholder="Ej.: Documentos por cobrar" value="${esc(ed?ed.name:"")}"></div>
+      <div class="field"><label for="aType">Elemento</label><select id="aType">${Object.entries(TYPES).map(([k,v])=>`<option value="${k}" ${k===t0?"selected":""}>${v}</option>`).join("")}</select></div>
+      <div class="field"><label for="aCls">Clasificación</label><select id="aCls">${Object.entries(CLS[t0]).map(([k,v])=>`<option value="${k}" ${ed&&ed.cls===k?"selected":""}>${v}</option>`).join("")}</select></div>
+      <div class="field" style="flex:0 1 120px"><label for="aNiif">Norma</label><input id="aNiif" placeholder="NIC 16" value="${esc(ed?ed.niif:"")}"></div>
+    </div>
+    <label class="check"><input type="checkbox" id="aContra" ${ed&&ed.nature!==DEFNAT[ed.type]?"checked":""}> Cuenta correctora (naturaleza contraria a su elemento, como la depreciación acumulada)</label>
+    ${ed&&used.has(ed.code)?'<p class="note" style="margin:0">Esta cuenta tiene asientos. Si cambias el código, los asientos se actualizan con el código nuevo.</p>':""}
+    <div class="row"><button class="btn primary" type="submit">${ed?"Guardar cambios":"＋ Agregar al catálogo"}</button>${ed?'<button type="button" class="btn ghost" data-act="cancelEditAcc">Cancelar</button>':""}</div>
+   </form>
+   ${co().accounts.length?`<div class="tbl"><table><thead><tr><th>Código</th><th>Cuenta</th><th>Elemento</th><th>Naturaleza</th><th>Norma</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+     :`<div class="empty"><h3>El catálogo está vacío</h3><p>Agrega tu primera cuenta o carga el catálogo base.</p><button class="btn pop edit-only" data-act="loadBase">Cargar catálogo base NIIF</button></div>`}
+  </div>`;
+};
+
+function draftLinesHTML(){
+  return draft.lines.map((l,i)=>`<div class="line" data-i="${i}">
+    <select data-f="code" aria-label="Cuenta, línea ${i+1}">${acctOptions(l.code)}</select>
+    <input class="amt d" data-f="d" type="number" min="0" step="0.01" placeholder="0,00" value="${l.d}" aria-label="Debe, línea ${i+1}">
+    <input class="amt h" data-f="c" type="number" min="0" step="0.01" placeholder="0,00" value="${l.c}" aria-label="Haber, línea ${i+1}">
+    <button type="button" class="xbtn" data-act="rmLine" data-i="${i}" aria-label="Quitar línea" ${draft.lines.length<=2?"disabled":""}>×</button></div>`).join("");
+}
+function draftTotals(){
+  let d=0,c=0,bad=false;for(const l of draft.lines){d+=+l.d||0;c+=+l.c||0;if((+l.d&&+l.c))bad=true}
+  const valid=draft.lines.filter(l=>l.code&&(+l.d||+l.c)).length>=2;
+  const ok=r2(d)===r2(c)&&d>0&&!bad&&valid;
+  const msg=ok?"Partida doble correcta: Debe = Haber":bad?"Una línea no puede tener Debe y Haber a la vez":d===0&&c===0?"Escribe los montos del asiento":r2(d)!==r2(c)?`Diferencia de ${money(d-c)}`:"Elige la cuenta de cada línea con monto";
+  return {d,c,ok,msg};
+}
+function updateTotals(){
+  const t=draftTotals();
+  document.getElementById("tD").textContent=money(t.d);document.getElementById("tC").textContent=money(t.c);
+  const st=document.getElementById("tSt");st.className="status "+(t.ok?"ok":"bad");st.innerHTML=`<span class="dot"></span>${t.msg}`;
+  document.getElementById("saveEntry").disabled=!t.ok;
+}
+VIEWS.diario=()=>{
+  const c=co(),t=draftTotals();
+  let rows="";
+  for(const e of [...c.entries].sort((a,b)=>a.date.localeCompare(b.date)||a.n-b.n)){
+    const ls=[...e.lines.filter(l=>+l.d),...e.lines.filter(l=>+l.c)];
+    rows+=ls.map((l,i)=>{const a=acc(l.code);return `<tr>
+      ${i===0?`<td rowspan="${ls.length+1}" class="num">${e.date}</td><td rowspan="${ls.length+1}"><span class="badge-n">${e.n}</span></td>`:""}
+      <td class="${+l.c?"indent":""}">${esc(l.code)} · ${esc(a?a.name:"(cuenta eliminada)")}</td>
+      <td class="r num dcol">${+l.d?money(l.d,false):""}</td><td class="r num hcol">${+l.c?money(l.c,false):""}</td>
+      ${i===0?`<td rowspan="${ls.length+1}" class="r"><button class="btn sm danger edit-only" data-act="delEntry" data-id="${e.id}">Eliminar</button></td>`:""}</tr>`}).join("")
+      +`<tr class="entry-desc"><td colspan="3">p/r ${esc(e.desc)}</td></tr>`;
+  }
+  const tr=trial();
+  return `<div class="head"><div><div class="eyebrow">Paso 2 · Marco Conceptual: base de acumulación (devengo)</div><h2>Libro Diario</h2>
+    <p>Registra cada transacción en orden cronológico con partida doble: el total del Debe siempre debe ser igual al total del Haber.</p></div></div>
+  <div class="stack">
+   <form class="panel stack edit-only" id="fEntry">
+    <div class="row"><h3 style="margin-right:auto">Asiento N.° ${c.entries.length+1}</h3></div>
+    <div class="row">
+      <div class="field" style="flex:0 1 170px"><label for="eDate">Fecha</label><input id="eDate" type="date" value="${draft.date}" required></div>
+      <div class="field" style="flex:3 1 260px"><label for="eDesc">Descripción (p/r…)</label><input id="eDesc" value="${esc(draft.desc)}" placeholder="Ej.: Compra de mercadería al contado" required></div>
+    </div>
+    <div class="lhead"><span>Cuenta</span><span class="dcol" style="text-align:right">Debe</span><span class="hcol" style="text-align:right">Haber</span><span></span></div>
+    <div class="lines" id="lines">${draftLinesHTML()}</div>
+    <div class="totals"><span>Totales</span><span class="num dcol" id="tD">${money(t.d)}</span><span class="num hcol" id="tC">${money(t.c)}</span><span></span></div>
+    <div class="status ${t.ok?"ok":"bad"}" id="tSt"><span class="dot"></span>${t.msg}</div>
+    <div class="row"><button type="button" class="btn" data-act="addLine">＋ Agregar línea</button>
+      <button type="button" class="btn ghost" data-act="clearDraft">Limpiar</button>
+      <span style="margin-left:auto"></span><button type="submit" class="btn primary" id="saveEntry" ${t.ok?"":"disabled"}>Registrar asiento ✓</button></div>
+   </form>
+   ${c.entries.length?`<div class="tbl"><table><thead><tr><th>Fecha</th><th>N.°</th><th>Cuenta</th><th class="r">Debe</th><th class="r">Haber</th><th></th></tr></thead>
+     <tbody>${rows}<tr class="tot"><td colspan="3">Sumas iguales</td><td class="r num dcol">${money(tr.d)}</td><td class="r num hcol">${money(tr.c)}</td><td></td></tr></tbody></table></div>`
+     :`<div class="empty"><h3>Aún no hay asientos</h3><p>Registra la primera transacción con el formulario de arriba.</p></div>`}
+   ${c.entries.length?`<div class="row"><span style="margin-left:auto"></span><button class="btn pop" data-go="mayor">Pasar al Libro Mayor →</button></div>`:""}
+  </div>`;
+};
+
+VIEWS.mayor=()=>{
+  const c=co(),m=movs();
+  const list=sortAcc(c.accounts.filter(a=>m[a.code]));
+  const f=APP.mayorF||"";
+  const shown=f?list.filter(a=>a.type===f):list;
+  const cards=shown.map(a=>{
+    const dl=[],cl=[];
+    for(const e of c.entries)for(const l of e.lines)if(l.code===a.code){if(+l.d)dl.push([e.n,+l.d]);if(+l.c)cl.push([e.n,+l.c])}
+    const x=m[a.code];
+    const side=r2(x.d-x.c)>=0?"deudor":"acreedor";
+    const li=arr=>arr.map(([n,v])=>`<div class="tline"><small>#${n}</small><span class="num">${money(v,false)}</span></div>`).join("")||'<div class="tline muted">—</div>';
+    return `<article class="tacc"><header><div><div class="eyebrow">${esc(a.code)}</div><h3>${esc(a.name)}</h3></div>${chip(a.type)}</header>
+      <div class="tbody"><div><div class="eyebrow dcol">Debe</div>${li(dl)}<div class="tline tsum dcol"><span>Σ</span><span class="num">${money(x.d,false)}</span></div></div>
+      <div><div class="eyebrow hcol">Haber</div>${li(cl)}<div class="tline tsum hcol"><span>Σ</span><span class="num">${money(x.c,false)}</span></div></div></div>
+      <div class="tsaldo"><span>Saldo ${r2(x.d-x.c)===0?"":side}</span><span class="num ${side==="acreedor"?"hcol":"dcol"}">${money(Math.abs(x.d-x.c))}</span></div></article>`;
+  }).join("");
+  return `<div class="head"><div><div class="eyebrow">Paso 3 · Pase al Mayor</div><h2>Libro Mayor</h2>
+    <p>Cada asiento del Diario se traslada a su cuenta T. El número pequeño indica de qué asiento viene el monto.</p></div>
+    <div class="field" style="flex:0 1 220px"><label for="mayorF">Ver cuentas de</label><select id="mayorF"><option value="">Todos los elementos</option>${Object.entries(TYPES).map(([k,v])=>`<option value="${k}" ${f===k?"selected":""}>${v}</option>`).join("")}</select></div></div>
+  ${list.length?`<div class="tgrid">${cards||'<div class="empty">No hay cuentas con movimiento en este elemento.</div>'}</div>
+   <div class="row" style="margin-top:16px"><span style="margin-left:auto"></span><button class="btn pop" data-go="balanza">Pasar a la Balanza →</button></div>`
+   :`<div class="empty"><h3>El Mayor está vacío</h3><p>Primero registra asientos en el Libro Diario.</p><button class="btn pop" data-go="diario">Ir al Libro Diario</button></div>`}`;
+};
+
+VIEWS.balanza=()=>{
+  const c=co(),m=movs(),list=sortAcc(c.accounts.filter(a=>m[a.code]));
+  let td=0,tc=0,sd=0,sc=0;
+  const rows=list.map(a=>{const x=m[a.code],b=r2(x.d-x.c);td+=x.d;tc+=x.c;if(b>0)sd+=b;else sc+=-b;
+    return `<tr><td class="num">${esc(a.code)}</td><td>${esc(a.name)}</td><td>${chip(a.type)}</td>
+      <td class="r num">${money(x.d,false)}</td><td class="r num">${money(x.c,false)}</td>
+      <td class="r num dcol">${b>0?money(b,false):""}</td><td class="r num hcol">${b<0?money(-b,false):""}</td></tr>`}).join("");
+  const ok1=r2(td)===r2(tc),ok2=r2(sd)===r2(sc);
+  return `<div class="head"><div><div class="eyebrow">Paso 4 · Comprobación aritmética</div><h2>Balanza de comprobación</h2>
+    <p>Reúne los totales y saldos del Mayor. Si las sumas del Debe y del Haber coinciden, el registro es aritméticamente correcto y puedes preparar los estados financieros.</p></div></div>
+  ${list.length?`<div class="stack">
+    <div class="status ${ok1&&ok2?"ok":"bad"}"><span class="dot"></span>${ok1&&ok2?"La balanza cuadra: movimientos y saldos están en equilibrio":"La balanza no cuadra: revisa los asientos del Diario"}</div>
+    <div class="tbl"><table><thead><tr><th rowspan="2">Código</th><th rowspan="2">Cuenta</th><th rowspan="2">Elemento</th><th colspan="2" class="r">Movimientos</th><th colspan="2" class="r">Saldos</th></tr>
+     <tr><th class="r">Debe</th><th class="r">Haber</th><th class="r">Deudor</th><th class="r">Acreedor</th></tr></thead>
+     <tbody>${rows}<tr class="tot"><td colspan="3">Totales</td><td class="r num">${money(td)}</td><td class="r num">${money(tc)}</td><td class="r num dcol">${money(sd)}</td><td class="r num hcol">${money(sc)}</td></tr></tbody></table></div>
+    <div class="row"><span style="margin-left:auto"></span><button class="btn pop" data-go="estados">Emitir estados financieros →</button></div></div>`
+   :`<div class="empty"><h3>Sin datos para la balanza</h3><p>Registra asientos para ver la balanza.</p><button class="btn pop" data-go="diario">Ir al Libro Diario</button></div>`}`;
+};
+
+function sh(title){const c=co();return `<div class="sh"><div class="eyebrow">${esc(c.code||"")} · ${esc(c.name)} · Céd. ${esc(c.cedula||"—")}</div><h3>${title}</h3>
+  <div>${title.includes("Situación")?`Al 31 de diciembre de ${c.period}`:longDate(c.period)}</div><div>Expresado en ${curName(c.currency)}</div></div>`}
+const L=(label,v,cls="",ind=false)=>`<tr class="${cls}"><td${ind?' class="indent"':""}>${label}</td><td class="r num">${v===null?"":money(v,false)}</td></tr>`;
+
+function stmtER(){
+  const m=movs(),r=results(m);
+  const det=f=>sortAcc(co().accounts.filter(a=>f(a)&&m[a.code])).map(a=>L(esc(a.name),signed(a,m),"",true)).join("");
+  return `<div class="stmt">${sh("Estado de Resultados Integral")}<div class="tbl" style="border:none"><table>
+   <tr class="sec"><td colspan="2">Ingresos de actividades ordinarias <span class="niif">NIIF 15</span></td></tr>${det(a=>a.type==="I"&&a.cls==="ORD")}
+   ${L("Total ingresos ordinarios",r.ing,"sub")}
+   ${L("(−) Costo de ventas",-r.cv)}
+   ${L("Utilidad bruta",r.ub,"sub")}
+   <tr class="sec"><td colspan="2">Gastos de operación</td></tr>${det(a=>a.type==="G"&&a.cls==="OP")}
+   ${L("Total gastos de operación",-r.gop,"sub")}
+   ${L("Utilidad de operación",r.uop,"sub")}
+   ${L("(+) Otros ingresos",r.otr)}${L("(−) Gastos financieros",-r.gfin)}
+   ${L("Utilidad antes de impuesto",r.uai,"sub")}
+   ${L('(−) Gasto por impuesto sobre la renta <span class="niif">NIC 12</span>',-r.isr)}
+   ${L(r.un>=0?"Utilidad neta del periodo":"Pérdida neta del periodo",r.un,"big")}
+   ${L("Otro resultado integral",0)}
+   ${L("Resultado integral total del periodo",r.un,"big")}
+  </table></div><p class="note">Presentado según NIC 1, párrafos 81A a 105, con los gastos clasificados por su función. El impuesto sobre la renta corresponde al registrado en el Libro Diario.</p></div>`;
+}
+function stmtESF(){
+  const m=movs(),r=results(m),p=position(m);
+  const det=f=>sortAcc(co().accounts.filter(a=>f(a)&&m[a.code]&&r2(signed(a,m))!==0)).map(a=>L(esc(a.name),signed(a,m),"",true)).join("")||'<tr><td class="indent muted">Sin saldo</td><td></td></tr>';
+  const s=f=>sumWhere(m,f);
+  return `<div class="stmt">${sh("Estado de Situación Financiera")}
+   <div class="status ${p.ok?"ok":"bad"}" style="margin-bottom:10px"><span class="dot"></span>${p.ok?"Activo = Pasivo + Patrimonio":"No cuadra: Activo ≠ Pasivo + Patrimonio"}</div>
+   <div class="tbl" style="border:none"><table>
+   <tr class="sec"><td colspan="2">ACTIVO</td></tr>
+   <tr><td><b>Activo corriente</b></td><td></td></tr>${det(a=>a.type==="A"&&a.cls==="C")}${L("Total activo corriente",s(a=>a.type==="A"&&a.cls==="C"),"sub")}
+   <tr><td><b>Activo no corriente</b></td><td></td></tr>${det(a=>a.type==="A"&&a.cls==="NC")}${L("Total activo no corriente",s(a=>a.type==="A"&&a.cls==="NC"),"sub")}
+   ${L("TOTAL ACTIVO",p.A,"big")}
+   <tr class="sec"><td colspan="2">PASIVO</td></tr>
+   <tr><td><b>Pasivo corriente</b></td><td></td></tr>${det(a=>a.type==="P"&&a.cls==="C")}${L("Total pasivo corriente",s(a=>a.type==="P"&&a.cls==="C"),"sub")}
+   <tr><td><b>Pasivo no corriente</b></td><td></td></tr>${det(a=>a.type==="P"&&a.cls==="NC")}${L("Total pasivo no corriente",s(a=>a.type==="P"&&a.cls==="NC"),"sub")}
+   ${L("TOTAL PASIVO",p.P,"sub")}
+   <tr class="sec"><td colspan="2">PATRIMONIO</td></tr>${det(a=>a.type==="PT")}
+   ${L("Utilidad (pérdida) del periodo",r.un,"",true)}
+   ${L("TOTAL PATRIMONIO",p.PT,"sub")}
+   ${L("TOTAL PASIVO + PATRIMONIO",p.P+p.PT,"big")}
+  </table></div><p class="note">Clasificación corriente / no corriente según NIC 1, párrafos 60 a 76. Las cuentas correctoras (por ejemplo, depreciación acumulada) se muestran entre paréntesis restando a su activo.</p></div>`;
+}
+function stmtECP(){
+  const m=movs(),r=results(m);
+  const col=k=>sumWhere(m,a=>a.type==="PT"&&a.cls===k);
+  const cap=col("CAP"),res=col("RES"),ur=col("UR");
+  const row=(l,a,b,c,cls="")=>`<tr class="${cls}"><td>${l}</td><td class="r num">${money(a,false)}</td><td class="r num">${money(b,false)}</td><td class="r num">${money(c,false)}</td><td class="r num"><b>${money(a+b+c,false)}</b></td></tr>`;
+  return `<div class="stmt">${sh("Estado de Cambios en el Patrimonio")}<div class="tbl"><table>
+   <thead><tr><th>Concepto</th><th class="r">Capital social</th><th class="r">Reservas</th><th class="r">Utilidades retenidas</th><th class="r">Total</th></tr></thead><tbody>
+   ${row(`Saldo al 1 de enero de ${co().period}`,0,0,0)}
+   ${row("Aportes, reservas y dividendos del periodo",cap,res,ur)}
+   ${row("Resultado integral del periodo",0,0,r.un)}
+   ${row(`Saldo al 31 de diciembre de ${co().period}`,cap,res,ur+r.un,"tot")}
+   </tbody></table></div><p class="note">Según NIC 1, párrafos 106 a 110. El saldo inicial se toma en cero porque el sistema parte de los asientos registrados en el periodo; para empresas en marcha, registra un asiento de apertura con los saldos anteriores.</p></div>`;
+}
+VIEWS.estados=()=>{
+  const c=co();
+  if(!c.entries.length)return `<div class="head"><div><div class="eyebrow">Paso 5</div><h2>Estados financieros</h2></div></div><div class="empty"><h3>No hay información para presentar</h3><p>Registra asientos en el Diario para generar los estados.</p><button class="btn pop" data-go="diario">Ir al Libro Diario</button></div>`;
+  const t=APP.eeTab||"er";
+  const tr=trial();
+  return `<div class="head"><div><div class="eyebrow">Paso 5 · NIC 1 Presentación de estados financieros</div><h2>Estados financieros</h2>
+    <p>Se generan solos a partir de la balanza. Cambia un asiento en el Diario y verás cómo se actualizan.</p></div></div>
+   ${tr.ok?"":`<div class="status bad" style="margin-bottom:12px"><span class="dot"></span>La balanza no cuadra; corrige el Diario antes de presentar los estados.</div>`}
+   <div class="tabs" role="tablist">
+     <button class="tab ${t==="er"?"on":""}" data-tab="er" role="tab">Estado de Resultados</button>
+     <button class="tab ${t==="esf"?"on":""}" data-tab="esf" role="tab">Situación Financiera</button>
+     <button class="tab ${t==="ecp"?"on":""}" data-tab="ecp" role="tab">Cambios en el Patrimonio</button></div>
+   ${t==="er"?stmtER():t==="esf"?stmtESF():stmtECP()}`;
+};
+
+/* ============ Módulo de Planillas · Costa Rica ============ */
+/* A · Parámetros legales (programables, nada quemado en los cálculos) */
+const PL_DEFAULT={
+  version:"Costa Rica 2026",
+  obrero:[
+    {id:"sem_o",nombre:"SEM · Seguro de Enfermedad y Maternidad",pct:5.50,cuenta:"2107",ley:"Reglamento del Seguro de Salud, CCSS",activa:true},
+    {id:"ivm_o",nombre:"IVM · Invalidez, Vejez y Muerte",pct:4.33,cuenta:"2107",ley:"Reglamento del Seguro IVM, CCSS",activa:true},
+    {id:"bp_o",nombre:"Banco Popular · aporte del trabajador",pct:1.00,cuenta:"2108",ley:"Ley Orgánica del Banco Popular 4351",activa:true}
+  ],
+  patronal:[
+    {id:"sem_p",nombre:"SEM · Enfermedad y Maternidad (patronal)",pct:9.25,cuenta:"2107",ley:"CCSS",activa:true},
+    {id:"ivm_p",nombre:"IVM · Invalidez, Vejez y Muerte (patronal)",pct:5.58,cuenta:"2107",ley:"CCSS",activa:true},
+    {id:"af",nombre:"Asignaciones Familiares (FODESAF)",pct:5.00,cuenta:"2107",ley:"Ley 5662",activa:true},
+    {id:"imas",nombre:"IMAS",pct:0.50,cuenta:"2107",ley:"Ley 4760",activa:true},
+    {id:"ina",nombre:"INA",pct:1.50,cuenta:"2107",ley:"Ley 6868",activa:true},
+    {id:"bp_p",nombre:"Banco Popular · cuota patronal",pct:0.25,cuenta:"2108",ley:"Ley 4351",activa:true},
+    {id:"bp_lpt",nombre:"Aporte patrono Banco Popular (LPT)",pct:0.25,cuenta:"2108",ley:"Ley de Protección al Trabajador 7983",activa:true},
+    {id:"fcl",nombre:"FCL · Fondo de Capitalización Laboral",pct:1.50,cuenta:"2109",ley:"Ley 7983, art. 3",activa:true},
+    {id:"opc",nombre:"OPC · Pensión Complementaria",pct:2.00,cuenta:"2107",ley:"Ley 7983, art. 13",activa:true},
+    {id:"ins_lpt",nombre:"INS (Ley de Protección al Trabajador)",pct:1.00,cuenta:"2107",ley:"Ley 7983",activa:true}
+  ],
+  prov:[
+    {id:"aguinaldo",nombre:"Aguinaldo (1/12)",pct:8.33,gasto:"6108",pasivo:"2111",ley:"Ley 2412",activa:true},
+    {id:"vacaciones",nombre:"Vacaciones (2 semanas por 50)",pct:4.17,gasto:"6109",pasivo:"2112",ley:"Código de Trabajo, art. 153",activa:true},
+    {id:"cesantia",nombre:"Cesantía",pct:5.33,gasto:"6110",pasivo:"2113",ley:"Código de Trabajo, art. 29",activa:false}
+  ],
+  renta:{tramos:[{hasta:918000,pct:0},{hasta:1347000,pct:10},{hasta:2364000,pct:15},{hasta:4727000,pct:20},{hasta:null,pct:25}],hijo:1710,conyuge:2590},
+  jornada:{dias:30,horas:8,factorExtra:1.5},
+  jornadas:[
+    {id:"diurna",nombre:"Diurna",horas:8,semana:48,horario:"Entre 5:00 a. m. y 7:00 p. m.",ley:"Código de Trabajo, art. 136"},
+    {id:"mixta",nombre:"Mixta",horas:7,semana:42,horario:"Combina horas diurnas y nocturnas (máx. 3,5 h nocturnas)",ley:"Código de Trabajo, art. 138"},
+    {id:"nocturna",nombre:"Nocturna",horas:6,semana:36,horario:"Entre 7:00 p. m. y 5:00 a. m.",ley:"Código de Trabajo, art. 138"}],
+  pagos:[{id:"mensual",nombre:"Mensual",divisor:1},{id:"quincenal",nombre:"Quincenal",divisor:2}],
+  rebajos:[
+    {id:"asoc",nombre:"Asociación solidarista (aporte del trabajador)",modo:"pct",valor:5,cuenta:"2114",ley:"Ley de Asociaciones Solidaristas 6970",activa:true},
+    {id:"ahorro",nombre:"Ahorro voluntario",modo:"monto",valor:10000,cuenta:"2115",ley:"Autorización escrita del trabajador",activa:true}]
+};
+const PL_ACCOUNTS=[
+  ["1102","Bancos","A","C","D","NIC 7"],
+  ["2104","Salarios y cargas sociales por pagar","P","C","A","NIC 19"],
+  ["2107","CCSS por pagar","P","C","A","NIC 19"],["2108","Banco Popular por pagar","P","C","A","Ley 7983"],
+  ["2109","FCL por pagar","P","C","A","Ley 7983"],["2110","Retención de renta sobre salarios por pagar","P","C","A","Ley 7092"],
+  ["2111","Provisión para aguinaldo","P","C","A","NIC 19"],["2112","Provisión para vacaciones","P","C","A","NIC 19"],["2113","Provisión para cesantía","P","C","A","NIC 37"],
+  ["2114","Asociación solidarista por pagar","P","C","A","Ley 6970"],["2115","Ahorros de colaboradores por pagar","P","C","A","NIC 19"],
+  ["6101","Salarios","G","OP","D","NIC 19"],["6102","Cargas sociales","G","OP","D","NIC 19"],
+  ["6108","Gasto por aguinaldo","G","OP","D","NIC 19"],["6109","Gasto por vacaciones","G","OP","D","NIC 19"],["6110","Gasto por cesantía","G","OP","D","NIC 19"]
+].map(([code,name,type,cls,nature,niif])=>({code,name,type,cls,nature,niif}));
+function plSampleEmployees(){return [
+  {id:uid(),nombre:"Ana Lucía Vargas Mora",cedula:"1-1234-0567",puesto:"Contadora",base:1150000,horasExtra:4,comisiones:0,diasAusencia:0,horasTarde:0,hijos:1,conyuge:true,jornada:"diurna",tipoPago:"mensual",rebajos:{ahorro:{on:true,valor:25000}}},
+  {id:uid(),nombre:"Carlos Andrés Solís Rojas",cedula:"2-0456-0789",puesto:"Vendedor",base:520000,horasExtra:6,comisiones:85000,diasAusencia:0,horasTarde:0,hijos:0,conyuge:false,jornada:"diurna",tipoPago:"mensual",rebajos:{asoc:{on:true,valor:5}}},
+  {id:uid(),nombre:"María José Quesada Chaves",cedula:"1-1789-0234",puesto:"Encargada de bodega",base:410000,horasExtra:0,comisiones:0,diasAusencia:1,horasTarde:2,hijos:2,conyuge:false,jornada:"mixta",tipoPago:"mensual",rebajos:{asoc:{on:true,valor:5}}},
+  {id:uid(),nombre:"Luis Fernando Arias Méndez",cedula:"3-0512-0876",puesto:"Oficial de seguridad",base:480000,horasExtra:3,comisiones:0,diasAusencia:0,horasTarde:0,hijos:1,conyuge:true,jornada:"nocturna",tipoPago:"quincenal",rebajos:{}}
+]}
+function ensurePayroll(c){
+  c.payroll??={};const p=c.payroll;
+  p.params??=clone(PL_DEFAULT);for(const k of ["jornadas","pagos","rebajos"])p.params[k]??=clone(PL_DEFAULT[k]);p.employees??=[];p.runs??=[];p.evals??=[];
+  return p;
+}
+Object.assign(APP,{plTab:"planilla",plRun:null,plEditEmp:null,plShow:null,plMode:"practica",plCase:null,plAns:{},plChecked:null,plShowProc:false,plLocked:false});
+
+/* B · Motor de cálculo */
+const plAct=l=>(l||[]).filter(x=>x.activa!==false);
+function plRentaTramos(bruto,P,div){let prev=0,rb=0;for(const t of P.renta.tramos){const lim=(t.hasta===null||t.hasta===""||t.hasta===undefined)?Infinity:+t.hasta/div;const b=Math.max(0,Math.min(bruto,lim)-prev);rb+=r2(b*(+t.pct)/100);prev=lim;if(bruto<=lim)break}return r2(rb)}
+function plCalc(e,P){
+  const J=P.jornada,base0=r2(+e.base||0);
+  const jor=(P.jornadas||[]).find(j=>j.id===(e.jornada||"diurna"))||(P.jornadas||[])[0]||{id:"diurna",nombre:"Diurna",horas:J.horas||8};
+  const pg=(P.pagos||[]).find(x=>x.id===(e.tipoPago||"mensual"))||(P.pagos||[])[0]||{id:"mensual",nombre:"Mensual",divisor:1};
+  const div=+pg.divisor||1,horas=+jor.horas||8;
+  const base=r2(base0/div);
+  const vDia=r2(base0/J.dias),vHora=r2(base0/J.dias/horas);
+  const he=+e.horasExtra||0,extra=r2(he*vHora*J.factorExtra);
+  const comis=r2(+e.comisiones||0);
+  const ausen=r2((+e.diasAusencia||0)*vDia),tarde=r2((+e.horasTarde||0)*vHora);
+  const bruto=r2(base+extra+comis-ausen-tarde);
+  const obrero=plAct(P.obrero).map(x=>({id:x.id,nombre:x.nombre,pct:+x.pct,cuenta:x.cuenta,monto:r2(bruto*x.pct/100)}));
+  const totObr=r2(obrero.reduce((s,x)=>s+x.monto,0));
+  let prev=0,rb=0;const tramos=[];
+  for(const t of P.renta.tramos){
+    const lim=(t.hasta===null||t.hasta===""||t.hasta===undefined)?Infinity:+t.hasta/div;
+    const b=Math.max(0,Math.min(bruto,lim)-prev),imp=r2(b*(+t.pct)/100);
+    tramos.push({desde:prev,hasta:lim,pct:+t.pct,base:r2(b),imp});rb+=imp;prev=lim;if(bruto<=lim)break;
+  }
+  const rentaBruta=r2(rb);
+  const creditos=r2(((+e.hijos||0)*P.renta.hijo+(e.conyuge?P.renta.conyuge:0))/div);
+  const credAplic=Math.min(creditos,rentaBruta);
+  const renta=r2(rentaBruta-credAplic);
+  const rebajos=plAct(P.rebajos).filter(r=>e.rebajos?.[r.id]?.on).map(r=>{const val=+(e.rebajos[r.id].valor??r.valor)||0;
+    return {id:r.id,nombre:r.nombre,modo:r.modo,valor:val,cuenta:r.cuenta,monto:r.modo==="pct"?r2(bruto*val/100):r2(val)}});
+  const totReb=r2(rebajos.reduce((s,x)=>s+x.monto,0));
+  const totDed=r2(totObr+renta+totReb),neto=r2(bruto-totDed);
+  const patronal=plAct(P.patronal).map(x=>({id:x.id,nombre:x.nombre,pct:+x.pct,cuenta:x.cuenta,monto:r2(bruto*x.pct/100)}));
+  const totPat=r2(patronal.reduce((s,x)=>s+x.monto,0));
+  const prov=plAct(P.prov).map(x=>({id:x.id,nombre:x.nombre,pct:+x.pct,gasto:x.gasto,pasivo:x.pasivo,monto:r2(bruto*x.pct/100)}));
+  const totProv=r2(prov.reduce((s,x)=>s+x.monto,0));
+  return {base0,base,div,jor:{id:jor.id,nombre:jor.nombre,horas},pago:{id:pg.id,nombre:pg.nombre,divisor:div},vDia,vHora,he,extra,comis,dias:+e.diasAusencia||0,ausen,ht:+e.horasTarde||0,tarde,bruto,obrero,totObr,tramos,rentaBruta,creditos,credAplic,renta,rebajos,totReb,totDed,neto,patronal,totPat,prov,totProv,costo:r2(bruto+totPat+totProv),J};
+}
+function plRunLabel(r){const m=plMes(r.periodo);if(!r.nPago)return m;return r.div===2?`${r.nPago}.ª quincena de ${m}`:`${r.nPago}.° pago ${String(r.tipoNombre||"").toLowerCase()} de ${m}`}
+function plRunKey(r){return r.periodo+"|"+(r.nPago||0)+"|"+(r.tipo||"mensual")}
+function plPayDate(r){const last=plLastDay(r.periodo);if(!r.nPago)return last;const ld=+last.slice(8);const d=r.div===2?(r.nPago===1?15:ld):Math.min(ld,Math.round(7*r.nPago));return r.periodo+"-"+String(d).padStart(2,"0")}
+const pct=n=>NF.format(+n).replace(/,00$/,"")+" %";
+const plMes=p=>{const [y,m]=String(p).split("-");return ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","setiembre","octubre","noviembre","diciembre"][(+m||1)-1]+" de "+y};
+const plLastDay=p=>{const [y,m]=String(p).split("-").map(Number);return `${y}-${String(m).padStart(2,"0")}-${String(new Date(y,m,0).getDate()).padStart(2,"0")}`};
+
+/* D · Asiento de diario de la planilla */
+const PL_WHY={"6101":"Gasto por los salarios brutos devengados en el mes","6102":"Gasto por las cuotas que paga el patrono sobre los salarios",
+  "6108":"Gasto del mes por el aguinaldo que se pagará en diciembre","6109":"Gasto del mes por las vacaciones que se van acumulando","6110":"Gasto del mes por la cesantía que se acumula",
+  "2107":"Deuda con la CCSS: cuotas obreras retenidas + cuotas patronales","2108":"Deuda con el Banco Popular: aporte obrero + patronal","2109":"Deuda por el Fondo de Capitalización Laboral",
+  "2110":"Impuesto retenido al trabajador que se paga a Hacienda","2111":"Obligación acumulada de aguinaldo","2112":"Obligación acumulada de vacaciones","2113":"Obligación acumulada de cesantía",
+  "1102":"Salida de dinero: salarios netos depositados","2114":"Aporte retenido al trabajador que se entrega a la asociación solidarista","2115":"Ahorro retenido al trabajador que la empresa debe depositar","2104":"Salarios netos que aún se deben a los colaboradores"};
+function plEntryLines(run){
+  const M=new Map();const add=(code,d,c)=>{const x=M.get(code)||{code,d:0,c:0};x.d+=d;x.c+=c;M.set(code,x)};
+  for(const r of run.res){const k=r.calc;
+    add("6101",k.bruto,0);if(k.totPat)add("6102",k.totPat,0);
+    for(const x of k.prov){add(x.gasto,x.monto,0);add(x.pasivo,0,x.monto)}
+    for(const x of k.obrero)add(x.cuenta,0,x.monto);
+    for(const x of k.patronal)add(x.cuenta,0,x.monto);
+    if(k.renta)add("2110",0,k.renta);
+    for(const x of (k.rebajos||[]))add(x.cuenta,0,x.monto);
+    add(run.pago||"1102",0,k.neto);
+  }
+  let lines=[...M.values()].map(x=>{const n=r2(x.d-x.c);return {code:x.code,d:n>0?n:0,c:n<0?-n:0}}).filter(l=>l.d||l.c);
+  lines.sort((a,b)=>(b.d>0)-(a.d>0)||a.code.localeCompare(b.code,undefined,{numeric:true}));
+  const D=r2(lines.reduce((s,l)=>s+l.d,0)),C=r2(lines.reduce((s,l)=>s+l.c,0));
+  if(D!==C){const n=lines.find(l=>l.code===(run.pago||"1102"));if(n)n.c=r2(n.c+D-C)}
+  return lines;
+}
+function plEnsureAccounts(c){let n=0;for(const a of PL_ACCOUNTS)if(!c.accounts.some(x=>x.code===a.code)){c.accounts.push({...a});n++}
+  const P=c.payroll.params;for(const x of [...P.obrero,...P.patronal])if(x.activa!==false&&!c.accounts.some(a=>a.code===x.cuenta)){c.accounts.push({code:x.cuenta,name:"Cuota "+x.nombre+" por pagar",type:"P",cls:"C",nature:"A",niif:"NIC 19"});n++}
+  for(const x of P.prov)if(x.activa!==false){if(!c.accounts.some(a=>a.code===x.gasto)){c.accounts.push({code:x.gasto,name:"Gasto por "+x.nombre,type:"G",cls:"OP",nature:"D",niif:"NIC 19"});n++}
+    if(!c.accounts.some(a=>a.code===x.pasivo)){c.accounts.push({code:x.pasivo,name:"Provisión para "+x.nombre,type:"P",cls:"C",nature:"A",niif:"NIC 19"});n++}}
+  for(const x of plAct(P.rebajos||[]))if(!c.accounts.some(a=>a.code===x.cuenta)){c.accounts.push({code:x.cuenta,name:x.nombre+" por pagar",type:"P",cls:"C",nature:"A",niif:"NIC 19"});n++}
+  return n;
+}
+function plRenumber(c){c.entries.sort((x,y)=>x.date.localeCompare(y.date)||x.n-y.n).forEach((x,i)=>x.n=i+1)}
+
+/* Procedimiento paso a paso (se usa en planilla y en práctica) */
+function plProcedure(k,e){
+  const J=k.J,f=v=>money(v);
+  const obr=k.obrero.map(x=>`<div>${esc(x.nombre)}: <span class="formula">${f(k.bruto)} × ${pct(x.pct)} = ${f(x.monto)}</span></div>`).join("");
+  const tr=k.tramos.map(t=>`<tr><td>${t.hasta===Infinity?`Exceso de ${f(t.desde)}`:`De ${f(t.desde)} a ${f(t.hasta)}`}</td><td class="r num">${pct(t.pct)}</td><td class="r num">${money(t.base,false)}</td><td class="r num">${money(t.imp,false)}</td></tr>`).join("");
+  return `<ol class="proc">
+   ${k.div>1?`<li><b>Salario del pago ${esc(String(k.pago.nombre).toLowerCase())}.</b><br><span class="formula">${f(k.base0)} ÷ ${k.div} = ${f(k.base)}</span></li>`:""}
+   <li><b>Valor del día y de la hora</b> (jornada ${esc(String(k.jor?.nombre||"diurna").toLowerCase())} de ${k.jor?.horas||J.horas} horas; siempre con el salario mensual).<br><span class="formula">Día = ${f(k.base0??k.base)} ÷ ${J.dias} = ${f(k.vDia)}</span> <span class="formula">Hora = ${f(k.base0??k.base)} ÷ ${J.dias} ÷ ${k.jor?.horas||J.horas} = ${f(k.vHora)}</span></li>
+   ${k.he?`<li><b>Horas extra</b> a tiempo y medio (Código de Trabajo, art. 139).<br><span class="formula">${k.he} h × ${f(k.vHora)} × ${String(J.factorExtra).replace(".",",")} = ${f(k.extra)}</span></li>`:""}
+   ${k.comis?`<li><b>Comisiones</b> del mes: <span class="formula">${f(k.comis)}</span></li>`:""}
+   ${k.dias?`<li><b>Rebajo por ausencias.</b><br><span class="formula">${k.dias} día(s) × ${f(k.vDia)} = ${f(k.ausen)}</span></li>`:""}
+   ${k.ht?`<li><b>Rebajo por llegadas tardías.</b><br><span class="formula">${k.ht} h × ${f(k.vHora)} = ${f(k.tarde)}</span></li>`:""}
+   <li><b>Salario bruto.</b><br><span class="formula">${f(k.base)}${k.extra?" + "+f(k.extra):""}${k.comis?" + "+f(k.comis):""}${k.ausen?" − "+f(k.ausen):""}${k.tarde?" − "+f(k.tarde):""} = ${f(k.bruto)}</span></li>
+   <li><b>Cuotas obreras</b> (siempre sobre el salario bruto).${obr}<div>Total: <span class="formula">${f(k.totObr)}</span></div></li>
+   <li><b>Impuesto sobre la renta</b> (solo paga el exceso de cada tramo).${k.div>1?` Como el pago es ${esc(String(k.pago.nombre).toLowerCase())}, los tramos y los créditos se dividen entre ${k.div}.`:""}
+     <div class="tbl" style="margin-top:6px"><table><thead><tr><th>Tramo mensual</th><th class="r">Tarifa</th><th class="r">Monto en el tramo</th><th class="r">Impuesto</th></tr></thead><tbody>${tr}
+     <tr class="tot"><td colspan="3">Impuesto calculado</td><td class="r num">${money(k.rentaBruta,false)}</td></tr></tbody></table></div>
+     ${k.creditos?`<div>Créditos fiscales${e?` (${+e.hijos||0} hijo(s)${e.conyuge?", cónyuge":""})`:""}: <span class="formula">− ${f(k.credAplic)}</span>${k.credAplic<k.creditos?" <small class='muted'>(el crédito no puede dejar la renta en negativo)</small>":""}</div>`:""}
+     <div>Renta a retener: <span class="formula">${f(k.renta)}</span></div></li>
+   ${(k.rebajos||[]).length?`<li><b>Otros rebajos autorizados.</b>${k.rebajos.map(x=>`<div>${esc(x.nombre)}: <span class="formula">${x.modo==="pct"?`${f(k.bruto)} × ${pct(x.valor)} = `:"monto fijo "}${f(x.monto)}</span></div>`).join("")}<div>Total: <span class="formula">${f(k.totReb)}</span></div></li>`:""}
+   <li><b>Salario neto.</b><br><span class="formula">${f(k.bruto)} − ${f(k.totObr)} − ${f(k.renta)}${k.totReb?" − "+f(k.totReb):""} = ${f(k.neto)}</span></li>
+   <li><b>Costo para el patrono.</b><br><span class="formula">Cargas patronales ${pct(k.patronal.reduce((s,x)=>s+x.pct,0))} = ${f(k.totPat)}</span> <span class="formula">Provisiones = ${f(k.totProv)}</span> <span class="formula">Costo total = ${f(k.costo)}</span></li>
+  </ol>`;
+}
+
+/* Vistas del módulo */
+const PL_TABS=[["param","Parámetros legales"],["planilla","Colaboradores y planilla"],["practica","Práctica y evaluación"],["asiento","Asiento contable"],["colillas","Colillas de pago"]];
+VIEWS.planillas=()=>{
+  const c=co(),p=ensurePayroll(c);
+  if(APP.readOnly&&APP.plTab==="practica"&&!p.evals.length)APP.plTab="planilla";
+  const body={param:plViewParams,planilla:plViewPlanilla,practica:plViewPractica,asiento:plViewAsiento,colillas:plViewColillas}[APP.plTab]||plViewPlanilla;
+  return `<div class="head"><div><div class="eyebrow">Módulo · Código de Trabajo, CCSS y Ley de Protección al Trabajador</div><h2>Planillas</h2>
+    <p>Calcula la planilla con los porcentajes legales de Costa Rica, practica los cálculos, genera el asiento de diario y emite las colillas de pago.</p></div></div>
+   <div class="subtabs" role="tablist">${PL_TABS.map(([k,t],i)=>`<button class="subtab ${APP.plTab===k?"on":""}" data-pact="tab" data-k="${k}" role="tab">${i+1} · ${t}</button>`).join("")}</div>
+   ${plVistaToggle()}${body(c,p)}`;
+};
+
+function plViewParams(c,p){
+  const P=p.params,ro=APP.readOnly?"disabled":"";
+  const row=(L,x,i,prov)=>`<tr>
+    <td><input type="checkbox" data-pl="${L}.${i}.activa" ${x.activa!==false?"checked":""} ${ro} aria-label="Activa"></td>
+    <td><input class="nm" data-pl="${L}.${i}.nombre" value="${esc(x.nombre)}" ${ro} aria-label="Nombre"><div class="muted" style="font-size:.75rem">${esc(x.ley||"")}</div></td>
+    <td class="r"><input data-pl="${L}.${i}.pct" type="number" step="0.01" min="0" max="100" value="${x.pct}" ${ro} aria-label="Porcentaje"></td>
+    ${prov?`<td><input class="cta" data-pl="${L}.${i}.gasto" value="${esc(x.gasto)}" ${ro} aria-label="Cuenta de gasto"></td><td><input class="cta" data-pl="${L}.${i}.pasivo" value="${esc(x.pasivo)}" ${ro} aria-label="Cuenta de pasivo"></td>`
+      :`<td><input class="cta" data-pl="${L}.${i}.cuenta" value="${esc(x.cuenta)}" ${ro} aria-label="Cuenta por pagar"></td>`}
+    <td class="edit-only"><button type="button" class="xbtn" data-pact="delRow" data-l="${L}" data-i="${i}" aria-label="Quitar">×</button></td></tr>`;
+  const tot=L=>pct(plAct(P[L]).reduce((s,x)=>s+(+x.pct||0),0));
+  const tbl=(L,title,prov)=>`<div class="panel stack"><div class="row" style="align-items:center"><h3 style="margin-right:auto">${title}</h3><span class="chip tPT">Total ${tot(L)}</span></div>
+    <div class="tbl ptable"><table><thead><tr><th>Activa</th><th>Concepto y base legal</th><th class="r">%</th>${prov?"<th>Cuenta gasto</th><th>Cuenta pasivo</th>":"<th>Cuenta por pagar</th>"}<th class="edit-only"></th></tr></thead>
+    <tbody>${P[L].map((x,i)=>row(L,x,i,prov)).join("")}</tbody></table></div>
+    <div class="edit-only"><button type="button" class="btn sm" data-pact="addRow" data-l="${L}">＋ Agregar ${prov?"provisión":"cuota"}</button></div></div>`;
+  const tr=P.renta.tramos.map((t,i)=>`<tr><td>${i?`Sobre el exceso de ${money(P.renta.tramos[i-1].hasta||0)}`:"Desde ₡0"}</td>
+    <td class="r">${t.hasta===null?'<span class="muted">en adelante</span>':`<input data-pl="renta.tramos.${i}.hasta" type="number" step="1000" min="0" value="${t.hasta}" style="width:130px" ${ro} aria-label="Hasta">`}</td>
+    <td class="r"><input data-pl="renta.tramos.${i}.pct" type="number" step="0.5" min="0" max="100" value="${t.pct}" ${ro} aria-label="Tarifa"></td></tr>`).join("");
+  return `<form id="plParams" class="stack">
+    <div class="status ok"><span class="dot"></span>Parámetros cargados: ${esc(P.version||"personalizados")}. Cambia cualquier valor cuando cambie la ley y guarda.</div>
+    <div class="grid2">${tbl("obrero","Cuotas obreras (se rebajan al colaborador)")}${tbl("prov","Provisiones y prestaciones",true)}</div>
+    ${tbl("patronal","Cuotas patronales (las paga el patrono)")}
+    <p class="note" style="margin:0">El seguro de Riesgos del Trabajo del INS no viene incluido porque su prima depende de la actividad de la empresa. Puedes agregarlo como cuota patronal.</p>
+    <div class="grid2">
+     <div class="panel stack"><h3>Impuesto sobre la renta · salarios mensuales</h3>
+      <div class="tbl ptable"><table><thead><tr><th>Tramo</th><th class="r">Hasta (₡)</th><th class="r">Tarifa %</th></tr></thead><tbody>${tr}</tbody></table></div>
+      <div class="row"><div class="field"><label for="plHijo">Crédito por hijo (₡/mes)</label><input id="plHijo" data-pl="renta.hijo" type="number" step="10" value="${P.renta.hijo}" ${ro}></div>
+       <div class="field"><label for="plCony">Crédito por cónyuge (₡/mes)</label><input id="plCony" data-pl="renta.conyuge" type="number" step="10" value="${P.renta.conyuge}" ${ro}></div></div>
+     </div>
+     <div class="panel stack"><h3>Valor del día y horas extra</h3>
+      <div class="row"><div class="field"><label for="plDias">Días del mes para el valor diario</label><input id="plDias" data-pl="jornada.dias" type="number" min="1" value="${P.jornada.dias}" ${ro}></div>
+       <div class="field"><label for="plFac">Recargo hora extra (×)</label><input id="plFac" data-pl="jornada.factorExtra" type="number" step="0.1" min="1" value="${P.jornada.factorExtra}" ${ro}></div></div>
+      <p class="note" style="margin:0">Valor de la hora = salario mensual ÷ días ÷ horas de la jornada del colaborador. La hora extra se paga a tiempo y medio (Código de Trabajo, art. 139).</p>
+     </div>
+    </div>
+    <div class="grid2">
+     <div class="panel stack"><h3>Jornadas de trabajo</h3>
+      <div class="tbl ptable"><table><thead><tr><th>Jornada y horario</th><th class="r">Horas diarias</th><th class="r">Horas semanales</th><th class="edit-only"></th></tr></thead><tbody>
+      ${P.jornadas.map((j,i)=>`<tr><td><input class="nm" data-pl="jornadas.${i}.nombre" value="${esc(j.nombre)}" ${ro} aria-label="Jornada"><div class="muted" style="font-size:.75rem">${esc(j.horario||"")}${j.ley?" · "+esc(j.ley):""}</div></td>
+        <td class="r"><input data-pl="jornadas.${i}.horas" type="number" step="0.5" min="1" value="${j.horas}" ${ro} aria-label="Horas diarias"></td>
+        <td class="r"><input data-pl="jornadas.${i}.semana" type="number" step="1" min="1" value="${j.semana}" ${ro} aria-label="Horas semanales"></td>
+        <td class="edit-only"><button type="button" class="xbtn" data-pact="delRow" data-l="jornadas" data-i="${i}" aria-label="Quitar">×</button></td></tr>`).join("")}</tbody></table></div>
+      <div class="edit-only"><button type="button" class="btn sm" data-pact="addRow" data-l="jornadas">＋ Agregar jornada</button></div>
+     </div>
+     <div class="panel stack"><h3>Tipos de pago</h3>
+      <div class="tbl ptable"><table><thead><tr><th>Tipo</th><th class="r">Pagos por mes</th><th class="edit-only"></th></tr></thead><tbody>
+      ${P.pagos.map((x,i)=>`<tr><td><input class="nm" data-pl="pagos.${i}.nombre" value="${esc(x.nombre)}" ${ro} aria-label="Tipo de pago"></td>
+        <td class="r"><input data-pl="pagos.${i}.divisor" type="number" step="0.01" min="1" value="${x.divisor}" ${ro} aria-label="Pagos por mes"></td>
+        <td class="edit-only"><button type="button" class="xbtn" data-pact="delRow" data-l="pagos" data-i="${i}" aria-label="Quitar">×</button></td></tr>`).join("")}</tbody></table></div>
+      <div class="edit-only"><button type="button" class="btn sm" data-pact="addRow" data-l="pagos">＋ Agregar tipo de pago</button></div>
+      <p class="note" style="margin:0">En el pago quincenal, el salario base, los tramos de renta y los créditos fiscales se dividen entre 2. Las horas extra y las ausencias se valoran con el salario mensual.</p>
+     </div>
+    </div>
+    <div class="panel stack"><div class="row" style="align-items:center"><h3 style="margin-right:auto">Otros rebajos autorizados</h3><span class="chip tP">Abierto</span></div>
+     <p class="muted" style="margin:0">Asociación solidarista, ahorros, préstamos, embargos o pensiones alimentarias. Cada rebajo se aplica solo al colaborador que lo tenga marcado, con su propio porcentaje o monto.</p>
+     <div class="tbl ptable"><table><thead><tr><th>Activo</th><th>Rebajo y respaldo</th><th>Cálculo</th><th class="r">Valor sugerido</th><th>Cuenta por pagar</th><th class="edit-only"></th></tr></thead><tbody>
+     ${P.rebajos.map((x,i)=>`<tr><td><input type="checkbox" data-pl="rebajos.${i}.activa" ${x.activa!==false?"checked":""} ${ro} aria-label="Activo"></td>
+       <td><input class="nm" data-pl="rebajos.${i}.nombre" value="${esc(x.nombre)}" ${ro} aria-label="Rebajo"><div class="muted" style="font-size:.75rem">${esc(x.ley||"")}</div></td>
+       <td><select data-pl="rebajos.${i}.modo" ${ro} aria-label="Cálculo"><option value="pct" ${x.modo==="pct"?"selected":""}>% del bruto</option><option value="monto" ${x.modo!=="pct"?"selected":""}>Monto fijo</option></select></td>
+       <td class="r"><input data-pl="rebajos.${i}.valor" type="number" step="0.01" min="0" value="${x.valor}" ${ro} aria-label="Valor"></td>
+       <td><input class="cta" data-pl="rebajos.${i}.cuenta" value="${esc(x.cuenta)}" ${ro} aria-label="Cuenta"></td>
+       <td class="edit-only"><button type="button" class="xbtn" data-pact="delRow" data-l="rebajos" data-i="${i}" aria-label="Quitar">×</button></td></tr>`).join("")}</tbody></table></div>
+     <div class="edit-only"><button type="button" class="btn sm" data-pact="addRow" data-l="rebajos">＋ Agregar rebajo</button></div>
+    </div>
+    <div class="row edit-only"><button class="btn primary" type="submit">Guardar parámetros</button><button type="button" class="btn ghost" data-pact="resetParams">Restablecer valores 2026</button></div>
+  </form>`;
+}
+
+/* C · Práctica y evaluación */
+const PL_NOMBRES=["Valeria Jiménez","Diego Alvarado","Sofía Castro","Andrés Quesada","Camila Herrera","Mateo Araya","Isabella Chaves","Sebastián Monge","Fernanda Ureña","Gabriel Solano","Daniela Zúñiga","Josué Calderón"];
+const PL_PUESTOS=["Auxiliar contable","Vendedor","Cajera","Bodeguero","Recepcionista","Asistente administrativa","Técnico de soporte","Encargada de compras"];
+const PL_BASES=[365000,410000,450000,520000,615000,750000,880000,980000,1150000,1400000,1850000,2600000];
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+function plNewCase(){
+  const r=Math.random;
+  APP.plCase={nombre:pick(PL_NOMBRES),puesto:pick(PL_PUESTOS),base:pick(PL_BASES),horasExtra:r()<.7?1+Math.floor(r()*10):0,
+    comisiones:r()<.25?5000*(3+Math.floor(r()*20)):0,diasAusencia:r()<.25?1+Math.floor(r()*2):0,horasTarde:0,hijos:r()<.4?1+Math.floor(r()*2):0,conyuge:r()<.3,
+    jornada:(x=>x<.55?"diurna":x<.78?"mixta":"nocturna")(r()),tipoPago:r()<.3?"quincenal":"mensual",rebajos:{}};
+  if(r()<.35)APP.plCase.rebajos.asoc={on:true,valor:5};
+  if(r()<.25)APP.plCase.rebajos.ahorro={on:true,valor:pick([5000,10000,15000,20000])};
+  APP.plAns={};APP.plChecked=null;APP.plShowProc=false;APP.plLocked=false;
+}
+function plFields(k){
+  const f=k.div>1?[["base",`Salario del pago ${String(k.pago.nombre).toLowerCase()}`]]:[];f.push(["vHora","Valor de la hora ordinaria"]);
+  if(k.he)f.push(["extra","Monto de las horas extra"]);
+  if(k.dias)f.push(["ausen","Rebajo por ausencias"]);
+  f.push(["bruto","Salario bruto"]);
+  for(const x of k.obrero)f.push(["o:"+x.id,x.nombre.split("·")[0].trim()+" · cuota obrera "+pct(x.pct)]);
+  f.push(["renta","Impuesto sobre la renta a retener"]);
+  for(const x of (k.rebajos||[]))f.push(["r:"+x.id,x.nombre]);
+  f.push(["neto","Salario neto"]);
+  return f;
+}
+function plSol(k,key){if(key.startsWith("o:"))return k.obrero.find(x=>x.id===key.slice(2))?.monto??0;if(key.startsWith("r:"))return (k.rebajos||[]).find(x=>x.id===key.slice(2))?.monto??0;if(key==="reb")return k.totReb||0;return k[key]}
+function parseNum(s){
+  s=String(s??"").replace(/[₡\s]/g,"").replace(/[^\d.,-]/g,"");if(!s)return NaN;
+  const lc=s.lastIndexOf(","),ld=s.lastIndexOf(".");
+  if(lc>-1&&ld>-1){const dec=lc>ld?",":".";s=s.split(dec==","?".":",").join("").replace(dec,".")}
+  else if(lc>-1){s=/,\d{1,2}$/.test(s)&&s.split(",").length===2?s.replace(",","."):s.replace(/,/g,"")}
+  else if(ld>-1&&!(/\.\d{1,2}$/.test(s)&&s.split(".").length===2))s=s.replace(/\./g,"");
+  return parseFloat(s);
+}
+const near=(a,b,t=1)=>Math.abs(a-b)<=t;
+function plFeedback(key,v,k,P,ans){
+  const pP=id=>plAct(P.patronal).find(x=>x.id===id),h=k.jor?.horas||8,jn=String(k.jor?.nombre||"diurna").toLowerCase(),d=k.div||1;
+  if(key==="base")return `En pago ${String(k.pago.nombre).toLowerCase()} se paga el salario mensual ÷ ${d}.`;
+  if(key==="vHora"){if(h!==8&&near(v,r2(k.base0/P.jornada.dias/8)))return `La jornada ${jn} es de ${h} horas diarias, no de 8. Divide entre ${h}.`;
+    if(d>1&&near(v,r2(k.base/P.jornada.dias/h)))return "El valor de la hora se calcula con el salario mensual, no con el del pago quincenal.";
+    if(near(v,k.vDia))return `Ese es el valor de un día. Divide además entre las ${h} horas de la jornada ${jn}.`;
+    return `La hora ordinaria es salario mensual ÷ ${P.jornada.dias} días ÷ ${h} horas (jornada ${jn}). Redondea a dos decimales.`}
+  if(key==="extra"){if(near(v,k.he*k.vHora))return "Te faltó el recargo: la hora extra se paga a tiempo y medio (× 1,5), según el artículo 139 del Código de Trabajo.";
+    if(h!==8&&near(v,r2(k.he*r2(k.base0/P.jornada.dias/8)*P.jornada.factorExtra)))return `Usaste la hora de una jornada de 8 horas. Esta es jornada ${jn}: la hora vale salario mensual ÷ 30 ÷ ${h}.`;
+    if(near(v,k.he*k.vHora*2))return "El pago doble es para feriados. La hora extra ordinaria se paga a tiempo y medio (× 1,5).";
+    return "Multiplica las horas extra por el valor de la hora ordinaria y por 1,5."}
+  if(key==="ausen")return "Cada día de ausencia rebaja el valor de un día: salario mensual ÷ 30.";
+  if(key==="bruto"){if(d>1&&near(v,k.base0+k.extra+k.comis-k.ausen-k.tarde))return "En pago quincenal se parte del salario de la quincena (mensual ÷ 2), no del mensual.";
+    if(near(v,k.base))return "El bruto no es solo el salario base: suma las horas extra y las comisiones, y resta las ausencias.";
+    if(near(v,k.base+k.extra+k.comis+k.ausen))return "Las ausencias se restan del salario, no se suman.";
+    return "Salario bruto = salario del período + horas extra + comisiones − ausencias − llegadas tardías."}
+  if(key.startsWith("o:")){const x=k.obrero.find(o=>o.id===key.slice(2));
+    if(k.base!==k.bruto&&near(v,r2(k.base*x.pct/100)))return "Usaste el salario base. Las cuotas obreras se calculan sobre el salario bruto.";
+    const pid={sem_o:"sem_p",ivm_o:"ivm_p",bp_o:"bp_p"}[x.id];const pp=pid&&pP(pid);
+    if(pp&&near(v,r2(k.bruto*pp.pct/100)))return `Ese es el porcentaje patronal (${pct(pp.pct)}). Al colaborador se le rebaja ${pct(x.pct)}.`;
+    return `Revisa el cálculo: ${x.nombre.split("·")[0].trim()} obrero = salario bruto × ${pct(x.pct)}.`}
+  if(key==="renta"){const ex=P.renta.tramos[0].hasta/d;
+    if(k.bruto<=ex&&v>0)return `El salario bruto no supera ${money(ex)}${d>1?" (tramo exento ÷ "+d+")":""}, así que está exento: la renta es ₡0.`;
+    if(d>1&&near(v,r2(Math.max(0,plRentaTramos(k.bruto,P,1)-k.creditos*d))))return `En pago ${String(k.pago.nombre).toLowerCase()} los tramos de renta y los créditos se dividen entre ${d}.`;
+    if(near(v,r2(k.bruto*.10))||near(v,r2(k.bruto*.15)))return "La tarifa no se aplica a todo el salario. Cada tarifa se aplica solo a la parte del salario que cae en su tramo.";
+    if(k.credAplic>0&&near(v,k.rentaBruta))return "Calculaste bien los tramos, pero te faltó restar los créditos fiscales por hijos o cónyuge.";
+    return `Calcula tramo por tramo${d>1?" con los tramos ÷ "+d:""}: el primer tramo está exento y cada tarifa aplica solo al exceso. Al final resta los créditos fiscales.`}
+  if(key.startsWith("r:")){const x=(k.rebajos||[]).find(o=>o.id===key.slice(2));
+    if(x.modo==="pct"&&k.base!==k.bruto&&near(v,r2(k.base*x.valor/100)))return "Este rebajo se calcula sobre el salario bruto, no sobre el base.";
+    return x.modo==="pct"?`${x.nombre}: salario bruto × ${pct(x.valor)}.`:`${x.nombre}: es un monto fijo de ${money(x.valor)} en cada pago.`}
+  if(key==="reb")return (k.rebajos||[]).length?"Suma los rebajos autorizados: "+k.rebajos.map(x=>x.nombre+(x.modo==="pct"?" (bruto × "+pct(x.valor)+")":" ("+money(x.valor)+")")).join(" + ")+".":"Este colaborador no tiene otros rebajos: escribe 0.";
+  if(key==="neto"){const g=id=>parseNum(ans[id]);const ob=k.obrero.map(x=>g("o:"+x.id));const R=k.rebajos||[];
+    const rb=!R.length?[]:(R.some(x=>("r:"+x.id) in ans)?R.map(x=>g("r:"+x.id)):[g("reb")]);
+    if(![g("bruto"),g("renta"),...ob,...rb].some(isNaN)&&near(v,g("bruto")-ob.reduce((s,x)=>s+x,0)-g("renta")-rb.reduce((s,x)=>s+x,0),1.5))return "Tu resta es correcta, pero arrastras un error de un campo anterior. Corrige ese campo y vuelve a calcular.";
+    if(k.totReb&&near(v,k.bruto-k.totObr-k.renta))return "Te faltó restar los otros rebajos (asociación, ahorro u otros).";
+    if(k.renta&&near(v,k.bruto-k.totObr-k.totReb))return "Te faltó restar el impuesto sobre la renta.";
+    return "Salario neto = salario bruto − cuotas obreras − renta − otros rebajos."}
+  return "Revisa este cálculo.";
+}
+function plViewPractica(c,p){
+  const P=p.params;
+  const hist=p.evals.slice(-10).reverse();
+  const histHTML=hist.length?`<div class="panel stack"><h3>Historial de esta empresa</h3><div class="tbl"><table><thead><tr><th>Fecha</th><th>Modo</th><th>Caso</th><th class="r">Resultado</th></tr></thead><tbody>
+    ${hist.map(h=>`<tr><td>${esc(fmtDate(h.fecha))}</td><td>${h.modo==="evaluacion"?'<span class="chip tG">Evaluación</span>':'<span class="chip tI">Práctica</span>'}</td><td>${esc(h.caso)}</td><td class="r num"><b>${h.puntaje}/${h.total}</b>${h.intentos?` <small class="muted">en ${h.intentos} intento(s)</small>`:""}</td></tr>`).join("")}</tbody></table></div></div>`:"";
+  if(APP.readOnly)return histHTML||`<div class="empty"><h3>Sin práctica registrada</h3></div>`;
+  if(!APP.plCase)plNewCase();
+  const e=APP.plCase,k=plCalc(e,P),F=plFields(k),ev=APP.plMode==="evaluacion",ch=APP.plChecked;
+  const ok=ch?F.filter(([id])=>ch[id]?.ok).length:0;
+  return `<div class="stack">
+   <div class="row" style="align-items:center"><div class="tabs" style="margin:0">
+     <button class="tab ${!ev?"on":""}" data-pact="mode" data-m="practica">Modo práctica · con pistas</button>
+     <button class="tab ${ev?"on":""}" data-pact="mode" data-m="evaluacion">Modo evaluación · una oportunidad</button></div>
+     <span style="margin-left:auto"></span><button class="btn" data-pact="newCase">↻ Nuevo caso</button></div>
+   <div class="case"><div class="eyebrow" style="color:inherit;opacity:.75">Caso asignado · ${plMes(c.period+"-"+String(new Date().getMonth()+1).padStart(2,"0"))}</div>
+     <h3 style="font-size:1.3rem;margin-top:4px">${esc(e.nombre)}, ${esc(e.puesto.toLowerCase())}</h3>
+     <dl><div><dt>Salario base mensual</dt><dd>${money(e.base)}</dd></div><div><dt>Horas extra</dt><dd>${e.horasExtra}</dd></div>
+      <div><dt>Comisiones</dt><dd>${money(e.comisiones)}</dd></div><div><dt>Días de ausencia</dt><dd>${e.diasAusencia}</dd></div>
+      <div><dt>Hijos</dt><dd>${e.hijos}</dd></div><div><dt>Cónyuge a cargo</dt><dd>${e.conyuge?"Sí":"No"}</dd></div>
+      <div><dt>Jornada</dt><dd>${esc(k.jor.nombre)} · ${k.jor.horas} h</dd></div><div><dt>Tipo de pago</dt><dd>${esc(k.pago.nombre)}</dd></div>
+      <div><dt>Rebajos autorizados</dt><dd>${k.rebajos.length?k.rebajos.map(x=>esc(x.nombre.split("(")[0].trim())+" "+(x.modo==="pct"?pct(x.valor):money(x.valor))).join(", "):"Ninguno"}</dd></div></dl></div>
+   <form class="panel" id="plPract">
+     <div class="row" style="align-items:center;margin-bottom:6px"><h3 style="margin-right:auto">Tus resultados</h3><small class="muted">Escribe los montos con dos decimales. Se acepta una diferencia de ₡1 por redondeo.</small></div>
+     ${F.map(([id,l])=>{const st=ch?.[id];return `<div class="qrow"><label for="q-${id}">${esc(l)}</label>
+       <input id="q-${id}" data-q="${id}" inputmode="decimal" value="${esc(APP.plAns[id]??"")}" placeholder="0,00" ${APP.plLocked?"disabled":""}>
+       <span class="ic" style="color:${st?(st.ok?"var(--ok)":"var(--bad)"):"var(--muted)"}">${st?(st.ok?"✓":"✗"):""}</span>
+       ${st&&!st.ok&&st.msg?`<div class="qfb bad">${esc(st.msg)}</div>`:""}${st&&st.ok&&!ev&&ch._first?"":""}</div>`}).join("")}
+     <div class="row" style="margin-top:14px;align-items:center">
+      ${ch?`<div class="status ${ok===F.length?"ok":"bad"}" style="margin-right:auto"><span class="dot"></span>${ok===F.length?"¡Excelente! Todos los cálculos son correctos.":`${ok} de ${F.length} correctos${ev?"":". Corrige los campos en rojo y vuelve a revisar."}`}</div>`:'<span style="margin-right:auto"></span>'}
+      ${APP.plLocked?"":`<button class="btn primary" type="submit">${ev?"Entregar evaluación":"Revisar mis respuestas"}</button>`}
+      ${ch?`<button type="button" class="btn ${APP.plShowProc?"primary":"ghost"}" data-pact="proc">${APP.plShowProc?"Ocultar procedimiento":"Ver procedimiento completo"}</button>`:""}
+     </div>
+     ${APP.plShowProc?`<div style="margin-top:14px">${plProcedure(k,e)}</div>`:""}
+   </form>
+   ${histHTML}
+  </div>`;
+}
+
+/* D · Vista del asiento */
+function plRunSel(p){
+  if(!p.runs.length)return null;
+  if(!p.runs.some(r=>r.id===APP.plRun))APP.plRun=p.runs.slice().sort((a,b)=>plRunKey(b).localeCompare(plRunKey(a)))[0].id;
+  return p.runs.find(r=>r.id===APP.plRun);
+}
+function plRunPicker(p){return `<div class="field" style="flex:0 1 240px"><label for="plRunSel">Planilla</label><select id="plRunSel">${p.runs.slice().sort((a,b)=>plRunKey(b).localeCompare(plRunKey(a))).map(r=>`<option value="${r.id}" ${r.id===APP.plRun?"selected":""}>${esc(plRunLabel(r))}</option>`).join("")}</select></div>`}
+const plNoRuns=`<div class="empty"><h3>Todavía no hay planillas procesadas</h3><p>Agrega colaboradores y procesa la planilla del mes.</p><button class="btn pop" data-pact="tab" data-k="planilla">Ir a la planilla</button></div>`;
+/* E · Colillas de pago */
+function plCode(c,run,r){let h1=2166136261,h2=5381;const s=`${c.id}|${run.id}|${r.emp.id}|${r.calc.bruto}|${r.calc.neto}`;
+  for(let i=0;i<s.length;i++){h1^=s.charCodeAt(i);h1=Math.imul(h1,16777619);h2=((h2<<5)+h2+s.charCodeAt(i))|0}
+  const x=((h1>>>0).toString(16).padStart(8,"0")+(h2>>>0).toString(16).padStart(8,"0")).toUpperCase();return x.slice(0,4)+"-"+x.slice(4,8)+"-"+x.slice(8,12)}
+function plColillaHTML(c,run,r){
+  const k=r.calc,e=r.emp,f=v=>money(v,false);
+  const ing=[[k.div>1?`Salario ${String(k.pago.nombre).toLowerCase()} (mensual ÷ ${k.div})`:"Salario base mensual",k.base],k.extra?[`Horas extra (${k.he} h × 1,5)`,k.extra]:null,k.comis?["Comisiones",k.comis]:null,k.ausen?[`Rebajo por ausencias (${k.dias} día/s)`,-k.ausen]:null,k.tarde?[`Rebajo por tardías (${k.ht} h)`,-k.tarde]:null].filter(Boolean);
+  const ded=[...k.obrero.map(x=>[`${x.nombre.split("·")[0].trim()} (${pct(x.pct)})`,x.monto]),["Impuesto sobre la renta",k.renta],...(k.rebajos||[]).map(x=>[x.nombre.split("(")[0].trim()+(x.modo==="pct"?" ("+pct(x.valor)+")":""),x.monto])];
+  const t=(rows,tot,lab)=>`<table>${rows.map(([l,v])=>`<tr><td>${esc(l)}</td><td class="r num">${f(v)}</td></tr>`).join("")}<tr class="tot"><td>${lab}</td><td class="r num">${f(tot)}</td></tr></table>`;
+  return `<article class="colilla">
+   <div class="ch"><div><b style="font-family:var(--f-display);font-size:1.15rem">${esc(c.name)}</b><div style="font-size:.82rem;opacity:.9">Cédula jurídica ${esc(c.cedula||"—")}</div></div>
+     <div style="text-align:right"><b>COMPROBANTE DE PAGO</b><div style="font-size:.82rem;opacity:.9">Planilla de ${esc(plRunLabel(run))}</div></div></div>
+   <div class="cb">
+    <div class="row" style="gap:18px"><div><div class="eyebrow">Colaborador</div><b>${esc(e.nombre)}</b></div><div><div class="eyebrow">Cédula</div>${esc(e.cedula||"—")}</div><div><div class="eyebrow">Puesto</div>${esc(e.puesto||"—")}</div><div><div class="eyebrow">Fecha de pago</div>${esc(plPayDate(run))}</div><div><div class="eyebrow">Jornada · pago</div>${esc(k.jor?.nombre||"Diurna")} · ${esc(k.pago?.nombre||"Mensual")}</div></div>
+    <div class="ccols"><div><div class="eyebrow dcol">Ingresos</div>${t(ing,k.bruto,"Salario bruto")}</div><div><div class="eyebrow hcol">Deducciones</div>${t(ded,k.totDed,"Total deducciones")}</div></div>
+    <div class="cneto"><span>Salario neto a pagar</span><span class="num">${money(k.neto)}</span></div>
+    <div class="muted" style="font-size:.8rem">Información: el patrono aporta además ${money(k.totPat)} en cargas sociales (${pct(k.patronal.reduce((s,x)=>s+x.pct,0))}) a nombre de este colaborador.</div>
+    <div class="firmas"><div>Firma del colaborador · Recibido conforme</div><div>Firma autorizada · Recursos Humanos</div></div>
+   </div>
+   <div class="cfoot"><span>Validación digital escolar: <b class="num">${plCode(c,run,r)}</b></span><span>Documento con fines educativos · Aula Contable</span></div>
+  </article>`;
+}
+function plViewColillas(c,p){
+  const run=plRunSel(p);if(!run)return plNoRuns;
+  return `<div class="stack"><div class="row" style="align-items:flex-end">${plRunPicker(p)}<span style="margin-left:auto"></span><button class="btn pop" data-pact="pdfAll" data-id="${run.id}">Descargar todas en PDF</button></div>
+   ${run.res.map((r,i)=>`<div class="stack" style="gap:8px">${plColillaHTML(c,run,r)}<div><button class="btn sm" data-pact="pdfOne" data-id="${run.id}" data-i="${i}">Descargar colilla en PDF</button></div></div>`).join("")}</div>`;
+}
+let jsPDFp=null;
+function loadJsPDF(){if(window.jspdf)return Promise.resolve(window.jspdf.jsPDF);
+  jsPDFp??=new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";s.onload=()=>res(window.jspdf.jsPDF);s.onerror=()=>{jsPDFp=null;rej(new Error("No se pudo cargar el generador de PDF. Revisa tu conexión."))};document.head.appendChild(s)});return jsPDFp}
+function plDrawColilla(doc,c,run,r){
+  const k=r.calc,e=r.emp,W=612,M=48,f=v=>(v<0?"-":"")+"CRC "+NF.format(Math.abs(r2(v)));
+  doc.setFillColor(14,124,102);doc.rect(0,0,W,86,"F");doc.setTextColor(255,255,255);
+  doc.setFont("helvetica","bold");doc.setFontSize(16);doc.text(c.name,M,40);
+  doc.setFont("helvetica","normal");doc.setFontSize(10);doc.text("Cédula jurídica "+(c.cedula||"—"),M,58);
+  doc.setFont("helvetica","bold");doc.setFontSize(12);doc.text("COMPROBANTE DE PAGO",W-M,40,{align:"right"});
+  doc.setFont("helvetica","normal");doc.setFontSize(10);doc.text("Planilla de "+plRunLabel(run),W-M,58,{align:"right"});
+  doc.setTextColor(16,40,44);let y=118;
+  const kv=(x,l,v)=>{doc.setFontSize(8);doc.setTextColor(86,112,110);doc.text(l.toUpperCase(),x,y);doc.setFontSize(11);doc.setTextColor(16,40,44);doc.text(String(v),x,y+15)};
+  kv(M,"Colaborador",e.nombre);kv(M+250,"Cédula",e.cedula||"—");y+=38;kv(M,"Puesto",e.puesto||"—");kv(M+250,"Fecha de pago",plPayDate(run));y+=38;kv(M,"Jornada",(k.jor?.nombre||"Diurna")+" · "+(k.jor?.horas||8)+" h diarias");kv(M+250,"Tipo de pago",k.pago?.nombre||"Mensual");y+=46;
+  const col=(x,title,rows,totL,tot)=>{let yy=y;doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text(title,x,yy);yy+=8;doc.setDrawColor(16,40,44);doc.setLineWidth(1.5);doc.line(x,yy,x+240,yy);yy+=16;
+    doc.setFont("helvetica","normal");for(const [l,v] of rows){doc.text(l,x,yy);doc.text(f(v),x+240,yy,{align:"right"});yy+=18}
+    doc.setLineWidth(.6);doc.line(x,yy-10,x+240,yy-10);doc.setFont("helvetica","bold");doc.text(totL,x,yy+4);doc.text(f(tot),x+240,yy+4,{align:"right"});return yy+4};
+  const ing=[[k.div>1?`Salario ${String(k.pago.nombre).toLowerCase()} (mensual ÷ ${k.div})`:"Salario base mensual",k.base],k.extra?[`Horas extra (${k.he} h x 1,5)`,k.extra]:null,k.comis?["Comisiones",k.comis]:null,k.ausen?[`Rebajo por ausencias (${k.dias} día/s)`,-k.ausen]:null,k.tarde?[`Rebajo por tardías (${k.ht} h)`,-k.tarde]:null].filter(Boolean);
+  const ded=[...k.obrero.map(x=>[`${x.nombre.split("·")[0].trim()} (${pct(x.pct)})`,x.monto]),["Impuesto sobre la renta",k.renta],...(k.rebajos||[]).map(x=>[x.nombre.split("(")[0].trim()+(x.modo==="pct"?" ("+pct(x.valor)+")":""),x.monto])];
+  const y1=col(M,"INGRESOS",ing,"Salario bruto",k.bruto),y2=col(M+276,"DEDUCCIONES",ded,"Total deducciones",k.totDed);
+  y=Math.max(y1,y2)+30;doc.setLineWidth(2);doc.roundedRect(M,y,W-2*M,40,6,6);doc.setFontSize(13);doc.text("SALARIO NETO A PAGAR",M+14,y+25);doc.text(f(k.neto),W-M-14,y+25,{align:"right"});
+  y+=64;doc.setFont("helvetica","normal");doc.setFontSize(9);doc.setTextColor(86,112,110);
+  doc.text(`Información: el patrono aporta además ${f(k.totPat)} en cargas sociales a nombre de este colaborador.`,M,y);
+  y+=70;doc.setDrawColor(16,40,44);doc.setLineWidth(.8);doc.line(M,y,M+220,y);doc.line(W-M-220,y,W-M,y);
+  doc.text("Firma del colaborador · Recibido conforme",M+110,y+14,{align:"center"});doc.text("Firma autorizada · Recursos Humanos",W-M-110,y+14,{align:"center"});
+  y+=50;doc.setLineDashPattern([4,3],0);doc.line(M,y,W-M,y);doc.setLineDashPattern([],0);
+  doc.text("Validación digital escolar: "+plCode(c,run,r),M,y+16);doc.text("Documento con fines educativos · Aula Contable",W-M,y+16,{align:"right"});
+}
+async function plPDF(runId,idx){
+  const c=co(),p=ensurePayroll(c),run=p.runs.find(r=>r.id===runId);if(!run)return;
+  const J=await loadJsPDF();const doc=new J({unit:"pt",format:"letter"});
+  const list=idx==null?run.res:[run.res[idx]];
+  list.forEach((r,i)=>{if(i)doc.addPage();plDrawColilla(doc,c,run,r)});
+  const slug=s=>String(s).normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-zA-Z0-9]+/g,"-").replace(/^-|-$/g,"").toLowerCase();
+  const name=idx==null?`colillas-${run.periodo}-${slug(c.code||c.name)}.pdf`:`colilla-${run.periodo}-${slug(list[0].emp.nombre)}.pdf`;
+  try{doc.save(name);toast("Colilla descargada")}
+  catch(err){toast("No se pudo descargar el PDF.")}
+}
+
+/* ===== Machotes: el estudiante completa, el sistema revisa ===== */
+const plCanToggle=()=>isTeacher()||APP.demo;
+const plMachote=()=>!APP.readOnly&&(!plCanToggle()||APP.plVista!=="resuelto");
+Object.assign(APP,{plVista:"machote",plSheetChk:false,plEntryChk:null,plShowSol:false});
+function plVistaToggle(){return plCanToggle()&&!APP.readOnly?`<div class="tabs" style="margin:0 0 14px"><button class="tab ${plMachote()?"on":""}" data-pact="vista" data-v="machote">Vista del estudiante · machotes</button><button class="tab ${!plMachote()?"on":""}" data-pact="vista" data-v="resuelto">Vista resuelta (profesor)</button></div>`:""}
+function plSheetFields(k,withReb){return [["bruto","Salario bruto"],...k.obrero.map(x=>["o:"+x.id,x.nombre.split("·")[0].trim()+" "+pct(x.pct)]),["renta","Renta"],...(withReb?[["reb","Otros rebajos"]]:[]),["neto","Salario neto"]]}
+const plWithReb=(p)=>p.employees.some(e=>plCalc(e,p.params).totReb>0);
+function plSheetStatus(p){
+  const P=p.params;p.sheet??={};let ok=0,total=0;const cells={};
+  const wr=plWithReb(p);for(const e of p.employees){const k=plCalc(e,P),ans=p.sheet[e.id]||{};cells[e.id]={};
+    for(const [q] of plSheetFields(k,wr)){total++;const raw=ans[q],v=parseNum(raw),good=!isNaN(v)&&near(v,plSol(k,q));if(good)ok++;
+      cells[e.id][q]={ok:good,filled:String(raw??"").trim()!=="",msg:good?"":(isNaN(v)?"Falta este monto.":plFeedback(q,v,k,P,ans))}}}
+  return {cells,ok,total,all:total>0&&ok===total};
+}
+const plDatos=(e,P)=>[`Base mensual ${money(e.base)}`,`jornada ${String(((P?.jornadas||[]).find(j=>j.id===(e.jornada||"diurna"))||{nombre:"diurna"}).nombre).toLowerCase()}`,`pago ${String(((P?.pagos||[]).find(x=>x.id===(e.tipoPago||"mensual"))||{nombre:"mensual"}).nombre).toLowerCase()}`,...plAct(P?.rebajos).filter(r=>e.rebajos?.[r.id]?.on).map(r=>r.nombre.split("(")[0].trim()+" "+(r.modo==="pct"?pct(e.rebajos[r.id].valor??r.valor):money(e.rebajos[r.id].valor??r.valor))),e.horasExtra?`${e.horasExtra} h extra`:"",e.comisiones?`comisiones ${money(e.comisiones)}`:"",e.diasAusencia?`${e.diasAusencia} día(s) de ausencia`:"",e.horasTarde?`${e.horasTarde} h tardía`:"",e.hijos?`${e.hijos} hijo(s)`:"",e.conyuge?"cónyuge":""].filter(Boolean).join(" · ");
+
+function plViewPlanilla(c,p){
+  const P=p.params,ed=APP.plEditEmp?p.employees.find(x=>x.id===APP.plEditEmp):null,M=plMachote();
+  const rows=p.employees.map(e=>({e,k:plCalc(e,P)}));
+  const S=f=>r2(rows.reduce((s,r)=>s+f(r.k),0));
+  const kp=(l,v,hl)=>`<div class="kpi ${hl?"hl":""}"><small>${l}</small><b>${money(v)}</b></div>`;
+  const nextPer=(()=>{const last=p.runs.map(r=>r.periodo).sort().pop();if(!last)return `${c.period}-01`;let [y,m]=last.split("-").map(Number);m++;if(m>12){m=1;y++}return `${y}-${String(m).padStart(2,"0")}`})();
+  const v=(id,val)=>`value="${esc(val??"")}"`;
+  const st=M&&rows.length?plSheetStatus(p):null,chk=APP.plSheetChk,showProc=chk&&(p.sheetIntentos||0)>=2;
+  let sheet="";
+  if(!rows.length)sheet=`<div class="empty"><h3>No hay colaboradores en la planilla</h3><p>Agrega el primero con el formulario de abajo o carga colaboradores de ejemplo para practicar.</p>${plSampleBtn}</div>`;
+  else if(M){
+    const F=plSheetFields(rows[0].k,rows.some(r=>r.k.totReb>0));
+    const bad=[];for(const {e} of rows)for(const [q,l] of F){const x=st.cells[e.id][q];if(chk&&!x.ok)bad.push(`<li><b>${esc(e.nombre)}</b> · ${esc(l)}: ${esc(x.msg)}</li>`)}
+    sheet=`<form class="panel stack" id="plSheet">
+      <div><div class="eyebrow">Machote de planilla · ${esc(c.name)}</div><h3>Completa la planilla del mes</h3>
+      <p class="muted" style="margin:4px 0 0">Calcula cada monto con los parámetros legales y escríbelo en su casilla. Usa dos decimales. Se acepta una diferencia de ₡1 por redondeo.</p></div>
+      <div class="tbl"><table class="sheet"><thead><tr><th>Colaborador y datos del mes</th>${F.map(([,l])=>`<th class="r">${esc(l)}</th>`).join("")}${showProc?"<th></th>":""}</tr></thead><tbody>
+      ${rows.map(({e,k})=>`<tr><td style="min-width:220px"><b>${esc(e.nombre)}</b><br><small class="muted">${esc(plDatos(e,P))}</small></td>
+        ${F.map(([q,l])=>{const x=st.cells[e.id][q];return `<td class="r ${chk?(x.ok?"cell-ok":"cell-bad"):""}"><input data-sh="${e.id}|${q}" inputmode="decimal" placeholder="0,00" value="${esc((p.sheet[e.id]||{})[q]??"")}" aria-label="${esc(l)} de ${esc(e.nombre)}"></td>`}).join("")}
+        ${showProc?`<td><button type="button" class="btn sm ${APP.plShow===e.id?"primary":"ghost"}" data-pact="show" data-id="${e.id}">${APP.plShow===e.id?"Ocultar":"Procedimiento"}</button></td>`:""}</tr>
+        ${showProc&&APP.plShow===e.id?`<tr><td colspan="${F.length+2}" style="background:var(--surface2)">${plProcedure(k,e)}</td></tr>`:""}`).join("")}
+      </tbody></table></div>
+      ${chk?`<div class="status ${st.all?"ok":"bad"}"><span class="dot"></span>${st.all?"¡Planilla correcta! Ya puedes procesarla.":`${st.ok} de ${st.total} casillas correctas. Lee las pistas y corrige.`}</div>`:""}
+      ${bad.length?`<ul class="hints">${bad.join("")}</ul>`:""}
+      <div class="row"><button class="btn primary" type="submit">Revisar mi planilla</button><span class="muted" style="align-self:center;font-size:.85rem">${showProc?"El botón Procedimiento muestra el cálculo completo de cada colaborador.":"Después de 2 revisiones se habilita el procedimiento de cada colaborador."}</span></div>
+    </form>`;
+  } else {
+    sheet=`<div class="kpis">${kp("Salarios brutos",S(k=>k.bruto))}${kp("Deducciones obreras",S(k=>k.totObr))}${kp("Renta retenida",S(k=>k.renta))}${kp("Neto a pagar",S(k=>k.neto),true)}${kp("Cargas patronales",S(k=>k.totPat))}${kp("Provisiones",S(k=>k.totProv))}${kp("Costo total del patrono",S(k=>k.costo))}</div>
+   ${APP.readOnly&&p.sheetIntentos?`<div class="status ok"><span class="dot"></span>El estudiante revisó su machote de planilla ${p.sheetIntentos} vez/veces.</div>`:""}
+   <div class="tbl"><table><thead><tr><th>Colaborador</th><th class="r">Salario base</th><th class="r">Extras y comisiones</th><th class="r">Rebajos</th><th class="r">Bruto</th><th class="r">Cuotas obreras</th><th class="r">Renta</th><th class="r">Neto</th><th></th></tr></thead><tbody>
+   ${rows.map(({e,k})=>`<tr><td><b>${esc(e.nombre)}</b><br><small class="muted">${esc(e.puesto||"")} · ${esc(e.cedula||"")}</small></td>
+     <td class="r num">${money(k.base,false)}</td><td class="r num">${money(k.extra+k.comis,false)}</td><td class="r num">${k.ausen+k.tarde?money(-(k.ausen+k.tarde),false):"—"}</td>
+     <td class="r num"><b>${money(k.bruto,false)}</b></td><td class="r num hcol">${money(k.totObr,false)}</td><td class="r num hcol">${money(k.renta,false)}</td><td class="r num"><b>${money(k.neto,false)}</b></td>
+     <td><button class="btn sm ${APP.plShow===e.id?"primary":"ghost"}" data-pact="show" data-id="${e.id}">${APP.plShow===e.id?"Ocultar":"Ver cálculo"}</button></td></tr>
+     ${APP.plShow===e.id?`<tr><td colspan="9" style="background:var(--surface2)">${plProcedure(k,e)}</td></tr>`:""}`).join("")}
+   <tr class="tot"><td>Totales</td><td class="r num">${money(S(k=>k.base),false)}</td><td class="r num">${money(S(k=>k.extra+k.comis),false)}</td><td class="r num">${money(-S(k=>k.ausen+k.tarde),false)}</td><td class="r num">${money(S(k=>k.bruto),false)}</td><td class="r num">${money(S(k=>k.totObr),false)}</td><td class="r num">${money(S(k=>k.renta),false)}</td><td class="r num">${money(S(k=>k.neto),false)}</td><td></td></tr>
+   </tbody></table></div>`;
+  }
+  const empList=M&&rows.length?`<div class="panel stack"><h3>Colaboradores</h3>${rows.map(({e})=>`<div class="row" style="align-items:center;border-bottom:1px solid var(--line);padding-bottom:8px"><div style="margin-right:auto;min-width:0"><b>${esc(e.nombre)}</b><br><small class="muted">${esc(e.puesto||"")} · ${esc(e.cedula||"")}</small></div>
+      <button class="btn sm ghost edit-only" data-pact="editEmp" data-id="${e.id}">Editar</button><button class="btn sm danger edit-only" data-pact="delEmp" data-id="${e.id}">Eliminar</button></div>`).join("")}</div>`
+    :(!M&&rows.length?`<div class="row edit-only">${rows.map(({e})=>`<span class="chip tA" style="display:inline-flex;gap:6px;align-items:center;padding:4px 10px">${esc(e.nombre.split(" ")[0])} <button class="btn sm ghost" data-pact="editEmp" data-id="${e.id}">Editar</button><button class="btn sm danger" data-pact="delEmp" data-id="${e.id}">×</button></span>`).join("")}</div>`:"");
+  const canProc=p.employees.length&&(!M||(st&&st.all));
+  return `<div class="stack">${sheet}${empList}
+   <div class="grid2 edit-only">
+    <form class="panel stack" id="plEmp">
+     <h3>${ed?"Editar colaborador":"Agregar colaborador"}</h3>
+     <div class="row">
+      <div class="field" style="flex-basis:100%"><label for="peNom">Nombre completo</label><input id="peNom" required ${v("peNom",ed?.nombre)}></div>
+      <div class="field"><label for="peCed">Cédula</label><input id="peCed" placeholder="1-1234-0567" ${v("peCed",ed?.cedula)}></div>
+      <div class="field"><label for="pePue">Puesto</label><input id="pePue" ${v("pePue",ed?.puesto)}></div>
+      <div class="field"><label for="peBase">Salario base mensual (₡)</label><input id="peBase" type="number" min="0" step="0.01" required ${v("peBase",ed?.base)}></div>
+     </div>
+     <div class="eyebrow">Novedades del mes</div>
+     <div class="row">
+      <div class="field"><label for="peHE">Horas extra</label><input id="peHE" type="number" min="0" step="0.5" ${v("peHE",ed?.horasExtra??0)}></div>
+      <div class="field"><label for="peCom">Comisiones (₡)</label><input id="peCom" type="number" min="0" step="0.01" ${v("peCom",ed?.comisiones??0)}></div>
+      <div class="field"><label for="peAus">Días de ausencia</label><input id="peAus" type="number" min="0" step="0.5" ${v("peAus",ed?.diasAusencia??0)}></div>
+      <div class="field"><label for="peTar">Horas de llegada tardía</label><input id="peTar" type="number" min="0" step="0.25" ${v("peTar",ed?.horasTarde??0)}></div>
+     </div>
+     <div class="eyebrow">Créditos fiscales de renta</div>
+     <div class="row" style="align-items:center">
+      <div class="field" style="flex:0 1 140px"><label for="peHij">Hijos</label><input id="peHij" type="number" min="0" step="1" ${v("peHij",ed?.hijos??0)}></div>
+      <label class="check"><input type="checkbox" id="peCony" ${ed?.conyuge?"checked":""}> Tiene cónyuge a cargo</label>
+     </div>
+     <div class="eyebrow">Jornada y forma de pago</div>
+     <div class="row">
+      <div class="field"><label for="peJor">Jornada</label><select id="peJor">${P.jornadas.map(j=>`<option value="${esc(j.id)}" ${(ed?.jornada||"diurna")===j.id?"selected":""}>${esc(j.nombre)} · ${j.horas} h diarias</option>`).join("")}</select></div>
+      <div class="field"><label for="peTP">Tipo de pago</label><select id="peTP">${P.pagos.map(x=>`<option value="${esc(x.id)}" ${(ed?.tipoPago||"mensual")===x.id?"selected":""}>${esc(x.nombre)}</option>`).join("")}</select></div>
+     </div>
+     ${plAct(P.rebajos).length?`<div class="eyebrow">Otros rebajos autorizados por el colaborador</div>${plAct(P.rebajos).map(r=>{const er=ed?.rebajos?.[r.id];return `<div class="row" style="align-items:flex-end"><label class="check" style="flex:1 1 220px;padding-bottom:10px"><input type="checkbox" id="peR_${esc(r.id)}" ${er?.on?"checked":""}> ${esc(r.nombre)}</label>
+       <div class="field" style="flex:0 1 170px"><label for="peRV_${esc(r.id)}">${r.modo==="pct"?"% del salario bruto":"Monto por pago (₡)"}</label><input id="peRV_${esc(r.id)}" type="number" min="0" step="0.01" value="${er?.valor??r.valor}"></div></div>`}).join("")}`:""}
+     <div class="row"><button class="btn primary" type="submit">${ed?"Guardar cambios":"＋ Agregar a la planilla"}</button>${ed?'<button type="button" class="btn ghost" data-pact="cancelEmp">Cancelar</button>':""}</div>
+    </form>
+    <form class="panel stack" id="plProc">
+     <h3>Procesar la planilla del mes</h3>
+     <p class="muted" style="margin:0">${M?"Se habilita cuando tu machote de planilla esté correcto. Después harás el asiento de diario tú mismo.":"Se guarda una copia de los cálculos del mes para el asiento y las colillas."}</p>
+     <div class="row">
+      <div class="field"><label for="plPer">Mes de la planilla</label><input id="plPer" type="month" required value="${nextPer}"></div>
+      <div class="field"><label for="plTipo">Tipo de planilla</label><select id="plTipo">${P.pagos.map(x=>`<option value="${esc(x.id)}">${esc(x.nombre)}</option>`).join("")}</select></div>
+      <div class="field"><label for="plN">Pago del mes</label><select id="plN">${[1,2,3,4,5].slice(0,Math.max(2,...P.pagos.map(x=>Math.ceil(+x.divisor||1)))).map(n=>`<option value="${n}">${n}.° pago (quincenal: ${n===1?"1.ª quincena":n===2?"2.ª quincena":"—"})</option>`).join("")}</select></div>
+      <div class="field"><label for="plPago">Salarios netos</label><select id="plPago"><option value="1102">Se pagan por Bancos</option><option value="2104">Quedan por pagar</option></select></div>
+     </div>
+     <p class="note" style="margin:0">Cada planilla incluye solo a los colaboradores con ese tipo de pago. "Pago del mes" se usa en los pagos que no son mensuales.</p>
+     <div><button class="btn pop" type="submit" ${canProc?"":"disabled"}>Procesar planilla →</button></div>
+     ${p.runs.length?`<div class="eyebrow">Planillas procesadas</div><div class="row">${p.runs.slice().sort((a,b)=>plRunKey(b).localeCompare(plRunKey(a))).map(r=>`<button type="button" class="btn sm ghost" data-pact="openRun" data-id="${r.id}">${esc(plRunLabel(r))} ${r.entryId?"✓":"· sin asiento"}</button>`).join("")}</div>`:""}
+    </form>
+   </div>
+  </div>`;
+}
+
+/* Machote del asiento */
+const plType=(code)=>(acc(code)||PL_ACCOUNTS.find(a=>a.code===code)||{type:code.startsWith("6")?"G":code.startsWith("1")?"A":"P"}).type;
+function plAsientoFb(code,d,cr,sol,run,P){
+  const side=sol.d?"d":"c",amt=sol.d||sol.c,given=d||cr,t=plType(code);
+  if(!d&&!cr)return "Esta cuenta lleva un monto. Decide si va al Debe o al Haber.";
+  if(d&&cr)return "Escribe el monto en una sola columna: Debe o Haber.";
+  if((side==="d"&&cr)||(side==="c"&&d)){
+    if(t==="G")return "Es una cuenta de gasto: los gastos aumentan en el Debe.";
+    if(t==="A")return "Bancos es un activo y aquí disminuye porque sale el dinero para pagar los salarios: va al Haber.";
+    return "Es un pasivo: la empresa ahora debe ese dinero, y los pasivos aumentan en el Haber.";
+  }
+  if(near(given,amt))return "";
+  const S=f=>r2(run.res.reduce((s,r)=>s+f(r.calc),0));
+  if(code==="6101"){if(near(given,S(k=>k.base)))return "Usaste el salario base. El gasto por salarios es la suma de los salarios brutos.";
+    if(near(given,S(k=>k.neto)))return "Ese es el total neto. El gasto es el salario bruto: lo que se retiene al trabajador también es gasto de la empresa.";
+    return "Suma los salarios brutos de todos los colaboradores."}
+  if(code==="6102"){if(near(given,S(k=>k.totObr)))return "Esas son las cuotas obreras, que se rebajan al trabajador. El gasto de la empresa son las cuotas patronales.";
+    return `Suma todas las cuotas patronales: total de salarios brutos × ${pct(plAct(P.patronal).reduce((s,x)=>s+(+x.pct),0))}.`}
+  const pv=plAct(P.prov).find(x=>x.gasto===code||x.pasivo===code);
+  if(pv)return `${pv.nombre}: total de salarios brutos × ${pct(pv.pct)}. El mismo monto va al gasto (Debe) y a la provisión (Haber).`;
+  if(code==="2110")return "Suma la renta retenida a todos los colaboradores. Los salarios que no superan el tramo exento no retienen.";
+  if(code===(run.pago||"1102")){if(near(given,S(k=>k.bruto)))return "Ese es el total bruto. Al colaborador se le paga el neto: bruto menos cuotas obreras y renta.";
+    return "Suma los salarios netos de todos los colaboradores."}
+  const rbs=plAct(P.rebajos||[]).filter(x=>x.cuenta===code);
+  if(rbs.length)return "Suma lo rebajado a todos los colaboradores por: "+rbs.map(x=>x.nombre).join(", ")+". Es dinero del trabajador que la empresa debe entregar, por eso es un pasivo.";
+  const ob=plAct(P.obrero).filter(x=>x.cuenta===code),pa=plAct(P.patronal).filter(x=>x.cuenta===code);
+  const sumOf=list=>S(k=>[...k.obrero,...k.patronal].filter(x=>list.some(l=>l.id===x.id)).reduce((s,x)=>s+x.monto,0));
+  if(ob.length&&near(given,sumOf(ob)))return "Solo pusiste las cuotas obreras. Esta deuda incluye también las cuotas patronales que van a la misma institución.";
+  if(pa.length&&near(given,sumOf(pa)))return "Solo pusiste las cuotas patronales. Suma también lo que se retuvo a los trabajadores para esta institución.";
+  if(ob.length||pa.length)return "Esta cuenta reúne: "+[...ob.map(x=>x.nombre.split("·")[0].trim()+" obrero "+pct(x.pct)),...pa.map(x=>x.nombre.split("·")[0].split("(")[0].trim()+" patronal "+pct(x.pct))].join(", ")+". Suma esos montos de todos los colaboradores.";
+  return "Revisa el monto de esta cuenta.";
+}
+function plMachoteAsiento(c,p,run){
+  const sol=plEntryLines(run),name=code=>acc(code)?.name||PL_ACCOUNTS.find(a=>a.code===code)?.name||"Cuenta "+code;
+  const codes=sol.map(l=>l.code).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  run.mach??={};const chk=APP.plEntryChk&&APP.plEntryChk.run===run.id?APP.plEntryChk.res:null;
+  const val=(code,s)=>(run.mach[code]||{})[s]??"";
+  let D=0,C=0;for(const code of codes){D+=parseNum(val(code,"d"))||0;C+=parseNum(val(code,"c"))||0}
+  const allOk=chk&&codes.every(k=>chk[k].ok);
+  return `<form class="panel stack" id="plMach">
+    <div><div class="eyebrow">Machote del asiento · piensa antes de registrar</div><h3>Asiento de la planilla de ${esc(plRunLabel(run))}</h3>
+    <p class="muted" style="margin:4px 0 0">Estas son las cuentas que intervienen. Para cada una decide si va al <b class="dcol">Debe</b> o al <b class="hcol">Haber</b> y calcula el monto con los datos de tu planilla.</p></div>
+    <div class="tbl"><table class="sheet"><thead><tr><th>Cuenta</th><th class="r">Debe</th><th class="r">Haber</th><th></th></tr></thead><tbody>
+    ${codes.map(code=>{const x=chk?.[code];return `<tr class="${x?(x.ok?"cell-ok":"cell-bad"):""}"><td><span class="num">${esc(code)}</span> · ${esc(name(code))}${x&&!x.ok?`<div class="qfb bad" style="margin-top:6px">${esc(x.msg)}</div>`:""}</td>
+      <td class="r"><input data-ma="${run.id}|${code}|d" inputmode="decimal" placeholder="0,00" value="${esc(val(code,"d"))}" aria-label="Debe de ${esc(name(code))}"></td>
+      <td class="r"><input data-ma="${run.id}|${code}|c" inputmode="decimal" placeholder="0,00" value="${esc(val(code,"c"))}" aria-label="Haber de ${esc(name(code))}"></td>
+      <td class="ic" style="font-weight:800;color:${x?(x.ok?"var(--ok)":"var(--bad)"):"var(--muted)"}">${x?(x.ok?"✓":"✗"):""}</td></tr>`}).join("")}
+    <tr class="entry-desc"><td colspan="4">p/r Registro de la planilla de ${esc(plRunLabel(run))} · ${run.res.length} colaborador(es)</td></tr>
+    <tr class="tot"><td>Tus sumas</td><td class="r num dcol" id="maD">${money(D)}</td><td class="r num hcol" id="maC">${money(C)}</td><td></td></tr></tbody></table></div>
+    <div class="status ${r2(D)===r2(C)&&D>0?"ok":"bad"}" id="maSt"><span class="dot"></span>${r2(D)===r2(C)&&D>0?"Tus sumas son iguales":"Tus sumas todavía no son iguales"}</div>
+    ${chk?`<div class="status ${allOk?"ok":"bad"}"><span class="dot"></span>${allOk?"¡Asiento correcto! Ya puedes registrarlo en el Libro Diario.":`${codes.filter(k=>chk[k].ok).length} de ${codes.length} cuentas correctas. Lee las pistas en rojo.`}</div>`:""}
+    <div class="row">
+      ${allOk?`<button type="button" class="btn primary" data-pact="register" data-id="${run.id}">Registrar en el Libro Diario ✓</button>`:`<button class="btn primary" type="submit">Revisar mi asiento</button>`}
+      ${!allOk&&(run.intentos||0)>=3?`<button type="button" class="btn ghost" data-pact="showSol">${APP.plShowSol?"Ocultar la solución":"Ver la solución"}</button>`:""}
+      <span class="muted" style="align-self:center;font-size:.85rem">Intentos: ${run.intentos||0}${(run.intentos||0)<3&&!allOk?" · la solución se habilita después de 3 intentos":""}</span>
+    </div>
+    ${APP.plShowSol&&!allOk?`<div class="tbl"><table><thead><tr><th>Solución</th><th class="r">Debe</th><th class="r">Haber</th></tr></thead><tbody>${sol.map(l=>`<tr><td class="${l.c?"indent":""}">${esc(l.code)} · ${esc(name(l.code))}</td><td class="r num dcol">${l.d?money(l.d,false):""}</td><td class="r num hcol">${l.c?money(l.c,false):""}</td></tr>`).join("")}</tbody></table></div>`:""}
+  </form>`;
+}
+function plNextPer(c,p){const last=p.runs.map(r=>r.periodo).sort().pop();if(!last)return `${c.period}-01`;let [y,m]=last.split("-").map(Number);m++;if(m>12){m=1;y++}return `${y}-${String(m).padStart(2,"0")}`}
+function plDraftRun(p){
+  const c=co();p.draft??={id:"draft",periodo:plNextPer(c,p),tipo:"mensual",nPago:null,pago:"1102",mach:{},intentos:0};
+  const d=p.draft,tp=p.params.pagos.find(x=>x.id===d.tipo)||p.params.pagos[0]||{id:"mensual",nombre:"Mensual",divisor:1};
+  d.tipo=tp.id;d.tipoNombre=tp.nombre;d.div=+tp.divisor||1;d.nPago=d.div>1?Math.min(d.nPago||1,Math.ceil(d.div)):null;
+  d.res=p.employees.filter(e=>(e.tipoPago||"mensual")===d.tipo).map(e=>({emp:clone(e),calc:plCalc(e,p.params)}));
+  return d;
+}
+const plDraftMode=p=>!p.runs.length||APP.plNewDraft;
+const plCurRun=p=>plDraftMode(p)?plDraftRun(p):plRunSel(p);
+function plResolvedAsiento(c,run,entry){
+  const lines=plEntryLines(run),name=code=>acc(code)?.name||PL_ACCOUNTS.find(a=>a.code===code)?.name||"Cuenta "+code;
+  const D=r2(lines.reduce((s,l)=>s+l.d,0)),C=r2(lines.reduce((s,l)=>s+l.c,0));
+  return `<div class="panel stack"><div><div class="eyebrow">${entry?"Asiento registrado":"Vista resuelta"}</div><h3>Asiento de la planilla de ${esc(plRunLabel(run))}</h3>
+    <p class="muted" style="margin:4px 0 0">Los gastos van al Debe. Lo que la empresa debe a la CCSS, al Banco Popular, a Hacienda y a sus colaboradores va al Haber.</p></div>
+   <div class="tbl"><table><thead><tr><th>Cuenta</th><th>¿Por qué?</th><th class="r">Debe</th><th class="r">Haber</th></tr></thead><tbody>
+    ${lines.map(l=>`<tr><td class="${l.c?"indent":""}"><span class="num">${esc(l.code)}</span> · ${esc(name(l.code))}</td><td class="muted" style="font-size:.85rem">${esc(PL_WHY[l.code]||(l.d?"Gasto de la planilla":"Obligación de la planilla"))}</td>
+      <td class="r num dcol">${l.d?money(l.d,false):""}</td><td class="r num hcol">${l.c?money(l.c,false):""}</td></tr>`).join("")}
+    <tr class="entry-desc"><td colspan="4">p/r Registro de la planilla de ${esc(plRunLabel(run))} · ${run.res.length} colaborador(es)</td></tr>
+    <tr class="tot"><td colspan="2">Sumas iguales</td><td class="r num dcol">${money(D)}</td><td class="r num hcol">${money(C)}</td></tr></tbody></table></div>
+   <div class="status ${D===C?"ok":"bad"}"><span class="dot"></span>${D===C?"Partida doble correcta: Debe = Haber":"El asiento no cuadra"}</div>
+   ${entry?`<div class="row" style="align-items:center"><span class="chip tI">Registrado como asiento N.° ${entry.n}</span><span style="margin-left:auto"></span><button class="btn pop" data-go="mayor">Ver en el Libro Mayor →</button></div>`
+     :`<div class="row edit-only"><span style="margin-left:auto"></span><button class="btn primary" data-pact="register" data-id="${run.id}">Registrar en el Libro Diario ✓</button></div>`}
+  </div>`;
+}
+const plSampleBtn=`<button class="btn pop edit-only" data-pact="loadSampleEmp">Cargar colaboradores de ejemplo</button>`;
+function plViewAsiento(c,p){
+  if(plDraftMode(p)){
+    if(APP.readOnly)return plNoRuns;
+    if(!p.employees.length)return `<div class="empty"><h3>La planilla no tiene colaboradores</h3><p>Para hacer el asiento necesitas colaboradores. Agrégalos en la planilla o carga unos de ejemplo.</p><div class="row" style="justify-content:center"><button class="btn" data-pact="tab" data-k="planilla">Ir a la planilla</button>${plSampleBtn}</div></div>`;
+    const d=plDraftRun(p),P=p.params;
+    const sel=`<div class="panel stack"><div class="row" style="align-items:center"><div style="margin-right:auto"><div class="eyebrow">Nuevo asiento de planilla</div><h3>Elige la planilla que vas a contabilizar</h3></div>${p.runs.length?'<button class="btn sm ghost" data-pact="closeDraft">Ver planillas ya registradas</button>':""}</div>
+      <div class="row">
+       <div class="field"><label for="pdPer">Mes</label><input id="pdPer" type="month" value="${esc(d.periodo)}"></div>
+       <div class="field"><label for="pdTipo">Tipo de planilla</label><select id="pdTipo">${P.pagos.map(x=>`<option value="${esc(x.id)}" ${x.id===d.tipo?"selected":""}>${esc(x.nombre)}</option>`).join("")}</select></div>
+       ${d.div>1?`<div class="field"><label for="pdN">Pago del mes</label><select id="pdN">${Array.from({length:Math.ceil(d.div)},(_,i)=>i+1).map(n=>`<option value="${n}" ${n===d.nPago?"selected":""}>${d.div===2?n+".ª quincena":n+".° pago"}</option>`).join("")}</select></div>`:""}
+       <div class="field"><label for="pdPago">Salarios netos</label><select id="pdPago"><option value="1102" ${d.pago==="1102"?"selected":""}>Se pagan por Bancos</option><option value="2104" ${d.pago==="2104"?"selected":""}>Quedan por pagar</option></select></div>
+      </div>
+      <p class="muted" style="margin:0">${d.res.length?`Colaboradores en esta planilla: ${d.res.map(r=>esc(r.emp.nombre)).join(", ")}. Usa los montos de tu machote de planilla.`:`No hay colaboradores con pago ${esc(String(d.tipoNombre).toLowerCase())}. Cambia el tipo de planilla.`}</p></div>`;
+    if(!d.res.length)return `<div class="stack">${sel}</div>`;
+    return `<div class="stack">${sel}${plMachote()?plMachoteAsiento(c,p,d):plResolvedAsiento(c,d,null)}</div>`;
+  }
+  const run=plRunSel(p);
+  const entry=run.entryId&&c.entries.find(x=>x.id===run.entryId);
+  const head=`<div class="row" style="align-items:flex-end">${plRunPicker(p)}<span style="margin-left:auto"></span><button class="btn pop edit-only" data-pact="newDraft">＋ Nuevo asiento de planilla</button><button class="btn danger edit-only" data-pact="delRun" data-id="${run.id}">Eliminar esta planilla</button></div>`;
+  if(plMachote()&&!entry)return `<div class="stack">${head}${plMachoteAsiento(c,p,run)}</div>`;
+  const perf=run.intentos?`<div class="status ${run.vioSolucion?"bad":"ok"}"><span class="dot"></span>${run.machoteOk?`El asiento se resolvió en el machote en ${run.intentos} intento(s)`:`Machote del asiento: ${run.intentos} intento(s), aún sin resolver`}${run.vioSolucion?" · se consultó la solución":""}.</div>`:"";
+  return `<div class="stack">${head}${perf}${plResolvedAsiento(c,run,entry)}</div>`;
+}
+
+/* Eventos de los machotes */
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-pact]");if(!b)return;const a=b.dataset.pact;
+  if(a==="vista"){APP.plVista=b.dataset.v;render();return}
+  if(a==="newDraft"){APP.plNewDraft=true;APP.plEntryChk=null;APP.plShowSol=false;render();return}
+  if(a==="closeDraft"){APP.plNewDraft=false;APP.plEntryChk=null;APP.plShowSol=false;render();return}
+  if(a==="loadSampleEmp"){if(APP.readOnly)return;const c=co(),p=ensurePayroll(c);p.employees.push(...plSampleEmployees());touch(c);render();toast("Se agregaron 4 colaboradores de ejemplo");return}
+  if(a==="showSol"){const c=co(),p=ensurePayroll(c),run=plCurRun(p);APP.plShowSol=!APP.plShowSol;if(APP.plShowSol&&run&&!APP.readOnly){run.vioSolucion=true;touch(c)}render();return}
+},true);
+document.addEventListener("input",e=>{
+  const sh=e.target.dataset.sh,ma=e.target.dataset.ma;if(!sh&&!ma)return;
+  const c=co();if(!c||APP.readOnly)return;const p=ensurePayroll(c);
+  if(sh){const [id,q]=sh.split("|");p.sheet??={};(p.sheet[id]??={})[q]=e.target.value;e.target.closest("td")?.classList.remove("cell-ok","cell-bad");touch(c);return}
+  const [rid,code,s]=ma.split("|");const run=rid==="draft"?p.draft:p.runs.find(r=>r.id===rid);if(!run)return;
+  (run.mach??={})[code]??={};run.mach[code][s]=e.target.value;touch(c);
+  let D=0,C=0;for(const k in run.mach){D+=parseNum(run.mach[k].d)||0;C+=parseNum(run.mach[k].c)||0}
+  const dEl=document.getElementById("maD"),cEl=document.getElementById("maC"),st=document.getElementById("maSt");
+  if(dEl)dEl.textContent=money(D);if(cEl)cEl.textContent=money(C);
+  if(st){const ok=r2(D)===r2(C)&&D>0;st.className="status "+(ok?"ok":"bad");st.innerHTML=`<span class="dot"></span>${ok?"Tus sumas son iguales":"Tus sumas todavía no son iguales"}`}
+});
+document.addEventListener("submit",e=>{
+  const id=e.target.id;if(id!=="plSheet"&&id!=="plMach")return;
+  e.preventDefault();e.stopImmediatePropagation();
+  const c=co();if(!c)return;const p=ensurePayroll(c);
+  if(id==="plSheet"){APP.plSheetChk=true;p.sheetIntentos=(p.sheetIntentos||0)+1;touch(c);render();
+    const st=plSheetStatus(p);toast(st.all?"¡Planilla correcta!":`${st.ok} de ${st.total} casillas correctas`);return}
+  const run=plCurRun(p);if(!run||!run.res?.length)return;const sol=plEntryLines(run);const res={};
+  for(const l of sol){const m=run.mach?.[l.code]||{},d=parseNum(m.d)||0,cr=parseNum(m.c)||0;
+    const ok=l.d?(near(d,l.d)&&!cr):(near(cr,l.c)&&!d);res[l.code]={ok,msg:ok?"":plAsientoFb(l.code,d,cr,l,run,p.params)}}
+  run.intentos=(run.intentos||0)+1;run.machoteOk=sol.every(l=>res[l.code].ok);
+  APP.plEntryChk={run:run.id,res};touch(c);render();
+},true);
+
+/* Eventos del módulo */
+function plReadParams(P){
+  document.querySelectorAll("[data-pl]").forEach(el=>{
+    const path=el.dataset.pl.split(".");let o=P;for(let i=0;i<path.length-1;i++)o=o[path[i]];const key=path[path.length-1];
+    if(el.type==="checkbox")o[key]=el.checked;else if(el.type==="number")o[key]=el.value===""?0:+el.value;else o[key]=el.value.trim();
+  });
+}
+document.addEventListener("click",async e=>{
+  const b=e.target.closest("[data-pact]");if(!b)return;
+  const c=co();if(!c)return;const p=ensurePayroll(c),a=b.dataset.pact;
+  try{
+  if(a==="tab"){APP.plTab=b.dataset.k;render();return}
+  if(a==="show"){APP.plShow=APP.plShow===b.dataset.id?null:b.dataset.id;render();return}
+  if(a==="openRun"){APP.plRun=b.dataset.id;APP.plTab="asiento";render();return}
+  if(a==="mode"){if(APP.plMode!==b.dataset.m){APP.plMode=b.dataset.m;plNewCase()}render();return}
+  if(a==="newCase"){plNewCase();render();return}
+  if(a==="proc"){APP.plShowProc=!APP.plShowProc;render();return}
+  if(a==="pdfAll"||a==="pdfOne"){b.disabled=true;await plPDF(b.dataset.id,a==="pdfOne"?+b.dataset.i:null);b.disabled=false;return}
+  if(APP.readOnly){toast("Estás en modo de solo lectura");return}
+  if(a==="editEmp"){APP.plEditEmp=b.dataset.id;render();document.getElementById("plEmp")?.scrollIntoView({behavior:"smooth"});return}
+  if(a==="cancelEmp"){APP.plEditEmp=null;render();return}
+  if(a==="delEmp"){armDelete(b,()=>{p.employees=p.employees.filter(x=>x.id!==b.dataset.id);touch(c);render();toast("Colaborador eliminado")});return}
+  if(a==="addRow"){plReadParams(p.params);const L=b.dataset.l;p.params[L].push(({prov:{id:uid(),nombre:"Nueva provisión",pct:0,gasto:"6111",pasivo:"2116",ley:"",activa:true},
+      jornadas:{id:uid(),nombre:"Nueva jornada",horas:8,semana:48,horario:"",ley:""},pagos:{id:uid(),nombre:"Nuevo tipo de pago",divisor:1},
+      rebajos:{id:uid(),nombre:"Nuevo rebajo",modo:"monto",valor:0,cuenta:"2116",ley:"",activa:true}})[L]||{id:uid(),nombre:"Nueva cuota",pct:0,cuenta:"2107",ley:"",activa:true});p.params.version="Personalizados";touch(c);render();return}
+  if(a==="delRow"){plReadParams(p.params);p.params[b.dataset.l].splice(+b.dataset.i,1);p.params.version="Personalizados";touch(c);render();return}
+  if(a==="resetParams"){armDelete(b,()=>{p.params=clone(PL_DEFAULT);touch(c);render();toast("Parámetros 2026 restablecidos")});return}
+  if(a==="delRun"){armDelete(b,()=>{const run=p.runs.find(r=>r.id===b.dataset.id);if(run?.entryId){c.entries=c.entries.filter(x=>x.id!==run.entryId);plRenumber(c)}
+    p.runs=p.runs.filter(r=>r.id!==b.dataset.id);APP.plRun=null;touch(c);render();toast(run?.entryId?"Planilla y su asiento eliminados":"Planilla eliminada")});return}
+  if(a==="register"){let run=p.runs.find(r=>r.id===b.dataset.id);
+    if(!run&&b.dataset.id==="draft"){const d=plDraftRun(p);
+      if(!/^\d{4}-\d{2}$/.test(d.periodo||"")){toast("Elige el mes de la planilla");return}
+      if(!d.res.length){toast("Esta planilla no tiene colaboradores");return}
+      if(plMachote()&&!d.machoteOk){toast("Primero resuelve correctamente el machote del asiento");return}
+      if(p.runs.some(r=>plRunKey(r)===plRunKey(d))){toast("Ya existe la planilla de "+plRunLabel(d)+". Cambia el mes o el pago.");return}
+      run={...clone(d),id:uid(),fecha:new Date().toISOString(),entryId:null};p.runs.push(run);delete p.draft;APP.plNewDraft=false;APP.plRun=run.id;APP.plEntryChk=null;}
+    if(!run||run.entryId)return;
+    if(plMachote()&&!run.machoteOk){toast("Primero resuelve correctamente el machote del asiento");return}
+    const added=plEnsureAccounts(c);const id=uid();
+    c.entries.push({id,n:c.entries.length+1,date:plPayDate(run),desc:`Registro de la planilla de ${plRunLabel(run)} · ${run.res.length} colaborador(es)`,lines:plEntryLines(run)});
+    plRenumber(c);run.entryId=id;touch(c);render();toast(added?`Asiento registrado. Se agregaron ${added} cuentas de planilla al catálogo.`:"Asiento registrado en el Libro Diario");return}
+  }catch(err){b.disabled=false;toast(err&&err.message?err.message:"No se pudo completar.")}
+});
+document.addEventListener("input",e=>{if(e.target.dataset.q){APP.plAns[e.target.dataset.q]=e.target.value}});
+document.addEventListener("change",e=>{if(e.target.id==="plRunSel"){APP.plRun=e.target.value;render();return}
+  const map={pdPer:"periodo",pdTipo:"tipo",pdN:"nPago",pdPago:"pago"}[e.target.id];if(!map)return;
+  const c=co();if(!c||APP.readOnly)return;const p=ensurePayroll(c),d=plDraftRun(p);
+  d[map]=map==="nPago"?+e.target.value:e.target.value;if(map==="tipo")d.nPago=1;APP.plEntryChk=null;APP.plShowSol=false;touch(c);render();});
+document.addEventListener("submit",e=>{
+  const id=e.target.id;if(!id||!id.startsWith("pl"))return;e.preventDefault();
+  const c=co();if(!c)return;const p=ensurePayroll(c);
+  if(id==="plPract"){
+    const k=plCalc(APP.plCase,p.params),F=plFields(k),ev=APP.plMode==="evaluacion";
+    if(ev&&F.some(([q])=>!String(APP.plAns[q]??"").trim())){toast("Completa todos los campos antes de entregar");return}
+    const res={};for(const [q] of F){const v=parseNum(APP.plAns[q]),sol=plSol(k,q),ok=!isNaN(v)&&near(v,sol);res[q]={ok,msg:ok||ev?"":(isNaN(v)?"Escribe un monto.":plFeedback(q,v,k,p.params,APP.plAns))}}
+    APP.plChecked=res;APP.plTries=(APP.plTries||0)+1;
+    const score=F.filter(([q])=>res[q].ok).length,caso=`${APP.plCase.nombre} · ${money(APP.plCase.base)}`;
+    if(ev){APP.plLocked=true;if(!APP.readOnly){p.evals.push({fecha:new Date().toISOString(),modo:"evaluacion",caso,puntaje:score,total:F.length});touch(c)}}
+    else if(score===F.length&&!APP.plCase._done){APP.plCase._done=true;if(!APP.readOnly){p.evals.push({fecha:new Date().toISOString(),modo:"practica",caso,puntaje:score,total:F.length,intentos:APP.plTries});touch(c)}}
+    if(!APP.plCase._t){APP.plCase._t=1}
+    render();return;
+  }
+  if(APP.readOnly)return;
+  if(id==="plParams"){
+    const P=clone(p.params);plReadParams(P);
+    for(const L of ["obrero","patronal","prov"])for(const x of P[L])if(!(x.pct>=0&&x.pct<=100)){toast("Los porcentajes deben estar entre 0 y 100");return}
+    const hs=P.renta.tramos.filter(t=>t.hasta!==null).map(t=>+t.hasta);if(hs.some((h,i)=>i&&h<=hs[i-1])){toast("Los tramos de renta deben ir de menor a mayor");return}
+    if(!(P.jornada.dias>0&&P.jornada.factorExtra>=1)){toast("Revisa los días del mes y el recargo de horas extra");return}
+    if(!P.jornadas.length||P.jornadas.some(j=>!(j.horas>0))){toast("Cada jornada necesita horas diarias mayores que cero");return}
+    if(!P.pagos.length||P.pagos.some(x=>!(x.divisor>=1))){toast("Cada tipo de pago necesita 1 o más pagos por mes");return}
+    if(JSON.stringify(P)!==JSON.stringify(p.params))P.version="Personalizados";
+    p.params=P;touch(c);render();toast("Parámetros guardados");return;
+  }
+  if(id==="plEmp"){
+    const g=x=>document.getElementById(x);
+    const emp={nombre:g("peNom").value.trim(),cedula:g("peCed").value.trim(),puesto:g("pePue").value.trim(),base:+g("peBase").value||0,
+      horasExtra:+g("peHE").value||0,comisiones:+g("peCom").value||0,diasAusencia:+g("peAus").value||0,horasTarde:+g("peTar").value||0,hijos:Math.max(0,Math.floor(+g("peHij").value||0)),conyuge:g("peCony").checked,
+      jornada:g("peJor")?.value||"diurna",tipoPago:g("peTP")?.value||"mensual",
+      rebajos:Object.fromEntries(plAct(p.params.rebajos).map(r=>[r.id,{on:!!g("peR_"+r.id)?.checked,valor:+(g("peRV_"+r.id)?.value)||0}]))};
+    if(!emp.nombre||emp.base<=0){toast("Escribe el nombre y un salario base mayor que cero");return}
+    if(APP.plEditEmp){if(p.sheet)delete p.sheet[APP.plEditEmp];Object.assign(p.employees.find(x=>x.id===APP.plEditEmp),emp);APP.plEditEmp=null;toast("Colaborador actualizado")}
+    else{p.employees.push({id:uid(),...emp});toast(emp.nombre+" agregado a la planilla")}
+    touch(c);render();return;
+  }
+  if(id==="plProc"){
+    const per=document.getElementById("plPer").value;if(!/^\d{4}-\d{2}$/.test(per)){toast("Elige el mes de la planilla");return}
+    if(plMachote()&&!plSheetStatus(p).all){toast("Primero completa y revisa tu machote de planilla: todas las casillas deben estar correctas.");return}
+    const tipo=document.getElementById("plTipo").value,tp=p.params.pagos.find(x=>x.id===tipo)||{id:"mensual",nombre:"Mensual",divisor:1},div=+tp.divisor||1;
+    const nPago=div>1?Math.min(+document.getElementById("plN").value||1,Math.ceil(div)):null;
+    const emps=p.employees.filter(e=>(e.tipoPago||"mensual")===tipo);
+    if(!emps.length){toast(`No hay colaboradores con pago ${String(tp.nombre).toLowerCase()}.`);return}
+    const run={id:uid(),periodo:per,tipo,tipoNombre:tp.nombre,div,nPago,fecha:new Date().toISOString(),pago:document.getElementById("plPago").value,
+      res:emps.map(e=>({emp:clone(e),calc:plCalc(e,p.params)})),entryId:null};
+    if(p.runs.some(r=>plRunKey(r)===plRunKey(run))){toast("Ya procesaste la planilla de "+plRunLabel(run)+". Elimínala primero si quieres rehacerla.");return}
+    p.runs.push(run);APP.plRun=run.id;APP.plTab="asiento";touch(c);render();toast("Planilla de "+plRunLabel(run)+" procesada");
+  }
+});
+
+/* ============ Claves de los módulos ============ */
+const LOCKS={"planillas": "18fb84ba30196a7ad6bc78f7cdedf87072856e5d0c8248f4b7dfd631f5fea3c9", "diario": "73d9dbe028f1bdc3cd326170aba32dd6ab2b29e4987181c037b5cfad38c7df13", "mayor": "88e76df3baf189d9d23d69bd358bf6b169554e5bab20c64bb8674c2dd9087ddc", "balanza": "23ac3a4abb285056d6761462d8c30318d53f1cbf64454e09c06ea41aaa9aa764", "estados": "05681605d3926bc619bf6c07fec39e19a3178c8f1dbf90c71312f8eb8ff23921"};
+const LOCK_NAMES={planillas:"Planillas",diario:"Libro Diario",mayor:"Libro Mayor",balanza:"Balanza de comprobación",estados:"Estados financieros"};
+const isUnlocked=k=>!LOCKS[k]||isTeacher()||(APP.unlocked||[]).includes(k);
+function viewLocked(k){
+  return `<div class="login" style="margin-top:12px"><div class="panel stack" style="text-align:center;align-items:center">
+    <div class="lockicon" aria-hidden="true">🔒</div><div class="eyebrow">Módulo bloqueado</div><h2>${esc(LOCK_NAMES[k]||k)}</h2>
+    <p class="muted" style="margin:0;max-width:40ch">Tu profesor te dará la clave cuando sea momento de abrir este módulo. Escríbela tal como te la dio.</p>
+    <form id="fUnlock" data-k="${k}" class="stack" style="width:100%;max-width:320px">
+     <div class="field"><label for="ulKey">Clave del módulo</label><input id="ulKey" autocomplete="off" autocapitalize="characters" spellcheck="false" class="num" style="text-align:center;font-size:1.15rem;letter-spacing:.06em" required></div>
+     <button class="btn primary" type="submit">Abrir módulo</button></form>
+    <button class="btn ghost" data-go="empresas">Volver a Empresas</button></div></div>`;
+}
+let ulFails=0,ulUntil=0;
+document.addEventListener("toggle",e=>{if(e.target.id==="clavesBox")APP.clavesOpen=e.target.open},true);
+document.addEventListener("submit",async e=>{
+  if(e.target.id!=="fUnlock")return;e.preventDefault();e.stopImmediatePropagation();
+  const k=e.target.dataset.k,inp=document.getElementById("ulKey");
+  if(Date.now()<ulUntil){toast("Espera un minuto antes de intentar de nuevo");return}
+  const key=String(inp.value||"").trim().toUpperCase().replace(/\s+/g,"");
+  if(await sha256hex(`aula-contable|${k}|${key}`)!==LOCKS[k]){ulFails++;if(ulFails>=5){ulFails=0;ulUntil=Date.now()+60000;toast("Demasiados intentos. Espera un minuto.")}else toast("Esa clave no es correcta");inp.select();return}
+  ulFails=0;APP.unlocked=[...new Set([...(APP.unlocked||[]),k])];
+  if(APP.store.mode==="local"){try{await APP.store.saveWork(null,null,APP.companies)}catch(err){}}
+  render();toast("¡Módulo "+(LOCK_NAMES[k]||k)+" abierto!");
+},true);
+
+/* ============ Eventos ============ */
+const val=id=>(document.getElementById(id)?.value??"");
+/* (sin cierre de sesión automático por inactividad) */
+document.addEventListener("click",async e=>{
+  const au=e.target.closest("[data-auth]");if(au){APP.authTab=au.dataset.auth;render();return}
+  const go=e.target.closest("[data-go]");
+  if(go){const v=go.dataset.go;
+    if(APP.viewing&&v==="entregas"){await stopViewing();return}
+    APP.view=v;if(v==="entregas")loadEntregas();else render();window.scrollTo({top:0,behavior:"smooth"});return}
+  const tab=e.target.closest("[data-tab]");if(tab){APP.eeTab=tab.dataset.tab;render();return}
+  const b=e.target.closest("[data-act]");if(!b)return;
+  const c=co(),a=b.dataset.act;
+  try{
+  if(a==="logout"){await logout();return}
+  if(a==="copyRec"){copyText(APP.showRecovery,"recTa");return}
+  if(a==="recDone"){APP.showRecovery=null;render();return}
+  if(a==="openCo"){APP.activeId=b.dataset.id;APP.editAcc=null;resetDraft();render();toast("Empresa abierta");return}
+  if(a==="stopViewing"){await stopViewing();return}
+  /* Estudiante: entregar */
+  if(a==="genDelivery"){const ids=[...document.querySelectorAll(".dsel:checked")].map(x=>x.value);
+    if(!ids.length){toast("Marca al menos una empresa");return}
+    await flush();APP.lastDelivery=await buildDelivery(clone(APP.companies.filter(x=>ids.includes(x.id))));render();toast("Código generado");return}
+  if(a==="copyDelivery"){copyText(APP.lastDelivery.code,"dlvTa");return}
+  if(a==="importBk"){const {payload}=await readDelivery(val("bkText"));
+    if(payload.usuario!==APP.me.usuario){toast("Ese código pertenece a otro usuario. Solo puedes traer tu propio trabajo.");return}
+    for(const x of payload.companies){const n=clone(x);n.id=uid();if(!n.code||APP.companies.some(y=>y.code===n.code))n.code=nextCoCode();APP.companies.push(n);touch(n)}
+    APP.activeId=APP.companies[APP.companies.length-1].id;resetDraft();render();toast(payload.companies.length+" empresa(s) agregadas");return}
+  /* Profesor: entregas */
+  if(a==="reloadEntregas"){loadEntregas();return}
+  if(a==="entTab"){APP.entTab=b.dataset.t;render();return}
+  if(a==="checkDelivery"){APP.preview=await readDelivery(val("rcvTa"));render();return}
+  if(a==="cancelPreview"){APP.preview=null;render();return}
+  if(a==="saveDelivery"){const p=APP.preview;b.disabled=true;
+    if((APP.entregas||[]).some(x=>x.check===p.check)){toast("Esa entrega ya estaba guardada");APP.preview=null;render();return}
+    const cs=p.payload.companies;
+    const meta={id:uid(),usuario:p.payload.usuario,nombre:p.payload.nombre,fecha:p.payload.fecha,recibida:new Date().toISOString(),check:p.check,resumen:plResumen(cs,p.payload.desbloqueos),
+      empresas:cs.length,asientos:cs.reduce((s,x)=>s+(x.entries||[]).length,0)};
+    await APP.store.saveEntrega(meta,cs);APP.preview=null;toast("Entrega de "+meta.nombre+" guardada");loadEntregas();return}
+  if(a==="viewEntrega"){const e2=(APP.entregas||[]).find(x=>x.id===b.dataset.id);
+    APP.viewing={id:e2.id,nombre:e2.nombre,fecha:e2.fecha};APP.readOnly=true;
+    APP.companies=await APP.store.entregaCompanies(e2.id);APP.activeId=sortCos(APP.companies)[0]?.id||null;APP.view="balanza";resetDraft();render();return}
+  if(a==="delEntrega"){armDelete(b,async()=>{try{await APP.store.deleteEntrega(b.dataset.id);toast("Entrega eliminada");loadEntregas()}catch(err){toast("No se pudo eliminar")}});return}
+  /* Edición */
+  if(APP.readOnly&&!["addLine","rmLine","clearDraft"].includes(a)){toast("Estás en modo de solo lectura");return}
+  if(a==="editCo"){APP.editCo=b.dataset.id;render();document.getElementById("fCo")?.scrollIntoView({behavior:"smooth"});return}
+  if(a==="cancelEditCo"){APP.editCo=null;render();return}
+  if(a==="dupCo"){const s=APP.companies.find(x=>x.id===b.dataset.id);const n=clone(s);n.id=uid();n.name=s.name+" (copia)";n.code=nextCoCode();APP.companies.push(n);touch(n);render();toast("Empresa duplicada como "+n.code);return}
+  if(a==="delCo"){armDelete(b,async()=>{const id=b.dataset.id;APP.companies=APP.companies.filter(x=>x.id!==id);
+    try{if(APP.store.mode==="local"){pending.add("_");await flush()}else{pending.delete(id);await APP.store.deleteCompany(id)}}catch(err){toast("No se pudo eliminar")}
+    if(APP.activeId===id)APP.activeId=sortCos(APP.companies)[0]?.id||null;resetDraft();render();toast("Empresa eliminada")});return}
+  if(a==="loadBase"){c.accounts=BASE.map(x=>({...x}));touch(c);render();toast("Catálogo base cargado");return}
+  if(a==="editAcc"){APP.editAcc=b.dataset.code;render();document.getElementById("fAcc")?.scrollIntoView({behavior:"smooth"});return}
+  if(a==="cancelEditAcc"){APP.editAcc=null;render();return}
+  if(a==="delAcc"){armDelete(b,()=>{c.accounts=c.accounts.filter(x=>x.code!==b.dataset.code);touch(c);render();toast("Cuenta eliminada")});return}
+  if(a==="addLine"){draft.lines.push({code:"",d:"",c:""});document.getElementById("lines").innerHTML=draftLinesHTML();updateTotals();return}
+  if(a==="rmLine"){draft.lines.splice(+b.dataset.i,1);document.getElementById("lines").innerHTML=draftLinesHTML();updateTotals();return}
+  if(a==="clearDraft"){resetDraft();render();return}
+  if(a==="delEntry"){armDelete(b,()=>{c.entries=c.entries.filter(x=>x.id!==b.dataset.id);c.entries.sort((x,y)=>x.date.localeCompare(y.date)||x.n-y.n).forEach((x,i)=>x.n=i+1);touch(c);render();toast("Asiento eliminado y renumerado")});return}
+  }catch(err){b.disabled=false;toast(err&&err.message&&!err.code?err.message:"No se pudo completar. Inténtalo de nuevo.")}
+});
+async function stopViewing(){
+  APP.viewing=null;APP.readOnly=false;APP.companies=await APP.store.listCompanies();
+  APP.activeId=sortCos(APP.companies)[0]?.id||null;APP.view="entregas";resetDraft();loadEntregas();
+}
+document.addEventListener("input",e=>{
+  const ln=e.target.closest(".line");
+  if(ln){const i=+ln.dataset.i,f=e.target.dataset.f;draft.lines[i][f]=e.target.value;
+    if(f==="d"&&e.target.value){draft.lines[i].c="";ln.querySelector('[data-f="c"]').value=""}
+    if(f==="c"&&e.target.value){draft.lines[i].d="";ln.querySelector('[data-f="d"]').value=""}
+    updateTotals();return}
+  if(e.target.id==="eDate")draft.date=e.target.value;
+  if(e.target.id==="eDesc")draft.desc=e.target.value;
+  if(e.target.id==="entF"){APP.entF=e.target.value;const pos=e.target.selectionStart;render();const el=document.getElementById("entF");if(el){el.focus();el.setSelectionRange(pos,pos)}}
+});
+document.addEventListener("change",e=>{
+  if(e.target.id==="coPick"){APP.activeId=e.target.value;APP.editAcc=null;resetDraft();if(["entregas","entregar"].includes(APP.view))APP.view="diario";render();toast("Trabajando en: "+co().name)}
+  if(e.target.id==="mayorF"){APP.mayorF=e.target.value;render()}
+  if(e.target.id==="aType"){const t=e.target.value;document.getElementById("aCls").innerHTML=Object.entries(CLS[t]).map(([k,v])=>`<option value="${k}">${v}</option>`).join("")}
+});
+document.addEventListener("submit",async e=>{
+  e.preventDefault();const c=co(),id=e.target.id;
+  if(id==="fCo"){
+    const code=val("coCode").trim().toUpperCase(),name=val("coName").trim();if(!name||!code)return;
+    if(APP.companies.some(x=>x.code===code&&x.id!==APP.editCo)){toast("Ya tienes una empresa con el código "+code);return}
+    if(APP.editCo){const x=APP.companies.find(y=>y.id===APP.editCo);Object.assign(x,{code,name,cedula:val("coCed").trim(),currency:val("coCur"),period:+val("coPer")||x.period});touch(x);APP.editCo=null;render();toast("Datos actualizados");return}
+    const n=newCompany({name,code,cedula:val("coCed").trim(),currency:val("coCur"),period:val("coPer")||2026,base:document.getElementById("coBase").checked,sample:document.getElementById("coSample").checked});
+    APP.companies.push(n);APP.activeId=n.id;APP.view="catalogo";touch(n);resetDraft();render();toast(`Empresa ${code} creada`);
+  }
+  if(id==="fAcc"){
+    const code=val("aCode").trim(),name=val("aName").trim(),type=val("aType");if(!code||!name)return;
+    const old=APP.editAcc;
+    if(c.accounts.some(a=>a.code===code&&a.code!==old)){toast("Ya existe una cuenta con el código "+code);return}
+    const nat=document.getElementById("aContra").checked?(DEFNAT[type]==="D"?"A":"D"):DEFNAT[type];
+    const data={code,name,type,cls:val("aCls"),nature:nat,niif:val("aNiif").trim()};
+    if(old){const x=acc(old);Object.assign(x,data);if(old!==code)for(const en of c.entries)for(const l of en.lines)if(l.code===old)l.code=code;APP.editAcc=null;toast("Cuenta "+code+" actualizada")}
+    else{c.accounts.push(data);toast("Cuenta "+code+" agregada")}
+    touch(c);render();
+  }
+  if(id==="fEntry"){
+    const t=draftTotals();if(!t.ok)return;
+    if(!draft.desc.trim()){toast("Escribe la descripción del asiento");document.getElementById("eDesc").focus();return}
+    const lines=draft.lines.filter(l=>l.code&&(+l.d||+l.c)).map(l=>({code:l.code,d:r2(l.d),c:r2(l.c)}));
+    c.entries.push({id:uid(),n:c.entries.length+1,date:draft.date,desc:draft.desc.trim(),lines});
+    c.entries.sort((x,y)=>x.date.localeCompare(y.date)||x.n-y.n).forEach((x,i)=>x.n=i+1);
+    const d=draft.date;resetDraft();draft.date=d;touch(c);render();toast("Asiento registrado");
+  }
+});
+window.addEventListener("pagehide",()=>{flush()});
+
+/* ============ Arranque ============ */
+async function boot(){
+  const SESSION_KEY="ctp_lms_session_v2";
+  let session=null;
+  try{session=JSON.parse(sessionStorage.getItem(SESSION_KEY))}catch(e){session=null}
+  if(!session||!session.id||!session.role){
+    document.getElementById("top").hidden=true;
+    document.getElementById("railWrap").hidden=true;
+    document.getElementById("main").innerHTML='<div class="empty"><h3>No hay sesión</h3><p>Abrí Aula de Conta desde adentro de ctp-lms (la pestaña Materias, si sos estudiante, o el acceso rápido del profesor).</p><p><a class="btn primary" href="./index.html">Ir a ctp-lms</a></p></div>';
+    return;
+  }
+  if(session.role==="docente"){
+    APP.store=supabaseTeacherStore(session.id);
+    await enter({usuario:session.id,nombre:session.nombre||"Profesor",rol:"profesor"});
+    return;
+  }
+  APP.store=supabaseStudentStore(session.id);
+  await enter({usuario:session.id,nombre:session.nombre||"Estudiante",rol:"estudiante"});
+}
+boot();
+</script>
+
+</body></html>
