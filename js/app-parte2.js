@@ -8498,10 +8498,11 @@ const DOC_DEF_EXT_OK = /\.(pdf|docx?|xlsx?|pptx?|txt|csv|odt|ods|odp|jpe?g|png|w
 
 async function agregarDocumentoDefinitivo(holder, trabajos, estudianteId, prefijo) {
   prefijo = prefijo || "";
+  if (!session) { const d = document.createElement("div"); d.textContent = "⚠️ Sin sesión para adjuntar documento."; holder && holder.appendChild(d); return; }
   try {
     if (!holder || !session) return;
     const filas = trabajos.map(t => { const w = holder.querySelector(`[data-fila-trabajo="${t.id}"]`); return w ? (w.querySelector(":scope > .roster-row") || w) : null; });
-    if (filas.some(f => !f)) { console.warn("documento: filas no coinciden"); return; }
+    if (filas.some(f => !f)) { console.warn("documento: filas no coinciden"); const d = document.createElement("div"); d.style.cssText = "font-size:0.78rem; color:#b00; padding:0.4rem;"; d.textContent = "⚠️ «Adjuntar documento»: no se pudo ubicar los trabajos en pantalla."; holder.appendChild(d); return; }
     const nota = (fila, html) => { const d = document.createElement("div"); d.style.cssText = "width:100%; font-size:0.78rem; color:var(--text-muted); border-top:1px dashed var(--border, #ccc); padding-top:0.4rem;"; d.innerHTML = html; fila.appendChild(d); };
     if (session.role !== "estudiante") { filas.forEach(f => nota(f, "📄 Vista previa: aquí el estudiante verá el botón «Adjuntar documento» (entrega definitiva).")); return; }
     const { data: docs, error } = await sb.from("documentos_entrega").select("*")
@@ -8551,7 +8552,7 @@ async function agregarDocumentoDefinitivo(holder, trabajos, estudianteId, prefij
       }
       fila.appendChild(bloque);
     });
-  } catch (e) { console.warn("documento definitivo", e); }
+  } catch (e) { console.warn("documento definitivo", e); try { const d = document.createElement("div"); d.style.cssText = "font-size:0.78rem; color:#b00; padding:0.4rem;"; d.textContent = "⚠️ Error en «Adjuntar documento»: " + (e && e.message); holder.appendChild(d); } catch (_) {} }
 }
 
 async function agregarPanelDocumentosDocente(holder, trabajos, prefijo) {
@@ -8559,7 +8560,7 @@ async function agregarPanelDocumentosDocente(holder, trabajos, prefijo) {
   try {
     if (!holder || !session || session.role !== "docente") return;
     const filas = trabajos.map(t => { const w = holder.querySelector(`[data-fila-trabajo="${t.id}"]`); return w ? (w.querySelector(":scope > .roster-row") || w) : null; });
-    if (filas.some(f => !f)) { console.warn("documento: filas no coinciden"); return; }
+    if (filas.some(f => !f)) { console.warn("documento: filas no coinciden"); const d = document.createElement("div"); d.style.cssText = "font-size:0.78rem; color:#b00; padding:0.4rem;"; d.textContent = "⚠️ «Adjuntar documento»: no se pudo ubicar los trabajos en pantalla."; holder.appendChild(d); return; }
     filas.forEach((fila, i) => {
       const t = trabajos[i];
       const det = document.createElement("details");
