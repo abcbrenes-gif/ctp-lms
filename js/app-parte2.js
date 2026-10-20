@@ -3357,7 +3357,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
             <span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>
           </div>
           ${accionInicio}
-          ${puedeVerRetro ? `<button class="btn secondary small" data-ver-mi-retro="${t.id}">📝 Ver mis respuestas</button><div data-mi-retro-panel="${t.id}" style="width:100%;"></div>` : ""}
+          ${puedeVerRetro ? `<button class="btn secondary small" data-ver-mi-retro="${t.id}">📝 Ver mis respuestas</button><div data-mi-retro-panel="${t.id}" style="width:100%;"></div>` : (completo && TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<span style="font-size:0.78rem; color:var(--text-muted);">🔒 Las preguntas y tus respuestas están bloqueadas hasta que tu profesor las desbloquee.</span>` : "")}
         </div>`;
       }
       const miEstado = estadoPorTrabajo[t.id];
@@ -3668,7 +3668,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
             ${ACTIVIDADES_BLOQUEADAS.includes(t.tipo_actividad) ? `<button class="btn secondary small" data-ver-preguntas="${t.id}">👁️ Ver preguntas</button>` : ""}
             ${ACTIVIDADES_BLOQUEADAS.includes(t.tipo_actividad) ? `<button class="btn secondary small" data-editar-preguntas="${t.id}">✏️ Editar preguntas</button>` : ""}
             ${TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<button class="btn secondary small" data-ver-retro="${t.id}">📝 Ver retroalimentación</button>` : ""}
-            ${TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<button class="btn ${t.retro_visible ? "" : "secondary"} small" data-toggle-retro-visible="${t.id}" data-estado-actual="${t.retro_visible === true}">${t.retro_visible ? "🙈 Ocultar respuestas a estudiantes" : "👁️ Mostrar respuestas a estudiantes"}</button>` : ""}
+            ${TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<button class="btn ${t.retro_visible ? "" : "secondary"} small" data-toggle-retro-visible="${t.id}" data-estado-actual="${t.retro_visible === true}">${t.retro_visible ? "🔒 Bloquear respuestas a estudiantes" : "🔓 Desbloquear respuestas a estudiantes"}</button>` : ""}
             ${t.tipo_actividad === "lluvia_ideas" ? `<button class="btn secondary small" data-ver-ideas="${t.id}">💡 Ver intervenciones</button>` : ""}
             ${t.tipo_actividad === "respuesta_abierta" ? `<button class="btn secondary small" data-ver-entregas-abiertas="${t.id}">📨 Ver entregas</button>` : ""}
             ${t.tipo_actividad === "autoevaluacion" ? `<button class="btn secondary small" data-ver-autoeval="${t.id}">🪞 Ver respuestas</button>` : ""}
@@ -5781,7 +5781,7 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
             <span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>
           </div>
           ${accionInicio}
-          ${puedeVerRetro ? `<button class="btn secondary small" data-ver-mi-retro-tema="${t.id}">📝 Ver mis respuestas</button><div data-mi-retro-tema-panel="${t.id}" style="width:100%;"></div>` : ""}
+          ${puedeVerRetro ? `<button class="btn secondary small" data-ver-mi-retro-tema="${t.id}">📝 Ver mis respuestas</button><div data-mi-retro-tema-panel="${t.id}" style="width:100%;"></div>` : (completo && TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<span style="font-size:0.78rem; color:var(--text-muted);">🔒 Las preguntas y tus respuestas están bloqueadas hasta que tu profesor las desbloquee.</span>` : "")}
         </div>`;
       }
       const miEstado = estadoPorTrabajo[t.id];
@@ -5925,7 +5925,7 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
               ${t.habilitado === false ? "Habilitar" : "Habilitado"}
             </button>
             ${TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<button class="btn secondary small" data-ver-retro-tema="${t.id}">📝 Ver retroalimentación</button>` : ""}
-            ${TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<button class="btn ${t.retro_visible ? "" : "secondary"} small" data-toggle-retro-visible-tema="${t.id}" data-estado-actual="${t.retro_visible === true}">${t.retro_visible ? "🙈 Ocultar respuestas a estudiantes" : "👁️ Mostrar respuestas a estudiantes"}</button>` : ""}
+            ${TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<button class="btn ${t.retro_visible ? "" : "secondary"} small" data-toggle-retro-visible-tema="${t.id}" data-estado-actual="${t.retro_visible === true}">${t.retro_visible ? "🔒 Bloquear respuestas a estudiantes" : "🔓 Desbloquear respuestas a estudiantes"}</button>` : ""}
             ${(!t.tipo_actividad || t.tipo_actividad === "simple") ? `<button class="btn secondary small" data-editar-trabajo="${t.id}">✏️ Editar</button>` : ""}
             <button class="btn secondary small" data-ver-entregas-trabajo-tema="${t.id}">📎 Ver archivos entregados</button>
             ${t.indicador_id
@@ -6729,8 +6729,8 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
     const t = trabajoPorIndicador[ind.id];
     if (!t || !TIPOS_CON_RETRO.includes(t.tipo_actividad)) return "";
     return t.retro_visible
-      ? `<button class="btn small" data-toggle-retro-visible-ind="${t.id}" data-estado-actual="true">🙈 Ocultar respuestas a estudiantes</button>`
-      : `<button class="btn secondary small" data-toggle-retro-visible-ind="${t.id}" data-estado-actual="false">👁️ Mostrar respuestas a estudiantes</button>`;
+      ? `<button class="btn small" data-toggle-retro-visible-ind="${t.id}" data-estado-actual="true">🔒 Bloquear respuestas a estudiantes</button>`
+      : `<button class="btn secondary small" data-toggle-retro-visible-ind="${t.id}" data-estado-actual="false">🔓 Desbloquear respuestas a estudiantes</button>`;
   }
   // Botón para descargar/imprimir la prueba en PDF (sin marcar las
   // respuestas correctas), para tenerla en papel o guardada.

@@ -599,6 +599,34 @@ function recalcularResultadoActividad(tipo, contenidoViejo, contenidoNuevo, entr
   return null;
 }
 
+// Mezcla "estable": con la misma semilla (trabajo + estudiante) siempre da el
+// mismo orden, pero cada estudiante recibe un orden distinto — así los
+// compañeros de al lado no ven las preguntas ni las opciones en el mismo
+// lugar. Sin semilla, mezcla al azar.
+function mezclarEstable(arr, semilla) {
+  if (!semilla) return mezclar(arr);
+  const txt = String(semilla);
+  let h = 1779033703 ^ txt.length;
+  for (let i = 0; i < txt.length; i++) {
+    h = Math.imul(h ^ txt.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  let a = (h ^ (h >>> 16)) >>> 0;
+  const azar = () => {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const copia = arr.slice();
+  for (let i = copia.length - 1; i > 0; i--) {
+    const j = Math.floor(azar() * (i + 1));
+    [copia[i], copia[j]] = [copia[j], copia[i]];
+  }
+  return copia;
+}
+
 function mezclar(arr) {
   const copia = arr.slice();
   for (let i = copia.length - 1; i > 0; i--) {
@@ -799,17 +827,24 @@ function barraProgresoActividad(actual, total) {
 
 function jugarSeleccionUnica(trabajo, cuerpo, terminar) {
   const preguntas = (trabajo.contenido_actividad && trabajo.contenido_actividad.preguntas) || [];
+  // Cada estudiante ve las preguntas y las opciones en un orden distinto
+  // (evita las copias). Las respuestas se guardan SIEMPRE con el índice
+  // original de la pregunta y de la opción, así la nota y la
+  // retroalimentación no cambian.
+  const ordenPreguntas = mezclarEstable(preguntas.map((_, i) => i), trabajo._semilla ? trabajo._semilla + "|q" : null);
+  const ordenOpciones = preguntas.map((p, qi) => mezclarEstable(p.opciones.map((_, i) => i), trabajo._semilla ? trabajo._semilla + "|o" + qi : null));
   let actual = 0;
   const respuestas = new Array(preguntas.length).fill(null);
 
   function render() {
-    const p = preguntas[actual];
+    const qi = ordenPreguntas[actual];
+    const p = preguntas[qi];
     cuerpo.innerHTML = `
       ${barraProgresoActividad(actual, preguntas.length)}
       <h3 style="font-size:1.3rem; margin-bottom:1rem;">${p.pregunta}</h3>
       <div id="opciones-actividad" style="display:flex; flex-direction:column; gap:0.6rem;">
-        ${p.opciones.map((op, i) => `
-          <button type="button" class="quiz-option${respuestas[actual] === i ? " selected" : ""}" data-opcion="${i}">${op}</button>`).join("")}
+        ${ordenOpciones[qi].map(oi => `
+          <button type="button" class="quiz-option${respuestas[qi] === oi ? " selected" : ""}" data-opcion="${oi}">${p.opciones[oi]}</button>`).join("")}
       </div>
       <div class="row" style="margin-top:1.5rem; justify-content:space-between;">
         <button type="button" class="btn secondary small" id="act-anterior" ${actual === 0 ? "disabled" : ""}>&larr; Anterior</button>
@@ -818,7 +853,7 @@ function jugarSeleccionUnica(trabajo, cuerpo, terminar) {
 
     cuerpo.querySelectorAll("[data-opcion]").forEach(btn => {
       btn.addEventListener("click", () => {
-        respuestas[actual] = Number(btn.dataset.opcion);
+        respuestas[qi] = Number(btn.dataset.opcion);
         render();
       });
     });
@@ -840,6 +875,8 @@ function jugarSeleccionUnica(trabajo, cuerpo, terminar) {
 function jugarFalsoVerdadero(trabajo, cuerpo, terminar) {
   const items = (trabajo.contenido_actividad && trabajo.contenido_actividad.afirmaciones) || [];
   const respuestas = new Array(items.length).fill(null);
+  // Orden de las afirmaciones distinto por estudiante; se guarda con el índice original.
+  const ordenItems = mezclarEstable(items.map((_, i) => i), trabajo._semilla ? trabajo._semilla + "|fv" : null);
 
   function render() {
     const respondidas = respuestas.filter(r => r !== null).length;
@@ -847,14 +884,14 @@ function jugarFalsoVerdadero(trabajo, cuerpo, terminar) {
       ${barraProgresoActividad(Math.max(0, respondidas - 1), items.length)}
       <h3 style="margin-bottom:1rem;">Marcá si cada afirmación es verdadera o falsa</h3>
       <div style="display:flex; flex-direction:column; gap:0.8rem;">
-        ${items.map((it, i) => `
+        ${ordenItems.map((i, pos) => { const it = items[i]; return `
           <div style="background:rgba(255,255,255,0.05); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:0.9rem; transition:border-color 0.2s ease;">
-            <p style="margin-bottom:0.6rem;">${i + 1}. ${it.texto}</p>
+            <p style="margin-bottom:0.6rem;">${pos + 1}. ${it.texto}</p>
             <div style="display:flex; gap:0.6rem;">
               <button type="button" class="btn ${respuestas[i] === true ? "" : "secondary"} small" data-fv="${i}" data-val="true" style="${respuestas[i] === true ? "background:linear-gradient(135deg,#22C55E,#4ADE80); box-shadow:0 0 18px rgba(74,222,128,0.45);" : ""}">✔ Verdadero</button>
               <button type="button" class="btn ${respuestas[i] === false ? "" : "secondary"} small" data-fv="${i}" data-val="false" style="${respuestas[i] === false ? "background:linear-gradient(135deg,#F43F5E,#FB7185); box-shadow:0 0 18px rgba(244,63,94,0.45);" : ""}">✘ Falso</button>
             </div>
-          </div>`).join("")}
+          </div>`; }).join("")}
       </div>
       <div class="row" style="margin-top:1.5rem; justify-content:flex-end;">
         <button type="button" class="btn small" id="act-terminar-fv">Terminar</button>
@@ -1228,7 +1265,9 @@ function jugarPrueba(trabajo, cuerpo, terminar) {
   // (para que no vean la misma pregunta al mismo tiempo que el compañero de
   // al lado). Las respuestas siempre se guardan con el índice ORIGINAL de la
   // pregunta, así que el cálculo de la nota no cambia.
-  const ordenPreguntas = mezclar(preguntas.map((_, i) => i));
+  const ordenPreguntas = mezclarEstable(preguntas.map((_, i) => i), trabajo._semilla ? trabajo._semilla + "|q" : null);
+  // Las opciones de cada pregunta también se mezclan por estudiante (índices originales al guardar).
+  const ordenOpciones = preguntas.map((p, qi) => mezclarEstable(p.opciones.map((_, i) => i), trabajo._semilla ? trabajo._semilla + "|o" + qi : null));
   let actual = 0;
   let apareamientoRespuestas = [];
   let casoRespuesta = "";
@@ -1240,8 +1279,8 @@ function jugarPrueba(trabajo, cuerpo, terminar) {
       ${barraProgresoActividad(actual, preguntas.length)}
       <h3 style="font-size:1.3rem; margin-bottom:1rem;">${p.pregunta}</h3>
       <div id="opciones-actividad" style="display:flex; flex-direction:column; gap:0.6rem;">
-        ${p.opciones.map((op, i) => `
-          <button type="button" class="quiz-option${respuestas[indiceReal] === i ? " selected" : ""}" data-opcion="${i}">${op}</button>`).join("")}
+        ${ordenOpciones[indiceReal].map(i => `
+          <button type="button" class="quiz-option${respuestas[indiceReal] === i ? " selected" : ""}" data-opcion="${i}">${p.opciones[i]}</button>`).join("")}
       </div>
       <div class="row" style="margin-top:1.5rem; justify-content:space-between;">
         <button type="button" class="btn secondary small" id="act-anterior" ${actual === 0 ? "disabled" : ""}>&larr; Anterior</button>
@@ -1352,7 +1391,9 @@ async function iniciarActividadInteractiva(trabajo, estudianteId, onTerminado) {
     if (!datosPrueba) return; // el estudiante canceló
   }
 
-  lanzarActividadBloqueada(trabajo, (cuerpo, terminar) => jugador(trabajo, cuerpo, terminar), async (resultado) => {
+  // Copia solo para jugar, con una semilla propia de este estudiante en este trabajo.
+  const trabajoJuego = { ...trabajo, _semilla: `${trabajo.id}|${estudianteId}` };
+  lanzarActividadBloqueada(trabajoJuego, (cuerpo, terminar) => jugador(trabajoJuego, cuerpo, terminar), async (resultado) => {
     const datosPruebaCompleto = datosPrueba
       ? { ...datosPrueba, apareamiento_respuestas: resultado.apareamientoRespuestas || null, caso_respuesta: resultado.casoRespuesta || null }
       : null;
