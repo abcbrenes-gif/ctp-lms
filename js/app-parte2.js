@@ -213,6 +213,112 @@ function enlacesArchivosProyecto(e) {
   return grupo("🖼️ Infografía", infs) + grupo("📚 Referencias", refs);
 }
 
+// --- Modificar una entrega de Proyecto (11-3) ---
+// Botón "✏️ Modificar" en cada entrega: cambiar nombre y descripción,
+// quitar archivos y subir archivos nuevos (referencias e infografía).
+// Se bloquea si pasó la fecha límite o si la entrega ya tiene nota.
+function botonModificarProyectoHTML(e, contenido) {
+  if (!puedeEditarEntregas() || e.nota_ia != null || estadoLimiteProyecto(contenido).vencido) return "";
+  return `<div style="margin-top:0.3rem;"><button class="btn small" type="button" data-proyecto-modificar="${e.id}">✏️ Modificar</button></div>
+    <div data-proyecto-modificar-panel="${e.id}"></div>`;
+}
+function archivosActualesProyecto(e) {
+  const refs = Array.isArray(e.archivos_referencia) ? e.archivos_referencia.slice() : [];
+  let infos = Array.isArray(e.archivos_infografia) ? e.archivos_infografia.slice() : [];
+  if (!refs.length && !infos.length && e.archivo_ruta) infos = [{ ruta: e.archivo_ruta, nombre: e.archivo_nombre || "archivo" }];
+  return { refs, infos };
+}
+function enlazarModificarProyecto(root, recargar) {
+  root.querySelectorAll("[data-proyecto-modificar]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.proyectoModificar;
+      const panel = root.querySelector(`[data-proyecto-modificar-panel="${id}"]`);
+      if (!panel) return;
+      if (panel.innerHTML) { panel.innerHTML = ""; return; }
+      const { data: e } = await sb.from("proyecto_entregas").select("*").eq("id", id).maybeSingle();
+      if (!e) return;
+      const { data: tr } = await sb.from("trabajos_cotidianos").select("contenido_actividad").eq("id", e.trabajo_id).maybeSingle();
+      const contenido = (tr && tr.contenido_actividad) || {};
+      const minimo = Number(contenido.min_caracteres_descripcion) || 1;
+      const { refs, infos } = archivosActualesProyecto(e);
+      const url = r => sb.storage.from("materiales").getPublicUrl(r).data.publicUrl;
+      const listaQuitar = (arr, grupo) => arr.length
+        ? arr.map((a, i) => `<div style="display:flex; gap:0.5rem; align-items:center; font-size:0.8rem;">
+            <label style="display:flex; gap:0.3rem; align-items:center;"><input type="checkbox" data-quitar="${grupo}" value="${i}" /> 🗑️ Quitar</label>
+            <a href="${url(a.ruta)}" target="_blank" rel="noopener">📄 ${escInfografia(a.nombre)}</a></div>`).join("")
+        : `<div style="font-size:0.78rem; color:var(--text-muted);">No hay archivos.</div>`;
+      panel.innerHTML = `
+        <form style="display:grid; gap:0.5rem; margin-top:0.5rem; padding:0.7rem; background:var(--surface); border:1px solid var(--paper-line); border-radius:8px;">
+          <input name="titulo" value="${escInfografia(e.titulo)}" required maxlength="200" style="width:100%;" />
+          <textarea name="descripcion" rows="4" required minlength="${minimo}" style="width:100%; font-family:inherit; resize:vertical;">${escInfografia(e.descripcion)}</textarea>
+          <div><strong style="font-size:0.82rem;">📚 Archivos de referencia</strong>
+            ${listaQuitar(refs, "refs")}
+            <label style="font-size:0.8rem; display:block; margin-top:0.3rem;">Subir archivos nuevos: <input type="file" name="refs_nuevos" multiple /></label></div>
+          <div><strong style="font-size:0.82rem;">🖼️ Archivos de la infografía</strong>
+            ${listaQuitar(infos, "infos")}
+            <label style="font-size:0.8rem; display:block; margin-top:0.3rem;">Subir archivos nuevos (imagen o PDF): <input type="file" name="infos_nuevos" multiple accept="image/png,image/jpeg,image/webp,.pdf" /></label></div>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button class="btn small" type="submit">Guardar cambios</button>
+            <button class="btn secondary small" type="button" data-cancelar-modificar>Cancelar</button>
+          </div>
+          <span data-modificar-estado style="font-size:0.78rem; color:var(--text-muted);"></span>
+        </form>`;
+      const form = panel.querySelector("form");
+      const estado = panel.querySelector("[data-modificar-estado]");
+      const msg = t => { estado.textContent = t; };
+      panel.querySelector("[data-cancelar-modificar]").addEventListener("click", () => { panel.innerHTML = ""; });
+      form.addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        const f = new FormData(form);
+        const titulo = String(f.get("titulo") || "").trim();
+        const descripcion = String(f.get("descripcion") || "");
+        if (!titulo) { msg("El nombre no puede quedar vacío."); return; }
+        if (descripcion.length < minimo) { msg(`La descripción necesita al menos ${minimo} caracteres (lleva ${descripcion.length}).`); return; }
+        // Revisar de nuevo en la base: plazo y que no se haya calificado mientras tanto.
+        const { data: tr2 } = await sb.from("trabajos_cotidianos").select("contenido_actividad").eq("id", e.trabajo_id).maybeSingle();
+        if (estadoLimiteProyecto(tr2 && tr2.contenido_actividad).vencido) { msg("⛔ El plazo de entrega ya venció."); return; }
+        const { data: fila } = await sb.from("proyecto_entregas").select("nota_ia").eq("id", id).maybeSingle();
+        if (fila && fila.nota_ia != null) { msg("Esta entrega ya fue calificada, no se puede modificar."); return; }
+        const quitar = grupo => new Set([...form.querySelectorAll(`[data-quitar="${grupo}"]:checked`)].map(c => Number(c.value)));
+        const qR = quitar("refs"), qI = quitar("infos");
+        const nuevasRefs = f.getAll("refs_nuevos").filter(a => a && a.size);
+        const nuevasInfos = f.getAll("infos_nuevos").filter(a => a && a.size);
+        for (const a of nuevasInfos) { const err = validarArchivoInfografia(a); if (err) { msg(`${a.name}: ${err}`); return; } }
+        for (const a of nuevasRefs) if (a.size > 25 * 1024 * 1024) { msg(`${a.name} pesa demasiado (máximo 25 MB por archivo).`); return; }
+        const quedanRefs = refs.filter((_, i) => !qR.has(i)), quedanInfos = infos.filter((_, i) => !qI.has(i));
+        if (quedanRefs.length + nuevasRefs.length === 0) { msg("Tiene que quedar al menos un archivo de referencia."); return; }
+        if (quedanInfos.length + nuevasInfos.length === 0) { msg("Tiene que quedar al menos un archivo de la infografía."); return; }
+        const guardar = form.querySelector("button[type=submit]");
+        guardar.disabled = true; msg("Guardando…");
+        const subir = async (archivo, carpeta) => {
+          const ruta = `proyectos/trabajo-${e.trabajo_id}/${carpeta}/${e.estudiante_id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${archivo.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+          const { error } = await sb.storage.from("materiales").upload(ruta, archivo);
+          if (error) throw error;
+          return { ruta, nombre: archivo.name };
+        };
+        try {
+          const refsFinal = quedanRefs.slice(), infosFinal = quedanInfos.slice();
+          for (const a of nuevasRefs) refsFinal.push(await subir(a, "referencias"));
+          for (const a of nuevasInfos) infosFinal.push(await subir(a, "infografias"));
+          const { error } = await sb.from("proyecto_entregas").update({
+            titulo, descripcion,
+            archivo_ruta: infosFinal[0].ruta, archivo_nombre: infosFinal[0].nombre,
+            archivos_referencia: refsFinal, archivos_infografia: infosFinal
+          }).eq("id", id);
+          if (error) throw error;
+          const aBorrar = [...refs.filter((_, i) => qR.has(i)), ...infos.filter((_, i) => qI.has(i))].map(a => a.ruta);
+          if (aBorrar.length) { try { await sb.storage.from("materiales").remove(aBorrar); } catch (x) { /* no pasa nada si no se pudo borrar el archivo viejo */ } }
+          recargar();
+        } catch (err) {
+          const m = String(err.message || err);
+          msg("No se pudo guardar: " + (/archivos_(referencia|infografia)/.test(m) ? "falta crear las columnas en la base de datos (avisale a tu profesor)." : m));
+          guardar.disabled = false;
+        }
+      });
+    });
+  });
+}
+
 async function renderInfografiasEstudiante(el, s, isSelf) {
   const esProfesor = !isSelf && session.role === "docente";
   const vistaPrevia = isSelf && session.role === "docente";
@@ -466,6 +572,7 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
                           <strong>${e.titulo}</strong> <span style="color:var(--text-muted);">· ${formatearFechaHora(e.creado_en)}</span>
                           ${e.descripcion ? `<div style="margin-top:0.15rem;">${e.descripcion}</div>` : ""}
                           ${enlacesArchivosProyecto(e)}
+                          ${botonModificarProyectoHTML(e, cp)}
                         </div>`;
                       }).join("")}
                     </div>` : ""}
@@ -758,6 +865,7 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
       actualizar();
     });
 
+    enlazarModificarProyecto(el, () => renderNotasInterno(el, s, isSelf, activa));
     el.querySelectorAll("[data-proyecto-nota-form]").forEach(form => {
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -3128,6 +3236,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
                 <strong>${e.titulo}</strong> <span style="color:var(--text-muted);">· ${formatearFechaHora(e.creado_en)}</span>
                 ${e.descripcion ? `<div style="margin-top:0.2rem;">${e.descripcion}</div>` : ""}
                 ${enlacesArchivosProyecto(e)}
+                ${botonModificarProyectoHTML(e, t.contenido_actividad)}
               </div>`;
             }).join("")}
           </div>` : ""}
@@ -3404,6 +3513,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
       });
     });
 
+    enlazarModificarProyecto(holder, () => pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId));
     holder.querySelectorAll("[data-proyecto-form]").forEach(form => {
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
