@@ -489,7 +489,7 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
     const todosLosIndicadorIds = Object.values(indicadoresPorMateria).flatMap(info => info.indicadores.map(i => i.id));
     if (todosLosIndicadorIds.length) {
       const { data: trabajosDeIndicadores } = await sb.from("trabajos_cotidianos")
-        .select("id, indicador_id, tipo_actividad, habilitado, fecha_hora_inicio, titulo, contenido_actividad")
+        .select("id, indicador_id, tipo_actividad, habilitado, fecha_hora_inicio, titulo, contenido_actividad, subtema_id, publicacion_id")
         .in("indicador_id", todosLosIndicadorIds);
       (trabajosDeIndicadores || []).forEach(t => { trabajoPorIndNota[t.indicador_id] = t; });
 
@@ -539,6 +539,7 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
                 <td>
                   <strong>${i.descripcion}</strong>
                   ${i.fecha_evaluacion ? `<div style="font-size:0.75rem; color:var(--text-muted);">Fecha: ${i.fecha_evaluacion}${i.lecciones ? " · " + i.lecciones + " lecciones" : ""}</div>` : ""}
+                  ${trabajoPrueba && (trabajoPrueba.subtema_id || trabajoPrueba.publicacion_id) ? `<div style="margin-top:0.3rem;"><a class="btn secondary small" href="${trabajoPrueba.subtema_id ? "#/subtema/" + trabajoPrueba.subtema_id : "#/apartado/" + trabajoPrueba.publicacion_id}" onclick="try{sessionStorage.setItem('ctp_abrir_tab_trabajos','1')}catch(e){}">➡️ Ir al trabajo en el subtema</a></div>` : ""}
                   ${esPruebaPendiente ? (aunNoEsHora
                     ? `<div style="margin-top:0.3rem;"><span class="badge" style="background:var(--warn-bg); color:var(--warn-text);">⏳ Disponible a partir de ${formatearFechaHora(trabajoPrueba.fecha_hora_inicio)}</span></div>`
                     : `<div style="margin-top:0.3rem;"><button class="btn small" data-iniciar-prueba-nota="${trabajoPrueba.id}">▶ Iniciar prueba</button></div>`) : ""}
@@ -2300,6 +2301,13 @@ async function renderSubtema(id, soloLectura) {
       if (panel) panel.style.display = "";
     });
   });
+  try {
+    if (sessionStorage.getItem("ctp_abrir_tab_trabajos")) {
+      sessionStorage.removeItem("ctp_abrir_tab_trabajos");
+      const tb = document.querySelector('[data-subtema-tab="trabajos"]');
+      if (tb) { tb.click(); tb.scrollIntoView({ block: "start" }); }
+    }
+  } catch (e) {}
 
   if (!soloLectura) {
     document.getElementById("eliminar-subtema-btn").addEventListener("click", async () => {
