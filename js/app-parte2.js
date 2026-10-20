@@ -10,7 +10,174 @@ async function renderTabContent(s, tab, isSelf) {
   if (tab === "pin" && !isSelf) return renderPin(el, s);
   if (tab === "clave-prueba" && !isSelf) return renderClavePrueba(el, s);
   if (tab === "aula-conta" && !isSelf) return renderAulaContaCredenciales(el, s);
+  if (tab === "infografias" && s.seccion === "11-3") return renderInfografiasEstudiante(el, s, isSelf);
   return renderNotas(el, s, isSelf);
+}
+
+// --- Infografías (sección 11-3): apartado exclusivo para subir infografías ---
+// Solo acepta imágenes (JPG/PNG/WEBP) o PDF. El estudiante puede cambiar el
+// archivo, renombrar o eliminar su infografía mientras el profesor no le
+// haya puesto nota; con nota queda bloqueada.
+const INFOGRAFIA_MAX_MB = 15;
+const INFOGRAFIA_TIPOS_OK = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+const INFOGRAFIA_EXT_OK = /\.(jpe?g|png|webp|pdf)$/i;
+function escInfografia(t) {
+  return String(t == null ? "" : t).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function validarArchivoInfografia(archivo) {
+  if (!archivo) return "Elegí un archivo.";
+  const tipoOk = INFOGRAFIA_TIPOS_OK.includes(archivo.type) || INFOGRAFIA_EXT_OK.test(archivo.name);
+  if (!tipoOk || (archivo.type && !INFOGRAFIA_TIPOS_OK.includes(archivo.type))) return "Este apartado es solo para infografías: subí una imagen (JPG, PNG o WEBP) o un PDF.";
+  if (archivo.size > INFOGRAFIA_MAX_MB * 1024 * 1024) return `El archivo pesa demasiado (máximo ${INFOGRAFIA_MAX_MB} MB).`;
+  return "";
+}
+function rutaInfografia(estudianteId, archivo) {
+  return `infografias-estudiante/${estudianteId}/${Date.now()}-${archivo.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+}
+function tarjetaInfografia(inf, { puedeEditar, esProfesor }) {
+  const url = sb.storage.from("materiales").getPublicUrl(inf.archivo_ruta).data.publicUrl;
+  const esPdf = /\.pdf$/i.test(inf.archivo_nombre || inf.archivo_ruta || "");
+  const calificada = inf.nota != null;
+  return `
+  <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.45rem;">
+    <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
+      <span class="name">🖼️ ${escInfografia(inf.titulo)}</span>
+      ${calificada
+        ? `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">Nota: ${inf.nota}/3</span>`
+        : `<span class="badge" style="font-weight:400;">Pendiente de calificación</span>`}
+    </div>
+    ${esPdf ? "" : `<a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="${escInfografia(inf.titulo)}" loading="lazy" style="max-width:100%; max-height:180px; border-radius:6px; border:1px solid var(--paper-line);" /></a>`}
+    <div style="font-size:0.78rem; color:var(--text-muted);">${escInfografia(inf.archivo_nombre || "archivo")} · ${inf.actualizado_en ? formatearFechaHora(inf.actualizado_en) : ""}</div>
+    <div style="display:flex; gap:0.4rem; flex-wrap:wrap; align-items:center;">
+      <a class="btn secondary small" href="${url}" target="_blank" rel="noopener">👁️ ${esPdf ? "Abrir PDF" : "Ver completa"}</a>
+      ${puedeEditar && !calificada ? `
+        <label class="btn small" style="cursor:pointer;">✏️ Cambiar archivo<input type="file" data-infografia-cambiar="${inf.id}" accept="image/png,image/jpeg,image/webp,.pdf" style="display:none;" /></label>
+        <button class="btn secondary small" type="button" data-infografia-renombrar="${inf.id}">Cambiar título</button>
+        <button class="btn secondary small" type="button" data-infografia-eliminar="${inf.id}">🗑️ Eliminar</button>` : ""}
+      ${puedeEditar && calificada ? `<span style="font-size:0.78rem; color:var(--text-muted);">🔒 Ya fue calificada — no se puede cambiar.</span>` : ""}
+      ${esProfesor ? `
+        <select data-infografia-nota="${inf.id}">
+          <option value="">Sin calificar</option>
+          ${[0, 1, 2, 3].map(n => `<option value="${n}" ${inf.nota === n ? "selected" : ""}>${n} / 3</option>`).join("")}
+        </select>
+        <button class="btn secondary small" type="button" data-infografia-eliminar="${inf.id}">🗑️ Eliminar</button>` : ""}
+    </div>
+    <span data-infografia-item-estado="${inf.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
+  </div>`;
+}
+// Engancha cambiar archivo / renombrar / eliminar / calificar sobre un contenedor.
+function enlazarAccionesInfografia(holder, recargar) {
+  holder.querySelectorAll("[data-infografia-cambiar]").forEach(input => {
+    input.addEventListener("change", async () => {
+      const id = input.dataset.infografiaCambiar;
+      const archivo = input.files[0];
+      const estado = holder.querySelector(`[data-infografia-item-estado="${id}"]`);
+      const err = validarArchivoInfografia(archivo);
+      if (err) { if (estado) estado.textContent = err; input.value = ""; return; }
+      const { data: actual } = await sb.from("infografias_estudiante").select("estudiante_id, nota").eq("id", id).maybeSingle();
+      if (!actual) { if (estado) estado.textContent = "No se encontró la infografía."; return; }
+      if (actual.nota != null) { if (estado) estado.textContent = "Ya fue calificada, no se puede cambiar."; return; }
+      if (estado) estado.textContent = "Subiendo…";
+      const ruta = rutaInfografia(actual.estudiante_id, archivo);
+      const { error: errSubida } = await sb.storage.from("materiales").upload(ruta, archivo);
+      if (errSubida) { if (estado) estado.textContent = "No se pudo subir: " + errSubida.message; return; }
+      const { error } = await sb.from("infografias_estudiante").update({ archivo_ruta: ruta, archivo_nombre: archivo.name, actualizado_en: new Date().toISOString() }).eq("id", id);
+      if (error) { if (estado) estado.textContent = "No se pudo guardar: " + error.message; return; }
+      recargar();
+    });
+  });
+  holder.querySelectorAll("[data-infografia-renombrar]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.infografiaRenombrar;
+      const nuevo = (prompt("Nuevo título de la infografía:") || "").trim();
+      if (!nuevo) return;
+      await sb.from("infografias_estudiante").update({ titulo: nuevo, actualizado_en: new Date().toISOString() }).eq("id", id).is("nota", null);
+      recargar();
+    });
+  });
+  holder.querySelectorAll("[data-infografia-eliminar]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("¿Eliminar esta infografía? No se puede deshacer.")) return;
+      await sb.from("infografias_estudiante").delete().eq("id", btn.dataset.infografiaEliminar);
+      recargar();
+    });
+  });
+  holder.querySelectorAll("[data-infografia-nota]").forEach(sel => {
+    sel.addEventListener("change", async () => {
+      await sb.from("infografias_estudiante").update({ nota: sel.value === "" ? null : Number(sel.value) }).eq("id", sel.dataset.infografiaNota);
+      recargar();
+    });
+  });
+}
+
+async function renderInfografiasEstudiante(el, s, isSelf) {
+  const esProfesor = !isSelf && session.role === "docente";
+  const vistaPrevia = isSelf && session.role === "docente";
+  const puedeEditar = isSelf && !vistaPrevia;
+  el.innerHTML = "Cargando…";
+  const { data: lista, error } = await sb.from("infografias_estudiante").select("*").eq("estudiante_id", s.id).order("creado_en", { ascending: false });
+  if (error) {
+    el.innerHTML = `<p class="no-phone-note">No se pudo cargar este apartado: ${escInfografia(error.message)}. Si es la primera vez, falta crear la tabla "infografias_estudiante" en Supabase (archivo SQL aparte).</p>`;
+    return;
+  }
+  el.innerHTML = `
+    <div class="whatsapp-panel" style="margin-bottom:1rem;">
+      <strong style="font-family:var(--serif);">🖼️ ${isSelf ? "Mis infografías" : "Infografías de " + escInfografia(s.nombre)}</strong>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin:0.3rem 0 0.6rem;">Este apartado es solo para infografías: imagen (JPG, PNG o WEBP) o PDF, de hasta ${INFOGRAFIA_MAX_MB} MB.${puedeEditar ? " Podés cambiar el archivo, el título o eliminarla mientras tu profesor no la haya calificado." : ""}</p>
+      ${puedeEditar ? `
+      <form id="infografia-form" style="display:grid; gap:0.5rem; max-width:460px;">
+        <input name="titulo" placeholder="Título de la infografía" required maxlength="120" style="width:100%;" />
+        <input name="archivo" type="file" accept="image/png,image/jpeg,image/webp,.pdf" required />
+        <button class="btn small" type="submit" style="justify-self:start;">Subir infografía</button>
+        <span id="infografia-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>
+      </form>` : (vistaPrevia ? `<p style="font-size:0.82rem; color:var(--text-muted);">Vista previa: acá el estudiante ve el formulario para subir su infografía.</p>` : "")}
+    </div>
+    <div id="infografias-lista" class="roster">
+      ${(lista || []).length ? lista.map(i => tarjetaInfografia(i, { puedeEditar, esProfesor })).join("") : `<p class="empty">${isSelf ? "Todavía no has subido ninguna infografía." : "Este estudiante todavía no ha subido infografías."}</p>`}
+    </div>`;
+  const recargar = () => renderInfografiasEstudiante(el, s, isSelf);
+  enlazarAccionesInfografia(el, recargar);
+  const form = el.querySelector("#infografia-form");
+  if (form) form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const estado = el.querySelector("#infografia-estado");
+    const f = new FormData(form);
+    const titulo = String(f.get("titulo") || "").trim();
+    const archivo = f.get("archivo");
+    const err = validarArchivoInfografia(archivo && archivo.size ? archivo : null);
+    if (!titulo) { estado.textContent = "Ponele un título a la infografía."; return; }
+    if (err) { estado.textContent = err; return; }
+    form.querySelector("button[type=submit]").disabled = true;
+    estado.textContent = "Subiendo…";
+    const ruta = rutaInfografia(s.id, archivo);
+    const { error: errSubida } = await sb.storage.from("materiales").upload(ruta, archivo);
+    if (errSubida) { estado.textContent = "No se pudo subir: " + errSubida.message; form.querySelector("button[type=submit]").disabled = false; return; }
+    const { error: errGuardar } = await sb.from("infografias_estudiante").insert({ estudiante_id: s.id, titulo, archivo_ruta: ruta, archivo_nombre: archivo.name });
+    if (errGuardar) { estado.textContent = "No se pudo guardar: " + errGuardar.message; form.querySelector("button[type=submit]").disabled = false; return; }
+    recargar();
+  });
+}
+
+// Vista del profesor en la página de la sección 11-3: todas las
+// infografías juntas, agrupadas por estudiante.
+async function pintarInfografiasSeccion(holder, estudiantes) {
+  holder.innerHTML = "Cargando…";
+  const ids = (estudiantes || []).map(e => e.id);
+  const { data: todas, error } = ids.length
+    ? await sb.from("infografias_estudiante").select("*").in("estudiante_id", ids).order("creado_en", { ascending: false })
+    : { data: [] };
+  if (error) { holder.innerHTML = `<p class="no-phone-note">No se pudo cargar: ${escInfografia(error.message)}</p>`; return; }
+  const porEst = {};
+  (todas || []).forEach(i => { (porEst[i.estudiante_id] = porEst[i.estudiante_id] || []).push(i); });
+  const conEntrega = (estudiantes || []).filter(e => porEst[e.id]);
+  const sin = (estudiantes || []).filter(e => !porEst[e.id]);
+  holder.innerHTML = `
+    <p style="font-size:0.82rem; color:var(--text-muted);">${conEntrega.length} de ${(estudiantes || []).length} estudiantes han subido al menos una infografía (${(todas || []).length} en total).</p>
+    ${conEntrega.map(e => `
+      <h4 style="margin:0.9rem 0 0.3rem;">${escInfografia(e.apellido1)} ${escInfografia(e.apellido2)}, ${escInfografia(e.nombre)}</h4>
+      <div class="roster">${porEst[e.id].map(i => tarjetaInfografia(i, { puedeEditar: false, esProfesor: true })).join("")}</div>`).join("")}
+    ${sin.length ? `<p style="font-size:0.8rem; color:var(--text-muted); margin-top:1rem;"><strong>Sin infografías:</strong> ${sin.map(e => escInfografia(e.nombre + " " + e.apellido1)).join(", ")}</p>` : ""}`;
+  enlazarAccionesInfografia(holder, () => pintarInfografiasSeccion(holder, estudiantes));
 }
 
 // --- Notas (filtradas por materias asignadas si es estudiante) ---
@@ -2610,6 +2777,8 @@ async function pintarTrabajosClase(trabajos, soloLectura, holderId, opts) {
         ${linkPlantilla ? `<a class="btn secondary small" href="${linkPlantilla}" target="_blank" rel="noopener">⬇️ Descargar documento base: ${t.archivo_nombre || "archivo"}</a>` : ""}
         ${yaEntregado
           ? `<a class="btn secondary small" href="${linkMiEntrega}" target="_blank" rel="noopener">👁️ Consultar mi entrega: ${miEntrega.archivo_nombre || "archivo"}</a>`
+            + (puedeEditarEntregas() && miEntrega.nota == null ? `<label class="btn small" style="cursor:pointer;">✏️ Cambiar mi archivo<input type="file" data-clase-subir="${t.id}" style="display:none;" /></label>` : "")
+            + (puedeEditarEntregas() && miEntrega.nota != null ? `<span style="font-size:0.78rem; color:var(--text-muted);">🔒 Ya fue calificada — no se puede cambiar.</span>` : "")
           : `<label class="btn small" style="cursor:pointer;">📎 Subir mi trabajo completado<input type="file" data-clase-subir="${t.id}" style="display:none;" /></label>`}
         <span data-clase-subir-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
       </div>`;
@@ -2747,6 +2916,22 @@ async function pintarTrabajosClase(trabajos, soloLectura, holderId, opts) {
   }
 }
 
+// Sección 11-3: el estudiante puede reemplazar el archivo de una entrega
+// mientras el profesor todavía no la haya calificado. (Otras secciones
+// siguen como antes: una vez entregado, solo el profesor puede reabrirlo.)
+function puedeEditarEntregas() {
+  return !!session && session.role === "estudiante" && session.seccion === "11-3";
+}
+// Ids de los trabajos cotidianos del estudiante que ya tienen calificación
+// en la rúbrica (el trabajo está vinculado a un indicador con nota puesta).
+async function trabajosCalificadosIds(trabajos, estudianteId) {
+  const conIndicador = (trabajos || []).filter(t => t.indicador_id);
+  if (!conIndicador.length) return new Set();
+  const { data } = await sb.from("calificaciones_indicador").select("indicador_id").eq("estudiante_id", estudianteId).in("indicador_id", conIndicador.map(t => t.indicador_id));
+  const indicadores = new Set((data || []).map(r => r.indicador_id));
+  return new Set(conIndicador.filter(t => indicadores.has(t.indicador_id)).map(t => t.id));
+}
+
 async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId) {
   const holder = document.getElementById("subtema-trabajos-lista");
   if (!holder) return;
@@ -2768,6 +2953,9 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
     const porTrabajo = {};
     const estadoPorTrabajo = {};
     (misEstados || []).forEach(e => { porTrabajo[e.trabajo_id] = e.completado; estadoPorTrabajo[e.trabajo_id] = e; });
+
+    const editable = puedeEditarEntregas();
+    const calificados = editable ? await trabajosCalificadosIds(trabajos, estudianteId) : new Set();
 
     const trabajosActividad = trabajos.filter(t => t.tipo_actividad && t.tipo_actividad !== "simple");
     const { data: misResultados } = trabajosActividad.length
@@ -2879,7 +3067,9 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
             ? (() => {
                 const { data: pub } = sb.storage.from("materiales").getPublicUrl(res.archivo_ruta);
                 return `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Entregado: ${res.archivo_nombre || "archivo"}${res.puntaje != null ? " — Nota: " + res.puntaje + "/3" : " (pendiente de calificación)"}</span>
-               <a class="btn secondary small" href="${pub.publicUrl}" target="_blank" rel="noopener">👁️ Consultar mi entrega</a>`;
+               <a class="btn secondary small" href="${pub.publicUrl}" target="_blank" rel="noopener">👁️ Consultar mi entrega</a>`
+                 + (puedeEditarEntregas() && res.puntaje == null ? `<label class="btn small" style="cursor:pointer;">✏️ Cambiar mi archivo<input type="file" data-infografia-subir="${t.id}" accept="image/*,.pdf" style="display:none;" /></label>` : "")
+                 + (puedeEditarEntregas() && res.puntaje != null ? `<span style="font-size:0.78rem; color:var(--text-muted);">🔒 Ya fue calificada — no se puede cambiar.</span>` : "");
               })()
             : `<label class="btn small" style="cursor:pointer;">📎 Subir archivo (imagen o PDF)<input type="file" data-infografia-subir="${t.id}" accept="image/*,.pdf" style="display:none;" /></label>`}
           <span data-infografia-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
@@ -2966,7 +3156,9 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         ${t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : ""}
         ${t.aula_contable_empresa ? `<a class="btn secondary small" href="${AULA_CONTABLE_URL}" target="_blank" rel="noopener">🧮 Abrir en Aula de Conta — Empresa: ${t.aula_contable_empresa}</a>` : ""}
         ${yaEntregado
-          ? (linkArchivo ? `<a class="btn secondary small" href="${linkArchivo}" target="_blank" rel="noopener">👁️ Consultar mi entrega: ${miEstado.archivo_nombre || "archivo"}</a>` : "")
+          ? ((linkArchivo ? `<a class="btn secondary small" href="${linkArchivo}" target="_blank" rel="noopener">👁️ Consultar mi entrega: ${miEstado.archivo_nombre || "archivo"}</a>` : "")
+             + (editable && !calificados.has(t.id) ? `<label class="btn small" style="cursor:pointer;">✏️ ${linkArchivo ? "Cambiar mi archivo" : "Adjuntar archivo"}<input type="file" data-trabajo-subtema-subir="${t.id}" style="display:none;" /></label>` : "")
+             + (editable && calificados.has(t.id) ? `<span style="font-size:0.78rem; color:var(--text-muted);">🔒 Ya fue calificada — no se puede cambiar.</span>` : ""))
           : `<label class="btn small" style="cursor:pointer;">📎 Adjuntar archivo para que lo califiquen<input type="file" data-trabajo-subtema-subir="${t.id}" style="display:none;" /></label>`}
         <span data-trabajo-subtema-subir-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
       </div>`;
@@ -5270,6 +5462,8 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
     const porTrabajo = {};
     const estadoPorTrabajo = {};
     (misEstados || []).forEach(e => { porTrabajo[e.trabajo_id] = e.completado; estadoPorTrabajo[e.trabajo_id] = e; });
+    const editable = puedeEditarEntregas();
+    const calificados = editable ? await trabajosCalificadosIds(trabajos, estudianteId) : new Set();
 
     // Trabajos de tipo prueba/actividad interactiva (no el trabajo simple de
     // casilla "Completado") — mismo trato que en un subtema, para que
@@ -5298,7 +5492,9 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
             ? (() => {
                 const { data: pub } = sb.storage.from("materiales").getPublicUrl(res.archivo_ruta);
                 return `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Entregado: ${res.archivo_nombre || "archivo"}${res.puntaje != null ? " — Nota: " + res.puntaje + "/3" : " (pendiente de calificación)"}</span>
-               <a class="btn secondary small" href="${pub.publicUrl}" target="_blank" rel="noopener">👁️ Consultar mi entrega</a>`;
+               <a class="btn secondary small" href="${pub.publicUrl}" target="_blank" rel="noopener">👁️ Consultar mi entrega</a>`
+                 + (puedeEditarEntregas() && res.puntaje == null ? `<label class="btn small" style="cursor:pointer;">✏️ Cambiar mi archivo<input type="file" data-infografia-subir-tema="${t.id}" accept="image/*,.pdf" style="display:none;" /></label>` : "")
+                 + (puedeEditarEntregas() && res.puntaje != null ? `<span style="font-size:0.78rem; color:var(--text-muted);">🔒 Ya fue calificada — no se puede cambiar.</span>` : "");
               })()
             : `<label class="btn small" style="cursor:pointer;">📎 Subir archivo (imagen o PDF)<input type="file" data-infografia-subir-tema="${t.id}" accept="image/*,.pdf" style="display:none;" /></label>`}
           <span data-infografia-tema-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
@@ -5346,7 +5542,9 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
         </div>
         ${t.descripcion ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${t.descripcion}</div>` : ""}
         ${yaEntregado
-          ? (linkArchivo ? `<a class="btn secondary small" href="${linkArchivo}" target="_blank" rel="noopener">👁️ Consultar mi entrega: ${miEstado.archivo_nombre || "archivo"}</a>` : "")
+          ? ((linkArchivo ? `<a class="btn secondary small" href="${linkArchivo}" target="_blank" rel="noopener">👁️ Consultar mi entrega: ${miEstado.archivo_nombre || "archivo"}</a>` : "")
+             + (editable && !calificados.has(t.id) ? `<label class="btn small" style="cursor:pointer;">✏️ ${linkArchivo ? "Cambiar mi archivo" : "Adjuntar archivo"}<input type="file" data-trabajo-subir="${t.id}" style="display:none;" /></label>` : "")
+             + (editable && calificados.has(t.id) ? `<span style="font-size:0.78rem; color:var(--text-muted);">🔒 Ya fue calificada — no se puede cambiar.</span>` : ""))
           : `<label class="btn small" style="cursor:pointer;">📎 Adjuntar archivo para que lo califiquen<input type="file" data-trabajo-subir="${t.id}" style="display:none;" /></label>`}
         <span data-trabajo-subir-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
       </div>`;

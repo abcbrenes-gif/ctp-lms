@@ -967,6 +967,12 @@ async function renderSeccion(sec) {
         <div id="asignaciones-seccion">Cargando…</div>
       </details>
 
+      ${sec === "11-3" ? `
+      <details class="group-promo" id="infografias-seccion-details">
+        <summary>🖼️ Infografías entregadas por la sección</summary>
+        <div id="infografias-seccion" style="margin-top:0.6rem;">Abrí este apartado para cargar las infografías.</div>
+      </details>` : ""}
+
       <details class="group-promo">
         <summary>Enviar aviso o promoción por WhatsApp a toda la sección</summary>
         <p style="font-size:0.82rem; color:var(--text-muted); margin-top:0.6rem;">
@@ -978,6 +984,11 @@ async function renderSeccion(sec) {
       </details>
     </div>`;
   bindTopbar();
+
+  const infografiasDetails = document.getElementById("infografias-seccion-details");
+  if (infografiasDetails) infografiasDetails.addEventListener("toggle", () => {
+    if (infografiasDetails.open) pintarInfografiasSeccion(document.getElementById("infografias-seccion"), students || []);
+  });
 
   const groupList = document.getElementById("group-list");
   const groupMsgEl = document.getElementById("group-message");
@@ -2218,6 +2229,7 @@ async function renderPerfil(id, isSelf) {
         <button class="tab-btn ${activeTab === "rubrica" ? "active" : ""}" data-tab="rubrica"><span class="tab-icon">📊</span><span class="tab-label">Rúbrica</span></button>
         <button class="tab-btn ${activeTab === "asistencia" ? "active" : ""}" data-tab="asistencia"><span class="tab-icon">🗓️</span><span class="tab-label">Asistencia</span></button>
         <button class="tab-btn ${activeTab === "materias-est" ? "active" : ""}" data-tab="materias-est"><span class="tab-icon">📚</span><span class="tab-label">Materias</span></button>
+        ${s.seccion === "11-3" ? `<button class="tab-btn ${activeTab === "infografias" ? "active" : ""}" data-tab="infografias"><span class="tab-icon">🖼️</span><span class="tab-label">${isSelf ? "Mis infografías" : "Infografías"}</span></button>` : ""}
         ${!isSelf ? `<button class="tab-btn ${activeTab === "whatsapp" ? "active" : ""}" data-tab="whatsapp"><span class="tab-icon">💬</span><span class="tab-label">WhatsApp</span></button>
         <button class="tab-btn ${activeTab === "acceso" ? "active" : ""}" data-tab="acceso"><span class="tab-icon">🔑</span><span class="tab-label">Materias</span></button>
         <button class="tab-btn ${activeTab === "pin" ? "active" : ""}" data-tab="pin"><span class="tab-icon">🔐</span><span class="tab-label">PIN de acceso</span></button>
