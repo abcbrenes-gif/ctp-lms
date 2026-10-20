@@ -8496,12 +8496,14 @@ const DOC_DEF_EXT_OK = /\.(pdf|docx?|xlsx?|pptx?|txt|csv|odt|ods|odp|jpe?g|png|w
 
 async function agregarDocumentoDefinitivo(holder, trabajos, estudianteId) {
   try {
-    if (!holder || !session || session.role !== "estudiante") return;
+    if (!holder || !session) return;
     const filas = Array.from(holder.children).filter(el => el.classList && el.classList.contains("roster-row"));
     if (filas.length !== trabajos.length) return;
+    const nota = (fila, html) => { const d = document.createElement("div"); d.style.cssText = "width:100%; font-size:0.78rem; color:var(--text-muted); border-top:1px dashed var(--border, #ccc); padding-top:0.4rem;"; d.innerHTML = html; fila.appendChild(d); };
+    if (session.role !== "estudiante") { filas.forEach(f => nota(f, "📄 Vista previa: aquí el estudiante verá el botón «Adjuntar documento» (entrega definitiva).")); return; }
     const { data: docs, error } = await sb.from("documentos_entrega").select("*")
       .eq("estudiante_id", estudianteId).in("trabajo_id", trabajos.map(t => String(t.id)));
-    if (error) return; // tabla aún no creada: no se muestra el bloque
+    if (error) { filas.forEach(f => nota(f, "⚠️ No se pudo cargar «Adjuntar documento»: " + escInfografia(error.message))); return; }
     const porTrabajo = {};
     (docs || []).forEach(d => { porTrabajo[d.trabajo_id] = d; });
     filas.forEach((fila, i) => {
