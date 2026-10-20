@@ -217,8 +217,8 @@ function enlacesArchivosProyecto(e) {
 // Botón "✏️ Modificar" en cada entrega: cambiar nombre y descripción,
 // quitar archivos y subir archivos nuevos (referencias e infografía).
 // Se bloquea solo si pasó la fecha límite; si ya tenía nota de la IA, se limpia y se vuelve a calificar.
-function botonModificarProyectoHTML(e, contenido) {
-  if (!puedeEditarEntregas()) return "";
+function botonModificarProyectoHTML(e, contenido, seccion) {
+  if (!puedeEditarEntregas(seccion)) return "";
   if (estadoLimiteProyecto(contenido).vencido) return `<div style="margin-top:0.3rem; font-size:0.78rem; color:var(--text-muted);">🔒 El plazo de entrega venció — ya no se puede modificar.</div>`;
   return `<div style="margin-top:0.3rem;"><button class="btn small" type="button" data-proyecto-modificar="${e.id}">✏️ Modificar</button></div>
     <div data-proyecto-modificar-panel="${e.id}"></div>`;
@@ -573,7 +573,7 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
                           <strong>${e.titulo}</strong> <span style="color:var(--text-muted);">· ${formatearFechaHora(e.creado_en)}</span>
                           ${e.descripcion ? `<div style="margin-top:0.15rem;">${e.descripcion}</div>` : ""}
                           ${enlacesArchivosProyecto(e)}
-                          ${botonModificarProyectoHTML(e, cp)}
+                          ${botonModificarProyectoHTML(e, cp, s.seccion)}
                         </div>`;
                       }).join("")}
                     </div>` : ""}
@@ -3138,8 +3138,11 @@ async function pintarTrabajosClase(trabajos, soloLectura, holderId, opts) {
 // Sección 11-3: el estudiante puede reemplazar el archivo de una entrega
 // mientras el profesor todavía no la haya calificado. (Otras secciones
 // siguen como antes: una vez entregado, solo el profesor puede reabrirlo.)
-function puedeEditarEntregas() {
-  return !!session && session.role === "estudiante" && esSeccion113(session.seccion);
+function puedeEditarEntregas(seccion) {
+  if (!session) return false;
+  if (session.role === "estudiante") return esSeccion113(session.seccion);
+  // El profesor en "Ver como estudiante" (solo donde se conoce la sección del estudiante).
+  return !!previewEstudianteId && esSeccion113(seccion);
 }
 // Ids de los trabajos cotidianos del estudiante que ya tienen calificación
 // en la rúbrica (el trabajo está vinculado a un indicador con nota puesta).
