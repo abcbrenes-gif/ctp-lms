@@ -3387,6 +3387,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         <span data-trabajo-subtema-subir-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
       </div>`;
     }).join("");
+    await agregarDocumentoDefinitivo(holder, trabajos, estudianteId);
 
     holder.querySelectorAll("[data-mi-trabajo-subtema]").forEach(cb => {
       cb.addEventListener("change", async () => {
@@ -3704,6 +3705,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         ${t.tipo_actividad === "rubrica_directa" ? `<div data-rubrica-panel="${t.id}" style="width:100%;"></div>` : ""}
         ${t.tipo_actividad === "prueba" ? `<div data-hora-prueba-panel="${t.id}" style="width:100%;"></div>` : ""}
       </div>`).join("");
+    agregarPanelDocumentosDocente(holder, trabajos);
 
     holder.querySelectorAll("[data-ver-retro]").forEach(btn => {
       btn.addEventListener("click", async () => {
@@ -5810,6 +5812,7 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
         <span data-trabajo-subir-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
       </div>`;
     }).join("");
+    await agregarDocumentoDefinitivo(holder, trabajos, estudianteId);
 
     holder.querySelectorAll("[data-mi-trabajo]").forEach(cb => {
       cb.addEventListener("change", async () => {
@@ -5947,6 +5950,7 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
         ${TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<div data-retro-panel-tema="${t.id}"></div>` : ""}
         ${t.tipo_actividad === "prueba" ? `<div data-hora-prueba-panel-tema="${t.id}" style="width:100%;"></div>` : ""}
       </div>`).join("");
+    agregarPanelDocumentosDocente(holder, trabajos);
 
     holder.querySelectorAll("[data-ver-retro-tema]").forEach(btn => {
       btn.addEventListener("click", async () => {
@@ -8483,3 +8487,103 @@ async function cargarRubricaForm() {
 
 window.addEventListener("hashchange", render);
 window.addEventListener("DOMContentLoaded", render);
+
+/* ============ Documento definitivo en trabajos cotidianos ============
+   El estudiante puede adjuntar UN documento por trabajo; una vez subido
+   no puede cambiarlo ni borrarlo. Solo el docente puede permitir reintento. */
+const DOC_DEF_MAX_MB = 20;
+const DOC_DEF_EXT_OK = /\.(pdf|docx?|xlsx?|pptx?|txt|csv|odt|ods|odp|jpe?g|png|webp|zip|rar)$/i;
+
+async function agregarDocumentoDefinitivo(holder, trabajos, estudianteId) {
+  try {
+    if (!holder || !session || session.role !== "estudiante") return;
+    const filas = Array.from(holder.children).filter(el => el.classList && el.classList.contains("roster-row"));
+    if (filas.length !== trabajos.length) return;
+    const { data: docs, error } = await sb.from("documentos_entrega").select("*")
+      .eq("estudiante_id", estudianteId).in("trabajo_id", trabajos.map(t => String(t.id)));
+    if (error) return; // tabla aún no creada: no se muestra el bloque
+    const porTrabajo = {};
+    (docs || []).forEach(d => { porTrabajo[d.trabajo_id] = d; });
+    filas.forEach((fila, i) => {
+      const t = trabajos[i];
+      const d = porTrabajo[String(t.id)];
+      const bloque = document.createElement("div");
+      bloque.style.cssText = "width:100%; border-top:1px dashed var(--border, #ccc); padding-top:0.4rem; display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;";
+      if (d) {
+        const url = sb.storage.from("materiales").getPublicUrl(d.archivo_ruta).data.publicUrl;
+        bloque.innerHTML = `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">📄 Documento entregado: ${escInfografia(d.archivo_nombre || "archivo")}</span>
+          <a class="btn secondary small" href="${url}" target="_blank" rel="noopener">👁️ Ver</a>
+          <span style="font-size:0.78rem; color:var(--text-muted);">🔒 Entrega definitiva — no se puede cambiar ni eliminar.</span>`;
+      } else {
+        bloque.innerHTML = `<label class="btn secondary small" style="cursor:pointer;">📄 Adjuntar documento<input type="file" style="display:none;" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.odt,.ods,.odp,image/*,.zip,.rar" /></label>
+          <span style="font-size:0.78rem; color:var(--text-muted);">Una sola vez: después no podrás cambiarlo.</span>
+          <span data-doc-estado style="font-size:0.78rem;"></span>`;
+        const input = bloque.querySelector("input");
+        const estado = bloque.querySelector("[data-doc-estado]");
+        input.addEventListener("change", async () => {
+          const f = input.files && input.files[0];
+          if (!f) return;
+          if (!DOC_DEF_EXT_OK.test(f.name)) { estado.style.color = "var(--danger-text, #b00)"; estado.textContent = "Tipo de archivo no permitido."; input.value = ""; return; }
+          if (f.size > DOC_DEF_MAX_MB * 1024 * 1024) { estado.style.color = "var(--danger-text, #b00)"; estado.textContent = `Máximo ${DOC_DEF_MAX_MB} MB.`; input.value = ""; return; }
+          if (!confirm(`Vas a entregar "${f.name}".\n\nUna vez subido NO podrás cambiarlo ni eliminarlo. ¿Confirmás?`)) { input.value = ""; return; }
+          estado.style.color = "var(--text-muted)"; estado.textContent = "Subiendo…"; input.disabled = true;
+          const limpio = f.name.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9._-]/g, "_");
+          const ruta = `documentos/${t.id}/${estudianteId}_${Date.now()}_${limpio}`;
+          const { error: eUp } = await sb.storage.from("materiales").upload(ruta, f, { upsert: false });
+          if (eUp) { estado.style.color = "var(--danger-text, #b00)"; estado.textContent = "No se pudo subir: " + eUp.message; input.disabled = false; return; }
+          const { error: eIns } = await sb.from("documentos_entrega").insert({ trabajo_id: String(t.id), estudiante_id: estudianteId, archivo_ruta: ruta, archivo_nombre: f.name });
+          if (eIns) {
+            await sb.storage.from("materiales").remove([ruta]);
+            estado.style.color = "var(--danger-text, #b00)";
+            estado.textContent = /duplicate|unique/i.test(eIns.message) ? "Ya habías entregado un documento." : "No se pudo guardar: " + eIns.message;
+            input.disabled = false; return;
+          }
+          const url2 = sb.storage.from("materiales").getPublicUrl(ruta).data.publicUrl;
+          bloque.innerHTML = `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">📄 Documento entregado: ${escInfografia(f.name)}</span>
+            <a class="btn secondary small" href="${url2}" target="_blank" rel="noopener">👁️ Ver</a>
+            <span style="font-size:0.78rem; color:var(--text-muted);">🔒 Entrega definitiva — no se puede cambiar ni eliminar.</span>`;
+        });
+      }
+      fila.appendChild(bloque);
+    });
+  } catch (e) { console.warn("documento definitivo", e); }
+}
+
+async function agregarPanelDocumentosDocente(holder, trabajos) {
+  try {
+    if (!holder || !session || session.role !== "docente") return;
+    const filas = Array.from(holder.children).filter(el => el.classList && el.classList.contains("roster-row"));
+    if (filas.length !== trabajos.length) return;
+    filas.forEach((fila, i) => {
+      const t = trabajos[i];
+      const det = document.createElement("details");
+      det.style.cssText = "width:100%;";
+      det.innerHTML = `<summary style="cursor:pointer; font-size:0.85rem;">📄 Documentos adjuntos por estudiantes</summary><div data-docs-lista style="margin-top:0.4rem;"></div>`;
+      const lista = det.querySelector("[data-docs-lista]");
+      const pintar = async () => {
+        lista.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando…</p>`;
+        const { data: docs, error } = await sb.from("documentos_entrega").select("*").eq("trabajo_id", String(t.id)).order("creado_en");
+        if (error) { lista.innerHTML = `<p style="font-size:0.82rem;">Aún no existe la tabla de documentos (falta correr el SQL).</p>`; return; }
+        if (!docs || !docs.length) { lista.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Nadie ha adjuntado documentos.</p>`; return; }
+        const { data: ests } = await sb.from("estudiantes").select("id, nombre, apellido1, apellido2").in("id", docs.map(d => d.estudiante_id));
+        const nom = {}; (ests || []).forEach(e => { nom[e.id] = [e.nombre, e.apellido1, e.apellido2].filter(Boolean).join(" "); });
+        lista.innerHTML = docs.map(d => {
+          const url = sb.storage.from("materiales").getPublicUrl(d.archivo_ruta).data.publicUrl;
+          return `<div class="roster-row" style="gap:0.5rem; flex-wrap:wrap;"><span class="name">${escInfografia(nom[d.estudiante_id] || d.estudiante_id)}</span>
+            <a class="btn secondary small" href="${url}" target="_blank" rel="noopener">📄 ${escInfografia(d.archivo_nombre || "archivo")}</a>
+            <span style="font-size:0.75rem; color:var(--text-muted);">${formatearFechaHora(d.creado_en)}</span>
+            <button class="btn danger small" data-doc-reintento="${d.id}">Permitir reintento</button></div>`;
+        }).join("");
+        lista.querySelectorAll("[data-doc-reintento]").forEach(b => b.addEventListener("click", async () => {
+          if (!confirm("¿Eliminar este documento para que el estudiante pueda subir otro?")) return;
+          const d = docs.find(x => String(x.id) === b.dataset.docReintento);
+          await sb.from("documentos_entrega").delete().eq("id", b.dataset.docReintento);
+          if (d) await sb.storage.from("materiales").remove([d.archivo_ruta]);
+          pintar();
+        }));
+      };
+      det.addEventListener("toggle", () => { if (det.open) pintar(); });
+      fila.appendChild(det);
+    });
+  } catch (e) { console.warn("panel documentos", e); }
+}
