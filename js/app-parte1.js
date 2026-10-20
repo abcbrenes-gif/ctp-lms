@@ -967,7 +967,7 @@ async function renderSeccion(sec) {
         <div id="asignaciones-seccion">Cargando…</div>
       </details>
 
-      ${sec === "11-3" ? `
+      ${esSeccion113(sec) ? `
       <details class="group-promo" id="infografias-seccion-details">
         <summary>🖼️ Infografías entregadas por la sección</summary>
         <div id="infografias-seccion" style="margin-top:0.6rem;">Abrí este apartado para cargar las infografías.</div>
@@ -2179,6 +2179,12 @@ async function pintarPanelLogros(estudianteId) {
     </div>`;
 }
 
+// ¿La sección es 11-3? Tolera espacios, ceros o guiones distintos ("11-3 ", "11-03", "11–3").
+function esSeccion113(seccion) {
+  const n = String(seccion == null ? "" : seccion).replace(/[\s]+/g, "").replace(/[–—−]/g, "-").replace(/-0+(?=\d)/, "-");
+  return n === "11-3";
+}
+
 async function renderPerfil(id, isSelf) {
   const { data: s } = await sb.from("estudiantes").select("*").eq("id", id).maybeSingle();
   if (!s) { location.hash = isSelf ? "#/login" : "#/"; return; }
@@ -2229,7 +2235,7 @@ async function renderPerfil(id, isSelf) {
         <button class="tab-btn ${activeTab === "rubrica" ? "active" : ""}" data-tab="rubrica"><span class="tab-icon">📊</span><span class="tab-label">Rúbrica</span></button>
         <button class="tab-btn ${activeTab === "asistencia" ? "active" : ""}" data-tab="asistencia"><span class="tab-icon">🗓️</span><span class="tab-label">Asistencia</span></button>
         <button class="tab-btn ${activeTab === "materias-est" ? "active" : ""}" data-tab="materias-est"><span class="tab-icon">📚</span><span class="tab-label">Materias</span></button>
-        ${s.seccion === "11-3" ? `<button class="tab-btn ${activeTab === "infografias" ? "active" : ""}" data-tab="infografias"><span class="tab-icon">🖼️</span><span class="tab-label">${isSelf ? "Mis infografías" : "Infografías"}</span></button>` : ""}
+        ${esSeccion113(s.seccion) ? `<button class="tab-btn ${activeTab === "infografias" ? "active" : ""}" data-tab="infografias"><span class="tab-icon">🖼️</span><span class="tab-label">${isSelf ? "Mis infografías" : "Infografías"}</span></button>` : ""}
         ${!isSelf ? `<button class="tab-btn ${activeTab === "whatsapp" ? "active" : ""}" data-tab="whatsapp"><span class="tab-icon">💬</span><span class="tab-label">WhatsApp</span></button>
         <button class="tab-btn ${activeTab === "acceso" ? "active" : ""}" data-tab="acceso"><span class="tab-icon">🔑</span><span class="tab-label">Materias</span></button>
         <button class="tab-btn ${activeTab === "pin" ? "active" : ""}" data-tab="pin"><span class="tab-icon">🔐</span><span class="tab-label">PIN de acceso</span></button>

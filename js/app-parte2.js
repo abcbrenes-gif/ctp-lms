@@ -10,7 +10,7 @@ async function renderTabContent(s, tab, isSelf) {
   if (tab === "pin" && !isSelf) return renderPin(el, s);
   if (tab === "clave-prueba" && !isSelf) return renderClavePrueba(el, s);
   if (tab === "aula-conta" && !isSelf) return renderAulaContaCredenciales(el, s);
-  if (tab === "infografias" && s.seccion === "11-3") return renderInfografiasEstudiante(el, s, isSelf);
+  if (tab === "infografias" && esSeccion113(s.seccion)) return renderInfografiasEstudiante(el, s, isSelf);
   return renderNotas(el, s, isSelf);
 }
 
@@ -2920,7 +2920,7 @@ async function pintarTrabajosClase(trabajos, soloLectura, holderId, opts) {
 // mientras el profesor todavía no la haya calificado. (Otras secciones
 // siguen como antes: una vez entregado, solo el profesor puede reabrirlo.)
 function puedeEditarEntregas() {
-  return !!session && session.role === "estudiante" && session.seccion === "11-3";
+  return !!session && session.role === "estudiante" && esSeccion113(session.seccion);
 }
 // Ids de los trabajos cotidianos del estudiante que ya tienen calificación
 // en la rúbrica (el trabajo está vinculado a un indicador con nota puesta).
