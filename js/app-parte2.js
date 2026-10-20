@@ -110,6 +110,30 @@ function enlazarAccionesInfografia(holder, recargar) {
   });
 }
 
+// --- Fecha límite de un Proyecto ---
+// Se guarda en contenido_actividad.fecha_limite (ISO). Pasada esa hora el
+// estudiante ya no puede enviar ni corregir entregas del proyecto.
+function estadoLimiteProyecto(contenido) {
+  const iso = contenido && contenido.fecha_limite;
+  if (!iso) return { hay: false, vencido: false, texto: "" };
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return { hay: false, vencido: false, texto: "" };
+  const texto = d.toLocaleString("es-CR", { weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit", hour12: true });
+  return { hay: true, vencido: Date.now() > d.getTime(), texto };
+}
+function avisoLimiteProyectoHTML(contenido) {
+  const l = estadoLimiteProyecto(contenido);
+  if (!l.hay) return "";
+  return l.vencido
+    ? `<div style="font-size:0.82rem; padding:0.4rem 0.6rem; border-radius:6px; background:var(--danger-bg); color:var(--danger-text);">⛔ El plazo de entrega venció el ${l.texto}. Ya no se pueden enviar ni corregir entregas.</div>`
+    : `<div style="font-size:0.82rem; padding:0.4rem 0.6rem; border-radius:6px; background:var(--warn-bg); color:var(--warn-text);">⏰ Fecha límite de entrega: <strong>${l.texto}</strong></div>`;
+}
+// Revisa en la base de datos (no en lo que quedó pintado en pantalla) si el plazo ya venció.
+async function proyectoVencido(trabajoId) {
+  const { data } = await sb.from("trabajos_cotidianos").select("contenido_actividad").eq("id", trabajoId).maybeSingle();
+  return estadoLimiteProyecto(data && data.contenido_actividad);
+}
+
 // --- Proyecto en 11-3: nombre, descripción, archivos de referencia e infografía ---
 // En 11-3 la entrega de un "Proyecto" lleva 4 partes: 1) nombre (título),
 // 2) descripción, 3) archivos de referencia y 4) archivos de la infografía
@@ -424,7 +448,8 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
                   ${esProyectoPendiente ? `<div style="margin-top:0.4rem; background:var(--surface-soft); border-radius:8px; padding:0.6rem;">
                     ${cp.instrucciones ? `<div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.4rem;">${cp.instrucciones}</div>` : ""}
                     ${entregasProyectoNota.length ? `<p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.4rem;">✓ Ya entregaste ${entregasProyectoNota.length} ve${entregasProyectoNota.length === 1 ? "z" : "ces"} — podés volver a entregar si necesitás corregir algo.</p>` : ""}
-                    <form data-proyecto-nota-form="${trabajoPrueba.id}" style="display:grid; gap:0.4rem;">
+                    ${avisoLimiteProyectoHTML(cp)}
+                    ${estadoLimiteProyecto(cp).vencido ? "" : `                    <form data-proyecto-nota-form="${trabajoPrueba.id}" style="display:grid; gap:0.4rem;">
                       <input name="titulo" placeholder="${cp.placeholder_titulo || "Título"}" required style="width:100%;" />
                       <textarea name="descripcion" data-proyecto-nota-descripcion="${trabajoPrueba.id}" placeholder="${cp.placeholder_descripcion || "Descripción"}" rows="3" required minlength="${minCaracteresProyecto || 1}" style="width:100%; font-family:inherit; resize:vertical;"></textarea>
                       ${minCaracteresProyecto ? `<span data-proyecto-nota-contador="${trabajoPrueba.id}" style="font-size:0.75rem; color:var(--text-muted);">0 / ${minCaracteresProyecto} caracteres mínimo</span>` : ""}
@@ -433,7 +458,7 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
                       </label>`}
                       <button class="btn small" type="submit" style="justify-self:start;">Enviar entrega</button>
                       <span data-proyecto-nota-estado="${trabajoPrueba.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
-                    </form>
+                    </form>`}
                     ${entregasProyectoNota.length ? `<div style="margin-top:0.5rem; display:grid; gap:0.3rem;">
                       ${entregasProyectoNota.map(e => {
                         const { data: pub } = sb.storage.from("materiales").getPublicUrl(e.archivo_ruta);
@@ -743,6 +768,7 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
         const descripcion = (f.get("descripcion") || "").toString();
         const minimo = Number(form.querySelector("[data-proyecto-nota-descripcion]")?.getAttribute("minlength")) || 1;
         if (descripcion.length < minimo) { if (estado) estado.textContent = `La descripción necesita al menos ${minimo} caracteres (lleva ${descripcion.length}).`; return; }
+        if ((await proyectoVencido(trabajoId)).vencido) { if (estado) estado.textContent = "⛔ El plazo de entrega ya venció."; renderNotasInterno(el, s, isSelf, activa); return; }
         if (esSeccion113(s.seccion)) {
           const ok = await enviarEntregaProyecto113({ form, f, trabajoId, estudianteId: s.id, descripcion, estado });
           if (ok) renderNotasInterno(el, s, isSelf, activa);
@@ -3084,7 +3110,8 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
           </div>
           ${instrucciones ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${instrucciones}</div>` : ""}
           ${misEntregas.length ? `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Ya entregaste ${misEntregas.length} ve${misEntregas.length === 1 ? "z" : "ces"} — podés volver a entregar si necesitás corregir algo</span>` : ""}
-          <form class="inline-form" data-proyecto-form="${t.id}" style="margin-top:0.3rem; width:100%;">
+          ${avisoLimiteProyectoHTML(t.contenido_actividad)}
+          ${estadoLimiteProyecto(t.contenido_actividad).vencido ? "" : `          <form class="inline-form" data-proyecto-form="${t.id}" style="margin-top:0.3rem; width:100%;">
             <input name="titulo" placeholder="${t.contenido_actividad?.placeholder_titulo || "Título de tu entrega"}" required style="flex:1; min-width:10rem" />
             <textarea name="descripcion" data-proyecto-descripcion="${t.id}" placeholder="${t.contenido_actividad?.placeholder_descripcion || "Descripción de tu entrega"}" rows="3" required minlength="${t.contenido_actividad?.min_caracteres_descripcion || 1}" style="flex-basis:100%; font-family:inherit; resize:vertical;"></textarea>
             ${t.contenido_actividad?.min_caracteres_descripcion ? `<span data-proyecto-contador="${t.id}" style="flex-basis:100%; font-size:0.75rem; color:var(--text-muted);">0 / ${t.contenido_actividad.min_caracteres_descripcion} caracteres mínimo</span>` : ""}
@@ -3093,7 +3120,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
             </label>`}
             <button class="btn small" type="submit">Enviar entrega</button>
             <span data-proyecto-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
-          </form>
+          </form>`}
           ${misEntregas.length ? `<div style="width:100%; display:grid; gap:0.4rem; margin-top:0.3rem;">
             ${misEntregas.map(e => {
               const { data: pub } = sb.storage.from("materiales").getPublicUrl(e.archivo_ruta);
@@ -3387,6 +3414,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         const descripcion = (f.get("descripcion") || "").toString();
         const minimo = Number(form.querySelector("[data-proyecto-descripcion]")?.getAttribute("minlength")) || 1;
         if (descripcion.length < minimo) { if (estado) estado.textContent = `La descripción necesita al menos ${minimo} caracteres (lleva ${descripcion.length}).`; return; }
+        if ((await proyectoVencido(trabajoId)).vencido) { if (estado) estado.textContent = "⛔ El plazo de entrega ya venció."; pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId); return; }
         if (esSeccion113(session.seccion)) {
           const ok = await enviarEntregaProyecto113({ form, f, trabajoId, estudianteId, descripcion, estado });
           if (ok) pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId);
@@ -3770,7 +3798,11 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
           const btnGuardar = panel.querySelector(`[data-guardar-preguntas="${trabajoId}"]`);
           btnGuardar.disabled = true;
           if (estadoEl) estadoEl.textContent = "Guardando…";
-          const { error } = await sb.from("trabajos_cotidianos").update({ contenido_actividad: resultado.contenido }).eq("id", trabajoId);
+          // Se conservan la fecha límite y la cantidad esperada (las pone el profesor aparte, no el editor).
+          const contenidoNuevo = { ...resultado.contenido };
+          if (contenidoViejo && contenidoViejo.fecha_limite) contenidoNuevo.fecha_limite = contenidoViejo.fecha_limite;
+          if (contenidoViejo && contenidoViejo.cantidad_esperada) contenidoNuevo.cantidad_esperada = contenidoViejo.cantidad_esperada;
+          const { error } = await sb.from("trabajos_cotidianos").update({ contenido_actividad: contenidoNuevo }).eq("id", trabajoId);
           if (error) {
             btnGuardar.disabled = false;
             if (estadoEl) estadoEl.textContent = "No se pudo guardar: " + error.message;
@@ -4959,7 +4991,7 @@ async function pintarPanelEntregasProyecto(panel, trabajoId) {
   if (!entregas || entregas.length === 0) {
     panel.innerHTML = `
       <p class="empty" style="font-size:0.82rem;">Todavía nadie ha entregado.</p>
-      ${trabajo ? botonConfigurarCantidadHTML(trabajoId, cantidadEsperada) : ""}`;
+      ${trabajo ? botonConfigurarCantidadHTML(trabajoId, cantidadEsperada, trabajo) : ""}`;
     if (trabajo) ligarBotonConfigurarCantidad(panel, trabajoId, trabajo, () => pintarPanelEntregasProyecto(panel, trabajoId));
     return;
   }
@@ -4987,7 +5019,7 @@ async function pintarPanelEntregasProyecto(panel, trabajoId) {
   panel.innerHTML = `
     <div style="margin-top:0.5rem; background:var(--surface-soft); border-radius:8px; padding:0.7rem;">
       <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.4rem;">${estudiantesOrdenados.length} estudiante${estudiantesOrdenados.length === 1 ? "" : "s"} entregaron. Si alguien entregó más de una vez, se ve la más reciente primero.</p>
-      ${botonConfigurarCantidadHTML(trabajoId, cantidadEsperada)}
+      ${botonConfigurarCantidadHTML(trabajoId, cantidadEsperada, trabajo)}
       ${cantidadEsperada > 0 ? `<button class="btn small" data-calificar-proyecto-ia="${trabajoId}" style="margin-top:0.5rem;">🤖 Calificar con IA y aplicar notas</button>
       <span data-calificar-ia-estado="${trabajoId}" style="font-size:0.78rem; color:var(--text-muted); margin-left:0.5rem;"></span>` : `<p style="font-size:0.78rem; color:var(--brick); margin-top:0.5rem;">Configurá primero la cantidad esperada de entregas para poder calificar con IA.</p>`}
       ${estudiantesOrdenados.map(estId => {
@@ -5029,10 +5061,36 @@ async function pintarPanelEntregasProyecto(panel, trabajoId) {
 // Botón pequeño para fijar (o cambiar) la cantidad esperada de entregas de
 // este trabajo — es lo que define sobre qué número se promedia cada
 // estudiante (lo que le falte a alguien cuenta como 0 en el promedio).
-function botonConfigurarCantidadHTML(trabajoId, cantidadActual) {
-  return `<button class="btn secondary small" data-configurar-cantidad="${trabajoId}">⚙️ ${cantidadActual > 0 ? `Cantidad esperada: ${cantidadActual}` : "Configurar cantidad esperada"}</button>`;
+function botonConfigurarCantidadHTML(trabajoId, cantidadActual, trabajo) {
+  const l = estadoLimiteProyecto(trabajo && trabajo.contenido_actividad);
+  return `<button class="btn secondary small" data-configurar-cantidad="${trabajoId}">⚙️ ${cantidadActual > 0 ? `Cantidad esperada: ${cantidadActual}` : "Configurar cantidad esperada"}</button>
+  <button class="btn secondary small" data-configurar-limite="${trabajoId}">⏰ ${l.hay ? `Fecha límite: ${l.texto}${l.vencido ? " (vencida)" : ""}` : "Poner fecha límite"}</button>`;
 }
 function ligarBotonConfigurarCantidad(panel, trabajoId, trabajo, alGuardar) {
+  const btnLimite = panel.querySelector(`[data-configurar-limite="${trabajoId}"]`);
+  if (btnLimite) btnLimite.addEventListener("click", async () => {
+    const actual = trabajo?.contenido_actividad?.fecha_limite;
+    let prefill = "";
+    if (actual) {
+      const d = new Date(actual);
+      const dos = n => String(n).padStart(2, "0");
+      prefill = `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())} ${dos(d.getHours())}:${dos(d.getMinutes())}`;
+    }
+    const resp = prompt("Fecha y hora límite de entrega, en formato AAAA-MM-DD HH:MM (24 horas). Ej: 2026-10-22 16:30\nDejalo vacío para quitar la fecha límite.", prefill);
+    if (resp === null) return;
+    const nuevoContenido = { ...(trabajo.contenido_actividad || {}) };
+    if (!resp.trim()) {
+      delete nuevoContenido.fecha_limite;
+    } else {
+      const m = resp.trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})[ T](\d{1,2}):(\d{2})$/);
+      const d = m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) : null;
+      if (!d || isNaN(d.getTime())) { alert("Formato inválido. Usá AAAA-MM-DD HH:MM, por ejemplo 2026-10-22 16:30."); return; }
+      nuevoContenido.fecha_limite = d.toISOString();
+    }
+    await sb.from("trabajos_cotidianos").update({ contenido_actividad: nuevoContenido }).eq("id", trabajoId);
+    trabajo.contenido_actividad = nuevoContenido;
+    alGuardar();
+  });
   const btn = panel.querySelector(`[data-configurar-cantidad="${trabajoId}"]`);
   if (!btn) return;
   btn.addEventListener("click", async () => {
