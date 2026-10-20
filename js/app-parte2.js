@@ -3001,7 +3001,8 @@ async function pintarTrabajosClase(trabajos, soloLectura, holderId, opts) {
           : `<label class="btn small" style="cursor:pointer;">📎 Subir mi trabajo completado<input type="file" data-clase-subir="${t.id}" style="display:none;" /></label>`}
         <span data-clase-subir-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
       </div>`;
-    }).join("");
+    }).map((h, i) => `<div data-fila-trabajo="${trabajos[i].id}" style="display:contents">${h}</div>`).join("");
+    await agregarDocumentoDefinitivo(holder, trabajos, estudianteId, "clase:");
 
     holder.querySelectorAll("[data-clase-subir]").forEach(input => {
       input.addEventListener("change", async () => {
@@ -3065,7 +3066,8 @@ async function pintarTrabajosClase(trabajos, soloLectura, holderId, opts) {
         ${linkPlantilla ? `<a class="btn secondary small" href="${linkPlantilla}" target="_blank" rel="noopener">📎 Ver documento base: ${t.archivo_nombre || "archivo"}</a>` : ""}
         <div data-entregas-clase-panel="${t.id}" style="width:100%;"></div>
       </div>`;
-    }).join("");
+    }).map((h, i) => `<div data-fila-trabajo="${trabajos[i].id}" style="display:contents">${h}</div>`).join("");
+    agregarPanelDocumentosDocente(holder, trabajos, "clase:");
 
     holder.querySelectorAll("[data-toggle-clase-habilitado]").forEach(btn => {
       btn.addEventListener("click", async () => {
@@ -8494,7 +8496,8 @@ window.addEventListener("DOMContentLoaded", render);
 const DOC_DEF_MAX_MB = 20;
 const DOC_DEF_EXT_OK = /\.(pdf|docx?|xlsx?|pptx?|txt|csv|odt|ods|odp|jpe?g|png|webp|zip|rar)$/i;
 
-async function agregarDocumentoDefinitivo(holder, trabajos, estudianteId) {
+async function agregarDocumentoDefinitivo(holder, trabajos, estudianteId, prefijo) {
+  prefijo = prefijo || "";
   try {
     if (!holder || !session) return;
     const filas = trabajos.map(t => { const w = holder.querySelector(`[data-fila-trabajo="${t.id}"]`); return w ? (w.querySelector(":scope > .roster-row") || w) : null; });
@@ -8502,13 +8505,13 @@ async function agregarDocumentoDefinitivo(holder, trabajos, estudianteId) {
     const nota = (fila, html) => { const d = document.createElement("div"); d.style.cssText = "width:100%; font-size:0.78rem; color:var(--text-muted); border-top:1px dashed var(--border, #ccc); padding-top:0.4rem;"; d.innerHTML = html; fila.appendChild(d); };
     if (session.role !== "estudiante") { filas.forEach(f => nota(f, "📄 Vista previa: aquí el estudiante verá el botón «Adjuntar documento» (entrega definitiva).")); return; }
     const { data: docs, error } = await sb.from("documentos_entrega").select("*")
-      .eq("estudiante_id", estudianteId).in("trabajo_id", trabajos.map(t => String(t.id)));
+      .eq("estudiante_id", estudianteId).in("trabajo_id", trabajos.map(t => prefijo + String(t.id)));
     if (error) { filas.forEach(f => nota(f, "⚠️ No se pudo cargar «Adjuntar documento»: " + escInfografia(error.message))); return; }
     const porTrabajo = {};
     (docs || []).forEach(d => { porTrabajo[d.trabajo_id] = d; });
     filas.forEach((fila, i) => {
       const t = trabajos[i];
-      const d = porTrabajo[String(t.id)];
+      const d = porTrabajo[prefijo + String(t.id)];
       const bloque = document.createElement("div");
       bloque.style.cssText = "width:100%; border-top:1px dashed var(--border, #ccc); padding-top:0.4rem; display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;";
       if (d) {
@@ -8530,10 +8533,10 @@ async function agregarDocumentoDefinitivo(holder, trabajos, estudianteId) {
           if (!confirm(`Vas a entregar "${f.name}".\n\nUna vez subido NO podrás cambiarlo ni eliminarlo. ¿Confirmás?`)) { input.value = ""; return; }
           estado.style.color = "var(--text-muted)"; estado.textContent = "Subiendo…"; input.disabled = true;
           const limpio = f.name.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9._-]/g, "_");
-          const ruta = `documentos/${t.id}/${estudianteId}_${Date.now()}_${limpio}`;
+          const ruta = `documentos/${prefijo.replace(":", "-")}${t.id}/${estudianteId}_${Date.now()}_${limpio}`;
           const { error: eUp } = await sb.storage.from("materiales").upload(ruta, f, { upsert: false });
           if (eUp) { estado.style.color = "var(--danger-text, #b00)"; estado.textContent = "No se pudo subir: " + eUp.message; input.disabled = false; return; }
-          const { error: eIns } = await sb.from("documentos_entrega").insert({ trabajo_id: String(t.id), estudiante_id: estudianteId, archivo_ruta: ruta, archivo_nombre: f.name });
+          const { error: eIns } = await sb.from("documentos_entrega").insert({ trabajo_id: prefijo + String(t.id), estudiante_id: estudianteId, archivo_ruta: ruta, archivo_nombre: f.name });
           if (eIns) {
             await sb.storage.from("materiales").remove([ruta]);
             estado.style.color = "var(--danger-text, #b00)";
@@ -8551,7 +8554,8 @@ async function agregarDocumentoDefinitivo(holder, trabajos, estudianteId) {
   } catch (e) { console.warn("documento definitivo", e); }
 }
 
-async function agregarPanelDocumentosDocente(holder, trabajos) {
+async function agregarPanelDocumentosDocente(holder, trabajos, prefijo) {
+  prefijo = prefijo || "";
   try {
     if (!holder || !session || session.role !== "docente") return;
     const filas = trabajos.map(t => { const w = holder.querySelector(`[data-fila-trabajo="${t.id}"]`); return w ? (w.querySelector(":scope > .roster-row") || w) : null; });
@@ -8564,7 +8568,7 @@ async function agregarPanelDocumentosDocente(holder, trabajos) {
       const lista = det.querySelector("[data-docs-lista]");
       const pintar = async () => {
         lista.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando…</p>`;
-        const { data: docs, error } = await sb.from("documentos_entrega").select("*").eq("trabajo_id", String(t.id)).order("creado_en");
+        const { data: docs, error } = await sb.from("documentos_entrega").select("*").eq("trabajo_id", prefijo + String(t.id)).order("creado_en");
         if (error) { lista.innerHTML = `<p style="font-size:0.82rem;">Aún no existe la tabla de documentos (falta correr el SQL).</p>`; return; }
         if (!docs || !docs.length) { lista.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Nadie ha adjuntado documentos.</p>`; return; }
         const { data: ests } = await sb.from("estudiantes").select("id, nombre, apellido1, apellido2").in("id", docs.map(d => d.estudiante_id));
