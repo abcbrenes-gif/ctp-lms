@@ -216,9 +216,10 @@ function enlacesArchivosProyecto(e) {
 // --- Modificar una entrega de Proyecto (11-3) ---
 // Botón "✏️ Modificar" en cada entrega: cambiar nombre y descripción,
 // quitar archivos y subir archivos nuevos (referencias e infografía).
-// Se bloquea si pasó la fecha límite o si la entrega ya tiene nota.
+// Se bloquea solo si pasó la fecha límite; si ya tenía nota de la IA, se limpia y se vuelve a calificar.
 function botonModificarProyectoHTML(e, contenido) {
-  if (!puedeEditarEntregas() || e.nota_ia != null || estadoLimiteProyecto(contenido).vencido) return "";
+  if (!puedeEditarEntregas()) return "";
+  if (estadoLimiteProyecto(contenido).vencido) return `<div style="margin-top:0.3rem; font-size:0.78rem; color:var(--text-muted);">🔒 El plazo de entrega venció — ya no se puede modificar.</div>`;
   return `<div style="margin-top:0.3rem;"><button class="btn small" type="button" data-proyecto-modificar="${e.id}">✏️ Modificar</button></div>
     <div data-proyecto-modificar-panel="${e.id}"></div>`;
 }
@@ -277,8 +278,6 @@ function enlazarModificarProyecto(root, recargar) {
         // Revisar de nuevo en la base: plazo y que no se haya calificado mientras tanto.
         const { data: tr2 } = await sb.from("trabajos_cotidianos").select("contenido_actividad").eq("id", e.trabajo_id).maybeSingle();
         if (estadoLimiteProyecto(tr2 && tr2.contenido_actividad).vencido) { msg("⛔ El plazo de entrega ya venció."); return; }
-        const { data: fila } = await sb.from("proyecto_entregas").select("nota_ia").eq("id", id).maybeSingle();
-        if (fila && fila.nota_ia != null) { msg("Esta entrega ya fue calificada, no se puede modificar."); return; }
         const quitar = grupo => new Set([...form.querySelectorAll(`[data-quitar="${grupo}"]:checked`)].map(c => Number(c.value)));
         const qR = quitar("refs"), qI = quitar("infos");
         const nuevasRefs = f.getAll("refs_nuevos").filter(a => a && a.size);
@@ -303,7 +302,9 @@ function enlazarModificarProyecto(root, recargar) {
           const { error } = await sb.from("proyecto_entregas").update({
             titulo, descripcion,
             archivo_ruta: infosFinal[0].ruta, archivo_nombre: infosFinal[0].nombre,
-            archivos_referencia: refsFinal, archivos_infografia: infosFinal
+            archivos_referencia: refsFinal, archivos_infografia: infosFinal,
+            // Si ya tenía nota de la IA, se limpia para que se vuelva a calificar con lo nuevo.
+            nota_ia: null, justificacion_ia: null
           }).eq("id", id);
           if (error) throw error;
           const aBorrar = [...refs.filter((_, i) => qR.has(i)), ...infos.filter((_, i) => qI.has(i))].map(a => a.ruta);
