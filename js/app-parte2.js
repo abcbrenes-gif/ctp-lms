@@ -110,6 +110,85 @@ function enlazarAccionesInfografia(holder, recargar) {
   });
 }
 
+// --- Proyecto en 11-3: nombre, descripción, archivos de referencia e infografía ---
+// En 11-3 la entrega de un "Proyecto" lleva 4 partes: 1) nombre (título),
+// 2) descripción, 3) archivos de referencia y 4) archivos de la infografía
+// (solo imagen/PDF). Los archivos se guardan en las columnas
+// archivos_referencia / archivos_infografia (json) de proyecto_entregas;
+// archivo_ruta guarda la primera infografía para que el panel del profesor
+// y la calificación con IA sigan funcionando igual.
+function camposArchivosProyecto113() {
+  return `
+    <label style="flex-basis:100%; font-size:0.82rem; display:block;">3. Archivos de referencia (leyes, artículos o documentos que usaste):
+      <input type="file" name="referencias" multiple required style="display:block; margin-top:0.3rem;" />
+    </label>
+    <label style="flex-basis:100%; font-size:0.82rem; display:block;">4. Archivos de la infografía (imagen JPG/PNG/WEBP o PDF):
+      <input type="file" name="infografias" multiple accept="image/png,image/jpeg,image/webp,.pdf" required style="display:block; margin-top:0.3rem;" />
+    </label>`;
+}
+async function enviarEntregaProyecto113({ form, f, trabajoId, estudianteId, descripcion, estado }) {
+  const msg = t => { if (estado) estado.textContent = t; };
+  const referencias = f.getAll("referencias").filter(a => a && a.size);
+  const infografias = f.getAll("infografias").filter(a => a && a.size);
+  if (!referencias.length) { msg("Subí al menos un archivo de referencia."); return false; }
+  if (!infografias.length) { msg("Subí al menos un archivo de la infografía."); return false; }
+  for (const a of infografias) {
+    const err = validarArchivoInfografia(a);
+    if (err) { msg(`${a.name}: ${err}`); return false; }
+  }
+  for (const a of referencias) {
+    if (a.size > 25 * 1024 * 1024) { msg(`${a.name} pesa demasiado (máximo 25 MB por archivo).`); return false; }
+  }
+  const boton = form.querySelector("button[type=submit]");
+  boton.disabled = true;
+  boton.textContent = "Enviando…";
+  msg("Subiendo archivos…");
+  const subir = async (archivo, carpeta) => {
+    const ruta = `proyectos/trabajo-${trabajoId}/${carpeta}/${estudianteId}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${archivo.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+    const { error } = await sb.storage.from("materiales").upload(ruta, archivo);
+    if (error) throw error;
+    return { ruta, nombre: archivo.name };
+  };
+  try {
+    const refs = [];
+    for (const a of referencias) refs.push(await subir(a, "referencias"));
+    const infos = [];
+    for (const a of infografias) infos.push(await subir(a, "infografias"));
+    const { error } = await sb.from("proyecto_entregas").insert({
+      trabajo_id: trabajoId,
+      estudiante_id: estudianteId,
+      titulo: f.get("titulo"),
+      descripcion,
+      archivo_ruta: infos[0].ruta,
+      archivo_nombre: infos[0].nombre,
+      archivos_referencia: refs,
+      archivos_infografia: infos
+    });
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    const m = String(err.message || err);
+    msg("No se pudo enviar la entrega: " + (/archivos_(referencia|infografia)/.test(m) ? "falta crear las columnas en la base de datos (avisale a tu profesor)." : m));
+    boton.disabled = false;
+    boton.textContent = "Enviar entrega";
+    return false;
+  }
+}
+// Enlaces a los archivos de una entrega de proyecto (con el formato nuevo
+// de referencias + infografía, o el archivo único de las entregas viejas).
+function enlacesArchivosProyecto(e) {
+  const url = r => sb.storage.from("materiales").getPublicUrl(r).data.publicUrl;
+  const refs = Array.isArray(e.archivos_referencia) ? e.archivos_referencia : [];
+  const infs = Array.isArray(e.archivos_infografia) ? e.archivos_infografia : [];
+  if (!refs.length && !infs.length) {
+    return e.archivo_ruta ? `<a class="btn secondary small" style="margin-top:0.3rem;" href="${url(e.archivo_ruta)}" target="_blank" rel="noopener">📄 ${escInfografia(e.archivo_nombre || "Ver archivo")}</a>` : "";
+  }
+  const grupo = (titulo, arr) => arr.length
+    ? `<div style="margin-top:0.3rem; font-size:0.8rem;"><strong>${titulo}:</strong> ${arr.map(a => `<a href="${url(a.ruta)}" target="_blank" rel="noopener">📄 ${escInfografia(a.nombre)}</a>`).join(" · ")}</div>`
+    : "";
+  return grupo("🖼️ Infografía", infs) + grupo("📚 Referencias", refs);
+}
+
 async function renderInfografiasEstudiante(el, s, isSelf) {
   const esProfesor = !isSelf && session.role === "docente";
   const vistaPrevia = isSelf && session.role === "docente";
@@ -349,9 +428,9 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
                       <input name="titulo" placeholder="${cp.placeholder_titulo || "Título"}" required style="width:100%;" />
                       <textarea name="descripcion" data-proyecto-nota-descripcion="${trabajoPrueba.id}" placeholder="${cp.placeholder_descripcion || "Descripción"}" rows="3" required minlength="${minCaracteresProyecto || 1}" style="width:100%; font-family:inherit; resize:vertical;"></textarea>
                       ${minCaracteresProyecto ? `<span data-proyecto-nota-contador="${trabajoPrueba.id}" style="font-size:0.75rem; color:var(--text-muted);">0 / ${minCaracteresProyecto} caracteres mínimo</span>` : ""}
-                      <label style="font-size:0.82rem;">Archivo:
+                      ${esSeccion113(s.seccion) ? camposArchivosProyecto113() : `                      <label style="font-size:0.82rem;">Archivo:
                         <input type="file" name="archivo" required style="display:block; margin-top:0.3rem;" />
-                      </label>
+                      </label>`}
                       <button class="btn small" type="submit" style="justify-self:start;">Enviar entrega</button>
                       <span data-proyecto-nota-estado="${trabajoPrueba.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
                     </form>
@@ -361,7 +440,7 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
                         return `<div style="font-size:0.8rem; border-left:3px solid var(--paper-line); padding:0.3rem 0.5rem; background:var(--surface);">
                           <strong>${e.titulo}</strong> <span style="color:var(--text-muted);">· ${formatearFechaHora(e.creado_en)}</span>
                           ${e.descripcion ? `<div style="margin-top:0.15rem;">${e.descripcion}</div>` : ""}
-                          <a class="btn secondary small" style="margin-top:0.3rem;" href="${pub.publicUrl}" target="_blank" rel="noopener">📄 ${e.archivo_nombre || "Ver archivo"}</a>
+                          ${enlacesArchivosProyecto(e)}
                         </div>`;
                       }).join("")}
                     </div>` : ""}
@@ -664,6 +743,11 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
         const descripcion = (f.get("descripcion") || "").toString();
         const minimo = Number(form.querySelector("[data-proyecto-nota-descripcion]")?.getAttribute("minlength")) || 1;
         if (descripcion.length < minimo) { if (estado) estado.textContent = `La descripción necesita al menos ${minimo} caracteres (lleva ${descripcion.length}).`; return; }
+        if (esSeccion113(s.seccion)) {
+          const ok = await enviarEntregaProyecto113({ form, f, trabajoId, estudianteId: s.id, descripcion, estado });
+          if (ok) renderNotasInterno(el, s, isSelf, activa);
+          return;
+        }
         if (!archivo || !archivo.size) { if (estado) estado.textContent = "Adjuntá un archivo."; return; }
         const boton = form.querySelector("button[type=submit]");
         boton.disabled = true;
@@ -3004,9 +3088,9 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
             <input name="titulo" placeholder="${t.contenido_actividad?.placeholder_titulo || "Título de tu entrega"}" required style="flex:1; min-width:10rem" />
             <textarea name="descripcion" data-proyecto-descripcion="${t.id}" placeholder="${t.contenido_actividad?.placeholder_descripcion || "Descripción de tu entrega"}" rows="3" required minlength="${t.contenido_actividad?.min_caracteres_descripcion || 1}" style="flex-basis:100%; font-family:inherit; resize:vertical;"></textarea>
             ${t.contenido_actividad?.min_caracteres_descripcion ? `<span data-proyecto-contador="${t.id}" style="flex-basis:100%; font-size:0.75rem; color:var(--text-muted);">0 / ${t.contenido_actividad.min_caracteres_descripcion} caracteres mínimo</span>` : ""}
-            <label style="flex-basis:100%; font-size:0.82rem;">Archivo:
+            ${esSeccion113(session.seccion) ? camposArchivosProyecto113() : `            <label style="flex-basis:100%; font-size:0.82rem;">Archivo:
               <input type="file" name="archivo" required style="display:block; margin-top:0.3rem;" />
-            </label>
+            </label>`}
             <button class="btn small" type="submit">Enviar entrega</button>
             <span data-proyecto-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
           </form>
@@ -3016,7 +3100,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
               return `<div style="font-size:0.82rem; padding:0.4rem 0.5rem; background:var(--surface-soft); border-radius:6px;">
                 <strong>${e.titulo}</strong> <span style="color:var(--text-muted);">· ${formatearFechaHora(e.creado_en)}</span>
                 ${e.descripcion ? `<div style="margin-top:0.2rem;">${e.descripcion}</div>` : ""}
-                <a class="btn secondary small" style="margin-top:0.3rem;" href="${pub.publicUrl}" target="_blank" rel="noopener">📄 ${e.archivo_nombre || "Ver archivo"}</a>
+                ${enlacesArchivosProyecto(e)}
               </div>`;
             }).join("")}
           </div>` : ""}
@@ -3303,6 +3387,11 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         const descripcion = (f.get("descripcion") || "").toString();
         const minimo = Number(form.querySelector("[data-proyecto-descripcion]")?.getAttribute("minlength")) || 1;
         if (descripcion.length < minimo) { if (estado) estado.textContent = `La descripción necesita al menos ${minimo} caracteres (lleva ${descripcion.length}).`; return; }
+        if (esSeccion113(session.seccion)) {
+          const ok = await enviarEntregaProyecto113({ form, f, trabajoId, estudianteId, descripcion, estado });
+          if (ok) pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId);
+          return;
+        }
         if (!archivo || !archivo.size) { if (estado) estado.textContent = "Adjuntá un archivo."; return; }
         const boton = form.querySelector("button[type=submit]");
         boton.disabled = true;
@@ -4916,7 +5005,7 @@ async function pintarPanelEntregasProyecto(panel, trabajoId) {
               return `<div style="font-size:0.85rem; padding:0.4rem 0.5rem; border-left:3px solid ${e.nota_ia != null ? (e.nota_ia >= 70 ? "#1d7a43" : (e.nota_ia >= 40 ? "#a5690a" : "#c0392b")) : "var(--paper-line)"};">
                 <strong>${e.titulo}</strong> <span style="color:var(--text-muted);">· ${formatearFechaHora(e.creado_en)}</span>
                 ${e.descripcion ? `<div style="margin-top:0.2rem;">${e.descripcion}</div>` : ""}
-                <a class="btn secondary small" style="margin-top:0.3rem;" href="${pub.publicUrl}" target="_blank" rel="noopener">📄 ${e.archivo_nombre || "Ver archivo"}</a>
+                ${enlacesArchivosProyecto(e)}
                 ${e.nota_ia != null ? `<div style="margin-top:0.3rem; font-size:0.8rem;"><strong>Nota IA: ${e.nota_ia}/100</strong>${e.justificacion_ia ? ` — ${e.justificacion_ia}` : ""}</div>` : `<div style="margin-top:0.3rem; font-size:0.78rem; color:var(--text-muted);">Sin calificar con IA todavía.</div>`}
               </div>`;
             }).join("")}
