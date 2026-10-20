@@ -3386,7 +3386,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
           : `<label class="btn small" style="cursor:pointer;">📎 Adjuntar archivo para que lo califiquen<input type="file" data-trabajo-subtema-subir="${t.id}" style="display:none;" /></label>`}
         <span data-trabajo-subtema-subir-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
       </div>`;
-    }).join("");
+    }).map((h, i) => `<div data-fila-trabajo="${trabajos[i].id}" style="display:contents">${h}</div>`).join("");
     await agregarDocumentoDefinitivo(holder, trabajos, estudianteId);
 
     holder.querySelectorAll("[data-mi-trabajo-subtema]").forEach(cb => {
@@ -3704,7 +3704,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         ${t.tipo_actividad === "autoevaluacion" ? `<div data-autoeval-panel="${t.id}" style="width:100%;"></div>` : ""}
         ${t.tipo_actividad === "rubrica_directa" ? `<div data-rubrica-panel="${t.id}" style="width:100%;"></div>` : ""}
         ${t.tipo_actividad === "prueba" ? `<div data-hora-prueba-panel="${t.id}" style="width:100%;"></div>` : ""}
-      </div>`).join("");
+      </div>`).map((h, i) => `<div data-fila-trabajo="${trabajos[i].id}" style="display:contents">${h}</div>`).join("");
     agregarPanelDocumentosDocente(holder, trabajos);
 
     holder.querySelectorAll("[data-ver-retro]").forEach(btn => {
@@ -5811,7 +5811,7 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
           : `<label class="btn small" style="cursor:pointer;">📎 Adjuntar archivo para que lo califiquen<input type="file" data-trabajo-subir="${t.id}" style="display:none;" /></label>`}
         <span data-trabajo-subir-estado="${t.id}" style="font-size:0.78rem; color:var(--text-muted);"></span>
       </div>`;
-    }).join("");
+    }).map((h, i) => `<div data-fila-trabajo="${trabajos[i].id}" style="display:contents">${h}</div>`).join("");
     await agregarDocumentoDefinitivo(holder, trabajos, estudianteId);
 
     holder.querySelectorAll("[data-mi-trabajo]").forEach(cb => {
@@ -5949,7 +5949,7 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
         <div data-entregas-trabajo-tema-panel="${t.id}" style="width:100%;"></div>
         ${TIPOS_CON_RETRO.includes(t.tipo_actividad) ? `<div data-retro-panel-tema="${t.id}"></div>` : ""}
         ${t.tipo_actividad === "prueba" ? `<div data-hora-prueba-panel-tema="${t.id}" style="width:100%;"></div>` : ""}
-      </div>`).join("");
+      </div>`).map((h, i) => `<div data-fila-trabajo="${trabajos[i].id}" style="display:contents">${h}</div>`).join("");
     agregarPanelDocumentosDocente(holder, trabajos);
 
     holder.querySelectorAll("[data-ver-retro-tema]").forEach(btn => {
@@ -8497,8 +8497,8 @@ const DOC_DEF_EXT_OK = /\.(pdf|docx?|xlsx?|pptx?|txt|csv|odt|ods|odp|jpe?g|png|w
 async function agregarDocumentoDefinitivo(holder, trabajos, estudianteId) {
   try {
     if (!holder || !session) return;
-    const filas = Array.from(holder.children).filter(el => el.classList && el.classList.contains("roster-row"));
-    if (filas.length !== trabajos.length) return;
+    const filas = trabajos.map(t => { const w = holder.querySelector(`[data-fila-trabajo="${t.id}"]`); return w ? (w.querySelector(":scope > .roster-row") || w) : null; });
+    if (filas.some(f => !f)) { console.warn("documento: filas no coinciden"); return; }
     const nota = (fila, html) => { const d = document.createElement("div"); d.style.cssText = "width:100%; font-size:0.78rem; color:var(--text-muted); border-top:1px dashed var(--border, #ccc); padding-top:0.4rem;"; d.innerHTML = html; fila.appendChild(d); };
     if (session.role !== "estudiante") { filas.forEach(f => nota(f, "📄 Vista previa: aquí el estudiante verá el botón «Adjuntar documento» (entrega definitiva).")); return; }
     const { data: docs, error } = await sb.from("documentos_entrega").select("*")
@@ -8554,8 +8554,8 @@ async function agregarDocumentoDefinitivo(holder, trabajos, estudianteId) {
 async function agregarPanelDocumentosDocente(holder, trabajos) {
   try {
     if (!holder || !session || session.role !== "docente") return;
-    const filas = Array.from(holder.children).filter(el => el.classList && el.classList.contains("roster-row"));
-    if (filas.length !== trabajos.length) return;
+    const filas = trabajos.map(t => { const w = holder.querySelector(`[data-fila-trabajo="${t.id}"]`); return w ? (w.querySelector(":scope > .roster-row") || w) : null; });
+    if (filas.some(f => !f)) { console.warn("documento: filas no coinciden"); return; }
     filas.forEach((fila, i) => {
       const t = trabajos[i];
       const det = document.createElement("details");
