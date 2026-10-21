@@ -757,7 +757,7 @@ async function guardarNotaManualActividad(trabajo, estudianteId, puntaje, datosE
 // `construirContenido(cuerpoEl, terminar)` debe llenar cuerpoEl con la UI de
 // la actividad y llamar a terminar({respuestas, porcentaje}) cuando el
 // estudiante termine.
-function lanzarActividadBloqueada(trabajo, construirContenido, onListo) {
+function lanzarActividadBloqueada(trabajo, construirContenido, onListo, onSalida) {
   let intentosSalida = 0;
   let terminado = false;
 
@@ -778,6 +778,7 @@ function lanzarActividadBloqueada(trabajo, construirContenido, onListo) {
   function mostrarAviso() {
     intentosSalida++;
     aviso.textContent = `⚠️ Saliste de la actividad (${intentosSalida}). Esto queda registrado para tu profesor.`;
+    if (onSalida) { try { onSalida(intentosSalida); } catch (e) {} }
   }
 
   function onVisibilityChange() {
@@ -1427,5 +1428,8 @@ async function iniciarActividadInteractiva(trabajo, estudianteId, onTerminado) {
     const puntaje = await guardarResultadoActividad(trabajo, estudianteId, { ...resultado, datosPrueba: datosPruebaCompleto });
     if (resultado.porcentaje >= 85 && typeof window !== "undefined" && window.lanzarConfeti) window.lanzarConfeti();
     onTerminado(puntaje, resultado.porcentaje, resultado.intentosSalida);
+  }, (n) => {
+    // Se guarda en vivo cada vez que sale, para que el profesor lo vea aunque no termine.
+    sb.from("actividades_estudiante").update({ intentos_salida: n }).eq("trabajo_id", trabajo.id).eq("estudiante_id", estudianteId).then(() => {}, () => {});
   });
 }

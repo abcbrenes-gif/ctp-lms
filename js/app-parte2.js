@@ -4881,7 +4881,7 @@ async function construirRetroalimentacionActividad(trabajo, soloEstudianteId) {
       <details style="margin-bottom:0.5rem; background:var(--surface-soft); border-radius:8px; padding:0.6rem 0.8rem;">
         <summary style="cursor:pointer; font-size:0.85rem; display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
           <span>${nombrePorId[e.estudiante_id] || e.estudiante_id}</span>
-          <strong>Nota: ${correctas}/${items.length} (${items.length ? Math.round((correctas / items.length) * 100) : 0}%)</strong>
+          <span style="display:flex; align-items:center; gap:0.5rem;">${badgeSalidas(e.intentos_salida)}<strong>Nota: ${correctas}/${items.length} (${items.length ? Math.round((correctas / items.length) * 100) : 0}%)</strong></span>
         </summary>
         <div style="margin-top:0.6rem; display:grid; gap:0.4rem;">${preguntas}</div>
       </details>`;
@@ -8563,6 +8563,11 @@ async function agregarDocumentoDefinitivo(holder, trabajos, estudianteId, prefij
   } catch (e) { console.warn("documento definitivo", e); try { const d = document.createElement("div"); d.style.cssText = "font-size:0.78rem; color:#b00; padding:0.4rem;"; d.textContent = "⚠️ Error en «Adjuntar documento»: " + (e && e.message); holder.appendChild(d); } catch (_) {} }
 }
 
+function badgeSalidas(n) {
+  n = Number(n) || 0;
+  return `<span class="badge" style="${n > 0 ? "background:var(--warn-bg); color:var(--warn-text);" : ""}" title="Veces que salió de la pantalla de la actividad (cambió de pestaña, minimizó o salió de pantalla completa)">${n > 0 ? "⚠️ Salió " + n + (n === 1 ? " vez" : " veces") : "✓ Sin salidas"}</span>`;
+}
+
 async function agregarPanelDocumentosDocente(holder, trabajos, prefijo) {
   prefijo = prefijo || "";
   try {
@@ -8648,7 +8653,7 @@ function agregarPanelHabilitarDeNuevo(fila, t) {
     lista.innerHTML = regs.map(r => {
       const sinRespuestas = Array.isArray(r.respuestas) && r.respuestas.length === 0 && !r.puntaje;
       return `<div class="roster-row" style="gap:0.5rem; flex-wrap:wrap;"><span class="name">${escInfografia(nom[r.estudiante_id] || r.estudiante_id)}</span>
-        <span class="badge" style="${sinRespuestas ? "background:var(--warn-bg); color:var(--warn-text);" : ""}">${sinRespuestas ? "Empezó y no terminó (nota 0)" : "Nota: " + (r.puntaje ?? "—") + "/3"}</span>
+        <span class="badge" style="${sinRespuestas ? "background:var(--warn-bg); color:var(--warn-text);" : ""}">${sinRespuestas ? "Empezó y no terminó (nota 0)" : "Nota: " + (r.puntaje ?? "—") + "/3"}</span> ${badgeSalidas(r.intentos_salida)}
         <button class="btn secondary small" data-rehab="${r.id}" data-est="${escInfografia(r.estudiante_id)}">🔓 Habilitar de nuevo</button></div>`;
     }).join("");
     lista.querySelectorAll("[data-rehab]").forEach(b => b.addEventListener("click", async () => {
