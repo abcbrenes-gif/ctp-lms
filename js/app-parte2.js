@@ -507,6 +507,21 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
     }
   }
 
+  // Veces que el estudiante salió de la pantalla en cada actividad ligada a un indicador (para estudiante y docente).
+  const salidasPorIndicador = {};
+  try {
+    const idsInd = Object.values(indicadoresPorMateria).flatMap(info => info.indicadores.map(i => i.id));
+    if (idsInd.length) {
+      const { data: tcs } = await sb.from("trabajos_cotidianos").select("id, indicador_id").in("indicador_id", idsInd);
+      const idsTrab = (tcs || []).map(t => t.id);
+      if (idsTrab.length) {
+        const { data: acts } = await sb.from("actividades_estudiante").select("trabajo_id, intentos_salida, completado").eq("estudiante_id", s.id).in("trabajo_id", idsTrab);
+        const indPorTrab = {}; (tcs || []).forEach(t => { indPorTrab[t.id] = t.indicador_id; });
+        (acts || []).forEach(a => { if (a.completado && indPorTrab[a.trabajo_id] != null) salidasPorIndicador[indPorTrab[a.trabajo_id]] = Number(a.intentos_salida) || 0; });
+      }
+    }
+  } catch (e) { console.warn("salidas", e); }
+
   function tablaIndicadores(m, info) {
     const categoriaObj = categorias.find(c => c.nombre === activa);
     const resultadoPct = categoriaObj ? (info.nota * categoriaObj.porcentaje / 100).toFixed(1) : info.nota.toFixed(1);
@@ -539,6 +554,7 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
                 <td>
                   <strong>${i.descripcion}</strong>
                   ${i.fecha_evaluacion ? `<div style="font-size:0.75rem; color:var(--text-muted);">Fecha: ${i.fecha_evaluacion}${i.lecciones ? " · " + i.lecciones + " lecciones" : ""}</div>` : ""}
+                  ${salidasPorIndicador[i.id] !== undefined ? `<div style="margin-top:0.25rem;">${badgeSalidas(salidasPorIndicador[i.id])}</div>` : ""}
                   ${trabajoPrueba && (trabajoPrueba.subtema_id || trabajoPrueba.publicacion_id) ? `<div style="margin-top:0.3rem;"><a class="btn secondary small" href="${trabajoPrueba.subtema_id ? "#/subtema/" + trabajoPrueba.subtema_id : "#/apartado/" + trabajoPrueba.publicacion_id}" onclick="try{sessionStorage.setItem('ctp_abrir_tab_trabajos','1')}catch(e){}">➡️ Ir al trabajo en el subtema</a></div>` : ""}
                   ${esPruebaPendiente ? (aunNoEsHora
                     ? `<div style="margin-top:0.3rem;"><span class="badge" style="background:var(--warn-bg); color:var(--warn-text);">⏳ Disponible a partir de ${formatearFechaHora(trabajoPrueba.fecha_hora_inicio)}</span></div>`
@@ -3354,7 +3370,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         const aunNoEsHora = t.tipo_actividad === "prueba" && t.fecha_hora_inicio && new Date(t.fecha_hora_inicio) > new Date();
         let accionInicio;
         if (completo) {
-          accionInicio = `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Completado — Nota: ${res.puntaje}/3</span>`;
+          accionInicio = `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Completado — Nota: ${res.puntaje}/3</span> ${badgeSalidas(res.intentos_salida)}`;
         } else if (aunNoEsHora) {
           accionInicio = `<span class="badge" style="background:var(--warn-bg); color:var(--warn-text);">⏳ Disponible a partir de ${formatearFechaHora(t.fecha_hora_inicio)}</span>`;
         } else {
@@ -5780,7 +5796,7 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
         const aunNoEsHora = t.tipo_actividad === "prueba" && t.fecha_hora_inicio && new Date(t.fecha_hora_inicio) > new Date();
         let accionInicio;
         if (completo) {
-          accionInicio = `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Completado — Nota: ${res.puntaje}/3</span>`;
+          accionInicio = `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Completado — Nota: ${res.puntaje}/3</span> ${badgeSalidas(res.intentos_salida)}`;
         } else if (aunNoEsHora) {
           accionInicio = `<span class="badge" style="background:var(--warn-bg); color:var(--warn-text);">⏳ Disponible a partir de ${formatearFechaHora(t.fecha_hora_inicio)}</span>`;
         } else {
