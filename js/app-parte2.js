@@ -8609,7 +8609,7 @@ async function agregarPanelDocumentosDocente(holder, trabajos, prefijo) {
 function agregarPanelHabilitarDeNuevo(fila, t) {
   const det = document.createElement("details");
   det.style.cssText = "width:100%;";
-  det.innerHTML = `<summary style="cursor:pointer; font-size:0.85rem;">🔓 Estudiantes que ya realizaron la actividad (habilitar de nuevo)</summary><div data-rehab-lista style="margin-top:0.4rem;"></div><div data-bloq-lista style="margin-top:0.6rem;"></div>`;
+  det.innerHTML = `<summary class="btn danger small" style="cursor:pointer; display:inline-block; list-style:none;">🔒 Bloquear / habilitar estudiantes</summary><div data-rehab-lista style="margin-top:0.4rem;"></div><div data-bloq-lista style="margin-top:0.6rem;"></div>`;
   const lista = det.querySelector("[data-rehab-lista]");
   const listaBloq = det.querySelector("[data-bloq-lista]");
   // Bloqueo manual: para estudiantes que ya habían empezado antes de que existiera el bloqueo automático.
@@ -8660,5 +8660,5 @@ function agregarPanelHabilitarDeNuevo(fila, t) {
     }));
   };
   det.addEventListener("toggle", () => { if (det.open) pintar(); });
-  fila.appendChild(det);
+  if (fila.firstElementChild && fila.firstElementChild.nextSibling) fila.insertBefore(det, fila.firstElementChild.nextSibling); else fila.appendChild(det);
 }
