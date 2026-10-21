@@ -647,7 +647,7 @@ function viewPorEmpresa(){
          <td>${R&&R.casTot?bar(R.casOk,R.casTot):'<small class="muted">Sin empezar</small>'}</td>
          <td>${R&&R.asPlIntentos?`${R.asPlOk?'<span class="chip tI">Resuelto</span>':'<span class="chip tG">Pendiente</span>'}<br><small class="muted">${R.asPlIntentos} intento(s)</small>`:'<small class="muted">Sin empezar</small>'}</td>
          <td>${R&&R.evalBest!=null?`<b class="num">${R.evalBest} %</b><br><small class="muted">${R.evals} evaluación(es)</small>`:R&&R.practicas?`<small class="muted">${R.practicas} práctica(s)</small>`:'<small class="muted">—</small>'}</td>
-         <td><div class="row" style="flex-wrap:nowrap;justify-content:flex-end"><a class="btn sm primary" target="_blank" rel="noopener" href="aula-contable.html?como_estudiante=${encodeURIComponent(w.id)}">Revisar</a>${g.cat==="practica"?`<button class="btn sm danger" data-act="delPracticaEst" data-est="${esc(w.id)}" data-co="${esc(c.id)}">Eliminar</button>`:""}</div></td></tr>`}).join("")||'<tr><td colspan="7"><small class="muted">Sin resultados con ese filtro.</small></td></tr>'}
+         <td><div class="row" style="flex-wrap:nowrap;justify-content:flex-end"><a class="btn sm primary" href="aula-contable.html?como_estudiante=${encodeURIComponent(w.id)}">Revisar</a>${g.cat==="practica"?`<button class="btn sm danger" data-act="delPracticaEst" data-est="${esc(w.id)}" data-co="${esc(c.id)}">Eliminar</button>`:""}</div></td></tr>`}).join("")||'<tr><td colspan="7"><small class="muted">Sin resultados con ese filtro.</small></td></tr>'}
       </tbody></table></div></details>`}).join("")}
    <p class="note" style="margin:0">Datos en vivo del trabajo de cada estudiante. "Revisar" abre su cuenta de Aula de Conta tal como la ve él.</p>`;
 }

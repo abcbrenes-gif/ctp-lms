@@ -4047,7 +4047,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
               return `<div class="roster-row" style="padding:0.3rem 0; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
                 <span class="name">${nombrePorId[e.estudiante_id] || e.estudiante_id}</span>
                 ${link ? `<a class="btn small" href="${link}" target="_blank" rel="noopener">📄 ${e.archivo_nombre || "Ver archivo"}</a>` : `<span class="badge">Completado (sin archivo)</span>`}
-                ${trabajoActual && trabajoActual.aula_contable_empresa ? `<a class="btn secondary small" href="${AULA_CONTABLE_URL}?como_estudiante=${encodeURIComponent(e.estudiante_id)}" target="_blank" rel="noopener">🧮 Ver en Aula de Conta</a>` : ""}
+                ${trabajoActual && trabajoActual.aula_contable_empresa ? `<a class="btn secondary small" href="${AULA_CONTABLE_URL}?como_estudiante=${encodeURIComponent(e.estudiante_id)}">🧮 Ver en Aula de Conta</a>` : ""}
                 <button class="btn secondary small" data-permitir-reintento-trabajo="${trabajoId}" data-permitir-reintento-estudiante="${e.estudiante_id}">↺ Permitir reintento</button>
               </div>`;
             }).join("")}
