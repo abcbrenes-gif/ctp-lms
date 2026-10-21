@@ -398,6 +398,8 @@ const APP={store:null,me:null,dk:null,companies:[],activeId:null,view:"empresas"
   viewing:null,readOnly:false,authTab:"in",hasTeacher:true,entregas:null,editCo:null,editAcc:null,saveState:"",
   showRecovery:null,lastDelivery:null,lastEntregaGeneral:null,preview:null};
 const isTeacher=()=>APP.me&&APP.me.rol==="profesor";
+// Solo el profesor (o el profesor viendo como un estudiante) puede ver soluciones y procedimientos; los estudiantes no.
+const puedeVerRespuestas=()=>isTeacher()||!!APP.comoEstudiante||!!APP.demo;
 const co=()=>APP.companies.find(c=>c.id===APP.activeId)||APP.companies[0]||null;
 /* Categoría del trabajo: "practica" se puede repetir las veces que haga falta;
    "tarea" (trabajo cotidiano) queda bloqueada en cuanto el estudiante la entrega. */
@@ -1582,9 +1584,9 @@ function plViewPractica(c,p){
      <div class="row" style="margin-top:14px;align-items:center">
       ${ch?`<div class="status ${ok===F.length?"ok":"bad"}" style="margin-right:auto"><span class="dot"></span>${ok===F.length?"¡Excelente! Todos los cálculos son correctos.":`${ok} de ${F.length} correctos${ev?"":". Corrige los campos en rojo y vuelve a revisar."}`}</div>`:'<span style="margin-right:auto"></span>'}
       ${APP.plLocked?"":`<button class="btn primary" type="submit">${ev?"Entregar evaluación":"Revisar mis respuestas"}</button>`}
-      ${ch?`<button type="button" class="btn ${APP.plShowProc?"primary":"ghost"}" data-pact="proc">${APP.plShowProc?"Ocultar procedimiento":"Ver procedimiento completo"}</button>`:""}
+      ${ch&&puedeVerRespuestas()?`<button type="button" class="btn ${APP.plShowProc?"primary":"ghost"}" data-pact="proc">${APP.plShowProc?"Ocultar procedimiento":"Ver procedimiento completo"}</button>`:""}
      </div>
-     ${APP.plShowProc?`<div style="margin-top:14px">${plProcedure(k,e)}</div>`:""}
+     ${puedeVerRespuestas()&&APP.plShowProc?`<div style="margin-top:14px">${plProcedure(k,e)}</div>`:""}
    </form>
    ${histHTML}
   </div>`;
@@ -1686,7 +1688,7 @@ function plViewPlanilla(c,p){
   const kp=(l,v,hl)=>`<div class="kpi ${hl?"hl":""}"><small>${l}</small><b>${money(v)}</b></div>`;
   const nextPer=(()=>{const last=p.runs.map(r=>r.periodo).sort().pop();if(!last)return `${c.period}-01`;let [y,m]=last.split("-").map(Number);m++;if(m>12){m=1;y++}return `${y}-${String(m).padStart(2,"0")}`})();
   const v=(id,val)=>`value="${esc(val??"")}"`;
-  const st=M&&rows.length?plSheetStatus(p):null,chk=APP.plSheetChk,showProc=chk&&(p.sheetIntentos||0)>=2;
+  const st=M&&rows.length?plSheetStatus(p):null,chk=APP.plSheetChk,showProc=puedeVerRespuestas()&&chk&&(p.sheetIntentos||0)>=2;
   let sheet="";
   if(!rows.length)sheet=`<div class="empty"><h3>No hay colaboradores en la planilla</h3><p>Agrega el primero con el formulario de abajo o carga colaboradores de ejemplo para practicar.</p>${plSampleBtn}</div>`;
   else if(M){
@@ -1712,8 +1714,8 @@ function plViewPlanilla(c,p){
    ${rows.map(({e,k})=>`<tr><td><b>${esc(e.nombre)}</b><br><small class="muted">${esc(e.puesto||"")} · ${esc(e.cedula||"")}</small></td>
      <td class="r num">${money(k.base,false)}</td><td class="r num">${money(k.extra+k.comis,false)}</td><td class="r num">${k.ausen+k.tarde?money(-(k.ausen+k.tarde),false):"—"}</td>
      <td class="r num"><b>${money(k.bruto,false)}</b></td><td class="r num hcol">${money(k.totObr,false)}</td><td class="r num hcol">${money(k.renta,false)}</td><td class="r num"><b>${money(k.neto,false)}</b></td>
-     <td><button class="btn sm ${APP.plShow===e.id?"primary":"ghost"}" data-pact="show" data-id="${e.id}">${APP.plShow===e.id?"Ocultar":"Ver cálculo"}</button></td></tr>
-     ${APP.plShow===e.id?`<tr><td colspan="9" style="background:var(--surface2)">${plProcedure(k,e)}</td></tr>`:""}`).join("")}
+     <td>${puedeVerRespuestas()?`<button class="btn sm ${APP.plShow===e.id?"primary":"ghost"}" data-pact="show" data-id="${e.id}">${APP.plShow===e.id?"Ocultar":"Ver cálculo"}</button>`:""}</td></tr>
+     ${puedeVerRespuestas()&&APP.plShow===e.id?`<tr><td colspan="9" style="background:var(--surface2)">${plProcedure(k,e)}</td></tr>`:""}`).join("")}
    <tr class="tot"><td>Totales</td><td class="r num">${money(S(k=>k.base),false)}</td><td class="r num">${money(S(k=>k.extra+k.comis),false)}</td><td class="r num">${money(-S(k=>k.ausen+k.tarde),false)}</td><td class="r num">${money(S(k=>k.bruto),false)}</td><td class="r num">${money(S(k=>k.totObr),false)}</td><td class="r num">${money(S(k=>k.renta),false)}</td><td class="r num">${money(S(k=>k.neto),false)}</td><td></td></tr>
    </tbody></table></div>`;
   }
@@ -1822,10 +1824,10 @@ function plMachoteAsiento(c,p,run){
     ${chk?`<div class="status ${allOk?"ok":"bad"}"><span class="dot"></span>${allOk?"¡Asiento correcto! Ya puedes registrarlo en el Libro Diario.":`${codes.filter(k=>chk[k].ok).length} de ${codes.length} cuentas correctas. Lee las pistas en rojo.`}</div>`:""}
     <div class="row">
       ${allOk?`<button type="button" class="btn primary" data-pact="register" data-id="${run.id}">Registrar en el Libro Diario ✓</button>`:`<button class="btn primary" type="submit">Revisar mi asiento</button>`}
-      ${!allOk&&(run.intentos||0)>=3?`<button type="button" class="btn ghost" data-pact="showSol">${APP.plShowSol?"Ocultar la solución":"Ver la solución"}</button>`:""}
-      <span class="muted" style="align-self:center;font-size:.85rem">Intentos: ${run.intentos||0}${(run.intentos||0)<3&&!allOk?" · la solución se habilita después de 3 intentos":""}</span>
+      ${puedeVerRespuestas()&&!allOk&&(run.intentos||0)>=3?`<button type="button" class="btn ghost" data-pact="showSol">${APP.plShowSol?"Ocultar la solución":"Ver la solución"}</button>`:""}
+      <span class="muted" style="align-self:center;font-size:.85rem">Intentos: ${run.intentos||0}${puedeVerRespuestas()&&(run.intentos||0)<3&&!allOk?" · la solución se habilita después de 3 intentos":""}</span>
     </div>
-    ${APP.plShowSol&&!allOk?`<div class="tbl"><table><thead><tr><th>Solución</th><th class="r">Debe</th><th class="r">Haber</th></tr></thead><tbody>${sol.map(l=>`<tr><td class="${l.c?"indent":""}">${esc(l.code)} · ${esc(name(l.code))}</td><td class="r num dcol">${l.d?money(l.d,false):""}</td><td class="r num hcol">${l.c?money(l.c,false):""}</td></tr>`).join("")}</tbody></table></div>`:""}
+    ${puedeVerRespuestas()&&APP.plShowSol&&!allOk?`<div class="tbl"><table><thead><tr><th>Solución</th><th class="r">Debe</th><th class="r">Haber</th></tr></thead><tbody>${sol.map(l=>`<tr><td class="${l.c?"indent":""}">${esc(l.code)} · ${esc(name(l.code))}</td><td class="r num dcol">${l.d?money(l.d,false):""}</td><td class="r num hcol">${l.c?money(l.c,false):""}</td></tr>`).join("")}</tbody></table></div>`:""}
   </form>`;
 }
 function plNextPer(c,p){const last=p.runs.map(r=>r.periodo).sort().pop();if(!last)return `${c.period}-01`;let [y,m]=last.split("-").map(Number);m++;if(m>12){m=1;y++}return `${y}-${String(m).padStart(2,"0")}`}
@@ -1885,7 +1887,7 @@ document.addEventListener("click",e=>{
   if(a==="newDraft"){APP.plNewDraft=true;APP.plEntryChk=null;APP.plShowSol=false;render();return}
   if(a==="closeDraft"){APP.plNewDraft=false;APP.plEntryChk=null;APP.plShowSol=false;render();return}
   if(a==="loadSampleEmp"){if(APP.readOnly)return;const c=co(),p=ensurePayroll(c);p.employees.push(...plSampleEmployees());touch(c);render();toast("Se agregaron 4 colaboradores de ejemplo");return}
-  if(a==="showSol"){const c=co(),p=ensurePayroll(c),run=plCurRun(p);APP.plShowSol=!APP.plShowSol;if(APP.plShowSol&&run&&!APP.readOnly){run.vioSolucion=true;touch(c)}render();return}
+  if(a==="showSol"){if(!puedeVerRespuestas()){toast("Las soluciones están bloqueadas para estudiantes");return}const c=co(),p=ensurePayroll(c),run=plCurRun(p);APP.plShowSol=!APP.plShowSol;if(APP.plShowSol&&run&&!APP.readOnly){run.vioSolucion=true;touch(c)}render();return}
 },true);
 document.addEventListener("input",e=>{
   const sh=e.target.dataset.sh,ma=e.target.dataset.ma;if(!sh&&!ma)return;
@@ -1940,11 +1942,11 @@ document.addEventListener("click",async e=>{
     APP.plEliminarPracticaAbierto=true;render();return;
   }
   if(a==="cerrarEliminarPractica"){APP.plEliminarPracticaAbierto=false;render();return}
-  if(a==="show"){APP.plShow=APP.plShow===b.dataset.id?null:b.dataset.id;render();return}
+  if(a==="show"){if(!puedeVerRespuestas()){toast("El procedimiento está bloqueado para estudiantes");return}APP.plShow=APP.plShow===b.dataset.id?null:b.dataset.id;render();return}
   if(a==="openRun"){APP.plRun=b.dataset.id;APP.plTab="asiento";render();return}
   if(a==="mode"){if(APP.plMode!==b.dataset.m){APP.plMode=b.dataset.m;plNewCase()}render();return}
   if(a==="newCase"){plNewCase();render();return}
-  if(a==="proc"){APP.plShowProc=!APP.plShowProc;render();return}
+  if(a==="proc"){if(!puedeVerRespuestas()){toast("El procedimiento está bloqueado para estudiantes");return}APP.plShowProc=!APP.plShowProc;render();return}
   if(a==="pdfAll"||a==="pdfOne"){b.disabled=true;await plPDF(b.dataset.id,a==="pdfOne"?+b.dataset.i:null);b.disabled=false;return}
   if(a==="guardarEntregaPlanilla"){
     if(!p.runs||!p.runs.length){toast("Procesá al menos una planilla antes de guardar la entrega.");return}
