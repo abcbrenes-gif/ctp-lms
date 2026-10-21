@@ -8609,11 +8609,39 @@ async function agregarPanelDocumentosDocente(holder, trabajos, prefijo) {
 function agregarPanelHabilitarDeNuevo(fila, t) {
   const det = document.createElement("details");
   det.style.cssText = "width:100%;";
-  det.innerHTML = `<summary style="cursor:pointer; font-size:0.85rem;">🔓 Estudiantes que ya realizaron la actividad (habilitar de nuevo)</summary><div data-rehab-lista style="margin-top:0.4rem;"></div>`;
+  det.innerHTML = `<summary style="cursor:pointer; font-size:0.85rem;">🔓 Estudiantes que ya realizaron la actividad (habilitar de nuevo)</summary><div data-rehab-lista style="margin-top:0.4rem;"></div><div data-bloq-lista style="margin-top:0.6rem;"></div>`;
   const lista = det.querySelector("[data-rehab-lista]");
+  const listaBloq = det.querySelector("[data-bloq-lista]");
+  // Bloqueo manual: para estudiantes que ya habían empezado antes de que existiera el bloqueo automático.
+  const pintarBloqueo = async (idsConRegistro) => {
+    let pubId = t.publicacion_id;
+    if (!pubId && t.subtema_id) { const { data: st } = await sb.from("subtemas").select("publicacion_id").eq("id", t.subtema_id).maybeSingle(); pubId = st && st.publicacion_id; }
+    let materiaId = null;
+    if (pubId) { const { data: pb } = await sb.from("publicaciones").select("materia_id").eq("id", pubId).maybeSingle(); materiaId = pb && pb.materia_id; }
+    let ids = [];
+    if (materiaId) { const { data: em } = await sb.from("estudiante_materias").select("estudiante_id").eq("materia_id", materiaId); ids = (em || []).map(x => x.estudiante_id); }
+    ids = ids.filter(id => !idsConRegistro.includes(id));
+    if (!ids.length) { listaBloq.innerHTML = `<p style="font-size:0.78rem; color:var(--text-muted);">No hay otros estudiantes sin registro en esta actividad.</p>`; return; }
+    const { data: ests } = await sb.from("estudiantes").select("id, nombre, apellido1, apellido2").in("id", ids);
+    const orden = (ests || []).map(e => ({ id: e.id, n: [e.nombre, e.apellido1, e.apellido2].filter(Boolean).join(" ") })).sort((x, y) => x.n.localeCompare(y.n));
+    listaBloq.innerHTML = `<p style="font-size:0.82rem; font-weight:600; margin-bottom:0.3rem;">🔒 Bloquear a quienes ya la habían empezado (quedan con nota 0)</p>
+      ${orden.map(e => `<label style="display:flex; gap:0.4rem; font-size:0.82rem; align-items:center;"><input type="checkbox" data-bloq-est="${escInfografia(e.id)}" /> ${escInfografia(e.n)}</label>`).join("")}
+      <button class="btn danger small" data-bloq-guardar style="margin-top:0.4rem;">🔒 Bloquear seleccionados</button>`;
+    listaBloq.querySelector("[data-bloq-guardar]").addEventListener("click", async () => {
+      const marcados = [...listaBloq.querySelectorAll("[data-bloq-est]:checked")].map(c => c.dataset.bloqEst);
+      if (!marcados.length) { alert("Marcá al menos un estudiante."); return; }
+      if (!confirm(`¿Bloquear la actividad a ${marcados.length} estudiante(s)? Quedan con nota 0 hasta que la habilites de nuevo.`)) return;
+      for (const id of marcados) {
+        await upsertSinConflicto("actividades_estudiante", { trabajo_id: t.id, estudiante_id: id }, { respuestas: [], porcentaje: 0, puntaje: 0, completado: true, actualizado_en: new Date().toISOString() });
+        await upsertSinConflicto("trabajos_cotidianos_estudiante", { trabajo_id: t.id, estudiante_id: id }, { completado: true, entregado_en: new Date().toISOString() });
+      }
+      pintar();
+    });
+  };
   const pintar = async () => {
     lista.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando…</p>`;
     const { data: regs } = await sb.from("actividades_estudiante").select("id, estudiante_id, puntaje, respuestas, intentos_salida, actualizado_en").eq("trabajo_id", t.id).eq("completado", true);
+    pintarBloqueo((regs || []).map(r => r.estudiante_id));
     if (!regs || !regs.length) { lista.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Nadie ha realizado esta actividad.</p>`; return; }
     const { data: ests } = await sb.from("estudiantes").select("id, nombre, apellido1, apellido2").in("id", regs.map(r => r.estudiante_id));
     const nom = {}; (ests || []).forEach(e => { nom[e.id] = [e.nombre, e.apellido1, e.apellido2].filter(Boolean).join(" "); });
