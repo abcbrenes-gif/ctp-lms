@@ -1204,6 +1204,12 @@ function generarCrucigrama(items) {
 
 function jugarCrucigrama(trabajo, cuerpo, terminar) {
   const { alto, ancho, grid, colocadas } = trabajo.contenido_actividad;
+  // Renumerar siempre al jugar (no depender del número guardado, que puede faltar):
+  // cada celda donde empieza una palabra recibe un número, de arriba a abajo y de izquierda a derecha.
+  { let n = 1; const porCelda = {};
+    colocadas.slice().sort((x, y) => (x.fila - y.fila) || (x.col - y.col)).forEach(p => {
+      const k = `${p.fila}-${p.col}`; if (!porCelda[k]) porCelda[k] = n++; p.numero = porCelda[k];
+    }); }
 
   cuerpo.innerHTML = `
     <h3 style="margin-bottom:0.8rem;">Completá el crucigrama</h3>
@@ -1213,14 +1219,14 @@ function jugarCrucigrama(trabajo, cuerpo, terminar) {
           if (letra === null) return `<div style="width:1.9rem; height:1.9rem;"></div>`;
           const esInicio = colocadas.find(p => p.fila === f && p.col === c);
           return `<div style="position:relative; width:1.9rem; height:1.9rem;">
-            ${esInicio ? `<span style="position:absolute; top:0; left:2px; font-size:0.6rem; color:#9FB0D6;">${esInicio.numero}</span>` : ""}
-            <input maxlength="1" data-f="${f}" data-c="${c}" style="width:100%; height:100%; text-align:center; text-transform:uppercase; background:rgba(255,255,255,0.05); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.14); color:#fff; border-radius:3px; font-weight:600;" />
+            ${esInicio ? `<span style="position:absolute; top:1px; left:3px; z-index:2; pointer-events:none; font-size:0.68rem; font-weight:700; line-height:1; color:#FDE68A; text-shadow:0 0 2px #000;">${esInicio.numero}</span>` : ""}
+            <input maxlength="1" data-f="${f}" data-c="${c}" style="width:100%; height:100%; padding-top:0.55rem; box-sizing:border-box; text-align:center; text-transform:uppercase; background:rgba(255,255,255,0.05); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.14); color:#fff; border-radius:3px; font-weight:600;" />
           </div>`;
         }).join("")).join("")}
       </div>
       <div style="min-width:14rem; max-width:18rem;">
         <p style="font-weight:600; margin-bottom:0.4rem;">Horizontales</p>
-        ${colocadas.filter(p => p.horizontal).map(p => `<p style="font-size:0.85rem; margin-bottom:0.3rem;">${p.numero}. ${p.pista}</p>`).join("")}
+        ${colocadas.filter(p => p.horizontal).map(p => `<p style="font-size:0.85rem; margin-bottom:0.3rem;"><strong>${p.numero}.</strong> ${p.pista}</p>`).join("")}
         <p style="font-weight:600; margin:0.8rem 0 0.4rem;">Verticales</p>
         ${colocadas.filter(p => !p.horizontal).map(p => `<p style="font-size:0.85rem; margin-bottom:0.3rem;">${p.numero}. ${p.pista}</p>`).join("")}
       </div>
