@@ -1397,6 +1397,27 @@ async function iniciarActividadInteractiva(trabajo, estudianteId, onTerminado) {
     if (!datosPrueba) return; // el estudiante canceló
   }
 
+  // Una vez que el estudiante empieza, la actividad queda registrada como
+  // realizada: si sale, cierra o recarga sin terminar, queda bloqueada (nota 0)
+  // hasta que el profesor la vuelva a habilitar. Al terminar, este registro se
+  // reemplaza por el resultado real.
+  {
+    const { data: previo } = await sb.from("actividades_estudiante").select("completado").eq("trabajo_id", trabajo.id).eq("estudiante_id", estudianteId).maybeSingle();
+    if (previo && previo.completado) { alert("Esta actividad ya fue realizada. Solo tu profesor puede volver a habilitarla."); return; }
+    if (!confirm("Una vez que empieces tenés que terminar la actividad.\n\nSi salís, cerrás o recargás la página antes de terminar, quedará bloqueada con nota 0 hasta que tu profesor la vuelva a habilitar.\n\n¿Querés comenzar ahora?")) return;
+    const { error: errorInicio } = await upsertSinConflicto(
+      "actividades_estudiante",
+      { trabajo_id: trabajo.id, estudiante_id: estudianteId },
+      { respuestas: [], porcentaje: 0, puntaje: 0, completado: true, actualizado_en: new Date().toISOString() }
+    );
+    if (errorInicio) { alert("No se pudo iniciar la actividad (" + errorInicio.message + "). Intentá de nuevo."); return; }
+    await upsertSinConflicto(
+      "trabajos_cotidianos_estudiante",
+      { trabajo_id: trabajo.id, estudiante_id: estudianteId },
+      { completado: true, entregado_en: new Date().toISOString() }
+    );
+  }
+
   // Copia solo para jugar, con una semilla propia de este estudiante en este trabajo.
   const trabajoJuego = { ...trabajo, _semilla: `${trabajo.id}|${estudianteId}` };
   lanzarActividadBloqueada(trabajoJuego, (cuerpo, terminar) => jugador(trabajoJuego, cuerpo, terminar), async (resultado) => {

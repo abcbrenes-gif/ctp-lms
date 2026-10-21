@@ -8599,6 +8599,38 @@ async function agregarPanelDocumentosDocente(holder, trabajos, prefijo) {
       };
       det.addEventListener("toggle", () => { if (det.open) pintar(); });
       fila.appendChild(det);
+      if (!prefijo && ["seleccion_unica", "falso_verdadero", "crucigrama", "sopa_letras", "prueba", "autoevaluacion"].includes(t.tipo_actividad)) agregarPanelHabilitarDeNuevo(fila, t);
     });
   } catch (e) { console.warn("panel documentos", e); }
+}
+
+
+/* Docente: ver quién ya realizó (o empezó y abandonó) una actividad y volver a habilitarla por estudiante. */
+function agregarPanelHabilitarDeNuevo(fila, t) {
+  const det = document.createElement("details");
+  det.style.cssText = "width:100%;";
+  det.innerHTML = `<summary style="cursor:pointer; font-size:0.85rem;">🔓 Estudiantes que ya realizaron la actividad (habilitar de nuevo)</summary><div data-rehab-lista style="margin-top:0.4rem;"></div>`;
+  const lista = det.querySelector("[data-rehab-lista]");
+  const pintar = async () => {
+    lista.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando…</p>`;
+    const { data: regs } = await sb.from("actividades_estudiante").select("id, estudiante_id, puntaje, respuestas, intentos_salida, actualizado_en").eq("trabajo_id", t.id).eq("completado", true);
+    if (!regs || !regs.length) { lista.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Nadie ha realizado esta actividad.</p>`; return; }
+    const { data: ests } = await sb.from("estudiantes").select("id, nombre, apellido1, apellido2").in("id", regs.map(r => r.estudiante_id));
+    const nom = {}; (ests || []).forEach(e => { nom[e.id] = [e.nombre, e.apellido1, e.apellido2].filter(Boolean).join(" "); });
+    lista.innerHTML = regs.map(r => {
+      const sinRespuestas = Array.isArray(r.respuestas) && r.respuestas.length === 0 && !r.puntaje;
+      return `<div class="roster-row" style="gap:0.5rem; flex-wrap:wrap;"><span class="name">${escInfografia(nom[r.estudiante_id] || r.estudiante_id)}</span>
+        <span class="badge" style="${sinRespuestas ? "background:var(--warn-bg); color:var(--warn-text);" : ""}">${sinRespuestas ? "Empezó y no terminó (nota 0)" : "Nota: " + (r.puntaje ?? "—") + "/3"}</span>
+        <button class="btn secondary small" data-rehab="${r.id}" data-est="${escInfografia(r.estudiante_id)}">🔓 Habilitar de nuevo</button></div>`;
+    }).join("");
+    lista.querySelectorAll("[data-rehab]").forEach(b => b.addEventListener("click", async () => {
+      if (!confirm("¿Habilitar de nuevo la actividad a este estudiante? Se borra su resultado actual y podrá hacerla otra vez.")) return;
+      await sb.from("actividades_estudiante").delete().eq("id", b.dataset.rehab);
+      await sb.from("trabajos_cotidianos_estudiante").update({ completado: false, entregado_en: null }).eq("trabajo_id", t.id).eq("estudiante_id", b.dataset.est);
+      if (t.indicador_id) await sb.from("calificaciones_indicador").delete().eq("indicador_id", t.indicador_id).eq("estudiante_id", b.dataset.est);
+      pintar();
+    }));
+  };
+  det.addEventListener("toggle", () => { if (det.open) pintar(); });
+  fila.appendChild(det);
 }
