@@ -385,6 +385,15 @@ function supabaseTeacherStore(docenteId){
       const {data,error}=await sb.from("aula_conta_entregas_empresas").select("data").eq("entrega_id",id);
       if(error)throw error;return (data||[]).map(r=>r.data);
     },
+    async listTrabajosEstudiantes(){
+      const {data,error}=await sb.from("aula_conta_trabajos_estudiante").select("estudiante_id,companies,actualizado_en");
+      if(error)throw error;
+      const ids=(data||[]).map(r=>r.estudiante_id);
+      const nombres={};
+      if(ids.length){const {data:es}=await sb.from("estudiantes").select("id,nombre,apellido1,apellido2,seccion").in("id",ids);
+        (es||[]).forEach(e=>{nombres[e.id]={n:[e.apellido1,e.apellido2,e.nombre].filter(Boolean).join(" "),sec:e.seccion||""}})}
+      return (data||[]).map(r=>({id:r.estudiante_id,nombre:(nombres[r.estudiante_id]||{}).n||r.estudiante_id,seccion:(nombres[r.estudiante_id]||{}).sec||"",companies:Array.isArray(r.companies)?r.companies:[],actualizado:r.actualizado_en}));
+    },
     async deleteEntrega(id){
       await sb.from("aula_conta_entregas_empresas").delete().eq("entrega_id",id);
       const {error}=await sb.from("aula_conta_entregas").delete().eq("id",id);
@@ -563,8 +572,14 @@ function viewEntregar(){
   </div>`;
 }
 
+async function loadEmpData(){
+  APP.empData=null;render();
+  try{APP.empData=await APP.store.listTrabajosEstudiantes()}catch(e){APP.empData=[];toast("No se pudo cargar el trabajo de los estudiantes.")}
+  render();
+}
 async function loadEntregas(){
   APP.entregas=null;render();
+  if(APP.store&&APP.store.listTrabajosEstudiantes)loadEmpData();
   try{if(APP.store.getClaves)APP.claves=await APP.store.getClaves()}catch(e){}
   try{APP.entregas=(await APP.store.listEntregas()).sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)))}
   catch(e){APP.entregas=[];toast("No se pudieron cargar las entregas.")}
@@ -600,6 +615,34 @@ function viewSeguimiento(l){
    </tbody></table></div>
    <p class="note" style="margin:0">Cada fila muestra la entrega más reciente de cada estudiante. Para ver el avance de hoy, pídeles que generen su código de entrega al final de la clase.</p>`;
 }
+function viewPorEmpresa(){
+  const d=APP.empData;
+  if(!d)return '<div class="loading">Cargando empresas de los estudiantes…</div>';
+  const q=(APP.entF||"").toLowerCase(), qs=(APP.empSec||"");
+  const by={};
+  for(const w of d){if(qs&&w.seccion!==qs)continue;
+    for(const c of w.companies){const key=(c.categoria==="tarea"?"t|":"p|")+String(c.name||"").trim().toLowerCase();
+      (by[key]=by[key]||{name:c.name,cat:c.categoria==="tarea"?"tarea":"practica",rows:[]}).rows.push({w,c})}}
+  const grupos=Object.values(by).sort((a,b)=>(a.cat===b.cat?0:a.cat==="tarea"?-1:1)||String(a.name).localeCompare(String(b.name)));
+  const bar=(n,t)=>{const v=t?Math.round(100*n/t):0;return `<div class="pbar" title="${v} %"><span style="width:${v}%;background:${v===100?"var(--ok)":v>=60?"var(--pop)":"var(--bad)"}"></span></div><small class="muted num">${n}/${t}</small>`};
+  const secs=[...new Set(d.map(w=>w.seccion).filter(Boolean))].sort();
+  if(!grupos.length)return `<div class="empty"><h3>Todavía no hay empresas de estudiantes</h3><p>Aparecen aquí apenas un estudiante cree o reciba una empresa en Aula de Conta.</p></div>`;
+  return `<div class="row" style="align-items:flex-end;gap:10px"><div class="field" style="flex:0 1 200px"><label for="empSec">Sección</label><select id="empSec"><option value="">Todas</option>${secs.map(x=>`<option ${x===qs?"selected":""}>${esc(x)}</option>`).join("")}</select></div></div>
+   ${grupos.map(g=>{
+     const rows=g.rows.filter(r=>!q||(r.w.nombre+" "+r.w.id).toLowerCase().includes(q)).sort((a,b)=>a.w.nombre.localeCompare(b.w.nombre));
+     const entregadas=g.rows.filter(r=>r.c.entregado).length;
+     return `<details class="panel"><summary style="cursor:pointer;font-weight:700"><span class="chip ${g.cat==="tarea"?"tG":"tI"}" style="font-size:.7rem">${g.cat==="tarea"?"📌 Tarea":"🔄 Práctica"}</span> ${esc(g.name)} <small class="muted" style="font-weight:400">· ${g.rows.length} estudiante(s)${g.cat==="tarea"?` · ${entregadas} entregaron`:""}</small></summary>
+      <div class="tbl" style="margin-top:10px"><table><thead><tr><th>Estudiante</th><th>Estado</th><th class="r">Asientos</th><th>Machote de planilla</th><th>Asiento de planilla</th><th>Evaluación</th><th></th></tr></thead><tbody>
+      ${rows.map(({w,c})=>{let R;try{R=plResumen([c])}catch(e){R=null}
+        const est=c.entregado?`<span class="chip tC" style="font-size:.7rem">✓ Entregada</span><br><small class="muted">${esc(fmtDate(c.entregadoFecha))}</small>`:(g.cat==="tarea"?'<span class="chip tG" style="font-size:.7rem">En proceso</span>':'<small class="muted">Práctica</small>');
+        return `<tr><td><b>${esc(w.nombre)}</b><br><span class="code">${esc(w.id)}</span>${w.seccion?` <small class="muted">${esc(w.seccion)}</small>`:""}</td><td>${est}</td><td class="r num">${(c.entries||[]).length}</td>
+         <td>${R&&R.casTot?bar(R.casOk,R.casTot):'<small class="muted">Sin empezar</small>'}</td>
+         <td>${R&&R.asPlIntentos?`${R.asPlOk?'<span class="chip tI">Resuelto</span>':'<span class="chip tG">Pendiente</span>'}<br><small class="muted">${R.asPlIntentos} intento(s)</small>`:'<small class="muted">Sin empezar</small>'}</td>
+         <td>${R&&R.evalBest!=null?`<b class="num">${R.evalBest} %</b><br><small class="muted">${R.evals} evaluación(es)</small>`:R&&R.practicas?`<small class="muted">${R.practicas} práctica(s)</small>`:'<small class="muted">—</small>'}</td>
+         <td><a class="btn sm primary" target="_blank" rel="noopener" href="aula-contable.html?como_estudiante=${encodeURIComponent(w.id)}">Revisar</a></td></tr>`}).join("")||'<tr><td colspan="7"><small class="muted">Sin resultados con ese filtro.</small></td></tr>'}
+      </tbody></table></div></details>`}).join("")}
+   <p class="note" style="margin:0">Datos en vivo del trabajo de cada estudiante. "Revisar" abre su cuenta de Aula de Conta tal como la ve él.</p>`;
+}
 function viewEntregas(){
   const l=APP.entregas,p=APP.preview;
   const q=(APP.entF||"").toLowerCase();
@@ -624,15 +667,13 @@ function viewEntregas(){
           <small class="muted">Generado el ${esc(fmtDate(p.payload.fecha))} · ${p.payload.companies.length} empresa(s) · ${p.payload.companies.reduce((s,c)=>s+(c.entries||[]).length,0)} asientos</small></div>
           <button class="btn ghost" data-act="cancelPreview">Descartar</button><button class="btn pop" data-act="saveDelivery">Guardar entrega</button></div>`:""}
     </div>
-    ${!l?'<div class="loading">Cargando entregas…</div>':l.length?`
-     <div class="row" style="align-items:flex-end"><div class="tabs" style="margin:0;margin-right:auto"><button class="tab ${APP.entTab!=="todas"?"on":""}" data-act="entTab" data-t="seg">Seguimiento por estudiante</button><button class="tab ${APP.entTab==="todas"?"on":""}" data-act="entTab" data-t="todas">Todas las entregas</button></div>
+    <div class="row" style="align-items:flex-end"><div class="tabs" style="margin:0;margin-right:auto"><button class="tab ${(APP.entTab||"emp")==="emp"?"on":""}" data-act="entTab" data-t="emp">Por empresa</button><button class="tab ${APP.entTab==="seg"?"on":""}" data-act="entTab" data-t="seg">Seguimiento por estudiante</button><button class="tab ${APP.entTab==="todas"?"on":""}" data-act="entTab" data-t="todas">Todas las entregas</button></div>
       <div class="field" style="flex:0 1 280px"><label for="entF">Buscar estudiante</label><input id="entF" value="${esc(APP.entF||"")}" placeholder="Nombre o usuario"></div></div>
-     ${APP.entTab!=="todas"?viewSeguimiento(l):`<div class="tbl"><table><thead><tr><th>Estudiante</th><th>Generada</th><th>Recibida</th><th>Tareas / Prácticas</th><th class="r">Asientos</th><th>Verificación</th><th></th></tr></thead><tbody>
+    ${(APP.entTab||"emp")==="emp"?viewPorEmpresa():!l?'<div class="loading">Cargando entregas…</div>':!l.length?`<div class="empty"><h3>Aún no hay entregas por código</h3><p>Cuando un estudiante te envíe su código por Teams, pégalo arriba. El trabajo en vivo está en la pestaña "Por empresa".</p></div>`:APP.entTab==="seg"?viewSeguimiento(l):`<div class="tbl"><table><thead><tr><th>Estudiante</th><th>Generada</th><th>Recibida</th><th>Tareas / Prácticas</th><th class="r">Asientos</th><th>Verificación</th><th></th></tr></thead><tbody>
      ${shown.map(e=>{const R=e.resumen;return `<tr><td><b>${esc(e.nombre)}</b><br><span class="code">${esc(e.usuario)}</span></td><td>${esc(fmtDate(e.fecha))}</td><td>${esc(fmtDate(e.recibida))}</td>
        <td>${R?`<span class="chip tG" style="font-size:.7rem">📌 ${R.empTareas}</span> <span class="chip tI" style="font-size:.7rem">🔄 ${R.empPracticas}</span>`:`<span class="num">${e.empresas}</span>`}</td><td class="r num">${e.asientos}</td><td class="num">${vcode(e.check)}</td>
        <td><div class="row" style="flex-wrap:nowrap;justify-content:flex-end"><button class="btn sm primary" data-act="viewEntrega" data-id="${e.id}">Revisar</button><button class="btn sm danger" data-act="delEntrega" data-id="${e.id}">Eliminar</button></div></td></tr>`}).join("")}
-     </tbody></table></div>`}`
-     :`<div class="empty"><h3>Aún no hay entregas</h3><p>Cuando un estudiante te envíe su código por Teams, pégalo arriba.</p></div>`}
+     </tbody></table></div>`}
    </div>`;
 }
 
@@ -2116,7 +2157,7 @@ document.addEventListener("click",async e=>{
     APP.activeId=APP.companies[APP.companies.length-1].id;resetDraft();render();toast(payload.companies.length+" empresa(s) agregadas");return}
   /* Profesor: entregas */
   if(a==="reloadEntregas"){loadEntregas();return}
-  if(a==="entTab"){APP.entTab=b.dataset.t;render();return}
+  if(a==="entTab"){APP.entTab=b.dataset.t;if(APP.entTab==="emp")loadEmpData();else render();return}
   if(a==="checkDelivery"){APP.preview=await readDelivery(val("rcvTa"));render();return}
   if(a==="cancelPreview"){APP.preview=null;render();return}
   if(a==="saveDelivery"){const p=APP.preview;b.disabled=true;
@@ -2162,6 +2203,7 @@ document.addEventListener("input",e=>{
   if(e.target.id==="entF"){APP.entF=e.target.value;const pos=e.target.selectionStart;render();const el=document.getElementById("entF");if(el){el.focus();el.setSelectionRange(pos,pos)}}
 });
 document.addEventListener("change",e=>{
+  if(e.target.id==="empSec"){APP.empSec=e.target.value;render();return}
   if(e.target.id==="coPick"){APP.activeId=e.target.value;APP.editAcc=null;resetDraft();if(["entregas","entregar"].includes(APP.view))APP.view="diario";render();toast("Trabajando en: "+co().name)}
   if(e.target.id==="mayorF"){APP.mayorF=e.target.value;render()}
   if(e.target.id==="aType"){const t=e.target.value;document.getElementById("aCls").innerHTML=Object.entries(CLS[t]).map(([k,v])=>`<option value="${k}">${v}</option>`).join("")}
