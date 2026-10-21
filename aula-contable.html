@@ -385,6 +385,13 @@ function supabaseTeacherStore(docenteId){
       const {data,error}=await sb.from("aula_conta_entregas_empresas").select("data").eq("entrega_id",id);
       if(error)throw error;return (data||[]).map(r=>r.data);
     },
+    async deleteEmpresaEstudiante(estudianteId,companyId){
+      const {data,error}=await sb.from("aula_conta_trabajos_estudiante").select("companies").eq("estudiante_id",estudianteId).maybeSingle();
+      if(error)throw error;
+      const cs=((data&&data.companies)||[]).filter(c=>c.id!==companyId);
+      const {error:e2}=await sb.from("aula_conta_trabajos_estudiante").update({companies:cs,actualizado_en:new Date().toISOString()}).eq("estudiante_id",estudianteId);
+      if(e2)throw e2;
+    },
     async listTrabajosEstudiantes(){
       const {data,error}=await sb.from("aula_conta_trabajos_estudiante").select("estudiante_id,companies,actualizado_en");
       if(error)throw error;
@@ -622,7 +629,7 @@ function viewPorEmpresa(){
   const by={};
   for(const w of d){if(qs&&w.seccion!==qs)continue;
     for(const c of w.companies){const key=(c.categoria==="tarea"?"t|":"p|")+String(c.name||"").trim().toLowerCase();
-      (by[key]=by[key]||{name:c.name,cat:c.categoria==="tarea"?"tarea":"practica",rows:[]}).rows.push({w,c})}}
+      (by[key]=by[key]||{key,name:c.name,cat:c.categoria==="tarea"?"tarea":"practica",rows:[]}).rows.push({w,c})}}
   const grupos=Object.values(by).sort((a,b)=>(a.cat===b.cat?0:a.cat==="tarea"?-1:1)||String(a.name).localeCompare(String(b.name)));
   const bar=(n,t)=>{const v=t?Math.round(100*n/t):0;return `<div class="pbar" title="${v} %"><span style="width:${v}%;background:${v===100?"var(--ok)":v>=60?"var(--pop)":"var(--bad)"}"></span></div><small class="muted num">${n}/${t}</small>`};
   const secs=[...new Set(d.map(w=>w.seccion).filter(Boolean))].sort();
@@ -632,6 +639,7 @@ function viewPorEmpresa(){
      const rows=g.rows.filter(r=>!q||(r.w.nombre+" "+r.w.id).toLowerCase().includes(q)).sort((a,b)=>a.w.nombre.localeCompare(b.w.nombre));
      const entregadas=g.rows.filter(r=>r.c.entregado).length;
      return `<details class="panel"><summary style="cursor:pointer;font-weight:700"><span class="chip ${g.cat==="tarea"?"tG":"tI"}" style="font-size:.7rem">${g.cat==="tarea"?"📌 Tarea":"🔄 Práctica"}</span> ${esc(g.name)} <small class="muted" style="font-weight:400">· ${g.rows.length} estudiante(s)${g.cat==="tarea"?` · ${entregadas} entregaron`:""}</small></summary>
+      ${g.cat==="practica"?`<div class="row" style="margin-top:8px"><button class="btn sm danger" data-act="delPracticaTodos" data-key="${esc(g.key)}">Eliminar esta práctica de todos los estudiantes</button></div>`:""}
       <div class="tbl" style="margin-top:10px"><table><thead><tr><th>Estudiante</th><th>Estado</th><th class="r">Asientos</th><th>Machote de planilla</th><th>Asiento de planilla</th><th>Evaluación</th><th></th></tr></thead><tbody>
       ${rows.map(({w,c})=>{let R;try{R=plResumen([c])}catch(e){R=null}
         const est=c.entregado?`<span class="chip tC" style="font-size:.7rem">✓ Entregada</span><br><small class="muted">${esc(fmtDate(c.entregadoFecha))}</small>`:(g.cat==="tarea"?'<span class="chip tG" style="font-size:.7rem">En proceso</span>':'<small class="muted">Práctica</small>');
@@ -639,7 +647,7 @@ function viewPorEmpresa(){
          <td>${R&&R.casTot?bar(R.casOk,R.casTot):'<small class="muted">Sin empezar</small>'}</td>
          <td>${R&&R.asPlIntentos?`${R.asPlOk?'<span class="chip tI">Resuelto</span>':'<span class="chip tG">Pendiente</span>'}<br><small class="muted">${R.asPlIntentos} intento(s)</small>`:'<small class="muted">Sin empezar</small>'}</td>
          <td>${R&&R.evalBest!=null?`<b class="num">${R.evalBest} %</b><br><small class="muted">${R.evals} evaluación(es)</small>`:R&&R.practicas?`<small class="muted">${R.practicas} práctica(s)</small>`:'<small class="muted">—</small>'}</td>
-         <td><a class="btn sm primary" target="_blank" rel="noopener" href="aula-contable.html?como_estudiante=${encodeURIComponent(w.id)}">Revisar</a></td></tr>`}).join("")||'<tr><td colspan="7"><small class="muted">Sin resultados con ese filtro.</small></td></tr>'}
+         <td><div class="row" style="flex-wrap:nowrap;justify-content:flex-end"><a class="btn sm primary" target="_blank" rel="noopener" href="aula-contable.html?como_estudiante=${encodeURIComponent(w.id)}">Revisar</a>${g.cat==="practica"?`<button class="btn sm danger" data-act="delPracticaEst" data-est="${esc(w.id)}" data-co="${esc(c.id)}">Eliminar</button>`:""}</div></td></tr>`}).join("")||'<tr><td colspan="7"><small class="muted">Sin resultados con ese filtro.</small></td></tr>'}
       </tbody></table></div></details>`}).join("")}
    <p class="note" style="margin:0">Datos en vivo del trabajo de cada estudiante. "Revisar" abre su cuenta de Aula de Conta tal como la ve él.</p>`;
 }
@@ -2169,6 +2177,11 @@ document.addEventListener("click",async e=>{
   if(a==="viewEntrega"){const e2=(APP.entregas||[]).find(x=>x.id===b.dataset.id);
     APP.viewing={id:e2.id,nombre:e2.nombre,fecha:e2.fecha};APP.readOnly=true;
     APP.companies=await APP.store.entregaCompanies(e2.id);APP.activeId=sortCos(APP.companies)[0]?.id||null;APP.view="balanza";resetDraft();render();return}
+  if(a==="delPracticaEst"){armDelete(b,async()=>{try{await APP.store.deleteEmpresaEstudiante(b.dataset.est,b.dataset.co);toast("Práctica eliminada");loadEmpData()}catch(err){toast("No se pudo eliminar")}});return}
+  if(a==="delPracticaTodos"){armDelete(b,async()=>{try{
+    const key=b.dataset.key;let n=0;
+    for(const w of (APP.empData||[])){for(const c of w.companies){if((c.categoria==="tarea"?"t|":"p|")+String(c.name||"").trim().toLowerCase()===key&&c.categoria!=="tarea"){await APP.store.deleteEmpresaEstudiante(w.id,c.id);n++}}}
+    toast(n+" práctica(s) eliminada(s)");loadEmpData()}catch(err){toast("No se pudo eliminar")}});return}
   if(a==="delEntrega"){armDelete(b,async()=>{try{await APP.store.deleteEntrega(b.dataset.id);toast("Entrega eliminada");loadEntregas()}catch(err){toast("No se pudo eliminar")}});return}
   /* Edición */
   if(APP.readOnly&&!["addLine","rmLine","clearDraft"].includes(a)){toast("Estás en modo de solo lectura");return}
