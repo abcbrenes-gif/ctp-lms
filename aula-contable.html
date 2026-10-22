@@ -717,8 +717,9 @@ function viewPorEmpresa(){
          <td>${R&&R.asPlIntentos?`${R.asPlOk?'<span class="chip tI">Resuelto</span>':'<span class="chip tG">Pendiente</span>'}<br><small class="muted">${R.asPlIntentos} intento(s)</small>`:'<small class="muted">Sin empezar</small>'}</td>
          <td>${R&&R.evalBest!=null?`<b class="num">${R.evalBest} %</b><br><small class="muted">${R.evals} evaluación(es)</small>`:R&&R.practicas?`<small class="muted">${R.practicas} práctica(s)</small>`:'<small class="muted">—</small>'}</td>
          ${g.cat==="practica"?["machote","asiento"].map(k=>{const ev=c.payroll&&c.payroll[k==="machote"?"evalM":"evalA"],r=ev&&ev.resultado;const on=c.evalCfg&&c.evalCfg[k]&&c.evalCfg[k].on;
-           return `<td>${r?evBadge(r)+` <button class="btn sm ghost" data-act="evResetUno" data-est="${esc(w.id)}" data-co="${esc(c.id)}" data-k="${k}" title="Borrar el intento y dejar que la repita">↺</button>`:(on?'<small class="muted">Habilitada · sin entregar</small>':'<small class="muted">—</small>')}</td>`}).join(""):""}
-         <td><div class="row" style="flex-wrap:nowrap;justify-content:flex-end"><a class="btn sm primary" href="aula-contable.html?como_estudiante=${encodeURIComponent(w.id)}">Revisar</a>${g.cat==="practica"?`<button class="btn sm danger" data-act="delPracticaEst" data-est="${esc(w.id)}" data-co="${esc(c.id)}">Eliminar</button>`:""}</div></td></tr>`}).join("")||'<tr><td colspan="7"><small class="muted">Sin resultados con ese filtro.</small></td></tr>'}
+           return `<td>${r?evBadge(r)+` <button class="btn sm ghost" data-act="evDetalle" data-key="${esc(g.key)}" data-est="${esc(w.id)}" data-co="${esc(c.id)}" data-k="${k}" title="Ver el detalle de sus respuestas">🔍</button><button class="btn sm ghost" data-act="evResetUno" data-est="${esc(w.id)}" data-co="${esc(c.id)}" data-k="${k}" title="Borrar el intento y dejar que la repita">↺</button>`:(on?'<small class="muted">Habilitada · sin entregar</small>':'<small class="muted">—</small>')}</td>`}).join(""):""}
+         <td><div class="row" style="flex-wrap:nowrap;justify-content:flex-end"><a class="btn sm primary" href="aula-contable.html?como_estudiante=${encodeURIComponent(w.id)}">Revisar</a>${g.cat==="practica"?`<button class="btn sm danger" data-act="delPracticaEst" data-est="${esc(w.id)}" data-co="${esc(c.id)}">Eliminar</button>`:""}</div></td></tr>${(()=>{const d=APP.evDet;if(!d||d.est!==w.id||d.co!==c.id)return "";const ev=c.payroll&&c.payroll[d.k==="machote"?"evalM":"evalA"],r=ev&&ev.resultado;
+           return r?`<tr><td colspan="10" style="background:var(--surface2)"><b>${d.k==="machote"?"Evaluación del machote":"Evaluación del asiento"} · ${esc(w.nombre)} · ${r.pct} % (${r.ok}/${r.total})</b> <small class="muted">${esc(fmtDate(r.fecha))}</small>${evDetalleHTML(r,true)}</td></tr>`:""})()}`}).join("")||'<tr><td colspan="7"><small class="muted">Sin resultados con ese filtro.</small></td></tr>'}
       </tbody></table></div></details>`}).join("")}
    <p class="note" style="margin:0">Datos en vivo del trabajo de cada estudiante. "Revisar" abre su cuenta de Aula de Conta tal como la ve él.</p>`;
 }
@@ -1418,12 +1419,18 @@ async function evRefrescarCfg(){
     for(const c of APP.companies){const f=fresh.find(x=>x.id===c.id);if(f&&f.evalCfg){c.evalCfg=f.evalCfg;if(c.payroll)evAplicarReset(c,c.payroll)}}
   }catch(e){}
 }
+function evDetalleHTML(r,conCorrecto){
+  if(!r||!Array.isArray(r.detalle))return `<p class="muted" style="margin:6px 0 0">Esta evaluación se entregó antes de que se guardara el detalle: solo se conserva el resultado total.</p>`;
+  return `<div class="tbl" style="margin-top:8px"><table><thead><tr><th>Dato</th><th>Campo</th><th>Respuesta del estudiante</th>${conCorrecto?"<th>Respuesta correcta</th>":""}<th></th></tr></thead><tbody>
+   ${r.detalle.map(d=>`<tr class="${d.ok?"cell-ok":"cell-bad"}"><td>${esc(d.quien)}</td><td>${esc(d.campo)}</td><td class="num">${esc(d.dado||"—")}</td>${conCorrecto?`<td class="num">${NF.format(d.correcto)}</td>`:""}<td style="font-weight:800;color:${d.ok?"var(--ok)":"var(--bad)"}">${d.ok?"✓":"✗"}</td></tr>`).join("")}
+   </tbody></table></div>`;
+}
 const evBadge=(r)=>r?`<b class="num">${r.pct} %</b> <small class="muted">${r.ok}/${r.total}</small>`:'<small class="muted">—</small>';
 function evMachoteHTML(c,p){
   const cfg=evCfg(c).machote;
   if(!cfg.on&&!(p.evalM&&p.evalM.resultado))return `<div class="panel"><h3>Evaluación del machote de planilla</h3><p class="muted" style="margin:0">Todavía no está habilitada. Tu profesor la va a habilitar cuando sea el momento.</p></div>`;
   if(p.evalM&&p.evalM.resultado){const r=p.evalM.resultado;
-    return `<div class="panel stack"><h3>Evaluación del machote de planilla</h3><div class="status ok"><span class="dot"></span>Entregada el ${esc(fmtDate(r.fecha))}: ${r.ok} de ${r.total} casillas correctas (${r.pct} %).</div><p class="muted" style="margin:0">Solo tenías una oportunidad. Si tu profesor la habilita de nuevo, vas a poder repetirla.</p></div>`}
+    return `<div class="panel stack"><h3>Evaluación del machote de planilla</h3><div class="status ok"><span class="dot"></span>Entregada el ${esc(fmtDate(r.fecha))}: ${r.ok} de ${r.total} casillas correctas (${r.pct} %).</div><p class="muted" style="margin:0">Solo tenías una oportunidad. Si tu profesor la habilita de nuevo, vas a poder repetirla.</p><b>Tu detalle</b>${evDetalleHTML(r,false)}</div>`}
   if(!p.employees.length)return `<div class="panel"><p class="muted" style="margin:0">La planilla no tiene colaboradores.</p></div>`;
   p.evalM??={resp:{}};p.evalM.resp??={};
   const P=p.params,rows=p.employees.map(e=>({e,k:plCalc(e,P)})),wr=rows.some(r=>r.k.totReb>0),F=plSheetFields(rows[0].k,wr);
@@ -1439,7 +1446,7 @@ function evAsientoHTML(c,p){
   const cfg=evCfg(c).asiento;
   if(!cfg.on&&!(p.evalA&&p.evalA.resultado))return `<div class="panel"><h3>Evaluación del asiento de planilla</h3><p class="muted" style="margin:0">Todavía no está habilitada. Tu profesor la va a habilitar cuando sea el momento.</p></div>`;
   if(p.evalA&&p.evalA.resultado){const r=p.evalA.resultado;
-    return `<div class="panel stack"><h3>Evaluación del asiento de planilla</h3><div class="status ok"><span class="dot"></span>Entregada el ${esc(fmtDate(r.fecha))}: ${r.ok} de ${r.total} cuentas correctas (${r.pct} %).</div><p class="muted" style="margin:0">Solo tenías una oportunidad. Si tu profesor la habilita de nuevo, vas a poder repetirla.</p></div>`}
+    return `<div class="panel stack"><h3>Evaluación del asiento de planilla</h3><div class="status ok"><span class="dot"></span>Entregada el ${esc(fmtDate(r.fecha))}: ${r.ok} de ${r.total} cuentas correctas (${r.pct} %).</div><p class="muted" style="margin:0">Solo tenías una oportunidad. Si tu profesor la habilita de nuevo, vas a poder repetirla.</p><b>Tu detalle</b>${evDetalleHTML(r,false)}</div>`}
   if(!p.employees.length)return `<div class="panel"><p class="muted" style="margin:0">La planilla no tiene colaboradores.</p></div>`;
   p.evalA??={resp:{}};p.evalA.resp??={};
   const run=evRunAsiento(c,p);if(!run.res.length)return `<div class="panel"><p class="muted" style="margin:0">No hay colaboradores para armar el asiento.</p></div>`;
@@ -1469,15 +1476,17 @@ document.addEventListener("submit",e=>{
   const c=co();if(!c)return;const p=ensurePayroll(c);
   if(!confirm("Vas a entregar la evaluación. Solo tenés una oportunidad y no podrás cambiarla. ¿Confirmás?"))return;
   if(id==="evMForm"){
-    const P=p.params,wr=p.employees.some(x=>plCalc(x,P).totReb>0);let ok=0,total=0;
+    const P=p.params,wr=p.employees.some(x=>plCalc(x,P).totReb>0);let ok=0,total=0;const detalle=[];
     for(const em of p.employees){const k=plCalc(em,P),ans=(p.evalM&&p.evalM.resp&&p.evalM.resp[em.id])||{};
-      for(const [q] of plSheetFields(k,wr)){total++;const val=parseNum(ans[q]);if(!isNaN(val)&&near(val,plSol(k,q)))ok++}}
-    p.evalM=p.evalM||{resp:{}};p.evalM.resultado={ok,total,pct:total?Math.round(100*ok/total):0,fecha:new Date().toISOString()};
+      for(const [q,lab] of plSheetFields(k,wr)){total++;const val=parseNum(ans[q]),sol=plSol(k,q),good=!isNaN(val)&&near(val,sol);if(good)ok++;
+        detalle.push({quien:em.nombre,campo:lab,dado:String(ans[q]??"").trim(),correcto:r2(sol),ok:good})}}
+    p.evalM=p.evalM||{resp:{}};p.evalM.resultado={ok,total,pct:total?Math.round(100*ok/total):0,fecha:new Date().toISOString(),detalle};
   }else{
-    const run=evRunAsiento(c,p),sol=plEntryLines(run);let ok=0;
+    const run=evRunAsiento(c,p),sol=plEntryLines(run);let ok=0;const detalle=[];
     for(const l of sol){const m=(p.evalA&&p.evalA.resp&&p.evalA.resp[l.code])||{},d=parseNum(m.d)||0,cr=parseNum(m.c)||0;
-      if(l.d?(near(d,l.d)&&!cr):(near(cr,l.c)&&!d))ok++}
-    p.evalA=p.evalA||{resp:{}};p.evalA.resultado={ok,total:sol.length,pct:sol.length?Math.round(100*ok/sol.length):0,fecha:new Date().toISOString()};
+      const good=l.d?(near(d,l.d)&&!cr):(near(cr,l.c)&&!d);if(good)ok++;
+      detalle.push({quien:l.code+" · "+(acc(l.code)?.name||PL_ACCOUNTS.find(a=>a.code===l.code)?.name||"Cuenta "+l.code),campo:l.d?"Debe":"Haber",dado:`Debe ${String(m.d??"").trim()||"—"} · Haber ${String(m.c??"").trim()||"—"}`,correcto:r2(l.d||l.c),ok:good})}
+    p.evalA=p.evalA||{resp:{}};p.evalA.resultado={ok,total:sol.length,pct:sol.length?Math.round(100*ok/sol.length):0,fecha:new Date().toISOString(),detalle};
   }
   touch(c);flush();render();toast("Evaluación entregada ✓");
 },true);
@@ -2353,6 +2362,7 @@ document.addEventListener("click",async e=>{
   if(a==="evResetTodos"){armDelete(b,async()=>{const key=b.dataset.key,k=b.dataset.k;const rows=evRowsDeGrupo(key);
     try{for(const {w,c} of rows)await APP.store.updateEmpresaEstudiante(w.id,c.id,x=>{const cfg=evCfg(x);cfg[k].reset=Date.now();const pl=x.payroll;if(pl){if(k==="machote")pl.evalM=null;else pl.evalA=null}});toast("Intentos borrados: pueden repetirla")}catch(err){toast("No se pudo actualizar")}
     APP.revOpen=APP.revOpen||{};APP.revOpen[key]=true;loadEmpData()});return}
+  if(a==="evDetalle"){const d=APP.evDet;const same=d&&d.est===b.dataset.est&&d.co===b.dataset.co&&d.k===b.dataset.k;APP.evDet=same?null:{est:b.dataset.est,co:b.dataset.co,k:b.dataset.k};APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
   if(a==="evResetUno"){armDelete(b,async()=>{const k=b.dataset.k;
     try{await APP.store.updateEmpresaEstudiante(b.dataset.est,b.dataset.co,x=>{const cfg=evCfg(x);cfg[k].reset=Date.now();const pl=x.payroll;if(pl){if(k==="machote")pl.evalM=null;else pl.evalA=null}});toast("Intento borrado: puede repetirla")}catch(err){toast("No se pudo actualizar")}
     loadEmpData()});return}
