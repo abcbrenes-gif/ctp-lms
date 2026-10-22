@@ -423,7 +423,7 @@ const APP={store:null,me:null,dk:null,companies:[],activeId:null,view:"empresas"
   showRecovery:null,lastDelivery:null,lastEntregaGeneral:null,preview:null};
 const isTeacher=()=>APP.me&&APP.me.rol==="profesor";
 // Solo el profesor (o el profesor viendo como un estudiante) puede ver soluciones y procedimientos; los estudiantes no.
-const puedeVerRespuestas=()=>isTeacher()||!!APP.comoEstudiante||!!APP.demo;
+const puedeVerRespuestas=()=>isTeacher()||!!APP.demo;
 const co=()=>APP.companies.find(c=>c.id===APP.activeId)||APP.companies[0]||null;
 /* Categoría del trabajo: "practica" se puede repetir las veces que haga falta;
    "tarea" (trabajo cotidiano) queda bloqueada en cuanto el estudiante la entrega. */
@@ -1790,11 +1790,12 @@ function plViewPractica(c,p){
     ${hist.map(h=>`<tr><td>${esc(fmtDate(h.fecha))}</td><td>${h.modo==="evaluacion"?'<span class="chip tG">Evaluación</span>':'<span class="chip tI">Práctica</span>'}</td><td>${esc(h.caso)}</td><td class="r num"><b>${h.puntaje}/${h.total}</b>${h.intentos?` <small class="muted">en ${h.intentos} intento(s)</small>`:""}</td></tr>`).join("")}</tbody></table></div></div>`:"";
   if(APP.readOnly)return histHTML||`<div class="empty"><h3>Sin práctica registrada</h3></div>`;
   if(!APP.plCase)plNewCase();
+  if(!isTeacher()&&!APP.demo&&APP.plMode!=="evaluacion"){APP.plMode="evaluacion";APP.plChecked=null;APP.plAns={};APP.plLocked=false}
   const e=APP.plCase,k=plCalc(e,P),F=plFields(k),ev=APP.plMode==="evaluacion",ch=APP.plChecked;
   const ok=ch?F.filter(([id])=>ch[id]?.ok).length:0;
   return `<div class="stack">
    <div class="row" style="align-items:center"><div class="tabs" style="margin:0">
-     <button class="tab ${!ev?"on":""}" data-pact="mode" data-m="practica">Modo práctica</button>
+     ${isTeacher()||APP.demo?`<button class="tab ${!ev?"on":""}" data-pact="mode" data-m="practica">Modo práctica</button>`:""}
      <button class="tab ${ev?"on":""}" data-pact="mode" data-m="evaluacion">Modo evaluación · una oportunidad</button></div>
      <span style="margin-left:auto"></span><button class="btn" data-pact="newCase">↻ Nuevo caso</button></div>
    <div class="case"><div class="eyebrow" style="color:inherit;opacity:.75">Caso asignado · ${plMes(c.period+"-"+String(new Date().getMonth()+1).padStart(2,"0"))}</div>
