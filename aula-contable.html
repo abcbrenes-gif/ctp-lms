@@ -681,7 +681,8 @@ function revisionDePractica(g){
   const chip=(t,v,sub)=>`<div class="panel" style="flex:1 1 140px;padding:10px;text-align:center"><div class="muted" style="font-size:.75rem">${t}</div><div style="font-size:1.4rem;font-weight:700" class="num">${v}</div><small class="muted">${sub}</small></div>`;
   const ordenados=[...st].sort((x,y)=>(y.avance-x.avance)||(y.casPct-x.casPct)||x.w.nombre.localeCompare(y.w.nombre));
   return `<div class="stack" style="margin-top:10px;border:2px solid var(--pop);border-radius:12px;padding:12px">
-   <h4 style="margin:0">📊 Revisión de ${esc(g.name)}</h4>
+   <div class="row" style="align-items:center"><h4 style="margin:0;margin-right:auto">📊 Revisión de ${esc(g.name)}</h4><button class="btn sm ghost" data-act="reloadEmp" data-key="${esc(g.key)}">↻ Actualizar resultados</button></div>
+   ${evControlesHTML(g)}
    <div class="row" style="gap:8px;flex-wrap:wrap">${chip("Con avance",`${av}/${n}`,pct(av,n)+" %")}${chip("Machote completo",`${ma}/${n}`,pct(ma,n)+" %")}${chip("Asiento resuelto",`${as}/${n}`,pct(as,n)+" %")}${chip("Evaluación (promedio)",prom!=null?prom+" %":"—",evs.length+" evaluó")}${chip("Eval. machote (promedio)",avg(aM),aM.length+"/"+n+" entregaron")}${chip("Eval. asiento (promedio)",avg(aA),aA.length+"/"+n+" entregaron")}</div>
    <div class="tbl"><table><thead><tr><th>Estudiante</th><th>Machote</th><th>Asiento planilla</th><th>Evaluación</th><th>Eval. machote</th><th>Eval. asiento</th><th>Diagnóstico</th></tr></thead><tbody>
    ${ordenados.map(x=>{const dx=!x.avance?'<span class="chip tG" style="font-size:.7rem">⏳ Sin empezar</span>':(x.machote&&x.asiento&&x.ev!=null?'<span class="chip tI" style="font-size:.7rem">✓ Completa</span>':'<span class="chip tG" style="font-size:.7rem">En proceso</span>');
@@ -707,7 +708,7 @@ function viewPorEmpresa(){
      const rows=g.rows.filter(r=>!q||(r.w.nombre+" "+r.w.id).toLowerCase().includes(q)).sort((a,b)=>a.w.nombre.localeCompare(b.w.nombre));
      const entregadas=g.rows.filter(r=>r.c.entregado).length;
      return `<details class="panel"${APP.revOpen&&APP.revOpen[g.key]?" open":""}><summary style="cursor:pointer;font-weight:700"><span class="chip ${g.cat==="tarea"?"tG":"tI"}" style="font-size:.7rem">${g.cat==="tarea"?"📌 Tarea":"🔄 Práctica"}</span> ${esc(g.name)} <small class="muted" style="font-weight:400">· ${g.rows.length} estudiante(s)${g.cat==="tarea"?` · ${entregadas} entregaron`:""}</small></summary>
-      ${g.cat==="practica"?`<div class="row" style="margin-top:8px"><button class="btn sm ${APP.revPrac&&APP.revPrac[g.key]?"primary":"pop"}" data-act="toggleRevPractica" data-key="${esc(g.key)}">📊 Revisión de esta práctica</button></div>${APP.revPrac&&APP.revPrac[g.key]?revisionDePractica(g):""}${evControlesHTML(g)}`:""}
+      ${g.cat==="practica"?`<div class="row" style="margin-top:8px"><button class="btn sm ${APP.revPrac&&APP.revPrac[g.key]?"primary":"pop"}" data-act="toggleRevPractica" data-key="${esc(g.key)}">📊 Revisión de esta práctica</button></div>${APP.revPrac&&APP.revPrac[g.key]?revisionDePractica(g):""}`:""}
       ${g.cat==="practica"?`<div class="row" style="margin-top:8px"><button class="btn sm danger" data-act="delPracticaTodos" data-key="${esc(g.key)}">Eliminar esta práctica de todos los estudiantes</button></div>`:""}
       <div class="tbl" style="margin-top:10px"><table><thead><tr><th>Estudiante</th><th>Estado</th><th class="r">Asientos</th><th>Machote de planilla</th><th>Asiento de planilla</th><th>Evaluación</th>${g.cat==="practica"?"<th>Eval. machote</th><th>Eval. asiento</th>":""}<th></th></tr></thead><tbody>
       ${rows.map(({w,c})=>{let R;try{R=plResumen([c])}catch(e){R=null}
@@ -2368,6 +2369,7 @@ document.addEventListener("click",async e=>{
   if(a==="evResetUno"){armDelete(b,async()=>{const k=b.dataset.k;
     try{await APP.store.updateEmpresaEstudiante(b.dataset.est,b.dataset.co,x=>{const cfg=evCfg(x);cfg[k].reset=Date.now();const pl=x.payroll;if(pl){if(k==="machote")pl.evalM=null;else pl.evalA=null}});toast("Intento borrado: puede repetirla")}catch(err){toast("No se pudo actualizar")}
     loadEmpData()});return}
+  if(a==="reloadEmp"){APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;loadEmpData();return}
   if(a==="toggleRevPractica"){APP.revPrac=APP.revPrac||{};APP.revPrac[b.dataset.key]=!APP.revPrac[b.dataset.key];APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
   if(a==="toggleRevGeneral"){APP.revGeneral=!APP.revGeneral;render();return}
   if(a==="delPracticaEst"){armDelete(b,async()=>{try{await APP.store.deleteEmpresaEstudiante(b.dataset.est,b.dataset.co);toast("Práctica eliminada");loadEmpData()}catch(err){toast("No se pudo eliminar")}});return}
