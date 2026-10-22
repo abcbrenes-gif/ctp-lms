@@ -390,14 +390,14 @@ function supabaseTeacherStore(docenteId){
       if(error)throw error;
       const cs=(data&&data.companies)||[];const c=cs.find(x=>x.id===companyId);if(!c)return;
       fn(c);
-      const {error:e2}=await sb.from("aula_conta_trabajos_estudiante").update({companies:cs,actualizado_en:new Date().toISOString()}).eq("estudiante_id",estudianteId);
+      const {error:e2}=await sb.from("aula_conta_trabajos_estudiante").upsert({estudiante_id:estudianteId,companies:cs,actualizado_en:new Date().toISOString()});
       if(e2)throw e2;
     },
     async deleteEmpresaEstudiante(estudianteId,companyId){
       const {data,error}=await sb.from("aula_conta_trabajos_estudiante").select("companies").eq("estudiante_id",estudianteId).maybeSingle();
       if(error)throw error;
       const cs=((data&&data.companies)||[]).filter(c=>c.id!==companyId);
-      const {error:e2}=await sb.from("aula_conta_trabajos_estudiante").update({companies:cs,actualizado_en:new Date().toISOString()}).eq("estudiante_id",estudianteId);
+      const {error:e2}=await sb.from("aula_conta_trabajos_estudiante").upsert({estudiante_id:estudianteId,companies:cs,actualizado_en:new Date().toISOString()});
       if(e2)throw e2;
     },
     async listTrabajosEstudiantes(){
@@ -2357,8 +2357,10 @@ document.addEventListener("click",async e=>{
     APP.companies=await APP.store.entregaCompanies(e2.id);APP.activeId=sortCos(APP.companies)[0]?.id||null;APP.view="balanza";resetDraft();render();return}
   if(a==="evToggle"){(async()=>{const key=b.dataset.key,k=b.dataset.k,on=b.dataset.on==="1";const rows=evRowsDeGrupo(key);b.disabled=true;
     try{for(const {w,c} of rows)await APP.store.updateEmpresaEstudiante(w.id,c.id,x=>{const cfg=evCfg(x);cfg[k].on=on});
-      toast((on?"Evaluación habilitada":"Evaluación deshabilitada")+" para "+rows.length+" estudiante(s)")}catch(err){toast("No se pudo actualizar")}
-    APP.revOpen=APP.revOpen||{};APP.revOpen[key]=true;loadEmpData()})();return}
+      toast((on?"Evaluación habilitada":"Evaluación deshabilitada")+" para "+rows.length+" estudiante(s)")}catch(err){toast("No se pudo actualizar: "+(err&&err.message||err))}
+    APP.revOpen=APP.revOpen||{};APP.revOpen[key]=true;await loadEmpData();
+    const hechas=evRowsDeGrupo(key).filter(({c})=>!!(c.evalCfg&&c.evalCfg[k]&&c.evalCfg[k].on)===on).length;
+    if(rows.length&&!hechas)toast("⚠️ El cambio no se guardó en el servidor (0 de "+rows.length+"). Avisame para revisar los permisos de la base de datos.")})();return}
   if(a==="evResetTodos"){armDelete(b,async()=>{const key=b.dataset.key,k=b.dataset.k;const rows=evRowsDeGrupo(key);
     try{for(const {w,c} of rows)await APP.store.updateEmpresaEstudiante(w.id,c.id,x=>{const cfg=evCfg(x);cfg[k].reset=Date.now();const pl=x.payroll;if(pl){if(k==="machote")pl.evalM=null;else pl.evalA=null}});toast("Intentos borrados: pueden repetirla")}catch(err){toast("No se pudo actualizar")}
     APP.revOpen=APP.revOpen||{};APP.revOpen[key]=true;loadEmpData()});return}
