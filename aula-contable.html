@@ -1812,7 +1812,7 @@ function plViewPractica(c,p){
        ${st&&!st.ok&&st.msg&&puedeVerRespuestas()?`<div class="qfb bad">${esc(st.msg)}</div>`:""}${st&&st.ok&&!ev&&ch._first?"":""}</div>`}).join("")}
      <div class="row" style="margin-top:14px;align-items:center">
       ${ch?`<div class="status ${ok===F.length?"ok":"bad"}" style="margin-right:auto"><span class="dot"></span>${ok===F.length?"¡Excelente! Todos los cálculos son correctos.":`${ok} de ${F.length} correctos${ev?"":". Revisá tus cálculos y volvé a intentar."}`}</div>`:'<span style="margin-right:auto"></span>'}
-      ${APP.plLocked?"":`<button class="btn primary" type="submit">${ev?"Entregar evaluación":"Revisar mis respuestas"}</button>`}
+      ${APP.plLocked?"":`<button class="btn primary" type="submit">${ev?"Entregar evaluación":(puedeVerRespuestas()?"Revisar mis respuestas":"Guardar la planilla")}</button>`}
       ${ch&&puedeVerRespuestas()?`<button type="button" class="btn ${APP.plShowProc?"primary":"ghost"}" data-pact="proc">${APP.plShowProc?"Ocultar procedimiento":"Ver procedimiento completo"}</button>`:""}
      </div>
      ${puedeVerRespuestas()&&APP.plShowProc?`<div style="margin-top:14px">${plProcedure(k,e)}</div>`:""}
@@ -1934,7 +1934,7 @@ function plViewPlanilla(c,p){
       </tbody></table></div>
       ${chk?`<div class="status ${st.all?"ok":"bad"}"><span class="dot"></span>${st.all?"¡Planilla correcta! Ya puedes procesarla.":`${st.ok} de ${st.total} casillas correctas. Revisá tus cálculos y volvé a intentar.`}</div>`:""}
       ${bad.length?`<ul class="hints">${bad.join("")}</ul>`:""}
-      <div class="row"><button class="btn primary" type="submit">Revisar mi planilla</button><span class="muted" style="align-self:center;font-size:.85rem">${showProc?"El botón Procedimiento muestra el cálculo completo de cada colaborador.":"Revisá tus cálculos con los parámetros legales y volvé a intentar."}</span></div>
+      <div class="row"><button class="btn primary" type="submit">${puedeVerRespuestas()?"Revisar mi planilla":"Guardar la planilla"}</button><span class="muted" style="align-self:center;font-size:.85rem">${showProc?"El botón Procedimiento muestra el cálculo completo de cada colaborador.":"Revisá tus cálculos con los parámetros legales y volvé a intentar."}</span></div>
     </form>`;
   } else {
     sheet=`<div class="kpis">${kp("Salarios brutos",S(k=>k.bruto))}${kp("Deducciones obreras",S(k=>k.totObr))}${kp("Renta retenida",S(k=>k.renta))}${kp("Neto a pagar",S(k=>k.neto),true)}${kp("Cargas patronales",S(k=>k.totPat))}${kp("Provisiones",S(k=>k.totProv))}${kp("Costo total del patrono",S(k=>k.costo))}</div>
@@ -1951,7 +1951,7 @@ function plViewPlanilla(c,p){
   const empList=M&&rows.length?`<div class="panel stack"><h3>Colaboradores</h3>${rows.map(({e})=>`<div class="row" style="align-items:center;border-bottom:1px solid var(--line);padding-bottom:8px"><div style="margin-right:auto;min-width:0"><b>${esc(e.nombre)}</b><br><small class="muted">${esc(e.puesto||"")} · ${esc(e.cedula||"")}</small></div>
       <button class="btn sm ghost edit-only" data-pact="editEmp" data-id="${e.id}">Editar</button><button class="btn sm danger edit-only" data-pact="delEmp" data-id="${e.id}">Eliminar</button></div>`).join("")}</div>`
     :(!M&&rows.length?`<div class="row edit-only">${rows.map(({e})=>`<span class="chip tA" style="display:inline-flex;gap:6px;align-items:center;padding:4px 10px">${esc(e.nombre.split(" ")[0])} <button class="btn sm ghost" data-pact="editEmp" data-id="${e.id}">Editar</button><button class="btn sm danger" data-pact="delEmp" data-id="${e.id}">×</button></span>`).join("")}</div>`:"");
-  const canProc=p.employees.length&&(!M||(st&&st.all));
+  const canProc=p.employees.length&&(!M||!puedeVerRespuestas()||(st&&st.all));
   return `<div class="stack">${sheet}${empList}
    <div class="grid2 edit-only">
     <form class="panel stack" id="plEmp">
@@ -2133,6 +2133,7 @@ document.addEventListener("submit",e=>{
   const id=e.target.id;if(id!=="plSheet"&&id!=="plMach")return;
   e.preventDefault();e.stopImmediatePropagation();
   const c=co();if(!c)return;const p=ensurePayroll(c);
+  if(id==="plSheet"&&!puedeVerRespuestas()){touch(c);flush();toast("Planilla guardada ✓");return}
   if(id==="plSheet"){APP.plSheetChk=true;p.sheetIntentos=(p.sheetIntentos||0)+1;touch(c);render();
     const st=plSheetStatus(p);toast(st.all?"¡Planilla correcta!":`${st.ok} de ${st.total} casillas correctas`);return}
   const run=plCurRun(p);if(!run||!run.res?.length)return;const sol=plEntryLines(run);const res={};
@@ -2225,6 +2226,7 @@ document.addEventListener("submit",e=>{
   const c=co();if(!c)return;const p=ensurePayroll(c);
   if(id==="plPract"){
     const k=plCalc(APP.plCase,p.params),F=plFields(k),ev=APP.plMode==="evaluacion";
+    if(!ev&&!puedeVerRespuestas()){p.practGuardado={caso:`${APP.plCase.nombre} · ${money(APP.plCase.base)}`,resp:{...APP.plAns},fecha:new Date().toISOString()};touch(c);flush();toast("Guardado ✓");return}
     if(ev&&F.some(([q])=>!String(APP.plAns[q]??"").trim())){toast("Completa todos los campos antes de entregar");return}
     const res={};for(const [q] of F){const v=parseNum(APP.plAns[q]),sol=plSol(k,q),ok=!isNaN(v)&&near(v,sol);res[q]={ok,msg:ok||ev?"":(isNaN(v)?"Escribe un monto.":plFeedback(q,v,k,p.params,APP.plAns))}}
     APP.plChecked=res;APP.plTries=(APP.plTries||0)+1;
@@ -2258,7 +2260,7 @@ document.addEventListener("submit",e=>{
   }
   if(id==="plProc"){
     const per=document.getElementById("plPer").value;if(!/^\d{4}-\d{2}$/.test(per)){toast("Elige el mes de la planilla");return}
-    if(plMachote()&&!plSheetStatus(p).all){toast("Primero completa y revisa tu machote de planilla: todas las casillas deben estar correctas.");return}
+    if(plMachote()&&puedeVerRespuestas()&&!plSheetStatus(p).all){toast("Primero completa y revisa tu machote de planilla: todas las casillas deben estar correctas.");return}
     const tipo=document.getElementById("plTipo").value,tp=p.params.pagos.find(x=>x.id===tipo)||{id:"mensual",nombre:"Mensual",divisor:1},div=+tp.divisor||1;
     const nPago=div>1?Math.min(+document.getElementById("plN").value||1,Math.ceil(div)):null;
     const emps=p.employees.filter(e=>(e.tipoPago||"mensual")===tipo);
