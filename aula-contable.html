@@ -1036,20 +1036,21 @@ function generarColaboradoresPractica(n,nivel=1){
   const nombres=plBarajar(NOMBRES_PRACTICA).slice(0,cant);
   while(nombres.length<cant)nombres.push(plPick(NOMBRES_PRACTICA)); // por si piden más de los que hay en el catálogo
   const puestos=PUESTOS_PRACTICA.length>=cant?plBarajar(PUESTOS_PRACTICA).slice(0,cant):Array.from({length:cant},()=>plPick(PUESTOS_PRACTICA));
-  const topeExtra=2+nivel,topeAusencia=nivel>=3?2:(nivel>=2?1:0),topeTarde=nivel>=3?2:(nivel>=2?1:0);
-  const probRebajo=0.3+Math.min(nivel,4)*0.1;
+  const topeExtra=2+nivel*(nivel>=4?2:1),topeAusencia=nivel>=5?4:nivel>=4?3:(nivel>=3?2:(nivel>=2?1:0)),topeTarde=nivel>=5?5:nivel>=4?4:(nivel>=3?2:(nivel>=2?1:0));
+  const probRebajo=Math.min(0.3+Math.min(nivel,6)*0.1,0.95);
+  const probHijos=nivel>=4?0.85:0.6,maxHijos=nivel>=4?4:3;
   return nombres.map((nombre,i)=>{
     const pu=puestos[i];
     const horasExtra=Math.random()<0.75?Math.floor(Math.random()*(topeExtra+1)):0;
     const diasAusencia=topeAusencia?Math.floor(Math.random()*(topeAusencia+1)):0;
     const horasTarde=topeTarde?Math.floor(Math.random()*(topeTarde+1)):0;
-    const comisiones=(pu.conComision&&Math.random()<0.7)?plMontoAzar(20000,90000+nivel*15000):0;
-    const hijos=Math.random()<0.6?Math.floor(Math.random()*3):0;
+    const comisiones=(pu.conComision&&Math.random()<(nivel>=4?0.95:0.7))?plMontoAzar(20000,90000+nivel*15000):0;
+    const hijos=Math.random()<probHijos?Math.floor(Math.random()*maxHijos):0;
     const conyuge=Math.random()<0.45;
-    const jornada=plPick(["diurna","diurna","mixta","nocturna"]);
-    const tipoPago=plPick(["mensual","mensual","quincenal"]);
+    const jornada=nivel>=4?plPick(["mixta","nocturna","nocturna","diurna"]):plPick(["diurna","diurna","mixta","nocturna"]);
+    const tipoPago=nivel>=4?plPick(["quincenal","quincenal","mensual"]):plPick(["mensual","mensual","quincenal"]);
     const rebajos={};
-    if(Math.random()<probRebajo)rebajos.asoc={on:true,valor:5};
+    if(Math.random()<probRebajo)rebajos.asoc={on:true,valor:nivel>=4?plPick([3,5,5,6]):5};
     if(Math.random()<probRebajo)rebajos.ahorro={on:true,valor:plMontoAzar(10000,30000)};
     return {id:uid(),cedula:plCedulaAleatoria(),nombre,puesto:pu.puesto,base:plMontoAzar(pu.min,pu.max),horasExtra,comisiones,diasAusencia,horasTarde,hijos,conyuge,jornada,tipoPago,rebajos};
   });
@@ -1123,8 +1124,8 @@ async function subirPdfPractica(blob,companyId){
 // la solución) y la MISMA empresa, con los mismos datos y el mismo PDF,
 // directo en la cuenta de cada estudiante — así nadie tiene que digitarla
 // a mano ni armar el PDF aparte, y no hay margen de error de copiado.
-async function crearPracticaParaClase({nombreEmpresa,cantidad,seccion}){
-  const nivel=proximoNivelPractica();
+async function crearPracticaParaClase({nombreEmpresa,cantidad,seccion,nivel:nivelElegido}){
+  const nivel=nivelElegido||proximoNivelPractica();
   const colaboradoresBase=generarColaboradoresPractica(cantidad,nivel);
   const anio=new Date().getFullYear();
   const armarEmpresa=(code,pdfUrl)=>({
@@ -1366,9 +1367,16 @@ function panelCrearPractica(){
     <p class="muted" style="margin:0">El sistema arma la empresa con colaboradores ya listos (nadie los escribe a mano) y un poco más difícil que la práctica anterior, genera el PDF de instrucciones ya lleno con esos datos, te deja una copia a vos para revisar, y crea automáticamente esa misma empresa — con el mismo PDF — en la cuenta de cada estudiante.</p>
     <form id="formCrearPractica" class="stack" style="gap:8px">
       <label>Nombre de la empresa<input id="ppNombre" required value="Práctica ${nivel}" style="display:block;width:100%;margin-top:4px"></label>
+      <label>Complejidad
+        <select id="ppNivel" style="display:block;margin-top:4px">
+          <option value="0">Automática (nivel ${nivel})</option>
+          <option value="1">1 · Básica</option><option value="2">2 · Media</option><option value="3">3 · Avanzada</option>
+          <option value="4">4 · Alta (más ausencias, tardías, rebajos, hijos, nocturno y quincenal)</option><option value="5">5 · Muy alta</option>
+        </select>
+      </label>
       <label>Cantidad de colaboradores
         <select id="ppCantidad" style="display:block;margin-top:4px">
-          ${[3,4,5,6,7,8].map(n=>`<option value="${n}" ${n===cantidadSugerida?"selected":""}>${n}</option>`).join("")}
+          ${[3,4,5,6,7,8,9,10,12].map(n=>`<option value="${n}" ${n===cantidadSugerida?"selected":""}>${n}</option>`).join("")}
         </select>
       </label>
       <label>¿Para quién?
@@ -2239,7 +2247,7 @@ document.addEventListener("submit",async e=>{
     if(!nombre){if(estadoEl)estadoEl.textContent="Ponele un nombre a la empresa.";return}
     if(btn)btn.disabled=true;if(estadoEl)estadoEl.textContent="Creando la empresa y repartiéndola entre los estudiantes…";
     try{
-      const r=await crearPracticaParaClase({nombreEmpresa:nombre,cantidad,seccion});
+      const r=await crearPracticaParaClase({nombreEmpresa:nombre,cantidad,seccion,nivel:+val("ppNivel")||0});
       APP.plCrearPracticaAbierto=false;render();
       toast(`Práctica "${nombre}" creada ✓ — ${r.ok} de ${r.total} estudiante(s)`+(r.fallidos.length?`. No se pudo con: ${r.fallidos.join(", ")}`:""));
     }catch(err){
