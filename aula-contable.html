@@ -385,6 +385,14 @@ function supabaseTeacherStore(docenteId){
       const {data,error}=await sb.from("aula_conta_entregas_empresas").select("data").eq("entrega_id",id);
       if(error)throw error;return (data||[]).map(r=>r.data);
     },
+    async updateEmpresaEstudiante(estudianteId,companyId,fn){
+      const {data,error}=await sb.from("aula_conta_trabajos_estudiante").select("companies").eq("estudiante_id",estudianteId).maybeSingle();
+      if(error)throw error;
+      const cs=(data&&data.companies)||[];const c=cs.find(x=>x.id===companyId);if(!c)return;
+      fn(c);
+      const {error:e2}=await sb.from("aula_conta_trabajos_estudiante").update({companies:cs,actualizado_en:new Date().toISOString()}).eq("estudiante_id",estudianteId);
+      if(e2)throw e2;
+    },
     async deleteEmpresaEstudiante(estudianteId,companyId){
       const {data,error}=await sb.from("aula_conta_trabajos_estudiante").select("companies").eq("estudiante_id",estudianteId).maybeSingle();
       if(error)throw error;
@@ -430,7 +438,7 @@ async function flush(){
   flushing=true;
   try{
     const ids=[...pending];pending.clear();
-    if(APP.store.mode==="local")await APP.store.saveWork(APP.me.usuario,APP.dk,APP.companies);
+    if(APP.store.mode==="local"){await evRefrescarCfg();await APP.store.saveWork(APP.me.usuario,APP.dk,APP.companies)}
     else for(const id of ids){const c=APP.companies.find(x=>x.id===id);if(c)await APP.store.saveCompany(c)}
     setSave("Guardado ✓");
   }catch(e){setSave("No se pudo guardar",true);toast(e&&e.code==="quota_exceeded"?"El espacio del aula está lleno. Elimina entregas o empresas que ya no uses.":"No se pudo guardar. Inténtalo de nuevo.")}
@@ -646,6 +654,20 @@ function viewRevisionGeneral(grupos){
    ${filas.filter(f=>f.sinEmpezar.length).map(f=>`<details><summary style="cursor:pointer;font-size:.9rem">⏳ ${esc(f.g.name)}: ${f.sinEmpezar.length} estudiante(s) sin empezar</summary><p class="muted" style="margin:6px 0 0">${f.sinEmpezar.map(esc).join(" · ")}</p></details>`).join("")}
    <p class="note" style="margin:0">"Con avance" = tiene asientos, casillas del machote, asiento de planilla o evaluaciones registrados. Usa el filtro de sección para ver una sola clase.</p></div>`;
 }
+function evRowsDeGrupo(key){
+  const out=[];const qs=APP.empSec||"";
+  for(const w of (APP.empData||[])){if(qs&&w.seccion!==qs)continue;
+    for(const c of w.companies){if((c.categoria==="tarea"?"t|":"p|")+String(c.name||"").trim().toLowerCase()===key)out.push({w,c})}}
+  return out;
+}
+function evControlesHTML(g){
+  if(g.cat!=="practica")return "";
+  const rows=g.rows,n=rows.length;
+  const on=k=>rows.filter(({c})=>c.evalCfg&&c.evalCfg[k]&&c.evalCfg[k].on).length;
+  const btn=(k,label)=>{const o=on(k),all=o===n&&n>0;
+    return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><button class="btn sm ${all?"primary":"pop"}" data-act="evToggle" data-key="${esc(g.key)}" data-k="${k}" data-on="${all?0:1}">${all?"✓ Habilitada":"Habilitar"} · ${label}</button><small class="muted">${o}/${n} estudiante(s) con la evaluación habilitada</small>${o?`<button class="btn sm ghost" data-act="evResetTodos" data-key="${esc(g.key)}" data-k="${k}" title="Borra los intentos y deja que la repitan">↺ Habilitar de nuevo a todos</button>`:""}</div>`};
+  return `<div class="panel stack" style="margin:8px 0;padding:10px"><b>📝 Evaluaciones de esta práctica</b><small class="muted">Una sola oportunidad, sin pistas. Se aplican a ${APP.empSec?"la sección "+esc(APP.empSec):"todas las secciones"} (usá el filtro de sección).</small>${btn("machote","Evaluación del machote")}${btn("asiento","Evaluación de asientos")}</div>`;
+}
 function revisionDePractica(g){
   const pct=(n,t)=>t?Math.round(100*n/t):0;
   const st=g.rows.map(({w,c})=>{let R=null;try{R=plResumen([c])}catch(e){}
@@ -682,15 +704,17 @@ function viewPorEmpresa(){
      const rows=g.rows.filter(r=>!q||(r.w.nombre+" "+r.w.id).toLowerCase().includes(q)).sort((a,b)=>a.w.nombre.localeCompare(b.w.nombre));
      const entregadas=g.rows.filter(r=>r.c.entregado).length;
      return `<details class="panel"${APP.revOpen&&APP.revOpen[g.key]?" open":""}><summary style="cursor:pointer;font-weight:700"><span class="chip ${g.cat==="tarea"?"tG":"tI"}" style="font-size:.7rem">${g.cat==="tarea"?"📌 Tarea":"🔄 Práctica"}</span> ${esc(g.name)} <small class="muted" style="font-weight:400">· ${g.rows.length} estudiante(s)${g.cat==="tarea"?` · ${entregadas} entregaron`:""}</small></summary>
-      ${g.cat==="practica"?`<div class="row" style="margin-top:8px"><button class="btn sm ${APP.revPrac&&APP.revPrac[g.key]?"primary":"pop"}" data-act="toggleRevPractica" data-key="${esc(g.key)}">📊 Revisión de esta práctica</button></div>${APP.revPrac&&APP.revPrac[g.key]?revisionDePractica(g):""}`:""}
+      ${g.cat==="practica"?`<div class="row" style="margin-top:8px"><button class="btn sm ${APP.revPrac&&APP.revPrac[g.key]?"primary":"pop"}" data-act="toggleRevPractica" data-key="${esc(g.key)}">📊 Revisión de esta práctica</button></div>${APP.revPrac&&APP.revPrac[g.key]?revisionDePractica(g):""}${evControlesHTML(g)}`:""}
       ${g.cat==="practica"?`<div class="row" style="margin-top:8px"><button class="btn sm danger" data-act="delPracticaTodos" data-key="${esc(g.key)}">Eliminar esta práctica de todos los estudiantes</button></div>`:""}
-      <div class="tbl" style="margin-top:10px"><table><thead><tr><th>Estudiante</th><th>Estado</th><th class="r">Asientos</th><th>Machote de planilla</th><th>Asiento de planilla</th><th>Evaluación</th><th></th></tr></thead><tbody>
+      <div class="tbl" style="margin-top:10px"><table><thead><tr><th>Estudiante</th><th>Estado</th><th class="r">Asientos</th><th>Machote de planilla</th><th>Asiento de planilla</th><th>Evaluación</th>${g.cat==="practica"?"<th>Eval. machote</th><th>Eval. asiento</th>":""}<th></th></tr></thead><tbody>
       ${rows.map(({w,c})=>{let R;try{R=plResumen([c])}catch(e){R=null}
         const est=c.entregado?`<span class="chip tC" style="font-size:.7rem">✓ Entregada</span><br><small class="muted">${esc(fmtDate(c.entregadoFecha))}</small>`:(g.cat==="tarea"?'<span class="chip tG" style="font-size:.7rem">En proceso</span>':'<small class="muted">Práctica</small>');
         return `<tr><td><b>${esc(w.nombre)}</b><br><span class="code">${esc(w.id)}</span>${w.seccion?` <small class="muted">${esc(w.seccion)}</small>`:""}</td><td>${est}</td><td class="r num">${(c.entries||[]).length}</td>
          <td>${R&&R.casTot?bar(R.casOk,R.casTot):'<small class="muted">Sin empezar</small>'}</td>
          <td>${R&&R.asPlIntentos?`${R.asPlOk?'<span class="chip tI">Resuelto</span>':'<span class="chip tG">Pendiente</span>'}<br><small class="muted">${R.asPlIntentos} intento(s)</small>`:'<small class="muted">Sin empezar</small>'}</td>
          <td>${R&&R.evalBest!=null?`<b class="num">${R.evalBest} %</b><br><small class="muted">${R.evals} evaluación(es)</small>`:R&&R.practicas?`<small class="muted">${R.practicas} práctica(s)</small>`:'<small class="muted">—</small>'}</td>
+         ${g.cat==="practica"?["machote","asiento"].map(k=>{const ev=c.payroll&&c.payroll[k==="machote"?"evalM":"evalA"],r=ev&&ev.resultado;const on=c.evalCfg&&c.evalCfg[k]&&c.evalCfg[k].on;
+           return `<td>${r?evBadge(r)+` <button class="btn sm ghost" data-act="evResetUno" data-est="${esc(w.id)}" data-co="${esc(c.id)}" data-k="${k}" title="Borrar el intento y dejar que la repita">↺</button>`:(on?'<small class="muted">Habilitada · sin entregar</small>':'<small class="muted">—</small>')}</td>`}).join(""):""}
          <td><div class="row" style="flex-wrap:nowrap;justify-content:flex-end"><a class="btn sm primary" href="aula-contable.html?como_estudiante=${encodeURIComponent(w.id)}">Revisar</a>${g.cat==="practica"?`<button class="btn sm danger" data-act="delPracticaEst" data-est="${esc(w.id)}" data-co="${esc(c.id)}">Eliminar</button>`:""}</div></td></tr>`}).join("")||'<tr><td colspan="7"><small class="muted">Sin resultados con ese filtro.</small></td></tr>'}
       </tbody></table></div></details>`}).join("")}
    <p class="note" style="margin:0">Datos en vivo del trabajo de cada estudiante. "Revisar" abre su cuenta de Aula de Conta tal como la ve él.</p>`;
@@ -1364,11 +1388,101 @@ function plProcedure(k,e){
 /* Vistas del módulo */
 const PL_TABS=[["param","Parámetros legales"],["planilla","Colaboradores y planilla"],["practica","Práctica y evaluación"],["asiento","Asiento contable"],["colillas","Colillas de pago"]];
 const PL_TAB_ENTREGA=["entrega","Guardar entrega"];
+const PL_TAB_EVAL=["evaluaciones","📝 Evaluaciones"];
+
+/* ============ Evaluaciones del módulo de planillas (machote y asiento) ============
+   Las habilita el profesor por práctica y sección. Una sola oportunidad, sin pistas,
+   se califica sola; queda bloqueada hasta que el profesor la habilite de nuevo. */
+function evCfg(c){c.evalCfg??={};c.evalCfg.machote??={on:false};c.evalCfg.asiento??={on:false};return c.evalCfg}
+function evRunAsiento(c,p){
+  const P=p.params;
+  const tp=P.pagos.find(x=>p.employees.some(e=>(e.tipoPago||"mensual")===x.id))||P.pagos[0]||{id:"mensual",nombre:"Mensual",divisor:1};
+  const div=+tp.divisor||1;
+  const run={id:"eval",periodo:`${c.period}-01`,tipo:tp.id,tipoNombre:tp.nombre,div,nPago:div>1?1:null,pago:"1102"};
+  run.res=p.employees.filter(e=>(e.tipoPago||"mensual")===tp.id).map(e=>({emp:clone(e),calc:plCalc(e,P)}));
+  return run;
+}
+// El profesor puede "habilitar de nuevo": deja una marca (reset) y el estudiante borra su intento al verla.
+function evAplicarReset(c,p){
+  const cfg=evCfg(c);
+  if(cfg.machote.reset&&p.evalMReset!==cfg.machote.reset){p.evalM=null;p.evalMReset=cfg.machote.reset}
+  if(cfg.asiento.reset&&p.evalAReset!==cfg.asiento.reset){p.evalA=null;p.evalAReset=cfg.asiento.reset}
+}
+async function evRefrescarCfg(){
+  try{
+    if(!APP.store||!APP.store.loadWork||isTeacher())return;
+    const fresh=await APP.store.loadWork();
+    for(const c of APP.companies){const f=fresh.find(x=>x.id===c.id);if(f&&f.evalCfg){c.evalCfg=f.evalCfg;if(c.payroll)evAplicarReset(c,c.payroll)}}
+  }catch(e){}
+}
+const evBadge=(r)=>r?`<b class="num">${r.pct} %</b> <small class="muted">${r.ok}/${r.total}</small>`:'<small class="muted">—</small>';
+function evMachoteHTML(c,p){
+  const cfg=evCfg(c).machote;
+  if(!cfg.on&&!(p.evalM&&p.evalM.resultado))return `<div class="panel"><h3>Evaluación del machote de planilla</h3><p class="muted" style="margin:0">Todavía no está habilitada. Tu profesor la va a habilitar cuando sea el momento.</p></div>`;
+  if(p.evalM&&p.evalM.resultado){const r=p.evalM.resultado;
+    return `<div class="panel stack"><h3>Evaluación del machote de planilla</h3><div class="status ok"><span class="dot"></span>Entregada el ${esc(fmtDate(r.fecha))}: ${r.ok} de ${r.total} casillas correctas (${r.pct} %).</div><p class="muted" style="margin:0">Solo tenías una oportunidad. Si tu profesor la habilita de nuevo, vas a poder repetirla.</p></div>`}
+  if(!p.employees.length)return `<div class="panel"><p class="muted" style="margin:0">La planilla no tiene colaboradores.</p></div>`;
+  p.evalM??={resp:{}};p.evalM.resp??={};
+  const P=p.params,rows=p.employees.map(e=>({e,k:plCalc(e,P)})),wr=rows.some(r=>r.k.totReb>0),F=plSheetFields(rows[0].k,wr);
+  return `<form class="panel stack" id="evMForm"><div><div class="eyebrow">Evaluación · ${esc(c.name)}</div><h3>Evaluación del machote de planilla</h3>
+    <p class="muted" style="margin:4px 0 0"><b>Una sola oportunidad.</b> No hay pistas ni revisión previa. Calcula cada monto con los parámetros legales y escríbelo con dos decimales (se acepta ₡1 de diferencia por redondeo). Al terminar toca <b>Entregar evaluación</b>.</p></div>
+    <div class="tbl"><table class="sheet"><thead><tr><th>Colaborador y datos del mes</th>${F.map(([,l])=>`<th class="r">${esc(l)}</th>`).join("")}</tr></thead><tbody>
+    ${rows.map(({e,k})=>`<tr><td style="min-width:220px"><b>${esc(e.nombre)}</b><br><small class="muted">${esc(plDatos(e,P))}</small></td>
+      ${F.map(([q,l])=>`<td class="r"><input data-evm="${e.id}|${q}" inputmode="decimal" placeholder="0,00" value="${esc(((p.evalM.resp[e.id]||{})[q])??"")}" aria-label="${esc(l)} de ${esc(e.nombre)}"></td>`).join("")}</tr>`).join("")}
+    </tbody></table></div>
+    <div class="row"><button class="btn primary" type="submit">Entregar evaluación</button></div></form>`;
+}
+function evAsientoHTML(c,p){
+  const cfg=evCfg(c).asiento;
+  if(!cfg.on&&!(p.evalA&&p.evalA.resultado))return `<div class="panel"><h3>Evaluación del asiento de planilla</h3><p class="muted" style="margin:0">Todavía no está habilitada. Tu profesor la va a habilitar cuando sea el momento.</p></div>`;
+  if(p.evalA&&p.evalA.resultado){const r=p.evalA.resultado;
+    return `<div class="panel stack"><h3>Evaluación del asiento de planilla</h3><div class="status ok"><span class="dot"></span>Entregada el ${esc(fmtDate(r.fecha))}: ${r.ok} de ${r.total} cuentas correctas (${r.pct} %).</div><p class="muted" style="margin:0">Solo tenías una oportunidad. Si tu profesor la habilita de nuevo, vas a poder repetirla.</p></div>`}
+  if(!p.employees.length)return `<div class="panel"><p class="muted" style="margin:0">La planilla no tiene colaboradores.</p></div>`;
+  p.evalA??={resp:{}};p.evalA.resp??={};
+  const run=evRunAsiento(c,p);if(!run.res.length)return `<div class="panel"><p class="muted" style="margin:0">No hay colaboradores para armar el asiento.</p></div>`;
+  const sol=plEntryLines(run),name=code=>acc(code)?.name||PL_ACCOUNTS.find(a=>a.code===code)?.name||"Cuenta "+code;
+  const codes=sol.map(l=>l.code).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  const v=(code,sd)=>((p.evalA.resp[code]||{})[sd])??"";
+  return `<form class="panel stack" id="evAForm"><div><div class="eyebrow">Evaluación · ${esc(c.name)}</div><h3>Evaluación del asiento de planilla — ${esc(plRunLabel(run))}</h3>
+    <p class="muted" style="margin:4px 0 0"><b>Una sola oportunidad.</b> Sin pistas ni revisión previa. Con los datos de tu planilla (salarios netos pagados por Bancos), decide para cada cuenta si va al <b class="dcol">Debe</b> o al <b class="hcol">Haber</b> y calcula el monto. Al terminar toca <b>Entregar evaluación</b>.</p></div>
+    <div class="tbl"><table class="sheet"><thead><tr><th>Cuenta</th><th class="r">Debe</th><th class="r">Haber</th></tr></thead><tbody>
+    ${codes.map(code=>`<tr><td><span class="num">${esc(code)}</span> · ${esc(name(code))}</td>
+      <td class="r"><input data-eva="${code}|d" inputmode="decimal" placeholder="0,00" value="${esc(v(code,"d"))}" aria-label="Debe de ${esc(name(code))}"></td>
+      <td class="r"><input data-eva="${code}|c" inputmode="decimal" placeholder="0,00" value="${esc(v(code,"c"))}" aria-label="Haber de ${esc(name(code))}"></td></tr>`).join("")}
+    </tbody></table></div><div class="row"><button class="btn primary" type="submit">Entregar evaluación</button></div></form>`;
+}
+function plViewEvaluaciones(c,p){
+  evAplicarReset(c,p);
+  return `<div class="stack">${evMachoteHTML(c,p)}${evAsientoHTML(c,p)}</div>`;
+}
+document.addEventListener("input",e=>{
+  const t=e.target;if(!t||!t.dataset)return;
+  if(t.dataset.evm){const c=co();if(!c)return;const p=ensurePayroll(c);const [emp,q]=t.dataset.evm.split("|");p.evalM??={resp:{}};p.evalM.resp[emp]??={};p.evalM.resp[emp][q]=t.value;touch(c)}
+  else if(t.dataset.eva){const c=co();if(!c)return;const p=ensurePayroll(c);const [code,sd]=t.dataset.eva.split("|");p.evalA??={resp:{}};p.evalA.resp[code]??={};p.evalA.resp[code][sd]=t.value;touch(c)}
+});
+document.addEventListener("submit",e=>{
+  const id=e.target.id;if(id!=="evMForm"&&id!=="evAForm")return;
+  e.preventDefault();e.stopImmediatePropagation();
+  const c=co();if(!c)return;const p=ensurePayroll(c);
+  if(!confirm("Vas a entregar la evaluación. Solo tenés una oportunidad y no podrás cambiarla. ¿Confirmás?"))return;
+  if(id==="evMForm"){
+    const P=p.params,wr=p.employees.some(x=>plCalc(x,P).totReb>0);let ok=0,total=0;
+    for(const em of p.employees){const k=plCalc(em,P),ans=(p.evalM&&p.evalM.resp&&p.evalM.resp[em.id])||{};
+      for(const [q] of plSheetFields(k,wr)){total++;const val=parseNum(ans[q]);if(!isNaN(val)&&near(val,plSol(k,q)))ok++}}
+    p.evalM=p.evalM||{resp:{}};p.evalM.resultado={ok,total,pct:total?Math.round(100*ok/total):0,fecha:new Date().toISOString()};
+  }else{
+    const run=evRunAsiento(c,p),sol=plEntryLines(run);let ok=0;
+    for(const l of sol){const m=(p.evalA&&p.evalA.resp&&p.evalA.resp[l.code])||{},d=parseNum(m.d)||0,cr=parseNum(m.c)||0;
+      if(l.d?(near(d,l.d)&&!cr):(near(cr,l.c)&&!d))ok++}
+    p.evalA=p.evalA||{resp:{}};p.evalA.resultado={ok,total:sol.length,pct:sol.length?Math.round(100*ok/sol.length):0,fecha:new Date().toISOString()};
+  }
+  touch(c);flush();render();toast("Evaluación entregada ✓");
+},true);
 VIEWS.planillas=()=>{
   const c=co(),p=ensurePayroll(c);
   if(APP.readOnly&&APP.plTab==="practica"&&!p.evals.length)APP.plTab="planilla";
-  const tabs=isTeacher()?PL_TABS:[...PL_TABS,PL_TAB_ENTREGA];
-  const body={param:plViewParams,planilla:plViewPlanilla,practica:plViewPractica,asiento:plViewAsiento,colillas:plViewColillas,entrega:plViewEntrega}[APP.plTab]||plViewPlanilla;
+  const tabs=isTeacher()?PL_TABS:[...PL_TABS,PL_TAB_EVAL,PL_TAB_ENTREGA];
+  const body={param:plViewParams,planilla:plViewPlanilla,practica:plViewPractica,asiento:plViewAsiento,colillas:plViewColillas,evaluaciones:plViewEvaluaciones,entrega:plViewEntrega}[APP.plTab]||plViewPlanilla;
   return `<div class="head"><div><div class="eyebrow">Módulo · Código de Trabajo, CCSS y Ley de Protección al Trabajador</div><h2>Planillas</h2>
     <p>Calcula la planilla con los porcentajes legales de Costa Rica, practica los cálculos, genera el asiento de diario y emite las colillas de pago.</p></div>
     ${isTeacher()?`<div class="row" style="gap:6px">
@@ -2025,7 +2139,7 @@ document.addEventListener("click",async e=>{
   const b=e.target.closest("[data-pact]");if(!b)return;
   const c=co();if(!c)return;const p=ensurePayroll(c),a=b.dataset.pact;
   try{
-  if(a==="tab"){APP.plTab=b.dataset.k;render();return}
+  if(a==="tab"){APP.plTab=b.dataset.k;if(APP.plTab==="evaluaciones"){evRefrescarCfg().then(render);return}render();return}
   if(a==="abrirCrearPractica"){
     if(!APP.seccionesDisponibles){
       const {data}=await sb.from("estudiantes").select("seccion");
@@ -2229,6 +2343,16 @@ document.addEventListener("click",async e=>{
   if(a==="viewEntrega"){const e2=(APP.entregas||[]).find(x=>x.id===b.dataset.id);
     APP.viewing={id:e2.id,nombre:e2.nombre,fecha:e2.fecha};APP.readOnly=true;
     APP.companies=await APP.store.entregaCompanies(e2.id);APP.activeId=sortCos(APP.companies)[0]?.id||null;APP.view="balanza";resetDraft();render();return}
+  if(a==="evToggle"){(async()=>{const key=b.dataset.key,k=b.dataset.k,on=b.dataset.on==="1";const rows=evRowsDeGrupo(key);b.disabled=true;
+    try{for(const {w,c} of rows)await APP.store.updateEmpresaEstudiante(w.id,c.id,x=>{const cfg=evCfg(x);cfg[k].on=on});
+      toast((on?"Evaluación habilitada":"Evaluación deshabilitada")+" para "+rows.length+" estudiante(s)")}catch(err){toast("No se pudo actualizar")}
+    APP.revOpen=APP.revOpen||{};APP.revOpen[key]=true;loadEmpData()})();return}
+  if(a==="evResetTodos"){armDelete(b,async()=>{const key=b.dataset.key,k=b.dataset.k;const rows=evRowsDeGrupo(key);
+    try{for(const {w,c} of rows)await APP.store.updateEmpresaEstudiante(w.id,c.id,x=>{const cfg=evCfg(x);cfg[k].reset=Date.now();const pl=x.payroll;if(pl){if(k==="machote")pl.evalM=null;else pl.evalA=null}});toast("Intentos borrados: pueden repetirla")}catch(err){toast("No se pudo actualizar")}
+    APP.revOpen=APP.revOpen||{};APP.revOpen[key]=true;loadEmpData()});return}
+  if(a==="evResetUno"){armDelete(b,async()=>{const k=b.dataset.k;
+    try{await APP.store.updateEmpresaEstudiante(b.dataset.est,b.dataset.co,x=>{const cfg=evCfg(x);cfg[k].reset=Date.now();const pl=x.payroll;if(pl){if(k==="machote")pl.evalM=null;else pl.evalA=null}});toast("Intento borrado: puede repetirla")}catch(err){toast("No se pudo actualizar")}
+    loadEmpData()});return}
   if(a==="toggleRevPractica"){APP.revPrac=APP.revPrac||{};APP.revPrac[b.dataset.key]=!APP.revPrac[b.dataset.key];APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
   if(a==="toggleRevGeneral"){APP.revGeneral=!APP.revGeneral;render();return}
   if(a==="delPracticaEst"){armDelete(b,async()=>{try{await APP.store.deleteEmpresaEstudiante(b.dataset.est,b.dataset.co);toast("Práctica eliminada");loadEmpData()}catch(err){toast("No se pudo eliminar")}});return}
