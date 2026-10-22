@@ -1794,7 +1794,7 @@ function plViewPractica(c,p){
   const ok=ch?F.filter(([id])=>ch[id]?.ok).length:0;
   return `<div class="stack">
    <div class="row" style="align-items:center"><div class="tabs" style="margin:0">
-     <button class="tab ${!ev?"on":""}" data-pact="mode" data-m="practica">Modo práctica · con pistas</button>
+     <button class="tab ${!ev?"on":""}" data-pact="mode" data-m="practica">Modo práctica</button>
      <button class="tab ${ev?"on":""}" data-pact="mode" data-m="evaluacion">Modo evaluación · una oportunidad</button></div>
      <span style="margin-left:auto"></span><button class="btn" data-pact="newCase">↻ Nuevo caso</button></div>
    <div class="case"><div class="eyebrow" style="color:inherit;opacity:.75">Caso asignado · ${plMes(c.period+"-"+String(new Date().getMonth()+1).padStart(2,"0"))}</div>
@@ -1808,10 +1808,10 @@ function plViewPractica(c,p){
      <div class="row" style="align-items:center;margin-bottom:6px"><h3 style="margin-right:auto">Tus resultados</h3><small class="muted">Escribe los montos con dos decimales. Se acepta una diferencia de ₡1 por redondeo.</small></div>
      ${F.map(([id,l])=>{const st=ch?.[id];return `<div class="qrow"><label for="q-${id}">${esc(l)}</label>
        <input id="q-${id}" data-q="${id}" inputmode="decimal" value="${esc(APP.plAns[id]??"")}" placeholder="0,00" ${APP.plLocked?"disabled":""}>
-       <span class="ic" style="color:${st?(st.ok?"var(--ok)":"var(--bad)"):"var(--muted)"}">${st?(st.ok?"✓":"✗"):""}</span>
-       ${st&&!st.ok&&st.msg?`<div class="qfb bad">${esc(st.msg)}</div>`:""}${st&&st.ok&&!ev&&ch._first?"":""}</div>`}).join("")}
+       <span class="ic" style="color:${st&&puedeVerRespuestas()?(st.ok?"var(--ok)":"var(--bad)"):"var(--muted)"}">${st&&puedeVerRespuestas()?(st.ok?"✓":"✗"):""}</span>
+       ${st&&!st.ok&&st.msg&&puedeVerRespuestas()?`<div class="qfb bad">${esc(st.msg)}</div>`:""}${st&&st.ok&&!ev&&ch._first?"":""}</div>`}).join("")}
      <div class="row" style="margin-top:14px;align-items:center">
-      ${ch?`<div class="status ${ok===F.length?"ok":"bad"}" style="margin-right:auto"><span class="dot"></span>${ok===F.length?"¡Excelente! Todos los cálculos son correctos.":`${ok} de ${F.length} correctos${ev?"":". Corrige los campos en rojo y vuelve a revisar."}`}</div>`:'<span style="margin-right:auto"></span>'}
+      ${ch?`<div class="status ${ok===F.length?"ok":"bad"}" style="margin-right:auto"><span class="dot"></span>${ok===F.length?"¡Excelente! Todos los cálculos son correctos.":`${ok} de ${F.length} correctos${ev?"":". Revisá tus cálculos y volvé a intentar."}`}</div>`:'<span style="margin-right:auto"></span>'}
       ${APP.plLocked?"":`<button class="btn primary" type="submit">${ev?"Entregar evaluación":"Revisar mis respuestas"}</button>`}
       ${ch&&puedeVerRespuestas()?`<button type="button" class="btn ${APP.plShowProc?"primary":"ghost"}" data-pact="proc">${APP.plShowProc?"Ocultar procedimiento":"Ver procedimiento completo"}</button>`:""}
      </div>
@@ -1922,19 +1922,19 @@ function plViewPlanilla(c,p){
   if(!rows.length)sheet=`<div class="empty"><h3>No hay colaboradores en la planilla</h3><p>Agrega el primero con el formulario de abajo o carga colaboradores de ejemplo para practicar.</p>${plSampleBtn}</div>`;
   else if(M){
     const F=plSheetFields(rows[0].k,rows.some(r=>r.k.totReb>0));
-    const bad=[];for(const {e} of rows)for(const [q,l] of F){const x=st.cells[e.id][q];if(chk&&!x.ok)bad.push(`<li><b>${esc(e.nombre)}</b> · ${esc(l)}: ${esc(x.msg)}</li>`)}
+    const bad=[];for(const {e} of rows)for(const [q,l] of F){const x=st.cells[e.id][q];if(chk&&!x.ok&&puedeVerRespuestas())bad.push(`<li><b>${esc(e.nombre)}</b> · ${esc(l)}: ${esc(x.msg)}</li>`)}
     sheet=`<form class="panel stack" id="plSheet">
       <div><div class="eyebrow">Machote de planilla · ${esc(c.name)}</div><h3>Completa la planilla del mes</h3>
       <p class="muted" style="margin:4px 0 0">Calcula cada monto con los parámetros legales y escríbelo en su casilla. Usa dos decimales. Se acepta una diferencia de ₡1 por redondeo.</p></div>
       <div class="tbl"><table class="sheet"><thead><tr><th>Colaborador y datos del mes</th>${F.map(([,l])=>`<th class="r">${esc(l)}</th>`).join("")}${showProc?"<th></th>":""}</tr></thead><tbody>
       ${rows.map(({e,k})=>`<tr><td style="min-width:220px"><b>${esc(e.nombre)}</b><br><small class="muted">${esc(plDatos(e,P))}</small></td>
-        ${F.map(([q,l])=>{const x=st.cells[e.id][q];return `<td class="r ${chk?(x.ok?"cell-ok":"cell-bad"):""}"><input data-sh="${e.id}|${q}" inputmode="decimal" placeholder="0,00" value="${esc((p.sheet[e.id]||{})[q]??"")}" aria-label="${esc(l)} de ${esc(e.nombre)}"></td>`}).join("")}
+        ${F.map(([q,l])=>{const x=st.cells[e.id][q];return `<td class="r ${chk&&puedeVerRespuestas()?(x.ok?"cell-ok":"cell-bad"):""}"><input data-sh="${e.id}|${q}" inputmode="decimal" placeholder="0,00" value="${esc((p.sheet[e.id]||{})[q]??"")}" aria-label="${esc(l)} de ${esc(e.nombre)}"></td>`}).join("")}
         ${showProc?`<td><button type="button" class="btn sm ${APP.plShow===e.id?"primary":"ghost"}" data-pact="show" data-id="${e.id}">${APP.plShow===e.id?"Ocultar":"Procedimiento"}</button></td>`:""}</tr>
         ${showProc&&APP.plShow===e.id?`<tr><td colspan="${F.length+2}" style="background:var(--surface2)">${plProcedure(k,e)}</td></tr>`:""}`).join("")}
       </tbody></table></div>
-      ${chk?`<div class="status ${st.all?"ok":"bad"}"><span class="dot"></span>${st.all?"¡Planilla correcta! Ya puedes procesarla.":`${st.ok} de ${st.total} casillas correctas. Lee las pistas y corrige.`}</div>`:""}
+      ${chk?`<div class="status ${st.all?"ok":"bad"}"><span class="dot"></span>${st.all?"¡Planilla correcta! Ya puedes procesarla.":`${st.ok} de ${st.total} casillas correctas. Revisá tus cálculos y volvé a intentar.`}</div>`:""}
       ${bad.length?`<ul class="hints">${bad.join("")}</ul>`:""}
-      <div class="row"><button class="btn primary" type="submit">Revisar mi planilla</button><span class="muted" style="align-self:center;font-size:.85rem">${showProc?"El botón Procedimiento muestra el cálculo completo de cada colaborador.":"Después de 2 revisiones se habilita el procedimiento de cada colaborador."}</span></div>
+      <div class="row"><button class="btn primary" type="submit">Revisar mi planilla</button><span class="muted" style="align-self:center;font-size:.85rem">${showProc?"El botón Procedimiento muestra el cálculo completo de cada colaborador.":"Revisá tus cálculos con los parámetros legales y volvé a intentar."}</span></div>
     </form>`;
   } else {
     sheet=`<div class="kpis">${kp("Salarios brutos",S(k=>k.bruto))}${kp("Deducciones obreras",S(k=>k.totObr))}${kp("Renta retenida",S(k=>k.renta))}${kp("Neto a pagar",S(k=>k.neto),true)}${kp("Cargas patronales",S(k=>k.totPat))}${kp("Provisiones",S(k=>k.totProv))}${kp("Costo total del patrono",S(k=>k.costo))}</div>
@@ -2043,14 +2043,14 @@ function plMachoteAsiento(c,p,run){
     <div><div class="eyebrow">Machote del asiento · piensa antes de registrar</div><h3>Asiento de la planilla de ${esc(plRunLabel(run))}</h3>
     <p class="muted" style="margin:4px 0 0">Estas son las cuentas que intervienen. Para cada una decide si va al <b class="dcol">Debe</b> o al <b class="hcol">Haber</b> y calcula el monto con los datos de tu planilla.</p></div>
     <div class="tbl"><table class="sheet"><thead><tr><th>Cuenta</th><th class="r">Debe</th><th class="r">Haber</th><th></th></tr></thead><tbody>
-    ${codes.map(code=>{const x=chk?.[code];return `<tr class="${x?(x.ok?"cell-ok":"cell-bad"):""}"><td><span class="num">${esc(code)}</span> · ${esc(name(code))}${x&&!x.ok?`<div class="qfb bad" style="margin-top:6px">${esc(x.msg)}</div>`:""}</td>
+    ${codes.map(code=>{const x=chk?.[code];return `<tr class="${x&&puedeVerRespuestas()?(x.ok?"cell-ok":"cell-bad"):""}"><td><span class="num">${esc(code)}</span> · ${esc(name(code))}${x&&!x.ok&&puedeVerRespuestas()?`<div class="qfb bad" style="margin-top:6px">${esc(x.msg)}</div>`:""}</td>
       <td class="r"><input data-ma="${run.id}|${code}|d" inputmode="decimal" placeholder="0,00" value="${esc(val(code,"d"))}" aria-label="Debe de ${esc(name(code))}"></td>
       <td class="r"><input data-ma="${run.id}|${code}|c" inputmode="decimal" placeholder="0,00" value="${esc(val(code,"c"))}" aria-label="Haber de ${esc(name(code))}"></td>
-      <td class="ic" style="font-weight:800;color:${x?(x.ok?"var(--ok)":"var(--bad)"):"var(--muted)"}">${x?(x.ok?"✓":"✗"):""}</td></tr>`}).join("")}
+      <td class="ic" style="font-weight:800;color:${x&&puedeVerRespuestas()?(x.ok?"var(--ok)":"var(--bad)"):"var(--muted)"}">${x&&puedeVerRespuestas()?(x.ok?"✓":"✗"):""}</td></tr>`}).join("")}
     <tr class="entry-desc"><td colspan="4">p/r Registro de la planilla de ${esc(plRunLabel(run))} · ${run.res.length} colaborador(es)</td></tr>
     <tr class="tot"><td>Tus sumas</td><td class="r num dcol" id="maD">${money(D)}</td><td class="r num hcol" id="maC">${money(C)}</td><td></td></tr></tbody></table></div>
     <div class="status ${r2(D)===r2(C)&&D>0?"ok":"bad"}" id="maSt"><span class="dot"></span>${r2(D)===r2(C)&&D>0?"Tus sumas son iguales":"Tus sumas todavía no son iguales"}</div>
-    ${chk?`<div class="status ${allOk?"ok":"bad"}"><span class="dot"></span>${allOk?"¡Asiento correcto! Ya puedes registrarlo en el Libro Diario.":`${codes.filter(k=>chk[k].ok).length} de ${codes.length} cuentas correctas. Lee las pistas en rojo.`}</div>`:""}
+    ${chk?`<div class="status ${allOk?"ok":"bad"}"><span class="dot"></span>${allOk?"¡Asiento correcto! Ya puedes registrarlo en el Libro Diario.":`${codes.filter(k=>chk[k].ok).length} de ${codes.length} cuentas correctas. Revisá tus montos y volvé a intentar.`}</div>`:""}
     <div class="row">
       ${allOk?`<button type="button" class="btn primary" data-pact="register" data-id="${run.id}">Registrar en el Libro Diario ✓</button>`:`<button class="btn primary" type="submit">Revisar mi asiento</button>`}
       ${puedeVerRespuestas()&&!allOk&&(run.intentos||0)>=3?`<button type="button" class="btn ghost" data-pact="showSol">${APP.plShowSol?"Ocultar la solución":"Ver la solución"}</button>`:""}
