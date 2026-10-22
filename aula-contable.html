@@ -673,7 +673,7 @@ function revisionDePractica(g){
   const st=g.rows.map(({w,c})=>{let R=null;try{R=plResumen([c])}catch(e){}
     const avance=!!(R&&(R.asientos>0||R.casOk>0||R.asPlIntentos>0||R.evals>0||R.practicas>0));
     const eM=c.payroll&&c.payroll.evalM&&c.payroll.evalM.resultado||null,eA=c.payroll&&c.payroll.evalA&&c.payroll.evalA.resultado||null;
-    return {w,R,avance,eM,eA,machote:!!(R&&R.casTot>0&&R.casOk===R.casTot),asiento:!!(R&&R.asPlOk>0),ev:R&&R.evalBest!=null?R.evalBest:null,casPct:R&&R.casTot?pct(R.casOk,R.casTot):0}});
+    return {w,c,R,avance,eM,eA,machote:!!(R&&R.casTot>0&&R.casOk===R.casTot),asiento:!!(R&&R.asPlOk>0),ev:R&&R.evalBest!=null?R.evalBest:null,casPct:R&&R.casTot?pct(R.casOk,R.casTot):0}});
   const avg=a=>a.length?Math.round(a.reduce((t,x)=>t+x.pct,0)/a.length)+" %":"—";
   const aM=st.filter(x=>x.eM).map(x=>x.eM),aA=st.filter(x=>x.eA).map(x=>x.eA);
   const n=st.length,av=st.filter(x=>x.avance).length,ma=st.filter(x=>x.machote).length,as=st.filter(x=>x.asiento).length;
@@ -685,7 +685,7 @@ function revisionDePractica(g){
    <div class="row" style="gap:8px;flex-wrap:wrap">${chip("Con avance",`${av}/${n}`,pct(av,n)+" %")}${chip("Machote completo",`${ma}/${n}`,pct(ma,n)+" %")}${chip("Asiento resuelto",`${as}/${n}`,pct(as,n)+" %")}${chip("Evaluación (promedio)",prom!=null?prom+" %":"—",evs.length+" evaluó")}${chip("Eval. machote (promedio)",avg(aM),aM.length+"/"+n+" entregaron")}${chip("Eval. asiento (promedio)",avg(aA),aA.length+"/"+n+" entregaron")}</div>
    <div class="tbl"><table><thead><tr><th>Estudiante</th><th>Machote</th><th>Asiento planilla</th><th>Evaluación</th><th>Eval. machote</th><th>Eval. asiento</th><th>Diagnóstico</th></tr></thead><tbody>
    ${ordenados.map(x=>{const dx=!x.avance?'<span class="chip tG" style="font-size:.7rem">⏳ Sin empezar</span>':(x.machote&&x.asiento&&x.ev!=null?'<span class="chip tI" style="font-size:.7rem">✓ Completa</span>':'<span class="chip tG" style="font-size:.7rem">En proceso</span>');
-     return `<tr><td><b>${esc(x.w.nombre)}</b><br><span class="code">${esc(x.w.id)}</span></td><td class="num">${x.R&&x.R.casTot?x.casPct+" %":"—"}</td><td>${x.asiento?"✓ Resuelto":(x.R&&x.R.asPlIntentos?x.R.asPlIntentos+" intento(s)":"—")}</td><td class="num">${x.ev!=null?x.ev+" %":"—"}</td><td>${evBadge(x.eM)}</td><td>${evBadge(x.eA)}</td><td>${dx}</td></tr>`}).join("")}
+     return `<tr><td><b>${esc(x.w.nombre)}</b><br><span class="code">${esc(x.w.id)}</span></td><td class="num">${x.R&&x.R.casTot?x.casPct+" %":"—"}</td><td>${x.asiento?"✓ Resuelto":(x.R&&x.R.asPlIntentos?x.R.asPlIntentos+" intento(s)":"—")}</td><td class="num">${x.ev!=null?x.ev+" %":"—"}</td><td>${evBadge(x.eM)}${x.eM?` <button class="btn sm ghost" data-act="evDetalle" data-key="${esc(g.key)}" data-est="${esc(x.w.id)}" data-co="${esc(x.c.id)}" data-k="machote" title="Ver detalle">🔍</button>`:""}</td><td>${evBadge(x.eA)}${x.eA?` <button class="btn sm ghost" data-act="evDetalle" data-key="${esc(g.key)}" data-est="${esc(x.w.id)}" data-co="${esc(x.c.id)}" data-k="asiento" title="Ver detalle">🔍</button>`:""}</td><td>${dx}</td></tr>${(()=>{const d=APP.evDet;if(!d||d.est!==x.w.id||d.co!==x.c.id)return "";const r=d.k==="machote"?x.eM:x.eA;return r?`<tr><td colspan="6" style="background:var(--surface2)"><b>${d.k==="machote"?"Evaluación del machote":"Evaluación del asiento"} · ${esc(x.w.nombre)} · ${r.pct} % (${r.ok}/${r.total})</b>${evDetalleHTML(r,true)}</td></tr>`:""})()}`}).join("")}
    </tbody></table></div></div>`;
 }
 function viewPorEmpresa(){
