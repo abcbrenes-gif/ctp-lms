@@ -1794,6 +1794,7 @@ function plViewPractica(c,p){
   const e=APP.plCase,k=plCalc(e,P),F=plFields(k),ev=APP.plMode==="evaluacion",ch=APP.plChecked;
   const ok=ch?F.filter(([id])=>ch[id]?.ok).length:0;
   return `<div class="stack">
+   ${!isTeacher()&&!APP.demo&&p.employees.length?plSheetFormHTML(c,p):""}
    <div class="row" style="align-items:center"><div class="tabs" style="margin:0">
      ${isTeacher()||APP.demo?`<button class="tab ${!ev?"on":""}" data-pact="mode" data-m="practica">Modo práctica</button>`:""}
      <button class="tab ${ev?"on":""}" data-pact="mode" data-m="evaluacion">Modo evaluación · una oportunidad</button></div>
@@ -1911,17 +1912,11 @@ function plSheetStatus(p){
 }
 const plDatos=(e,P)=>[`Base mensual ${money(e.base)}`,`jornada ${String(((P?.jornadas||[]).find(j=>j.id===(e.jornada||"diurna"))||{nombre:"diurna"}).nombre).toLowerCase()}`,`pago ${String(((P?.pagos||[]).find(x=>x.id===(e.tipoPago||"mensual"))||{nombre:"mensual"}).nombre).toLowerCase()}`,...plAct(P?.rebajos).filter(r=>e.rebajos?.[r.id]?.on).map(r=>r.nombre.split("(")[0].trim()+" "+(r.modo==="pct"?pct(e.rebajos[r.id].valor??r.valor):money(e.rebajos[r.id].valor??r.valor))),e.horasExtra?`${e.horasExtra} h extra`:"",e.comisiones?`comisiones ${money(e.comisiones)}`:"",e.diasAusencia?`${e.diasAusencia} día(s) de ausencia`:"",e.horasTarde?`${e.horasTarde} h tardía`:"",e.hijos?`${e.hijos} hijo(s)`:"",e.conyuge?"cónyuge":""].filter(Boolean).join(" · ");
 
-function plViewPlanilla(c,p){
-  const P=p.params,ed=APP.plEditEmp?p.employees.find(x=>x.id===APP.plEditEmp):null,M=plMachote();
-  const rows=p.employees.map(e=>({e,k:plCalc(e,P)}));
-  const S=f=>r2(rows.reduce((s,r)=>s+f(r.k),0));
-  const kp=(l,v,hl)=>`<div class="kpi ${hl?"hl":""}"><small>${l}</small><b>${money(v)}</b></div>`;
-  const nextPer=(()=>{const last=p.runs.map(r=>r.periodo).sort().pop();if(!last)return `${c.period}-01`;let [y,m]=last.split("-").map(Number);m++;if(m>12){m=1;y++}return `${y}-${String(m).padStart(2,"0")}`})();
-  const v=(id,val)=>`value="${esc(val??"")}"`;
-  const st=M&&rows.length?plSheetStatus(p):null,chk=APP.plSheetChk,showProc=puedeVerRespuestas()&&chk&&(p.sheetIntentos||0)>=2;
+function plSheetFormHTML(c,p){
+  const P=p.params,rows=p.employees.map(e=>({e,k:plCalc(e,P)}));
+  if(!rows.length)return "";
+  const st=plSheetStatus(p),chk=APP.plSheetChk,showProc=puedeVerRespuestas()&&chk&&(p.sheetIntentos||0)>=2;
   let sheet="";
-  if(!rows.length)sheet=`<div class="empty"><h3>No hay colaboradores en la planilla</h3><p>Agrega el primero con el formulario de abajo o carga colaboradores de ejemplo para practicar.</p>${plSampleBtn}</div>`;
-  else if(M){
     const F=plSheetFields(rows[0].k,rows.some(r=>r.k.totReb>0));
     const bad=[];for(const {e} of rows)for(const [q,l] of F){const x=st.cells[e.id][q];if(chk&&!x.ok&&puedeVerRespuestas())bad.push(`<li><b>${esc(e.nombre)}</b> · ${esc(l)}: ${esc(x.msg)}</li>`)}
     sheet=`<form class="panel stack" id="plSheet">
@@ -1937,6 +1932,20 @@ function plViewPlanilla(c,p){
       ${bad.length?`<ul class="hints">${bad.join("")}</ul>`:""}
       <div class="row"><button class="btn primary" type="submit">${puedeVerRespuestas()?"Revisar mi planilla":"Guardar la planilla"}</button><span class="muted" style="align-self:center;font-size:.85rem">${showProc?"El botón Procedimiento muestra el cálculo completo de cada colaborador.":"Revisá tus cálculos con los parámetros legales y volvé a intentar."}</span></div>
     </form>`;
+  return sheet;
+}
+function plViewPlanilla(c,p){
+  const P=p.params,ed=APP.plEditEmp?p.employees.find(x=>x.id===APP.plEditEmp):null,M=plMachote();
+  const rows=p.employees.map(e=>({e,k:plCalc(e,P)}));
+  const S=f=>r2(rows.reduce((s,r)=>s+f(r.k),0));
+  const kp=(l,v,hl)=>`<div class="kpi ${hl?"hl":""}"><small>${l}</small><b>${money(v)}</b></div>`;
+  const nextPer=(()=>{const last=p.runs.map(r=>r.periodo).sort().pop();if(!last)return `${c.period}-01`;let [y,m]=last.split("-").map(Number);m++;if(m>12){m=1;y++}return `${y}-${String(m).padStart(2,"0")}`})();
+  const v=(id,val)=>`value="${esc(val??"")}"`;
+  const st=M&&rows.length?plSheetStatus(p):null,chk=APP.plSheetChk,showProc=puedeVerRespuestas()&&chk&&(p.sheetIntentos||0)>=2;
+  let sheet="";
+  if(!rows.length)sheet=`<div class="empty"><h3>No hay colaboradores en la planilla</h3><p>Agrega el primero con el formulario de abajo o carga colaboradores de ejemplo para practicar.</p>${plSampleBtn}</div>`;
+  else if(M){
+    sheet=plSheetFormHTML(c,p);
   } else {
     sheet=`<div class="kpis">${kp("Salarios brutos",S(k=>k.bruto))}${kp("Deducciones obreras",S(k=>k.totObr))}${kp("Renta retenida",S(k=>k.renta))}${kp("Neto a pagar",S(k=>k.neto),true)}${kp("Cargas patronales",S(k=>k.totPat))}${kp("Provisiones",S(k=>k.totProv))}${kp("Costo total del patrono",S(k=>k.costo))}</div>
    ${APP.readOnly&&p.sheetIntentos?`<div class="status ok"><span class="dot"></span>El estudiante revisó su machote de planilla ${p.sheetIntentos} vez/veces.</div>`:""}
