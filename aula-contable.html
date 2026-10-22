@@ -622,6 +622,30 @@ function viewSeguimiento(l){
    </tbody></table></div>
    <p class="note" style="margin:0">Cada fila muestra la entrega más reciente de cada estudiante. Para ver el avance de hoy, pídeles que generen su código de entrega al final de la clase.</p>`;
 }
+function viewRevisionGeneral(grupos){
+  const prac=grupos.filter(g=>g.cat==="practica");
+  if(!prac.length)return `<div class="panel"><p class="muted" style="margin:0">Todavía no hay prácticas de estudiantes para revisar.</p></div>`;
+  const pct=(n,t)=>t?Math.round(100*n/t):0;
+  const filas=prac.map(g=>{
+    const st=g.rows.map(({w,c})=>{let R=null;try{R=plResumen([c])}catch(e){}
+      const avance=!!(R&&(R.asientos>0||R.casOk>0||R.asPlIntentos>0||R.evals>0||R.practicas>0));
+      const machote=!!(R&&R.casTot>0&&R.casOk===R.casTot);
+      return {w,R,avance,machote,asiento:!!(R&&R.asPlOk>0),eval:R&&R.evalBest!=null?R.evalBest:null,sol:!!(R&&R.solucion)}});
+    const n=st.length,av=st.filter(x=>x.avance).length,ma=st.filter(x=>x.machote).length,as=st.filter(x=>x.asiento).length;
+    const evs=st.filter(x=>x.eval!=null),prom=evs.length?Math.round(evs.reduce((t,x)=>t+x.eval,0)/evs.length):null;
+    const sinEmpezar=st.filter(x=>!x.avance).map(x=>x.w.nombre).sort();
+    const vieronSol=st.filter(x=>x.sol).length;
+    return {g,n,av,ma,as,evs:evs.length,prom,sinEmpezar,vieronSol};
+  });
+  const cel=(n,t)=>`<td><b class="num">${n}/${t}</b> <small class="muted">${pct(n,t)} %</small></td>`;
+  return `<div class="panel stack" style="border:2px solid var(--pop)"><h3>📊 Revisión general de las prácticas</h3>
+   <div class="tbl"><table><thead><tr><th>Práctica</th><th>Nivel</th><th>Con avance</th><th>Machote completo</th><th>Asiento de planilla resuelto</th><th>Evaluación (promedio)</th><th>Vieron la solución</th></tr></thead><tbody>
+   ${filas.map(f=>{const nivel=(f.g.rows[0]&&f.g.rows[0].c.nivelPractica)||"—";return `<tr><td><b>${esc(f.g.name)}</b><br><small class="muted">${f.n} estudiante(s)</small></td><td class="num">${esc(nivel)}</td>${cel(f.av,f.n)}${cel(f.ma,f.n)}${cel(f.as,f.n)}
+     <td>${f.prom!=null?`<b class="num">${f.prom} %</b> <small class="muted">${f.evs} evaluó</small>`:'<small class="muted">—</small>'}</td><td class="num">${f.vieronSol}</td></tr>`}).join("")}
+   </tbody></table></div>
+   ${filas.filter(f=>f.sinEmpezar.length).map(f=>`<details><summary style="cursor:pointer;font-size:.9rem">⏳ ${esc(f.g.name)}: ${f.sinEmpezar.length} estudiante(s) sin empezar</summary><p class="muted" style="margin:6px 0 0">${f.sinEmpezar.map(esc).join(" · ")}</p></details>`).join("")}
+   <p class="note" style="margin:0">"Con avance" = tiene asientos, casillas del machote, asiento de planilla o evaluaciones registrados. Usa el filtro de sección para ver una sola clase.</p></div>`;
+}
 function viewPorEmpresa(){
   const d=APP.empData;
   if(!d)return '<div class="loading">Cargando empresas de los estudiantes…</div>';
@@ -634,7 +658,9 @@ function viewPorEmpresa(){
   const bar=(n,t)=>{const v=t?Math.round(100*n/t):0;return `<div class="pbar" title="${v} %"><span style="width:${v}%;background:${v===100?"var(--ok)":v>=60?"var(--pop)":"var(--bad)"}"></span></div><small class="muted num">${n}/${t}</small>`};
   const secs=[...new Set(d.map(w=>w.seccion).filter(Boolean))].sort();
   if(!grupos.length)return `<div class="empty"><h3>Todavía no hay empresas de estudiantes</h3><p>Aparecen aquí apenas un estudiante cree o reciba una empresa en Aula de Conta.</p></div>`;
-  return `<div class="row" style="align-items:flex-end;gap:10px"><div class="field" style="flex:0 1 200px"><label for="empSec">Sección</label><select id="empSec"><option value="">Todas</option>${secs.map(x=>`<option ${x===qs?"selected":""}>${esc(x)}</option>`).join("")}</select></div></div>
+  return `<div class="row" style="align-items:flex-end;gap:10px"><div class="field" style="flex:0 1 200px"><label for="empSec">Sección</label><select id="empSec"><option value="">Todas</option>${secs.map(x=>`<option ${x===qs?"selected":""}>${esc(x)}</option>`).join("")}</select></div>
+   <button class="btn ${APP.revGeneral?"primary":"pop"}" data-act="toggleRevGeneral">📊 Revisión general de prácticas</button></div>
+   ${APP.revGeneral?viewRevisionGeneral(grupos):""}
    ${grupos.map(g=>{
      const rows=g.rows.filter(r=>!q||(r.w.nombre+" "+r.w.id).toLowerCase().includes(q)).sort((a,b)=>a.w.nombre.localeCompare(b.w.nombre));
      const entregadas=g.rows.filter(r=>r.c.entregado).length;
@@ -2185,6 +2211,7 @@ document.addEventListener("click",async e=>{
   if(a==="viewEntrega"){const e2=(APP.entregas||[]).find(x=>x.id===b.dataset.id);
     APP.viewing={id:e2.id,nombre:e2.nombre,fecha:e2.fecha};APP.readOnly=true;
     APP.companies=await APP.store.entregaCompanies(e2.id);APP.activeId=sortCos(APP.companies)[0]?.id||null;APP.view="balanza";resetDraft();render();return}
+  if(a==="toggleRevGeneral"){APP.revGeneral=!APP.revGeneral;render();return}
   if(a==="delPracticaEst"){armDelete(b,async()=>{try{await APP.store.deleteEmpresaEstudiante(b.dataset.est,b.dataset.co);toast("Práctica eliminada");loadEmpData()}catch(err){toast("No se pudo eliminar")}});return}
   if(a==="delPracticaTodos"){armDelete(b,async()=>{try{
     const key=b.dataset.key;let n=0;
