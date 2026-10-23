@@ -427,11 +427,22 @@ const puedeVerRespuestas=()=>isTeacher()||!!APP.demo;
 const co=()=>APP.companies.find(c=>c.id===APP.activeId)||APP.companies[0]||null;
 /* Categoría del trabajo: "practica" se puede repetir las veces que haga falta;
    "tarea" (trabajo cotidiano) queda bloqueada en cuanto el estudiante la entrega. */
+/* Horario de la práctica (inicio y cierre): fuera del horario el estudiante puede ver pero no guardar ni entregar */
+const aplicaVentana=c=>!!(c&&c.categoria==="practica"&&!isTeacher()&&!APP.comoEstudiante&&!APP.demo);
+function ventanaEstado(c){
+  if(!aplicaVentana(c))return null;const v=c.evalCfg&&c.evalCfg.ventana;if(!v||(!v.inicio&&!v.fin))return null;
+  const now=Date.now(),ini=v.inicio?new Date(v.inicio).getTime():null,fin=v.fin?new Date(v.fin).getTime():null;
+  const f=x=>new Date(x).toLocaleString("es-CR",{dateStyle:"full",timeStyle:"short"});
+  if(ini&&now<ini)return {estado:"antes",msg:"Esta práctica todavía no está abierta. Abre el "+f(v.inicio)+"."+(v.fin?" Cierra el "+f(v.fin)+".":"")};
+  if(fin&&now>fin)return {estado:"cerrada",msg:"Esta práctica ya cerró el "+f(v.fin)+". Puedes ver tu trabajo, pero ya no se puede guardar ni entregar."};
+  return {estado:"abierta",msg:"Práctica abierta"+(v.fin?" hasta el "+f(v.fin)+".":".")};
+}
+const ventanaBloqueada=c=>{const e=ventanaEstado(c);return !!e&&e.estado!=="abierta"};
 const tareaBloqueada=c=>!isTeacher()&&!!(c&&c.categoria==="tarea"&&c.entregado);
 
 /* Guardado agrupado: una escritura a la vez */
 const pending=new Set();let saveTimer=null,flushing=false;
-function touch(c){if(APP.readOnly||!c)return;pending.add(c.id);setSave("Guardando…");clearTimeout(saveTimer);saveTimer=setTimeout(flush,600)}
+function touch(c){if(APP.readOnly||!c)return;if(ventanaBloqueada(c)){toast("⏰ Fuera del horario de la práctica: no se puede guardar");return}pending.add(c.id);setSave("Guardando…");clearTimeout(saveTimer);saveTimer=setTimeout(flush,600)}
 async function flush(){
   if(!APP.me||APP.demo||APP.readOnly||!pending.size)return;
   if(flushing){clearTimeout(saveTimer);saveTimer=setTimeout(flush,400);return}
@@ -526,6 +537,8 @@ function render(){
   if(!APP.me){main.innerHTML='<div class="empty"><h3>No hay sesión</h3><p>Volvé a <a href="./index.html">ctp-lms</a> y entrá primero ahí.</p></div>';return}
   APP.readOnly=!!APP.viewing||(APP.view!=="empresas"&&APP.view!=="entregar"&&tareaBloqueada(co()));
   let html=pv;
+  const vEst=ventanaEstado(co());
+  if(vEst)html+=`<div class="banner" style="${vEst.estado==="abierta"?"":"background:var(--bad,#b3261e);color:#fff"}"><span>⏰ ${esc(vEst.msg)}</span></div>`;
   if(APP.demo)html+=`<div class="banner"><span>Modo demostración: practica libremente, los cambios no se guardan.</span><button class="btn sm" data-act="logout">Salir de la demostración</button></div>`;
   if(APP.viewing)html+=`<div class="banner"><span>Revisando la entrega de ${esc(APP.viewing.nombre)} · ${esc(fmtDate(APP.viewing.fecha))} (solo lectura)</span><button class="btn sm" data-act="stopViewing">Volver a las entregas</button></div>`;
   if(!isUnlocked(APP.view))html+=viewLocked(APP.view);
@@ -534,6 +547,8 @@ function render(){
   else if(!co()&&APP.view!=="empresas")html+=`<div class="empty"><h3>Primero crea una empresa</h3><p>Todo el ciclo contable se trabaja dentro de una empresa.</p><button class="btn pop" data-go="empresas">Ir a Empresas</button></div>`;
   else html+=(VIEWS[APP.view]||VIEWS.empresas)();
   main.innerHTML=html;
+  if(vEst&&vEst.estado!=="abierta")main.querySelectorAll("input,select,textarea,button[type=submit]").forEach(el=>{if(!el.closest(".banner"))el.disabled=true});
+  APP.ventanaKey=vEst?vEst.estado:"";
 }
 function acctOptions(sel){
   const groups={};for(const a of sortAcc(co().accounts))(groups[a.type]??=[]).push(a);
@@ -737,6 +752,12 @@ function evControlesHTML(g){
    <div class="panel stack" style="margin:8px 0;padding:10px"><b>✅ Solucionario y cálculos</b><small class="muted">Respuestas correctas de cada colaborador con el paso a paso. Los estudiantes solo lo ven cuando lo publicás.</small>
     ${(()=>{const o=on("solucion"),all=o===n&&n>0;return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><button class="btn sm ${all?"primary":"pop"}" data-act="evToggle" data-key="${esc(g.key)}" data-k="solucion" data-on="${all?0:1}">${all?"✓ Publicado a estudiantes · Ocultar":"📢 Publicar solucionario a estudiantes"}</button><small class="muted">${o}/${n} estudiante(s) lo pueden ver</small></div>`})()}
     ${(()=>{const o=on("pdf"),all=o===n&&n>0;return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><button class="btn sm ${all?"primary":"pop"}" data-act="evToggle" data-key="${esc(g.key)}" data-k="pdf" data-on="${all?0:1}">${all?"✓ PDF habilitado para descargar · Deshabilitar":"📄 Habilitar descarga del PDF de resultados"}</button><small class="muted">${o}/${n} estudiante(s) pueden descargar su PDF (incluye las soluciones)</small></div>`})()}
+    <div class="panel stack" style="padding:10px" data-ventana="${esc(g.key)}"><b>⏰ Horario de la práctica</b><small class="muted">Fuera del horario el estudiante puede ver pero no guardar ni entregar. Aplica a ${APP.empSec?"la sección "+esc(APP.empSec):"todas las secciones"}.</small>
+     ${(()=>{const v=rows[0]&&rows[0].c.evalCfg&&rows[0].c.evalCfg.ventana||{};const loc=iso=>{if(!iso)return "";const d=new Date(iso);const z=n=>String(n).padStart(2,"0");return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`};
+      return `<div class="row" style="gap:10px;align-items:flex-end;flex-wrap:wrap"><div class="field" style="flex:0 1 220px"><label>Inicio</label><input type="datetime-local" data-vi value="${loc(v.inicio)}"></div><div class="field" style="flex:0 1 220px"><label>Terminación</label><input type="datetime-local" data-vf value="${loc(v.fin)}"></div>
+      <button class="btn sm pop" data-act="ventanaGuardar" data-key="${esc(g.key)}">Guardar horario</button>${(v.inicio||v.fin)?`<button class="btn sm ghost" data-act="ventanaQuitar" data-key="${esc(g.key)}">Quitar horario</button>`:""}</div>
+      <small class="muted">${v.inicio||v.fin?"Actual: "+(v.inicio?"abre "+esc(fmtDate(v.inicio)):"sin inicio")+" · "+(v.fin?"cierra "+esc(fmtDate(v.fin)):"sin cierre"):"Sin horario: la práctica está siempre abierta."}</small>`})()}
+    </div>
     <details><summary style="cursor:pointer;font-weight:700">👁 Ver solucionario y cálculos</summary>${n?solucionarioHTML(rows[0].c):""}</details></div>`;
 }
 function revisionDePractica(g){
@@ -2448,6 +2469,12 @@ document.addEventListener("click",async e=>{
     APP.revOpen=APP.revOpen||{};APP.revOpen[key]=true;await loadEmpData();
     const hechas=evRowsDeGrupo(key).filter(({c})=>!!(c.evalCfg&&c.evalCfg[k]&&c.evalCfg[k].on)===on).length;
     if(rows.length&&!hechas)toast("⚠️ El cambio no se guardó en el servidor (0 de "+rows.length+"). Avisame para revisar los permisos de la base de datos.")})();return}
+  if(a==="ventanaGuardar"||a==="ventanaQuitar"){(async()=>{const key=b.dataset.key,box=b.closest("[data-ventana]");const rows=evRowsDeGrupo(key);b.disabled=true;
+    let ini=null,fin=null;if(a==="ventanaGuardar"){const vi=box.querySelector("[data-vi]").value,vf=box.querySelector("[data-vf]").value;ini=vi?new Date(vi).toISOString():null;fin=vf?new Date(vf).toISOString():null;
+      if(!ini&&!fin){toast("Elige al menos una fecha y hora");b.disabled=false;return}if(ini&&fin&&new Date(fin)<=new Date(ini)){toast("La terminación debe ser después del inicio");b.disabled=false;return}}
+    try{for(const {w,c} of rows)await APP.store.updateEmpresaEstudiante(w.id,c.id,x=>{const cfg=evCfg(x);if(a==="ventanaQuitar")delete cfg.ventana;else cfg.ventana={inicio:ini,fin}});
+      toast(a==="ventanaQuitar"?"Horario quitado":"Horario guardado para "+rows.length+" estudiante(s)")}catch(err){toast("No se pudo guardar el horario: "+(err&&err.message||err))}
+    APP.revOpen=APP.revOpen||{};APP.revOpen[key]=true;await loadEmpData()})();return}
   if(a==="evResetTodos"){armDelete(b,async()=>{const key=b.dataset.key,k=b.dataset.k;const rows=evRowsDeGrupo(key);
     try{for(const {w,c} of rows)await APP.store.updateEmpresaEstudiante(w.id,c.id,x=>{const cfg=evCfg(x);cfg[k].reset=Date.now();const pl=x.payroll;if(pl){if(k==="machote")pl.evalM=null;else pl.evalA=null}});toast("Intentos borrados: pueden repetirla")}catch(err){toast("No se pudo actualizar")}
     APP.revOpen=APP.revOpen||{};APP.revOpen[key]=true;loadEmpData()});return}
@@ -2611,6 +2638,10 @@ async function boot(){
   await enter({usuario:session.id,nombre:session.nombre||"Estudiante",rol:"estudiante"});
 }
 boot();
+
+document.addEventListener("submit",e=>{const c=co();if(ventanaBloqueada(c)){e.preventDefault();e.stopImmediatePropagation();toast("⏰ Fuera del horario de la práctica: no se puede guardar ni entregar")}},true);
+setInterval(async()=>{try{if(!APP.me||isTeacher()||APP.comoEstudiante||APP.demo)return;const c=co();if(!c||c.categoria!=="practica")return;
+  await evRefrescarCfg();const e=ventanaEstado(c),k=e?e.estado:"";if(k!==APP.ventanaKey&&!(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)))render()}catch(err){}},30000);
 </script>
 
 </body></html>
