@@ -521,7 +521,8 @@ function renderChrome(){
 function render(){
   renderChrome();
   const main=document.getElementById("main");
-  const pv=APP.comoEstudiante?`<div class="banner"><span>👀 Estás dentro de la cuenta de ${esc(APP.me.nombre)} (modo profesor) — lo que agregues o cambies se guarda en la cuenta real del estudiante.</span><button class="btn sm" data-act="volverPerfilEstudiante">Volver al perfil</button></div>`:"";
+  const pv=APP.comoEstudiante?`<div class="banner"><span>👀 Estás dentro de la cuenta de ${esc(APP.me.nombre)} (modo profesor) — lo que agregues o cambies se guarda en la cuenta real del estudiante.</span><button class="btn sm" data-act="volverPerfilEstudiante">Volver al perfil</button></div>
+   <div class="panel" style="margin:8px 0"><b>📄 PDF de resultados de ${esc(APP.me.nombre)}</b>${(()=>{const l=(APP.companies||[]).filter(x=>x.payroll&&x.payroll.pdfResultados&&x.payroll.pdfResultados.url);return l.length?l.map(x=>`<div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span>${esc(x.name)}</span><a class="btn sm primary" href="${esc(x.payroll.pdfResultados.url)}" target="_blank" rel="noopener">📄 Abrir PDF</a><small class="muted">Guardado el ${esc(fmtDate(x.payroll.pdfResultados.fecha))} · ${x.payroll.pdfResultados.ok}/${x.payroll.pdfResultados.total} casillas</small></div>`).join(""):'<div class="muted" style="margin-top:6px">Este estudiante todavía no ha guardado ninguna planilla, por eso no hay PDF.</div>'})()}</div>`:"";
   if(!APP.me){main.innerHTML='<div class="empty"><h3>No hay sesión</h3><p>Volvé a <a href="./index.html">ctp-lms</a> y entrá primero ahí.</p></div>';return}
   APP.readOnly=!!APP.viewing||(APP.view!=="empresas"&&APP.view!=="entregar"&&tareaBloqueada(co()));
   let html=pv;
