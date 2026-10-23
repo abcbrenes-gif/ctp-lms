@@ -742,23 +742,25 @@ function solucionarioHTML(c,paraEstudiante){
     <tr class="tot"><td colspan="2">Sumas iguales</td><td class="r num">${money(r2(lines.reduce((t,l)=>t+l.d,0)),false)}</td><td class="r num">${money(r2(lines.reduce((t,l)=>t+l.c,0)),false)}</td></tr></tbody></table></div></details>
   </div>`;
 }
-function evControlesHTML(g){
+function evControlesHTML(g,tab){
   if(g.cat!=="practica")return "";
   const rows=g.rows,n=rows.length;
   const on=k=>rows.filter(({c})=>c.evalCfg&&c.evalCfg[k]&&c.evalCfg[k].on).length;
   const btn=(k,label)=>{const o=on(k),all=o===n&&n>0;
     return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><button class="btn sm ${all?"primary":"pop"}" data-act="evToggle" data-key="${esc(g.key)}" data-k="${k}" data-on="${all?0:1}">${all?"✓ Habilitada":"Habilitar"} · ${label}</button><small class="muted">${o}/${n} estudiante(s) con la evaluación habilitada</small>${o?`<button class="btn sm ghost" data-act="evResetTodos" data-key="${esc(g.key)}" data-k="${k}" title="Borra los intentos y deja que la repitan">↺ Habilitar de nuevo a todos</button>`:""}</div>`};
-  return `<div class="panel stack" style="margin:8px 0;padding:10px"><b>📝 Evaluaciones de esta práctica</b><small class="muted">Una sola oportunidad, sin pistas. Se aplican a ${APP.empSec?"la sección "+esc(APP.empSec):"todas las secciones"} (usá el filtro de sección).</small>${btn("machote","Evaluación del machote")}${btn("asiento","Evaluación de asientos")}</div>
-   <div class="panel stack" style="margin:8px 0;padding:10px"><b>✅ Solucionario y cálculos</b><small class="muted">Respuestas correctas de cada colaborador con el paso a paso. Los estudiantes solo lo ven cuando lo publicás.</small>
+  const EV=`<div class="panel stack" style="margin:8px 0;padding:10px"><b>📝 Evaluaciones de esta práctica</b><small class="muted">Una sola oportunidad, sin pistas. Se aplican a ${APP.empSec?"la sección "+esc(APP.empSec):"todas las secciones"} (usá el filtro de sección).</small>${btn("machote","Evaluación del machote")}${btn("asiento","Evaluación de asientos")}</div>`;
+  const SOL=`   <div class="panel stack" style="margin:8px 0;padding:10px"><b>✅ Solucionario y cálculos</b><small class="muted">Respuestas correctas de cada colaborador con el paso a paso. Los estudiantes solo lo ven cuando lo publicás.</small>
     ${(()=>{const o=on("solucion"),all=o===n&&n>0;return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><button class="btn sm ${all?"primary":"pop"}" data-act="evToggle" data-key="${esc(g.key)}" data-k="solucion" data-on="${all?0:1}">${all?"✓ Publicado a estudiantes · Ocultar":"📢 Publicar solucionario a estudiantes"}</button><small class="muted">${o}/${n} estudiante(s) lo pueden ver</small></div>`})()}
     ${(()=>{const o=on("pdf"),all=o===n&&n>0;return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><button class="btn sm ${all?"primary":"pop"}" data-act="evToggle" data-key="${esc(g.key)}" data-k="pdf" data-on="${all?0:1}">${all?"✓ PDF habilitado para descargar · Deshabilitar":"📄 Habilitar descarga del PDF de resultados"}</button><small class="muted">${o}/${n} estudiante(s) pueden descargar su PDF (incluye las soluciones)</small></div>`})()}
-    <div class="panel stack" style="padding:10px" data-ventana="${esc(g.key)}"><b>⏰ Horario de la práctica</b><small class="muted">Fuera del horario el estudiante puede ver pero no guardar ni entregar. Aplica a ${APP.empSec?"la sección "+esc(APP.empSec):"todas las secciones"}.</small>
+    <details><summary style="cursor:pointer;font-weight:700">👁 Ver solucionario y cálculos</summary>${n?solucionarioHTML(rows[0].c):""}</details></div>`;
+  const VEN=`    <div class="panel stack" style="padding:10px" data-ventana="${esc(g.key)}"><b>⏰ Horario de la práctica</b><small class="muted">Fuera del horario el estudiante puede ver pero no guardar ni entregar. Aplica a ${APP.empSec?"la sección "+esc(APP.empSec):"todas las secciones"}.</small>
      ${(()=>{const v=rows[0]&&rows[0].c.evalCfg&&rows[0].c.evalCfg.ventana||{};const loc=iso=>{if(!iso)return "";const d=new Date(iso);const z=n=>String(n).padStart(2,"0");return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`};
       return `<div class="row" style="gap:10px;align-items:flex-end;flex-wrap:wrap"><div class="field" style="flex:0 1 220px"><label>Inicio</label><input type="datetime-local" data-vi value="${loc(v.inicio)}"></div><div class="field" style="flex:0 1 220px"><label>Terminación</label><input type="datetime-local" data-vf value="${loc(v.fin)}"></div>
       <button class="btn sm pop" data-act="ventanaGuardar" data-key="${esc(g.key)}">Guardar horario</button>${(v.inicio||v.fin)?`<button class="btn sm ghost" data-act="ventanaQuitar" data-key="${esc(g.key)}">Quitar horario</button>`:""}</div>
       <small class="muted">${v.inicio||v.fin?"Actual: "+(v.inicio?"abre "+esc(fmtDate(v.inicio)):"sin inicio")+" · "+(v.fin?"cierra "+esc(fmtDate(v.fin)):"sin cierre"):"Sin horario: la práctica está siempre abierta."}</small>`})()}
     </div>
-    <details><summary style="cursor:pointer;font-weight:700">👁 Ver solucionario y cálculos</summary>${n?solucionarioHTML(rows[0].c):""}</details></div>`;
+`;
+  return tab==='eval'?EV:tab==='sol'?SOL:tab==='hor'?VEN:'';
 }
 function revisionDePractica(g){
   const pct=(n,t)=>t?Math.round(100*n/t):0;
@@ -774,12 +776,14 @@ function revisionDePractica(g){
   const ordenados=[...st].sort((x,y)=>(y.avance-x.avance)||(y.casPct-x.casPct)||x.w.nombre.localeCompare(y.w.nombre));
   return `<div class="stack" style="margin-top:10px;border:2px solid var(--pop);border-radius:12px;padding:12px">
    <div class="row" style="align-items:center"><h4 style="margin:0;margin-right:auto">📊 Revisión de ${esc(g.name)}</h4><button class="btn sm ghost" data-act="reloadEmp" data-key="${esc(g.key)}">↻ Actualizar resultados</button></div>
-   ${evControlesHTML(g)}
-   <div class="row" style="gap:8px;flex-wrap:wrap">${chip("Con avance",`${av}/${n}`,pct(av,n)+" %")}${chip("Machote completo",`${ma}/${n}`,pct(ma,n)+" %")}${chip("Asiento resuelto",`${as}/${n}`,pct(as,n)+" %")}${chip("Evaluación (promedio)",prom!=null?prom+" %":"—",evs.length+" evaluó")}${chip("Eval. machote (promedio)",avg(aM),aM.length+"/"+n+" entregaron")}${chip("Eval. asiento (promedio)",avg(aA),aA.length+"/"+n+" entregaron")}</div>
+   ${(()=>{const T=(APP.revTab&&APP.revTab[g.key])||"res";const tb=(k,l)=>`<button class="tab ${T===k?"on":""}" data-act="revTab" data-key="${esc(g.key)}" data-t="${k}">${l}</button>`;
+     return `<div class="tabs" style="margin:0">${tb("res","📊 Resultados")}${tb("eval","📝 Evaluaciones")}${tb("sol","✅ Solucionario y PDF")}${tb("hor","⏰ Horario")}</div>${T==="res"?"":evControlesHTML(g,T)}`})()}
+   ${((APP.revTab&&APP.revTab[g.key])||"res")==="res"?`   <div class="row" style="gap:8px;flex-wrap:wrap">${chip("Con avance",`${av}/${n}`,pct(av,n)+" %")}${chip("Machote completo",`${ma}/${n}`,pct(ma,n)+" %")}${chip("Asiento resuelto",`${as}/${n}`,pct(as,n)+" %")}${chip("Evaluación (promedio)",prom!=null?prom+" %":"—",evs.length+" evaluó")}${chip("Eval. machote (promedio)",avg(aM),aM.length+"/"+n+" entregaron")}${chip("Eval. asiento (promedio)",avg(aA),aA.length+"/"+n+" entregaron")}</div>
    <div class="tbl"><table><thead><tr><th>Estudiante</th><th>Machote</th><th>Asiento planilla</th><th>Evaluación</th><th>Eval. machote</th><th>Eval. asiento</th><th>PDF resultados</th><th>Diagnóstico</th></tr></thead><tbody>
    ${ordenados.map(x=>{const dx=!x.avance?'<span class="chip tG" style="font-size:.7rem">⏳ Sin empezar</span>':(x.machote&&x.asiento&&x.ev!=null?'<span class="chip tI" style="font-size:.7rem">✓ Completa</span>':'<span class="chip tG" style="font-size:.7rem">En proceso</span>');
      return `<tr><td><b>${esc(x.w.nombre)}</b><br><span class="code">${esc(x.w.id)}</span></td><td class="num">${x.R&&x.R.casTot?x.casPct+" %":"—"}</td><td>${x.asiento?"✓ Resuelto":(x.R&&x.R.asPlIntentos?x.R.asPlIntentos+" intento(s)":"—")}</td><td class="num">${x.ev!=null?x.ev+" %":"—"}</td><td>${x.eM?evBadge(x.eM):evPend(x.c,"machote")}${x.eM?` <button class="btn sm ghost" data-act="evDetalle" data-key="${esc(g.key)}" data-est="${esc(x.w.id)}" data-co="${esc(x.c.id)}" data-k="machote" title="Ver detalle">🔍</button>`:""}</td><td>${x.eA?evBadge(x.eA):evPend(x.c,"asiento")}${x.eA?` <button class="btn sm ghost" data-act="evDetalle" data-key="${esc(g.key)}" data-est="${esc(x.w.id)}" data-co="${esc(x.c.id)}" data-k="asiento" title="Ver detalle">🔍</button>`:""}</td><td>${pdfResultadosLink(x.c)}</td><td>${dx}</td></tr>${(()=>{const d=APP.evDet;if(!d||d.est!==x.w.id||d.co!==x.c.id)return "";const r=d.k==="machote"?x.eM:x.eA;return r?`<tr><td colspan="8" style="background:var(--surface2)"><b>${d.k==="machote"?"Evaluación del machote":"Evaluación del asiento"} · ${esc(x.w.nombre)} · ${r.pct} % (${r.ok}/${r.total})</b>${evDetalleHTML(r,true)}</td></tr>`:""})()}`}).join("")}
-   </tbody></table></div></div>`;
+   </tbody></table></div>`:""}
+   </div>`;
 }
 function viewPorEmpresa(){
   const d=APP.empData;
@@ -2483,6 +2487,7 @@ document.addEventListener("click",async e=>{
     try{await APP.store.updateEmpresaEstudiante(b.dataset.est,b.dataset.co,x=>{const cfg=evCfg(x);cfg[k].reset=Date.now();const pl=x.payroll;if(pl){if(k==="machote")pl.evalM=null;else pl.evalA=null}});toast("Intento borrado: puede repetirla")}catch(err){toast("No se pudo actualizar")}
     loadEmpData()});return}
   if(a==="reloadEmp"){APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;loadEmpData();return}
+  if(a==="revTab"){APP.revTab=APP.revTab||{};APP.revTab[b.dataset.key]=b.dataset.t;APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
   if(a==="toggleRevPractica"){APP.revPrac=APP.revPrac||{};APP.revPrac[b.dataset.key]=!APP.revPrac[b.dataset.key];APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
   if(a==="toggleRevGeneral"){APP.revGeneral=!APP.revGeneral;render();return}
   if(a==="delPracticaEst"){armDelete(b,async()=>{try{await APP.store.deleteEmpresaEstudiante(b.dataset.est,b.dataset.co);toast("Práctica eliminada");loadEmpData()}catch(err){toast("No se pudo eliminar")}});return}
