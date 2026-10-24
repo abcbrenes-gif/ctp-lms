@@ -262,6 +262,12 @@ select,input,textarea{font-size:.92rem}
 .who .zoom{min-width:36px;min-height:36px;padding:0;border-radius:12px;display:inline-grid;place-items:center;font-size:1.05rem}
 body.wide .shell,body.wide .top .wrap{max-width:none}
 body.wide .wrap{max-width:none}
+/* Flechas flotantes para desplazar tablas anchas sin bajar a la barra */
+.hscroll{position:fixed;top:50%;transform:translateY(-50%);z-index:25;width:46px;height:46px;border-radius:50%;border:0;cursor:pointer;display:none;place-items:center;font-size:1.3rem;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 8px 22px rgba(79,70,229,.4);opacity:.92;user-select:none;touch-action:manipulation}
+.hscroll.show{display:grid}
+.hscroll:hover{opacity:1;transform:translateY(-50%) scale(1.08)}
+.hscroll.l{left:10px}.hscroll.r{right:10px}
+.hscroll.l{left:calc(10px + var(--hs-left,0px))}
 /* Menú del ciclo: barra lateral vertical (computadora/tablet); fila compacta en celular */
 .shell{max-width:1280px;margin:0 auto;display:flex;gap:22px;align-items:flex-start;padding-inline:max(16px,env(safe-area-inset-left,0px))}
 .shell>main.wrap{flex:1 1 0;min-width:0;max-width:none;margin:0;padding-inline:0}
@@ -367,6 +373,7 @@ tr.cell-ok td,tr.cell-bad td{background:transparent}
 </header>
 <div class="shell"><aside id="railWrap" hidden><nav class="rail" aria-label="Ciclo contable"><div class="steps" id="steps"></div></nav></aside>
 <main class="wrap" id="main"><div class="loading">Preparando el aula…</div></main></div>
+<button class="hscroll l" id="hsL" type="button" aria-label="Mover a la izquierda" title="Mover a la izquierda">‹</button><button class="hscroll r" id="hsR" type="button" aria-label="Mover a la derecha" title="Mover a la derecha">›</button>
 <div class="toast" id="toast" role="status"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -2914,6 +2921,33 @@ document.addEventListener("drop",async e=>{const z=e.target.closest&&e.target.cl
 document.addEventListener("click",e=>{const m=document.getElementById("usrMenu");if(m&&m.open&&!m.contains(e.target))m.open=false});
 
 try{if(localStorage.getItem("ac_wide")==="1")document.body.classList.add("wide")}catch(e){}
+
+(function(){
+  const L=document.getElementById("hsL"),R=document.getElementById("hsR");if(!L||!R)return;
+  let act=null;
+  const wide=t=>t.scrollWidth>t.clientWidth+4;
+  function pick(){
+    const vh=innerHeight;let best=null,bv=0;
+    document.querySelectorAll(".tbl,.sheetwrap,.scrollx").forEach(t=>{if(!wide(t))return;const r=t.getBoundingClientRect();const vis=Math.min(r.bottom,vh)-Math.max(r.top,0);if(vis>bv&&r.width>0){bv=vis;best=t}});
+    act=bv>60?best:null;
+    if(!act){L.classList.remove("show");R.classList.remove("show");return}
+    const r=act.getBoundingClientRect();
+    L.classList.toggle("show",act.scrollLeft>4);R.classList.toggle("show",act.scrollLeft<act.scrollWidth-act.clientWidth-4);
+    L.style.left=Math.max(10,r.left+8)+"px";R.style.right=Math.max(10,innerWidth-r.right+8)+"px";
+  }
+  let tm=null;const sched=()=>{if(tm)return;tm=requestAnimationFrame(()=>{tm=null;pick()})};
+  addEventListener("scroll",sched,{passive:true,capture:true});addEventListener("resize",sched);
+  new MutationObserver(sched).observe(document.body,{childList:true,subtree:true});
+  const step=dir=>{if(!act)return;act.scrollBy({left:dir*Math.max(240,act.clientWidth*.6),behavior:"smooth"});setTimeout(sched,350)};
+  let hold=null;
+  for(const [b,d] of [[L,-1],[R,1]]){
+    b.addEventListener("click",()=>step(d));
+    b.addEventListener("pointerdown",()=>{clearInterval(hold);hold=setTimeout(()=>{hold=setInterval(()=>{if(act){act.scrollLeft+=d*40;sched()}},30)},350)});
+    for(const ev of ["pointerup","pointerleave","pointercancel"])b.addEventListener(ev,()=>{clearTimeout(hold);clearInterval(hold)});
+  }
+  addEventListener("keydown",e=>{if(e.target&&/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))return;if(e.altKey&&e.key==="ArrowRight"){step(1)}if(e.altKey&&e.key==="ArrowLeft"){step(-1)}});
+  setTimeout(sched,500);
+})();
 </script>
 
 </body></html>
