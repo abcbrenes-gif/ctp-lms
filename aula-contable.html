@@ -456,7 +456,7 @@ async function flush(){
   flushing=true;
   try{
     const ids=[...pending];pending.clear();
-    if(APP.store.mode==="local"){await evRefrescarCfg();if(!isTeacher())for(const c of APP.companies){try{c.resumenInforme=resumenInforme(c)}catch(e){}}await APP.store.saveWork(APP.me.usuario,APP.dk,APP.companies);if(!isTeacher()&&!APP.comoEstudiante)for(const c of APP.companies){if(c.evalCfg&&c.evalCfg.indicador)acSubirNotaIndicador(APP.me.usuario,c).catch(()=>{})}}
+    if(APP.store.mode==="local"){await evRefrescarCfg();if(!isTeacher())for(const c of APP.companies){try{c.resumenInforme=resumenInforme(c)}catch(e){}}await APP.store.saveWork(APP.me.usuario,APP.dk,APP.companies);if(!isTeacher()&&!APP.comoEstudiante)for(const c of APP.companies){if(c.evalCfg&&(c.evalCfg.indicador||c.evalCfg.indicadores))acSubirNotaIndicador(APP.me.usuario,c).catch(()=>{})}}
     else for(const id of ids){const c=APP.companies.find(x=>x.id===id);if(c)await APP.store.saveCompany(c)}
     setSave("Guardado ✓");
   }catch(e){setSave("No se pudo guardar",true);toast(e&&e.code==="quota_exceeded"?"El espacio del aula está lleno. Elimina entregas o empresas que ya no uses.":"No se pudo guardar. Inténtalo de nuevo.")}
@@ -771,17 +771,22 @@ async function acUpsertSinConflicto(tabla,filtro,datos){
   return ex?sb.from(tabla).update(datos).eq("id",ex.id):sb.from(tabla).insert({...filtro,...datos});
 }
 async function acSubirNotaIndicador(estudianteId,c){
-  const ind=c.evalCfg&&c.evalCfg.indicador;if(!ind||!ind.id)return false;
-  const r=resumenInforme(c);if(r.nota==null)return false;
-  const {error}=await acUpsertSinConflicto("calificaciones_indicador",{indicador_id:ind.id,estudiante_id:estudianteId},{puntaje_obtenido:puntajeIndicador(r.nota,ind.max||3)});
-  return !error;
+  const cf=c.evalCfg||{};const lista=[...(cf.indicador&&cf.indicador.id?[{...cf.indicador,comp:"general"}]:[]),...(cf.indicadores||[])];if(!lista.length)return false;
+  const r=resumenInforme(c);let okAny=false;
+  for(const ind of lista){
+    const nota=ind.comp==="machote"?r.machote:ind.comp==="asiento"?r.asiento:ind.comp==="evaluacion"?(r.evaluacion!=null?r.evaluacion:(r.evalMachote!=null||r.evalAsiento!=null?Math.round([r.evalMachote,r.evalAsiento].filter(x=>x!=null).reduce((t,x)=>t+x,0)/[r.evalMachote,r.evalAsiento].filter(x=>x!=null).length):null)):r.nota;
+    if(nota==null)continue;
+    const {error}=await acUpsertSinConflicto("calificaciones_indicador",{indicador_id:ind.id,estudiante_id:estudianteId},{puntaje_obtenido:puntajeIndicador(nota,ind.max||3)});
+    if(!error)okAny=true;
+  }
+  return okAny;
 }
 async function cargarIndicadoresLms(){
   const [m,i]=await Promise.all([sb.from("materias").select("id,nombre,seccion").order("nombre"),sb.from("indicadores").select("id,materia_id,categoria,letra,descripcion,puntaje_maximo").order("orden")]);
   APP.indData={materias:m.data||[],indicadores:i.data||[]};
 }
 function indicadorPanelHTML(g){
-  const rows=g.rows,cfg=rows[0]&&rows[0].c.evalCfg&&rows[0].c.evalCfg.indicador;const d=APP.indData;
+  const rows=g.rows,cfg=rows[0]&&rows[0].c.evalCfg&&rows[0].c.evalCfg.indicador;const multi=(rows[0]&&rows[0].c.evalCfg&&rows[0].c.evalCfg.indicadores)||[];const d=APP.indData;
   if(!d)return '<div class="loading">Cargando materias e indicadores…</div>';
   const mats=d.materias.filter(m=>!APP.empSec||!m.seccion||m.seccion===APP.empSec);
   const selMat=(APP.indMat&&APP.indMat[g.key])||(cfg&&cfg.materia_id)||(mats[0]&&mats[0].id)||"";
@@ -789,15 +794,19 @@ function indicadorPanelHTML(g){
   const actual=cfg&&d.indicadores.find(i=>i.id===cfg.id);
   return `<div class="panel stack" style="padding:10px" data-indbox="${esc(g.key)}"><b>🎯 Indicador de evaluación</b><small class="muted">Liga esta práctica a un indicador de la Rúbrica de ctp-lms. La nota del informe se sube sola como puntaje del indicador cada vez que el estudiante trabaja. Aplica a ${APP.empSec?"la sección "+esc(APP.empSec):"todas las secciones"}.</small>
    <div class="muted">${actual?`Actual: <b>${esc(actual.categoria)} ${esc(actual.letra||"")} · ${esc(actual.descripcion||"")}</b> (máx. ${actual.puntaje_maximo})`:"Sin indicador: la práctica no cuenta en la Rúbrica."}</div>
+   ${multi.length?`<div class="muted">Indicadores por componente: ${multi.map(m=>{const i=d.indicadores.find(x=>x.id===m.id);return `<span class="chip tI" style="font-size:.7rem">${({machote:"Machote",asiento:"Asiento",evaluacion:"Evaluación",general:"General"})[m.comp]||m.comp}: ${i?esc(i.letra||"")+" · "+esc((i.descripcion||"").slice(0,50)):"(eliminado)"}</span>`}).join(" ")}</div>`:""}
    <div class="row" style="gap:10px;flex-wrap:wrap;align-items:flex-end">
     <div class="field" style="flex:1 1 200px"><label>Materia</label><select data-indmat data-key="${esc(g.key)}">${mats.map(m=>`<option value="${esc(m.id)}" ${m.id===selMat?"selected":""}>${esc(m.nombre)}${m.seccion?" · "+esc(m.seccion):""}</option>`).join("")}</select></div>
     <div class="field" style="flex:1 1 260px"><label>Indicador</label><select data-indsel>${inds.length?inds.map(i=>`<option value="${esc(i.id)}" ${cfg&&cfg.id===i.id?"selected":""}>${esc(i.categoria)} ${esc(i.letra||"")} · ${esc((i.descripcion||"").slice(0,60))} (máx ${i.puntaje_maximo})</option>`).join(""):'<option value="">(esta materia no tiene indicadores)</option>'}</select></div>
    </div>
    <div class="row" style="gap:8px;flex-wrap:wrap">
     <button class="btn sm pop" data-act="indVincular" data-key="${esc(g.key)}" ${inds.length?"":"disabled"}>🔗 Vincular indicador</button>
+    <button class="btn sm primary" data-act="indIA" data-key="${esc(g.key)}" data-mat="${esc(selMat)}" ${selMat?"":"disabled"}>✨ Crear indicadores con IA</button>
     <button class="btn sm ghost" data-act="indCrear" data-key="${esc(g.key)}" data-mat="${esc(selMat)}" ${selMat?"":"disabled"}>➕ Crear indicador nuevo con el nombre de la práctica</button>
-    ${cfg?`<button class="btn sm primary" data-act="indSync" data-key="${esc(g.key)}">🔄 Subir notas ahora</button><button class="btn sm ghost" data-act="indQuitar" data-key="${esc(g.key)}">Desvincular</button>`:""}
-   </div></div>`;
+    ${(cfg||multi.length)?`<button class="btn sm primary" data-act="indSync" data-key="${esc(g.key)}">🔄 Subir notas ahora</button><button class="btn sm ghost" data-act="indQuitar" data-key="${esc(g.key)}">Desvincular</button>`:""}
+   </div>
+   <div class="row" style="gap:12px;flex-wrap:wrap"><small class="muted">Para "Crear con IA", elige qué evalúa cada indicador (cada uno se crea con sus criterios de 1 a 3 y recibe la nota de su parte):</small>
+    <label><input type="checkbox" data-iacomp="machote" checked> Machote</label><label><input type="checkbox" data-iacomp="asiento" checked> Asiento de planilla</label><label><input type="checkbox" data-iacomp="evaluacion"> Evaluación</label></div></div>`;
 }
 function evControlesHTML(g,tab){
   if(g.cat!=="practica")return "";
@@ -2544,11 +2553,28 @@ document.addEventListener("click",async e=>{
     try{await APP.store.updateEmpresaEstudiante(b.dataset.est,b.dataset.co,x=>{const cfg=evCfg(x);cfg[k].reset=Date.now();const pl=x.payroll;if(pl){if(k==="machote")pl.evalM=null;else pl.evalA=null}});toast("Intento borrado: puede repetirla")}catch(err){toast("No se pudo actualizar")}
     loadEmpData()});return}
   if(a==="reloadEmp"){APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;loadEmpData();return}
-  if(a==="indVincular"||a==="indQuitar"||a==="indCrear"||a==="indSync"){(async()=>{const key=b.dataset.key,box=b.closest("[data-indbox]");const rows=evRowsDeGrupo(key);b.disabled=true;
+  if(a==="indVincular"||a==="indQuitar"||a==="indCrear"||a==="indSync"||a==="indIA"){(async()=>{const key=b.dataset.key,box=b.closest("[data-indbox]");const rows=evRowsDeGrupo(key);b.disabled=true;
     try{
       if(a==="indSync"){let ok=0,sin=0;for(const {w,c} of rows){const c2=clone(c);if(await acSubirNotaIndicador(w.id,c2))ok++;else sin++}
         toast(`Notas subidas al indicador: ${ok}${sin?` (${sin} sin nota todavía)`:""}`);b.disabled=false;return}
-      let ind=null;
+      let ind=null,nuevos=null;
+      if(a==="indIA"){const mat=b.dataset.mat;const comps=[...box.querySelectorAll("[data-iacomp]:checked")].map(x=>x.dataset.iacomp);if(!comps.length)throw new Error("Marca al menos un componente");
+        const nombre=(rows[0]&&rows[0].c&&rows[0].c.name)||"Práctica";
+        const TIT={machote:`Calcula el machote de planilla: salario bruto, cuotas obreras, renta y salario neto (${nombre})`,asiento:`Elabora el asiento de diario de la planilla de salarios (${nombre})`,evaluacion:`Resuelve la evaluación de cálculo y registro de planilla (${nombre})`};
+        const CTX={machote:"El estudiante completa en Aula Contable el machote de planilla de varios colaboradores: salario bruto, cuotas obreras (CCSS, Banco Popular), impuesto sobre la renta, otros rebajos y salario neto, con cálculos exactos.",asiento:"El estudiante registra en Aula Contable el asiento de diario de la planilla: gasto por salarios, cargas sociales, provisiones y cuentas por pagar, con débitos y créditos balanceados.",evaluacion:"El estudiante resuelve una evaluación de una sola oportunidad con los montos de la planilla y el asiento, sin pistas."};
+        const {data:cat}=await sb.from("rubrica_categorias").select("nombre").eq("nombre","Trabajo cotidiano").maybeSingle();if(!cat)throw new Error('No existe la categoría "Trabajo cotidiano" en Rúbrica');
+        nuevos=[];
+        for(const comp of comps){b.textContent="Creando "+(nuevos.length+1)+"/"+comps.length+"…";
+          const r=await fetch("/api/generar-criterios-ia",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({titulo:TIT[comp],contexto:CTX[comp],puntajeMaximo:3})});
+          const dt=await r.json();if(!r.ok)throw new Error(dt.error||"La IA no respondió");
+          const {data:ex}=await sb.from("indicadores").select("id,letra").eq("materia_id",mat).eq("categoria","Trabajo cotidiano");
+          const usadas=(ex||[]).map(e=>e.letra);let letra="A";for(const L of "ABCDEFGHIJKLMNOPQRSTUVWXYZ"){if(!usadas.includes(L)){letra=L;break}}
+          const {data:nu,error}=await sb.from("indicadores").insert({materia_id:mat,categoria:"Trabajo cotidiano",letra,descripcion:dt.descripcion||TIT[comp],puntaje_maximo:3,orden:(ex||[]).length+1}).select().maybeSingle();
+          if(error||!nu)throw new Error(error?error.message:"No se pudo crear el indicador");
+          const crit=[{indicador_id:nu.id,puntaje:0,nivel:"No presentado",descripcion:"El estudiante no presentó el trabajo, o tiene una ausencia injustificada en la fecha de evaluación.",orden:0},...(dt.criterios||[]).map(c=>({indicador_id:nu.id,puntaje:c.puntaje,nivel:c.nivel||null,descripcion:c.descripcion,orden:c.puntaje}))];
+          await sb.from("criterios_indicador").insert(crit);
+          nuevos.push({id:nu.id,materia_id:mat,max:3,comp})}
+        await cargarIndicadoresLms()}
       if(a==="indVincular"){const id=box.querySelector("[data-indsel]").value;const i=APP.indData.indicadores.find(x=>x.id===id);if(!i)throw new Error("Elige un indicador");ind={id:i.id,materia_id:i.materia_id,max:i.puntaje_maximo||3}}
       if(a==="indCrear"){const mat=b.dataset.mat;const g0=rows[0]&&rows[0].c;const nombre=(g0&&g0.name)||"Práctica";
         const {data:cat}=await sb.from("rubrica_categorias").select("nombre").eq("nombre","Trabajo cotidiano").maybeSingle();if(!cat)throw new Error('No existe la categoría "Trabajo cotidiano" en Rúbrica');
@@ -2556,8 +2582,8 @@ document.addEventListener("click",async e=>{
         const usadas=(ex||[]).map(e=>e.letra);let letra="A";for(const L of "ABCDEFGHIJKLMNOPQRSTUVWXYZ"){if(!usadas.includes(L)){letra=L;break}}
         const {data:nuevo,error}=await sb.from("indicadores").insert({materia_id:mat,categoria:"Trabajo cotidiano",letra,descripcion:nombre,puntaje_maximo:3,orden:(ex||[]).length+1}).select().maybeSingle();
         if(error||!nuevo)throw new Error(error?error.message:"No se pudo crear el indicador");ind={id:nuevo.id,materia_id:mat,max:3};await cargarIndicadoresLms()}
-      for(const {w,c} of rows)await APP.store.updateEmpresaEstudiante(w.id,c.id,x=>{const cfg=evCfg(x);if(a==="indQuitar")delete cfg.indicador;else cfg.indicador=ind});
-      toast(a==="indQuitar"?"Indicador desvinculado":"Indicador vinculado a "+rows.length+" estudiante(s)");
+      for(const {w,c} of rows)await APP.store.updateEmpresaEstudiante(w.id,c.id,x=>{const cfg=evCfg(x);if(a==="indQuitar"){delete cfg.indicador;delete cfg.indicadores}else if(a==="indIA"){cfg.indicadores=[...(cfg.indicadores||[]).filter(m=>!nuevos.some(n=>n.comp===m.comp)),...nuevos]}else cfg.indicador=ind});
+      toast(a==="indQuitar"?"Indicador desvinculado":a==="indIA"?"Indicadores creados con IA y vinculados ("+nuevos.length+"). Ya puedes pulsar Subir notas ahora":"Indicador vinculado a "+rows.length+" estudiante(s)");
     }catch(err){toast("No se pudo: "+(err&&err.message||err))}
     APP.revOpen=APP.revOpen||{};APP.revOpen[key]=true;await loadEmpData()})();return}
   if(a==="actualizarInforme"){(async()=>{b.disabled=true;const t0=b.textContent;let n=0,fail=0;const all=APP.empData||[];
