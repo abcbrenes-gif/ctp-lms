@@ -250,6 +250,17 @@ select,input,textarea{border-radius:12px;padding:10px 12px}
 .toast{display:flex;align-items:center;gap:10px;left:auto;right:20px;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateY(24px) scale(.96);opacity:0;pointer-events:none;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-left:5px solid var(--accent);border-radius:16px;padding:12px 18px;box-shadow:0 16px 40px rgba(15,23,42,.22);transition:transform .3s cubic-bezier(.2,1.2,.4,1),opacity .25s;max-width:min(420px,calc(100% - 32px))}
 .toast.show{transform:none;opacity:1}
 .toast.t-ok{border-left-color:var(--ok)}.toast.t-warn{border-left-color:#F59E0B}.toast.t-bad{border-left-color:var(--bad)}
+/* Menú del ciclo en una sola fila horizontal, sin barra de desplazamiento */
+.rail{overflow:visible;padding-block:14px 4px}
+.steps{display:flex;gap:8px;min-width:0;width:100%}
+.steps .arrow{display:none}
+.steps .step{flex:1 1 0;min-width:0;justify-content:center;padding:9px 10px;gap:8px}
+.steps .step .t{min-width:0}
+.steps .step .t b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.92rem}
+.steps .step .t small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.steps .step .n{flex:none;width:28px;height:28px}
+@media (max-width:1000px){.steps .step .t small{display:none}.steps .step{padding:8px 8px;gap:6px}}
+@media (max-width:760px){.steps .step .t{display:none}.steps .step{padding:8px;flex:1 1 0}.steps .step.on .t{display:block;flex:none}.steps .step.on{flex:2 1 0}}
 @media (max-width:640px){.toast{left:16px;right:16px;max-width:none}.btn{min-height:48px}.btn.sm{min-height:42px}}
 </style>
 
