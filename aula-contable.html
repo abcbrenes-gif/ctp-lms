@@ -268,6 +268,11 @@ body.wide .wrap{max-width:none}
 .hscroll:hover{opacity:1;transform:translateY(-50%) scale(1.08)}
 .hscroll.l{left:10px}.hscroll.r{right:10px}
 .hscroll.l{left:calc(10px + var(--hs-left,0px))}
+/* Menú principal plegable: se esconde al elegir un módulo */
+.railbtn{min-width:40px;min-height:40px;padding:0;border-radius:12px;font-size:1.2rem;display:none}
+body.rail-ok .railbtn{display:inline-grid;place-items:center}
+body.rail-collapsed #railWrap{display:none}
+@media (max-width:899px){body.rail-collapsed #railWrap{display:none}}
 /* Menú del ciclo: barra lateral vertical (computadora/tablet); fila compacta en celular */
 .shell{max-width:1280px;margin:0 auto;display:flex;gap:22px;align-items:flex-start;padding-inline:max(16px,env(safe-area-inset-left,0px))}
 .shell>main.wrap{flex:1 1 0;min-width:0;max-width:none;margin:0;padding-inline:0}
@@ -366,6 +371,7 @@ tr.cell-ok td,tr.cell-bad td{background:transparent}
 </style>
 <header class="top" id="top" hidden>
   <div class="wrap">
+    <button class="btn ghost railbtn" type="button" id="railBtn" data-act="toggleRail" title="Mostrar u ocultar el menú" aria-label="Mostrar u ocultar el menú">☰</button>
     <div class="brand"><div class="logo">Σ</div><div><b>Aula Contable</b><small>Ciclo contable bajo NIC / NIIF</small></div></div>
     <div class="cosel"><label for="coPick" class="eyebrow">Empresa</label><select id="coPick"></select></div>
     <div class="who" id="who"></div>
@@ -635,6 +641,7 @@ function renderChrome(){
   document.getElementById("top").hidden=!logged;
   document.getElementById("railWrap").hidden=!logged||["entregas","entregar"].includes(APP.view);
   document.body.classList.toggle("ro",APP.readOnly);
+  document.body.classList.toggle("rail-ok",logged&&!["entregas","entregar"].includes(APP.view));
   if(!logged)return;
   document.getElementById("steps").innerHTML=STEPS.map(([k,t,s],i)=>
    (i?'<span class="arrow" aria-hidden="true">→</span>':'')+
@@ -2616,6 +2623,7 @@ document.addEventListener("click",async e=>{
   const go=e.target.closest("[data-go]");
   if(go){const v=go.dataset.go;
     if(APP.viewing&&v==="entregas"){await stopViewing();return}
+    if(go.classList.contains("step"))document.body.classList.add("rail-collapsed");
     APP.view=v;if(v==="entregas")loadEntregas();else render();window.scrollTo({top:0,behavior:"smooth"});return}
   const tab=e.target.closest("[data-tab]");if(tab){APP.eeTab=tab.dataset.tab;render();return}
   const b=e.target.closest("[data-act]");if(!b)return;
@@ -2661,6 +2669,7 @@ document.addEventListener("click",async e=>{
   /* Profesor: entregas */
   if(a==="reloadEntregas"){loadEntregas();return}
   if(a==="entTab"){APP.entTab=b.dataset.t;if(APP.entTab==="emp")loadEmpData();else render();return}
+  if(a==="toggleRail"){document.body.classList.toggle("rail-collapsed");return}
   if(a==="ampliar"){const on=!document.body.classList.contains("wide");document.body.classList.toggle("wide",on);
     try{localStorage.setItem("ac_wide",on?"1":"0")}catch(err){}
     try{if(on&&document.documentElement.requestFullscreen&&!document.fullscreenElement)await document.documentElement.requestFullscreen();else if(!on&&document.fullscreenElement)await document.exitFullscreen()}catch(err){}
