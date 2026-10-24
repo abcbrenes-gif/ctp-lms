@@ -677,10 +677,10 @@ function evRowsDeGrupo(key){
   return out;
 }
 /* PDF de resultados del estudiante: se genera al guardar la planilla y queda para el profesor */
-async function generarPdfResultadosEstudiante(c,p){
+async function generarPdfResultadosEstudiante(c,p,info){
   const J=await loadJsPDF();await loadJsPDFAutoTable();
   let ses={};try{ses=JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")||"{}")}catch(e){}
-  const nombre=(APP.me&&APP.me.nombre)||ses.nombre||"",usuario=(APP.me&&APP.me.usuario)||ses.id||"";
+  if(info){ses={seccion:info.seccion}}const nombre=info?info.nombre:((APP.me&&APP.me.nombre)||ses.nombre||""),usuario=info?info.usuario:((APP.me&&APP.me.usuario)||ses.id||"");
   const doc=new J({unit:"pt",format:"letter",orientation:"landscape"});const W=792,M=36;
   doc.setFillColor(14,124,102);doc.rect(0,0,W,60,"F");doc.setTextColor(255,255,255);
   doc.setFont("helvetica","bold");doc.setFontSize(14);doc.text("RESULTADOS DE LA PRÁCTICA — AULA CONTABLE",W/2,26,{align:"center"});
@@ -724,7 +724,9 @@ async function guardarPdfResultados(c,p){
     const st=plSheetStatus(p);p.pdfResultados={url,fecha:new Date().toISOString(),ok:st.ok,total:st.total};touch(c);flush();toast("Planilla guardada ✓ · PDF de resultados generado")}
   catch(err){toast("Planilla guardada ✓ (no se pudo generar el PDF: "+(err&&err.message||err)+")")}
 }
-function pdfResultadosLink(c,est){const r=c.payroll&&c.payroll.pdfResultados;if(!(r&&r.url))return '<small class="muted">Aún no guardó</small>';
+function pdfResultadosLink(c,est){const r=c.payroll&&c.payroll.pdfResultados;
+  if(!(r&&r.url)){const sh=c.payroll&&c.payroll.sheet&&Object.keys(c.payroll.sheet).length;
+    return sh?`<button class="btn sm pop" data-act="pdfGenerar" data-est="${esc(est)}" data-co="${esc(c.id)}">📄 Generar PDF</button>`:'<small class="muted">Aún no guardó</small>'}
   const open=APP.pdfVer===(est+"|"+c.id);
   return `<div class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn sm ${open?"primary":"pop"}" data-act="pdfVer" data-est="${esc(est)}" data-co="${esc(c.id)}">${open?"Ocultar":"👁 Ver"}</button><a class="btn sm ghost" href="${esc(r.url)}" target="_blank" rel="noopener" title="Guardado el ${esc(fmtDate(r.fecha))} · ${r.ok}/${r.total} casillas">↗ Abrir</a></div>`}
 function pdfVerFila(c,est,nombre,cols){if(APP.pdfVer!==(est+"|"+c.id))return "";const r=c.payroll&&c.payroll.pdfResultados;if(!(r&&r.url))return "";
@@ -782,7 +784,7 @@ function revisionDePractica(g){
    <div class="row" style="align-items:center"><h4 style="margin:0;margin-right:auto">📊 Revisión de ${esc(g.name)}</h4><button class="btn sm ghost" data-act="reloadEmp" data-key="${esc(g.key)}">↻ Actualizar resultados</button></div>
    ${(()=>{const T=(APP.revTab&&APP.revTab[g.key])||"res";const tb=(k,l)=>`<button class="tab ${T===k?"on":""}" data-act="revTab" data-key="${esc(g.key)}" data-t="${k}">${l}</button>`;
      return `<div class="tabs" style="margin:0">${tb("res","📊 Resultados")}${tb("eval","📝 Evaluaciones")}${tb("sol","✅ Solucionario y PDF")}${tb("hor","⏰ Horario")}</div>${T==="res"?"":evControlesHTML(g,T)}`})()}
-   ${((APP.revTab&&APP.revTab[g.key])||"res")==="res"?`   <div class="row" style="gap:8px;flex-wrap:wrap">${chip("Con avance",`${av}/${n}`,pct(av,n)+" %")}${chip("Machote completo",`${ma}/${n}`,pct(ma,n)+" %")}${chip("Asiento resuelto",`${as}/${n}`,pct(as,n)+" %")}${chip("Evaluación (promedio)",prom!=null?prom+" %":"—",evs.length+" evaluó")}${chip("Eval. machote (promedio)",avg(aM),aM.length+"/"+n+" entregaron")}${chip("Eval. asiento (promedio)",avg(aA),aA.length+"/"+n+" entregaron")}</div>
+   ${((APP.revTab&&APP.revTab[g.key])||"res")==="res"?`<div class="row" style="justify-content:flex-end"><button class="btn sm pop" data-act="pdfGenerarTodos">📄 Generar PDF de todos los que ya guardaron</button></div>   <div class="row" style="gap:8px;flex-wrap:wrap">${chip("Con avance",`${av}/${n}`,pct(av,n)+" %")}${chip("Machote completo",`${ma}/${n}`,pct(ma,n)+" %")}${chip("Asiento resuelto",`${as}/${n}`,pct(as,n)+" %")}${chip("Evaluación (promedio)",prom!=null?prom+" %":"—",evs.length+" evaluó")}${chip("Eval. machote (promedio)",avg(aM),aM.length+"/"+n+" entregaron")}${chip("Eval. asiento (promedio)",avg(aA),aA.length+"/"+n+" entregaron")}</div>
    <div class="tbl"><table><thead><tr><th>Estudiante</th><th>Machote</th><th>Asiento planilla</th><th>Evaluación</th><th>Eval. machote</th><th>Eval. asiento</th><th>PDF resultados</th><th>Diagnóstico</th></tr></thead><tbody>
    ${ordenados.map(x=>{const dx=!x.avance?'<span class="chip tG" style="font-size:.7rem">⏳ Sin empezar</span>':(x.machote&&x.asiento&&x.ev!=null?'<span class="chip tI" style="font-size:.7rem">✓ Completa</span>':'<span class="chip tG" style="font-size:.7rem">En proceso</span>');
      return `<tr><td><b>${esc(x.w.nombre)}</b><br><span class="code">${esc(x.w.id)}</span></td><td class="num">${x.R&&x.R.casTot?x.casPct+" %":"—"}</td><td>${x.asiento?"✓ Resuelto":(x.R&&x.R.asPlIntentos?x.R.asPlIntentos+" intento(s)":"—")}</td><td class="num">${x.ev!=null?x.ev+" %":"—"}</td><td>${x.eM?evBadge(x.eM):evPend(x.c,"machote")}${x.eM?` <button class="btn sm ghost" data-act="evDetalle" data-key="${esc(g.key)}" data-est="${esc(x.w.id)}" data-co="${esc(x.c.id)}" data-k="machote" title="Ver detalle">🔍</button>`:""}</td><td>${x.eA?evBadge(x.eA):evPend(x.c,"asiento")}${x.eA?` <button class="btn sm ghost" data-act="evDetalle" data-key="${esc(g.key)}" data-est="${esc(x.w.id)}" data-co="${esc(x.c.id)}" data-k="asiento" title="Ver detalle">🔍</button>`:""}</td><td>${pdfResultadosLink(x.c,x.w.id)}</td><td>${dx}</td></tr>${pdfVerFila(x.c,x.w.id,x.w.nombre,8)}${(()=>{const d=APP.evDet;if(!d||d.est!==x.w.id||d.co!==x.c.id)return "";const r=d.k==="machote"?x.eM:x.eA;return r?`<tr><td colspan="8" style="background:var(--surface2)"><b>${d.k==="machote"?"Evaluación del machote":"Evaluación del asiento"} · ${esc(x.w.nombre)} · ${r.pct} % (${r.ok}/${r.total})</b>${evDetalleHTML(r,true)}</td></tr>`:""})()}`}).join("")}
@@ -2491,6 +2493,17 @@ document.addEventListener("click",async e=>{
     try{await APP.store.updateEmpresaEstudiante(b.dataset.est,b.dataset.co,x=>{const cfg=evCfg(x);cfg[k].reset=Date.now();const pl=x.payroll;if(pl){if(k==="machote")pl.evalM=null;else pl.evalA=null}});toast("Intento borrado: puede repetirla")}catch(err){toast("No se pudo actualizar")}
     loadEmpData()});return}
   if(a==="reloadEmp"){APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;loadEmpData();return}
+  if(a==="pdfGenerar"||a==="pdfGenerarTodos"){(async()=>{
+    const lista=a==="pdfGenerar"?[{est:b.dataset.est,co:b.dataset.co}]:[...document.querySelectorAll('[data-act=pdfGenerar]')].map(x=>({est:x.dataset.est,co:x.dataset.co}));
+    b.disabled=true;const t0=b.textContent;let ok=0,fail=0,lastErr="";
+    for(const it of lista){b.textContent="Generando "+(ok+fail+1)+"/"+lista.length+"…";
+      try{const w=(APP.empData||[]).find(x=>x.id===it.est),c=w&&w.companies.find(x=>x.id===it.co);if(!c||!c.payroll)throw new Error("sin datos");
+        const blob=await generarPdfResultadosEstudiante(c,c.payroll,{nombre:w.nombre,usuario:w.id,seccion:w.seccion});
+        const url=await subirPdfResultados(blob,w.id,c.id);const st=plSheetStatus(c.payroll);
+        await APP.store.updateEmpresaEstudiante(w.id,c.id,x=>{if(x.payroll)x.payroll.pdfResultados={url,fecha:new Date().toISOString(),ok:st.ok,total:st.total}});ok++}
+      catch(err){fail++;lastErr=(err&&err.message)||String(err)}}
+    toast(fail?`PDF: ${ok} generados, ${fail} con error (${lastErr})`:`PDF generados: ${ok}`);
+    await loadEmpData()})();return}
   if(a==="pdfVer"){const k=b.dataset.est+"|"+b.dataset.co;APP.pdfVer=APP.pdfVer===k?null:k;render();return}
   if(a==="revTab"){APP.revTab=APP.revTab||{};APP.revTab[b.dataset.key]=b.dataset.t;APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
   if(a==="toggleRevPractica"){APP.revPrac=APP.revPrac||{};APP.revPrac[b.dataset.key]=!APP.revPrac[b.dataset.key];APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
