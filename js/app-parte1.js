@@ -957,6 +957,10 @@ async function renderSeccion(sec) {
         <button class="btn secondary small" id="generar-aula-conta-btn" type="button">🧮 Generar usuario/clave de Aula de Conta a los que no tienen</button>
         <span id="generar-aula-conta-estado" style="font-size:0.78rem; color:var(--text-muted);"></span>
       </div>
+      <div class="row" style="margin:0.6rem 0;">
+        <button class="btn secondary small" id="informe-aula-conta-btn" type="button">📈 Informe de notas de Aula de Conta (Excel / PDF)</button>
+      </div>
+      <div id="informe-aula-conta-panel"></div>
       <div class="roster">${rows || '<p class="empty">No hay estudiantes registrados en esta sección.</p>'}</div>
 
       <details class="group-promo" open>
@@ -1038,6 +1042,9 @@ async function renderSeccion(sec) {
     estado.textContent = `Listo — se generó clave de prueba para ${sinClave.length} estudiante(s). Entra al perfil de cada uno (pestaña "Clave de prueba") para verla y comunicársela.`;
     renderSeccion(sec);
   });
+
+  const informeAcBtn = document.getElementById("informe-aula-conta-btn");
+  if (informeAcBtn) informeAcBtn.addEventListener("click", () => abrirInformeSeccionAulaConta(sec, students, document.getElementById("informe-aula-conta-panel")));
 
   const generarAulaContaBtn = document.getElementById("generar-aula-conta-btn");
   if (generarAulaContaBtn) generarAulaContaBtn.addEventListener("click", async () => {
@@ -2236,6 +2243,7 @@ async function renderPerfil(id, isSelf) {
         <button class="tab-btn ${activeTab === "asistencia" ? "active" : ""}" data-tab="asistencia"><span class="tab-icon">🗓️</span><span class="tab-label">Asistencia</span></button>
         <button class="tab-btn ${activeTab === "materias-est" ? "active" : ""}" data-tab="materias-est"><span class="tab-icon">📚</span><span class="tab-label">Materias</span></button>
         ${esSeccion113(s.seccion) ? `<button class="tab-btn ${activeTab === "infografias" ? "active" : ""}" data-tab="infografias"><span class="tab-icon">🖼️</span><span class="tab-label">${isSelf ? "Mis infografías" : "Infografías"}</span></button>` : ""}
+        ${isSelf ? `<button class="tab-btn ${activeTab === "aula-informe" ? "active" : ""}" data-tab="aula-informe"><span class="tab-icon">🧮</span><span class="tab-label">Aula de Conta</span></button>` : ""}
         ${!isSelf ? `<button class="tab-btn ${activeTab === "whatsapp" ? "active" : ""}" data-tab="whatsapp"><span class="tab-icon">💬</span><span class="tab-label">WhatsApp</span></button>
         <button class="tab-btn ${activeTab === "acceso" ? "active" : ""}" data-tab="acceso"><span class="tab-icon">🔑</span><span class="tab-label">Materias</span></button>
         <button class="tab-btn ${activeTab === "pin" ? "active" : ""}" data-tab="pin"><span class="tab-icon">🔐</span><span class="tab-label">PIN de acceso</span></button>

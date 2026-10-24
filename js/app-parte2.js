@@ -1,3 +1,77 @@
+// --- Informe de Aula de Conta (notas y trabajos) ---
+// Aula de Conta guarda en cada empresa un "resumenInforme" cada vez que el estudiante
+// trabaja; el profesor puede forzar la actualización desde Aula de Conta.
+function escAC(t) { return String(t == null ? "" : t).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+async function cargarTrabajosAulaConta(ids) {
+  const { data, error } = await sb.from("aula_conta_trabajos_estudiante").select("estudiante_id, companies, actualizado_en").in("estudiante_id", ids);
+  if (error) throw error;
+  return data || [];
+}
+function filasInformeAulaConta(companies) {
+  return (companies || []).map(c => {
+    const r = c.resumenInforme || null;
+    return { nombre: c.name || "(sin nombre)", tipo: c.categoria === "tarea" ? "Tarea" : "Práctica", r };
+  });
+}
+const pctAC = v => v == null ? "—" : v + " %";
+function notaColorAC(n) { return n == null ? "var(--text-muted)" : n >= 70 ? "var(--ledger-green)" : "#b3261e"; }
+function tablaInformeAulaConta(filas) {
+  if (!filas.length) return `<p class="empty">Todavía no hay trabajos en Aula de Conta.</p>`;
+  const notas = filas.map(f => f.r && f.r.nota).filter(n => n != null);
+  const prom = notas.length ? Math.round(notas.reduce((t, n) => t + n, 0) / notas.length) : null;
+  return `<div style="overflow-x:auto;"><table class="tabla" style="width:100%; border-collapse:collapse; font-size:0.88rem;">
+    <thead><tr style="text-align:left;"><th>Trabajo</th><th>Tipo</th><th>Machote</th><th>Asiento planilla</th><th>Evaluación</th><th>Eval. machote</th><th>Eval. asiento</th><th>Nota</th><th>Actualizado</th></tr></thead>
+    <tbody>${filas.map(f => { const r = f.r; return `<tr style="border-top:1px solid var(--border,#ddd);"><td><b>${escAC(f.nombre)}</b></td><td>${f.tipo}</td>
+      ${r ? `<td>${pctAC(r.machote)}</td><td>${r.asiento == null ? "—" : r.asiento === 100 ? "✓ Resuelto" : "Pendiente"}</td><td>${pctAC(r.evaluacion)}</td><td>${pctAC(r.evalMachote)}</td><td>${pctAC(r.evalAsiento)}</td><td><b style="color:${notaColorAC(r.nota)}">${pctAC(r.nota)}</b></td><td>${r.fecha ? new Date(r.fecha).toLocaleString("es-CR", { dateStyle: "medium", timeStyle: "short" }) : "—"}</td>`
+        : `<td colspan="7" style="color:var(--text-muted);">Sin informe todavía (se genera cuando el estudiante trabaja o el profesor pulsa "Actualizar informe" en Aula de Conta)</td>`}</tr>`; }).join("")}</tbody>
+    <tfoot><tr style="border-top:2px solid var(--border,#999);"><td colspan="7"><b>Promedio de notas de Aula de Conta</b></td><td colspan="2"><b style="color:${notaColorAC(prom)}">${pctAC(prom)}</b></td></tr></tfoot></table></div>
+    <p style="font-size:0.78rem; color:var(--text-muted); margin-top:0.5rem;">La nota es el promedio de lo que el estudiante tiene: machote, asiento de planilla, evaluación y las evaluaciones habilitadas por el profesor. Se actualiza sola cada vez que trabaja.</p>`;
+}
+async function renderInformeAulaConta(el, s, isSelf, extraHtml) {
+  el.innerHTML = `<h3 style="font-family:var(--serif);">🧮 Informe de Aula de Conta${isSelf ? "" : " — " + escAC(s.nombre)}</h3><div id="informe-ac">Cargando…</div>${extraHtml || ""}`;
+  const box = document.getElementById("informe-ac");
+  try {
+    const rows = await cargarTrabajosAulaConta([s.id]);
+    box.innerHTML = tablaInformeAulaConta(filasInformeAulaConta(rows[0] && rows[0].companies));
+  } catch (e) { box.innerHTML = `<p class="empty">No se pudo cargar el informe: ${escAC(e && e.message || e)}</p>`; }
+}
+async function abrirInformeSeccionAulaConta(sec, students, destino) {
+  destino.innerHTML = "Cargando informe…";
+  try {
+    const ids = (students || []).map(x => x.id);
+    const rows = await cargarTrabajosAulaConta(ids);
+    const por = {}; rows.forEach(r => { por[r.estudiante_id] = r; });
+    const lista = (students || []).map(st => {
+      const filas = filasInformeAulaConta((por[st.id] || {}).companies);
+      const notas = filas.map(f => f.r && f.r.nota).filter(n => n != null);
+      const prom = notas.length ? Math.round(notas.reduce((t, n) => t + n, 0) / notas.length) : null;
+      return { st, filas, prom, n: filas.length };
+    }).sort((a, b) => (a.st.apellido1 || "").localeCompare(b.st.apellido1 || ""));
+    const nom = x => [x.apellido1, x.apellido2, x.nombre].filter(Boolean).join(" ");
+    window.__informeAC = { sec, lista, nom };
+    destino.innerHTML = `<div class="row" style="gap:0.5rem; margin:0.5rem 0; flex-wrap:wrap;"><button class="btn small" id="ac-csv" type="button">⬇ Descargar Excel (CSV)</button><button class="btn secondary small" id="ac-pdf" type="button">🖨 PDF / Imprimir</button></div>
+      <div style="overflow-x:auto;"><table class="tabla" style="width:100%; border-collapse:collapse; font-size:0.88rem;"><thead><tr style="text-align:left;"><th>Estudiante</th><th>Trabajos</th><th>Con nota</th><th>Promedio</th></tr></thead><tbody>
+      ${lista.map(x => `<tr style="border-top:1px solid var(--border,#ddd);"><td>${escAC(nom(x.st))}</td><td>${x.n}</td><td>${x.filas.filter(f => f.r && f.r.nota != null).length}</td><td><b style="color:${notaColorAC(x.prom)}">${pctAC(x.prom)}</b></td></tr>`).join("")}</tbody></table></div>
+      <p style="font-size:0.78rem; color:var(--text-muted);">Si ves "—", pulsa "📈 Actualizar informe de notas" en Aula de Conta → Entregas recibidas → Por empresa.</p>`;
+    document.getElementById("ac-csv").onclick = () => {
+      const q = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+      const out = [["Sección", "Estudiante", "Cédula", "Trabajo", "Tipo", "Machote %", "Asiento planilla", "Evaluación %", "Eval. machote %", "Eval. asiento %", "Nota"].map(q).join(",")];
+      for (const x of lista) {
+        if (!x.filas.length) out.push([sec, nom(x.st), x.st.id, "(sin trabajos)", "", "", "", "", "", "", ""].map(q).join(","));
+        for (const f of x.filas) { const r = f.r || {}; out.push([sec, nom(x.st), x.st.id, f.nombre, f.tipo, r.machote ?? "", r.asiento == null ? "" : (r.asiento === 100 ? "Resuelto" : "Pendiente"), r.evaluacion ?? "", r.evalMachote ?? "", r.evalAsiento ?? "", r.nota ?? ""].map(q).join(",")); }
+      }
+      const blob = new Blob(["\ufeff" + out.join("\r\n")], { type: "text/csv;charset=utf-8" });
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `informe-aula-conta-${sec}.csv`; a.click();
+    };
+    document.getElementById("ac-pdf").onclick = () => {
+      const w = window.open("", "_blank"); if (!w) return;
+      w.document.write(`<html><head><title>Informe Aula de Conta ${escAC(sec)}</title><style>body{font-family:Arial;padding:20px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #999;padding:5px;font-size:12px;text-align:left}</style></head><body><h2>Informe de Aula de Conta — Sección ${escAC(sec)}</h2><p>CTP Mercedes Norte · ${new Date().toLocaleString("es-CR")}</p>
+      <table><thead><tr><th>Estudiante</th><th>Trabajo</th><th>Machote</th><th>Asiento</th><th>Evaluación</th><th>Nota</th></tr></thead><tbody>${lista.map(x => (x.filas.length ? x.filas : [{ nombre: "(sin trabajos)", r: null }]).map(f => { const r = f.r || {}; return `<tr><td>${escAC(nom(x.st))}</td><td>${escAC(f.nombre)}</td><td>${pctAC(r.machote)}</td><td>${r.asiento == null ? "—" : r.asiento === 100 ? "Resuelto" : "Pendiente"}</td><td>${pctAC(r.evaluacion)}</td><td>${pctAC(r.nota)}</td></tr>`; }).join("")).join("")}</tbody></table><script>window.print()<\/script></body></html>`);
+      w.document.close();
+    };
+  } catch (e) { destino.innerHTML = `<p class="empty">No se pudo cargar el informe: ${escAC(e && e.message || e)}</p>`; }
+}
+
 async function renderTabContent(s, tab, isSelf) {
   const el = document.getElementById("tab-content");
   if (tab === "programa") return renderProgramaEstudiante(el, s);
@@ -9,7 +83,8 @@ async function renderTabContent(s, tab, isSelf) {
   if (tab === "acceso" && !isSelf) return renderAcceso(el, s);
   if (tab === "pin" && !isSelf) return renderPin(el, s);
   if (tab === "clave-prueba" && !isSelf) return renderClavePrueba(el, s);
-  if (tab === "aula-conta" && !isSelf) return renderAulaContaCredenciales(el, s);
+  if (tab === "aula-informe" && isSelf) return renderInformeAulaConta(el, s, true);
+  if (tab === "aula-conta" && !isSelf) { renderAulaContaCredenciales(el, s); const d = document.createElement("div"); d.id = "informe-ac-docente"; el.prepend(d); return renderInformeAulaConta(d, s, false); }
   if (tab === "infografias" && esSeccion113(s.seccion)) return renderInfografiasEstudiante(el, s, isSelf);
   return renderNotas(el, s, isSelf);
 }

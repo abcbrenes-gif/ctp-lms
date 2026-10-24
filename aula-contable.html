@@ -393,6 +393,13 @@ function supabaseTeacherStore(docenteId){
       const {error:e2}=await sb.from("aula_conta_trabajos_estudiante").upsert({estudiante_id:estudianteId,companies:cs,actualizado_en:new Date().toISOString()});
       if(e2)throw e2;
     },
+    async updateEmpresaEstudiante_todas(estudianteId,fn){
+      const {data,error}=await sb.from("aula_conta_trabajos_estudiante").select("companies").eq("estudiante_id",estudianteId).maybeSingle();
+      if(error)throw error;
+      const cs=(data&&data.companies)||[];if(!cs.length)return;cs.forEach(fn);
+      const {error:e2}=await sb.from("aula_conta_trabajos_estudiante").upsert({estudiante_id:estudianteId,companies:cs,actualizado_en:new Date().toISOString()});
+      if(e2)throw e2;
+    },
     async deleteEmpresaEstudiante(estudianteId,companyId){
       const {data,error}=await sb.from("aula_conta_trabajos_estudiante").select("companies").eq("estudiante_id",estudianteId).maybeSingle();
       if(error)throw error;
@@ -449,7 +456,7 @@ async function flush(){
   flushing=true;
   try{
     const ids=[...pending];pending.clear();
-    if(APP.store.mode==="local"){await evRefrescarCfg();await APP.store.saveWork(APP.me.usuario,APP.dk,APP.companies)}
+    if(APP.store.mode==="local"){await evRefrescarCfg();if(!isTeacher())for(const c of APP.companies){try{c.resumenInforme=resumenInforme(c)}catch(e){}}await APP.store.saveWork(APP.me.usuario,APP.dk,APP.companies)}
     else for(const id of ids){const c=APP.companies.find(x=>x.id===id);if(c)await APP.store.saveCompany(c)}
     setSave("Guardado ✓");
   }catch(e){setSave("No se pudo guardar",true);toast(e&&e.code==="quota_exceeded"?"El espacio del aula está lleno. Elimina entregas o empresas que ya no uses.":"No se pudo guardar. Inténtalo de nuevo.")}
@@ -748,6 +755,15 @@ function solucionarioHTML(c,paraEstudiante){
     <tr class="tot"><td colspan="2">Sumas iguales</td><td class="r num">${money(r2(lines.reduce((t,l)=>t+l.d,0)),false)}</td><td class="r num">${money(r2(lines.reduce((t,l)=>t+l.c,0)),false)}</td></tr></tbody></table></div></details>
   </div>`;
 }
+/* Informe de notas: se guarda en cada empresa (resumenInforme) para que el perfil de ctp-lms lo muestre */
+function resumenInforme(c){
+  const R=plResumen([c]),p=c.payroll||{};
+  const mach=R.casTot?Math.round(100*R.casOk/R.casTot):null,asi=R.asPlIntentos?(R.asPlOk?100:0):null,ev=R.evalBest;
+  const eM=p.evalM&&p.evalM.resultado?p.evalM.resultado.pct:null,eA=p.evalA&&p.evalA.resultado?p.evalA.resultado.pct:null;
+  const comp=[mach,asi,ev,eM,eA].filter(x=>x!=null);
+  return {nota:comp.length?Math.round(comp.reduce((t,x)=>t+x,0)/comp.length):null,machote:mach,asiento:asi,evaluacion:ev,evalMachote:eM,evalAsiento:eA,
+    asientos:R.asientos,categoria:c.categoria==="tarea"?"tarea":"practica",entregado:!!c.entregado,fecha:new Date().toISOString()};
+}
 function evControlesHTML(g,tab){
   if(g.cat!=="practica")return "";
   const rows=g.rows,n=rows.length;
@@ -804,7 +820,7 @@ function viewPorEmpresa(){
   const secs=[...new Set(d.map(w=>w.seccion).filter(Boolean))].sort();
   if(!grupos.length)return `<div class="empty"><h3>Todavía no hay empresas de estudiantes</h3><p>Aparecen aquí apenas un estudiante cree o reciba una empresa en Aula de Conta.</p></div>`;
   return `<div class="row" style="align-items:flex-end;gap:10px"><div class="field" style="flex:0 1 200px"><label for="empSec">Sección</label><select id="empSec"><option value="">Todas</option>${secs.map(x=>`<option ${x===qs?"selected":""}>${esc(x)}</option>`).join("")}</select></div>
-   <button class="btn ${APP.revGeneral?"primary":"pop"}" data-act="toggleRevGeneral">📊 Revisión general de prácticas</button></div>
+   <button class="btn ${APP.revGeneral?"primary":"pop"}" data-act="toggleRevGeneral">📊 Revisión general de prácticas</button><button class="btn pop" data-act="actualizarInforme">📈 Actualizar informe de notas (perfiles)</button></div>
    ${APP.revGeneral?viewRevisionGeneral(grupos):""}
    ${grupos.map(g=>{
      const rows=g.rows.filter(r=>!q||(r.w.nombre+" "+r.w.id).toLowerCase().includes(q)).sort((a,b)=>a.w.nombre.localeCompare(b.w.nombre));
@@ -2493,6 +2509,9 @@ document.addEventListener("click",async e=>{
     try{await APP.store.updateEmpresaEstudiante(b.dataset.est,b.dataset.co,x=>{const cfg=evCfg(x);cfg[k].reset=Date.now();const pl=x.payroll;if(pl){if(k==="machote")pl.evalM=null;else pl.evalA=null}});toast("Intento borrado: puede repetirla")}catch(err){toast("No se pudo actualizar")}
     loadEmpData()});return}
   if(a==="reloadEmp"){APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;loadEmpData();return}
+  if(a==="actualizarInforme"){(async()=>{b.disabled=true;const t0=b.textContent;let n=0,fail=0;const all=APP.empData||[];
+    for(const w of all){try{b.textContent="Actualizando "+(++n)+"/"+all.length+"…";await APP.store.updateEmpresaEstudiante_todas(w.id,x=>{try{x.resumenInforme=resumenInforme(x)}catch(e){}})}catch(err){fail++}}
+    toast(fail?`Informe actualizado con ${fail} error(es)`:`Informe de notas actualizado para ${all.length} estudiante(s) ✓`);b.disabled=false;b.textContent=t0;await loadEmpData()})();return}
   if(a==="pdfGenerar"||a==="pdfGenerarTodos"){(async()=>{
     const lista=a==="pdfGenerar"?[{est:b.dataset.est,co:b.dataset.co}]:[...document.querySelectorAll('[data-act=pdfGenerar]')].map(x=>({est:x.dataset.est,co:x.dataset.co}));
     b.disabled=true;const t0=b.textContent;let ok=0,fail=0,lastErr="";
