@@ -50,8 +50,8 @@ async function abrirInformeSeccionAulaConta(sec, students, destino) {
     const nom = x => [x.apellido1, x.apellido2, x.nombre].filter(Boolean).join(" ");
     window.__informeAC = { sec, lista, nom };
     destino.innerHTML = `<div class="row" style="gap:0.5rem; margin:0.5rem 0; flex-wrap:wrap;"><button class="btn small" id="ac-csv" type="button">⬇ Descargar Excel (CSV)</button><button class="btn secondary small" id="ac-pdf" type="button">🖨 PDF / Imprimir</button></div>
-      <div style="overflow-x:auto;"><table class="tabla" style="width:100%; border-collapse:collapse; font-size:0.88rem;"><thead><tr style="text-align:left;"><th>Estudiante</th><th>Trabajos</th><th>Con nota</th><th>Promedio</th></tr></thead><tbody>
-      ${lista.map(x => `<tr style="border-top:1px solid var(--border,#ddd);"><td>${escAC(nom(x.st))}</td><td>${x.n}</td><td>${x.filas.filter(f => f.r && f.r.nota != null).length}</td><td><b style="color:${notaColorAC(x.prom)}">${pctAC(x.prom)}</b></td></tr>`).join("")}</tbody></table></div>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin:0.4rem 0;">Toca a un estudiante para ver el detalle de cada trabajo.</p>
+      ${lista.map(x => `<details style="border:1px solid var(--border,#ddd); border-radius:8px; padding:0.5rem 0.7rem; margin-bottom:0.4rem;"><summary style="cursor:pointer; display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;"><b style="flex:1 1 220px;">${escAC(nom(x.st))}</b><span>${x.n} trabajo(s)</span><span>${x.filas.filter(f => f.r && f.r.nota != null).length} con nota</span><b style="color:${notaColorAC(x.prom)}">Promedio: ${pctAC(x.prom)}</b></summary><div style="margin-top:0.6rem;">${tablaInformeAulaConta(x.filas)}</div></details>`).join("")}
       <p style="font-size:0.78rem; color:var(--text-muted);">Si ves "—", pulsa "📈 Actualizar informe de notas" en Aula de Conta → Entregas recibidas → Por empresa.</p>`;
     document.getElementById("ac-csv").onclick = () => {
       const q = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
