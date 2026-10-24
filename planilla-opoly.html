@@ -100,7 +100,7 @@ header.top b{font-size:1.05rem}
   <h1>🎲 Planilla Opoly</h1>
   <p>Juego tipo Monopoly para 2 a 4 jugadores: compra empresas resolviendo sus problemas de planilla (CCSS, aguinaldo, vacaciones, horas extra, cesantía).</p>
   <label>Tu nombre</label><input id="nm" maxlength="24" placeholder="Nombre">
-  <div class="row"><button id="bCrear" style="flex:1">Crear sala</button></div>
+  <div class="row"><button id="bCrear" style="flex:1">Crear sala</button><button id="bDemo" class="sec" style="flex:1" title="Juega solo contra 2 jugadores automáticos">▶ Modo demo</button></div>
   <label>o únete con el código de tu compañero</label>
   <div class="row" style="margin-top:0"><input id="cod" maxlength="4" placeholder="ABCD" style="text-transform:uppercase;letter-spacing:.2em;font-weight:800"><button id="bUnir" class="sec">Unirme</button></div>
   <div class="msg" id="emsg"></div>
@@ -205,11 +205,11 @@ const GEN=[
 function genQuestion(){const g=Math.random()<0.2?GEN[6]:pick(GEN.slice(0,6));return g()}
 
 /* ===================== Estado y red ===================== */
-let sb=null,ch=null,ME={pid:"",name:""},G=null,SKEW=0,PRIV=null,IS_HOST=false,TICK=null,connected=false,VER=0;
+let LOCAL=false,sb=null,ch=null,ME={pid:"",name:""},G=null,SKEW=0,PRIV=null,IS_HOST=false,TICK=null,connected=false,VER=0;
 try{sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY)}catch(e){}
 function sesion(){try{return JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")||"{}")}catch(e){return {}}}
 function getPid(){let p=sessionStorage.getItem("opoly_pid");if(!p){p=(sesion().id||"inv")+"-"+Math.random().toString(36).slice(2,6);sessionStorage.setItem("opoly_pid",p)}return p}
-function send(m){if(ch)ch.send({type:"broadcast",event:"m",payload:{...m,pid:ME.pid}})}
+function send(m){if(LOCAL){setTimeout(()=>{hostHandle({...m,pid:ME.pid});},0);return}if(ch)ch.send({type:"broadcast",event:"m",payload:{...m,pid:ME.pid}})}
 function openChannel(code,onReady){
  if(!sb){$("emsg").textContent="No hay conexión con el servidor de juego.";return}
  ch=sb.channel("opoly-"+code,{config:{broadcast:{self:true,ack:false},presence:{key:ME.pid}}});
@@ -226,8 +226,8 @@ function onMsg(m){
 /* ===================== Host: reglas del juego ===================== */
 const cur=()=>G.players[G.turn];
 const active=()=>G.players.filter(p=>!p.out);
-function publish(){G.ver=(G.ver||0)+1;G.now=Date.now();try{sessionStorage.setItem("opoly_host",JSON.stringify({G,PRIV}))}catch(e){}
- ch&&ch.send({type:"broadcast",event:"m",payload:{t:"state",s:G}});SKEW=0;applyState(G)}
+function publish(){G.ver=(G.ver||0)+1;G.now=Date.now();if(!LOCAL)try{sessionStorage.setItem("opoly_host",JSON.stringify({G,PRIV}))}catch(e){}
+ if(!LOCAL&&ch)ch.send({type:"broadcast",event:"m",payload:{t:"state",s:G}});SKEW=0;applyState(G)}
 function logl(t){G.log.push(t);if(G.log.length>40)G.log.shift()}
 function evt(text,kind,explain){G.event={text,kind:kind||"",explain:explain||"",n:(G.event?G.event.n:0)+1};logl(text)}
 function createRoom(){
@@ -301,10 +301,18 @@ function endTurn(keepEvent){
  G.turn=n;G.phase="roll";G.deadline=Date.now()+T_ROLL;if(!keepEvent&&false)G.event=null}
 function patrimonio(p){return p.money+Object.keys(G.owners).filter(k=>G.owners[k]===p.id).reduce((s,k)=>s+TILES[k].price,0)}
 function finish(){G.phase="end";G.deadline=0;G.ranking=G.players.map(p=>({id:p.id,name:p.name,total:patrimonio(p),out:p.out})).sort((a,b)=>b.total-a.total);evt(`🏆 ¡Fin del juego! Gana ${G.ranking[0].name} con ${fmt(G.ranking[0].total)}.`,"ok")}
+function botAct(now){
+ const p=cur();if(!p||!p.bot||!["roll","question","buy"].includes(G.phase))return false;
+ if(!G._bw){G._bw=now+(G.phase==="question"?2500:1300);return false}
+ if(now<G._bw)return false;G._bw=0;
+ if(G.phase==="roll")doRoll();
+ else if(G.phase==="question"){const a=PRIV.answer;resolveAnswer(Math.random()<0.65?a:(a+rnd(1,3))%4)}
+ else resolveBuy(p.money>=TILES[G.q.tile].price+50000);
+ publish();return true}
 function hostTick(){
- if(!G||!IS_HOST)return;const now=Date.now();
+ if(!G||!IS_HOST)return;const now=Date.now();if(botAct(now))return;
  if(["roll","question","buy"].includes(G.phase)){const p=cur();
-  const gone=p&&!p.conn,late=G.deadline&&now>G.deadline;
+  const gone=p&&!p.conn&&!p.bot,late=G.deadline&&now>G.deadline;
   if(late||(gone&&now>G.deadline-(G.phase==="roll"?T_ROLL:G.phase==="question"?T_Q:T_BUY)+4000)){
    if(G.phase==="roll")doRoll();else if(G.phase==="question")resolveAnswer(PRIV?(PRIV.answer+1)%4:0);else resolveBuy(false);
    publish()}}}
@@ -333,7 +341,7 @@ function showDice(a,b){
  [[ "d1",a,720],["d2",b,1080]].forEach(([id,v,sp])=>{const r=rot[v];$(id).style.transform=`rotateX(${r[0]+sp}deg) rotateY(${r[1]+sp}deg)`})}
 function applyState(s){
  const first=!V.shown;G=s;
- if(first){V.shown=true;$("entry").classList.add("hidden");$("game").classList.remove("hidden");$("hSala").textContent="Sala "+G.code;buildBoard();setView()}
+ if(first){V.shown=true;$("entry").classList.add("hidden");$("game").classList.remove("hidden");$("hSala").textContent=G.demo?"Modo demo":"Sala "+G.code;if(G.demo)$("bLink").classList.add("hidden");buildBoard();setView()}
  ensurePawns();
  const newRoll=G.rollId!==V.rollId;
  if(newRoll&&G.rollId>0){V.rollId=G.rollId;V.anim++;showDice(G.dice[0],G.dice[1]);
@@ -395,6 +403,10 @@ $("bCrear").onclick=()=>{if(!nombre())return;ME.pid=getPid();IS_HOST=true;const 
 function unirse(code){if(!nombre())return;code=String(code||"").toUpperCase().trim();if(code.length!==4){$("emsg").textContent="El código tiene 4 letras.";return}
  ME.pid=getPid();IS_HOST=false;$("emsg").textContent="Conectando…";
  openChannel(code,()=>{send({t:"join",name:ME.name});send({t:"hello"});setTimeout(()=>{if(!G)$("emsg").textContent="No se encontró la sala "+code+". Revisa el código o pide al anfitrión que la cree."},6000)})}
+$("bDemo").onclick=()=>{if(!nombre())return;ME.pid=getPid();IS_HOST=true;LOCAL=true;const code=createRoom();
+ G.players.push({id:"bot1",name:"🤖 Bot Ana",color:COLORS[1],pos:0,money:START,out:false,skip:0,conn:true,bot:true},{id:"bot2",name:"🤖 Bot Beto",color:COLORS[2],pos:0,money:START,out:false,skip:0,conn:true,bot:true});
+ G.demo=true;G.maxRounds=8;G.phase="roll";G.deadline=Date.now()+T_ROLL;evt("Modo demo: juegas contra 2 bots. ¡Tira los dados!");
+ TICK=setInterval(hostTick,700);publish()};
 $("bUnir").onclick=()=>unirse($("cod").value);
 $("cod").addEventListener("keydown",e=>{if(e.key==="Enter")unirse($("cod").value)});
 $("bLink").onclick=()=>{const u=location.origin+location.pathname+"?sala="+(G?G.code:"");(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>{$("bLink").textContent="¡Copiado!";setTimeout(()=>$("bLink").textContent="Copiar enlace",1500)}).catch(()=>prompt("Copia este enlace:",u))};
