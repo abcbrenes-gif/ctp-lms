@@ -785,6 +785,22 @@ async function cargarIndicadoresLms(){
   const [m,i]=await Promise.all([sb.from("materias").select("id,nombre,seccion").order("nombre"),sb.from("indicadores").select("id,materia_id,categoria,letra,descripcion,puntaje_maximo").order("orden")]);
   APP.indData={materias:m.data||[],indicadores:i.data||[]};
 }
+const IA_TIT=(c,n)=>({machote:`Calcula el machote de planilla: salario bruto, cuotas obreras, renta y salario neto (${n})`,asiento:`Elabora el asiento de diario de la planilla de salarios (${n})`,evaluacion:`Resuelve la evaluación de cálculo y registro de planilla (${n})`})[c];
+const IA_CTX={machote:"El estudiante completa en Aula Contable el machote de planilla de varios colaboradores: salario bruto, cuotas obreras (CCSS, Banco Popular), impuesto sobre la renta, otros rebajos y salario neto, con cálculos exactos.",asiento:"El estudiante registra en Aula Contable el asiento de diario de la planilla: gasto por salarios, cargas sociales, provisiones y cuentas por pagar, con débitos y créditos balanceados.",evaluacion:"El estudiante resuelve una evaluación de una sola oportunidad con los montos de la planilla y el asiento, sin pistas."};
+const IA_NOMBRE={machote:"Machote",asiento:"Asiento de planilla",evaluacion:"Evaluación"};
+async function iaGenerar(titulo,contexto,instrucciones){
+  const r=await fetch("/api/generar-criterios-ia",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({titulo,contexto,instrucciones:instrucciones||"",puntajeMaximo:3})});
+  const dt=await r.json();if(!r.ok)throw new Error(dt.error||"La IA no respondió");return dt;
+}
+function borradorHTML(g){
+  const bd=(APP.indBorr&&APP.indBorr[g.key])||null;if(!bd||!bd.length)return "";
+  return `<div class="panel stack" style="border:2px dashed var(--pop);padding:10px" data-borrador="${esc(g.key)}"><b>📝 Borrador de indicadores (todavía no se han creado)</b><small class="muted">Revísalos y edítalos. Puedes pedirle a la IA que los mejore, con una indicación tuya si quieres. Cuando estés conforme, pulsa "Crear indicadores y vincular".</small>
+   ${bd.map((x,i)=>`<div class="panel stack" style="padding:10px"><div class="row" style="justify-content:space-between;align-items:center"><span class="chip tI">${esc(IA_NOMBRE[x.comp]||x.comp)}</span><button class="btn sm ghost" data-act="indBorrarUno" data-key="${esc(g.key)}" data-i="${i}">Quitar</button></div>
+    <div class="field"><label>Descripción del indicador</label><textarea rows="2" data-bd="${i}|desc">${esc(x.descripcion)}</textarea></div>
+    ${[1,2,3].map(p=>{const c=x.criterios.find(y=>y.puntaje===p)||{};return `<div class="row" style="gap:8px;flex-wrap:nowrap;align-items:flex-start"><div class="field" style="flex:0 0 120px"><label>${p} punto${p>1?"s":""} · nivel</label><input data-bd="${i}|nivel|${p}" value="${esc(c.nivel||"")}"></div><div class="field" style="flex:1"><label>Criterio</label><textarea rows="2" data-bd="${i}|crit|${p}">${esc(c.descripcion||"")}</textarea></div></div>`}).join("")}
+    <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end"><div class="field" style="flex:1 1 260px"><label>Indicación para la IA (opcional)</label><input data-bdinst="${i}" placeholder="Ej.: más exigente con la renta; menciona las cuotas obreras"></div><button class="btn sm pop" data-act="indMejorar" data-key="${esc(g.key)}" data-i="${i}">✨ Mejorar con IA</button></div></div>`).join("")}
+   <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn sm primary" data-act="indGuardarBorr" data-key="${esc(g.key)}" data-mat="${esc((APP.indMat&&APP.indMat[g.key])||"")}">💾 Crear indicadores y vincular</button><button class="btn sm ghost" data-act="indDescartar" data-key="${esc(g.key)}">Descartar borrador</button></div></div>`;
+}
 function indicadorPanelHTML(g){
   const rows=g.rows,cfg=rows[0]&&rows[0].c.evalCfg&&rows[0].c.evalCfg.indicador;const multi=(rows[0]&&rows[0].c.evalCfg&&rows[0].c.evalCfg.indicadores)||[];const d=APP.indData;
   if(!d)return '<div class="loading">Cargando materias e indicadores…</div>';
@@ -801,11 +817,12 @@ function indicadorPanelHTML(g){
    </div>
    <div class="row" style="gap:8px;flex-wrap:wrap">
     <button class="btn sm pop" data-act="indVincular" data-key="${esc(g.key)}" ${inds.length?"":"disabled"}>🔗 Vincular indicador</button>
-    <button class="btn sm primary" data-act="indIA" data-key="${esc(g.key)}" data-mat="${esc(selMat)}" ${selMat?"":"disabled"}>✨ Crear indicadores con IA</button>
+    <button class="btn sm primary" data-act="indIA" data-key="${esc(g.key)}" data-mat="${esc(selMat)}" ${selMat?"":"disabled"}>✨ Generar borrador con IA</button>
     <button class="btn sm ghost" data-act="indCrear" data-key="${esc(g.key)}" data-mat="${esc(selMat)}" ${selMat?"":"disabled"}>➕ Crear indicador nuevo con el nombre de la práctica</button>
     ${(cfg||multi.length)?`<button class="btn sm primary" data-act="indSync" data-key="${esc(g.key)}">🔄 Subir notas ahora</button><button class="btn sm ghost" data-act="indQuitar" data-key="${esc(g.key)}">Desvincular</button>`:""}
    </div>
-   <div class="row" style="gap:12px;flex-wrap:wrap"><small class="muted">Para "Crear con IA", elige qué evalúa cada indicador (cada uno se crea con sus criterios de 1 a 3 y recibe la nota de su parte):</small>
+   ${borradorHTML(g)}
+   <div class="row" style="gap:12px;flex-wrap:wrap"><small class="muted">Elige qué evalúa cada indicador. Primero se genera un borrador que puedes revisar, editar y mejorar antes de crearlo:</small>
     <label><input type="checkbox" data-iacomp="machote" checked> Machote</label><label><input type="checkbox" data-iacomp="asiento" checked> Asiento de planilla</label><label><input type="checkbox" data-iacomp="evaluacion"> Evaluación</label></div></div>`;
 }
 function evControlesHTML(g,tab){
@@ -2553,28 +2570,32 @@ document.addEventListener("click",async e=>{
     try{await APP.store.updateEmpresaEstudiante(b.dataset.est,b.dataset.co,x=>{const cfg=evCfg(x);cfg[k].reset=Date.now();const pl=x.payroll;if(pl){if(k==="machote")pl.evalM=null;else pl.evalA=null}});toast("Intento borrado: puede repetirla")}catch(err){toast("No se pudo actualizar")}
     loadEmpData()});return}
   if(a==="reloadEmp"){APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;loadEmpData();return}
-  if(a==="indVincular"||a==="indQuitar"||a==="indCrear"||a==="indSync"||a==="indIA"){(async()=>{const key=b.dataset.key,box=b.closest("[data-indbox]");const rows=evRowsDeGrupo(key);b.disabled=true;
+  if(a==="indVincular"||a==="indQuitar"||a==="indCrear"||a==="indSync"||a==="indIA"||a==="indGuardarBorr"||a==="indMejorar"||a==="indBorrarUno"||a==="indDescartar"){(async()=>{const key=b.dataset.key,box=b.closest("[data-indbox]");const rows=evRowsDeGrupo(key);b.disabled=true;
     try{
       if(a==="indSync"){let ok=0,sin=0;for(const {w,c} of rows){const c2=clone(c);if(await acSubirNotaIndicador(w.id,c2))ok++;else sin++}
         toast(`Notas subidas al indicador: ${ok}${sin?` (${sin} sin nota todavía)`:""}`);b.disabled=false;return}
-      let ind=null,nuevos=null;
-      if(a==="indIA"){const mat=b.dataset.mat;const comps=[...box.querySelectorAll("[data-iacomp]:checked")].map(x=>x.dataset.iacomp);if(!comps.length)throw new Error("Marca al menos un componente");
-        const nombre=(rows[0]&&rows[0].c&&rows[0].c.name)||"Práctica";
-        const TIT={machote:`Calcula el machote de planilla: salario bruto, cuotas obreras, renta y salario neto (${nombre})`,asiento:`Elabora el asiento de diario de la planilla de salarios (${nombre})`,evaluacion:`Resuelve la evaluación de cálculo y registro de planilla (${nombre})`};
-        const CTX={machote:"El estudiante completa en Aula Contable el machote de planilla de varios colaboradores: salario bruto, cuotas obreras (CCSS, Banco Popular), impuesto sobre la renta, otros rebajos y salario neto, con cálculos exactos.",asiento:"El estudiante registra en Aula Contable el asiento de diario de la planilla: gasto por salarios, cargas sociales, provisiones y cuentas por pagar, con débitos y créditos balanceados.",evaluacion:"El estudiante resuelve una evaluación de una sola oportunidad con los montos de la planilla y el asiento, sin pistas."};
+      let ind=null,nuevos=null,esIA=false;
+      if(a==="indIA"){const comps=[...box.querySelectorAll("[data-iacomp]:checked")].map(x=>x.dataset.iacomp);if(!comps.length)throw new Error("Marca al menos un componente");
+        const nombre=(rows[0]&&rows[0].c&&rows[0].c.name)||"Práctica";const bd=[];
+        for(const comp of comps){b.textContent="Generando "+(bd.length+1)+"/"+comps.length+"…";const dt=await iaGenerar(IA_TIT(comp,nombre),IA_CTX[comp]);
+          bd.push({comp,descripcion:dt.descripcion||IA_TIT(comp,nombre),criterios:dt.criterios||[]})}
+        APP.indBorr=APP.indBorr||{};APP.indBorr[key]=bd;toast("Borrador listo: revísalo abajo");APP.revOpen=APP.revOpen||{};APP.revOpen[key]=true;render();return}
+      if(a==="indGuardarBorr"){const mat=b.dataset.mat||(APP.indData.materias[0]||{}).id;const bd=(APP.indBorr&&APP.indBorr[key])||[];if(!bd.length)throw new Error("No hay borrador");
         const {data:cat}=await sb.from("rubrica_categorias").select("nombre").eq("nombre","Trabajo cotidiano").maybeSingle();if(!cat)throw new Error('No existe la categoría "Trabajo cotidiano" en Rúbrica');
         nuevos=[];
-        for(const comp of comps){b.textContent="Creando "+(nuevos.length+1)+"/"+comps.length+"…";
-          const r=await fetch("/api/generar-criterios-ia",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({titulo:TIT[comp],contexto:CTX[comp],puntajeMaximo:3})});
-          const dt=await r.json();if(!r.ok)throw new Error(dt.error||"La IA no respondió");
-          const {data:ex}=await sb.from("indicadores").select("id,letra").eq("materia_id",mat).eq("categoria","Trabajo cotidiano");
+        for(const x of bd){const {data:ex}=await sb.from("indicadores").select("id,letra").eq("materia_id",mat).eq("categoria","Trabajo cotidiano");
           const usadas=(ex||[]).map(e=>e.letra);let letra="A";for(const L of "ABCDEFGHIJKLMNOPQRSTUVWXYZ"){if(!usadas.includes(L)){letra=L;break}}
-          const {data:nu,error}=await sb.from("indicadores").insert({materia_id:mat,categoria:"Trabajo cotidiano",letra,descripcion:dt.descripcion||TIT[comp],puntaje_maximo:3,orden:(ex||[]).length+1}).select().maybeSingle();
+          const {data:nu,error}=await sb.from("indicadores").insert({materia_id:mat,categoria:"Trabajo cotidiano",letra,descripcion:x.descripcion,puntaje_maximo:3,orden:(ex||[]).length+1}).select().maybeSingle();
           if(error||!nu)throw new Error(error?error.message:"No se pudo crear el indicador");
-          const crit=[{indicador_id:nu.id,puntaje:0,nivel:"No presentado",descripcion:"El estudiante no presentó el trabajo, o tiene una ausencia injustificada en la fecha de evaluación.",orden:0},...(dt.criterios||[]).map(c=>({indicador_id:nu.id,puntaje:c.puntaje,nivel:c.nivel||null,descripcion:c.descripcion,orden:c.puntaje}))];
-          await sb.from("criterios_indicador").insert(crit);
-          nuevos.push({id:nu.id,materia_id:mat,max:3,comp})}
-        await cargarIndicadoresLms()}
+          const crit=[{indicador_id:nu.id,puntaje:0,nivel:"No presentado",descripcion:"El estudiante no presentó el trabajo, o tiene una ausencia injustificada en la fecha de evaluación.",orden:0},...x.criterios.filter(c=>c.descripcion).map(c=>({indicador_id:nu.id,puntaje:c.puntaje,nivel:c.nivel||null,descripcion:c.descripcion,orden:c.puntaje}))];
+          await sb.from("criterios_indicador").insert(crit);nuevos.push({id:nu.id,materia_id:mat,max:3,comp:x.comp})}
+        await cargarIndicadoresLms();delete APP.indBorr[key];esIA=true}
+      if(a==="indMejorar"){const i=+b.dataset.i,x=APP.indBorr[key][i],nombre=(rows[0]&&rows[0].c&&rows[0].c.name)||"Práctica";
+        const inst=((box.querySelector(`[data-bdinst="${i}"]`)||{}).value||"").trim()||"Mejora la redacción y hazla más precisa y observable; manteniendo progresión clara entre niveles.";
+        const dt=await iaGenerar(x.descripcion||IA_TIT(x.comp,nombre),IA_CTX[x.comp],inst);
+        x.descripcion=dt.descripcion||x.descripcion;x.criterios=dt.criterios||x.criterios;toast("Indicador mejorado con IA");render();return}
+      if(a==="indBorrarUno"){APP.indBorr[key].splice(+b.dataset.i,1);render();return}
+      if(a==="indDescartar"){delete APP.indBorr[key];render();return}
       if(a==="indVincular"){const id=box.querySelector("[data-indsel]").value;const i=APP.indData.indicadores.find(x=>x.id===id);if(!i)throw new Error("Elige un indicador");ind={id:i.id,materia_id:i.materia_id,max:i.puntaje_maximo||3}}
       if(a==="indCrear"){const mat=b.dataset.mat;const g0=rows[0]&&rows[0].c;const nombre=(g0&&g0.name)||"Práctica";
         const {data:cat}=await sb.from("rubrica_categorias").select("nombre").eq("nombre","Trabajo cotidiano").maybeSingle();if(!cat)throw new Error('No existe la categoría "Trabajo cotidiano" en Rúbrica');
@@ -2582,8 +2603,8 @@ document.addEventListener("click",async e=>{
         const usadas=(ex||[]).map(e=>e.letra);let letra="A";for(const L of "ABCDEFGHIJKLMNOPQRSTUVWXYZ"){if(!usadas.includes(L)){letra=L;break}}
         const {data:nuevo,error}=await sb.from("indicadores").insert({materia_id:mat,categoria:"Trabajo cotidiano",letra,descripcion:nombre,puntaje_maximo:3,orden:(ex||[]).length+1}).select().maybeSingle();
         if(error||!nuevo)throw new Error(error?error.message:"No se pudo crear el indicador");ind={id:nuevo.id,materia_id:mat,max:3};await cargarIndicadoresLms()}
-      for(const {w,c} of rows)await APP.store.updateEmpresaEstudiante(w.id,c.id,x=>{const cfg=evCfg(x);if(a==="indQuitar"){delete cfg.indicador;delete cfg.indicadores}else if(a==="indIA"){cfg.indicadores=[...(cfg.indicadores||[]).filter(m=>!nuevos.some(n=>n.comp===m.comp)),...nuevos]}else cfg.indicador=ind});
-      toast(a==="indQuitar"?"Indicador desvinculado":a==="indIA"?"Indicadores creados con IA y vinculados ("+nuevos.length+"). Ya puedes pulsar Subir notas ahora":"Indicador vinculado a "+rows.length+" estudiante(s)");
+      for(const {w,c} of rows)await APP.store.updateEmpresaEstudiante(w.id,c.id,x=>{const cfg=evCfg(x);if(a==="indQuitar"){delete cfg.indicador;delete cfg.indicadores}else if(esIA){cfg.indicadores=[...(cfg.indicadores||[]).filter(m=>!nuevos.some(n=>n.comp===m.comp)),...nuevos]}else cfg.indicador=ind});
+      toast(a==="indQuitar"?"Indicador desvinculado":esIA?"Indicadores creados con IA y vinculados ("+nuevos.length+"). Ya puedes pulsar Subir notas ahora":"Indicador vinculado a "+rows.length+" estudiante(s)");
     }catch(err){toast("No se pudo: "+(err&&err.message||err))}
     APP.revOpen=APP.revOpen||{};APP.revOpen[key]=true;await loadEmpData()})();return}
   if(a==="actualizarInforme"){(async()=>{b.disabled=true;const t0=b.textContent;let n=0,fail=0;const all=APP.empData||[];
@@ -2758,6 +2779,8 @@ async function boot(){
 }
 boot();
 
+document.addEventListener("input",e=>{const t=e.target;if(!t||!t.dataset||!t.dataset.bd)return;const box=t.closest("[data-borrador]");if(!box)return;const bd=(APP.indBorr||{})[box.dataset.borrador];if(!bd)return;const [i,f,p]=t.dataset.bd.split("|");const x=bd[+i];if(!x)return;
+  if(f==="desc")x.descripcion=t.value;else{let c=x.criterios.find(y=>y.puntaje===+p);if(!c){c={puntaje:+p,nivel:"",descripcion:""};x.criterios.push(c)}if(f==="nivel")c.nivel=t.value;else c.descripcion=t.value}});
 document.addEventListener("change",e=>{const t=e.target;if(t&&t.matches&&t.matches("[data-indmat]")){APP.indMat=APP.indMat||{};APP.indMat[t.dataset.key]=t.value;render()}});
 document.addEventListener("submit",e=>{const c=co();if(ventanaBloqueada(c)){e.preventDefault();e.stopImmediatePropagation();toast("⏰ Fuera del horario de la práctica: no se puede guardar ni entregar")}},true);
 setInterval(async()=>{try{if(!APP.me||isTeacher()||APP.comoEstudiante||APP.demo)return;const c=co();if(!c||c.categoria!=="practica")return;
