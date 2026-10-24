@@ -368,6 +368,15 @@ tr.cell-ok td,tr.cell-bad td{background:transparent}
 .hints{margin:0;padding:12px 12px 12px 30px;background:var(--badbg);color:var(--bad);border-radius:12px;display:flex;flex-direction:column;gap:6px;font-size:.9rem}
 .hints b{color:var(--ink)}
 @media (max-width:640px){.qrow{grid-template-columns:minmax(0,1fr) 130px 22px}.firmas{grid-template-columns:1fr}}
+.liq-total{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border-radius:18px;padding:18px 22px}
+.liq-total small{display:block;opacity:.85;font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:.72rem}
+.liq-total b{font-family:var(--f-num);font-size:1.9rem}
+.liq-tm{display:flex;flex-direction:column;gap:2px;font-size:.85rem;opacity:.95;text-align:right}
+.liq-adv{background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4);border-radius:12px;padding:8px 12px;margin-top:8px;font-size:.86rem}
+.liqd{border:1px solid var(--line);border-radius:12px;padding:8px 12px;background:var(--surface)}
+.liqd summary{cursor:pointer;font-weight:700;font-size:.9rem}
+.liqd ol{margin:8px 0 2px 18px;padding:0;font-size:.86rem;line-height:1.5}
+tr.muted{opacity:.5}tr.tot td{background:var(--bg2,rgba(99,102,241,.07))}
 </style>
 <header class="top" id="top" hidden>
   <div class="wrap">
@@ -1699,7 +1708,175 @@ function plProcedure(k,e){
 }
 
 /* Vistas del módulo */
-const PL_TABS=[["param","Parámetros legales"],["planilla","Colaboradores y planilla"],["practica","Práctica y evaluación"],["asiento","Asiento contable"],["colillas","Colillas de pago"]];
+const PL_TABS=[["param","Parámetros legales"],["planilla","Colaboradores y planilla"],["practica","Práctica y evaluación"],["asiento","Asiento contable"],["colillas","Colillas de pago"],["liquidacion","Liquidación laboral"]];
+/* ============ Liquidación laboral (Costa Rica) ============
+   Lógica pura (sin DOM) + vista. Base: Código de Trabajo arts. 28 (preaviso), 29 (cesantía), 153-156 (vacaciones)
+   y Ley 2412 (aguinaldo). Los valores legales están en tablas para poder verificarlos con el MTSS. */
+const LIQ_MOTIVOS=[["despido_responsabilidad","Despido con responsabilidad patronal"],["despido_justa_causa","Despido sin responsabilidad patronal (justa causa)"],["renuncia","Renuncia voluntaria"],["jubilacion_fallecimiento","Jubilación / fallecimiento"]];
+const LIQ_CES_TABLA={1:19.5,2:20,3:20.5,4:21,5:21.24,6:21.5,7:22,8:22,9:22,10:21.5,11:21,12:20.5,13:20}; // días por año laborado según años cumplidos
+const LIQ_CES_TOPE_ANIOS=8;
+const liqPd=s=>{const [y,m,d]=String(s).split("-").map(Number);return new Date(Date.UTC(y,(m||1)-1,d||1))};
+const liqIso=d=>d.toISOString().slice(0,10);
+function liqAntiguedad(ing,sal){
+  let y=sal.getUTCFullYear()-ing.getUTCFullYear(),m=sal.getUTCMonth()-ing.getUTCMonth(),d=sal.getUTCDate()-ing.getUTCDate()+1;
+  if(d<0){m--;d+=30}if(d>=30){m++;d-=30}if(m<0){y--;m+=12}
+  return {anios:Math.max(0,y),meses:Math.max(0,m),dias:Math.max(0,d),mesesTotales:Math.max(0,y*12+m+d/30)};
+}
+function liqMesesHistorial(fechaSalida){ // 12 meses terminando en el mes de salida
+  const s=liqPd(fechaSalida),out=[];for(let i=11;i>=0;i--){const d=new Date(Date.UTC(s.getUTCFullYear(),s.getUTCMonth()-i,1));out.push(d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0"))}return out;
+}
+function liqCalcular(inp){
+  const R=n=>Math.round((+n||0)*100)/100,adv=[];
+  const ing=liqPd(inp.fechaIngreso),sal=liqPd(inp.fechaSalida);
+  if(!(sal>=ing))return {error:"La fecha de salida debe ser igual o posterior a la fecha de ingreso."};
+  const ant=liqAntiguedad(ing,sal),mesIng=liqIso(ing).slice(0,7),mesSal=liqIso(sal).slice(0,7);
+  const sueldos=(inp.salarios||[]).map(x=>({mes:x.mes,total:R((+x.ordinario||0)+(+x.extraordinario||0)),incap:!!x.incapacidad})).filter(x=>x.mes>=mesIng&&x.mes<=mesSal).sort((a,b)=>a.mes.localeCompare(b.mes));
+  const utiles=sueldos.filter(x=>!x.incap);
+  if(sueldos.some(x=>x.incap))adv.push("Los meses con incapacidad (CCSS/INS) se excluyen del promedio: los subsidios no son salario ordinario.");
+  // promedios
+  const u6=utiles.slice(-6),mensual6=u6.length?R(u6.reduce((s,x)=>s+x.total,0)/u6.length):0;
+  const mensual12=utiles.length?R(utiles.reduce((s,x)=>s+x.total,0)/utiles.length):0;
+  const div30=30,divCes=inp.tipoPago==="semanal_no_comercial"?26:30;
+  const diario=R(mensual6/div30),diarioCes=R(mensual6/divCes),diarioVac=R(mensual12/div30);
+  // aguinaldo: 1 dic anterior – 30 nov
+  const aY=sal.getUTCMonth()===11?sal.getUTCFullYear():sal.getUTCFullYear()-1,aDesde=aY+"-12";
+  const aMeses=sueldos.filter(x=>x.mes>=aDesde),aTotal=R(aMeses.reduce((s,x)=>s+x.total,0));
+  const aguinaldo={periodo:{desde:liqIso(new Date(Math.max(ing,Date.UTC(aY,11,1)))),hasta:inp.fechaSalida},totalDevengado:aTotal,meses:aMeses.length,monto:R(aTotal/12)};
+  // vacaciones
+  let vIni=ing;if(ant.anios>=1)vIni=new Date(Date.UTC(ing.getUTCFullYear()+ant.anios,ing.getUTCMonth(),ing.getUTCDate()));
+  const mesesPer=ant.anios>=1?ant.meses+ant.dias/30:ant.mesesTotales;
+  const acum=R(Math.min(12,mesesPer)),disf=+inp.vacacionesDisfrutadas||0,pend=Math.max(0,R(acum-disf));
+  if(disf>acum)adv.push("Los días de vacaciones disfrutados superan los acumulados del período: no se descuenta de más.");
+  const vacaciones={periodoDesde:liqIso(vIni),acumulados:acum,disfrutados:disf,pendientes:pend,diario:diarioVac,monto:R(pend*diarioVac)};
+  // preaviso
+  const t=ant.mesesTotales;let pLegal=0;
+  if(t>=12)pLegal=30;else if(t>=6)pLegal=15;else if(t>=3)pLegal=7;
+  const paga=inp.motivo==="despido_responsabilidad";
+  const pa=inp.preaviso||{estado:"no",diasLaborados:0};
+  const lab=pa.estado==="completo"?pLegal:pa.estado==="parcial"?Math.min(pLegal,Math.max(0,+pa.diasLaborados||0)):0;
+  const pPagar=paga?Math.max(0,pLegal-lab):0;
+  const preaviso={aplica:paga&&pLegal>0,diasLegales:pLegal,diasLaborados:lab,diasPagar:pPagar,diario,monto:R(pPagar*diario)};
+  if(inp.motivo==="renuncia"&&pLegal>0&&lab<pLegal)adv.push("Renuncia sin preaviso completo: la empresa no puede descontarlo de la liquidación; solo puede reclamarlo judicialmente dentro de 30 días.");
+  if(t<3)adv.push("Menos de 3 meses de relación: no corresponde preaviso ni cesantía.");
+  // cesantía
+  let cDias=0,cTarifa=null,cAnios=0,cTramo="Sin derecho";
+  const aplicaCes=inp.motivo==="despido_responsabilidad"||inp.motivo==="jubilacion_fallecimiento";
+  if(t>=3&&t<6){cDias=7;cTramo="De 3 a menos de 6 meses"}
+  else if(t>=6&&t<12){cDias=14;cTramo="De 6 meses a menos de 1 año"}
+  else if(t>=12){const frac=ant.meses+ant.dias/30;cAnios=ant.anios+(frac>6?1:0);cTarifa=LIQ_CES_TABLA[Math.min(cAnios,13)];const ind=Math.min(cAnios,LIQ_CES_TOPE_ANIOS);cDias=R(cTarifa*ind);cTramo=`${cAnios} año(s) contado(s) · ${cTarifa} días por año × ${ind} año(s)`;
+    if(cAnios>LIQ_CES_TOPE_ANIOS)adv.push("La cesantía se indemniza hasta un máximo de 8 años de relación laboral.")}
+  const cesantia={aplica:aplicaCes&&cDias>0,tramo:cTramo,tarifa:cTarifa,aniosContados:cAnios,dias:cDias,diario:diarioCes,divisor:divCes,monto:aplicaCes?R(cDias*diarioCes):0};
+  if(inp.motivo==="jubilacion_fallecimiento"&&cesantia.aplica)adv.push("Jubilación/fallecimiento: confirme con asesoría legal si procede el 100 % de la cesantía y quiénes son los beneficiarios.");
+  // salario pendiente y deducciones
+  const sp=R((+inp.diasSalarioPendiente||0)*diario);
+  const baseCcss=R(vacaciones.monto+sp),pctObr=+inp.pctCuotasObreras||0,ccss=R(baseCcss*pctObr/100);
+  const bruto=R(aguinaldo.monto+vacaciones.monto+(preaviso.aplica?preaviso.monto:0)+(cesantia.aplica?cesantia.monto:0)+sp);
+  return {antiguedad:ant,promedios:{mensual6,mesesUsados6:u6.length,mensual12,mesesUsados12:utiles.length,diario,diarioCesantia:diarioCes,diarioVacaciones:diarioVac},
+    aguinaldo,vacaciones,preaviso,cesantia,salarioPendiente:{dias:+inp.diasSalarioPendiente||0,monto:sp},
+    deducciones:{baseCcss,pctCuotasObreras:pctObr,ccss},totalBruto:bruto,totalNeto:R(bruto-ccss),advertencias:adv};
+}
+
+/* ---- Vista de Liquidación laboral ---- */
+APP.liq=APP.liq||null;
+function liqInit(c,p,empId){
+  const P=p.params,e=p.employees.find(x=>x.id===empId)||p.employees[0];
+  const hoy=new Date().toISOString().slice(0,10);
+  const k=e?plCalc(e,P):null;
+  const L={empId:e?e.id:"",fechaIngreso:e?.fechaIngreso||(c.period?c.period+"-01":hoy.slice(0,4)+"-01-01"),fechaSalida:hoy,motivo:"despido_responsabilidad",
+    tipoPago:"mensual",vacacionesDisfrutadas:0,preaviso:{estado:"no",diasLaborados:0},diasSalarioPendiente:0,hist:{},base:k?k.base:0,extra:k?r2(k.extra+k.comis):0};
+  return L;
+}
+function liqEntrada(c,p){
+  const L=APP.liq,P=p.params,pctObr=plAct(P.obrero).reduce((s,x)=>s+(+x.pct||0),0);
+  return {fechaIngreso:L.fechaIngreso,fechaSalida:L.fechaSalida,motivo:L.motivo,tipoPago:L.tipoPago,
+    salarios:liqMesesHistorial(L.fechaSalida).map(m=>{const h=L.hist[m]||{};return {mes:m,ordinario:h.o!==undefined&&h.o!==""?+h.o:L.base,extraordinario:h.x!==undefined&&h.x!==""?+h.x:L.extra,incapacidad:!!h.i}}),
+    vacacionesDisfrutadas:+L.vacacionesDisfrutadas||0,preaviso:L.preaviso,diasSalarioPendiente:+L.diasSalarioPendiente||0,pctCuotasObreras:pctObr};
+}
+function liqResultadoHTML(c,p){
+  const inp=liqEntrada(c,p),R=liqCalcular(inp);
+  if(R.error)return `<div class="empty"><h3>Revisa las fechas</h3><p>${esc(R.error)}</p></div>`;
+  const m=v=>money(v),A=R.antiguedad,pr=R.promedios;
+  const motivo=(LIQ_MOTIVOS.find(x=>x[0]===inp.motivo)||[])[1];
+  const fila=(n,base,form,monto,sujeto,off)=>`<tr class="${off?"muted":""}"><td><b>${n}</b></td><td class="r">${base}</td><td>${form}</td><td class="r"><b>${off?"—":m(monto)}</b></td><td>${sujeto}</td></tr>`;
+  const ces=R.cesantia,pre=R.preaviso,vac=R.vacaciones,ag=R.aguinaldo;
+  const pasos=(t,l)=>`<details class="liqd"><summary>${t}</summary><ol>${l.map(x=>`<li>${x}</li>`).join("")}</ol></details>`;
+  return `
+  <div class="liq-total"><div><small>Total neto a pagar al trabajador</small><b>${m(R.totalNeto)}</b></div>
+   <div class="liq-tm"><span>Bruto ${m(R.totalBruto)}</span><span>CCSS obrera −${m(R.deducciones.ccss)}</span></div></div>
+  ${R.advertencias.map(a=>`<div class="liq-adv">⚠️ ${esc(a)}</div>`).join("")}
+  <div class="kpis" style="margin:10px 0">
+   <div class="kpi"><small>Antigüedad</small><b>${A.anios} a · ${A.meses} m · ${A.dias} d</b></div>
+   <div class="kpi"><small>Promedio mensual (6 m)</small><b>${m(pr.mensual6)}</b></div>
+   <div class="kpi"><small>Salario diario</small><b>${m(pr.diario)}</b></div>
+   <div class="kpi"><small>Diario cesantía (÷${ces.divisor})</small><b>${m(pr.diarioCesantia)}</b></div></div>
+  <div class="tbl"><table class="sheet"><thead><tr><th>Concepto</th><th class="r">Base</th><th>Fórmula</th><th class="r">Monto</th><th>CCSS / Renta</th></tr></thead><tbody>
+   ${fila("Aguinaldo",m(ag.totalDevengado),`${m(ag.totalDevengado)} ÷ 12 (${ag.periodo.desde} a ${ag.periodo.hasta})`,ag.monto,"Exento")}
+   ${fila("Vacaciones",`${vac.pendientes} d × ${m(vac.diario)}`,`(${vac.acumulados} acumulados − ${vac.disfrutados} disfrutados) × salario diario (prom. ${pr.mesesUsados12} m ÷ 30)`,vac.monto,"Sujeto a CCSS")}
+   ${fila("Preaviso (art. 28)",`${pre.diasPagar} d × ${m(pre.diario)}`,`${pre.diasLegales} d legales − ${pre.diasLaborados} d laborados`,pre.monto,"Exento",!pre.aplica)}
+   ${fila("Cesantía (art. 29)",`${ces.dias} d × ${m(ces.diario)}`,esc(ces.tramo),ces.monto,"Exento",!ces.aplica)}
+   ${R.salarioPendiente.dias?fila("Salario pendiente",`${R.salarioPendiente.dias} d × ${m(pr.diario)}`,"Días laborados sin pagar",R.salarioPendiente.monto,"Sujeto a CCSS"):""}
+   <tr class="tot"><td colspan="3"><b>Total bruto</b></td><td class="r"><b>${m(R.totalBruto)}</b></td><td></td></tr>
+   <tr><td colspan="3">(−) Cuotas obreras CCSS (${R.deducciones.pctCuotasObreras} % sobre ${m(R.deducciones.baseCcss)})</td><td class="r">−${m(R.deducciones.ccss)}</td><td></td></tr>
+   <tr class="tot"><td colspan="3"><b>Neto a pagar</b></td><td class="r"><b>${m(R.totalNeto)}</b></td><td></td></tr></tbody></table></div>
+  <div class="stack" style="gap:6px;margin-top:12px">
+   ${pasos("Cómo se calculó el promedio y el salario diario",[`Meses usados para preaviso/cesantía: ${pr.mesesUsados6} (máx. últimos 6, sin meses de incapacidad) → promedio ${m(pr.mensual6)}.`,`Salario diario = ${m(pr.mensual6)} ÷ 30 = ${m(pr.diario)}${ces.divisor===26?`; para cesantía de pago semanal no comercial se divide entre 26 = ${m(pr.diarioCesantia)}`:""}.`,`Promedio para vacaciones: ${pr.mesesUsados12} meses → ${m(pr.mensual12)}; diario ${m(pr.diarioVacaciones)}.`])}
+   ${pasos("Aguinaldo",[`Período: ${ag.periodo.desde} al ${ag.periodo.hasta} (1 dic – 30 nov).`,`Salarios ordinarios + extraordinarios devengados: ${m(ag.totalDevengado)} (${ag.meses} mes(es) del historial).`,`Aguinaldo = ${m(ag.totalDevengado)} ÷ 12 = ${m(ag.monto)}.`])}
+   ${pasos("Vacaciones",[`Período vigente desde ${vac.periodoDesde}: 1 día por mes trabajado → ${vac.acumulados} días.`,`Pendientes = ${vac.acumulados} − ${vac.disfrutados} = ${vac.pendientes}.`,`Monto = ${vac.pendientes} × ${m(vac.diario)} = ${m(vac.monto)}.`])}
+   ${pasos("Preaviso y cesantía",[`Motivo: ${esc(motivo||"")}.`,`Preaviso legal: ${pre.diasLegales} días (3–6 m: 7 d · 6–12 m: 15 d · 1 año o más: 30 d). Solo se paga en despido con responsabilidad patronal.`,`Cesantía: ${esc(ces.tramo)}${ces.aplica?` = ${ces.dias} días × ${m(ces.diario)} = ${m(ces.monto)}`:" — no aplica con este motivo"}.`,"Tope de 8 años de cesantía. Fracción mayor a 6 meses cuenta como un año."])}
+  </div>
+  <details class="liqd" style="margin-top:6px"><summary>Base legal y tabla de cesantía</summary><div style="padding:8px 4px;font-size:.85rem">
+   <p>Preaviso: art. 28 · Cesantía: art. 29 · Vacaciones: arts. 153-156 · Aguinaldo: Ley 2412. Aguinaldo, preaviso y cesantía están exentos de cargas sociales y renta; las vacaciones y el salario pendiente sí cotizan. El impuesto sobre la renta no se calcula en este módulo. Verifique los valores vigentes con el MTSS.</p>
+   <div class="tbl"><table class="sheet"><thead><tr><th>Años</th>${Object.keys(LIQ_CES_TABLA).map(k=>`<th class="r">${k}${k==13?"+":""}</th>`).join("")}</tr></thead><tbody><tr><td>Días/año</td>${Object.values(LIQ_CES_TABLA).map(v=>`<td class="r">${v}</td>`).join("")}</tr></tbody></table></div></div></details>
+  <div style="margin-top:10px"><button class="btn secondary" data-liq="copiar">Copiar entrada y resultado (JSON)</button></div>`;
+}
+function plViewLiquidacion(c,p){
+  if(!p.employees.length)return `<div class="empty"><h3>Primero agrega colaboradores</h3><p>La liquidación toma el salario del colaborador como punto de partida.</p></div>`;
+  if(!APP.liq||!p.employees.some(x=>x.id===APP.liq.empId))APP.liq=liqInit(c,p);
+  const L=APP.liq,meses=liqMesesHistorial(L.fechaSalida),mesIng=L.fechaIngreso.slice(0,7);
+  const f=(lbl,inner)=>`<div class="field"><label>${lbl}</label>${inner}</div>`;
+  return `<div class="stack">
+  <div class="card"><h3 style="margin:0 0 4px">Liquidación laboral · Costa Rica</h3><p class="muted" style="margin:0 0 10px">Aguinaldo, vacaciones, preaviso y cesantía según el Código de Trabajo. Los resultados se actualizan al escribir.</p>
+   <div class="row" style="flex-wrap:wrap">
+    ${f("Colaborador",`<select data-liq="emp">${p.employees.map(e=>`<option value="${e.id}" ${e.id===L.empId?"selected":""}>${esc(e.nombre)}</option>`).join("")}</select>`)}
+    ${f("Fecha de ingreso",`<input type="date" data-liq="fechaIngreso" value="${L.fechaIngreso}">`)}
+    ${f("Fecha de salida",`<input type="date" data-liq="fechaSalida" value="${L.fechaSalida}">`)}
+    ${f("Motivo de terminación",`<select data-liq="motivo">${LIQ_MOTIVOS.map(([k,t])=>`<option value="${k}" ${k===L.motivo?"selected":""}>${t}</option>`).join("")}</select>`)}
+    ${f("Forma de pago",`<select data-liq="tipoPago"><option value="mensual" ${L.tipoPago==="mensual"?"selected":""}>Mensual / quincenal</option><option value="semanal_no_comercial" ${L.tipoPago==="semanal_no_comercial"?"selected":""}>Semanal (no comercial: cesantía ÷ 26)</option></select>`)}
+   </div>
+   <div class="row" style="flex-wrap:wrap;margin-top:8px">
+    ${f("Vacaciones ya disfrutadas (días)",`<input type="number" min="0" step="0.5" data-liq="vacacionesDisfrutadas" value="${L.vacacionesDisfrutadas}">`)}
+    ${f("Preaviso trabajado",`<select data-liq="preavisoEstado"><option value="no" ${L.preaviso.estado==="no"?"selected":""}>No lo trabajó</option><option value="parcial" ${L.preaviso.estado==="parcial"?"selected":""}>Parcial</option><option value="completo" ${L.preaviso.estado==="completo"?"selected":""}>Completo</option></select>`)}
+    ${f("Días de preaviso laborados",`<input type="number" min="0" data-liq="preavisoDias" value="${L.preaviso.diasLaborados}" ${L.preaviso.estado==="parcial"?"":"disabled"}>`)}
+    ${f("Días de salario pendientes",`<input type="number" min="0" data-liq="diasSalarioPendiente" value="${L.diasSalarioPendiente}">`)}
+   </div></div>
+  <details class="card" open><summary style="cursor:pointer;font-weight:700">Historial salarial (últimos 12 meses)</summary>
+   <p class="muted" style="font-size:.82rem">Parte del salario de la planilla; edite cualquier mes. Marque «incapacidad» si el mes se pagó con subsidio CCSS/INS: no cuenta para el promedio.</p>
+   <div class="tbl"><table class="sheet"><thead><tr><th>Mes</th><th class="r">Ordinario</th><th class="r">Extraordinario</th><th>Incapacidad</th></tr></thead><tbody>
+   ${meses.map(m=>{const h=L.hist[m]||{},off=m<mesIng||m>L.fechaSalida.slice(0,7);return `<tr class="${off?"muted":""}"><td>${m}</td><td><input type="number" min="0" data-liq="h" data-m="${m}" data-f="o" value="${h.o!==undefined?h.o:L.base}" ${off?"disabled":""} style="width:130px;text-align:right"></td><td><input type="number" min="0" data-liq="h" data-m="${m}" data-f="x" value="${h.x!==undefined?h.x:L.extra}" ${off?"disabled":""} style="width:130px;text-align:right"></td><td><input type="checkbox" data-liq="h" data-m="${m}" data-f="i" ${h.i?"checked":""} ${off?"disabled":""}></td></tr>`}).join("")}
+   </tbody></table></div></details>
+  <div id="liqOut">${liqResultadoHTML(c,p)}</div></div>`;
+}
+document.addEventListener("input",e=>liqEvt(e,false));
+document.addEventListener("change",e=>liqEvt(e,true));
+function liqEvt(e,isChange){
+  const t=e.target;if(!t||!t.dataset||!t.dataset.liq||!APP.liq)return;
+  const c=co();if(!c)return;const p=ensurePayroll(c),L=APP.liq,k=t.dataset.liq;
+  if(k==="emp"){if(!isChange)return;APP.liq=liqInit(c,p,t.value);APP.liq.fechaSalida=L.fechaSalida;render();return}
+  if(k==="fechaIngreso"||k==="fechaSalida"){if(!isChange||!t.value)return;L[k]=t.value;render();return}
+  if(k==="motivo"||k==="tipoPago")L[k]=t.value;
+  else if(k==="vacacionesDisfrutadas"||k==="diasSalarioPendiente")L[k]=t.value;
+  else if(k==="preavisoEstado"){L.preaviso.estado=t.value;if(isChange){render();return}}
+  else if(k==="preavisoDias")L.preaviso.diasLaborados=t.value;
+  else if(k==="h"){const h=(L.hist[t.dataset.m]=L.hist[t.dataset.m]||{});h[t.dataset.f]=t.type==="checkbox"?t.checked:t.value}
+  else return;
+  const out=document.getElementById("liqOut");if(out)out.innerHTML=liqResultadoHTML(c,p);
+}
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-liq=copiar]");if(!b||!APP.liq)return;
+  const c=co(),p=ensurePayroll(c),inp=liqEntrada(c,p),txt=JSON.stringify({entrada:inp,resultado:liqCalcular(inp)},null,2);
+  (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>toast("JSON copiado")).catch(()=>{const ta=document.createElement("textarea");ta.value=txt;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast("JSON copiado")}catch(_){toast("No se pudo copiar","err")}ta.remove()});
+});
+
 const PL_TAB_ENTREGA=["entrega","Guardar entrega"];
 const PL_TAB_EVAL=["evaluaciones","📝 Evaluaciones"];
 
@@ -1804,7 +1981,7 @@ VIEWS.planillas=()=>{
   const c=co(),p=ensurePayroll(c);
   if(APP.readOnly&&APP.plTab==="practica"&&!p.evals.length)APP.plTab="planilla";
   const tabs=isTeacher()?PL_TABS:[...PL_TABS,PL_TAB_EVAL,PL_TAB_ENTREGA];
-  const body={param:plViewParams,planilla:plViewPlanilla,practica:plViewPractica,asiento:plViewAsiento,colillas:plViewColillas,evaluaciones:plViewEvaluaciones,entrega:plViewEntrega}[APP.plTab]||plViewPlanilla;
+  const body={param:plViewParams,planilla:plViewPlanilla,practica:plViewPractica,asiento:plViewAsiento,colillas:plViewColillas,liquidacion:plViewLiquidacion,evaluaciones:plViewEvaluaciones,entrega:plViewEntrega}[APP.plTab]||plViewPlanilla;
   return `<div class="head"><div><div class="eyebrow">Módulo · Código de Trabajo, CCSS y Ley de Protección al Trabajador</div><h2>Planillas</h2>
     <p>Calcula la planilla con los porcentajes legales de Costa Rica, practica los cálculos, genera el asiento de diario y emite las colillas de pago.</p></div>
     ${isTeacher()?`<div class="row" style="gap:6px">
