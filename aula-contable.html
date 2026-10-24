@@ -456,7 +456,7 @@ async function flush(){
   flushing=true;
   try{
     const ids=[...pending];pending.clear();
-    if(APP.store.mode==="local"){await evRefrescarCfg();if(!isTeacher())for(const c of APP.companies){try{c.resumenInforme=resumenInforme(c)}catch(e){}}await APP.store.saveWork(APP.me.usuario,APP.dk,APP.companies)}
+    if(APP.store.mode==="local"){await evRefrescarCfg();if(!isTeacher())for(const c of APP.companies){try{c.resumenInforme=resumenInforme(c)}catch(e){}}await APP.store.saveWork(APP.me.usuario,APP.dk,APP.companies);if(!isTeacher()&&!APP.comoEstudiante)for(const c of APP.companies){if(c.evalCfg&&c.evalCfg.indicador)acSubirNotaIndicador(APP.me.usuario,c).catch(()=>{})}}
     else for(const id of ids){const c=APP.companies.find(x=>x.id===id);if(c)await APP.store.saveCompany(c)}
     setSave("Guardado ✓");
   }catch(e){setSave("No se pudo guardar",true);toast(e&&e.code==="quota_exceeded"?"El espacio del aula está lleno. Elimina entregas o empresas que ya no uses.":"No se pudo guardar. Inténtalo de nuevo.")}
@@ -764,6 +764,41 @@ function resumenInforme(c){
   return {nota:comp.length?Math.round(comp.reduce((t,x)=>t+x,0)/comp.length):null,machote:mach,asiento:asi,evaluacion:ev,evalMachote:eM,evalAsiento:eA,
     asientos:R.asientos,categoria:c.categoria==="tarea"?"tarea":"practica",entregado:!!c.entregado,fecha:new Date().toISOString()};
 }
+/* Indicador de evaluación (Rúbrica de ctp-lms) ligado a la práctica: la nota del informe se vuelve el puntaje del indicador */
+const puntajeIndicador=(nota,max)=>max<=3?(nota>=85?3:nota>=60?2:nota>=35?1:0):Math.round(nota/100*max);
+async function acUpsertSinConflicto(tabla,filtro,datos){
+  const {data:ex}=await sb.from(tabla).select("id").match(filtro).limit(1).maybeSingle();
+  return ex?sb.from(tabla).update(datos).eq("id",ex.id):sb.from(tabla).insert({...filtro,...datos});
+}
+async function acSubirNotaIndicador(estudianteId,c){
+  const ind=c.evalCfg&&c.evalCfg.indicador;if(!ind||!ind.id)return false;
+  const r=resumenInforme(c);if(r.nota==null)return false;
+  const {error}=await acUpsertSinConflicto("calificaciones_indicador",{indicador_id:ind.id,estudiante_id:estudianteId},{puntaje_obtenido:puntajeIndicador(r.nota,ind.max||3)});
+  return !error;
+}
+async function cargarIndicadoresLms(){
+  const [m,i]=await Promise.all([sb.from("materias").select("id,nombre,seccion").order("nombre"),sb.from("indicadores").select("id,materia_id,categoria,letra,descripcion,puntaje_maximo").order("orden")]);
+  APP.indData={materias:m.data||[],indicadores:i.data||[]};
+}
+function indicadorPanelHTML(g){
+  const rows=g.rows,cfg=rows[0]&&rows[0].c.evalCfg&&rows[0].c.evalCfg.indicador;const d=APP.indData;
+  if(!d)return '<div class="loading">Cargando materias e indicadores…</div>';
+  const mats=d.materias.filter(m=>!APP.empSec||!m.seccion||m.seccion===APP.empSec);
+  const selMat=(APP.indMat&&APP.indMat[g.key])||(cfg&&cfg.materia_id)||(mats[0]&&mats[0].id)||"";
+  const inds=d.indicadores.filter(i=>i.materia_id===selMat);
+  const actual=cfg&&d.indicadores.find(i=>i.id===cfg.id);
+  return `<div class="panel stack" style="padding:10px" data-indbox="${esc(g.key)}"><b>🎯 Indicador de evaluación</b><small class="muted">Liga esta práctica a un indicador de la Rúbrica de ctp-lms. La nota del informe se sube sola como puntaje del indicador cada vez que el estudiante trabaja. Aplica a ${APP.empSec?"la sección "+esc(APP.empSec):"todas las secciones"}.</small>
+   <div class="muted">${actual?`Actual: <b>${esc(actual.categoria)} ${esc(actual.letra||"")} · ${esc(actual.descripcion||"")}</b> (máx. ${actual.puntaje_maximo})`:"Sin indicador: la práctica no cuenta en la Rúbrica."}</div>
+   <div class="row" style="gap:10px;flex-wrap:wrap;align-items:flex-end">
+    <div class="field" style="flex:1 1 200px"><label>Materia</label><select data-indmat data-key="${esc(g.key)}">${mats.map(m=>`<option value="${esc(m.id)}" ${m.id===selMat?"selected":""}>${esc(m.nombre)}${m.seccion?" · "+esc(m.seccion):""}</option>`).join("")}</select></div>
+    <div class="field" style="flex:1 1 260px"><label>Indicador</label><select data-indsel>${inds.length?inds.map(i=>`<option value="${esc(i.id)}" ${cfg&&cfg.id===i.id?"selected":""}>${esc(i.categoria)} ${esc(i.letra||"")} · ${esc((i.descripcion||"").slice(0,60))} (máx ${i.puntaje_maximo})</option>`).join(""):'<option value="">(esta materia no tiene indicadores)</option>'}</select></div>
+   </div>
+   <div class="row" style="gap:8px;flex-wrap:wrap">
+    <button class="btn sm pop" data-act="indVincular" data-key="${esc(g.key)}" ${inds.length?"":"disabled"}>🔗 Vincular indicador</button>
+    <button class="btn sm ghost" data-act="indCrear" data-key="${esc(g.key)}" data-mat="${esc(selMat)}" ${selMat?"":"disabled"}>➕ Crear indicador nuevo con el nombre de la práctica</button>
+    ${cfg?`<button class="btn sm primary" data-act="indSync" data-key="${esc(g.key)}">🔄 Subir notas ahora</button><button class="btn sm ghost" data-act="indQuitar" data-key="${esc(g.key)}">Desvincular</button>`:""}
+   </div></div>`;
+}
 function evControlesHTML(g,tab){
   if(g.cat!=="practica")return "";
   const rows=g.rows,n=rows.length;
@@ -782,7 +817,7 @@ function evControlesHTML(g,tab){
       <small class="muted">${v.inicio||v.fin?"Actual: "+(v.inicio?"abre "+esc(fmtDate(v.inicio)):"sin inicio")+" · "+(v.fin?"cierra "+esc(fmtDate(v.fin)):"sin cierre"):"Sin horario: la práctica está siempre abierta."}</small>`})()}
     </div>
 `;
-  return tab==='eval'?EV:tab==='sol'?SOL:tab==='hor'?VEN:'';
+  return tab==='eval'?EV:tab==='sol'?SOL:tab==='hor'?VEN:tab==='ind'?indicadorPanelHTML(g):'';
 }
 function revisionDePractica(g){
   const pct=(n,t)=>t?Math.round(100*n/t):0;
@@ -799,7 +834,7 @@ function revisionDePractica(g){
   return `<div class="stack" style="margin-top:10px;border:2px solid var(--pop);border-radius:12px;padding:12px">
    <div class="row" style="align-items:center"><h4 style="margin:0;margin-right:auto">📊 Revisión de ${esc(g.name)}</h4><button class="btn sm ghost" data-act="reloadEmp" data-key="${esc(g.key)}">↻ Actualizar resultados</button></div>
    ${(()=>{const T=(APP.revTab&&APP.revTab[g.key])||"res";const tb=(k,l)=>`<button class="tab ${T===k?"on":""}" data-act="revTab" data-key="${esc(g.key)}" data-t="${k}">${l}</button>`;
-     return `<div class="tabs" style="margin:0">${tb("res","📊 Resultados")}${tb("eval","📝 Evaluaciones")}${tb("sol","✅ Solucionario y PDF")}${tb("hor","⏰ Horario")}</div>${T==="res"?"":evControlesHTML(g,T)}`})()}
+     return `<div class="tabs" style="margin:0">${tb("res","📊 Resultados")}${tb("eval","📝 Evaluaciones")}${tb("sol","✅ Solucionario y PDF")}${tb("hor","⏰ Horario")}${tb("ind","🎯 Indicador")}</div>${T==="res"?"":evControlesHTML(g,T)}`})()}
    ${((APP.revTab&&APP.revTab[g.key])||"res")==="res"?`<div class="row" style="justify-content:flex-end"><button class="btn sm pop" data-act="pdfGenerarTodos">📄 Generar PDF de todos los que ya guardaron</button></div>   <div class="row" style="gap:8px;flex-wrap:wrap">${chip("Con avance",`${av}/${n}`,pct(av,n)+" %")}${chip("Machote completo",`${ma}/${n}`,pct(ma,n)+" %")}${chip("Asiento resuelto",`${as}/${n}`,pct(as,n)+" %")}${chip("Evaluación (promedio)",prom!=null?prom+" %":"—",evs.length+" evaluó")}${chip("Eval. machote (promedio)",avg(aM),aM.length+"/"+n+" entregaron")}${chip("Eval. asiento (promedio)",avg(aA),aA.length+"/"+n+" entregaron")}</div>
    <div class="tbl"><table><thead><tr><th>Estudiante</th><th>Machote</th><th>Asiento planilla</th><th>Evaluación</th><th>Eval. machote</th><th>Eval. asiento</th><th>PDF resultados</th><th>Diagnóstico</th></tr></thead><tbody>
    ${ordenados.map(x=>{const dx=!x.avance?'<span class="chip tG" style="font-size:.7rem">⏳ Sin empezar</span>':(x.machote&&x.asiento&&x.ev!=null?'<span class="chip tI" style="font-size:.7rem">✓ Completa</span>':'<span class="chip tG" style="font-size:.7rem">En proceso</span>');
@@ -2509,6 +2544,22 @@ document.addEventListener("click",async e=>{
     try{await APP.store.updateEmpresaEstudiante(b.dataset.est,b.dataset.co,x=>{const cfg=evCfg(x);cfg[k].reset=Date.now();const pl=x.payroll;if(pl){if(k==="machote")pl.evalM=null;else pl.evalA=null}});toast("Intento borrado: puede repetirla")}catch(err){toast("No se pudo actualizar")}
     loadEmpData()});return}
   if(a==="reloadEmp"){APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;loadEmpData();return}
+  if(a==="indVincular"||a==="indQuitar"||a==="indCrear"||a==="indSync"){(async()=>{const key=b.dataset.key,box=b.closest("[data-indbox]");const rows=evRowsDeGrupo(key);b.disabled=true;
+    try{
+      if(a==="indSync"){let ok=0,sin=0;for(const {w,c} of rows){const c2=clone(c);if(await acSubirNotaIndicador(w.id,c2))ok++;else sin++}
+        toast(`Notas subidas al indicador: ${ok}${sin?` (${sin} sin nota todavía)`:""}`);b.disabled=false;return}
+      let ind=null;
+      if(a==="indVincular"){const id=box.querySelector("[data-indsel]").value;const i=APP.indData.indicadores.find(x=>x.id===id);if(!i)throw new Error("Elige un indicador");ind={id:i.id,materia_id:i.materia_id,max:i.puntaje_maximo||3}}
+      if(a==="indCrear"){const mat=b.dataset.mat;const g0=rows[0]&&rows[0].c;const nombre=(g0&&g0.name)||"Práctica";
+        const {data:cat}=await sb.from("rubrica_categorias").select("nombre").eq("nombre","Trabajo cotidiano").maybeSingle();if(!cat)throw new Error('No existe la categoría "Trabajo cotidiano" en Rúbrica');
+        const {data:ex}=await sb.from("indicadores").select("id,letra").eq("materia_id",mat).eq("categoria","Trabajo cotidiano");
+        const usadas=(ex||[]).map(e=>e.letra);let letra="A";for(const L of "ABCDEFGHIJKLMNOPQRSTUVWXYZ"){if(!usadas.includes(L)){letra=L;break}}
+        const {data:nuevo,error}=await sb.from("indicadores").insert({materia_id:mat,categoria:"Trabajo cotidiano",letra,descripcion:nombre,puntaje_maximo:3,orden:(ex||[]).length+1}).select().maybeSingle();
+        if(error||!nuevo)throw new Error(error?error.message:"No se pudo crear el indicador");ind={id:nuevo.id,materia_id:mat,max:3};await cargarIndicadoresLms()}
+      for(const {w,c} of rows)await APP.store.updateEmpresaEstudiante(w.id,c.id,x=>{const cfg=evCfg(x);if(a==="indQuitar")delete cfg.indicador;else cfg.indicador=ind});
+      toast(a==="indQuitar"?"Indicador desvinculado":"Indicador vinculado a "+rows.length+" estudiante(s)");
+    }catch(err){toast("No se pudo: "+(err&&err.message||err))}
+    APP.revOpen=APP.revOpen||{};APP.revOpen[key]=true;await loadEmpData()})();return}
   if(a==="actualizarInforme"){(async()=>{b.disabled=true;const t0=b.textContent;let n=0,fail=0;const all=APP.empData||[];
     for(const w of all){try{b.textContent="Actualizando "+(++n)+"/"+all.length+"…";await APP.store.updateEmpresaEstudiante_todas(w.id,x=>{try{x.resumenInforme=resumenInforme(x)}catch(e){}})}catch(err){fail++}}
     toast(fail?`Informe actualizado con ${fail} error(es)`:`Informe de notas actualizado para ${all.length} estudiante(s) ✓`);b.disabled=false;b.textContent=t0;await loadEmpData()})();return}
@@ -2524,7 +2575,7 @@ document.addEventListener("click",async e=>{
     toast(fail?`PDF: ${ok} generados, ${fail} con error (${lastErr})`:`PDF generados: ${ok}`);
     await loadEmpData()})();return}
   if(a==="pdfVer"){const k=b.dataset.est+"|"+b.dataset.co;APP.pdfVer=APP.pdfVer===k?null:k;render();return}
-  if(a==="revTab"){APP.revTab=APP.revTab||{};APP.revTab[b.dataset.key]=b.dataset.t;APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
+  if(a==="revTab"){APP.revTab=APP.revTab||{};APP.revTab[b.dataset.key]=b.dataset.t;if(b.dataset.t==="ind"&&!APP.indData){render();cargarIndicadoresLms().then(()=>render()).catch(()=>{APP.indData={materias:[],indicadores:[]};render()});return}APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
   if(a==="toggleRevPractica"){APP.revPrac=APP.revPrac||{};APP.revPrac[b.dataset.key]=!APP.revPrac[b.dataset.key];APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
   if(a==="toggleRevGeneral"){APP.revGeneral=!APP.revGeneral;render();return}
   if(a==="delPracticaEst"){armDelete(b,async()=>{try{await APP.store.deleteEmpresaEstudiante(b.dataset.est,b.dataset.co);toast("Práctica eliminada");loadEmpData()}catch(err){toast("No se pudo eliminar")}});return}
@@ -2681,6 +2732,7 @@ async function boot(){
 }
 boot();
 
+document.addEventListener("change",e=>{const t=e.target;if(t&&t.matches&&t.matches("[data-indmat]")){APP.indMat=APP.indMat||{};APP.indMat[t.dataset.key]=t.value;render()}});
 document.addEventListener("submit",e=>{const c=co();if(ventanaBloqueada(c)){e.preventDefault();e.stopImmediatePropagation();toast("⏰ Fuera del horario de la práctica: no se puede guardar ni entregar")}},true);
 setInterval(async()=>{try{if(!APP.me||isTeacher()||APP.comoEstudiante||APP.demo)return;const c=co();if(!c||c.categoria!=="practica")return;
   await evRefrescarCfg();const e=ventanaEstado(c),k=e?e.estado:"";if(k!==APP.ventanaKey&&!(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)))render()}catch(err){}},30000);
