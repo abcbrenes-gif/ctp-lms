@@ -265,7 +265,8 @@ async function renderHome() {
     { href: "#/estrategias", icono: "🧪", titulo: "Estrategias de evaluación", sub: `Catálogo de ${Object.keys(ESTRATEGIAS_EVALUACION).length} estrategias para trabajos asignados`, cta: "Ver catálogo →" },
     { href: "#/mediacion", icono: "🎓", titulo: "Estrategias de mediación", sub: `Catálogo de ${Object.keys(ESTRATEGIAS_MEDIACION).length} formas de dar la clase, con pasos y guía en vivo`, cta: "Ver catálogo →" },
     { href: AULA_CONTABLE_URL, icono: "🧮", titulo: "Aula de Conta", sub: "Simulador del ciclo contable (NIC/NIIF)", cta: "Abrir aula →" },
-    { href: SIMULADOR_B2B_URL, icono: "🏆", titulo: "ContaRed", sub: "Simulador B2B de firmas contables (gamificado)", cta: "Abrir ContaRed →" }
+    { href: SIMULADOR_B2B_URL, icono: "🏆", titulo: "ContaRed", sub: "Simulador B2B de firmas contables (gamificado)", cta: "Abrir ContaRed →" },
+    { href: "planilla-opoly.html", icono: "🎲", titulo: "Planilla Opoly", sub: "Juego 3D tipo Monopoly para 2–4 jugadores: compra empresas resolviendo problemas de planilla", cta: "Jugar →" }
   ].map(a => `
     <a class="section-tile flip-card" href="${a.href}" ${a.externo ? 'target="_blank" rel="noopener"' : ""}>
       <div class="flip-card-inner">

@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Planilla Opoly · CTP Mercedes Norte</title>
+<style>
+:root{--bg:#0b1020;--bg2:#131a33;--card:#182041;--line:#2a3566;--tx:#e8ecff;--mut:#9aa6d6;--ok:#22c55e;--bad:#ef4444;--warn:#f59e0b;--ac:#7c6cff;--ac2:#4f46e5;--rx:52deg;--rz:0deg;--cell:96px}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:radial-gradient(1200px 700px at 50% -10%,#1d2a63 0%,var(--bg) 60%);color:var(--tx);font:14px/1.4 Inter,system-ui,Segoe UI,Roboto,sans-serif}
+button{font:inherit;cursor:pointer;border:0;border-radius:12px;padding:10px 16px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--ac2),var(--ac));box-shadow:0 6px 18px rgba(79,70,229,.35)}
+button:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+button.sec{background:var(--card);border:1px solid var(--line);box-shadow:none;color:var(--tx)}
+button.good{background:linear-gradient(135deg,#16a34a,#22c55e)}
+button.bad{background:linear-gradient(135deg,#dc2626,#ef4444)}
+input,select{font:inherit;background:var(--bg2);border:1px solid var(--line);color:var(--tx);border-radius:10px;padding:10px 12px;width:100%}
+.hidden{display:none!important}
+.screen{min-height:100%}
+/* entrada */
+#entry{display:grid;place-items:center;padding:20px}
+.hero{max-width:520px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:24px;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,.45)}
+.hero h1{margin:0 0 4px;font-size:1.8rem;background:linear-gradient(90deg,#a5b4fc,#f0abfc);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{color:var(--mut);margin:0 0 16px}
+.hero .row{display:flex;gap:10px;margin-top:12px}
+.hero label{display:block;font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);font-weight:700;margin:12px 0 4px}
+.msg{margin-top:12px;color:var(--warn);min-height:18px}
+/* juego */
+header.top{display:flex;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);background:rgba(11,16,32,.7);backdrop-filter:blur(8px);flex-wrap:wrap}
+header.top b{font-size:1.05rem}
+.pill{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-weight:700}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;padding:14px;align-items:start}
+@media(max-width:1000px){.main{grid-template-columns:1fr}}
+.stage{position:relative;height:min(78vh,740px);perspective:1500px;overflow:hidden;border-radius:22px;background:radial-gradient(600px 400px at 50% 40%,#1a2556,#0e1430);border:1px solid var(--line);display:grid;place-items:center}
+.board{position:relative;width:calc(var(--cell)*7);height:calc(var(--cell)*7);transform-style:preserve-3d;transform:scale(var(--k,1)) rotateX(var(--rx)) rotateZ(var(--rz));transition:transform .15s}
+.center{position:absolute;left:var(--cell);top:var(--cell);width:calc(var(--cell)*5);height:calc(var(--cell)*5);border-radius:18px;background:linear-gradient(135deg,#1b2a6b,#3b2a7a);display:grid;place-items:center;text-align:center;box-shadow:inset 0 0 60px rgba(0,0,0,.35)}
+.center .in{transform:rotateZ(calc(var(--rz)*-1));font-weight:800;font-size:2rem;letter-spacing:.04em;line-height:1.1;background:linear-gradient(90deg,#c7d2fe,#f5d0fe);-webkit-background-clip:text;background-clip:text;color:transparent}
+.center small{display:block;font-size:.9rem;color:#c7d2fe;-webkit-text-fill-color:#c7d2fe;font-weight:600;margin-top:6px}
+.tile{position:absolute;width:calc(var(--cell) - 4px);height:calc(var(--cell) - 4px);border-radius:12px;background:#1f2a55;border:2px solid #34428a;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:visible;transform-style:preserve-3d}
+.tile .in{transform:rotateZ(calc(var(--rz)*-1));display:flex;flex-direction:column;align-items:center;gap:1px;padding:2px;pointer-events:none}
+.tile .band{position:absolute;left:0;right:0;top:0;height:14px;border-radius:10px 10px 0 0;background:var(--c,#475569)}
+.tile .ic{font-size:1.5rem;line-height:1}
+.tile .nm{font-size:.7rem;font-weight:700;line-height:1.1;max-width:84px}
+.tile .pr{font-size:.66rem;color:var(--mut)}
+.tile.corner{background:#2b2f6e}
+.tile.owned{border-color:var(--oc);box-shadow:0 0 0 2px var(--oc) inset}
+.tile.cur{border-color:#fff;animation:glow 1s infinite alternate}
+@keyframes glow{to{box-shadow:0 0 22px 4px rgba(255,255,255,.5)}}
+.bld{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;transform-style:preserve-3d;transform:translateZ(1px);pointer-events:none}
+.bld>div{position:absolute;background:var(--oc);width:34px;height:var(--h,30px);left:0;top:calc((34px - var(--h,30px))/2)}
+.bld .f{transform:translate3d(0,17px,calc(var(--h,30px)/2)) rotateX(90deg);filter:brightness(.8)}
+.bld .b{transform:translate3d(0,-17px,calc(var(--h,30px)/2)) rotateX(90deg);filter:brightness(.6)}
+.bld .l{transform:translate3d(-17px,0,calc(var(--h,30px)/2)) rotateZ(90deg) rotateX(90deg);filter:brightness(.7)}
+.bld .r{transform:translate3d(17px,0,calc(var(--h,30px)/2)) rotateZ(90deg) rotateX(90deg);filter:brightness(.9)}
+.bld .t{height:34px;top:0;transform:translateZ(var(--h,30px));filter:brightness(1.15)}
+.pawn{position:absolute;width:0;height:0;transform-style:preserve-3d;transition:left .24s ease,top .24s ease}
+.pawn .body{position:absolute;left:-14px;top:-40px;width:28px;height:40px;transform-origin:50% 100%;transform:translateZ(2px) rotateZ(calc(var(--rz)*-1)) rotateX(calc(var(--rx)*-1))}
+.pawn .head{position:absolute;left:3px;top:0;width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,var(--pc) 55%,#000 140%);box-shadow:0 0 0 2px #0006}
+.pawn .trunk{position:absolute;left:5px;top:18px;width:18px;height:22px;border-radius:9px 9px 3px 3px;background:linear-gradient(90deg,var(--pc),#0008)}
+.pawn .sh{position:absolute;left:-12px;top:-5px;width:24px;height:10px;border-radius:50%;background:#0007;transform:translateZ(1px)}
+.pawn.act .head{animation:bob .6s infinite alternate}
+@keyframes bob{to{transform:translateY(-6px)}}
+.viewctl{position:absolute;right:10px;bottom:10px;display:flex;gap:6px;z-index:5}
+.viewctl button{padding:6px 10px;border-radius:10px}
+/* lateral */
+.side{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:12px 14px}
+.pl{display:flex;align-items:center;gap:10px;padding:8px;border-radius:12px;border:1px solid transparent}
+.pl.turn{border-color:var(--pc);background:rgba(255,255,255,.05)}
+.pl.out{opacity:.4;text-decoration:line-through}
+.pl .dot{width:18px;height:18px;border-radius:50%;background:var(--pc);flex:none}
+.pl .nm{flex:1;min-width:0;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl .mn{font-weight:800;font-variant-numeric:tabular-nums}
+.pl small{display:block;color:var(--mut);font-weight:500}
+.dicebox{display:flex;align-items:center;gap:18px;justify-content:center;padding:10px}
+.dwrap{width:64px;height:64px;perspective:420px}
+.die{position:relative;width:64px;height:64px;transform-style:preserve-3d;transition:transform 1s cubic-bezier(.2,.8,.2,1)}
+.die div{position:absolute;inset:0;display:grid;place-items:center;font-size:2.7rem;line-height:1;background:#fff;color:#111;border-radius:12px;backface-visibility:hidden;border:1px solid #cbd5e1}
+.die .f1{transform:translateZ(32px)}.die .f6{transform:rotateY(180deg) translateZ(32px)}.die .f2{transform:rotateY(90deg) translateZ(32px)}.die .f5{transform:rotateY(-90deg) translateZ(32px)}.die .f3{transform:rotateX(90deg) translateZ(32px)}.die .f4{transform:rotateX(-90deg) translateZ(32px)}
+.q h3{margin:0 0 8px;font-size:1rem}
+.q .txt{font-size:.95rem;margin-bottom:10px}
+.opt{display:block;width:100%;text-align:left;margin-top:6px;background:var(--bg2);border:1px solid var(--line);box-shadow:none;font-weight:600}
+.opt:hover:not(:disabled){border-color:var(--ac)}
+.opt.right{background:#14532d;border-color:var(--ok)}
+.opt.wrong{background:#7f1d1d;border-color:var(--bad)}
+.bar{height:6px;border-radius:6px;background:var(--bg2);overflow:hidden;margin-bottom:8px}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--ok),var(--warn),var(--bad));width:100%;transition:width .3s linear}
+.ev{border-left:4px solid var(--ac);padding:6px 10px;background:var(--bg2);border-radius:8px;margin-top:8px;font-size:.88rem}
+.ev.ok{border-color:var(--ok)}.ev.bad{border-color:var(--bad)}
+.ev small{display:block;color:var(--mut);margin-top:4px}
+#log{max-height:150px;overflow:auto;font-size:.8rem;color:var(--mut)}
+#log div{padding:2px 0;border-bottom:1px dashed #ffffff14}
+.big{font-size:2.2rem;font-weight:900;letter-spacing:.2em;text-align:center;padding:6px 0;background:var(--bg2);border-radius:12px;border:1px dashed var(--line)}
+.rank{display:flex;justify-content:space-between;padding:8px 10px;border-radius:10px;background:var(--bg2);margin-top:6px;font-weight:700}
+.rank:first-child{background:linear-gradient(90deg,#854d0e,#ca8a04)}
+</style>
+</head>
+<body>
+<div id="entry" class="screen">
+ <div class="hero">
+  <h1>🎲 Planilla Opoly</h1>
+  <p>Juego tipo Monopoly para 2 a 4 jugadores: compra empresas resolviendo sus problemas de planilla (CCSS, aguinaldo, vacaciones, horas extra, cesantía).</p>
+  <label>Tu nombre</label><input id="nm" maxlength="24" placeholder="Nombre">
+  <div class="row"><button id="bCrear" style="flex:1">Crear sala</button></div>
+  <label>o únete con el código de tu compañero</label>
+  <div class="row" style="margin-top:0"><input id="cod" maxlength="4" placeholder="ABCD" style="text-transform:uppercase;letter-spacing:.2em;font-weight:800"><button id="bUnir" class="sec">Unirme</button></div>
+  <div class="msg" id="emsg"></div>
+ </div>
+</div>
+
+<div id="game" class="screen hidden">
+ <header class="top"><b>🎲 Planilla Opoly</b><span class="pill" id="hSala"></span><span class="pill" id="hRonda"></span><span class="pill" id="hConn" title="Conexión">●</span><span style="flex:1"></span><button class="sec" id="bLink">Copiar enlace</button><button class="sec" id="bSalir">Salir</button></header>
+ <div class="main">
+  <div class="stage" id="stage"><div class="board" id="board"></div>
+   <div class="viewctl"><button class="sec" data-v="l" title="Girar a la izquierda">↺</button><button class="sec" data-v="r" title="Girar a la derecha">↻</button><button class="sec" data-v="u" title="Más inclinado">⤒</button><button class="sec" data-v="d" title="Menos inclinado">⤓</button><button class="sec" data-v="0" title="Restablecer vista">⌖</button></div></div>
+  <aside class="side">
+   <div class="card" id="players"></div>
+   <div class="card"><div class="dicebox"><div class="dwrap"><div class="die" id="d1"><div class="f1">⚀</div><div class="f2">⚁</div><div class="f3">⚂</div><div class="f4">⚃</div><div class="f5">⚄</div><div class="f6">⚅</div></div></div><div class="dwrap"><div class="die" id="d2"><div class="f1">⚀</div><div class="f2">⚁</div><div class="f3">⚂</div><div class="f4">⚃</div><div class="f5">⚄</div><div class="f6">⚅</div></div></div></div></div>
+   <div class="card" id="action"></div>
+   <div class="card"><b>Bitácora</b><div id="log"></div></div>
+  </aside>
+ </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ===================== Utilidades ===================== */
+const SUPABASE_URL="https://dyulfowcvvmdmwbjhubq.supabase.co",SUPABASE_KEY="sb_publishable_WXHTshzfy4vMITGIHbfY3g_ra1U3mBd";
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const R=n=>Math.round(+n||0);
+const fmt=n=>"₡ "+String(R(n)).replace(/\B(?=(\d{3})+(?!\d))/g," ");
+const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=rnd(0,i);[a[i],a[j]]=[a[j],a[i]]}return a};
+const COLORS=["#f43f5e","#38bdf8","#facc15","#34d399"];
+const MAXP=4,START=300000,PASS=50000,FINE=20000,BONUS=15000,CCSS_TAX=25000;
+const T_ROLL=45000,T_Q=60000,T_BUY=25000;
+
+/* ===================== Tablero ===================== */
+const EMP=[
+ ["Panadería La Espiga","🥖",60,"#f59e0b"],["Soda Doña Lela","🍲",60,"#f59e0b"],
+ ["Ferretería El Tornillo","🔩",80,"#fb7185"],["Taller Los Hermanos","🔧",80,"#fb7185"],
+ ["Librería Mercedes","📚",100,"#38bdf8"],["Farmacia La Salud","💊",100,"#38bdf8"],
+ ["Clínica San Rafael","🏥",120,"#34d399"],["Veterinaria Mi Mascota","🐾",120,"#34d399"],
+ ["Constructora Norte","🏗️",140,"#a78bfa"],["Transportes Tica","🚌",140,"#a78bfa"],
+ ["Hotel Vista Verde","🏨",160,"#f472b6"],["Supermercado Mega","🛒",160,"#f472b6"],
+ ["Cafetal Don Beto","☕",180,"#fb923c"],["Tecnología CR","💻",180,"#fb923c"],
+ ["Banco Comunal","🏦",200,"#facc15"],["Zona Franca Textil","🧵",200,"#facc15"]];
+const KIND={0:"salida",3:"carta",6:"insp",9:"ccss",12:"libre",14:"carta",18:"carta",21:"ccss"};
+const TILES=[];{let e=0;for(let i=0;i<24;i++){const k=KIND[i];if(k){TILES.push({i,k})}else{const d=EMP[e++];TILES.push({i,k:"empresa",name:d[0],ic:d[1],price:d[2]*1000,rent:Math.round(d[2]*120/1000)*1000/10*10/10,color:d[3]})}}}
+TILES.forEach(t=>{if(t.k==="empresa")t.rent=Math.round(t.price*0.12/1000)*1000});
+const CORNER={0:["🏁","SALIDA","Cobra ₡ 50 000"],6:["🔍","INSPECCIÓN","Pierdes un turno"],12:["☕","DESCANSO","Pausa libre"],18:["📜","REFORMA","Carta de ley"],3:["🃏","SUERTE",""],14:["🃏","SUERTE",""],9:["🏛️","CCSS","Paga ₡ 25 000"],21:["🏛️","CCSS","Paga ₡ 25 000"]};
+function xy(i){ // anillo 7x7: 0 abajo-derecha, hacia la izquierda, sube, derecha, baja
+ if(i<=6)return[6-i,6];if(i<=12)return[0,6-(i-6)];if(i<=18)return[i-12,0];return[6,i-18]}
+const CARDS=[
+ ["⚖️ Inspección del MTSS: planilla desactualizada. Pagas multa.",-30000],
+ ["💸 Devolución de cuotas pagadas de más a la CCSS.",20000],
+ ["🎁 Aguinaldo adelantado a tus colaboradores.",-25000],
+ ["🤝 Ganas un contrato nuevo de servicios.",35000],
+ ["📜 Reforma de ley: capacitación obligatoria de personal.",-15000],
+ ["🧾 Un cliente te paga una factura atrasada.",25000],
+ ["🩺 Incapacidad de un colaborador: te toca un turno sin jugar.",0,"skip"],
+ ["🎉 Cumpleaños de la empresa: cada jugador te da ₡ 10 000.",0,"collect"]];
+
+/* ===================== Liquidación (lógica pura, igual al módulo de Aula Contable) ===================== */
+const CES_TABLA={1:19.5,2:20,3:20.5,4:21,5:21.24,6:21.5,7:22,8:22,9:22,10:21.5,11:21,12:20.5,13:20};
+function cesantiaDias(anios){const t=CES_TABLA[Math.min(anios,13)];return {tarifa:t,dias:t*Math.min(anios,8)}}
+
+/* ===================== Banco de preguntas (el host las genera; la respuesta nunca viaja a los clientes) ===================== */
+const CONC=[
+ ["¿Cuál de estos pagos de una liquidación está exento de cargas sociales (CCSS)?",["Aguinaldo","Salario ordinario","Horas extra","Vacaciones disfrutadas"],0,"El aguinaldo, la cesantía y el preaviso no cotizan a la CCSS."],
+ ["¿Hasta cuántos años se indemniza la cesantía?",["8 años","5 años","10 años","12 años"],0,"El Código de Trabajo limita la cesantía a un máximo de 8 años."],
+ ["¿Qué período abarca el cálculo del aguinaldo?",["1 de diciembre al 30 de noviembre","1 de enero al 31 de diciembre","1 de noviembre al 31 de octubre","1 de julio al 30 de junio"],0,"Se calcula con lo devengado entre el 1 de diciembre y el 30 de noviembre."],
+ ["En una renuncia voluntaria, ¿corresponde pagar cesantía?",["No","Sí, completa","Sí, la mitad","Solo si hay más de 5 años"],0,"La cesantía solo se paga en despido con responsabilidad patronal (y casos especiales)."],
+ ["¿Cuántos días de vacaciones se acumulan por cada mes trabajado?",["1 día","2 días","0,5 días","1,5 días"],0,"Se ganan 2 semanas por cada 50 semanas, o sea 1 día por mes."],
+ ["Un mes pagado con subsidio de incapacidad, ¿cuenta para el promedio de cesantía?",["No: el subsidio no es salario ordinario","Sí, siempre","Solo si dura más de 15 días","Solo en el aguinaldo"],0,"Los meses con incapacidad se excluyen del promedio."],
+ ["¿Qué porcentaje aplica el pago de horas extra en jornada diurna?",["Tiempo y medio (×1,5)","Doble (×2)","Sencillo (×1)","Triple (×3)"],0,"Las horas extra se pagan a tiempo y medio."],
+ ["¿Con qué divisor se obtiene el salario diario de un trabajador con pago mensual?",["30","26","22","365"],0,"Salario diario = salario mensual ÷ 30."],
+ ["Si un patrono despide con justa causa, ¿debe pagar preaviso?",["No","Sí, siempre","Solo si hay más de 1 año","Solo si el trabajador lo pide"],0,"Con justa causa no hay preaviso ni cesantía; sí se pagan vacaciones y aguinaldo proporcional."],
+ ["¿Cuál de estos rubros SÍ cotiza a la CCSS en una liquidación?",["Vacaciones pendientes","Cesantía","Preaviso","Aguinaldo"],0,"Las vacaciones pagadas son salario y sí cotizan."]];
+function opts(correct,wrongs,f){ // devuelve {options, answer}
+ const set=[];[correct,...wrongs].forEach(v=>{v=R(v);if(!set.includes(v))set.push(v)});
+ let k=1;while(set.length<4){const v=R(correct*(1+0.07*k));if(!set.includes(v))set.push(v);k++}
+ const list=shuffle(set.slice(0,4));return {options:list.map(f),answer:list.indexOf(R(correct))}}
+const GEN=[
+ function neto(){const S=rnd(18,60)*25000,p=pick([10.67,10.83]),d=R(S*p/100),n=S-d;
+  const o=opts(n,[S+d,d,S-d/2],fmt);const nm=pick(["María","Pedro","Lucía","Andrés","Sofía"]);
+  return {text:`${nm} gana ${fmt(S)} brutos al mes. Las cuotas obreras CCSS son ${String(p).replace(".",",")} %. ¿Cuál es su salario neto (sin renta)?`,...o,explain:`Deducción = ${fmt(S)} × ${p} % = ${fmt(d)}. Neto = ${fmt(S)} − ${fmt(d)} = ${fmt(n)}.`}},
+ function aguinaldo(){const S=rnd(16,50)*25000,E=rnd(2,12)*10000,tot=S*12+E,a=tot/12;
+  const o=opts(a,[tot/13,S+E,tot/6],fmt);
+  return {text:`Durante el período diciembre–noviembre, una colaboradora ganó ${fmt(S)} mensuales y ${fmt(E)} en comisiones en total. ¿Cuánto es su aguinaldo?`,...o,explain:`Total devengado = ${fmt(S)} × 12 + ${fmt(E)} = ${fmt(tot)}. Aguinaldo = ${fmt(tot)} ÷ 12 = ${fmt(a)}.`}},
+ function vacaciones(){const S=rnd(16,56)*25000,D=rnd(3,11),v=D*S/30;
+  const o=opts(v,[D*S/22,D*S/26,D*S/12],fmt);
+  return {text:`Un trabajador gana ${fmt(S)} al mes y le quedan ${D} días de vacaciones pendientes al terminar su contrato. ¿Cuánto se le paga por ellas?`,...o,explain:`Salario diario = ${fmt(S)} ÷ 30 = ${fmt(S/30)}. Vacaciones = ${D} × ${fmt(S/30)} = ${fmt(v)}.`}},
+ function extras(){const S=rnd(16,56)*25000,H=rnd(3,12),h=S/30/8,m=h*1.5*H;
+  const o=opts(m,[h*H,h*2*H,h*1.25*H],fmt);
+  return {text:`Salario mensual ${fmt(S)} (jornada diurna de 8 horas, mes de 30 días). El colaborador trabajó ${H} horas extra. ¿Cuánto se le paga por ellas?`,...o,explain:`Valor hora = ${fmt(S)} ÷ 30 ÷ 8 = ${fmt(h)}. Cada hora extra = ${fmt(h)} × 1,5. Total = ${H} × ${fmt(h*1.5)} = ${fmt(m)}.`}},
+ function cesantia(){const Y=rnd(2,7),S=rnd(16,48)*25000,c=cesantiaDias(Y),diario=S/30,m=c.dias*diario;
+  const o=opts(m,[20*Y*diario,c.dias*S/26,m+30*diario],fmt);
+  return {text:`Despido con responsabilidad patronal. El trabajador laboró exactamente ${Y} años y ganaba ${fmt(S)} mensuales (sin cambios). Tarifa de cesantía: ${String(c.tarifa).replace(".",",")} días por año. ¿Cuánto le corresponde de cesantía?`,...o,explain:`Días = ${String(c.tarifa).replace(".",",")} × ${Y} años = ${String(c.dias).replace(".",",")} días. Salario diario = ${fmt(S)} ÷ 30 = ${fmt(diario)}. Cesantía = ${fmt(m)}.`}},
+ function preaviso(){const M=pick([4,8,15,30]),d=M<6?7:M<12?15:30;
+  const set=shuffle([7,15,30,60]),ans=set.indexOf(d);
+  return {text:`Un trabajador con ${M} meses de servicio es despedido con responsabilidad patronal. ¿Cuántos días de preaviso corresponden?`,options:set.map(x=>x+" días"),answer:ans,explain:`3–6 meses: 7 días · 6–12 meses: 15 días · 1 año o más: 30 días. Con ${M} meses = ${d} días.`}},
+ function conceptual(){const c=pick(CONC),correct=c[1][c[2]],list=shuffle(c[1]);return {text:c[0],options:list,answer:list.indexOf(correct),explain:c[3]}}];
+function genQuestion(){const g=Math.random()<0.2?GEN[6]:pick(GEN.slice(0,6));return g()}
+
+/* ===================== Estado y red ===================== */
+let sb=null,ch=null,ME={pid:"",name:""},G=null,SKEW=0,PRIV=null,IS_HOST=false,TICK=null,connected=false,VER=0;
+try{sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY)}catch(e){}
+function sesion(){try{return JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")||"{}")}catch(e){return {}}}
+function getPid(){let p=sessionStorage.getItem("opoly_pid");if(!p){p=(sesion().id||"inv")+"-"+Math.random().toString(36).slice(2,6);sessionStorage.setItem("opoly_pid",p)}return p}
+function send(m){if(ch)ch.send({type:"broadcast",event:"m",payload:{...m,pid:ME.pid}})}
+function openChannel(code,onReady){
+ if(!sb){$("emsg").textContent="No hay conexión con el servidor de juego.";return}
+ ch=sb.channel("opoly-"+code,{config:{broadcast:{self:true,ack:false},presence:{key:ME.pid}}});
+ ch.on("broadcast",{event:"m"},({payload})=>onMsg(payload||{}));
+ ch.on("presence",{event:"leave"},({key})=>{if(IS_HOST&&G){const p=G.players.find(x=>x.id===key);if(p){p.conn=false;publish()}}});
+ ch.on("presence",{event:"join"},({key})=>{if(IS_HOST&&G){const p=G.players.find(x=>x.id===key);if(p&&!p.conn){p.conn=true;publish()}}});
+ ch.subscribe(s=>{if(s==="SUBSCRIBED"){connected=true;$("hConn").style.color="#22c55e";try{ch.track({name:ME.name})}catch(e){}if(onReady){const f=onReady;onReady=null;f()}}
+  else if(s==="CHANNEL_ERROR"||s==="TIMED_OUT"||s==="CLOSED"){connected=false;$("hConn").style.color="#ef4444"}});
+}
+function onMsg(m){
+ if(m.t==="state"){if(IS_HOST)return;if(m.s.ver<VER&&G&&G.code===m.s.code)return;VER=m.s.ver;SKEW=Date.now()-m.s.now;applyState(m.s);return}
+ if(IS_HOST)hostHandle(m)}
+
+/* ===================== Host: reglas del juego ===================== */
+const cur=()=>G.players[G.turn];
+const active=()=>G.players.filter(p=>!p.out);
+function publish(){G.ver=(G.ver||0)+1;G.now=Date.now();try{sessionStorage.setItem("opoly_host",JSON.stringify({G,PRIV}))}catch(e){}
+ ch&&ch.send({type:"broadcast",event:"m",payload:{t:"state",s:G}});SKEW=0;applyState(G)}
+function logl(t){G.log.push(t);if(G.log.length>40)G.log.shift()}
+function evt(text,kind,explain){G.event={text,kind:kind||"",explain:explain||"",n:(G.event?G.event.n:0)+1};logl(text)}
+function createRoom(){
+ const code=Array.from({length:4},()=>"ABCDEFGHJKLMNPQRSTUVWXYZ"[rnd(0,23)]).join("");
+ G={code,hostId:ME.pid,phase:"lobby",players:[{id:ME.pid,name:ME.name,color:COLORS[0],pos:0,money:START,out:false,skip:0,conn:true}],turn:0,round:1,maxRounds:10,owners:{},dice:[1,1],rollId:0,q:null,event:null,log:[],ver:0,deadline:0};
+ return code}
+function hostHandle(m){
+ if(!G)return;
+ if(m.t==="hello"){publish();return}
+ if(m.t==="join"){let p=G.players.find(x=>x.id===m.pid);
+  if(p){p.conn=true;p.name=String(m.name||p.name).slice(0,24)}
+  else if(G.phase==="lobby"&&G.players.length<MAXP){G.players.push({id:m.pid,name:String(m.name||"Jugador").slice(0,24),color:COLORS[G.players.length],pos:0,money:START,out:false,skip:0,conn:true});logl("Se unió "+String(m.name||"Jugador").slice(0,24))}
+  else if(!p){return}
+  publish();return}
+ if(m.t==="start"){if(m.pid===G.hostId&&G.phase==="lobby"&&G.players.length>=2){G.maxRounds=[8,12,16].includes(+m.rounds)?+m.rounds:10;G.phase="roll";G.turn=0;G.round=1;G.deadline=Date.now()+T_ROLL;evt("¡Comienza el juego! Turno de "+cur().name);publish()}return}
+ const p=G.players[G.turn];if(!p||p.id!==m.pid)return;
+ if(m.t==="roll"&&G.phase==="roll"){doRoll()}
+ else if(m.t==="answer"&&G.phase==="question"&&Number.isInteger(m.i)&&m.i>=0&&m.i<4){resolveAnswer(m.i)}
+ else if(m.t==="buy"&&G.phase==="buy"){resolveBuy(!!m.yes)}
+ else return;
+ publish()}
+function doRoll(){
+ const p=cur(),d1=rnd(1,6),d2=rnd(1,6),old=p.pos;p.pos=(p.pos+d1+d2)%24;G.dice=[d1,d2];G.rollId++;
+ let extra="";if(p.pos<old){p.money+=PASS;extra=" Pasó por la salida: cobra "+fmt(PASS)+"."}
+ logl(`${p.name} sacó ${d1}+${d2}.${extra}`);
+ land(p)}
+function land(p){
+ const t=TILES[p.pos],o=G.owners[t.i];
+ if(t.k==="empresa"){
+  if(o===p.id){p.money+=10000;evt(`${p.name} cobra ${fmt(10000)} de dividendos de ${t.name}.`,"ok");return endTurn()}
+  const q=genQuestion();PRIV={answer:q.answer,explain:q.explain};
+  G.q={tile:t.i,kind:o?"def":"adq",text:q.text,options:q.options,price:t.price,rent:t.rent,owner:o||null};
+  G.phase="question";G.deadline=Date.now()+T_Q;G.event=null;
+  logl(o?`${p.name} cayó en ${t.name} (de ${nameOf(o)}): debe defenderse.`:`${p.name} cayó en ${t.name}: caso de planilla.`);return}
+ if(t.k==="carta"){const c=pick(CARDS);
+  if(c[2]==="skip"){p.skip=1;evt(`${p.name}: ${c[0]}`,"bad")}
+  else if(c[2]==="collect"){let tot=0;G.players.forEach(x=>{if(x.id!==p.id&&!x.out){x.money-=10000;tot+=10000}});p.money+=tot;evt(`${p.name}: ${c[0]}`,"ok")}
+  else{p.money+=c[1];evt(`${p.name}: ${c[0]} (${c[1]>0?"+":""}${fmt(c[1])})`,c[1]>0?"ok":"bad")}
+  return endTurn()}
+ if(t.k==="ccss"){p.money-=CCSS_TAX;evt(`${p.name} paga ${fmt(CCSS_TAX)} de cuotas a la CCSS.`,"bad");return endTurn()}
+ if(t.k==="insp"){p.skip=1;evt(`${p.name} cae en Inspección: pierde su próximo turno.`,"bad");return endTurn()}
+ if(t.k==="salida"){evt(`${p.name} cae en la Salida.`);return endTurn()}
+ evt(`${p.name} descansa un momento.`);endTurn()}
+const nameOf=id=>(G.players.find(x=>x.id===id)||{}).name||"?";
+function resolveAnswer(i){
+ const p=cur(),q=G.q,ok=i===PRIV.answer,t=TILES[q.tile],correctTxt=q.options[PRIV.answer];
+ G.q.picked=i;G.q.correct=PRIV.answer;
+ if(q.kind==="adq"){
+  if(ok){p.money+=BONUS;G.phase="buy";G.deadline=Date.now()+T_BUY;G.event={text:`✅ ¡Correcto! ${p.name} gana ${fmt(BONUS)} de bonificación y puede adquirir ${t.name}.`,kind:"ok",explain:PRIV.explain,n:(G.event?G.event.n:0)+1};logl(G.event.text);return}
+  p.money-=FINE;evt(`❌ ${p.name} falló (respuesta: ${correctTxt}). Multa de ${fmt(FINE)}.`,"bad",PRIV.explain);return endTurn()}
+ const pay=ok?Math.round(q.rent/2):q.rent,own=G.players.find(x=>x.id===q.owner);
+ p.money-=pay;if(own)own.money+=pay;
+ evt(ok?`✅ ${p.name} defendió bien el caso y paga solo ${fmt(pay)} a ${nameOf(q.owner)}.`:`❌ ${p.name} falló (respuesta: ${correctTxt}) y paga ${fmt(pay)} a ${nameOf(q.owner)}.`,ok?"ok":"bad",PRIV.explain);endTurn()}
+function resolveBuy(yes){
+ const p=cur(),q=G.q,t=TILES[q.tile];
+ if(yes&&p.money>=t.price){p.money-=t.price;G.owners[t.i]=p.id;G.event={text:`🏢 ${p.name} adquirió ${t.name} por ${fmt(t.price)}.`,kind:"ok",explain:G.event?G.event.explain:"",n:G.event.n+1};logl(G.event.text)}
+ else{G.event={text:`${p.name} decidió no comprar ${t.name}.`,kind:"",explain:G.event?G.event.explain:"",n:G.event.n+1};logl(G.event.text)}
+ endTurn(true)}
+function endTurn(keepEvent){
+ G.q&&(G.q.done=true);
+ // quiebras
+ G.players.forEach(x=>{if(!x.out&&x.money<0){x.out=true;Object.keys(G.owners).forEach(k=>{if(G.owners[k]===x.id)delete G.owners[k]});logl(`💥 ${x.name} quedó en quiebra.`)}});
+ if(active().length<=1){return finish()}
+ let n=G.turn,wrapped=false,guard=0;
+ do{const prev=n;n=(n+1)%G.players.length;if(n<=prev)wrapped=true;
+  const pl=G.players[n];if(pl.out)continue;
+   if(pl.skip>0){pl.skip--;logl(`${pl.name} pierde su turno.`);continue}
+  break}while(++guard<20);
+ if(wrapped)G.round++;
+ if(G.round>G.maxRounds)return finish();
+ G.turn=n;G.phase="roll";G.deadline=Date.now()+T_ROLL;if(!keepEvent&&false)G.event=null}
+function patrimonio(p){return p.money+Object.keys(G.owners).filter(k=>G.owners[k]===p.id).reduce((s,k)=>s+TILES[k].price,0)}
+function finish(){G.phase="end";G.deadline=0;G.ranking=G.players.map(p=>({id:p.id,name:p.name,total:patrimonio(p),out:p.out})).sort((a,b)=>b.total-a.total);evt(`🏆 ¡Fin del juego! Gana ${G.ranking[0].name} con ${fmt(G.ranking[0].total)}.`,"ok")}
+function hostTick(){
+ if(!G||!IS_HOST)return;const now=Date.now();
+ if(["roll","question","buy"].includes(G.phase)){const p=cur();
+  const gone=p&&!p.conn,late=G.deadline&&now>G.deadline;
+  if(late||(gone&&now>G.deadline-(G.phase==="roll"?T_ROLL:G.phase==="question"?T_Q:T_BUY)+4000)){
+   if(G.phase==="roll")doRoll();else if(G.phase==="question")resolveAnswer(PRIV?(PRIV.answer+1)%4:0);else resolveBuy(false);
+   publish()}}}
+
+/* ===================== Cliente: vista ===================== */
+const V={pos:{},anim:0,rollId:0,evN:-1,k:1,rx:52,rz:0,built:false,prevQ:null};
+function buildBoard(){
+ const b=$("board");let h=`<div class="center"><div class="in">PLANILLA<br>OPOLY<small>Resuelve, compra y gana</small></div></div>`;
+ TILES.forEach(t=>{const [x,y]=xy(t.i),cs=96,c=CORNER[t.i];
+  const inner=t.k==="empresa"?`<div class="band"></div><div class="in" style="margin-top:10px"><span class="ic">${t.ic}</span><span class="nm">${esc(t.name)}</span><span class="pr">${fmt(t.price)}</span></div>`:`<div class="in"><span class="ic">${c[0]}</span><span class="nm">${c[1]}</span><span class="pr">${c[2]}</span></div>`;
+  h+=`<div class="tile ${t.k==="empresa"?"":"corner"}" id="t${t.i}" style="left:${x*cs+2}px;top:${y*cs+2}px;--c:${t.color||"#475569"}">${inner}</div>`});
+ b.innerHTML=h;V.built=true;fitBoard()}
+function fitBoard(){const st=$("stage");if(!st)return;const w=st.clientWidth,hh=st.clientHeight;V.k=Math.max(.35,Math.min(1.15,Math.min(w/760,hh/(96*7*Math.sin(V.rx*Math.PI/180)+170))));$("board").style.setProperty("--k",V.k)}
+function setView(){const s=$("board").style;s.setProperty("--rx",V.rx+"deg");s.setProperty("--rz",V.rz+"deg");document.documentElement.style.setProperty("--rx",V.rx+"deg");document.documentElement.style.setProperty("--rz",V.rz+"deg");fitBoard()}
+const posXY=(i,slot)=>{const [x,y]=xy(i);const off=[[-16,-12],[16,-12],[-16,14],[16,14]][slot%4];return [x*96+48+off[0],y*96+56+off[1]]};
+function ensurePawns(){
+ G.players.forEach((p,idx)=>{let el=$("pw"+idx);if(!el){el=document.createElement("div");el.className="pawn";el.id="pw"+idx;el.style.setProperty("--pc",p.color);el.innerHTML='<div class="sh"></div><div class="body"><div class="trunk"></div><div class="head"></div></div>';$("board").appendChild(el);V.pos[p.id]=p.pos;const [x,y]=posXY(p.pos,idx);el.style.left=x+"px";el.style.top=y+"px"}})}
+V.tgt={};V.run={};
+function movePawn(idx,p,to){
+ const el=$("pw"+idx);if(!el)return;V.tgt[idx]=to;if(V.run[idx]||(V.pos[p.id]??0)===to)return;V.run[idx]=true;V.anim++;
+ const step=()=>{let from=((V.pos[p.id]??0)+1)%24;V.pos[p.id]=from;const [x,y]=posXY(from,idx);el.style.left=x+"px";el.style.top=y+"px";
+  if(from!==V.tgt[idx])setTimeout(step,250);else{V.run[idx]=false;V.anim--;if(!V.anim)render()}};
+ setTimeout(step,250)}
+function showDice(a,b){
+ const rot={1:[0,0],2:[0,-90],3:[-90,0],4:[90,0],5:[0,90],6:[0,180]};
+ [[ "d1",a,720],["d2",b,1080]].forEach(([id,v,sp])=>{const r=rot[v];$(id).style.transform=`rotateX(${r[0]+sp}deg) rotateY(${r[1]+sp}deg)`})}
+function applyState(s){
+ const first=!V.shown;G=s;
+ if(first){V.shown=true;$("entry").classList.add("hidden");$("game").classList.remove("hidden");$("hSala").textContent="Sala "+G.code;buildBoard();setView()}
+ ensurePawns();
+ const newRoll=G.rollId!==V.rollId;
+ if(newRoll&&G.rollId>0){V.rollId=G.rollId;V.anim++;showDice(G.dice[0],G.dice[1]);
+  setTimeout(()=>{G.players.forEach((p,i)=>movePawn(i,p,p.pos));V.anim--;if(!V.anim)render()},1000)}
+ else{V.rollId=G.rollId;G.players.forEach((p,i)=>{if(!V.anim)movePawn(i,p,p.pos)})}
+ // edificios y casillas
+ TILES.forEach(t=>{if(t.k!=="empresa")return;const el=$("t"+t.i),o=G.owners[t.i],pl=o&&G.players.find(x=>x.id===o);
+  const had=el.querySelector(".bld");
+  if(pl){el.classList.add("owned");el.style.setProperty("--oc",pl.color);if(!had){el.insertAdjacentHTML("beforeend",'<div class="bld" style="--h:34px"><div class="b"></div><div class="l"></div><div class="r"></div><div class="f"></div><div class="t"></div></div>')}else had.style.setProperty("--oc",pl.color)}
+  else{el.classList.remove("owned");if(had)had.remove()}
+  if(pl&&el.querySelector(".bld"))el.querySelector(".bld").style.setProperty("--oc",pl.color)});
+ render()}
+function me(){return G.players.find(p=>p.id===ME.pid)}
+function render(){
+ if(!G)return;
+ const myTurn=cur()&&cur().id===ME.pid&&!V.anim;
+ $("hRonda").textContent=G.phase==="lobby"?"Sala de espera":`Ronda ${Math.min(G.round,G.maxRounds)} / ${G.maxRounds}`;
+ TILES.forEach(t=>{const el=$("t"+t.i);if(el)el.classList.toggle("cur",G.phase!=="lobby"&&G.phase!=="end"&&cur()&&cur().pos===t.i)});
+ G.players.forEach((p,i)=>{const el=$("pw"+i);if(el)el.classList.toggle("act",G.phase!=="lobby"&&G.phase!=="end"&&i===G.turn)});
+ $("players").innerHTML=G.players.map((p,i)=>{const props=Object.keys(G.owners).filter(k=>G.owners[k]===p.id).length;
+  return `<div class="pl ${i===G.turn&&G.phase!=="lobby"&&G.phase!=="end"?"turn":""} ${p.out?"out":""}" style="--pc:${p.color}"><span class="dot"></span><span class="nm">${esc(p.name)}${p.id===ME.pid?" (tú)":""}${p.conn?"":" ⚠️"}<small>${props} empresa(s)${p.skip?" · pierde turno":""}</small></span><span class="mn">${fmt(p.money)}</span></div>`}).join("");
+ $("log").innerHTML=G.log.slice().reverse().map(l=>`<div>${esc(l)}</div>`).join("");
+ const A=$("action");let h="";
+ const evH=G.event?`<div class="ev ${G.event.kind}">${esc(G.event.text)}${G.event.explain?`<small>📖 ${esc(G.event.explain)}</small>`:""}</div>`:"";
+ if(G.phase==="lobby"){
+  const host=G.hostId===ME.pid;
+  h=`<b>Sala de espera</b><p style="color:var(--mut);margin:6px 0">Comparte este código con tus compañeros (2 a 4 jugadores):</p><div class="big">${G.code}</div>
+   <p style="color:var(--mut)">Jugadores: ${G.players.length} / ${MAXP}</p>
+   ${host?`<label style="font-size:.75rem;color:var(--mut)">RONDAS</label><select id="rondas"><option value="8">Partida corta (8)</option><option value="12" selected>Partida normal (12)</option><option value="16">Partida larga (16)</option></select><button id="bStart" style="width:100%;margin-top:10px" ${G.players.length<2?"disabled":""}>${G.players.length<2?"Esperando jugadores…":"Iniciar juego"}</button>`:`<p>Esperando a que el anfitrión inicie…</p>`}`;
+ }else if(G.phase==="end"){
+  h=`<h3 style="margin:0 0 6px">🏆 Resultado final</h3>${G.ranking.map((r,i)=>`<div class="rank"><span>${i+1}. ${esc(r.name)}${r.out?" 💥":""}</span><span>${fmt(r.total)}</span></div>`).join("")}<p style="color:var(--mut);font-size:.8rem">Patrimonio = dinero + valor de tus empresas.</p>${evH}`;
+ }else if(G.phase==="roll"){
+  h=`${G.deadline?`<div class="bar"><i id="tbar"></i></div>`:""}<b>${esc(cur().name)}${myTurn?" (¡es tu turno!)":""}</b>
+   <button id="bRoll" style="width:100%;margin-top:8px" ${myTurn?"":"disabled"}>🎲 ${myTurn?"Tirar dados":"Esperando a "+esc(cur().name)}</button>${evH}`;
+ }else if(G.phase==="question"&&G.q){
+  const q=G.q,t=TILES[q.tile],mine=myTurn,tag=q.kind==="adq"?"Caso de planilla: resuélvelo para adquirir la empresa":"Defiende tu caso: si aciertas pagas solo la mitad de la renta";
+  h=`<div class="q"><div class="bar"><i id="tbar"></i></div><h3>${t.ic} ${esc(t.name)} · ${fmt(q.price)}</h3><div style="color:var(--mut);font-size:.8rem;margin-bottom:6px">${tag}</div><div class="txt">${esc(q.text)}</div>
+   ${q.options.map((o,i)=>`<button class="opt" data-a="${i}" ${mine&&q.picked===undefined?"":"disabled"}>${"ABCD"[i]}) ${esc(o)}</button>`).join("")}
+   ${mine?"":`<p style="color:var(--mut)">${esc(cur().name)} está resolviendo…</p>`}</div>`;
+ }else if(G.phase==="buy"&&G.q){
+  const t=TILES[G.q.tile],can=me()&&me().money>=t.price;
+  h=`<div class="bar"><i id="tbar"></i></div>${evH}<h3 style="margin:10px 0 4px">${t.ic} ${esc(t.name)}</h3><p style="margin:0 0 8px">Precio: <b>${fmt(t.price)}</b> · renta ${fmt(t.rent)}</p>
+   ${myTurn?`<div style="display:flex;gap:8px"><button class="good" id="bBuy" style="flex:1" ${can?"":"disabled"}>${can?"Comprar":"Sin fondos"}</button><button class="sec" id="bNo" style="flex:1">No comprar</button></div>`:`<p style="color:var(--mut)">${esc(cur().name)} decide si compra…</p>`}`;
+ }
+ A.innerHTML=h;
+ const sel=$("rondas");if(sel){sel.value=V.rondas||"12";sel.onchange=()=>V.rondas=sel.value}
+ const bs=$("bStart");if(bs)bs.onclick=()=>send({t:"start",rounds:+($("rondas").value)});
+ const br=$("bRoll");if(br&&myTurn)br.onclick=()=>{br.disabled=true;send({t:"roll"})};
+ A.querySelectorAll(".opt").forEach(b=>b.onclick=()=>{A.querySelectorAll(".opt").forEach(x=>x.disabled=true);send({t:"answer",i:+b.dataset.a})});
+ const bb=$("bBuy");if(bb)bb.onclick=()=>send({t:"buy",yes:true});const bn=$("bNo");if(bn)bn.onclick=()=>send({t:"buy",yes:false});
+ tickBar()}
+function tickBar(){const b=$("tbar");if(!b||!G||!G.deadline)return;const tot=G.phase==="roll"?T_ROLL:G.phase==="question"?T_Q:T_BUY;const left=G.deadline+SKEW-Date.now();b.style.width=Math.max(0,Math.min(100,left/tot*100))+"%"}
+setInterval(tickBar,500);
+
+/* ===================== Entrada y arranque ===================== */
+function nombre(){const n=$("nm").value.trim();if(!n){$("emsg").textContent="Escribe tu nombre.";return null}ME.name=n.slice(0,24);try{localStorage.setItem("opoly_name",ME.name)}catch(e){}return ME.name}
+$("bCrear").onclick=()=>{if(!nombre())return;ME.pid=getPid();IS_HOST=true;const code=createRoom();
+ openChannel(code,()=>{TICK=setInterval(hostTick,1000);publish();history.replaceState(null,"","?sala="+code)})};
+function unirse(code){if(!nombre())return;code=String(code||"").toUpperCase().trim();if(code.length!==4){$("emsg").textContent="El código tiene 4 letras.";return}
+ ME.pid=getPid();IS_HOST=false;$("emsg").textContent="Conectando…";
+ openChannel(code,()=>{send({t:"join",name:ME.name});send({t:"hello"});setTimeout(()=>{if(!G)$("emsg").textContent="No se encontró la sala "+code+". Revisa el código o pide al anfitrión que la cree."},6000)})}
+$("bUnir").onclick=()=>unirse($("cod").value);
+$("cod").addEventListener("keydown",e=>{if(e.key==="Enter")unirse($("cod").value)});
+$("bLink").onclick=()=>{const u=location.origin+location.pathname+"?sala="+(G?G.code:"");(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>{$("bLink").textContent="¡Copiado!";setTimeout(()=>$("bLink").textContent="Copiar enlace",1500)}).catch(()=>prompt("Copia este enlace:",u))};
+$("bSalir").onclick=()=>{if(confirm("¿Salir de la partida?")){try{sessionStorage.removeItem("opoly_host")}catch(e){}location.href=location.pathname}};
+document.querySelectorAll(".viewctl button").forEach(b=>b.onclick=()=>{const v=b.dataset.v;if(v==="l")V.rz-=20;else if(v==="r")V.rz+=20;else if(v==="u")V.rx=Math.min(75,V.rx+8);else if(v==="d")V.rx=Math.max(20,V.rx-8);else{V.rx=52;V.rz=0}setView()});
+(()=>{const st=$("stage");let drag=null;st.addEventListener("pointerdown",e=>{if(e.target.closest("button"))return;drag={x:e.clientX,y:e.clientY};st.setPointerCapture(e.pointerId)});
+ st.addEventListener("pointermove",e=>{if(!drag)return;V.rz+=(e.clientX-drag.x)*.4;V.rx=Math.max(20,Math.min(75,V.rx-(e.clientY-drag.y)*.2));drag={x:e.clientX,y:e.clientY};setView()});
+ st.addEventListener("pointerup",()=>drag=null)})();
+window.addEventListener("resize",fitBoard);
+(function init(){
+ const s=sesion();let n="";try{n=localStorage.getItem("opoly_name")||""}catch(e){}
+ $("nm").value=s.nombre||n||"";
+ const q=new URLSearchParams(location.search).get("sala");if(q)$("cod").value=q.toUpperCase();
+ // el anfitrión puede refrescar la página y retomar su sala
+ try{const sv=JSON.parse(sessionStorage.getItem("opoly_host")||"null");
+  if(sv&&sv.G&&sv.G.hostId===getPid()&&sv.G.phase!=="end"&&(!q||q.toUpperCase()===sv.G.code)){ME.pid=getPid();ME.name=(sv.G.players.find(p=>p.id===ME.pid)||{}).name||"Anfitrión";IS_HOST=true;G=null;
+   const keep=sv.G;PRIV=sv.PRIV;openChannel(keep.code,()=>{G=keep;G.players.forEach(p=>{if(p.id!==ME.pid)p.conn=true});G.deadline=G.deadline?Date.now()+15000:0;VER=G.ver||0;TICK=setInterval(hostTick,1000);publish()});return}}catch(e){}
+})();
+</script>
+</body>
+</html>
