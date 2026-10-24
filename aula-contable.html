@@ -250,17 +250,28 @@ select,input,textarea{border-radius:12px;padding:10px 12px}
 .toast{display:flex;align-items:center;gap:10px;left:auto;right:20px;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateY(24px) scale(.96);opacity:0;pointer-events:none;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-left:5px solid var(--accent);border-radius:16px;padding:12px 18px;box-shadow:0 16px 40px rgba(15,23,42,.22);transition:transform .3s cubic-bezier(.2,1.2,.4,1),opacity .25s;max-width:min(420px,calc(100% - 32px))}
 .toast.show{transform:none;opacity:1}
 .toast.t-ok{border-left-color:var(--ok)}.toast.t-warn{border-left-color:#F59E0B}.toast.t-bad{border-left-color:var(--bad)}
-/* Menú del ciclo en una sola fila horizontal, sin barra de desplazamiento */
-.rail{overflow:visible;padding-block:14px 4px}
-.steps{display:flex;gap:8px;min-width:0;width:100%}
+.top .wrap{max-width:1280px}
+/* Menú del ciclo: barra lateral vertical (computadora/tablet); fila compacta en celular */
+.shell{max-width:1280px;margin:0 auto;display:flex;gap:22px;align-items:flex-start;padding-inline:max(16px,env(safe-area-inset-left,0px))}
+.shell>main.wrap{flex:1 1 0;min-width:0;max-width:none;margin:0;padding-inline:0}
+#railWrap{flex:0 0 232px;position:sticky;top:calc(76px + env(safe-area-inset-top,0px));padding:18px 0 0;max-width:232px}
+#railWrap .rail{overflow:visible;padding:0}
+.steps{flex-direction:column;gap:6px;min-width:0;width:100%}
 .steps .arrow{display:none}
-.steps .step{flex:1 1 0;min-width:0;justify-content:center;padding:9px 10px;gap:8px}
-.steps .step .t{min-width:0}
-.steps .step .t b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.92rem}
-.steps .step .t small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.steps .step .n{flex:none;width:28px;height:28px}
-@media (max-width:1000px){.steps .step .t small{display:none}.steps .step{padding:8px 8px;gap:6px}}
-@media (max-width:760px){.steps .step .t{display:none}.steps .step{padding:8px;flex:1 1 0}.steps .step.on .t{display:block;flex:none}.steps .step.on{flex:2 1 0}}
+.steps .step{width:100%;justify-content:flex-start;padding:10px 12px;gap:10px;border-radius:16px}
+.steps .step .t{min-width:0;text-align:left}
+.steps .step .t b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.95rem}
+.steps .step .t small{display:block}
+.steps .step .n{flex:none}
+@media (max-width:899px){
+  .shell{flex-direction:column;gap:0}
+  #railWrap{position:static;flex:none;max-width:none;width:100%;padding:12px 0 0}
+  .steps{flex-direction:row;gap:8px}
+  .steps .step{flex:1 1 0;min-width:0;justify-content:center;padding:9px 8px;gap:6px}
+  .steps .step .t small{display:none}
+  .shell>main.wrap{width:100%}
+}
+@media (max-width:640px){.steps .step .t{display:none}.steps .step{padding:8px}.steps .step.on .t{display:block;flex:none}.steps .step.on{flex:2 1 0}}
 @media (max-width:640px){.toast{left:16px;right:16px;max-width:none}.btn{min-height:48px}.btn.sm{min-height:42px}}
 </style>
 
@@ -343,8 +354,8 @@ tr.cell-ok td,tr.cell-bad td{background:transparent}
     <div class="who" id="who"></div>
   </div>
 </header>
-<div class="wrap" id="railWrap" hidden><nav class="rail" aria-label="Ciclo contable"><div class="steps" id="steps"></div></nav></div>
-<main class="wrap" id="main"><div class="loading">Preparando el aula…</div></main>
+<div class="shell"><aside id="railWrap" hidden><nav class="rail" aria-label="Ciclo contable"><div class="steps" id="steps"></div></nav></aside>
+<main class="wrap" id="main"><div class="loading">Preparando el aula…</div></main></div>
 <div class="toast" id="toast" role="status"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
