@@ -377,6 +377,9 @@ tr.cell-ok td,tr.cell-bad td{background:transparent}
 .liqd summary{cursor:pointer;font-weight:700;font-size:.9rem}
 .liqd ol{margin:8px 0 2px 18px;padding:0;font-size:.86rem;line-height:1.5}
 tr.muted{opacity:.5}tr.tot td{background:var(--bg2,rgba(99,102,241,.07))}
+.liq-form{margin-top:14px}.liq-form h4{margin:12px 0 6px}
+.liq-two{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:14px}
+tr.hl td{background:rgba(99,102,241,.18);font-weight:700}
 </style>
 <header class="top" id="top" hidden>
   <div class="wrap">
@@ -1824,10 +1827,41 @@ function liqResultadoHTML(c,p){
    ${pasos("Vacaciones",[`Período vigente desde ${vac.periodoDesde}: 1 día por mes trabajado → ${vac.acumulados} días.`,`Pendientes = ${vac.acumulados} − ${vac.disfrutados} = ${vac.pendientes}.`,`Monto = ${vac.pendientes} × ${m(vac.diario)} = ${m(vac.monto)}.`])}
    ${pasos("Preaviso y cesantía",[`Motivo: ${esc(motivo||"")}.`,`Preaviso legal: ${pre.diasLegales} días (3–6 m: 7 d · 6–12 m: 15 d · 1 año o más: 30 d). Solo se paga en despido con responsabilidad patronal.`,`Cesantía: ${esc(ces.tramo)}${ces.aplica?` = ${ces.dias} días × ${m(ces.diario)} = ${m(ces.monto)}`:" — no aplica con este motivo"}.`,"Tope de 8 años de cesantía. Fracción mayor a 6 meses cuenta como un año."])}
   </div>
-  <details class="liqd" style="margin-top:6px"><summary>Base legal y tabla de cesantía</summary><div style="padding:8px 4px;font-size:.85rem">
-   <p>Preaviso: art. 28 · Cesantía: art. 29 · Vacaciones: arts. 153-156 · Aguinaldo: Ley 2412. Aguinaldo, preaviso y cesantía están exentos de cargas sociales y renta; las vacaciones y el salario pendiente sí cotizan. El impuesto sobre la renta no se calcula en este módulo. Verifique los valores vigentes con el MTSS.</p>
-   <div class="tbl"><table class="sheet"><thead><tr><th>Años</th>${Object.keys(LIQ_CES_TABLA).map(k=>`<th class="r">${k}${k==13?"+":""}</th>`).join("")}</tr></thead><tbody><tr><td>Días/año</td>${Object.values(LIQ_CES_TABLA).map(v=>`<td class="r">${v}</td>`).join("")}</tr></tbody></table></div></div></details>
+  ${liqFormulasHTML(R,inp)}
   <div style="margin-top:10px"><button class="btn secondary" data-liq="copiar">Copiar entrada y resultado (JSON)</button></div>`;
+}
+function liqFormulasHTML(R,inp){
+  const A=R.antiguedad,t=A.mesesTotales,ces=R.cesantia,pre=R.preaviso;
+  const hl=(on)=>on?' class="hl"':'';
+  const pRows=[["Menos de 3 meses","Sin preaviso",t<3],["De 3 a menos de 6 meses","7 días",t>=3&&t<6],["De 6 meses a menos de 1 año","15 días",t>=6&&t<12],["1 año o más","30 días",t>=12]];
+  const cRows=[["Menos de 3 meses","Sin cesantía","—",t<3],["De 3 a menos de 6 meses","7 días","7",t>=3&&t<6],["De 6 meses a menos de 1 año","14 días","14",t>=6&&t<12]];
+  const yrs=Object.keys(LIQ_CES_TABLA).map(Number);
+  const fmtN=n=>String(n).replace(".",",");
+  const cYear=yrs.map(y=>{const d=LIQ_CES_TABLA[y],ind=Math.min(y,LIQ_CES_TOPE_ANIOS);return `<tr${hl(t>=12&&Math.min(ces.aniosContados,13)===y)}><td>${y}${y===13?" o más":""}</td><td class="r">${fmtN(d)}</td><td class="r">${ind}</td><td class="r"><b>${fmtN(Math.round(d*ind*100)/100)}</b></td></tr>`}).join("");
+  const m=v=>money(v);
+  return `<div class="liq-form">
+   <h4>📐 Fórmulas de cálculo</h4>
+   <div class="tbl"><table class="sheet"><thead><tr><th>Concepto</th><th>Fórmula</th><th>Con los datos de este caso</th></tr></thead><tbody>
+    <tr><td><b>Promedio mensual</b></td><td>Suma de los últimos 6 meses (sin incapacidad) ÷ meses usados</td><td>${m(R.promedios.mensual6)} (${R.promedios.mesesUsados6} meses)</td></tr>
+    <tr><td><b>Salario diario</b></td><td>Promedio mensual ÷ 30 (cesantía semanal no comercial: ÷ 26)</td><td>${m(R.promedios.diario)}</td></tr>
+    <tr><td><b>Aguinaldo</b></td><td>(Salarios ordinarios + extraordinarios del 1 dic al 30 nov) ÷ 12</td><td>${m(R.aguinaldo.totalDevengado)} ÷ 12 = <b>${m(R.aguinaldo.monto)}</b></td></tr>
+    <tr><td><b>Vacaciones</b></td><td>(Días acumulados − días disfrutados) × (promedio mensual ÷ 30). Se acumula 1 día por mes trabajado</td><td>(${R.vacaciones.acumulados} − ${R.vacaciones.disfrutados}) × ${m(R.vacaciones.diario)} = <b>${m(R.vacaciones.monto)}</b></td></tr>
+    <tr><td><b>Preaviso</b> (art. 28)</td><td>(Días de preaviso según antigüedad − días laborados) × salario diario. Solo en despido con responsabilidad patronal</td><td>(${pre.diasLegales} − ${pre.diasLaborados}) × ${m(pre.diario)} = <b>${pre.aplica?m(pre.monto):"No aplica"}</b></td></tr>
+    <tr><td><b>Cesantía</b> (art. 29)</td><td>Días por año × años indemnizables (máx. 8) × salario diario</td><td>${ces.tarifa?`${fmtN(ces.tarifa)} × ${Math.min(ces.aniosContados,LIQ_CES_TOPE_ANIOS)} = ${fmtN(ces.dias)} d`:`${fmtN(ces.dias)} d`} × ${m(ces.diario)} = <b>${ces.aplica?m(ces.monto):"No aplica"}</b></td></tr>
+    <tr><td><b>Cuotas obreras CCSS</b></td><td>(Vacaciones + salario pendiente) × % de cuotas obreras</td><td>${m(R.deducciones.baseCcss)} × ${R.deducciones.pctCuotasObreras} % = <b>${m(R.deducciones.ccss)}</b></td></tr>
+    <tr><td><b>Total a pagar</b></td><td>Aguinaldo + vacaciones + preaviso + cesantía + salario pendiente − cuotas obreras</td><td><b>${m(R.totalNeto)}</b></td></tr>
+   </tbody></table></div>
+   <div class="liq-two">
+    <div><h4>Tabla de preaviso (art. 28)</h4>
+     <div class="tbl"><table class="sheet"><thead><tr><th>Tiempo de servicio</th><th class="r">Preaviso</th></tr></thead><tbody>${pRows.map(r=>`<tr${hl(r[2])}><td>${r[0]}</td><td class="r"><b>${r[1]}</b></td></tr>`).join("")}</tbody></table></div>
+     <p class="muted" style="font-size:.78rem;margin:6px 0 0">Se paga solo en despido con responsabilidad patronal. En renuncia, el trabajador debe darlo; en despido con justa causa no hay preaviso.</p></div>
+    <div><h4>Tabla de cesantía (art. 29)</h4>
+     <div class="tbl"><table class="sheet"><thead><tr><th>Tiempo de servicio</th><th class="r">Días</th><th class="r">Fórmula</th></tr></thead><tbody>${cRows.map(r=>`<tr${hl(r[3])}><td>${r[0]}</td><td class="r"><b>${r[1]}</b></td><td class="r">${r[2]}</td></tr>`).join("")}</tbody></table></div>
+     <div class="tbl" style="margin-top:8px"><table class="sheet"><thead><tr><th>Años cumplidos</th><th class="r">Días por año</th><th class="r">Años indemniz.</th><th class="r">Total días</th></tr></thead><tbody>${cYear}</tbody></table></div>
+     <p class="muted" style="font-size:.78rem;margin:6px 0 0">Con 1 año o más: una fracción mayor a 6 meses cuenta como un año adicional. Se indemniza un máximo de 8 años. No aplica en renuncia ni despido con justa causa.</p></div>
+   </div>
+   <p class="muted" style="font-size:.78rem">Aguinaldo, preaviso y cesantía están exentos de cargas sociales y renta; vacaciones y salario pendiente sí cotizan. Este módulo no calcula impuesto sobre la renta. Verifique los valores vigentes con el MTSS.</p>
+  </div>`;
 }
 function plViewLiquidacion(c,p){
   if(!p.employees.length)return `<div class="empty"><h3>Primero agrega colaboradores</h3><p>La liquidación toma el salario del colaborador como punto de partida.</p></div>`;
