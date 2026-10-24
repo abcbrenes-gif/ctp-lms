@@ -251,6 +251,17 @@ select,input,textarea{border-radius:12px;padding:10px 12px}
 .toast.show{transform:none;opacity:1}
 .toast.t-ok{border-left-color:var(--ok)}.toast.t-warn{border-left-color:#F59E0B}.toast.t-bad{border-left-color:var(--bad)}
 .top .wrap{max-width:1280px}
+/* Letra un poco más pequeña y modo pantalla ampliada */
+body{font-size:14.5px}
+h2{font-size:1.5rem}
+.btn{font-size:.92rem;min-height:42px;padding:9px 18px}.btn.sm{font-size:.84rem;min-height:34px;padding:6px 12px}
+.tab{font-size:.88rem;padding:8px 15px;min-height:38px}
+.step .t b{font-size:.9rem}.step .t small{font-size:.7rem}
+th{font-size:.7rem}td,th{padding:7px 10px}
+select,input,textarea{font-size:.92rem}
+.who .zoom{min-width:36px;min-height:36px;padding:0;border-radius:12px;display:inline-grid;place-items:center;font-size:1.05rem}
+body.wide .shell,body.wide .top .wrap{max-width:none}
+body.wide .wrap{max-width:none}
 /* Menú del ciclo: barra lateral vertical (computadora/tablet); fila compacta en celular */
 .shell{max-width:1280px;margin:0 auto;display:flex;gap:22px;align-items:flex-start;padding-inline:max(16px,env(safe-area-inset-left,0px))}
 .shell>main.wrap{flex:1 1 0;min-width:0;max-width:none;margin:0;padding-inline:0}
@@ -629,6 +640,7 @@ function renderChrome(){
   document.getElementById("who").innerHTML=`
     ${t?`<button class="btn sm ${["entregas","entregar"].includes(APP.view)?"":"primary"}" data-go="catalogo">📘 Ciclo contable</button><button class="btn sm ${APP.view==="entregas"?"primary":"pop"}" data-go="entregas">📥 Entregas recibidas</button>`
        :`<button class="btn sm ${APP.view==="entregar"?"primary":"pop"}" data-go="entregar">📤 Entregar trabajo</button>`}
+    <button class="btn ghost zoom" type="button" data-act="ampliar" id="zoomBtn" title="Ampliar la pantalla" aria-label="Ampliar la pantalla">⛶</button>
     <span class="save ${/guardando/i.test(APP.saveState||"")?"busy":""}" id="saveBadge" title="${esc(APP.saveState||"Guardado en la nube")}">${/guardando/i.test(APP.saveState||"")?"⟳":"✓"}</span>
     <details class="usr" id="usrMenu"><summary><span class="avatar" aria-hidden="true">${esc(initials(APP.me.nombre))}</span><span class="nm"><b>${esc(APP.me.nombre.split(" ")[0])}</b><small class="muted">${t?"Profesor":"Estudiante"}</small></span></summary>
       <div class="menu"><div><b>${esc(APP.me.nombre)}</b><small class="muted">${t?"Profesor":"Estudiante"} · ${esc(APP.me.usuario)}</small></div><div class="muted" style="font-size:.8rem">☁ ${esc(APP.saveState||"Guardado en la nube")}</div><button class="btn sm ghost" data-act="logout">Salir</button></div></details>`;
@@ -2642,6 +2654,10 @@ document.addEventListener("click",async e=>{
   /* Profesor: entregas */
   if(a==="reloadEntregas"){loadEntregas();return}
   if(a==="entTab"){APP.entTab=b.dataset.t;if(APP.entTab==="emp")loadEmpData();else render();return}
+  if(a==="ampliar"){const on=!document.body.classList.contains("wide");document.body.classList.toggle("wide",on);
+    try{localStorage.setItem("ac_wide",on?"1":"0")}catch(err){}
+    try{if(on&&document.documentElement.requestFullscreen&&!document.fullscreenElement)await document.documentElement.requestFullscreen();else if(!on&&document.fullscreenElement)await document.exitFullscreen()}catch(err){}
+    toast(on?"Pantalla ampliada ✓":"Pantalla normal");return}
   if(a==="pegarPortapapeles"){let txt="";try{txt=await navigator.clipboard.readText()}catch(err){toast("No se pudo leer el portapapeles: pégalo a mano en la caja de abajo");return}
     try{APP.preview=await readDelivery(txt);toast("Código válido ✓ de "+APP.preview.payload.nombre)}catch(err){toast("⚠️ "+err.message)}render();return}
   if(a==="checkDelivery"){APP.preview=await readDelivery(val("rcvTa"));render();return}
@@ -2896,6 +2912,8 @@ document.addEventListener("dragleave",e=>{const z=e.target.closest&&e.target.clo
 document.addEventListener("drop",async e=>{const z=e.target.closest&&e.target.closest("#dropZone");if(!z)return;e.preventDefault();z.classList.remove("over");let txt=e.dataTransfer.getData("text/plain");const f=e.dataTransfer.files&&e.dataTransfer.files[0];if(!txt&&f)txt=await f.text();
   try{APP.preview=await readDelivery(txt);toast("Código válido ✓ de "+APP.preview.payload.nombre)}catch(err){toast("⚠️ "+err.message)}render()});
 document.addEventListener("click",e=>{const m=document.getElementById("usrMenu");if(m&&m.open&&!m.contains(e.target))m.open=false});
+
+try{if(localStorage.getItem("ac_wide")==="1")document.body.classList.add("wide")}catch(e){}
 </script>
 
 </body></html>
