@@ -92,6 +92,18 @@ header.top b{font-size:1.05rem}
 .big{font-size:2.2rem;font-weight:900;letter-spacing:.2em;text-align:center;padding:6px 0;background:var(--bg2);border-radius:12px;border:1px dashed var(--line)}
 .rank{display:flex;justify-content:space-between;padding:8px 10px;border-radius:10px;background:var(--bg2);margin-top:6px;font-weight:700}
 .rank:first-child{background:linear-gradient(90deg,#854d0e,#ca8a04)}
+.recw{max-width:1100px;margin:0 auto;padding:20px}
+.recw table{width:100%;border-collapse:collapse;background:var(--card);border-radius:14px;overflow:hidden;margin:8px 0}
+.recw th,.recw td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:.88rem;vertical-align:top}
+.recw th{color:var(--mut);font-size:.72rem;text-transform:uppercase;letter-spacing:.05em}
+.recw td.r,.recw th.r{text-align:right}
+.recw tr.clk{cursor:pointer}.recw tr.clk:hover td{background:rgba(124,108,255,.12)}
+.recw .ok{color:var(--ok);font-weight:800}.recw .no{color:var(--bad);font-weight:800}
+.recw .kp{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}.recw .kp div{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 16px}
+.recw .kp small{display:block;color:var(--mut);font-size:.7rem;text-transform:uppercase;font-weight:700}.recw .kp b{font-size:1.3rem}
+.recw .ex{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0}
+.recw .ex small{color:var(--mut)}
+.recw label.ck{display:flex;gap:6px;align-items:center;font-size:.85rem}.recw label.ck input{width:auto}
 </style>
 </head>
 <body>
@@ -103,9 +115,15 @@ header.top b{font-size:1.05rem}
   <div class="row"><button id="bCrear" style="flex:1">Crear sala</button><button id="bDemo" class="sec" style="flex:1" title="Juega solo contra 2 jugadores automáticos">▶ Modo demo</button></div>
   <label>o únete con el código de tu compañero</label>
   <div class="row" style="margin-top:0"><input id="cod" maxlength="4" placeholder="ABCD" style="text-transform:uppercase;letter-spacing:.2em;font-weight:800"><button id="bUnir" class="sec">Unirme</button></div>
+  <button id="bReg" class="sec" style="width:100%;margin-top:14px">📊 Mi registro de ejercicios</button>
   <div class="msg" id="emsg"></div>
  </div>
 </div>
+
+<div id="rec" class="screen hidden"><div class="recw">
+ <div class="row" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><h2 id="recT" style="margin:0;flex:1">📊 Registro de ejercicios</h2><button class="sec" id="recCsv">⬇ Descargar Excel (CSV)</button><button class="sec" id="recBack">← Volver</button></div>
+ <div id="recF" class="row" style="display:flex;gap:10px;margin:12px 0;flex-wrap:wrap;align-items:center"></div>
+ <div id="recB"><p style="color:var(--mut)">Cargando…</p></div></div></div>
 
 <div id="game" class="screen hidden">
  <header class="top"><b>🎲 Planilla Opoly</b><span class="pill" id="hSala"></span><span class="pill" id="hRonda"></span><span class="pill" id="hConn" title="Conexión">●</span><span style="flex:1"></span><button class="sec" id="bLink">Copiar enlace</button><button class="sec" id="bSalir">Salir</button></header>
@@ -202,7 +220,8 @@ const GEN=[
   const set=shuffle([7,15,30,60]),ans=set.indexOf(d);
   return {text:`Un trabajador con ${M} meses de servicio es despedido con responsabilidad patronal. ¿Cuántos días de preaviso corresponden?`,options:set.map(x=>x+" días"),answer:ans,explain:`3–6 meses: 7 días · 6–12 meses: 15 días · 1 año o más: 30 días. Con ${M} meses = ${d} días.`}},
  function conceptual(){const c=pick(CONC),correct=c[1][c[2]],list=shuffle(c[1]);return {text:c[0],options:list,answer:list.indexOf(correct),explain:c[3]}}];
-function genQuestion(){const g=Math.random()<0.2?GEN[6]:pick(GEN.slice(0,6));return g()}
+const TIPOS=["Salario neto y CCSS","Aguinaldo","Vacaciones","Horas extra","Cesantía","Preaviso","Conceptos legales"];
+function genQuestion(){const i=Math.random()<0.2?6:rnd(0,5);const q=GEN[i]();q.tipo=TIPOS[i];return q}
 
 /* ===================== Estado y red ===================== */
 let LOCAL=false,sb=null,ch=null,ME={pid:"",name:""},G=null,SKEW=0,PRIV=null,IS_HOST=false,TICK=null,connected=false,VER=0;
@@ -242,7 +261,7 @@ function hostHandle(m){
   else if(G.phase==="lobby"&&G.players.length<MAXP){G.players.push({id:m.pid,name:String(m.name||"Jugador").slice(0,24),color:COLORS[G.players.length],pos:0,money:START,out:false,skip:0,conn:true});logl("Se unió "+String(m.name||"Jugador").slice(0,24))}
   else if(!p){return}
   publish();return}
- if(m.t==="start"){if(m.pid===G.hostId&&G.phase==="lobby"&&G.players.length>=2){G.maxRounds=[8,12,16].includes(+m.rounds)?+m.rounds:10;G.phase="roll";G.turn=0;G.round=1;G.deadline=Date.now()+T_ROLL;evt("¡Comienza el juego! Turno de "+cur().name);publish()}return}
+ if(m.t==="start"){if(m.pid===G.hostId&&G.phase==="lobby"&&G.players.length>=2){G.maxRounds=[8,12,16].includes(+m.rounds)?+m.rounds:10;G.gid=G.code+"-"+Date.now().toString(36);G.phase="roll";G.turn=0;G.round=1;G.deadline=Date.now()+T_ROLL;evt("¡Comienza el juego! Turno de "+cur().name);publish()}return}
  const p=G.players[G.turn];if(!p||p.id!==m.pid)return;
  if(m.t==="roll"&&G.phase==="roll"){doRoll()}
  else if(m.t==="answer"&&G.phase==="question"&&Number.isInteger(m.i)&&m.i>=0&&m.i<4){resolveAnswer(m.i)}
@@ -258,8 +277,8 @@ function land(p){
  const t=TILES[p.pos],o=G.owners[t.i];
  if(t.k==="empresa"){
   if(o===p.id){p.money+=10000;evt(`${p.name} cobra ${fmt(10000)} de dividendos de ${t.name}.`,"ok");return endTurn()}
-  const q=genQuestion();PRIV={answer:q.answer,explain:q.explain};
-  G.q={tile:t.i,kind:o?"def":"adq",text:q.text,options:q.options,price:t.price,rent:t.rent,owner:o||null};
+  const q=genQuestion();PRIV={answer:q.answer,explain:q.explain,tipo:q.tipo};
+  G.q={tile:t.i,tipo:q.tipo,kind:o?"def":"adq",text:q.text,options:q.options,price:t.price,rent:t.rent,owner:o||null};
   G.phase="question";G.deadline=Date.now()+T_Q;G.event=null;
   logl(o?`${p.name} cayó en ${t.name} (de ${nameOf(o)}): debe defenderse.`:`${p.name} cayó en ${t.name}: caso de planilla.`);return}
  if(t.k==="carta"){const c=pick(CARDS);
@@ -272,9 +291,10 @@ function land(p){
  if(t.k==="salida"){evt(`${p.name} cae en la Salida.`);return endTurn()}
  evt(`${p.name} descansa un momento.`);endTurn()}
 const nameOf=id=>(G.players.find(x=>x.id===id)||{}).name||"?";
-function resolveAnswer(i){
- const p=cur(),q=G.q,ok=i===PRIV.answer,t=TILES[q.tile],correctTxt=q.options[PRIV.answer];
+function resolveAnswer(i,timeout){
+ const p=cur(),q=G.q,ok=!timeout&&i===PRIV.answer,t=TILES[q.tile],correctTxt=q.options[PRIV.answer];
  G.q.picked=i;G.q.correct=PRIV.answer;
+ (G.hist=G.hist||[]).push({pid:p.id,tipo:PRIV.tipo||"",modo:q.kind==="adq"?"Adquirir empresa":"Defender empresa",empresa:t.name,pregunta:q.text,opciones:q.options,elegida:timeout?null:i,correcta:PRIV.answer,ok,sinResponder:!!timeout,explicacion:PRIV.explain,hora:new Date().toISOString()});
  if(q.kind==="adq"){
   if(ok){p.money+=BONUS;G.phase="buy";G.deadline=Date.now()+T_BUY;G.event={text:`✅ ¡Correcto! ${p.name} gana ${fmt(BONUS)} de bonificación y puede adquirir ${t.name}.`,kind:"ok",explain:PRIV.explain,n:(G.event?G.event.n:0)+1};logl(G.event.text);return}
   p.money-=FINE;evt(`❌ ${p.name} falló (respuesta: ${correctTxt}). Multa de ${fmt(FINE)}.`,"bad",PRIV.explain);return endTurn()}
@@ -314,7 +334,7 @@ function hostTick(){
  if(["roll","question","buy"].includes(G.phase)){const p=cur();
   const gone=p&&!p.conn&&!p.bot,late=G.deadline&&now>G.deadline;
   if(late||(gone&&now>G.deadline-(G.phase==="roll"?T_ROLL:G.phase==="question"?T_Q:T_BUY)+4000)){
-   if(G.phase==="roll")doRoll();else if(G.phase==="question")resolveAnswer(PRIV?(PRIV.answer+1)%4:0);else resolveBuy(false);
+   if(G.phase==="roll")doRoll();else if(G.phase==="question")resolveAnswer(PRIV?(PRIV.answer+1)%4:0,true);else resolveBuy(false);
    publish()}}}
 
 /* ===================== Cliente: vista ===================== */
@@ -339,8 +359,20 @@ function movePawn(idx,p,to){
 function showDice(a,b){
  const rot={1:[0,0],2:[0,-90],3:[-90,0],4:[90,0],5:[0,90],6:[0,180]};
  [[ "d1",a,720],["d2",b,1080]].forEach(([id,v,sp])=>{const r=rot[v];$(id).style.transform=`rotateX(${r[0]+sp}deg) rotateY(${r[1]+sp}deg)`})}
+const safeId=x=>String(x).replace(/[^\w-]/g,"_");
+async function saveRecord(){
+ const s=sesion();
+ if(!s||s.role!=="estudiante"||!s.id||!G.gid){V.rec="noaplica";return}
+ try{
+  const pos=G.ranking.findIndex(r=>r.id===ME.pid),my=G.ranking[pos]||{total:0};
+  const rec={estudiante_id:s.id,nombre:s.nombre||ME.name,seccion:s.seccion||"",gid:G.gid,fecha:new Date().toISOString(),sala:G.code,demo:!!G.demo,jugadores:G.players.map(p=>p.name),posicion:pos+1,total:my.total,rondas:G.maxRounds,ejercicios:(G.hist||[]).filter(h=>h.pid===ME.pid).map(({pid,...r})=>r)};
+  const {error}=await sb.storage.from("materiales").upload(`opoly-registros/${safeId(s.id)}/${G.gid}.json`,new Blob([JSON.stringify(rec)],{type:"application/json"}),{contentType:"application/json",upsert:true});
+  if(error)throw error;V.rec="ok"}
+ catch(e){V.rec="err";V.recMsg=(e&&e.message)||String(e)}
+ render()}
 function applyState(s){
  const first=!V.shown;G=s;
+ if(G.phase==="end"&&!V.saved){V.saved=true;saveRecord()}
  if(first){V.shown=true;$("entry").classList.add("hidden");$("game").classList.remove("hidden");$("hSala").textContent=G.demo?"Modo demo":"Sala "+G.code;if(G.demo)$("bLink").classList.add("hidden");buildBoard();setView()}
  ensurePawns();
  const newRoll=G.rollId!==V.rollId;
@@ -372,7 +404,9 @@ function render(){
    <p style="color:var(--mut)">Jugadores: ${G.players.length} / ${MAXP}</p>
    ${host?`<label style="font-size:.75rem;color:var(--mut)">RONDAS</label><select id="rondas"><option value="8">Partida corta (8)</option><option value="12" selected>Partida normal (12)</option><option value="16">Partida larga (16)</option></select><button id="bStart" style="width:100%;margin-top:10px" ${G.players.length<2?"disabled":""}>${G.players.length<2?"Esperando jugadores…":"Iniciar juego"}</button>`:`<p>Esperando a que el anfitrión inicie…</p>`}`;
  }else if(G.phase==="end"){
-  h=`<h3 style="margin:0 0 6px">🏆 Resultado final</h3>${G.ranking.map((r,i)=>`<div class="rank"><span>${i+1}. ${esc(r.name)}${r.out?" 💥":""}</span><span>${fmt(r.total)}</span></div>`).join("")}<p style="color:var(--mut);font-size:.8rem">Patrimonio = dinero + valor de tus empresas.</p>${evH}`;
+  h=`<h3 style="margin:0 0 6px">🏆 Resultado final</h3>${G.ranking.map((r,i)=>`<div class="rank"><span>${i+1}. ${esc(r.name)}${r.out?" 💥":""}</span><span>${fmt(r.total)}</span></div>`).join("")}<p style="color:var(--mut);font-size:.8rem">Patrimonio = dinero + valor de tus empresas.</p>${evH}
+   <div class="ev ${V.rec==="ok"?"ok":V.rec==="err"?"bad":""}">${V.rec==="ok"?"✅ Tu registro de ejercicios quedó guardado.":V.rec==="err"?"⚠️ No se pudo guardar tu registro: "+esc(V.recMsg||""):V.rec==="noaplica"?"Esta partida no se guardó porque no iniciaste sesión como estudiante.":"Guardando tu registro…"}</div>
+   <button class="sec" style="width:100%;margin-top:10px" id="bVerReg">📊 Ver mi registro</button>`;
  }else if(G.phase==="roll"){
   h=`${G.deadline?`<div class="bar"><i id="tbar"></i></div>`:""}<b>${esc(cur().name)}${myTurn?" (¡es tu turno!)":""}</b>
    <button id="bRoll" style="width:100%;margin-top:8px" ${myTurn?"":"disabled"}>🎲 ${myTurn?"Tirar dados":"Esperando a "+esc(cur().name)}</button>${evH}`;
@@ -388,6 +422,7 @@ function render(){
  }
  A.innerHTML=h;
  const sel=$("rondas");if(sel){sel.value=V.rondas||"12";sel.onchange=()=>V.rondas=sel.value}
+ const vr=$("bVerReg");if(vr)vr.onclick=()=>abrirRegistro();
  const bs=$("bStart");if(bs)bs.onclick=()=>send({t:"start",rounds:+($("rondas").value)});
  const br=$("bRoll");if(br&&myTurn)br.onclick=()=>{br.disabled=true;send({t:"roll"})};
  A.querySelectorAll(".opt").forEach(b=>b.onclick=()=>{A.querySelectorAll(".opt").forEach(x=>x.disabled=true);send({t:"answer",i:+b.dataset.a})});
@@ -405,7 +440,7 @@ function unirse(code){if(!nombre())return;code=String(code||"").toUpperCase().tr
  openChannel(code,()=>{send({t:"join",name:ME.name});send({t:"hello"});setTimeout(()=>{if(!G)$("emsg").textContent="No se encontró la sala "+code+". Revisa el código o pide al anfitrión que la cree."},6000)})}
 $("bDemo").onclick=()=>{if(!nombre())return;ME.pid=getPid();IS_HOST=true;LOCAL=true;const code=createRoom();
  G.players.push({id:"bot1",name:"🤖 Bot Ana",color:COLORS[1],pos:0,money:START,out:false,skip:0,conn:true,bot:true},{id:"bot2",name:"🤖 Bot Beto",color:COLORS[2],pos:0,money:START,out:false,skip:0,conn:true,bot:true});
- G.demo=true;G.maxRounds=8;G.phase="roll";G.deadline=Date.now()+T_ROLL;evt("Modo demo: juegas contra 2 bots. ¡Tira los dados!");
+ G.demo=true;G.gid=code+"-"+Date.now().toString(36);G.maxRounds=8;G.phase="roll";G.deadline=Date.now()+T_ROLL;evt("Modo demo: juegas contra 2 bots. ¡Tira los dados!");
  TICK=setInterval(hostTick,700);publish()};
 $("bUnir").onclick=()=>unirse($("cod").value);
 $("cod").addEventListener("keydown",e=>{if(e.key==="Enter")unirse($("cod").value)});
@@ -415,6 +450,61 @@ document.querySelectorAll(".viewctl button").forEach(b=>b.onclick=()=>{const v=b
 (()=>{const st=$("stage");let drag=null;st.addEventListener("pointerdown",e=>{if(e.target.closest("button"))return;drag={x:e.clientX,y:e.clientY};st.setPointerCapture(e.pointerId)});
  st.addEventListener("pointermove",e=>{if(!drag)return;V.rz+=(e.clientX-drag.x)*.4;V.rx=Math.max(20,Math.min(75,V.rx-(e.clientY-drag.y)*.2));drag={x:e.clientX,y:e.clientY};setView()});
  st.addEventListener("pointerup",()=>drag=null)})();
+
+/* ===================== Registro de ejercicios ===================== */
+const RG={rows:[],docente:false,est:null,verDemo:false,seccion:"",vista:"lista"};
+async function cargarRegistros(solo){
+ const st=sb.storage.from("materiales"),out=[];
+ let folders;
+ if(solo)folders=[safeId(solo)];
+ else{const {data,error}=await st.list("opoly-registros",{limit:1000});if(error)throw error;folders=(data||[]).map(x=>x.name)}
+ await Promise.all(folders.map(async f=>{
+  const {data}=await st.list("opoly-registros/"+f,{limit:1000});
+  await Promise.all((data||[]).filter(x=>/\.json$/.test(x.name)).map(async x=>{
+   try{const u=st.getPublicUrl(`opoly-registros/${f}/${x.name}`).data.publicUrl;const r=await fetch(u+"?t="+Date.now());out.push(await r.json())}catch(e){}}))}));
+ return out}
+async function abrirRegistro(){
+ const s=sesion();RG.docente=s.role==="docente";RG.est=null;RG.vista="lista";
+ $("entry").classList.add("hidden");$("game").classList.add("hidden");$("rec").classList.remove("hidden");
+ $("recT").textContent=RG.docente?"📊 Registro de ejercicios de los estudiantes":"📊 Mi registro de ejercicios";
+ $("recB").innerHTML='<p style="color:var(--mut)">Cargando…</p>';
+ if(!RG.docente&&!(s.role==="estudiante"&&s.id)){$("recB").innerHTML='<p>Inicia sesión como estudiante en el LMS para ver tu registro.</p>';return}
+ try{RG.rows=await cargarRegistros(RG.docente?null:s.id);if(!RG.docente)RG.est=String(s.id);pintarRegistro()}
+ catch(e){$("recB").innerHTML='<p class="no">No se pudo cargar el registro: '+esc(e&&e.message||e)+'</p>'}}
+function agrupar(){
+ const m={};RG.rows.filter(r=>RG.verDemo||!r.demo).filter(r=>!RG.seccion||r.seccion===RG.seccion).forEach(r=>{
+  const e=m[r.estudiante_id]=m[r.estudiante_id]||{id:r.estudiante_id,nombre:r.nombre,seccion:r.seccion,partidas:[],ej:0,ok:0,sin:0,tipos:{},ult:""};
+  e.partidas.push(r);r.ejercicios.forEach(x=>{e.ej++;if(x.ok)e.ok++;if(x.sinResponder)e.sin++;const t=e.tipos[x.tipo||"—"]=e.tipos[x.tipo||"—"]||{n:0,ok:0};t.n++;if(x.ok)t.ok++});
+  if(r.fecha>e.ult)e.ult=r.fecha});
+ return Object.values(m).sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre)))}
+const pc=(a,b)=>b?Math.round(a*100/b)+" %":"—";
+const fdt=d=>d?new Date(d).toLocaleString("es-CR",{dateStyle:"short",timeStyle:"short"}):"";
+function tiposTabla(t){const k=Object.keys(t);if(!k.length)return "";return `<table><thead><tr><th>Tema</th><th class="r">Ejercicios</th><th class="r">Aciertos</th><th class="r">%</th></tr></thead><tbody>${k.sort().map(x=>`<tr><td>${esc(x)}</td><td class="r">${t[x].n}</td><td class="r">${t[x].ok}</td><td class="r"><b>${pc(t[x].ok,t[x].n)}</b></td></tr>`).join("")}</tbody></table>`}
+function detalleEst(e){
+ return `<div class="kp"><div><small>Partidas</small><b>${e.partidas.length}</b></div><div><small>Ejercicios</small><b>${e.ej}</b></div><div><small>Aciertos</small><b>${e.ok}</b></div><div><small>% de acierto</small><b>${pc(e.ok,e.ej)}</b></div><div><small>Sin responder</small><b>${e.sin}</b></div></div>
+ <h3>Rendimiento por tema</h3>${tiposTabla(e.tipos)||"<p>Sin ejercicios todavía.</p>"}
+ <h3>Partidas y ejercicios</h3>${e.partidas.sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(p=>`<div class="ex"><b>${fdt(p.fecha)}</b> · ${p.demo?"Demo":"Sala "+esc(p.sala)} · Puesto ${p.posicion}.º de ${p.jugadores.length} · Patrimonio ${fmt(p.total)}<br><small>Jugaron: ${p.jugadores.map(esc).join(", ")}</small>
+  <table><thead><tr><th>#</th><th>Tema</th><th>Ejercicio</th><th>Su respuesta</th><th>Correcta</th><th></th></tr></thead><tbody>${p.ejercicios.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.tipo)}<br><small>${esc(x.modo)} · ${esc(x.empresa)}</small></td><td>${esc(x.pregunta)}<br><small>📖 ${esc(x.explicacion)}</small></td><td>${x.elegida==null?"<i>Sin responder</i>":esc(x.opciones[x.elegida])}</td><td>${esc(x.opciones[x.correcta])}</td><td class="${x.ok?"ok":"no"}">${x.ok?"✓":"✗"}</td></tr>`).join("")||'<tr><td colspan="6">Sin ejercicios en esta partida.</td></tr>'}</tbody></table></div>`).join("")}`}
+function pintarRegistro(){
+ const all=agrupar(),secs=[...new Set(RG.rows.map(r=>r.seccion).filter(Boolean))].sort();
+ $("recF").innerHTML=(RG.docente?`<select id="rgSec" style="width:auto"><option value="">Todas las secciones</option>${secs.map(x=>`<option ${x===RG.seccion?"selected":""}>${esc(x)}</option>`).join("")}</select>`:"")+`<label class="ck"><input type="checkbox" id="rgDemo" ${RG.verDemo?"checked":""}> Incluir partidas de demo</label>`;
+ const sel=$("rgSec");if(sel)sel.onchange=()=>{RG.seccion=sel.value;RG.est=null;pintarRegistro()};
+ $("rgDemo").onchange=e=>{RG.verDemo=e.target.checked;pintarRegistro()};
+ if(!RG.docente||RG.est){const e=all.find(x=>String(x.id)===String(RG.est));
+  $("recB").innerHTML=(RG.docente?`<button class="sec" id="rgAtras">← Todos los estudiantes</button><h2>${e?esc(e.nombre):""} <small style="color:var(--mut)">${e?esc(e.seccion):""}</small></h2>`:"")+(e?detalleEst(e):"<p>Todavía no hay partidas guardadas. Cuando termines una partida (no demo) aparecerá aquí.</p>");
+  const a=$("rgAtras");if(a)a.onclick=()=>{RG.est=null;pintarRegistro()};return}
+ const tot={n:0,ok:0};all.forEach(e=>{tot.n+=e.ej;tot.ok+=e.ok});
+ $("recB").innerHTML=`<div class="kp"><div><small>Estudiantes</small><b>${all.length}</b></div><div><small>Partidas</small><b>${all.reduce((s,e)=>s+e.partidas.length,0)}</b></div><div><small>Ejercicios</small><b>${tot.n}</b></div><div><small>Acierto general</small><b>${pc(tot.ok,tot.n)}</b></div></div>
+  ${all.length?`<table><thead><tr><th>Estudiante</th><th>Sección</th><th class="r">Partidas</th><th class="r">Ejercicios</th><th class="r">Aciertos</th><th class="r">%</th><th>Última partida</th></tr></thead><tbody>${all.map(e=>`<tr class="clk" data-e="${esc(e.id)}"><td><b>${esc(e.nombre)}</b></td><td>${esc(e.seccion)}</td><td class="r">${e.partidas.length}</td><td class="r">${e.ej}</td><td class="r">${e.ok}</td><td class="r"><b>${pc(e.ok,e.ej)}</b></td><td>${fdt(e.ult)}</td></tr>`).join("")}</tbody></table><p style="color:var(--mut);font-size:.8rem">Toca un estudiante para ver cada ejercicio que hizo.</p>`:"<p>Aún no hay partidas guardadas.</p>"}`;
+ $("recB").querySelectorAll("tr.clk").forEach(tr=>tr.onclick=()=>{RG.est=tr.dataset.e;pintarRegistro();scrollTo(0,0)})}
+$("recCsv").onclick=()=>{
+ const rows=[["Estudiante","Sección","Fecha","Partida","Puesto","Tema","Modo","Empresa","Ejercicio","Respuesta del estudiante","Respuesta correcta","Resultado"]];
+ RG.rows.filter(r=>RG.verDemo||!r.demo).filter(r=>!RG.seccion||r.seccion===RG.seccion).filter(r=>RG.docente||true).forEach(r=>r.ejercicios.forEach(x=>rows.push([r.nombre,r.seccion,fdt(r.fecha),r.demo?"Demo":r.sala,r.posicion,x.tipo,x.modo,x.empresa,x.pregunta,x.elegida==null?"Sin responder":x.opciones[x.elegida],x.opciones[x.correcta],x.ok?"Correcto":"Incorrecto"])));
+ const csv="﻿"+rows.map(r=>r.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(",")).join("\r\n");
+ const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));a.download="registro-planilla-opoly.csv";a.click()};
+$("recBack").onclick=()=>{$("rec").classList.add("hidden");if(V.shown)$("game").classList.remove("hidden");else $("entry").classList.remove("hidden")};
+$("bReg").onclick=abrirRegistro;
+(function(){const s=sesion();if(s.role==="docente")$("bReg").textContent="📊 Registro de ejercicios de los estudiantes"})();
 window.addEventListener("resize",fitBoard);
 (function init(){
  const s=sesion();let n="";try{n=localStorage.getItem("opoly_name")||""}catch(e){}
