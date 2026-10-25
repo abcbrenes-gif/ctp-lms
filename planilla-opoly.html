@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Planilla Opoly · CTP Mercedes Norte</title>
 <style>
-:root{--bg:#0b1020;--bg2:#131a33;--card:#182041;--line:#2a3566;--tx:#e8ecff;--mut:#9aa6d6;--ok:#22c55e;--bad:#ef4444;--warn:#f59e0b;--ac:#7c6cff;--ac2:#4f46e5;--rx:52deg;--rz:0deg;--cell:96px}
+:root{--bg:#0b1020;--bg2:#131a33;--card:#182041;--line:#2a3566;--tx:#e8ecff;--mut:#9aa6d6;--ok:#22c55e;--bad:#ef4444;--warn:#f59e0b;--ac:#7c6cff;--ac2:#4f46e5;--rx:52deg;--rz:0deg;--cell:124px}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:radial-gradient(1200px 700px at 50% -10%,#1d2a63 0%,var(--bg) 60%);color:var(--tx);font:14px/1.4 Inter,system-ui,Segoe UI,Roboto,sans-serif}
 button{font:inherit;cursor:pointer;border:0;border-radius:12px;padding:10px 16px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--ac2),var(--ac));box-shadow:0 6px 18px rgba(79,70,229,.35)}
@@ -28,9 +28,9 @@ input,select{font:inherit;background:var(--bg2);border:1px solid var(--line);col
 header.top{display:flex;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);background:rgba(11,16,32,.7);backdrop-filter:blur(8px);flex-wrap:wrap}
 header.top b{font-size:1.05rem}
 .pill{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-weight:700}
-.main{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;padding:14px;align-items:start}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:12px;padding:10px;align-items:start}
 @media(max-width:1000px){.main{grid-template-columns:1fr}}
-.stage{position:relative;height:min(78vh,740px);perspective:1500px;overflow:hidden;border-radius:22px;background:radial-gradient(600px 400px at 50% 40%,#1a2556,#0e1430);border:1px solid var(--line);display:grid;place-items:center}
+.stage{position:relative;height:min(90vh,980px);perspective:1500px;overflow:hidden;border-radius:22px;background:radial-gradient(600px 400px at 50% 40%,#1a2556,#0e1430);border:1px solid var(--line);display:grid;place-items:center}
 .board{position:relative;width:calc(var(--cell)*7);height:calc(var(--cell)*7);transform-style:preserve-3d;transform:scale(var(--k,1)) rotateX(var(--rx)) rotateZ(var(--rz));transition:transform .15s}
 .center{position:absolute;left:var(--cell);top:var(--cell);width:calc(var(--cell)*5);height:calc(var(--cell)*5);border-radius:18px;background:linear-gradient(135deg,#1b2a6b,#3b2a7a);display:grid;place-items:center;text-align:center;box-shadow:inset 0 0 60px rgba(0,0,0,.35)}
 .center .in{transform:rotateZ(calc(var(--rz)*-1));font-weight:800;font-size:2rem;letter-spacing:.04em;line-height:1.1;background:linear-gradient(90deg,#c7d2fe,#f5d0fe);-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -38,7 +38,9 @@ header.top b{font-size:1.05rem}
 .tile{position:absolute;width:calc(var(--cell) - 4px);height:calc(var(--cell) - 4px);border-radius:12px;background:#1f2a55;border:2px solid #34428a;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:visible;transform-style:preserve-3d}
 .tile .in{transform:rotateZ(calc(var(--rz)*-1));display:flex;flex-direction:column;align-items:center;gap:1px;padding:2px;pointer-events:none}
 .tile .band{position:absolute;left:0;right:0;top:0;height:14px;border-radius:10px 10px 0 0;background:var(--c,#475569)}
-.tile .ic{font-size:1.5rem;line-height:1}
+.tile .ic{font-size:1.9rem;line-height:1}
+.tile.emp .in{justify-content:flex-end;height:100%;padding-bottom:7px}
+.tile.emp .nm{font-size:.8rem;max-width:112px}.tile.emp .pr{font-size:.74rem}
 .tile .nm{font-size:.7rem;font-weight:700;line-height:1.1;max-width:84px}
 .tile .pr{font-size:.66rem;color:var(--mut)}
 .tile.corner{background:#2b2f6e}
@@ -53,10 +55,10 @@ header.top b{font-size:1.05rem}
 .bld .r{transform:translate3d(17px,0,calc(var(--h,30px)/2)) rotateZ(90deg) rotateX(90deg);filter:brightness(.9)}
 .bld .t{height:34px;top:0;transform:translateZ(var(--h,30px));filter:brightness(1.15)}
 .pawn{position:absolute;width:0;height:0;transform-style:preserve-3d;transition:left .24s ease,top .24s ease}
-.pawn .body{position:absolute;left:-14px;top:-40px;width:28px;height:40px;transform-origin:50% 100%;transform:translateZ(2px) rotateZ(calc(var(--rz)*-1)) rotateX(calc(var(--rx)*-1))}
-.pawn .head{position:absolute;left:3px;top:0;width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,var(--pc) 55%,#000 140%);box-shadow:0 0 0 2px #0006}
-.pawn .trunk{position:absolute;left:5px;top:18px;width:18px;height:22px;border-radius:9px 9px 3px 3px;background:linear-gradient(90deg,var(--pc),#0008)}
-.pawn .sh{position:absolute;left:-12px;top:-5px;width:24px;height:10px;border-radius:50%;background:#0007;transform:translateZ(1px)}
+.pawn .body{position:absolute;left:-18px;top:-52px;width:36px;height:52px;transform-origin:50% 100%;transform:translateZ(2px) rotateZ(calc(var(--rz)*-1)) rotateX(calc(var(--rx)*-1))}
+.pawn .head{position:absolute;left:4px;top:0;width:28px;height:28px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,var(--pc) 55%,#000 140%);box-shadow:0 0 0 2px #0006}
+.pawn .trunk{position:absolute;left:7px;top:23px;width:22px;height:29px;border-radius:9px 9px 3px 3px;background:linear-gradient(90deg,var(--pc),#0008)}
+.pawn .sh{position:absolute;left:-16px;top:-6px;width:32px;height:12px;border-radius:50%;background:#0007;transform:translateZ(1px)}
 .pawn.act .head{animation:bob .6s infinite alternate}
 @keyframes bob{to{transform:translateY(-6px)}}
 .viewctl{position:absolute;right:10px;bottom:10px;display:flex;gap:6px;z-index:5}
@@ -104,6 +106,11 @@ header.top b{font-size:1.05rem}
 .recw .ex{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0}
 .recw .ex small{color:var(--mut)}
 .recw label.ck{display:flex;gap:6px;align-items:center;font-size:.85rem}.recw label.ck input{width:auto}
+.bld3{position:absolute;left:50%;top:36%;width:0;height:0;transform-style:preserve-3d;pointer-events:none}
+.bz{position:absolute;left:0;top:0;width:0;height:0;transform-style:preserve-3d;transform:translateZ(3px) scale(.82)}
+.fc,.rp{position:absolute;left:0;top:0;backface-visibility:visible;box-shadow:inset 0 0 0 1px rgba(0,0,0,.2)}
+.gb{clip-path:polygon(0 0,100% 0,50% 100%);box-shadow:none}
+.own{position:absolute;left:0;top:0;width:0;height:0;transform-style:preserve-3d}
 </style>
 </head>
 <body>
@@ -129,7 +136,7 @@ header.top b{font-size:1.05rem}
  <header class="top"><b>🎲 Planilla Opoly</b><span class="pill" id="hSala"></span><span class="pill" id="hRonda"></span><span class="pill" id="hConn" title="Conexión">●</span><span style="flex:1"></span><button class="sec" id="bLink">Copiar enlace</button><button class="sec" id="bSalir">Salir</button></header>
  <div class="main">
   <div class="stage" id="stage"><div class="board" id="board"></div>
-   <div class="viewctl"><button class="sec" data-v="l" title="Girar a la izquierda">↺</button><button class="sec" data-v="r" title="Girar a la derecha">↻</button><button class="sec" data-v="u" title="Más inclinado">⤒</button><button class="sec" data-v="d" title="Menos inclinado">⤓</button><button class="sec" data-v="0" title="Restablecer vista">⌖</button></div></div>
+   <div class="viewctl"><button class="sec" data-v="l" title="Girar a la izquierda">↺</button><button class="sec" data-v="r" title="Girar a la derecha">↻</button><button class="sec" data-v="u" title="Más inclinado">⤒</button><button class="sec" data-v="d" title="Menos inclinado">⤓</button><button class="sec" data-v="+" title="Acercar">＋</button><button class="sec" data-v="-" title="Alejar">－</button><button class="sec" data-v="0" title="Restablecer vista">⌖</button></div></div>
   <aside class="side">
    <div class="card" id="players"></div>
    <div class="card"><div class="dicebox"><div class="dwrap"><div class="die" id="d1"><div class="f1">⚀</div><div class="f2">⚁</div><div class="f3">⚂</div><div class="f4">⚃</div><div class="f5">⚄</div><div class="f6">⚅</div></div></div><div class="dwrap"><div class="die" id="d2"><div class="f1">⚀</div><div class="f2">⚁</div><div class="f3">⚂</div><div class="f4">⚃</div><div class="f5">⚄</div><div class="f6">⚅</div></div></div></div></div>
@@ -337,17 +344,53 @@ function hostTick(){
    if(G.phase==="roll")doRoll();else if(G.phase==="question")resolveAnswer(PRIV?(PRIV.answer+1)%4:0,true);else resolveBuy(false);
    publish()}}}
 
+
+/* ===================== Edificios 3D por sector ===================== */
+const CELL=124;
+const shade=(h,f)=>{const n=parseInt(h.slice(1),16);let r=n>>16,g=n>>8&255,b=n&255;const t=f<0?0:255,p=Math.abs(f);return `rgb(${Math.round((t-r)*p+r)},${Math.round((t-g)*p+g)},${Math.round((t-b)*p+b)})`};
+function fc(w,h,tr,bg,fil,extra){return `<i class="fc" style="width:${w}px;height:${h}px;margin:${-h/2}px 0 0 ${-w/2}px;transform:${tr};background-color:${bg};filter:brightness(${fil});${extra||""}"></i>`}
+function box(x,y,z,w,d,h,c,win){
+ const W=win?`background-image:repeating-linear-gradient(0deg,transparent 0 7px,${win} 7px 11px),repeating-linear-gradient(90deg,transparent 0 9px,rgba(0,0,0,.25) 9px 12px);`:"";
+ const T=`translate3d(${x}px,${y}px,${z}px)`;
+ return fc(w,h,`${T} translate3d(0,${d/2}px,${h/2}px) rotateX(90deg)`,c,.88,W)+fc(w,h,`${T} translate3d(0,${-d/2}px,${h/2}px) rotateX(90deg)`,c,.62,W)
+  +fc(d,h,`${T} translate3d(${-w/2}px,0,${h/2}px) rotateZ(90deg) rotateX(90deg)`,c,.74,W)+fc(d,h,`${T} translate3d(${w/2}px,0,${h/2}px) rotateZ(90deg) rotateX(90deg)`,c,.95,W)
+  +fc(w,d,`${T} translateZ(${h}px)`,c,1.15)}
+function roof(x,y,z,w,d,h,c){
+ const L=Math.sqrt((d/2)**2+h*h),a=Math.atan2(h,d/2)*180/Math.PI;
+ const p=g=>`<i class="rp" style="width:${w}px;height:${L}px;margin:${-L/2}px 0 0 ${-w/2}px;background:${c};filter:brightness(${g>0?1:.7});transform:translate3d(${x}px,${y+g*d/4}px,${z+h/2}px) rotateX(${-g*a}deg)"></i>`;
+ const gb=g=>`<i class="rp gb" style="width:${d}px;height:${h}px;margin:${-h/2}px 0 0 ${-d/2}px;background:${shade(c,.35)};transform:translate3d(${x+g*w/2}px,${y}px,${z+h/2}px) rotateZ(90deg) rotateX(90deg)"></i>`;
+ return p(1)+p(-1)+gb(1)+gb(-1)}
+const cross=(x,y,z,s,c)=>box(x,y,z,s,s/3,1.5,c)+box(x,y,z,s/3,s,1.5,c);
+const WIN="rgba(255,255,255,.55)";
+const BUILD={
+ casa:c=>box(0,6,0,58,46,30,shade(c,.5),WIN)+roof(0,6,30,64,52,22,shade(c,-.35))+box(18,-2,34,9,9,24,"#7c2d12")+box(0,32,0,14,3,20,"#78350f"),
+ tienda:c=>box(0,4,0,70,52,34,shade(c,.45),WIN)+box(0,34,24,72,12,3,shade(c,-.3))+box(0,2,34,74,56,4,shade(c,-.4))+box(0,-8,38,40,8,14,c),
+ taller:c=>box(0,4,0,72,54,32,shade(c,.4))+box(0,32,0,34,3,24,"#1f2937")+roof(0,4,32,76,58,12,shade(c,-.4))+box(-26,-30,0,10,10,40,"#9ca3af"),
+ farmacia:c=>box(0,4,0,66,50,36,"#f8fafc",WIN)+box(0,4,36,70,54,4,shade(c,-.3))+cross(0,4,40,26,"#16a34a"),
+ clinica:c=>box(0,4,0,48,50,56,"#f8fafc",WIN)+box(-30,4,0,24,40,34,"#e2e8f0",WIN)+box(30,4,0,24,40,34,"#e2e8f0",WIN)+cross(0,4,56,22,"#ef4444"),
+ vet:c=>box(0,6,0,60,46,28,shade(c,.5),WIN)+roof(0,6,28,66,52,20,shade(c,-.3))+box(-34,-26,0,16,16,13,"#b45309")+roof(-34,-26,13,18,18,8,"#7c2d12"),
+ grua:c=>box(-12,10,0,40,34,24,shade(c,.35),WIN)+box(-12,10,24,40,34,18,shade(c,.15),WIN)+box(18,-10,0,6,6,78,"#facc15")+box(2,-10,76,48,4,4,"#facc15")+box(-10,-10,72,3,3,10,"#374151")+box(-10,-10,62,10,10,8,"#f97316"),
+ bus:c=>box(0,6,5,64,34,26,shade(c,.2),"rgba(186,230,253,.9)")+box(-22,-14,0,12,6,10,"#111827")+box(22,-14,0,12,6,10,"#111827")+box(-22,26,0,12,6,10,"#111827")+box(22,26,0,12,6,10,"#111827")+box(0,6,31,60,30,3,"#e5e7eb"),
+ hotel:c=>box(0,4,0,48,40,78,shade(c,.45),WIN)+box(0,4,78,52,44,5,shade(c,-.3))+box(0,-24,0,60,16,22,shade(c,.2),WIN)+box(0,4,83,22,8,8,"#facc15"),
+ super:c=>box(0,6,0,76,56,30,shade(c,.45),"rgba(255,255,255,.35)")+box(0,38,18,78,10,3,shade(c,-.2))+box(0,6,30,80,60,3,shade(c,-.4))+box(0,6,33,36,6,14,"#ef4444"),
+ cafe:c=>box(-8,6,0,50,44,26,shade(c,.45),WIN)+roof(-8,6,26,56,50,20,shade(c,-.4))+box(30,-18,0,16,16,22,"#78350f")+box(30,-18,22,18,18,3,"#fde68a")+box(42,-18,8,5,5,10,"#78350f"),
+ tecno:c=>box(0,4,0,40,40,92,"#38bdf8","rgba(255,255,255,.7)")+box(0,4,92,26,26,10,"#0ea5e9")+box(0,4,102,3,3,28,"#e5e7eb")+box(-28,-18,0,18,22,34,shade("#38bdf8",.3),WIN),
+ banco:c=>box(0,6,0,76,60,6,"#cbd5e1")+box(0,-8,6,64,30,32,shade(c,.45))+[-3,-1.5,0,1.5,3].map(i=>box(i*11,24,6,7,7,32,"#f8fafc")).join("")+box(0,6,38,78,62,5,"#e2e8f0")+roof(0,6,43,80,64,15,shade(c,-.2)),
+ fabrica:c=>box(0,8,0,70,48,28,shade(c,.3),"rgba(255,255,255,.35)")+roof(0,8,28,74,52,10,shade(c,-.45))+box(-24,-22,0,10,10,60,"#6b7280")+box(-4,-22,0,10,10,48,"#6b7280")+box(-24,-22,60,12,12,3,"#374151")};
+const EMP_B=["casa","casa","tienda","taller","tienda","farmacia","clinica","vet","grua","bus","hotel","super","cafe","tecno","banco","fabrica"];
+function buildingHTML(i){const t=TILES[i],c=t.color;const k=EMP_B[EMP.findIndex(e=>e[0]===t.name)];return `<div class="bld3"><div class="bz">${BUILD[k](c)}</div><div class="own"></div></div>`}
+function ownerHTML(color){return color?box(0,0,-2,92,86,3,color)+box(40,-34,1,3,3,34,"#e5e7eb")+box(48,-34,26,16,2,10,color):""}
 /* ===================== Cliente: vista ===================== */
 const V={pos:{},anim:0,rollId:0,evN:-1,k:1,rx:52,rz:0,built:false,prevQ:null};
 function buildBoard(){
  const b=$("board");let h=`<div class="center"><div class="in">PLANILLA<br>OPOLY<small>Resuelve, compra y gana</small></div></div>`;
- TILES.forEach(t=>{const [x,y]=xy(t.i),cs=96,c=CORNER[t.i];
-  const inner=t.k==="empresa"?`<div class="band"></div><div class="in" style="margin-top:10px"><span class="ic">${t.ic}</span><span class="nm">${esc(t.name)}</span><span class="pr">${fmt(t.price)}</span></div>`:`<div class="in"><span class="ic">${c[0]}</span><span class="nm">${c[1]}</span><span class="pr">${c[2]}</span></div>`;
-  h+=`<div class="tile ${t.k==="empresa"?"":"corner"}" id="t${t.i}" style="left:${x*cs+2}px;top:${y*cs+2}px;--c:${t.color||"#475569"}">${inner}</div>`});
+ TILES.forEach(t=>{const [x,y]=xy(t.i),cs=CELL,c=CORNER[t.i];
+  const inner=t.k==="empresa"?`<div class="band"></div>${buildingHTML(t.i)}<div class="in"><span class="nm">${esc(t.name)}</span><span class="pr">${fmt(t.price)}</span></div>`:`<div class="in"><span class="ic">${c[0]}</span><span class="nm">${c[1]}</span><span class="pr">${c[2]}</span></div>`;
+  h+=`<div class="tile ${t.k==="empresa"?"emp":"corner"}" id="t${t.i}" style="left:${x*cs+2}px;top:${y*cs+2}px;--c:${t.color||"#475569"}">${inner}</div>`});
  b.innerHTML=h;V.built=true;fitBoard()}
-function fitBoard(){const st=$("stage");if(!st)return;const w=st.clientWidth,hh=st.clientHeight;V.k=Math.max(.35,Math.min(1.15,Math.min(w/760,hh/(96*7*Math.sin(V.rx*Math.PI/180)+170))));$("board").style.setProperty("--k",V.k)}
+function fitBoard(){const st=$("stage");if(!st)return;const w=st.clientWidth,hh=st.clientHeight;V.k=Math.max(.3,Math.min(2,Math.min(w/(CELL*7*1.2),hh/(CELL*7*Math.sin(V.rx*Math.PI/180)+170))*(V.zoom||1)));$("board").style.setProperty("--k",V.k)}
 function setView(){const s=$("board").style;s.setProperty("--rx",V.rx+"deg");s.setProperty("--rz",V.rz+"deg");document.documentElement.style.setProperty("--rx",V.rx+"deg");document.documentElement.style.setProperty("--rz",V.rz+"deg");fitBoard()}
-const posXY=(i,slot)=>{const [x,y]=xy(i);const off=[[-16,-12],[16,-12],[-16,14],[16,14]][slot%4];return [x*96+48+off[0],y*96+56+off[1]]};
+const posXY=(i,slot)=>{const [x,y]=xy(i);const off=[[-20,-16],[20,-16],[-20,18],[20,18]][slot%4];return [x*CELL+CELL/2+off[0],y*CELL+CELL/2+8+off[1]]};
 function ensurePawns(){
  G.players.forEach((p,idx)=>{let el=$("pw"+idx);if(!el){el=document.createElement("div");el.className="pawn";el.id="pw"+idx;el.style.setProperty("--pc",p.color);el.innerHTML='<div class="sh"></div><div class="body"><div class="trunk"></div><div class="head"></div></div>';$("board").appendChild(el);V.pos[p.id]=p.pos;const [x,y]=posXY(p.pos,idx);el.style.left=x+"px";el.style.top=y+"px"}})}
 V.tgt={};V.run={};
@@ -380,11 +423,9 @@ function applyState(s){
   setTimeout(()=>{G.players.forEach((p,i)=>movePawn(i,p,p.pos));V.anim--;if(!V.anim)render()},1000)}
  else{V.rollId=G.rollId;G.players.forEach((p,i)=>{if(!V.anim)movePawn(i,p,p.pos)})}
  // edificios y casillas
- TILES.forEach(t=>{if(t.k!=="empresa")return;const el=$("t"+t.i),o=G.owners[t.i],pl=o&&G.players.find(x=>x.id===o);
-  const had=el.querySelector(".bld");
-  if(pl){el.classList.add("owned");el.style.setProperty("--oc",pl.color);if(!had){el.insertAdjacentHTML("beforeend",'<div class="bld" style="--h:34px"><div class="b"></div><div class="l"></div><div class="r"></div><div class="f"></div><div class="t"></div></div>')}else had.style.setProperty("--oc",pl.color)}
-  else{el.classList.remove("owned");if(had)had.remove()}
-  if(pl&&el.querySelector(".bld"))el.querySelector(".bld").style.setProperty("--oc",pl.color)});
+ TILES.forEach(t=>{if(t.k!=="empresa")return;const el=$("t"+t.i),o=G.owners[t.i],pl=o&&G.players.find(x=>x.id===o),ow=el.querySelector(".own");
+  const key=pl?pl.color:"";if(ow&&ow.dataset.c!==key){ow.dataset.c=key;ow.innerHTML=ownerHTML(key)}
+  if(pl){el.classList.add("owned");el.style.setProperty("--oc",pl.color)}else el.classList.remove("owned")});
  render()}
 function me(){return G.players.find(p=>p.id===ME.pid)}
 function render(){
@@ -446,10 +487,10 @@ $("bUnir").onclick=()=>unirse($("cod").value);
 $("cod").addEventListener("keydown",e=>{if(e.key==="Enter")unirse($("cod").value)});
 $("bLink").onclick=()=>{const u=location.origin+location.pathname+"?sala="+(G?G.code:"");(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>{$("bLink").textContent="¡Copiado!";setTimeout(()=>$("bLink").textContent="Copiar enlace",1500)}).catch(()=>prompt("Copia este enlace:",u))};
 $("bSalir").onclick=()=>{if(confirm("¿Salir de la partida?")){try{sessionStorage.removeItem("opoly_host")}catch(e){}location.href=location.pathname}};
-document.querySelectorAll(".viewctl button").forEach(b=>b.onclick=()=>{const v=b.dataset.v;if(v==="l")V.rz-=20;else if(v==="r")V.rz+=20;else if(v==="u")V.rx=Math.min(75,V.rx+8);else if(v==="d")V.rx=Math.max(20,V.rx-8);else{V.rx=52;V.rz=0}setView()});
+document.querySelectorAll(".viewctl button").forEach(b=>b.onclick=()=>{const v=b.dataset.v;if(v==="l")V.rz-=20;else if(v==="r")V.rz+=20;else if(v==="u")V.rx=Math.min(75,V.rx+8);else if(v==="d")V.rx=Math.max(20,V.rx-8);else if(v==="+")V.zoom=Math.min(1.8,(V.zoom||1)*1.12);else if(v==="-")V.zoom=Math.max(.5,(V.zoom||1)/1.12);else{V.rx=52;V.rz=0;V.zoom=1}setView()});
 (()=>{const st=$("stage");let drag=null;st.addEventListener("pointerdown",e=>{if(e.target.closest("button"))return;drag={x:e.clientX,y:e.clientY};st.setPointerCapture(e.pointerId)});
  st.addEventListener("pointermove",e=>{if(!drag)return;V.rz+=(e.clientX-drag.x)*.4;V.rx=Math.max(20,Math.min(75,V.rx-(e.clientY-drag.y)*.2));drag={x:e.clientX,y:e.clientY};setView()});
- st.addEventListener("pointerup",()=>drag=null)})();
+ st.addEventListener("pointerup",()=>drag=null);st.addEventListener("wheel",e=>{e.preventDefault();V.zoom=Math.max(.5,Math.min(1.8,(V.zoom||1)*(e.deltaY<0?1.08:1/1.08)));fitBoard()},{passive:false})})();
 
 /* ===================== Registro de ejercicios ===================== */
 const RG={rows:[],docente:false,est:null,verDemo:false,seccion:"",vista:"lista"};
