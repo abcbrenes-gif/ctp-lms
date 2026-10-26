@@ -6876,6 +6876,17 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
     if (trabajoPorIndicador[ind.id]) return "";
     return `<button class="btn secondary small" data-pedir-proyecto-ind="${ind.id}">📎 Pedir entrega</button>`;
   }
+  // Solo en Proyectos: genera con IA una cantidad X de preguntas de
+  // selección única sobre todos los temas que evalúan los demás
+  // indicadores del proyecto (descripción + criterio "Logrado"), igual que
+  // en trabajo cotidiano. Pensado para la comprobación del proyecto: se
+  // guarda como "prueba" vinculada a este indicador (botón ▶ Iniciar prueba
+  // del estudiante, habilitar/hora desde esta tarjeta) y se califica sola
+  // (% de aciertos → 0-3).
+  function botonGenerarSeleccionProyecto(ind) {
+    if (catNombre !== "Proyectos" || trabajoPorIndicador[ind.id]) return "";
+    return `<button class="btn secondary small" data-generar-su-ind="${ind.id}">✨ Generar preguntas de selección única con IA</button>`;
+  }
   // Una vez que el indicador ya tiene el trabajo de "subir archivo"
   // vinculado, permite revisar/descargar lo que fueron entregando.
   function botonVerEntregasIndicador(ind) {
@@ -6946,6 +6957,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
               ${botonPdfTrabajo(ind)}
               ${botonVerEntregasIndicador(ind)}
               ${botonPedirProyectoTrabajo(ind)}
+              ${botonGenerarSeleccionProyecto(ind)}
               ${botonVerEntregasProyectoIndicador(ind)}
               ${linkTrabajo(ind)}
               <button class="btn danger small" data-del-indicador="${ind.id}">Eliminar</button>
@@ -6957,6 +6969,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
           ${trabajoPorIndicador[ind.id] && trabajoPorIndicador[ind.id].tipo_actividad === "prueba" ? `<div data-puntos-ind-panel="${trabajoPorIndicador[ind.id].id}" data-indicador-para-puntos="${ind.id}"></div>` : ""}
           ${!trabajoPorIndicador[ind.id] ? `<div data-pedir-archivo-panel="${ind.id}"></div>` : ""}
           ${!trabajoPorIndicador[ind.id] ? `<div data-pedir-proyecto-panel="${ind.id}"></div>` : ""}
+          ${!trabajoPorIndicador[ind.id] && catNombre === "Proyectos" ? `<div data-generar-su-panel="${ind.id}"></div>` : ""}
           ${trabajoPorIndicador[ind.id] && trabajoPorIndicador[ind.id].tipo_actividad === "infografia" ? `<div data-entregas-ind-panel="${trabajoPorIndicador[ind.id].id}"></div>` : ""}
           ${trabajoPorIndicador[ind.id] && trabajoPorIndicador[ind.id].tipo_actividad === "proyecto" ? `<div data-entregas-proyecto-ind-panel="${trabajoPorIndicador[ind.id].id}"></div>` : ""}
           ${esPruebaAuto ? "" : `<div style="font-size:0.85rem;">
@@ -7217,6 +7230,121 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
               </div>`;
             }).join("")}
         </div>`;
+    });
+  });
+  // Proyectos → "✨ Generar preguntas de selección única con IA": la IA
+  // recibe como tema todos los demás indicadores del proyecto (descripción
+  // + criterio Logrado), el profesor revisa/edita las preguntas y al crear
+  // queda un trabajo tipo "prueba" (solo selección única) vinculado a este
+  // indicador, deshabilitado hasta que lo habilite el día de la comprobación.
+  holder.querySelectorAll("[data-generar-su-ind]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const indicadorId = btn.dataset.generarSuInd;
+      const panel = holder.querySelector(`[data-generar-su-panel="${indicadorId}"]`);
+      if (!panel) return;
+      if (panel.innerHTML.trim()) { panel.innerHTML = ""; return; }
+      const ind = (indicadores || []).find(i => String(i.id) === String(indicadorId));
+      const otros = (indicadores || []).filter(i => String(i.id) !== String(indicadorId));
+      const quitarHtml = (v) => String(v || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+      const temasTexto = otros.map(i => {
+        const logrado = (i.criterios_indicador || []).find(c => Number(c.puntaje) === Number(i.puntaje_maximo));
+        return `${i.letra}) ${quitarHtml(i.descripcion)}${logrado ? ` (se espera: ${quitarHtml(logrado.descripcion)})` : ""}`;
+      }).join("\n");
+      panel.innerHTML = `
+        <div style="background:var(--surface-soft); border-radius:8px; padding:0.8rem; margin-top:0.4rem;">
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.5rem;">La IA va a hacer preguntas de selección única sobre todos los temas de los demás indicadores del proyecto (${otros.map(i => i.letra).join(", ") || "ninguno"}). Revisá y editá las preguntas antes de crearla. Se crea <strong>deshabilitada</strong>: la habilitás desde acá el día de la comprobación, y se califica sola (85 % o más = 3, 60 % = 2, 35 % = 1).</p>
+          <label style="display:block; font-size:0.82rem; margin-bottom:0.5rem;">Temas que se van a evaluar (podés editarlos)
+            <textarea data-su-temas="${indicadorId}" rows="6" style="width:100%; font-family:inherit; margin-top:0.2rem;"></textarea>
+          </label>
+          <div class="row" style="gap:0.6rem; align-items:flex-end; flex-wrap:wrap; margin-bottom:0.5rem;">
+            <label style="font-size:0.82rem;">Cantidad de preguntas
+              <input data-su-cantidad="${indicadorId}" type="number" min="3" max="40" value="15" style="width:6rem; display:block; margin-top:0.2rem;" />
+            </label>
+            <label style="flex:1; min-width:14rem; font-size:0.82rem;">Instrucciones para la IA (opcional)
+              <input data-su-instrucciones="${indicadorId}" placeholder="Ej. que la mitad sean de planillas y cesantía" style="width:100%; margin-top:0.2rem;" />
+            </label>
+            <button class="btn secondary small" data-su-generar="${indicadorId}" type="button">✨ Generar con IA</button>
+          </div>
+          <span data-su-estado="${indicadorId}" style="font-size:0.78rem; color:var(--text-muted);"></span>
+          <div data-su-constructor="${indicadorId}" style="display:none; margin-top:0.6rem;"></div>
+          <div class="row" style="margin-top:0.6rem; gap:0.5rem;">
+            <button class="btn small" data-su-crear="${indicadorId}" type="button" disabled>Crear comprobación</button>
+            <button class="btn secondary small" data-su-cancelar="${indicadorId}" type="button">Cancelar</button>
+          </div>
+        </div>`;
+      panel.querySelector(`[data-su-temas="${indicadorId}"]`).value = temasTexto;
+      const constructor = panel.querySelector(`[data-su-constructor="${indicadorId}"]`);
+      const estado = panel.querySelector(`[data-su-estado="${indicadorId}"]`);
+      const botonCrear = panel.querySelector(`[data-su-crear="${indicadorId}"]`);
+      panel.querySelector(`[data-su-cancelar="${indicadorId}"]`).addEventListener("click", () => { panel.innerHTML = ""; });
+      panel.querySelector(`[data-su-generar="${indicadorId}"]`).addEventListener("click", async (iaEv) => {
+        const temas = panel.querySelector(`[data-su-temas="${indicadorId}"]`).value.trim();
+        if (!temas) { alert("Escribí los temas que va a evaluar la comprobación."); return; }
+        const cantidad = Math.max(3, Math.min(40, Number(panel.querySelector(`[data-su-cantidad="${indicadorId}"]`).value) || 15));
+        const instrucciones = panel.querySelector(`[data-su-instrucciones="${indicadorId}"]`).value.trim().slice(0, 800);
+        iaEv.target.disabled = true;
+        iaEv.target.textContent = "Generando…";
+        estado.textContent = `La IA está escribiendo ${cantidad} preguntas…`;
+        try {
+          const r = await fetch("/api/generar-actividad-ia", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              tipo: "seleccion_unica",
+              tema: `Comprobación del proyecto "${ind ? quitarHtml(ind.descripcion) : "Proyecto"}". Temas: ${temas}`,
+              contexto: "Repartí las preguntas de forma equilibrada entre todos los temas indicados. Son preguntas teóricas (conceptos, fundamento legal y características), sin ejercicios de cálculo. Basate en la normativa vigente de Costa Rica (Código de Trabajo, Ley de Aguinaldo, CCSS).",
+              instrucciones,
+              archivos: [],
+              cantidad
+            })
+          });
+          const { datos, error } = await leerRespuestaIA(r);
+          if (!datos) { estado.textContent = "No se pudo generar: " + error; return; }
+          if (!r.ok) { estado.textContent = "No se pudo generar: " + (datos.error || "error desconocido."); return; }
+          constructor.innerHTML = construirPanelActividadHTML("prueba");
+          inicializarConstructorPrueba(constructor);
+          llenarPanelActividadConIA("prueba", constructor, { preguntas: (datos.contenido && datos.contenido.preguntas) || [] });
+          // El constructor arranca con bloques vacíos: se quitan los que
+          // sobran si la IA devolvió menos preguntas.
+          const total = Array.isArray(datos.contenido && datos.contenido.preguntas) ? datos.contenido.preguntas.length : 0;
+          Array.from(constructor.querySelectorAll(".au-prueba-bloque")).slice(total).forEach(b => b.remove());
+          constructor.style.display = "";
+          botonCrear.disabled = false;
+          estado.textContent = `Listo: ${total} preguntas. Revisalas y marcá bien la respuesta correcta antes de crear la comprobación.`;
+        } catch (err) {
+          estado.textContent = "No se pudo conectar con la IA: " + (err.message || err);
+        } finally {
+          iaEv.target.disabled = false;
+          iaEv.target.textContent = "✨ Generar con IA";
+        }
+      });
+      botonCrear.addEventListener("click", async (btnEv) => {
+        const resultado = leerContenidoActividadDesdeFormulario("prueba", constructor);
+        if (!resultado.valido) { alert(resultado.error); return; }
+        const publicacionId = (temasMateria || [])[0]?.id || null;
+        if (!publicacionId) { alert("Esta materia no tiene ningún tema creado; creá uno primero para que la comprobación tenga dónde aparecer."); return; }
+        const horaInicioInput = constructor.querySelector("#au-prueba-hora-inicio");
+        const fechaHoraInicio = horaInicioInput && horaInicioInput.value ? new Date(horaInicioInput.value).toISOString() : null;
+        btnEv.target.disabled = true;
+        btnEv.target.textContent = "Creando…";
+        const { data: nuevo, error } = await sb.from("trabajos_cotidianos").insert({
+          publicacion_id: publicacionId,
+          subtema_id: null,
+          titulo: ind ? quitarHtml(ind.descripcion) : "Comprobación del proyecto",
+          tipo_actividad: "prueba",
+          contenido_actividad: resultado.contenido,
+          indicador_id: indicadorId,
+          habilitado: false,
+          fecha_hora_inicio: fechaHoraInicio
+        }).select().maybeSingle();
+        if (!nuevo) {
+          alert("No se pudo crear la comprobación" + (error ? ": " + error.message : "."));
+          btnEv.target.disabled = false;
+          btnEv.target.textContent = "Crear comprobación";
+          return;
+        }
+        cargarIndicadoresDeMateria(materiaId, catNombre);
+      });
     });
   });
   // Igual que "Pedir entrega de archivo", pero para una actividad tipo
