@@ -477,7 +477,9 @@ async function pintarInfografiasSeccion(holder, estudiantes) {
 async function pintarRetroProyectoEstudiante(holder, s, materias) {
   const esc = (v) => String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   const quitarHtml = (v) => String(v || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-  const bloques = [];
+  const nombreEst = `${s.nombre || ""} ${s.apellido1 || ""} ${s.apellido2 || ""}`.replace(/\s+/g, " ").trim();
+  const tarjetas = [];
+  const datosPorMateria = {};
   for (const m of (materias || [])) {
     const { data: indicadores } = await sb.from("indicadores").select("*, criterios_indicador(*)").eq("materia_id", m.id).eq("categoria", "Proyectos").order("orden");
     if (!(indicadores || []).length) continue;
@@ -488,71 +490,176 @@ async function pintarRetroProyectoEstudiante(holder, s, materias) {
     const notaPorInd = {};
     (misNotas || []).forEach(n => { notaPorInd[n.indicador_id] = n.puntaje_obtenido; });
 
-    // 1. Retroalimentación del proyecto
     const ca = (entrega && entrega.contenido_actividad) || {};
-    const dictamen = ca.evaluaciones_ia && ca.evaluaciones_ia[s.id];
+    const dictamen = (ca.evaluaciones_ia && ca.evaluaciones_ia[s.id]) || null;
     const indEvaluados = indicadores.filter(i => (!comprobacion || i.id !== comprobacion.indicador_id) && !/comprobaci[oó]n/i.test(quitarHtml(i.descripcion)));
     const tieneNotas = indEvaluados.some(i => notaPorInd[i.id] !== undefined && notaPorInd[i.id] !== null);
-    if (entrega && ca.retro_proyecto_visible && tieneNotas) {
-      const porLetra = {};
-      ((dictamen && dictamen.indicadores) || []).forEach(x => { porLetra[x.letra] = x; });
-      const obtenido = indEvaluados.reduce((a, i) => a + (Number(notaPorInd[i.id]) || 0), 0);
-      const maximo = indEvaluados.reduce((a, i) => a + (Number(i.puntaje_maximo) || 3), 0);
-      bloques.push(`
-        <div class="card" style="border:1px solid var(--paper-line); border-radius:10px; padding:0.9rem; margin-bottom:0.8rem; background:var(--paper);">
-          <h4 style="margin:0 0 0.4rem;">📘 Retroalimentación del proyecto · ${esc(m.nombre)}</h4>
-          <p style="margin:0 0 0.5rem; font-size:0.88rem;">Obtuviste <strong>${obtenido} de ${maximo} puntos</strong> en la evaluación de tu documento (${maximo ? Math.round((obtenido / maximo) * 1000) / 10 : 0} %).</p>
-          <div style="overflow-x:auto;">
-            <table class="grades" style="width:100%; font-size:0.82rem;">
-              <thead><tr><th>Criterio</th><th>Tu nota</th><th>Nivel</th><th>Por qué</th><th>Qué podés mejorar</th></tr></thead>
-              <tbody>${indEvaluados.map(i => {
-                const n = notaPorInd[i.id];
-                const crit = (i.criterios_indicador || []).find(c => n !== undefined && n !== null && Number(c.puntaje) === Number(n));
-                const d = porLetra[i.letra] || {};
-                return `<tr>
-                  <td><strong>${esc(i.letra)}:</strong> ${esc(quitarHtml(i.descripcion))}</td>
-                  <td>${n === undefined || n === null ? "—" : `${esc(n)} / ${esc(i.puntaje_maximo)}`}</td>
-                  <td>${esc(crit && crit.nivel ? crit.nivel : "")}</td>
-                  <td>${esc(d.justificacion || "")}${d.evidencia ? `<div style="color:var(--text-muted); margin-top:0.2rem;">${esc(d.evidencia)}</div>` : ""}</td>
-                  <td>${esc(d.mejora || (n !== undefined && n !== null && Number(n) === Number(i.puntaje_maximo) ? "¡Excelente! Lograste el máximo." : ""))}</td>
-                </tr>`;
-              }).join("")}</tbody>
-            </table>
-          </div>
-          ${dictamen && dictamen.comentario ? `<p style="margin:0.6rem 0 0; font-size:0.88rem;"><strong>Comentario general:</strong> ${esc(dictamen.comentario)}</p>` : ""}
-        </div>`);
-    }
+    const retroDisponible = !!(entrega && ca.retro_proyecto_visible && tieneNotas);
 
-    // 2. Comprobación con las respuestas correctas
+    let miActividad = null;
     if (comprobacion && comprobacion.habilitado !== false) {
-      const { data: miActividad } = await sb.from("actividades_estudiante").select("*").eq("trabajo_id", comprobacion.id).eq("estudiante_id", s.id).maybeSingle();
-      const completo = miActividad && miActividad.completado;
-      bloques.push(`
-        <div class="card" style="border:1px solid var(--paper-line); border-radius:10px; padding:0.9rem; margin-bottom:0.8rem; background:var(--paper);">
-          <h4 style="margin:0 0 0.4rem;">📝 Comprobación del proyecto · ${esc(m.nombre)}</h4>
-          ${completo
-            ? `<p style="margin:0 0 0.5rem; font-size:0.88rem;">Tu resultado: <strong>${esc(miActividad.puntaje)} / 3</strong>${miActividad.porcentaje != null ? ` (${esc(Math.round(Number(miActividad.porcentaje)))} % de aciertos)` : ""}.</p>
-               ${comprobacion.retro_visible
-                 ? `<button class="btn secondary small" data-retro-comprobacion="${comprobacion.id}" type="button">📝 Ver mis respuestas y las correctas</button><div data-retro-comprobacion-panel="${comprobacion.id}" style="margin-top:0.5rem;"></div>`
-                 : `<p style="margin:0; font-size:0.82rem; color:var(--text-muted);">Las respuestas correctas van a aparecer aquí cuando tu profesor las habilite.</p>`}`
-            : `<p style="margin:0; font-size:0.88rem;">Todavía no has hecho la comprobación. Buscala en Proyectos con el botón «▶ Iniciar prueba».</p>`}
-        </div>`);
-      if (completo && comprobacion.retro_visible) {
-        holder.__comprobaciones = holder.__comprobaciones || {};
-        holder.__comprobaciones[comprobacion.id] = comprobacion;
-      }
+      const { data } = await sb.from("actividades_estudiante").select("*").eq("trabajo_id", comprobacion.id).eq("estudiante_id", s.id).eq("completado", true).maybeSingle();
+      miActividad = data || null;
     }
+    const compDisponible = !!(comprobacion && miActividad && comprobacion.retro_visible);
+    if (!entrega && !comprobacion) continue;
+
+    datosPorMateria[m.id] = { m, indEvaluados, notaPorInd, dictamen, comprobacion, miActividad };
+    const obtenido = indEvaluados.reduce((a, i) => a + (Number(notaPorInd[i.id]) || 0), 0);
+    const maximo = indEvaluados.reduce((a, i) => a + (Number(i.puntaje_maximo) || 3), 0);
+    const estiloBoton = "flex:1; min-width:15rem; font-size:1rem; padding:0.9rem 1rem; border-radius:10px;";
+    tarjetas.push(`
+      <div style="border:2px solid var(--paper-line); border-radius:12px; padding:1rem; margin-bottom:1rem; background:var(--paper);">
+        <h3 style="margin:0 0 0.8rem;">📘 Mi proyecto · ${esc(m.nombre)}</h3>
+        <div style="display:flex; gap:0.8rem; flex-wrap:wrap;">
+          <div style="flex:1; min-width:15rem;">
+            ${retroDisponible
+              ? `<button class="btn" style="${estiloBoton} width:100%;" data-desc-retro="${m.id}" type="button">⬇️ Descargar retroalimentación</button>
+                 <p style="margin:0.4rem 0 0; font-size:0.85rem; text-align:center;">Tu documento: <strong>${obtenido} de ${maximo} puntos</strong></p>`
+              : `<button class="btn secondary" style="${estiloBoton} width:100%; opacity:0.55;" disabled type="button">⬇️ Descargar retroalimentación</button>
+                 <p style="margin:0.4rem 0 0; font-size:0.82rem; text-align:center; color:var(--text-muted);">Disponible cuando tu profesor publique las notas del proyecto.</p>`}
+          </div>
+          <div style="flex:1; min-width:15rem;">
+            ${compDisponible
+              ? `<button class="btn" style="${estiloBoton} width:100%;" data-desc-comp="${m.id}" type="button">⬇️ Descargar comprobación (prueba)</button>
+                 <p style="margin:0.4rem 0 0; font-size:0.85rem; text-align:center;">Tu resultado: <strong>${esc(miActividad.puntaje)} / 3</strong>${miActividad.porcentaje != null ? ` · ${Math.round(Number(miActividad.porcentaje))} % de aciertos` : ""}</p>`
+              : `<button class="btn secondary" style="${estiloBoton} width:100%; opacity:0.55;" disabled type="button">⬇️ Descargar comprobación (prueba)</button>
+                 <p style="margin:0.4rem 0 0; font-size:0.82rem; text-align:center; color:var(--text-muted);">${!comprobacion || comprobacion.habilitado === false ? "La comprobación todavía no está disponible." : (!miActividad ? "Primero hacé la comprobación (botón «▶ Iniciar prueba» en Proyectos)." : "Disponible cuando tu profesor publique las respuestas.")}</p>`}
+          </div>
+        </div>
+      </div>`);
   }
-  holder.innerHTML = bloques.join("");
-  holder.querySelectorAll("[data-retro-comprobacion]").forEach(btn => btn.addEventListener("click", async () => {
-    const panel = holder.querySelector(`[data-retro-comprobacion-panel="${btn.dataset.retroComprobacion}"]`);
-    if (!panel) return;
-    if (panel.innerHTML.trim()) { panel.innerHTML = ""; return; }
-    const trabajo = holder.__comprobaciones && holder.__comprobaciones[btn.dataset.retroComprobacion];
-    if (!trabajo) return;
-    panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando…</p>`;
-    panel.innerHTML = await construirRetroalimentacionActividad(trabajo, s.id);
+  holder.innerHTML = tarjetas.join("");
+
+  holder.querySelectorAll("[data-desc-retro]").forEach(btn => btn.addEventListener("click", async () => {
+    const d = datosPorMateria[btn.dataset.descRetro];
+    const texto = btn.textContent;
+    btn.disabled = true; btn.textContent = "Preparando PDF…";
+    try { await descargarPdfRetroProyecto(d, nombreEst, quitarHtml); }
+    catch (err) { alert("No se pudo generar el PDF: " + (err.message || err)); }
+    finally { btn.disabled = false; btn.textContent = texto; }
   }));
+  holder.querySelectorAll("[data-desc-comp]").forEach(btn => btn.addEventListener("click", async () => {
+    const d = datosPorMateria[btn.dataset.descComp];
+    const texto = btn.textContent;
+    btn.disabled = true; btn.textContent = "Preparando PDF…";
+    try { await descargarPdfComprobacion(d, nombreEst, quitarHtml); }
+    catch (err) { alert("No se pudo generar el PDF: " + (err.message || err)); }
+    finally { btn.disabled = false; btn.textContent = texto; }
+  }));
+}
+
+// Carga jsPDF + AutoTable (solo la primera vez que se descarga un PDF).
+function cargarLibreriasPdf() {
+  if (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable) return Promise.resolve();
+  if (window.__cargandoPdf) return window.__cargandoPdf;
+  const cargar = (src) => new Promise((resolve, reject) => {
+    const sc = document.createElement("script");
+    sc.src = src; sc.onload = resolve; sc.onerror = () => reject(new Error("No se pudo cargar el generador de PDF. Revisá tu conexión."));
+    document.head.appendChild(sc);
+  });
+  window.__cargandoPdf = cargar("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js")
+    .then(() => cargar("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"))
+    .catch(err => { window.__cargandoPdf = null; throw err; });
+  return window.__cargandoPdf;
+}
+
+// Encabezado común de los PDF del proyecto. Devuelve la posición Y siguiente.
+function encabezadoPdfProyecto(doc, titulo, materia, nombreEst) {
+  const ancho = doc.internal.pageSize.getWidth();
+  doc.setFillColor(31, 78, 61); doc.rect(0, 0, ancho, 26, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(14);
+  doc.text("CTP Mercedes Norte · Especialidad de Contabilidad", 14, 11);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+  doc.text(`${materia} · II Período 2026`, 14, 19);
+  doc.setTextColor(20, 20, 20);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(16);
+  doc.text(titulo, 14, 38);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(10.5);
+  doc.text(`Estudiante: ${nombreEst}`, 14, 46);
+  doc.text(`Fecha: ${new Date().toLocaleDateString("es-CR", { year: "numeric", month: "long", day: "numeric" })}`, 14, 52);
+  return 60;
+}
+
+function nombreArchivoPdf(prefijo, nombreEst) {
+  const limpio = String(nombreEst || "estudiante").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Za-z0-9]+/g, "_").replace(/^_|_$/g, "");
+  return `${prefijo}_${limpio}.pdf`;
+}
+
+async function descargarPdfRetroProyecto(d, nombreEst, quitarHtml) {
+  await cargarLibreriasPdf();
+  const doc = new window.jspdf.jsPDF({ unit: "mm", format: "letter" });
+  let y = encabezadoPdfProyecto(doc, "Retroalimentación del proyecto", d.m.nombre, nombreEst);
+  const porLetra = {};
+  ((d.dictamen && d.dictamen.indicadores) || []).forEach(x => { porLetra[x.letra] = x; });
+  const obtenido = d.indEvaluados.reduce((a, i) => a + (Number(d.notaPorInd[i.id]) || 0), 0);
+  const maximo = d.indEvaluados.reduce((a, i) => a + (Number(i.puntaje_maximo) || 3), 0);
+  doc.setFontSize(11.5); doc.setFont("helvetica", "bold");
+  doc.text(`Resultado del documento: ${obtenido} de ${maximo} puntos (${maximo ? Math.round((obtenido / maximo) * 1000) / 10 : 0} %)`, 14, y);
+  y += 4;
+  const filas = d.indEvaluados.map(i => {
+    const n = d.notaPorInd[i.id];
+    const crit = (i.criterios_indicador || []).find(c => n !== undefined && n !== null && Number(c.puntaje) === Number(n));
+    const x = porLetra[i.letra] || {};
+    const porque = [x.justificacion || "", x.evidencia ? `Evidencia: ${x.evidencia}` : ""].filter(Boolean).join("\n");
+    const mejora = x.mejora || (n !== undefined && n !== null && Number(n) === Number(i.puntaje_maximo) ? "Lograste el máximo." : "");
+    return [`${i.letra}. ${quitarHtml(i.descripcion)}`, n === undefined || n === null ? "—" : `${n} / ${i.puntaje_maximo}`, (crit && crit.nivel) || "", porque, mejora];
+  });
+  doc.autoTable({
+    startY: y,
+    head: [["Criterio", "Nota", "Nivel", "Por qué", "Qué podés mejorar"]],
+    body: filas,
+    styles: { font: "helvetica", fontSize: 8.6, cellPadding: 2, valign: "top" },
+    headStyles: { fillColor: [31, 78, 61], textColor: 255 },
+    columnStyles: { 0: { cellWidth: 44 }, 1: { cellWidth: 14, halign: "center" }, 2: { cellWidth: 20 }, 3: { cellWidth: 62 }, 4: { cellWidth: 46 } },
+    margin: { left: 14, right: 14 }
+  });
+  y = doc.lastAutoTable.finalY + 8;
+  if (d.dictamen && d.dictamen.comentario) {
+    const ancho = doc.internal.pageSize.getWidth() - 28;
+    const lineas = doc.splitTextToSize(d.dictamen.comentario, ancho);
+    if (y + 10 + lineas.length * 5 > doc.internal.pageSize.getHeight() - 15) { doc.addPage(); y = 20; }
+    doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.text("Comentario general", 14, y);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text(lineas, 14, y + 6);
+  }
+  doc.save(nombreArchivoPdf("Retroalimentacion_proyecto", nombreEst));
+}
+
+async function descargarPdfComprobacion(d, nombreEst) {
+  await cargarLibreriasPdf();
+  const trabajo = d.comprobacion;
+  const act = d.miActividad || {};
+  const preguntas = ((trabajo.contenido_actividad || {}).preguntas || []);
+  const respuestas = Array.isArray(act.respuestas) ? act.respuestas : [];
+  const doc = new window.jspdf.jsPDF({ unit: "mm", format: "letter" });
+  let y = encabezadoPdfProyecto(doc, "Comprobación del proyecto", d.m.nombre, nombreEst);
+  const correctas = preguntas.reduce((a, p, i) => a + (Number(respuestas[i]) === Number(p.correcta) && respuestas[i] !== null && respuestas[i] !== undefined ? 1 : 0), 0);
+  doc.setFontSize(11.5); doc.setFont("helvetica", "bold");
+  doc.text(`Resultado: ${act.puntaje != null ? act.puntaje : "—"} / 3 · ${correctas} de ${preguntas.length} respuestas correctas${act.porcentaje != null ? ` (${Math.round(Number(act.porcentaje))} %)` : ""}`, 14, y);
+  y += 4;
+  const filas = preguntas.map((p, i) => {
+    const r = respuestas[i];
+    const respondio = r === null || r === undefined ? "Sin responder" : ((p.opciones || [])[Number(r)] ?? "Sin responder");
+    const ok = r !== null && r !== undefined && Number(r) === Number(p.correcta);
+    return [String(i + 1), p.pregunta || "", respondio, (p.opciones || [])[Number(p.correcta)] ?? "", ok ? "Correcta" : "Incorrecta"];
+  });
+  doc.autoTable({
+    startY: y,
+    head: [["#", "Pregunta", "Tu respuesta", "Respuesta correcta", "Resultado"]],
+    body: filas,
+    styles: { font: "helvetica", fontSize: 8.6, cellPadding: 2, valign: "top" },
+    headStyles: { fillColor: [31, 78, 61], textColor: 255 },
+    columnStyles: { 0: { cellWidth: 8, halign: "center" }, 1: { cellWidth: 70 }, 2: { cellWidth: 40 }, 3: { cellWidth: 46 }, 4: { cellWidth: 22 } },
+    didParseCell: (data) => {
+      if (data.section === "body" && data.column.index === 4) {
+        data.cell.styles.textColor = data.cell.raw === "Correcta" ? [29, 122, 67] : [192, 57, 43];
+        data.cell.styles.fontStyle = "bold";
+      }
+    },
+    margin: { left: 14, right: 14 }
+  });
+  doc.save(nombreArchivoPdf("Comprobacion_proyecto", nombreEst));
 }
 
 async function renderNotas(el, s, isSelf) {
