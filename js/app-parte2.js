@@ -7058,6 +7058,10 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
   function botonPuntosTrabajo(ind) {
     const t = trabajoPorIndicador[ind.id];
     if (!t || t.tipo_actividad !== "prueba") return "";
+    // En Proyectos la comprobación es un indicador más de 0 a 3 (se califica
+    // sola por % de aciertos): calificar por puntos cambiaría su puntaje
+    // máximo a los puntos de la prueba y descuadraría la nota del proyecto.
+    if (catNombre === "Proyectos") return "";
     return `<button class="btn secondary small" data-puntos-ind="${t.id}">🧮 Calificar por puntos</button>`;
   }
   // Para un indicador que todavía no tiene ningún trabajo vinculado (se
