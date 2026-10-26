@@ -583,7 +583,10 @@ const unaEntrega=c=>CATS[catDe(c)].una;
 const chipCat=k=>{const x=CATS[normCat(k)];return `<span class="chip ${x.chip}" style="font-size:.7rem">${x.icon} ${x.corto}</span>`};
 const opcionesCategoria=sel=>Object.entries(CATS).map(([k,x])=>`<option value="${k}" ${k===sel?"selected":""}>${x.icon} ${x.nombre}${x.una?" (se entrega una sola vez)":" (se puede repetir)"}</option>`).join("");
 const claveGrupo=c=>catDe(c)+"|"+String(c.name||"").trim().toLowerCase();
-const aplicaVentana=c=>!!(c&&esPracticaCat(c)&&!isTeacher()&&!APP.comoEstudiante&&!APP.demo);
+// El horario aplica a las prácticas y a cualquier otro trabajo que tenga un
+// horario configurado (por ejemplo una práctica que se convirtió en tarea).
+const tieneVentana=c=>!!(c&&c.evalCfg&&c.evalCfg.ventana&&(c.evalCfg.ventana.inicio||c.evalCfg.ventana.fin));
+const aplicaVentana=c=>!!(c&&(esPracticaCat(c)||tieneVentana(c))&&!isTeacher()&&!APP.comoEstudiante&&!APP.demo);
 function ventanaEstado(c){
   if(!aplicaVentana(c))return null;const v=c.evalCfg&&c.evalCfg.ventana;if(!v||(!v.inicio&&!v.fin))return null;
   const now=Date.now(),ini=v.inicio?new Date(v.inicio).getTime():null,fin=v.fin?new Date(v.fin).getTime():null;
@@ -1950,7 +1953,7 @@ async function evRefrescarCfg(){
   try{
     if(!APP.store||!APP.store.loadWork||isTeacher())return;
     const fresh=await APP.store.loadWork();
-    for(const c of APP.companies){const f=fresh.find(x=>x.id===c.id);if(f&&f.evalCfg){c.evalCfg=f.evalCfg;if(c.payroll)evAplicarReset(c,c.payroll)}}
+    for(const c of APP.companies){const f=fresh.find(x=>x.id===c.id);if(f&&f.categoria&&!c.entregado)c.categoria=f.categoria;if(f&&f.evalCfg){c.evalCfg=f.evalCfg;if(c.payroll)evAplicarReset(c,c.payroll)}}
   }catch(e){}
 }
 function evDetalleHTML(r,conCorrecto){
