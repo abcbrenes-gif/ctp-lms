@@ -467,6 +467,94 @@ async function pintarInfografiasSeccion(holder, estudiantes) {
 
 // --- Notas (filtradas por materias asignadas si es estudiante) ---
 
+// En el perfil del estudiante (sus notas): dos apartados del proyecto, solo
+// cuando el profesor los habilita desde Proyectos → Proyecto integral:
+//   1. Retroalimentación del proyecto: su nota por criterio + el dictamen
+//      (justificación y qué mejorar) — contenido_actividad.retro_proyecto_visible
+//      del trabajo de entrega, y solo después de que el profesor guardó notas.
+//   2. Comprobación: su resultado y, si el profesor desbloqueó las respuestas
+//      (retro_visible de la prueba), sus respuestas junto a las correctas.
+async function pintarRetroProyectoEstudiante(holder, s, materias) {
+  const esc = (v) => String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const quitarHtml = (v) => String(v || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  const bloques = [];
+  for (const m of (materias || [])) {
+    const { data: indicadores } = await sb.from("indicadores").select("*, criterios_indicador(*)").eq("materia_id", m.id).eq("categoria", "Proyectos").order("orden");
+    if (!(indicadores || []).length) continue;
+    const { data: trabajos } = await sb.from("trabajos_cotidianos").select("*").in("indicador_id", indicadores.map(i => i.id));
+    const entrega = (trabajos || []).find(t => t.tipo_actividad === "proyecto");
+    const comprobacion = (trabajos || []).find(t => t.tipo_actividad === "prueba");
+    const { data: misNotas } = await sb.from("calificaciones_indicador").select("indicador_id, puntaje_obtenido").eq("estudiante_id", s.id).in("indicador_id", indicadores.map(i => i.id));
+    const notaPorInd = {};
+    (misNotas || []).forEach(n => { notaPorInd[n.indicador_id] = n.puntaje_obtenido; });
+
+    // 1. Retroalimentación del proyecto
+    const ca = (entrega && entrega.contenido_actividad) || {};
+    const dictamen = ca.evaluaciones_ia && ca.evaluaciones_ia[s.id];
+    const indEvaluados = indicadores.filter(i => (!comprobacion || i.id !== comprobacion.indicador_id) && !/comprobaci[oó]n/i.test(quitarHtml(i.descripcion)));
+    const tieneNotas = indEvaluados.some(i => notaPorInd[i.id] !== undefined && notaPorInd[i.id] !== null);
+    if (entrega && ca.retro_proyecto_visible && tieneNotas) {
+      const porLetra = {};
+      ((dictamen && dictamen.indicadores) || []).forEach(x => { porLetra[x.letra] = x; });
+      const obtenido = indEvaluados.reduce((a, i) => a + (Number(notaPorInd[i.id]) || 0), 0);
+      const maximo = indEvaluados.reduce((a, i) => a + (Number(i.puntaje_maximo) || 3), 0);
+      bloques.push(`
+        <div class="card" style="border:1px solid var(--paper-line); border-radius:10px; padding:0.9rem; margin-bottom:0.8rem; background:var(--paper);">
+          <h4 style="margin:0 0 0.4rem;">📘 Retroalimentación del proyecto · ${esc(m.nombre)}</h4>
+          <p style="margin:0 0 0.5rem; font-size:0.88rem;">Obtuviste <strong>${obtenido} de ${maximo} puntos</strong> en la evaluación de tu documento (${maximo ? Math.round((obtenido / maximo) * 1000) / 10 : 0} %).</p>
+          <div style="overflow-x:auto;">
+            <table class="grades" style="width:100%; font-size:0.82rem;">
+              <thead><tr><th>Criterio</th><th>Tu nota</th><th>Nivel</th><th>Por qué</th><th>Qué podés mejorar</th></tr></thead>
+              <tbody>${indEvaluados.map(i => {
+                const n = notaPorInd[i.id];
+                const crit = (i.criterios_indicador || []).find(c => n !== undefined && n !== null && Number(c.puntaje) === Number(n));
+                const d = porLetra[i.letra] || {};
+                return `<tr>
+                  <td><strong>${esc(i.letra)}:</strong> ${esc(quitarHtml(i.descripcion))}</td>
+                  <td>${n === undefined || n === null ? "—" : `${esc(n)} / ${esc(i.puntaje_maximo)}`}</td>
+                  <td>${esc(crit && crit.nivel ? crit.nivel : "")}</td>
+                  <td>${esc(d.justificacion || "")}${d.evidencia ? `<div style="color:var(--text-muted); margin-top:0.2rem;">${esc(d.evidencia)}</div>` : ""}</td>
+                  <td>${esc(d.mejora || (n !== undefined && n !== null && Number(n) === Number(i.puntaje_maximo) ? "¡Excelente! Lograste el máximo." : ""))}</td>
+                </tr>`;
+              }).join("")}</tbody>
+            </table>
+          </div>
+          ${dictamen && dictamen.comentario ? `<p style="margin:0.6rem 0 0; font-size:0.88rem;"><strong>Comentario general:</strong> ${esc(dictamen.comentario)}</p>` : ""}
+        </div>`);
+    }
+
+    // 2. Comprobación con las respuestas correctas
+    if (comprobacion && comprobacion.habilitado !== false) {
+      const { data: miActividad } = await sb.from("actividades_estudiante").select("*").eq("trabajo_id", comprobacion.id).eq("estudiante_id", s.id).maybeSingle();
+      const completo = miActividad && miActividad.completado;
+      bloques.push(`
+        <div class="card" style="border:1px solid var(--paper-line); border-radius:10px; padding:0.9rem; margin-bottom:0.8rem; background:var(--paper);">
+          <h4 style="margin:0 0 0.4rem;">📝 Comprobación del proyecto · ${esc(m.nombre)}</h4>
+          ${completo
+            ? `<p style="margin:0 0 0.5rem; font-size:0.88rem;">Tu resultado: <strong>${esc(miActividad.puntaje)} / 3</strong>${miActividad.porcentaje != null ? ` (${esc(Math.round(Number(miActividad.porcentaje)))} % de aciertos)` : ""}.</p>
+               ${comprobacion.retro_visible
+                 ? `<button class="btn secondary small" data-retro-comprobacion="${comprobacion.id}" type="button">📝 Ver mis respuestas y las correctas</button><div data-retro-comprobacion-panel="${comprobacion.id}" style="margin-top:0.5rem;"></div>`
+                 : `<p style="margin:0; font-size:0.82rem; color:var(--text-muted);">Las respuestas correctas van a aparecer aquí cuando tu profesor las habilite.</p>`}`
+            : `<p style="margin:0; font-size:0.88rem;">Todavía no has hecho la comprobación. Buscala en Proyectos con el botón «▶ Iniciar prueba».</p>`}
+        </div>`);
+      if (completo && comprobacion.retro_visible) {
+        holder.__comprobaciones = holder.__comprobaciones || {};
+        holder.__comprobaciones[comprobacion.id] = comprobacion;
+      }
+    }
+  }
+  holder.innerHTML = bloques.join("");
+  holder.querySelectorAll("[data-retro-comprobacion]").forEach(btn => btn.addEventListener("click", async () => {
+    const panel = holder.querySelector(`[data-retro-comprobacion-panel="${btn.dataset.retroComprobacion}"]`);
+    if (!panel) return;
+    if (panel.innerHTML.trim()) { panel.innerHTML = ""; return; }
+    const trabajo = holder.__comprobaciones && holder.__comprobaciones[btn.dataset.retroComprobacion];
+    if (!trabajo) return;
+    panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando…</p>`;
+    panel.innerHTML = await construirRetroalimentacionActividad(trabajo, s.id);
+  }));
+}
+
 async function renderNotas(el, s, isSelf) {
   el.innerHTML = "Cargando…";
   try {
@@ -765,6 +853,7 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
           <span class="badge" style="${f.final === null ? "opacity:0.5;" : ""}">${f.final === null ? "Sin notas aún" : "Nota final: " + f.final.toFixed(1) + (f.pesoUsado < 100 ? ` (${f.pesoUsado}% evaluado)` : "")}</span>
         </div>`).join("")}
     </div>` : ""}
+    ${isSelf ? `<div id="proyecto-retro-holder"></div>` : ""}
 
     <nav class="cat-navbar">${botones || '<span style="color:#cdd6da; font-size:0.85rem;">No hay categorías de rúbrica definidas.</span>'}</nav>
     ${activa ? `
@@ -803,6 +892,10 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
     </form>
     ${(categorias || []).length === 0 ? `<p class="no-phone-note">No hay categorías de rúbrica creadas. Ve a "Rúbrica y Evaluaciones" en el menú para crearlas.</p>` : ""}` : ""}`;
 
+  if (isSelf) {
+    const holderRetro = el.querySelector("#proyecto-retro-holder");
+    if (holderRetro) pintarRetroProyectoEstudiante(holderRetro, s, materiasAsignadas).catch(err => console.error("Retroalimentación del proyecto:", err));
+  }
   el.querySelectorAll("[data-cat-nota]").forEach(btn => {
     btn.addEventListener("click", () => renderNotasInterno(el, s, isSelf, btn.dataset.catNota));
   });
@@ -7705,6 +7798,7 @@ async function pintarProyectoIntegral(holder, materiaId, catNombre, indicadores,
   const tarjeta2 = trabajoComprobacion ? `
     <p style="font-size:0.85rem; margin:0 0 0.5rem;">La comprobación está en el indicador <strong>${esc(indComprobacion.letra)}</strong>: ${nPreguntas} preguntas · ${compHabilitada ? "✅ habilitada para los estudiantes" : "🔒 deshabilitada (los estudiantes no la ven)"}.</p>
     <button class="btn ${compHabilitada ? "secondary" : ""} small" data-pi-toggle-comp="${trabajoComprobacion.id}" data-estado="${compHabilitada ? "habilitado" : "deshabilitado"}" type="button">${compHabilitada ? "Deshabilitar" : "Habilitar"}</button>
+    <button class="btn ${trabajoComprobacion.retro_visible ? "" : "secondary"} small" data-pi-toggle-resp="${trabajoComprobacion.id}" data-estado="${trabajoComprobacion.retro_visible ? "visible" : "oculto"}" type="button">${trabajoComprobacion.retro_visible ? "🔒 Ocultar respuestas correctas" : "🔓 Mostrar respuestas correctas a los estudiantes"}</button>
     <span style="font-size:0.78rem; color:var(--text-muted); margin-left:0.4rem;">Para cambiar las preguntas o la hora, usá la tarjeta del indicador ${esc(indComprobacion.letra)} más abajo.</span>` : (indLibres.length ? `
     <p style="font-size:0.85rem; margin:0 0 0.5rem;">Generá con IA las preguntas de selección única sobre todos los temas del proyecto. Elegí en qué indicador queda la comprobación.</p>
     <div class="row" style="gap:0.5rem; flex-wrap:wrap; align-items:center;">
@@ -7713,12 +7807,14 @@ async function pintarProyectoIntegral(holder, materiaId, catNombre, indicadores,
     </div>` : `<p class="empty">Todos los indicadores ya tienen un trabajo vinculado; agregá un indicador para la comprobación.</p>`);
 
   // 3. Evaluación según criterios
+  const retroVisible = !!(trabajoEntrega && trabajoEntrega.contenido_actividad && trabajoEntrega.contenido_actividad.retro_proyecto_visible);
   const opciones = (max, actual) => `<option value="">—</option>` + Array.from({ length: max + 1 }, (_, p) => `<option value="${p}" ${actual !== undefined && actual !== null && Number(actual) === p ? "selected" : ""}>${p}</option>`).join("");
   const tarjeta3 = indEvaluables.length ? `
     <p style="font-size:0.85rem; margin:0 0 0.5rem;">La IA actúa como evaluador riguroso: lee el documento de cada estudiante y lo califica solo con la rúbrica de los indicadores ${indEvaluables.map(i => esc(i.letra)).join(", ")} y con lo que está escrito en el trabajo. Para cada estudiante arma un dictamen con tabla resumen, justificación y oportunidad de mejora por criterio, y nota final. Revisá, cambiá lo que no te convenza y tocá <strong>Guardar notas</strong>: nada se guarda solo.</p>
     <div class="row" style="gap:0.5rem; flex-wrap:wrap; align-items:center; margin-bottom:0.5rem;">
       ${trabajoEntrega ? `<button class="btn small" data-pi-evaluar-todos type="button">🤖 Evaluar con IA a quienes entregaron y no tienen nota</button>` : ""}
       <button class="btn secondary small" data-pi-guardar-notas type="button">💾 Guardar notas</button>
+      ${trabajoEntrega ? `<button class="btn ${retroVisible ? "" : "secondary"} small" data-pi-toggle-retro type="button">${retroVisible ? "🙈 Ocultar retroalimentación a los estudiantes" : "👁 Mostrar retroalimentación a los estudiantes"}</button>` : ""}
       <span data-pi-estado3 style="font-size:0.78rem; color:var(--text-muted);"></span>
     </div>
     <div style="overflow-x:auto;">
@@ -7801,7 +7897,24 @@ async function pintarProyectoIntegral(holder, materiaId, catNombre, indicadores,
     cargarIndicadoresDeMateria(materiaId, catNombre);
   });
 
+  const btnToggleResp = cont.querySelector("[data-pi-toggle-resp]");
+  if (btnToggleResp) btnToggleResp.addEventListener("click", async () => {
+    const visible = btnToggleResp.dataset.estado === "visible";
+    if (!confirm(visible ? "¿Ocultar las respuestas correctas de la comprobación?" : "¿Mostrar a cada estudiante sus respuestas de la comprobación junto con las correctas? Solo lo ven quienes ya la hicieron.")) return;
+    await sb.from("trabajos_cotidianos").update({ retro_visible: !visible }).eq("id", btnToggleResp.dataset.piToggleResp);
+    cargarIndicadoresDeMateria(materiaId, catNombre);
+  });
+
   // --- 3. Evaluación según criterios ---
+  const btnToggleRetro = cont.querySelector("[data-pi-toggle-retro]");
+  if (btnToggleRetro) btnToggleRetro.addEventListener("click", async () => {
+    if (!confirm(retroVisible ? "¿Ocultar la retroalimentación del proyecto a los estudiantes?" : "¿Mostrar a cada estudiante, en su perfil, su nota por criterio y la retroalimentación del dictamen? Solo aparece a quienes ya tienen notas guardadas.")) return;
+    const { data: fresco } = await sb.from("trabajos_cotidianos").select("contenido_actividad").eq("id", trabajoEntrega.id).maybeSingle();
+    const ca = { ...((fresco && fresco.contenido_actividad) || trabajoEntrega.contenido_actividad || {}), retro_proyecto_visible: !retroVisible };
+    const { error } = await sb.from("trabajos_cotidianos").update({ contenido_actividad: ca }).eq("id", trabajoEntrega.id);
+    if (error) { alert("No se pudo cambiar: " + error.message); return; }
+    cargarIndicadoresDeMateria(materiaId, catNombre);
+  });
   cont.querySelectorAll("[data-pi-nota]").forEach(sel => sel.addEventListener("change", () => { sel.dataset.cambio = "1"; sel.style.outline = "2px solid var(--brick)"; }));
 
   const inferirMime = (nombreArchivo, tipo) => {
