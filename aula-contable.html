@@ -807,7 +807,7 @@ function viewSeguimiento(l){
    <p class="note" style="margin:0">Cada fila muestra la entrega más reciente de cada estudiante. Para ver el avance de hoy, pídeles que generen su código de entrega al final de la clase.</p>`;
 }
 function viewRevisionGeneral(grupos){
-  const prac=grupos.filter(g=>CATS[g.cat]&&CATS[g.cat].practica);
+  const prac=grupos.filter(g=>CATS[g.cat]);
   if(!prac.length)return `<div class="panel"><p class="muted" style="margin:0">Todavía no hay prácticas de estudiantes para revisar.</p></div>`;
   const pct=(n,t)=>t?Math.round(100*n/t):0;
   const filas=prac.map(g=>{
@@ -822,9 +822,9 @@ function viewRevisionGeneral(grupos){
     return {g,n,av,ma,as,evs:evs.length,prom,sinEmpezar,vieronSol};
   });
   const cel=(n,t)=>`<td><b class="num">${n}/${t}</b> <small class="muted">${pct(n,t)} %</small></td>`;
-  return `<div class="panel stack" style="border:2px solid var(--pop)"><h3>📊 Revisión general de las prácticas</h3>
-   <div class="tbl"><table><thead><tr><th>Práctica</th><th>Nivel</th><th>Con avance</th><th>Machote completo</th><th>Asiento de planilla resuelto</th><th>Evaluación (promedio)</th><th>Vieron la solución</th></tr></thead><tbody>
-   ${filas.map(f=>{const nivel=(f.g.rows[0]&&f.g.rows[0].c.nivelPractica)||"—";return `<tr><td><b>${esc(f.g.name)}</b><br><small class="muted">${f.n} estudiante(s)</small></td><td class="num">${esc(nivel)}</td>${cel(f.av,f.n)}${cel(f.ma,f.n)}${cel(f.as,f.n)}
+  return `<div class="panel stack" style="border:2px solid var(--pop)"><h3>📊 Revisión general de prácticas, tareas y trabajos en casa</h3>
+   <div class="tbl"><table><thead><tr><th>Trabajo</th><th>Nivel</th><th>Con avance</th><th>Machote completo</th><th>Asiento de planilla resuelto</th><th>Evaluación (promedio)</th><th>Vieron la solución</th></tr></thead><tbody>
+   ${filas.map(f=>{const nivel=(f.g.rows[0]&&f.g.rows[0].c.nivelPractica)||"—";return `<tr><td>${chipCat(f.g.cat)} <b>${esc(f.g.name)}</b><br><small class="muted">${f.n} estudiante(s)</small></td><td class="num">${esc(nivel)}</td>${cel(f.av,f.n)}${cel(f.ma,f.n)}${cel(f.as,f.n)}
      <td>${f.prom!=null?`<b class="num">${f.prom} %</b> <small class="muted">${f.evs} evaluó</small>`:'<small class="muted">—</small>'}</td><td class="num">${f.vieronSol}</td></tr>`}).join("")}
    </tbody></table></div>
    ${filas.filter(f=>f.sinEmpezar.length).map(f=>`<details><summary style="cursor:pointer;font-size:.9rem">⏳ ${esc(f.g.name)}: ${f.sinEmpezar.length} estudiante(s) sin empezar</summary><p class="muted" style="margin:6px 0 0">${f.sinEmpezar.map(esc).join(" · ")}</p></details>`).join("")}
@@ -980,7 +980,7 @@ function indicadorPanelHTML(g){
     <label><input type="checkbox" data-iacomp="machote" checked> Machote</label><label><input type="checkbox" data-iacomp="asiento" checked> Asiento de planilla</label><label><input type="checkbox" data-iacomp="evaluacion"> Evaluación</label></div></div>`;
 }
 function evControlesHTML(g,tab){
-  if(!CATS[normCat(g.cat)].practica)return "";
+  if(!CATS[normCat(g.cat)])return "";
   const rows=g.rows,n=rows.length;
   const on=k=>rows.filter(({c})=>c.evalCfg&&c.evalCfg[k]&&c.evalCfg[k].on).length;
   const btn=(k,label)=>{const o=on(k),all=o===n&&n>0;
@@ -1041,18 +1041,18 @@ function viewPorEmpresa(){
      const rows=g.rows.filter(r=>!q||(r.w.nombre+" "+r.w.id).toLowerCase().includes(q)).sort((a,b)=>a.w.nombre.localeCompare(b.w.nombre));
      const entregadas=g.rows.filter(r=>r.c.entregado).length;
      return `<details class="panel"${APP.revOpen&&APP.revOpen[g.key]?" open":""}><summary style="cursor:pointer;font-weight:700">${chipCat(g.cat)} ${esc(g.name)} <small class="muted" style="font-weight:400">· ${g.rows.length} estudiante(s)${CATS[g.cat].una?` · ${entregadas} entregaron`:""}</small></summary>
-      ${CATS[g.cat].practica?`<div class="row" style="margin-top:8px"><button class="btn sm ${APP.revPrac&&APP.revPrac[g.key]?"primary":"pop"}" data-act="toggleRevPractica" data-key="${esc(g.key)}">📊 Revisión de esta práctica</button></div>${APP.revPrac&&APP.revPrac[g.key]?revisionDePractica(g):""}`:""}
-      ${CATS[g.cat].practica?`<div class="row" style="margin-top:8px"><button class="btn sm danger" data-act="delPracticaTodos" data-key="${esc(g.key)}">Eliminar esta práctica de todos los estudiantes</button></div>`:""}
-      <div class="tbl" style="margin-top:10px"><table><thead><tr><th>Estudiante</th><th>Estado</th><th class="r">Asientos</th><th>Machote de planilla</th><th>Asiento de planilla</th><th>Evaluación</th>${CATS[g.cat].practica?"<th>Eval. machote</th><th>Eval. asiento</th>":""}<th></th></tr></thead><tbody>
+      <div class="row" style="margin-top:8px"><button class="btn sm ${APP.revPrac&&APP.revPrac[g.key]?"primary":"pop"}" data-act="toggleRevPractica" data-key="${esc(g.key)}">📊 Evaluación y revisión de ${CATS[g.cat].practica?"esta práctica":"este trabajo"}</button></div>${APP.revPrac&&APP.revPrac[g.key]?revisionDePractica(g):""}
+      <div class="row" style="margin-top:8px"><button class="btn sm danger" data-act="delPracticaTodos" data-key="${esc(g.key)}">Eliminar ${CATS[g.cat].practica?"esta práctica":"este trabajo"} de todos los estudiantes</button></div>
+      <div class="tbl" style="margin-top:10px"><table><thead><tr><th>Estudiante</th><th>Estado</th><th class="r">Asientos</th><th>Machote de planilla</th><th>Asiento de planilla</th><th>Evaluación</th>${CATS[g.cat]?"<th>Eval. machote</th><th>Eval. asiento</th>":""}<th></th></tr></thead><tbody>
       ${rows.map(({w,c})=>{let R;try{R=plResumen([c])}catch(e){R=null}
         const est=c.entregado?`<span class="chip tC" style="font-size:.7rem">✓ Entregada</span><br><small class="muted">${esc(fmtDate(c.entregadoFecha))}</small>`:(CATS[g.cat].una?'<span class="chip tG" style="font-size:.7rem">En proceso</span>':'<small class="muted">Práctica</small>');
         return `<tr><td><b>${esc(w.nombre)}</b><br><span class="code">${esc(w.id)}</span>${w.seccion?` <small class="muted">${esc(w.seccion)}</small>`:""}</td><td>${est}</td><td class="r num">${(c.entries||[]).length}</td>
          <td>${R&&R.casTot?bar(R.casOk,R.casTot):'<small class="muted">Sin empezar</small>'}</td>
          <td>${R&&R.asPlIntentos?`${R.asPlOk?'<span class="chip tI">Resuelto</span>':'<span class="chip tG">Pendiente</span>'}<br><small class="muted">${R.asPlIntentos} intento(s)</small>`:'<small class="muted">Sin empezar</small>'}</td>
          <td>${R&&R.evalBest!=null?`<b class="num">${R.evalBest} %</b><br><small class="muted">${R.evals} evaluación(es)</small>`:R&&R.practicas?`<small class="muted">${R.practicas} práctica(s)</small>`:'<small class="muted">—</small>'}</td>
-         ${CATS[g.cat].practica?["machote","asiento"].map(k=>{const ev=c.payroll&&c.payroll[k==="machote"?"evalM":"evalA"],r=ev&&ev.resultado;const on=c.evalCfg&&c.evalCfg[k]&&c.evalCfg[k].on;
+         ${CATS[g.cat]?["machote","asiento"].map(k=>{const ev=c.payroll&&c.payroll[k==="machote"?"evalM":"evalA"],r=ev&&ev.resultado;const on=c.evalCfg&&c.evalCfg[k]&&c.evalCfg[k].on;
            return `<td>${r?evBadge(r)+` <button class="btn sm ghost" data-act="evDetalle" data-key="${esc(g.key)}" data-est="${esc(w.id)}" data-co="${esc(c.id)}" data-k="${k}" title="Ver el detalle de sus respuestas">🔍</button><button class="btn sm ghost" data-act="evResetUno" data-est="${esc(w.id)}" data-co="${esc(c.id)}" data-k="${k}" title="Borrar el intento y dejar que la repita">↺</button>`:(on?'<small class="muted">Habilitada · sin entregar</small>':'<small class="muted">—</small>')}</td>`}).join(""):""}
-         <td><div class="row" style="flex-wrap:nowrap;justify-content:flex-end"><a class="btn sm primary" href="aula-contable.html?como_estudiante=${encodeURIComponent(w.id)}">Revisar</a>${CATS[g.cat].practica?`<button class="btn sm danger" data-act="delPracticaEst" data-est="${esc(w.id)}" data-co="${esc(c.id)}">Eliminar</button>`:""}</div></td></tr>${(()=>{const d=APP.evDet;if(!d||d.est!==w.id||d.co!==c.id)return "";const ev=c.payroll&&c.payroll[d.k==="machote"?"evalM":"evalA"],r=ev&&ev.resultado;
+         <td><div class="row" style="flex-wrap:nowrap;justify-content:flex-end"><a class="btn sm primary" href="aula-contable.html?como_estudiante=${encodeURIComponent(w.id)}">Revisar</a>${CATS[g.cat]?`<button class="btn sm danger" data-act="delPracticaEst" data-est="${esc(w.id)}" data-co="${esc(c.id)}">Eliminar</button>`:""}</div></td></tr>${(()=>{const d=APP.evDet;if(!d||d.est!==w.id||d.co!==c.id)return "";const ev=c.payroll&&c.payroll[d.k==="machote"?"evalM":"evalA"],r=ev&&ev.resultado;
            return r?`<tr><td colspan="10" style="background:var(--surface2)"><b>${d.k==="machote"?"Evaluación del machote":"Evaluación del asiento"} · ${esc(w.nombre)} · ${r.pct} % (${r.ok}/${r.total})</b> <small class="muted">${esc(fmtDate(r.fecha))}</small>${evDetalleHTML(r,true)}</td></tr>`:""})()}`}).join("")||'<tr><td colspan="7"><small class="muted">Sin resultados con ese filtro.</small></td></tr>'}
       </tbody></table></div></details>`}).join("")}
    <p class="note" style="margin:0">Datos en vivo del trabajo de cada estudiante. "Revisar" abre su cuenta de Aula de Conta tal como la ve él.</p>`;
@@ -2996,7 +2996,7 @@ document.addEventListener("click",async e=>{
   if(a==="delPracticaEst"){armDelete(b,async()=>{try{await APP.store.deleteEmpresaEstudiante(b.dataset.est,b.dataset.co);toast("Práctica eliminada");loadEmpData()}catch(err){toast("No se pudo eliminar")}});return}
   if(a==="delPracticaTodos"){armDelete(b,async()=>{try{
     const key=b.dataset.key;let n=0;
-    for(const w of (APP.empData||[])){for(const c of w.companies){if(claveGrupo(c)===key&&esPracticaCat(c)){await APP.store.deleteEmpresaEstudiante(w.id,c.id);n++}}}
+    for(const w of (APP.empData||[])){for(const c of w.companies){if(claveGrupo(c)===key){await APP.store.deleteEmpresaEstudiante(w.id,c.id);n++}}}
     toast(n+" práctica(s) eliminada(s)");loadEmpData()}catch(err){toast("No se pudo eliminar")}});return}
   if(a==="delEntrega"){armDelete(b,async()=>{try{await APP.store.deleteEntrega(b.dataset.id);toast("Entrega eliminada");loadEntregas()}catch(err){toast("No se pudo eliminar")}});return}
   /* Edición */
@@ -3151,7 +3151,7 @@ document.addEventListener("input",e=>{const t=e.target;if(!t||!t.dataset||!t.dat
   if(f==="desc")x.descripcion=t.value;else{let c=x.criterios.find(y=>y.puntaje===+p);if(!c){c={puntaje:+p,nivel:"",descripcion:""};x.criterios.push(c)}if(f==="nivel")c.nivel=t.value;else c.descripcion=t.value}});
 document.addEventListener("change",e=>{const t=e.target;if(t&&t.matches&&t.matches("[data-indmat]")){APP.indMat=APP.indMat||{};APP.indMat[t.dataset.key]=t.value;render()}});
 document.addEventListener("submit",e=>{const c=co();if(ventanaBloqueada(c)){e.preventDefault();e.stopImmediatePropagation();toast("⏰ Fuera del horario de la práctica: no se puede guardar ni entregar")}},true);
-setInterval(async()=>{try{if(!APP.me||isTeacher()||APP.comoEstudiante||APP.demo)return;const c=co();if(!c||!esPracticaCat(c))return;
+setInterval(async()=>{try{if(!APP.me||isTeacher()||APP.comoEstudiante||APP.demo)return;const c=co();if(!c)return;
   await evRefrescarCfg();const e=ventanaEstado(c),k=e?e.estado:"";if(k!==APP.ventanaKey&&!(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)))render()}catch(err){}},30000);
 
 document.addEventListener("dragover",e=>{const z=e.target.closest&&e.target.closest("#dropZone");if(z){e.preventDefault();z.classList.add("over")}});
