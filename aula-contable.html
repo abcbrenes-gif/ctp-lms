@@ -568,7 +568,22 @@ const co=()=>APP.companies.find(c=>c.id===APP.activeId)||APP.companies[0]||null;
 /* Categoría del trabajo: "practica" se puede repetir las veces que haga falta;
    "tarea" (trabajo cotidiano) queda bloqueada en cuanto el estudiante la entrega. */
 /* Horario de la práctica (inicio y cierre): fuera del horario el estudiante puede ver pero no guardar ni entregar */
-const aplicaVentana=c=>!!(c&&c.categoria==="practica"&&!isTeacher()&&!APP.comoEstudiante&&!APP.demo);
+/* Cuatro tipos de trabajo: "evaluativa" (práctica con valor evaluativo: horario,
+   evaluaciones e indicador, se entrega una vez), "practica" (práctica general,
+   repetible), "tarea" (se entrega una vez) y "casa" (trabajo en casa 😊, se
+   entrega una vez). Las empresas viejas solo tienen "practica" o "tarea". */
+const CATS={evaluativa:{icon:"📝",nombre:"Práctica con valor evaluativo",corto:"Práctica evaluativa",chip:"tG",una:true,practica:true,orden:0},
+  practica:{icon:"🔄",nombre:"Práctica general",corto:"Práctica general",chip:"tI",una:false,practica:true,orden:1},
+  tarea:{icon:"📌",nombre:"Tarea",corto:"Tarea",chip:"tG",una:true,practica:false,orden:2},
+  casa:{icon:"😊",nombre:"Trabajo en casa",corto:"Trabajo en casa",chip:"tC",una:true,practica:false,orden:3}};
+const normCat=v=>CATS[v]?v:"practica";
+const catDe=c=>normCat(c&&c.categoria);
+const esPracticaCat=c=>CATS[catDe(c)].practica;
+const unaEntrega=c=>CATS[catDe(c)].una;
+const chipCat=k=>{const x=CATS[normCat(k)];return `<span class="chip ${x.chip}" style="font-size:.7rem">${x.icon} ${x.corto}</span>`};
+const opcionesCategoria=sel=>Object.entries(CATS).map(([k,x])=>`<option value="${k}" ${k===sel?"selected":""}>${x.icon} ${x.nombre}${x.una?" (se entrega una sola vez)":" (se puede repetir)"}</option>`).join("");
+const claveGrupo=c=>catDe(c)+"|"+String(c.name||"").trim().toLowerCase();
+const aplicaVentana=c=>!!(c&&esPracticaCat(c)&&!isTeacher()&&!APP.comoEstudiante&&!APP.demo);
 function ventanaEstado(c){
   if(!aplicaVentana(c))return null;const v=c.evalCfg&&c.evalCfg.ventana;if(!v||(!v.inicio&&!v.fin))return null;
   const now=Date.now(),ini=v.inicio?new Date(v.inicio).getTime():null,fin=v.fin?new Date(v.fin).getTime():null;
@@ -578,7 +593,7 @@ function ventanaEstado(c){
   return {estado:"abierta",msg:"Práctica abierta"+(v.fin?" hasta el "+f(v.fin)+".":".")};
 }
 const ventanaBloqueada=c=>{const e=ventanaEstado(c);return !!e&&e.estado!=="abierta"};
-const tareaBloqueada=c=>!isTeacher()&&!!(c&&c.categoria==="tarea"&&c.entregado);
+const tareaBloqueada=c=>!isTeacher()&&!!(c&&unaEntrega(c)&&c.entregado);
 
 /* Guardado agrupado: una escritura a la vez */
 const pending=new Set();let saveTimer=null,flushing=false;
@@ -600,7 +615,7 @@ function setSave(t,err){APP.saveState=t;const el=document.getElementById("saveBa
 let draft=null;
 function resetDraft(){const c=co();draft={date:`${c?c.period:2026}-01-31`,desc:"",lines:[{code:"",d:"",c:""},{code:"",d:"",c:""}]}}
 function newCompany({name,code,cedula,currency,period,base=true,sample=false,categoria="practica"}){
-  return {id:uid(),code,name,cedula,currency,period:+period,categoria:categoria==="tarea"?"tarea":"practica",entregado:false,
+  return {id:uid(),code,name,cedula,currency,period:+period,categoria:normCat(categoria),entregado:false,
     accounts:base?BASE.map(a=>({...a})):[],entries:sample?sampleEntries(+period):[],
     payroll:sample?{params:clone(PL_DEFAULT),employees:plSampleEmployees(),runs:[],evals:[]}:undefined};
 }
@@ -737,7 +752,7 @@ function viewEntregar(){
     <p>Entrega tu avance al final de cada clase: elegí las empresas y guardalas — quedan directo en las "Entregas recibidas" de tu profesor. No hace falta generar ningún código ni enviarlo por Teams.</p></div></div>
   <div class="panel stack">
     <h3>Empresas a entregar</h3>
-    ${APP.companies.length?sortCos(APP.companies).map(c=>`<label class="check"><input type="checkbox" class="dsel" value="${c.id}" checked> <span class="code">${esc(c.code)}</span> ${esc(c.name)} <small class="muted">· ${c.entries.length} asientos · ${c.categoria==="tarea"?(c.entregado?"📌 tarea, ya entregada":"📌 tarea — se bloqueará al entregar"):"🔄 práctica"}</small></label>`).join("")
+    ${APP.companies.length?sortCos(APP.companies).map(c=>`<label class="check"><input type="checkbox" class="dsel" value="${c.id}" checked> <span class="code">${esc(c.code)}</span> ${esc(c.name)} <small class="muted">· ${c.entries.length} asientos · ${CATS[catDe(c)].icon} ${CATS[catDe(c)].corto.toLowerCase()}${unaEntrega(c)?(c.entregado?", ya entregada":" — se bloqueará al entregar"):""}</small></label>`).join("")
       :'<p class="muted" style="margin:0">Todavía no tienes empresas para entregar.</p>'}
     ${le?`<div class="status ok"><span class="dot"></span>Guardada como entrega el ${esc(fmtDate(le))}.</div>`:""}
     <div><button class="btn primary" data-act="guardarEntregaGeneral" ${APP.companies.length?"":"disabled"}>💾 Guardar entrega</button></div>
@@ -759,7 +774,7 @@ async function loadEntregas(){
   render();
 }
 function plResumen(cs,unl){
-  const R={empresas:cs.length,empTareas:cs.filter(c=>c.categoria==="tarea").length,empPracticas:cs.filter(c=>c.categoria!=="tarea").length,
+  const R={empresas:cs.length,empTareas:cs.filter(c=>!esPracticaCat(c)).length,empPracticas:cs.filter(c=>esPracticaCat(c)).length,
     asientos:0,planillas:0,colab:0,casOk:0,casTot:0,asPlIntentos:0,asPlOk:0,solucion:0,evalBest:null,evals:0,practicas:0};
   for(const c of cs){R.asientos+=(c.entries||[]).length;const p=c.payroll;if(!p)continue;
     try{const P=p.params;R.colab+=(p.employees||[]).length;
@@ -789,7 +804,7 @@ function viewSeguimiento(l){
    <p class="note" style="margin:0">Cada fila muestra la entrega más reciente de cada estudiante. Para ver el avance de hoy, pídeles que generen su código de entrega al final de la clase.</p>`;
 }
 function viewRevisionGeneral(grupos){
-  const prac=grupos.filter(g=>g.cat==="practica");
+  const prac=grupos.filter(g=>CATS[g.cat]&&CATS[g.cat].practica);
   if(!prac.length)return `<div class="panel"><p class="muted" style="margin:0">Todavía no hay prácticas de estudiantes para revisar.</p></div>`;
   const pct=(n,t)=>t?Math.round(100*n/t):0;
   const filas=prac.map(g=>{
@@ -815,7 +830,7 @@ function viewRevisionGeneral(grupos){
 function evRowsDeGrupo(key){
   const out=[];const qs=APP.empSec||"";
   for(const w of (APP.empData||[])){if(qs&&w.seccion!==qs)continue;
-    for(const c of w.companies){if((c.categoria==="tarea"?"t|":"p|")+String(c.name||"").trim().toLowerCase()===key)out.push({w,c})}}
+    for(const c of w.companies){if(claveGrupo(c)===key)out.push({w,c})}}
   return out;
 }
 /* PDF de resultados del estudiante: se genera al guardar la planilla y queda para el profesor */
@@ -897,7 +912,7 @@ function resumenInforme(c){
   const eM=p.evalM&&p.evalM.resultado?p.evalM.resultado.pct:null,eA=p.evalA&&p.evalA.resultado?p.evalA.resultado.pct:null;
   const comp=[mach,asi,ev,eM,eA].filter(x=>x!=null);
   return {nota:comp.length?Math.round(comp.reduce((t,x)=>t+x,0)/comp.length):null,machote:mach,asiento:asi,evaluacion:ev,evalMachote:eM,evalAsiento:eA,
-    asientos:R.asientos,categoria:c.categoria==="tarea"?"tarea":"practica",entregado:!!c.entregado,fecha:new Date().toISOString()};
+    asientos:R.asientos,categoria:catDe(c),entregado:!!c.entregado,fecha:new Date().toISOString()};
 }
 /* Indicador de evaluación (Rúbrica de ctp-lms) ligado a la práctica: la nota del informe se vuelve el puntaje del indicador */
 const puntajeIndicador=(nota,max)=>max<=3?(nota>=85?3:nota>=60?2:nota>=35?1:0):Math.round(nota/100*max);
@@ -962,7 +977,7 @@ function indicadorPanelHTML(g){
     <label><input type="checkbox" data-iacomp="machote" checked> Machote</label><label><input type="checkbox" data-iacomp="asiento" checked> Asiento de planilla</label><label><input type="checkbox" data-iacomp="evaluacion"> Evaluación</label></div></div>`;
 }
 function evControlesHTML(g,tab){
-  if(g.cat!=="practica")return "";
+  if(!CATS[normCat(g.cat)].practica)return "";
   const rows=g.rows,n=rows.length;
   const on=k=>rows.filter(({c})=>c.evalCfg&&c.evalCfg[k]&&c.evalCfg[k].on).length;
   const btn=(k,label)=>{const o=on(k),all=o===n&&n>0;
@@ -1010,9 +1025,9 @@ function viewPorEmpresa(){
   const q=(APP.entF||"").toLowerCase(), qs=(APP.empSec||"");
   const by={};
   for(const w of d){if(qs&&w.seccion!==qs)continue;
-    for(const c of w.companies){const key=(c.categoria==="tarea"?"t|":"p|")+String(c.name||"").trim().toLowerCase();
-      (by[key]=by[key]||{key,name:c.name,cat:c.categoria==="tarea"?"tarea":"practica",rows:[]}).rows.push({w,c})}}
-  const grupos=Object.values(by).sort((a,b)=>(a.cat===b.cat?0:a.cat==="tarea"?-1:1)||String(a.name).localeCompare(String(b.name)));
+    for(const c of w.companies){const key=claveGrupo(c);
+      (by[key]=by[key]||{key,name:c.name,cat:catDe(c),rows:[]}).rows.push({w,c})}}
+  const grupos=Object.values(by).sort((a,b)=>(CATS[a.cat].orden-CATS[b.cat].orden)||String(a.name).localeCompare(String(b.name)));
   const bar=(n,t)=>{const v=t?Math.round(100*n/t):0;return `<div class="pbar" title="${v} %"><span style="width:${v}%;background:${v===100?"var(--ok)":v>=60?"var(--pop)":"var(--bad)"}"></span></div><small class="muted num">${n}/${t}</small>`};
   const secs=[...new Set(d.map(w=>w.seccion).filter(Boolean))].sort();
   if(!grupos.length)return `<div class="empty"><h3>Todavía no hay empresas de estudiantes</h3><p>Aparecen aquí apenas un estudiante cree o reciba una empresa en Aula de Conta.</p></div>`;
@@ -1022,19 +1037,19 @@ function viewPorEmpresa(){
    ${grupos.map(g=>{
      const rows=g.rows.filter(r=>!q||(r.w.nombre+" "+r.w.id).toLowerCase().includes(q)).sort((a,b)=>a.w.nombre.localeCompare(b.w.nombre));
      const entregadas=g.rows.filter(r=>r.c.entregado).length;
-     return `<details class="panel"${APP.revOpen&&APP.revOpen[g.key]?" open":""}><summary style="cursor:pointer;font-weight:700"><span class="chip ${g.cat==="tarea"?"tG":"tI"}" style="font-size:.7rem">${g.cat==="tarea"?"📌 Tarea":"🔄 Práctica"}</span> ${esc(g.name)} <small class="muted" style="font-weight:400">· ${g.rows.length} estudiante(s)${g.cat==="tarea"?` · ${entregadas} entregaron`:""}</small></summary>
-      ${g.cat==="practica"?`<div class="row" style="margin-top:8px"><button class="btn sm ${APP.revPrac&&APP.revPrac[g.key]?"primary":"pop"}" data-act="toggleRevPractica" data-key="${esc(g.key)}">📊 Revisión de esta práctica</button></div>${APP.revPrac&&APP.revPrac[g.key]?revisionDePractica(g):""}`:""}
-      ${g.cat==="practica"?`<div class="row" style="margin-top:8px"><button class="btn sm danger" data-act="delPracticaTodos" data-key="${esc(g.key)}">Eliminar esta práctica de todos los estudiantes</button></div>`:""}
-      <div class="tbl" style="margin-top:10px"><table><thead><tr><th>Estudiante</th><th>Estado</th><th class="r">Asientos</th><th>Machote de planilla</th><th>Asiento de planilla</th><th>Evaluación</th>${g.cat==="practica"?"<th>Eval. machote</th><th>Eval. asiento</th>":""}<th></th></tr></thead><tbody>
+     return `<details class="panel"${APP.revOpen&&APP.revOpen[g.key]?" open":""}><summary style="cursor:pointer;font-weight:700">${chipCat(g.cat)} ${esc(g.name)} <small class="muted" style="font-weight:400">· ${g.rows.length} estudiante(s)${CATS[g.cat].una?` · ${entregadas} entregaron`:""}</small></summary>
+      ${CATS[g.cat].practica?`<div class="row" style="margin-top:8px"><button class="btn sm ${APP.revPrac&&APP.revPrac[g.key]?"primary":"pop"}" data-act="toggleRevPractica" data-key="${esc(g.key)}">📊 Revisión de esta práctica</button></div>${APP.revPrac&&APP.revPrac[g.key]?revisionDePractica(g):""}`:""}
+      ${CATS[g.cat].practica?`<div class="row" style="margin-top:8px"><button class="btn sm danger" data-act="delPracticaTodos" data-key="${esc(g.key)}">Eliminar esta práctica de todos los estudiantes</button></div>`:""}
+      <div class="tbl" style="margin-top:10px"><table><thead><tr><th>Estudiante</th><th>Estado</th><th class="r">Asientos</th><th>Machote de planilla</th><th>Asiento de planilla</th><th>Evaluación</th>${CATS[g.cat].practica?"<th>Eval. machote</th><th>Eval. asiento</th>":""}<th></th></tr></thead><tbody>
       ${rows.map(({w,c})=>{let R;try{R=plResumen([c])}catch(e){R=null}
-        const est=c.entregado?`<span class="chip tC" style="font-size:.7rem">✓ Entregada</span><br><small class="muted">${esc(fmtDate(c.entregadoFecha))}</small>`:(g.cat==="tarea"?'<span class="chip tG" style="font-size:.7rem">En proceso</span>':'<small class="muted">Práctica</small>');
+        const est=c.entregado?`<span class="chip tC" style="font-size:.7rem">✓ Entregada</span><br><small class="muted">${esc(fmtDate(c.entregadoFecha))}</small>`:(CATS[g.cat].una?'<span class="chip tG" style="font-size:.7rem">En proceso</span>':'<small class="muted">Práctica</small>');
         return `<tr><td><b>${esc(w.nombre)}</b><br><span class="code">${esc(w.id)}</span>${w.seccion?` <small class="muted">${esc(w.seccion)}</small>`:""}</td><td>${est}</td><td class="r num">${(c.entries||[]).length}</td>
          <td>${R&&R.casTot?bar(R.casOk,R.casTot):'<small class="muted">Sin empezar</small>'}</td>
          <td>${R&&R.asPlIntentos?`${R.asPlOk?'<span class="chip tI">Resuelto</span>':'<span class="chip tG">Pendiente</span>'}<br><small class="muted">${R.asPlIntentos} intento(s)</small>`:'<small class="muted">Sin empezar</small>'}</td>
          <td>${R&&R.evalBest!=null?`<b class="num">${R.evalBest} %</b><br><small class="muted">${R.evals} evaluación(es)</small>`:R&&R.practicas?`<small class="muted">${R.practicas} práctica(s)</small>`:'<small class="muted">—</small>'}</td>
-         ${g.cat==="practica"?["machote","asiento"].map(k=>{const ev=c.payroll&&c.payroll[k==="machote"?"evalM":"evalA"],r=ev&&ev.resultado;const on=c.evalCfg&&c.evalCfg[k]&&c.evalCfg[k].on;
+         ${CATS[g.cat].practica?["machote","asiento"].map(k=>{const ev=c.payroll&&c.payroll[k==="machote"?"evalM":"evalA"],r=ev&&ev.resultado;const on=c.evalCfg&&c.evalCfg[k]&&c.evalCfg[k].on;
            return `<td>${r?evBadge(r)+` <button class="btn sm ghost" data-act="evDetalle" data-key="${esc(g.key)}" data-est="${esc(w.id)}" data-co="${esc(c.id)}" data-k="${k}" title="Ver el detalle de sus respuestas">🔍</button><button class="btn sm ghost" data-act="evResetUno" data-est="${esc(w.id)}" data-co="${esc(c.id)}" data-k="${k}" title="Borrar el intento y dejar que la repita">↺</button>`:(on?'<small class="muted">Habilitada · sin entregar</small>':'<small class="muted">—</small>')}</td>`}).join(""):""}
-         <td><div class="row" style="flex-wrap:nowrap;justify-content:flex-end"><a class="btn sm primary" href="aula-contable.html?como_estudiante=${encodeURIComponent(w.id)}">Revisar</a>${g.cat==="practica"?`<button class="btn sm danger" data-act="delPracticaEst" data-est="${esc(w.id)}" data-co="${esc(c.id)}">Eliminar</button>`:""}</div></td></tr>${(()=>{const d=APP.evDet;if(!d||d.est!==w.id||d.co!==c.id)return "";const ev=c.payroll&&c.payroll[d.k==="machote"?"evalM":"evalA"],r=ev&&ev.resultado;
+         <td><div class="row" style="flex-wrap:nowrap;justify-content:flex-end"><a class="btn sm primary" href="aula-contable.html?como_estudiante=${encodeURIComponent(w.id)}">Revisar</a>${CATS[g.cat].practica?`<button class="btn sm danger" data-act="delPracticaEst" data-est="${esc(w.id)}" data-co="${esc(c.id)}">Eliminar</button>`:""}</div></td></tr>${(()=>{const d=APP.evDet;if(!d||d.est!==w.id||d.co!==c.id)return "";const ev=c.payroll&&c.payroll[d.k==="machote"?"evalM":"evalA"],r=ev&&ev.resultado;
            return r?`<tr><td colspan="10" style="background:var(--surface2)"><b>${d.k==="machote"?"Evaluación del machote":"Evaluación del asiento"} · ${esc(w.nombre)} · ${r.pct} % (${r.ok}/${r.total})</b> <small class="muted">${esc(fmtDate(r.fecha))}</small>${evDetalleHTML(r,true)}</td></tr>`:""})()}`}).join("")||'<tr><td colspan="7"><small class="muted">Sin resultados con ese filtro.</small></td></tr>'}
       </tbody></table></div></details>`}).join("")}
    <p class="note" style="margin:0">Datos en vivo del trabajo de cada estudiante. "Revisar" abre su cuenta de Aula de Conta tal como la ve él.</p>`;
@@ -1046,8 +1061,8 @@ function viewEntregas(){
   return `<div class="head"><div><div class="eyebrow">Panel del profesor</div><h2>Entregas recibidas</h2>
      <p>Pega aquí el código que te envía cada estudiante. La entrega queda guardada en línea, solo visible para ti, y puedes revisarla paso a paso.</p></div>
      <button class="btn ghost" data-act="reloadEntregas">↻ Actualizar</button></div>
-   ${(()=>{const d=APP.empData;if(!d)return "";let t=0,e=0,pr=0;for(const w of d)for(const c of w.companies){if(c.categoria==="tarea"){t++;if(c.entregado)e++}else pr++}
-     return `<div class="pills"><span class="pill ok">✅ <b>${e}/${t}</b> tareas entregadas</span><span class="pill warn">⏳ <b>${t-e}</b> pendientes</span><span class="pill info">🔄 <b>${pr}</b> prácticas</span><span class="pill">🎓 <b>${d.length}</b> estudiantes</span><span class="pill">📥 <b>${(APP.entregas||[]).length}</b> entregas por código</span></div>`})()}
+   ${(()=>{const d=APP.empData;if(!d)return "";let t=0,e=0,pr=0;for(const w of d)for(const c of w.companies){if(unaEntrega(c)){t++;if(c.entregado)e++}else pr++}
+     return `<div class="pills"><span class="pill ok">✅ <b>${e}/${t}</b> trabajos entregados</span><span class="pill warn">⏳ <b>${t-e}</b> pendientes</span><span class="pill info">🔄 <b>${pr}</b> prácticas</span><span class="pill">🎓 <b>${d.length}</b> estudiantes</span><span class="pill">📥 <b>${(APP.entregas||[]).length}</b> entregas por código</span></div>`})()}
    <div class="stack">
     <details class="panel"${APP.modulosOpen!==false?" open":""} id="modulosBox"><summary style="cursor:pointer;font-weight:800;font-family:var(--f-display);font-size:1.05rem">🔓 Módulos habilitados</summary>
      <p class="muted" style="margin:8px 0 12px">Activa o desactiva cada módulo para todos los estudiantes a la vez. Empresas y Catálogo están disponibles siempre.</p>
@@ -1084,7 +1099,7 @@ VIEWS.empresas=()=>{
   const ed=APP.editCo?APP.companies.find(c=>c.id===APP.editCo):null;
   const cards=sortCos(APP.companies).map(c=>{const bloq=tareaBloqueada(c);return `<article class="co ${co()&&c.id===co().id?"on":""}">
     <div><div class="row" style="gap:6px;align-items:center;flex-wrap:wrap"><span class="code">${esc(c.code||"Sin código")}</span><span class="eyebrow">Periodo ${c.period}</span>
-      ${c.categoria==="tarea"?'<span class="chip tG" style="font-size:.7rem">📌 Tarea</span>':'<span class="chip tI" style="font-size:.7rem">🔄 Práctica</span>'}
+      ${chipCat(c.categoria)}
       ${c.entregado?'<span class="chip tC" style="font-size:.7rem">✓ Entregada</span>':""}</div>
       <h3 style="margin-top:6px">${esc(c.name)}</h3><div class="muted" style="font-size:.85rem">Céd. jurídica ${esc(c.cedula||"—")}</div></div>
     <div class="stats"><span><b>${c.accounts.length}</b>cuentas</span><span><b>${c.entries.length}</b>asientos</span><span><b>${esc(c.currency)}</b>moneda</span></div>
@@ -1110,11 +1125,10 @@ VIEWS.empresas=()=>{
         <div class="field"><label for="coCur">Moneda funcional (NIC 21)</label><select id="coCur">${[["₡","₡ Colones"],["$","$ Dólares"],["€","€ Euros"]].map(([v,l])=>`<option value="${v}" ${ed&&ed.currency===v?"selected":""}>${l}</option>`).join("")}</select></div>
         <div class="field"><label for="coPer">Periodo</label><input id="coPer" type="number" value="${ed?ed.period:2026}" min="2000" max="2100"></div>
         <div class="field"><label for="coCat">Tipo de trabajo</label><select id="coCat" ${ed&&tareaBloqueada(ed)?"disabled":""}>
-          <option value="practica" ${(!ed||ed.categoria!=="tarea")?"selected":""}>🔄 Práctica (podés hacer varios ejemplos)</option>
-          <option value="tarea" ${ed&&ed.categoria==="tarea"?"selected":""}>📌 Trabajo cotidiano / Tarea (se entrega una sola vez)</option>
+          ${opcionesCategoria(ed?catDe(ed):"practica")}
         </select></div>
       </div>
-      ${ed&&ed.categoria==="tarea"?'<p class="note" style="margin:0">En cuanto generes el código de entrega para esta tarea, quedará bloqueada y no se podrá volver a editar.</p>':""}
+      ${ed&&unaEntrega(ed)?'<p class="note" style="margin:0">En cuanto generes el código de entrega para este trabajo, quedará bloqueado y no se podrá volver a editar.</p>':""}
       ${ed?"":`<label class="check"><input type="checkbox" id="coBase" checked> Cargar el catálogo de cuentas base NIIF</label>
       <label class="check"><input type="checkbox" id="coSample"> Incluir asientos de ejemplo para practicar</label>`}
       <div class="row"><button class="btn primary" type="submit">${ed?"Guardar cambios":"＋ Crear empresa"}</button>${ed?'<button type="button" class="btn ghost" data-act="cancelEditCo">Cancelar</button>':""}</div>
@@ -1517,12 +1531,12 @@ async function subirPdfPractica(blob,companyId){
 // la solución) y la MISMA empresa, con los mismos datos y el mismo PDF,
 // directo en la cuenta de cada estudiante — así nadie tiene que digitarla
 // a mano ni armar el PDF aparte, y no hay margen de error de copiado.
-async function crearPracticaParaClase({nombreEmpresa,cantidad,seccion,nivel:nivelElegido}){
+async function crearPracticaParaClase({nombreEmpresa,cantidad,seccion,nivel:nivelElegido,categoria="practica"}){
   const nivel=nivelElegido||proximoNivelPractica();
   const colaboradoresBase=generarColaboradoresPractica(cantidad,nivel);
   const anio=new Date().getFullYear();
   const armarEmpresa=(code,pdfUrl)=>({
-    id:uid(),code,name:nombreEmpresa,cedula:"",currency:"₡",period:anio,categoria:"practica",entregado:false,
+    id:uid(),code,name:nombreEmpresa,cedula:"",currency:"₡",period:anio,categoria:normCat(categoria),entregado:false,
     nivelPractica:nivel,pdfInstrucciones:pdfUrl||null,
     accounts:BASE.map(a=>({...a})),entries:[],
     payroll:{params:clone(PL_DEFAULT),employees:colaboradoresBase.map(e=>({...e,id:uid()})),runs:[],evals:[]}
@@ -2058,6 +2072,9 @@ function panelCrearPractica(){
     <p class="muted" style="margin:0">El sistema arma la empresa con colaboradores ya listos (nadie los escribe a mano) y un poco más difícil que la práctica anterior, genera el PDF de instrucciones ya lleno con esos datos, te deja una copia a vos para revisar, y crea automáticamente esa misma empresa — con el mismo PDF — en la cuenta de cada estudiante.</p>
     <form id="formCrearPractica" class="stack" style="gap:8px">
       <label>Nombre de la empresa<input id="ppNombre" required value="Práctica ${nivel}" style="display:block;width:100%;margin-top:4px"></label>
+      <label>Tipo de trabajo
+        <select id="ppCategoria" style="display:block;margin-top:4px">${opcionesCategoria("practica")}</select>
+      </label>
       <label>Complejidad
         <select id="ppNivel" style="display:block;margin-top:4px">
           <option value="0">Automática (nivel ${nivel})</option>
@@ -2862,7 +2879,7 @@ document.addEventListener("click",async e=>{
   if(a==="guardarEntregaGeneral"){const ids=[...document.querySelectorAll(".dsel:checked")].map(x=>x.value);
     if(!ids.length){toast("Marca al menos una empresa");return}
     const sel=APP.companies.filter(x=>ids.includes(x.id)),ahora=new Date().toISOString();
-    for(const x of sel)if(x.categoria==="tarea"&&!x.entregado){x.entregado=true;x.entregadoFecha=ahora;touch(x)}
+    for(const x of sel)if(unaEntrega(x)&&!x.entregado){x.entregado=true;x.entregadoFecha=ahora;touch(x)}
     await flush();
     b.disabled=true;const txt=b.textContent;b.textContent="Guardando…";
     try{
@@ -2976,7 +2993,7 @@ document.addEventListener("click",async e=>{
   if(a==="delPracticaEst"){armDelete(b,async()=>{try{await APP.store.deleteEmpresaEstudiante(b.dataset.est,b.dataset.co);toast("Práctica eliminada");loadEmpData()}catch(err){toast("No se pudo eliminar")}});return}
   if(a==="delPracticaTodos"){armDelete(b,async()=>{try{
     const key=b.dataset.key;let n=0;
-    for(const w of (APP.empData||[])){for(const c of w.companies){if((c.categoria==="tarea"?"t|":"p|")+String(c.name||"").trim().toLowerCase()===key&&c.categoria!=="tarea"){await APP.store.deleteEmpresaEstudiante(w.id,c.id);n++}}}
+    for(const w of (APP.empData||[])){for(const c of w.companies){if(claveGrupo(c)===key&&esPracticaCat(c)){await APP.store.deleteEmpresaEstudiante(w.id,c.id);n++}}}
     toast(n+" práctica(s) eliminada(s)");loadEmpData()}catch(err){toast("No se pudo eliminar")}});return}
   if(a==="delEntrega"){armDelete(b,async()=>{try{await APP.store.deleteEntrega(b.dataset.id);toast("Entrega eliminada");loadEntregas()}catch(err){toast("No se pudo eliminar")}});return}
   /* Edición */
@@ -3035,7 +3052,7 @@ document.addEventListener("submit",async e=>{
     if(!nombre){if(estadoEl)estadoEl.textContent="Ponele un nombre a la empresa.";return}
     if(btn)btn.disabled=true;if(estadoEl)estadoEl.textContent="Creando la empresa y repartiéndola entre los estudiantes…";
     try{
-      const r=await crearPracticaParaClase({nombreEmpresa:nombre,cantidad,seccion,nivel:+val("ppNivel")||0});
+      const r=await crearPracticaParaClase({nombreEmpresa:nombre,cantidad,seccion,nivel:+val("ppNivel")||0,categoria:normCat(val("ppCategoria"))});
       APP.plCrearPracticaAbierto=false;render();
       toast(`Práctica "${nombre}" creada ✓ — ${r.ok} de ${r.total} estudiante(s)`+(r.fallidos.length?`. No se pudo con: ${r.fallidos.join(", ")}`:""));
     }catch(err){
@@ -3065,7 +3082,7 @@ document.addEventListener("submit",async e=>{
     if(APP.companies.some(x=>x.code===code&&x.id!==APP.editCo)){toast("Ya tienes una empresa con el código "+code);return}
     if(APP.editCo){const x=APP.companies.find(y=>y.id===APP.editCo);
       if(tareaBloqueada(x)){toast("Esta tarea ya fue entregada y no se puede editar");APP.editCo=null;render();return}
-      Object.assign(x,{code,name,cedula:val("coCed").trim(),currency:val("coCur"),period:+val("coPer")||x.period,categoria:val("coCat")==="tarea"?"tarea":"practica"});touch(x);APP.editCo=null;render();toast("Datos actualizados");return}
+      Object.assign(x,{code,name,cedula:val("coCed").trim(),currency:val("coCur"),period:+val("coPer")||x.period,categoria:normCat(val("coCat"))});touch(x);APP.editCo=null;render();toast("Datos actualizados");return}
     const n=newCompany({name,code,cedula:val("coCed").trim(),currency:val("coCur"),period:val("coPer")||2026,base:document.getElementById("coBase").checked,sample:document.getElementById("coSample").checked,categoria:val("coCat")});
     APP.companies.push(n);APP.activeId=n.id;APP.view="catalogo";touch(n);resetDraft();render();toast(`Empresa ${code} creada`);
   }
@@ -3131,7 +3148,7 @@ document.addEventListener("input",e=>{const t=e.target;if(!t||!t.dataset||!t.dat
   if(f==="desc")x.descripcion=t.value;else{let c=x.criterios.find(y=>y.puntaje===+p);if(!c){c={puntaje:+p,nivel:"",descripcion:""};x.criterios.push(c)}if(f==="nivel")c.nivel=t.value;else c.descripcion=t.value}});
 document.addEventListener("change",e=>{const t=e.target;if(t&&t.matches&&t.matches("[data-indmat]")){APP.indMat=APP.indMat||{};APP.indMat[t.dataset.key]=t.value;render()}});
 document.addEventListener("submit",e=>{const c=co();if(ventanaBloqueada(c)){e.preventDefault();e.stopImmediatePropagation();toast("⏰ Fuera del horario de la práctica: no se puede guardar ni entregar")}},true);
-setInterval(async()=>{try{if(!APP.me||isTeacher()||APP.comoEstudiante||APP.demo)return;const c=co();if(!c||c.categoria!=="practica")return;
+setInterval(async()=>{try{if(!APP.me||isTeacher()||APP.comoEstudiante||APP.demo)return;const c=co();if(!c||!esPracticaCat(c))return;
   await evRefrescarCfg();const e=ventanaEstado(c),k=e?e.estado:"";if(k!==APP.ventanaKey&&!(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)))render()}catch(err){}},30000);
 
 document.addEventListener("dragover",e=>{const z=e.target.closest&&e.target.closest("#dropZone");if(z){e.preventDefault();z.classList.add("over")}});
