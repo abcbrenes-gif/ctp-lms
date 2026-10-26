@@ -7130,7 +7130,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
         // automática por porcentaje de aciertos): no tiene sentido pedirle al
         // profesor que le escriba criterios de evaluación con niveles de
         // desempeño, así que ese bloque no aplica a este tipo de indicador.
-        const esPruebaAuto = trabajoPorIndicador[ind.id] && trabajoPorIndicador[ind.id].tipo_actividad === "prueba";
+        const esPruebaAuto = trabajoPorIndicador[ind.id] && trabajoPorIndicador[ind.id].tipo_actividad === "prueba" && catNombre !== "Proyectos";
         return `
         <div class="roster-row" style="flex-direction:column; align-items:stretch; gap:0.4rem;">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.6rem;">
@@ -7161,6 +7161,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
               ${botonGenerarSeleccionProyecto(ind)}
               ${botonVerEntregasProyectoIndicador(ind)}
               ${linkTrabajo(ind)}
+              <button class="btn secondary small" data-editar-ind="${ind.id}" type="button">✏️ Editar</button>
               <button class="btn danger small" data-del-indicador="${ind.id}">Eliminar</button>
             </span>
           </div>
@@ -7168,6 +7169,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
           ${trabajoPorIndicador[ind.id] && TIPOS_CON_RETRO.includes(trabajoPorIndicador[ind.id].tipo_actividad) ? `<div data-retro-ind-panel="${trabajoPorIndicador[ind.id].id}"></div>` : ""}
           ${trabajoPorIndicador[ind.id] && TIPOS_CON_RETRO.includes(trabajoPorIndicador[ind.id].tipo_actividad) ? `<div data-diagnostico-ind-panel="${trabajoPorIndicador[ind.id].id}"></div>` : ""}
           ${trabajoPorIndicador[ind.id] && trabajoPorIndicador[ind.id].tipo_actividad === "prueba" ? `<div data-puntos-ind-panel="${trabajoPorIndicador[ind.id].id}" data-indicador-para-puntos="${ind.id}"></div>` : ""}
+          <div data-editar-ind-panel="${ind.id}"></div>
           ${!trabajoPorIndicador[ind.id] ? `<div data-pedir-archivo-panel="${ind.id}"></div>` : ""}
           ${!trabajoPorIndicador[ind.id] ? `<div data-pedir-proyecto-panel="${ind.id}"></div>` : ""}
           ${!trabajoPorIndicador[ind.id] && catNombre === "Proyectos" ? `<div data-generar-su-panel="${ind.id}"></div>` : ""}
@@ -7252,6 +7254,71 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       await sb.from("indicadores").update({ letra, orden: i + 1 }).eq("id", ordenados[i].id);
     }
     cargarIndicadoresDeMateria(materiaId, catNombre);
+  });
+  // ✏️ Editar un indicador ya creado: descripción, fecha y criterios de cada
+  // nivel. No toca las notas ya puestas ni el trabajo vinculado (entrega o
+  // prueba); el puntaje máximo no se cambia aquí para no descuadrar notas.
+  holder.querySelectorAll("[data-editar-ind]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const indicadorId = btn.dataset.editarInd;
+      const panel = holder.querySelector(`[data-editar-ind-panel="${indicadorId}"]`);
+      if (!panel) return;
+      if (panel.innerHTML.trim()) { panel.innerHTML = ""; return; }
+      const ind = (indicadores || []).find(i => String(i.id) === String(indicadorId));
+      if (!ind) return;
+      const escA = (v) => String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      const max = Number(ind.puntaje_maximo) || 3;
+      const crit = {};
+      (ind.criterios_indicador || []).forEach(c => { crit[c.puntaje] = c; });
+      const nivelDefecto = (p) => p === 0 ? NIVEL_CERO_NOMBRE : (max === 3 ? ["", "No logrado", "En proceso", "Logrado"][p] : "");
+      const descDefecto = (p) => p === 0 ? NIVEL_CERO_DESCRIPCION : "";
+      panel.innerHTML = `
+        <div style="background:var(--surface-soft); border-radius:8px; padding:0.8rem; margin-top:0.4rem;">
+          <label style="display:block; font-size:0.82rem; margin-bottom:0.5rem;">Descripción del indicador
+            <textarea data-ed-desc rows="2" style="width:100%; font-family:inherit; margin-top:0.2rem;">${escA(String(ind.descripcion || "").replace(/<[^>]*>/g, ""))}</textarea>
+          </label>
+          <label style="display:inline-block; font-size:0.82rem; margin-bottom:0.6rem;">Fecha de evaluación
+            <input data-ed-fecha type="date" value="${escA(ind.fecha_evaluacion || "")}" style="display:block; margin-top:0.2rem;" />
+          </label>
+          <p style="font-size:0.82rem; font-weight:600; margin:0.2rem 0 0.4rem;">Criterios por nivel (puntaje máximo: ${max})</p>
+          ${Array.from({ length: max + 1 }, (_, p) => `
+            <div style="display:flex; gap:0.4rem; align-items:flex-start; margin-bottom:0.4rem; flex-wrap:wrap;">
+              <span style="width:4.5rem; font-size:0.82rem; padding-top:0.4rem;">${p} punto${p === 1 ? "" : "s"}</span>
+              <input data-ed-nivel="${p}" value="${escA(crit[p] ? (crit[p].nivel || "") : nivelDefecto(p))}" placeholder="Nivel" style="width:9rem;" />
+              <textarea data-ed-crit="${p}" rows="2" placeholder="Criterio para ${p} punto${p === 1 ? "" : "s"}" style="flex:1; min-width:14rem; font-family:inherit;">${escA(crit[p] ? crit[p].descripcion : descDefecto(p))}</textarea>
+            </div>`).join("")}
+          <div class="row" style="gap:0.5rem; margin-top:0.4rem;">
+            <button class="btn small" data-ed-guardar type="button">💾 Guardar cambios</button>
+            <button class="btn secondary small" data-ed-cancelar type="button">Cancelar</button>
+            <span data-ed-estado style="font-size:0.78rem; color:var(--text-muted);"></span>
+          </div>
+          <p style="font-size:0.75rem; color:var(--text-muted); margin:0.4rem 0 0;">Las notas que ya pusiste en este indicador no cambian.</p>
+        </div>`;
+      panel.querySelector("[data-ed-cancelar]").addEventListener("click", () => { panel.innerHTML = ""; });
+      panel.querySelector("[data-ed-guardar]").addEventListener("click", async (ev) => {
+        const estado = panel.querySelector("[data-ed-estado]");
+        const descripcion = panel.querySelector("[data-ed-desc]").value.trim();
+        if (!descripcion) { alert("La descripción no puede quedar vacía."); return; }
+        const fecha = panel.querySelector("[data-ed-fecha]").value || null;
+        const nuevos = [];
+        for (let p = 0; p <= max; p++) {
+          const d = panel.querySelector(`[data-ed-crit="${p}"]`).value.trim();
+          const n = panel.querySelector(`[data-ed-nivel="${p}"]`).value.trim();
+          if (d) nuevos.push({ indicador_id: Number(indicadorId), puntaje: p, nivel: n || null, descripcion: d, orden: p });
+        }
+        ev.target.disabled = true;
+        estado.textContent = "Guardando…";
+        const { error: e1 } = await sb.from("indicadores").update({ descripcion, fecha_evaluacion: fecha }).eq("id", indicadorId);
+        if (e1) { estado.textContent = "No se pudo guardar: " + e1.message; ev.target.disabled = false; return; }
+        const { error: e2 } = await sb.from("criterios_indicador").delete().eq("indicador_id", indicadorId);
+        if (e2) { estado.textContent = "No se pudieron actualizar los criterios: " + e2.message; ev.target.disabled = false; return; }
+        if (nuevos.length) {
+          const { error: e3 } = await sb.from("criterios_indicador").insert(nuevos);
+          if (e3) { estado.textContent = "No se pudieron guardar los criterios: " + e3.message; ev.target.disabled = false; return; }
+        }
+        cargarIndicadoresDeMateria(materiaId, catNombre);
+      });
+    });
   });
   holder.querySelectorAll("[data-del-indicador]").forEach(btn => {
     btn.addEventListener("click", async () => {
