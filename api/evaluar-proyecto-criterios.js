@@ -177,8 +177,8 @@ Devolvé ÚNICAMENTE un JSON válido, sin texto antes ni después, con esta form
 {"indicadores": [{"letra": "A", "puntaje": 2, "nivel": "En proceso", "justificacion": "...", "evidencia": "cita o aspecto concreto del trabajo", "mejora": "qué le faltó para el máximo"}, ...], "comentario": "..."}
 - "puntaje": entero entre 0 y el puntaje máximo del criterio.
 - "nivel": el nombre del nivel de desempeño de la rúbrica que corresponde a ese puntaje.
-- "justificacion": 1 a 3 oraciones explicando por qué se asignó ese puntaje.
-- "evidencia": fragmento textual breve o aspecto concreto del trabajo que respalda el puntaje.
+- "justificacion": 1 o 2 oraciones explicando por qué se asignó ese puntaje.
+- "evidencia": fragmento textual breve (máximo 25 palabras) o aspecto concreto del trabajo que respalda el puntaje.
 - "mejora": qué le faltó para el puntaje máximo; cadena vacía si obtuvo el máximo.
 - "comentario": retroalimentación general para el estudiante (2 a 4 oraciones, en segunda persona y en español de Costa Rica).`;
 
@@ -196,7 +196,7 @@ Devolvé ÚNICAMENTE un JSON válido, sin texto antes ni después, con esta form
       },
       body: JSON.stringify({
         model: "claude-sonnet-5-5",
-        max_tokens: 4000,
+        max_tokens: 8000,
         messages: [{ role: "user", content: contenidoMensaje }]
       })
     });
@@ -228,7 +228,7 @@ Devolvé ÚNICAMENTE un JSON válido, sin texto antes ni después, con esta form
           headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
           body: JSON.stringify({
             model: "claude-sonnet-5-5",
-            max_tokens: 4000,
+            max_tokens: 8000,
             messages: [{ role: "user", content: "El siguiente texto debía ser un JSON válido pero tiene errores de formato (por ejemplo comillas dobles sin escapar dentro de los textos). Devolvé ÚNICAMENTE el mismo contenido como JSON válido, sin cambiar puntajes ni redacción; reemplazá las comillas dobles internas por «». Texto:\n\n" + texto }]
           })
         });
@@ -255,6 +255,11 @@ Devolvé ÚNICAMENTE un JSON válido, sin texto antes ni después, con esta form
           mejora: String(x.mejora || "").trim()
         };
       });
+    if (resultado.length < indicadores.length) {
+      const faltan = indicadores.map(i => i.letra).filter(l => !resultado.some(x => x.letra === l));
+      res.status(503).json({ error: `La IA devolvió una evaluación incompleta (faltan los criterios ${faltan.join(", ")}); se reintenta.`, reintentar: true });
+      return;
+    }
     res.status(200).json({ contenido: { indicadores: resultado, comentario: String(contenido.comentario || "").trim() } });
   } catch (err) {
     res.status(500).json({ error: "No se pudo conectar con la IA: " + (err && err.message ? err.message : String(err)) });
