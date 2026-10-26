@@ -8021,9 +8021,26 @@ async function pintarProyectoIntegral(holder, materiaId, catNombre, indicadores,
       .map(sel => ({ indicador_id: Number(sel.dataset.ind), estudiante_id: sel.dataset.est, puntaje_obtenido: Number(sel.value) }));
     if (!filas.length) { estado.textContent = "No hay cambios para guardar."; return; }
     btnGuardarNotas.disabled = true;
-    const { error } = await sb.from("calificaciones_indicador").upsert(filas, { onConflict: "indicador_id,estudiante_id" });
+    // Si la conexión con la base de datos falla un momento ("Failed to
+    // fetch"), se reintenta sola unas veces antes de dar error; las notas
+    // siguen en pantalla (en rojo) para volver a tocar Guardar.
+    let error = null;
+    for (let intento = 1; intento <= 4; intento++) {
+      try {
+        ({ error } = await sb.from("calificaciones_indicador").upsert(filas, { onConflict: "indicador_id,estudiante_id" }));
+      } catch (err) { error = err; }
+      const esDeConexion = error && /fetch|network|timeout|conex/i.test(String(error.message || error));
+      if (!esDeConexion) break;
+      if (intento < 4) { estado.textContent = `Sin conexión con la base de datos, reintento ${intento} de 3…`; await new Promise(r => setTimeout(r, 4000)); }
+    }
     btnGuardarNotas.disabled = false;
-    if (error) { estado.textContent = "No se pudieron guardar: " + error.message; return; }
+    if (error) {
+      const msg = String(error.message || error);
+      estado.textContent = /fetch|network/i.test(msg)
+        ? "No se pudo conectar con la base de datos. Las notas siguen en pantalla: esperá un minuto y tocá «Guardar notas» de nuevo (no recargues la página)."
+        : "No se pudieron guardar: " + msg;
+      return;
+    }
     cont.querySelectorAll("[data-pi-nota][data-cambio='1']").forEach(sel => { delete sel.dataset.cambio; sel.style.outline = ""; });
     filas.forEach(f => { nota[`${f.estudiante_id}-${f.indicador_id}`] = f.puntaje_obtenido; });
     estado.textContent = `✓ ${filas.length} nota${filas.length === 1 ? "" : "s"} guardada${filas.length === 1 ? "" : "s"} en Rúbrica y Evaluaciones.`;
