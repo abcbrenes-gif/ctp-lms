@@ -7816,31 +7816,48 @@ async function pintarProyectoIntegral(holder, materiaId, catNombre, indicadores,
     criterios: (i.criterios_indicador || []).map(c => ({ puntaje: c.puntaje, nivel: c.nivel || "", descripcion: quitarHtml(c.descripcion) }))
   }));
 
-  async function evaluarEstudiante(estId) {
+  // Muestra (o borra) el motivo por el que no se pudo evaluar a un estudiante,
+  // en su propia fila, para saber qué hacer con cada uno.
+  function mostrarErrorFila(estId, mensaje) {
+    const filaJ = cont.querySelector(`[data-pi-justif="${estId}"]`);
+    if (!filaJ) return;
+    filaJ.style.display = mensaje ? "" : "none";
+    filaJ.firstElementChild.innerHTML = mensaje ? `<span style="color:var(--brick);">⚠️ No se pudo evaluar: ${esc(mensaje)}</span>` : "";
+  }
+  const esperar = (ms) => new Promise(r => setTimeout(r, ms));
+
+  async function evaluarEstudiante(estId, alAvisar) {
     const e = ultimaPorEst[estId];
     if (!e || !e.archivo_ruta) throw new Error("No tiene un archivo entregado.");
     const { data: pub } = sb.storage.from("materiales").getPublicUrl(e.archivo_ruta);
-    const respuestaArchivo = await fetch(pub.publicUrl);
-    if (!respuestaArchivo.ok) throw new Error("No se pudo descargar el documento.");
-    const blob = await respuestaArchivo.blob();
-    const datosBase64 = await new Promise((resolve, reject) => {
-      const lector = new FileReader();
-      lector.onload = () => resolve(String(lector.result).split(",")[1] || "");
-      lector.onerror = () => reject(new Error("No se pudo leer el documento."));
-      lector.readAsDataURL(blob);
-    });
-    const r = await fetch("/api/evaluar-proyecto-criterios", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        instrucciones: (trabajoEntrega.contenido_actividad || {}).instrucciones || "",
-        titulo: e.titulo, descripcion: e.descripcion,
-        indicadores: indicadoresParaIA,
-        archivo: { mimeType: inferirMime(e.archivo_nombre, blob.type), datosBase64, nombre: e.archivo_nombre }
-      })
-    });
-    const { datos, error } = await leerRespuestaIA(r);
-    if (!datos || !r.ok) throw new Error(error || (datos && datos.error) || "error desconocido");
+    // Solo se pide el tipo del archivo (no se descarga): la IA lo lee directo
+    // desde el enlace, así no importa cuánto pese.
+    let tipo = "";
+    try { const h = await fetch(pub.publicUrl, { method: "HEAD" }); tipo = h.headers.get("content-type") || ""; } catch { tipo = ""; }
+    const mimeType = inferirMime(e.archivo_nombre, tipo.split(";")[0].trim());
+    let r, datos, error;
+    for (let intento = 1; intento <= 4; intento++) {
+      r = await fetch("/api/evaluar-proyecto-criterios", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          instrucciones: (trabajoEntrega.contenido_actividad || {}).instrucciones || "",
+          titulo: e.titulo, descripcion: e.descripcion,
+          indicadores: indicadoresParaIA,
+          archivo: { mimeType, url: pub.publicUrl, nombre: e.archivo_nombre }
+        })
+      });
+      ({ datos, error } = await leerRespuestaIA(r));
+      const temporal = r.status === 503 || r.status === 429 || r.status === 504;
+      if (!temporal || intento === 4) break;
+      if (alAvisar) alAvisar(`la IA está ocupada, reintento ${intento} de 3 en 20 segundos…`);
+      await esperar(20000);
+    }
+    if (!datos || !r.ok) {
+      const msg = error || (datos && datos.error) || (r.status === 504 ? "La IA tardó demasiado en leer el documento (es muy largo o pesado)." : "error desconocido");
+      throw new Error(msg);
+    }
+    mostrarErrorFila(estId, "");
     const res = datos.contenido || {};
     (res.indicadores || []).forEach(x => {
       const sel = cont.querySelector(`[data-pi-nota][data-est="${estId}"][data-letra="${CSS.escape(String(x.letra))}"]`);
@@ -7932,8 +7949,8 @@ async function pintarProyectoIntegral(holder, materiaId, catNombre, indicadores,
   cont.querySelectorAll("[data-pi-evaluar]").forEach(btn => btn.addEventListener("click", async () => {
     const estado = cont.querySelector("[data-pi-estado3]");
     btn.disabled = true; btn.textContent = "Evaluando…";
-    try { await evaluarEstudiante(btn.dataset.piEvaluar); estado.textContent = "✓ Propuesta lista. Revisala y guardá."; }
-    catch (err) { estado.textContent = "No se pudo evaluar: " + (err.message || err); }
+    try { await evaluarEstudiante(btn.dataset.piEvaluar, (m) => { estado.textContent = "Evaluando: " + m; }); estado.textContent = "✓ Propuesta lista. Revisala y guardá."; }
+    catch (err) { estado.textContent = "No se pudo evaluar (el motivo está debajo de su fila)."; mostrarErrorFila(btn.dataset.piEvaluar, err.message || String(err)); }
     finally { btn.disabled = false; btn.textContent = "🤖 Evaluar"; }
   }));
 
@@ -7946,10 +7963,15 @@ async function pintarProyectoIntegral(holder, materiaId, catNombre, indicadores,
     let ok = 0, fallos = 0;
     for (let k = 0; k < pendientes.length; k++) {
       estado.textContent = `Evaluando ${k + 1} de ${pendientes.length}: ${nombre(pendientes[k])}…`;
-      try { await evaluarEstudiante(pendientes[k].id); ok++; } catch { fallos++; }
+      const nom = nombre(pendientes[k]);
+      try {
+        await evaluarEstudiante(pendientes[k].id, (m) => { estado.textContent = `Evaluando ${k + 1} de ${pendientes.length}: ${nom} — ${m}`; });
+        ok++;
+      } catch (err) { fallos++; mostrarErrorFila(pendientes[k].id, err.message || String(err)); }
+      if (k < pendientes.length - 1) await esperar(3000); // pausa corta para no saturar la IA
     }
     btnEvaluarTodos.disabled = false;
-    estado.textContent = `✓ ${ok} propuesta${ok === 1 ? "" : "s"} lista${ok === 1 ? "" : "s"}${fallos ? ` · ${fallos} no se pudieron evaluar (revisá su archivo)` : ""}. Revisalas y tocá «Guardar notas».`;
+    estado.textContent = `✓ ${ok} propuesta${ok === 1 ? "" : "s"} lista${ok === 1 ? "" : "s"}${fallos ? ` · ${fallos} no se pudieron evaluar (el motivo está debajo de cada fila)` : ""}. Revisalas y tocá «Guardar notas».`;
   });
 
   const btnGuardarNotas = cont.querySelector("[data-pi-guardar-notas]");

@@ -78,21 +78,41 @@ module.exports = async (req, res) => {
     return;
   }
 
-  const archivo = body.archivo;
-  if (!archivo || !archivo.datosBase64) {
+  // El archivo llega de una de dos formas:
+  //  - archivo.url: enlace público del documento en el almacenamiento de la
+  //    plataforma (Supabase). Es lo normal: así no hay límite de tamaño en el
+  //    envío (Vercel corta los cuerpos de más de ~4,5 MB) — la IA lee el PDF o
+  //    la imagen directo desde el enlace, y un Word se descarga acá.
+  //  - archivo.datosBase64: el archivo completo (respaldo, solo archivos chicos).
+  const archivo = body.archivo || {};
+  const PREFIJO_ALMACENAMIENTO = "https://dyulfowcvvmdmwbjhubq.supabase.co/storage/v1/object/public/";
+  const url = String(archivo.url || "");
+  if (url && !url.startsWith(PREFIJO_ALMACENAMIENTO)) {
+    res.status(400).json({ error: "El enlace del archivo no es del almacenamiento de la plataforma." });
+    return;
+  }
+  if (!url && !archivo.datosBase64) {
     res.status(400).json({ error: "Falta el archivo de la entrega." });
     return;
   }
   const mimeType = String(archivo.mimeType || "");
-  const datosBase64 = String(archivo.datosBase64 || "");
+  let datosBase64 = String(archivo.datosBase64 || "");
   const nombreArchivo = String(archivo.nombre || "").trim();
 
   let bloqueArchivo = null;
   let textoExtraidoDocx = "";
   if (TIPOS_ARCHIVO_DOCX[mimeType]) {
     try {
+      let buffer;
+      if (url) {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error("no se pudo descargar el documento (" + r.status + ")");
+        buffer = Buffer.from(await r.arrayBuffer());
+      } else {
+        buffer = Buffer.from(datosBase64, "base64");
+      }
       const mammoth = require("mammoth");
-      const resultado = await mammoth.extractRawText({ buffer: Buffer.from(datosBase64, "base64") });
+      const resultado = await mammoth.extractRawText({ buffer });
       textoExtraidoDocx = String(resultado.value || "").trim().slice(0, 40000);
     } catch (err) {
       res.status(400).json({ error: "No se pudo leer el archivo Word: " + (err && err.message ? err.message : String(err)) });
@@ -101,14 +121,19 @@ module.exports = async (req, res) => {
   } else {
     const tipoBloque = TIPOS_ARCHIVO_PERMITIDOS[mimeType];
     if (!tipoBloque) {
-      res.status(400).json({ error: "Solo se pueden evaluar archivos PDF, Word (.docx) o imágenes (PNG, JPG, GIF, WEBP)." });
+      const ext = (nombreArchivo.split(".").pop() || "").toLowerCase();
+      res.status(400).json({ error: `La IA no puede leer este tipo de archivo${ext && ext !== nombreArchivo.toLowerCase() ? ` (.${ext})` : ""}. Solo PDF, Word (.docx) o imágenes: pedile al estudiante que lo vuelva a subir en PDF o Word.` });
       return;
     }
-    if (datosBase64.length > 4_000_000) {
-      res.status(400).json({ error: "El archivo pesa demasiado para evaluarlo con IA." });
-      return;
+    if (url) {
+      bloqueArchivo = { type: tipoBloque, source: { type: "url", url } };
+    } else {
+      if (datosBase64.length > 4_000_000) {
+        res.status(400).json({ error: "El archivo pesa demasiado para evaluarlo con IA." });
+        return;
+      }
+      bloqueArchivo = { type: tipoBloque, source: { type: "base64", media_type: mimeType, data: datosBase64 } };
     }
-    bloqueArchivo = { type: tipoBloque, source: { type: "base64", media_type: mimeType, data: datosBase64 } };
   }
 
   const listaIndicadores = indicadores.map(i => {
@@ -177,7 +202,17 @@ Devolvé ÚNICAMENTE un JSON válido, sin texto antes ni después, con esta form
     });
     const datos = await respuesta.json();
     if (!respuesta.ok) {
-      res.status(502).json({ error: (datos && datos.error && datos.error.message) || "Error al evaluar con la IA." });
+      const mensaje = (datos && datos.error && datos.error.message) || "Error al evaluar con la IA.";
+      // 429 (límite de velocidad) y 529 (IA saturada) son temporales: el
+      // navegador reintenta solo cuando recibe 503.
+      if (respuesta.status === 429 || respuesta.status === 529 || respuesta.status >= 500) {
+        res.status(503).json({ error: "La IA está ocupada en este momento; se reintenta en unos segundos. (" + mensaje + ")", reintentar: true });
+        return;
+      }
+      let detalle = mensaje;
+      if (/page|páginas|pages/i.test(mensaje) && /100/.test(mensaje)) detalle = "El PDF tiene más de 100 páginas; la IA no puede leerlo completo.";
+      else if (/too large|size|exceed/i.test(mensaje)) detalle = "El documento es demasiado grande para la IA (" + mensaje + "). Pedile al estudiante una versión más liviana.";
+      res.status(502).json({ error: detalle });
       return;
     }
     const texto = (datos.content || []).map(b => b.text || "").join("").trim();
