@@ -7715,7 +7715,7 @@ async function pintarProyectoIntegral(holder, materiaId, catNombre, indicadores,
   // 3. Evaluación según criterios
   const opciones = (max, actual) => `<option value="">—</option>` + Array.from({ length: max + 1 }, (_, p) => `<option value="${p}" ${actual !== undefined && actual !== null && Number(actual) === p ? "selected" : ""}>${p}</option>`).join("");
   const tarjeta3 = indEvaluables.length ? `
-    <p style="font-size:0.85rem; margin:0 0 0.5rem;">La IA lee el documento de cada estudiante y propone el puntaje de cada indicador (${indEvaluables.map(i => esc(i.letra)).join(", ")}) según sus criterios. Revisá, cambiá lo que no te convenza y tocá <strong>Guardar notas</strong>: nada se guarda solo.</p>
+    <p style="font-size:0.85rem; margin:0 0 0.5rem;">La IA actúa como evaluador riguroso: lee el documento de cada estudiante y lo califica solo con la rúbrica de los indicadores ${indEvaluables.map(i => esc(i.letra)).join(", ")} y con lo que está escrito en el trabajo. Para cada estudiante arma un dictamen con tabla resumen, justificación y oportunidad de mejora por criterio, y nota final. Revisá, cambiá lo que no te convenza y tocá <strong>Guardar notas</strong>: nada se guarda solo.</p>
     <div class="row" style="gap:0.5rem; flex-wrap:wrap; align-items:center; margin-bottom:0.5rem;">
       ${trabajoEntrega ? `<button class="btn small" data-pi-evaluar-todos type="button">🤖 Evaluar con IA a quienes entregaron y no tienen nota</button>` : ""}
       <button class="btn secondary small" data-pi-guardar-notas type="button">💾 Guardar notas</button>
@@ -7849,8 +7849,84 @@ async function pintarProyectoIntegral(holder, materiaId, catNombre, indicadores,
     const filaJ = cont.querySelector(`[data-pi-justif="${estId}"]`);
     if (filaJ) {
       filaJ.style.display = "";
-      filaJ.firstElementChild.innerHTML = `${(res.indicadores || []).map(x => `<div><strong>${esc(x.letra)} (${esc(x.puntaje)}):</strong> ${esc(x.justificacion)}</div>`).join("")}${res.comentario ? `<div style="margin-top:0.3rem;"><em>Comentario general:</em> ${esc(res.comentario)}</div>` : ""}<div style="margin-top:0.3rem; color:var(--brick);">Propuesta de la IA — revisala y tocá «Guardar notas».</div>`;
+      filaJ.firstElementChild.innerHTML = dictamenHTML(estId, res);
+      const btnCopiar = filaJ.querySelector("[data-pi-copiar]");
+      if (btnCopiar) btnCopiar.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(dictamenTexto(estId, res)); btnCopiar.textContent = "✓ Copiado"; }
+        catch { btnCopiar.textContent = "No se pudo copiar"; }
+      });
     }
+  }
+
+  // Dictamen con el formato del profesor: tabla resumen, justificación
+  // detallada por criterio (con evidencia y oportunidad de mejora) y nota final.
+  const porLetra = {};
+  indEvaluables.forEach(i => { porLetra[i.letra] = i; });
+  const nivelDe = (x) => {
+    if (x.nivel) return x.nivel;
+    const i = porLetra[x.letra];
+    const c = i && (i.criterios_indicador || []).find(cc => Number(cc.puntaje) === Number(x.puntaje));
+    return c && c.nivel ? c.nivel : "";
+  };
+  const totales = (res) => {
+    const lista = res.indicadores || [];
+    const obtenido = lista.reduce((a, x) => a + (Number(x.puntaje) || 0), 0);
+    const maximo = indEvaluables.reduce((a, i) => a + (Number(i.puntaje_maximo) || 3), 0);
+    return { obtenido, maximo, pct: maximo ? Math.round((obtenido / maximo) * 1000) / 10 : 0 };
+  };
+  function dictamenHTML(estId, res) {
+    const s = listaEst.find(x => x.id === estId);
+    const lista = res.indicadores || [];
+    const t = totales(res);
+    return `
+      <div style="padding:0.4rem 0.2rem;">
+        <p style="margin:0 0 0.4rem;"><strong>Dictamen de evaluación${s ? ` · ${esc(nombre(s))}` : ""}</strong> <span style="color:var(--brick);">(propuesta de la IA: revisala y tocá «Guardar notas»)</span></p>
+        <p style="margin:0 0 0.2rem; font-weight:600;">1. Tabla resumen</p>
+        <table class="grades" style="width:100%; font-size:0.8rem; margin-bottom:0.6rem;">
+          <thead><tr><th>Criterio</th><th>Puntaje máximo</th><th>Puntaje obtenido</th><th>Nivel alcanzado</th></tr></thead>
+          <tbody>${lista.map(x => `<tr><td>${esc(x.letra)}: ${esc(quitarHtml(porLetra[x.letra] ? porLetra[x.letra].descripcion : ""))}</td><td>${esc(porLetra[x.letra] ? porLetra[x.letra].puntaje_maximo : 3)}</td><td>${esc(x.puntaje)}</td><td>${esc(nivelDe(x))}</td></tr>`).join("")}
+            <tr><td><strong>Total</strong></td><td><strong>${t.maximo}</strong></td><td><strong>${t.obtenido}</strong></td><td><strong>${t.pct} %</strong></td></tr></tbody>
+        </table>
+        <p style="margin:0 0 0.2rem; font-weight:600;">2. Justificación detallada por criterio</p>
+        ${lista.map(x => `
+          <div style="margin:0 0 0.5rem 0.4rem;">
+            <div><strong>Criterio ${esc(x.letra)}</strong> — ${esc(x.puntaje)} / ${esc(porLetra[x.letra] ? porLetra[x.letra].puntaje_maximo : 3)}${nivelDe(x) ? ` (${esc(nivelDe(x))})` : ""}</div>
+            <div><em>Justificación:</em> ${esc(x.justificacion)}</div>
+            ${x.evidencia ? `<div><em>Evidencia del trabajo:</em> ${esc(x.evidencia)}</div>` : ""}
+            ${x.mejora ? `<div><em>Oportunidad de mejora:</em> ${esc(x.mejora)}</div>` : ""}
+          </div>`).join("")}
+        <p style="margin:0.3rem 0 0.2rem; font-weight:600;">3. Dictamen y nota final</p>
+        <div>Puntos obtenidos: <strong>${t.obtenido} de ${t.maximo}</strong> (${t.pct} % de los criterios ${indEvaluables.map(i => esc(i.letra)).join(", ")}).</div>
+        ${res.comentario ? `<div><em>Retroalimentación para el estudiante:</em> ${esc(res.comentario)}</div>` : ""}
+        <button class="btn secondary small" data-pi-copiar type="button" style="margin-top:0.4rem;">📋 Copiar dictamen</button>
+      </div>`;
+  }
+  function dictamenTexto(estId, res) {
+    const s = listaEst.find(x => x.id === estId);
+    const lista = res.indicadores || [];
+    const t = totales(res);
+    const max = (x) => porLetra[x.letra] ? porLetra[x.letra].puntaje_maximo : 3;
+    return [
+      `DICTAMEN DE EVALUACIÓN${s ? " – " + nombre(s) : ""}`,
+      "",
+      "1. TABLA RESUMEN",
+      "Criterio | Puntaje máximo | Puntaje obtenido | Nivel alcanzado",
+      ...lista.map(x => `${x.letra}: ${quitarHtml(porLetra[x.letra] ? porLetra[x.letra].descripcion : "")} | ${max(x)} | ${x.puntaje} | ${nivelDe(x)}`),
+      `Total | ${t.maximo} | ${t.obtenido} | ${t.pct} %`,
+      "",
+      "2. JUSTIFICACIÓN DETALLADA POR CRITERIO",
+      ...lista.flatMap(x => [
+        `Criterio ${x.letra}: ${quitarHtml(porLetra[x.letra] ? porLetra[x.letra].descripcion : "")}`,
+        `  Puntaje asignado: ${x.puntaje} / ${max(x)}`,
+        `  Justificación: ${x.justificacion}`,
+        ...(x.evidencia ? [`  Evidencia: ${x.evidencia}`] : []),
+        ...(x.mejora ? [`  Oportunidad de mejora: ${x.mejora}`] : [])
+      ]),
+      "",
+      "3. DICTAMEN Y NOTA FINAL",
+      `Puntos obtenidos: ${t.obtenido} de ${t.maximo} (${t.pct} %).`,
+      ...(res.comentario ? [`Retroalimentación: ${res.comentario}`] : [])
+    ].join("\n");
   }
 
   cont.querySelectorAll("[data-pi-evaluar]").forEach(btn => btn.addEventListener("click", async () => {

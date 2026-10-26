@@ -119,27 +119,43 @@ module.exports = async (req, res) => {
     return `${i.letra}) ${i.descripcion} — puntaje máximo ${i.maximo}\n${crit || "   (sin criterios detallados)"}`;
   }).join("\n\n");
 
-  const prompt = `Sos un asistente que ayuda a un profesor de Contabilidad de un colegio técnico (CTP) en Costa Rica a evaluar el proyecto de un estudiante. El proyecto se entrega en UN solo documento y se evalúa de forma integral: el mismo documento se califica con cada uno de los indicadores de abajo.
+  // Prompt con el formato del profesor: evaluador académico riguroso que
+  // califica EXCLUSIVAMENTE con la rúbrica y solo con evidencias escritas en
+  // el trabajo, cita fragmentos, da oportunidad de mejora por criterio y un
+  // dictamen final con la suma de puntos.
+  const prompt = `[ROL Y OBJETIVO]
+Actuá como un evaluador académico experto y riguroso de la especialidad de Contabilidad de un colegio técnico (CTP) en Costa Rica. Tu tarea es analizar el documento adjunto del estudiante y calificarlo de forma objetiva utilizando EXCLUSIVAMENTE los criterios establecidos en la RÚBRICA DE EVALUACIÓN. El proyecto se entrega en un solo documento y se evalúa de forma integral: el mismo documento se califica con cada criterio de la rúbrica.
 
-Instrucciones que el profesor le dio a los estudiantes: ${instrucciones || "(no se especificaron)"}
+[INSTRUCCIONES QUE RECIBIÓ EL ESTUDIANTE]
+${instrucciones || "(no se especificaron)"}
 
-Indicadores y criterios de evaluación (niveles de desempeño del MEP):
+[RÚBRICA DE EVALUACIÓN]
+"""
 ${listaIndicadores}
+"""
 
-El estudiante entregó:
+[REGLAS DE EVALUACIÓN]
+1. Basate estricta y únicamente en las evidencias visibles dentro del trabajo entregado. No asumas ni infieras información que no esté escrita.
+2. Compará el contenido de cada sección del trabajo contra cada criterio de la rúbrica.
+3. Asigná el puntaje exacto de la escala cuyo nivel describa mejor el desempeño en cada criterio. Usá 0 solo si el trabajo no trata ese criterio en absoluto.
+4. Justificá cada calificación citando fragmentos textuales breves o aspectos concretos del trabajo analizado (entre comillas cuando sea una cita).
+5. Indicá qué le faltó para alcanzar el puntaje máximo en cada criterio (si ya tiene el máximo, dejalo vacío).
+6. Si el documento no se puede leer, está en blanco o no corresponde al proyecto, asigná puntajes bajos y decilo en las justificaciones.
+
+[TRABAJO A EVALUAR]
 - Título: ${titulo || "(sin título)"}
 - Descripción: ${descripcion || "(sin descripción)"}
-- Archivo${nombreArchivo ? ` (${nombreArchivo})` : ""}: ${bloqueArchivo ? "ver adjunto" : (textoExtraidoDocx ? "ver texto extraído abajo" : "no se pudo leer")}
+- Documento${nombreArchivo ? ` (${nombreArchivo})` : ""}: ${bloqueArchivo ? "ver adjunto" : (textoExtraidoDocx ? "ver texto extraído abajo" : "no se pudo leer")}
 
-Tu tarea: leé el documento completo y, para CADA indicador, elegí el nivel cuyo criterio describe mejor lo que el documento realmente contiene, y justificalo en 1 o 2 oraciones citando qué encontraste o qué falta.
-
-Reglas:
-- Devolvé ÚNICAMENTE un JSON válido, sin texto antes ni después, con esta forma exacta:
-  {"indicadores": [{"letra": "A", "puntaje": 2, "justificacion": "..."}, ...], "comentario": "..."}
-- Un objeto por cada indicador de la lista, con la misma letra.
-- "puntaje": un entero entre 0 y el puntaje máximo del indicador. Usá 0 solo si el documento no trata ese tema en absoluto.
-- "comentario": 2 o 3 oraciones de retroalimentación general para el estudiante, en segunda persona y en español de Costa Rica.
-- Sé justo pero exigente. Si el documento no se puede leer, está en blanco o no corresponde al proyecto, poné puntajes bajos y decilo.`;
+[FORMATO DE SALIDA]
+Devolvé ÚNICAMENTE un JSON válido, sin texto antes ni después, con esta forma exacta (un objeto por cada criterio de la rúbrica, con la misma letra):
+{"indicadores": [{"letra": "A", "puntaje": 2, "nivel": "En proceso", "justificacion": "...", "evidencia": "cita o aspecto concreto del trabajo", "mejora": "qué le faltó para el máximo"}, ...], "comentario": "..."}
+- "puntaje": entero entre 0 y el puntaje máximo del criterio.
+- "nivel": el nombre del nivel de desempeño de la rúbrica que corresponde a ese puntaje.
+- "justificacion": 1 a 3 oraciones explicando por qué se asignó ese puntaje.
+- "evidencia": fragmento textual breve o aspecto concreto del trabajo que respalda el puntaje.
+- "mejora": qué le faltó para el puntaje máximo; cadena vacía si obtuvo el máximo.
+- "comentario": retroalimentación general para el estudiante (2 a 4 oraciones, en segunda persona y en español de Costa Rica).`;
 
   try {
     const promptFinal = textoExtraidoDocx
@@ -155,7 +171,7 @@ Reglas:
       },
       body: JSON.stringify({
         model: "claude-sonnet-5-5",
-        max_tokens: 2500,
+        max_tokens: 4000,
         messages: [{ role: "user", content: contenidoMensaje }]
       })
     });
@@ -182,7 +198,10 @@ Reglas:
         return {
           letra,
           puntaje: Number.isFinite(p) ? Math.max(0, Math.min(maximoPorLetra[letra], p)) : 0,
-          justificacion: String(x.justificacion || "").trim()
+          nivel: String(x.nivel || "").trim().slice(0, 40),
+          justificacion: String(x.justificacion || "").trim(),
+          evidencia: String(x.evidencia || "").trim(),
+          mejora: String(x.mejora || "").trim()
         };
       });
     res.status(200).json({ contenido: { indicadores: resultado, comentario: String(contenido.comentario || "").trim() } });
