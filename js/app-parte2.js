@@ -6921,6 +6921,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       <button class="btn secondary" id="corregir-letras-btn" type="button" title="Vuelve a poner las letras en orden (A, B, C…) sin repetidas, dentro de esta categoría">🔤 Corregir letras repetidas</button>
     </div>` : ""}
     <div id="calificar-todos-holder"></div>
+    ${catNombre === "Proyectos" && (indicadores || []).length > 0 ? `<div id="proyecto-integral-holder" style="margin-top:0.8rem;"></div>` : ""}
     <div class="roster" id="lista-indicadores-holder" style="margin-top:0.8rem;">
       ${(indicadores || []).map(ind => {
         const tieneCriterios = (ind.criterios_indicador || []).length > 0;
@@ -7025,6 +7026,9 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       <button class="btn small" type="submit">Crear indicador</button>
     </form>`}`;
 
+  if (catNombre === "Proyectos" && (indicadores || []).length > 0) {
+    pintarProyectoIntegral(holder, materiaId, catNombre, indicadores || [], trabajoPorIndicador, temasMateria || []);
+  }
   holder.querySelectorAll("[data-cat-ind]").forEach(btn => {
     btn.addEventListener("click", () => cargarIndicadoresDeMateria(materiaId, btn.dataset.catInd));
   });
@@ -7629,6 +7633,263 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       }
       cargarIndicadoresDeMateria(materiaId, catNombre);
     });
+  });
+}
+
+// --- Proyecto integral (solo en Rúbrica y Evaluaciones → Proyectos) ---
+// Junta en un solo lugar los tres pasos de un proyecto que se entrega en UN
+// documento y se evalúa de forma integral:
+//   1. Entrega del documento (trabajo tipo "proyecto" vinculado a un indicador)
+//   2. Preguntas de la comprobación (prueba de selección única generada con IA)
+//   3. Evaluación según criterios: la IA lee el documento de cada estudiante y
+//      propone el puntaje de cada indicador; el profesor revisa y guarda.
+async function pintarProyectoIntegral(holder, materiaId, catNombre, indicadores, trabajoPorIndicador, temasMateria) {
+  const cont = holder.querySelector("#proyecto-integral-holder");
+  if (!cont) return;
+  const esc = (v) => String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const quitarHtml = (v) => String(v || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  const tipoDe = (ind) => trabajoPorIndicador[ind.id] ? trabajoPorIndicador[ind.id].tipo_actividad : null;
+
+  const indEntrega = indicadores.find(i => tipoDe(i) === "proyecto") || null;
+  const trabajoEntrega = indEntrega ? trabajoPorIndicador[indEntrega.id] : null;
+  const indComprobacion = indicadores.find(i => tipoDe(i) === "prueba") || null;
+  const trabajoComprobacion = indComprobacion ? trabajoPorIndicador[indComprobacion.id] : null;
+  const indLibres = indicadores.filter(i => !trabajoPorIndicador[i.id]);
+  // El documento se evalúa con todos los indicadores menos la comprobación
+  // (la prueba, o un indicador "Comprobación…" que todavía no tiene prueba).
+  const esComprobacion = (i) => tipoDe(i) === "prueba" || /comprobaci[oó]n/i.test(quitarHtml(i.descripcion));
+  const indEvaluables = indicadores.filter(i => !esComprobacion(i));
+
+  const { data: materia } = await sb.from("materias").select("*").eq("id", materiaId).maybeSingle();
+  const { data: estudiantes } = materia
+    ? await sb.from("estudiantes").select("id, nombre, apellido1, apellido2").eq("seccion", materia.seccion).order("apellido1").order("apellido2")
+    : { data: [] };
+  const listaEst = estudiantes || [];
+  const { data: entregas } = trabajoEntrega
+    ? await sb.from("proyecto_entregas").select("*").eq("trabajo_id", trabajoEntrega.id).order("creado_en", { ascending: false })
+    : { data: [] };
+  const ultimaPorEst = {};
+  (entregas || []).forEach(e => { if (!ultimaPorEst[e.estudiante_id]) ultimaPorEst[e.estudiante_id] = e; });
+  const { data: calificaciones } = indEvaluables.length && listaEst.length
+    ? await sb.from("calificaciones_indicador").select("*").in("indicador_id", indEvaluables.map(i => i.id)).in("estudiante_id", listaEst.map(s => s.id))
+    : { data: [] };
+  const nota = {};
+  (calificaciones || []).forEach(c => { nota[`${c.estudiante_id}-${c.indicador_id}`] = c.puntaje_obtenido; });
+  const entregaron = listaEst.filter(s => ultimaPorEst[s.id]).length;
+  const nombre = (s) => `${s.apellido1 || ""} ${s.apellido2 || ""}, ${s.nombre || ""}`.trim();
+  const cajaEstilo = "background:var(--paper); border:1px solid var(--paper-line); border-radius:10px; padding:0.9rem; margin-bottom:0.8rem;";
+
+  // 1. Entrega
+  const instruccionesActuales = trabajoEntrega ? ((trabajoEntrega.contenido_actividad || {}).instrucciones || "") : "";
+  const tarjeta1 = trabajoEntrega ? `
+    <p style="font-size:0.85rem; margin:0 0 0.5rem;">Los estudiantes suben su documento en el indicador <strong>${esc(indEntrega.letra)}</strong> («${esc(quitarHtml(trabajoEntrega.titulo || indEntrega.descripcion))}»). <span class="badge">${entregaron} de ${listaEst.length} entregaron</span></p>
+    <label style="display:block; font-size:0.82rem;">Instrucciones que ven los estudiantes
+      <textarea data-pi-instrucciones rows="4" style="width:100%; font-family:inherit; margin-top:0.2rem;">${esc(instruccionesActuales)}</textarea>
+    </label>
+    <div class="row" style="gap:0.5rem; margin-top:0.4rem; flex-wrap:wrap;">
+      <button class="btn secondary small" data-pi-guardar-instrucciones type="button">💾 Guardar instrucciones</button>
+      <button class="btn secondary small" data-pi-ver-entregas type="button">📂 Ver entregas</button>
+      <span data-pi-estado1 style="font-size:0.78rem; color:var(--text-muted);"></span>
+    </div>
+    <div data-pi-entregas-panel style="margin-top:0.5rem;"></div>` : (indLibres.length ? `
+    <p style="font-size:0.85rem; margin:0 0 0.5rem;">Todavía no hay un apartado de entrega. Escribí las instrucciones y elegí en qué indicador queda.</p>
+    <textarea data-pi-nuevas-instrucciones rows="4" placeholder="Ej. Subí en un solo documento PDF la investigación completa…" style="width:100%; font-family:inherit;"></textarea>
+    <div class="row" style="gap:0.5rem; margin-top:0.4rem; flex-wrap:wrap; align-items:center;">
+      <select data-pi-ind-entrega>${indLibres.map(i => `<option value="${i.id}">${esc(i.letra)}: ${esc(quitarHtml(i.descripcion).slice(0, 60))}</option>`).join("")}</select>
+      <button class="btn small" data-pi-crear-entrega type="button">📎 Habilitar entrega</button>
+    </div>` : `<p class="empty">Todos los indicadores ya tienen un trabajo vinculado; agregá un indicador para la entrega.</p>`);
+
+  // 2. Comprobación
+  const nPreguntas = trabajoComprobacion && trabajoComprobacion.contenido_actividad && Array.isArray(trabajoComprobacion.contenido_actividad.preguntas) ? trabajoComprobacion.contenido_actividad.preguntas.length : 0;
+  const compHabilitada = trabajoComprobacion && trabajoComprobacion.habilitado !== false;
+  const tarjeta2 = trabajoComprobacion ? `
+    <p style="font-size:0.85rem; margin:0 0 0.5rem;">La comprobación está en el indicador <strong>${esc(indComprobacion.letra)}</strong>: ${nPreguntas} preguntas · ${compHabilitada ? "✅ habilitada para los estudiantes" : "🔒 deshabilitada (los estudiantes no la ven)"}.</p>
+    <button class="btn ${compHabilitada ? "secondary" : ""} small" data-pi-toggle-comp="${trabajoComprobacion.id}" data-estado="${compHabilitada ? "habilitado" : "deshabilitado"}" type="button">${compHabilitada ? "Deshabilitar" : "Habilitar"}</button>
+    <span style="font-size:0.78rem; color:var(--text-muted); margin-left:0.4rem;">Para cambiar las preguntas o la hora, usá la tarjeta del indicador ${esc(indComprobacion.letra)} más abajo.</span>` : (indLibres.length ? `
+    <p style="font-size:0.85rem; margin:0 0 0.5rem;">Generá con IA las preguntas de selección única sobre todos los temas del proyecto. Elegí en qué indicador queda la comprobación.</p>
+    <div class="row" style="gap:0.5rem; flex-wrap:wrap; align-items:center;">
+      <select data-pi-ind-comp>${indLibres.map((i, k) => `<option value="${i.id}" ${k === indLibres.length - 1 ? "selected" : ""}>${esc(i.letra)}: ${esc(quitarHtml(i.descripcion).slice(0, 60))}</option>`).join("")}</select>
+      <button class="btn small" data-pi-generar-preguntas type="button">✨ Generar preguntas</button>
+    </div>` : `<p class="empty">Todos los indicadores ya tienen un trabajo vinculado; agregá un indicador para la comprobación.</p>`);
+
+  // 3. Evaluación según criterios
+  const opciones = (max, actual) => `<option value="">—</option>` + Array.from({ length: max + 1 }, (_, p) => `<option value="${p}" ${actual !== undefined && actual !== null && Number(actual) === p ? "selected" : ""}>${p}</option>`).join("");
+  const tarjeta3 = indEvaluables.length ? `
+    <p style="font-size:0.85rem; margin:0 0 0.5rem;">La IA lee el documento de cada estudiante y propone el puntaje de cada indicador (${indEvaluables.map(i => esc(i.letra)).join(", ")}) según sus criterios. Revisá, cambiá lo que no te convenza y tocá <strong>Guardar notas</strong>: nada se guarda solo.</p>
+    <div class="row" style="gap:0.5rem; flex-wrap:wrap; align-items:center; margin-bottom:0.5rem;">
+      ${trabajoEntrega ? `<button class="btn small" data-pi-evaluar-todos type="button">🤖 Evaluar con IA a quienes entregaron y no tienen nota</button>` : ""}
+      <button class="btn secondary small" data-pi-guardar-notas type="button">💾 Guardar notas</button>
+      <span data-pi-estado3 style="font-size:0.78rem; color:var(--text-muted);"></span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="grades" style="width:100%; font-size:0.82rem;">
+        <thead><tr><th>Estudiante</th><th>Documento</th>${indEvaluables.map(i => `<th title="${esc(quitarHtml(i.descripcion))}">${esc(i.letra)}</th>`).join("")}<th></th></tr></thead>
+        <tbody>
+          ${listaEst.map(s => {
+            const e = ultimaPorEst[s.id];
+            return `<tr data-pi-fila="${s.id}">
+              <td>${esc(nombre(s))}</td>
+              <td>${e ? `✓ ${esc(e.archivo_nombre || "archivo")}` : `<span style="color:var(--text-muted);">Sin entrega</span>`}</td>
+              ${indEvaluables.map(i => `<td><select data-pi-nota data-est="${s.id}" data-ind="${i.id}" data-letra="${esc(i.letra)}">${opciones(Number(i.puntaje_maximo) || 3, nota[`${s.id}-${i.id}`])}</select></td>`).join("")}
+              <td>${e ? `<button class="btn secondary small" data-pi-evaluar="${s.id}" type="button">🤖 Evaluar</button>` : ""}</td>
+            </tr>
+            <tr data-pi-justif="${s.id}" style="display:none;"><td colspan="${indEvaluables.length + 3}" style="background:var(--surface-soft); font-size:0.8rem;"></td></tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>` : `<p class="empty">No hay indicadores para evaluar.</p>`;
+
+  cont.innerHTML = `
+    <div style="border:2px solid var(--paper-line); border-radius:12px; padding:0.9rem; background:var(--surface-soft);">
+      <h4 style="margin:0 0 0.7rem;">📘 Proyecto integral</h4>
+      <div style="${cajaEstilo}"><h5 style="margin:0 0 0.5rem;">1. Entrega del documento</h5>${tarjeta1}</div>
+      <div style="${cajaEstilo}"><h5 style="margin:0 0 0.5rem;">2. Preguntas de la comprobación</h5>${tarjeta2}</div>
+      <div style="${cajaEstilo} margin-bottom:0;"><h5 style="margin:0 0 0.5rem;">3. Evaluación según criterios</h5>${tarjeta3}</div>
+    </div>`;
+
+  // --- 1. Entrega ---
+  const btnGuardarInstr = cont.querySelector("[data-pi-guardar-instrucciones]");
+  if (btnGuardarInstr) btnGuardarInstr.addEventListener("click", async () => {
+    const estado = cont.querySelector("[data-pi-estado1]");
+    const instrucciones = cont.querySelector("[data-pi-instrucciones]").value.trim();
+    const nuevo = { ...(trabajoEntrega.contenido_actividad || {}), instrucciones };
+    const { error } = await sb.from("trabajos_cotidianos").update({ contenido_actividad: nuevo }).eq("id", trabajoEntrega.id);
+    trabajoEntrega.contenido_actividad = nuevo;
+    estado.textContent = error ? "No se pudo guardar: " + error.message : "✓ Instrucciones guardadas.";
+  });
+  const btnVerEntregas = cont.querySelector("[data-pi-ver-entregas]");
+  if (btnVerEntregas) btnVerEntregas.addEventListener("click", async () => {
+    const panel = cont.querySelector("[data-pi-entregas-panel]");
+    if (panel.innerHTML.trim()) { panel.innerHTML = ""; return; }
+    panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando entregas…</p>`;
+    await pintarPanelEntregasProyecto(panel, trabajoEntrega.id);
+  });
+  const btnCrearEntrega = cont.querySelector("[data-pi-crear-entrega]");
+  if (btnCrearEntrega) btnCrearEntrega.addEventListener("click", async () => {
+    const indicadorId = cont.querySelector("[data-pi-ind-entrega]").value;
+    const ind = indicadores.find(i => String(i.id) === String(indicadorId));
+    const instrucciones = cont.querySelector("[data-pi-nuevas-instrucciones]").value.trim();
+    const publicacionId = (temasMateria || [])[0]?.id || null;
+    btnCrearEntrega.disabled = true;
+    const { error } = await sb.from("trabajos_cotidianos").insert({
+      publicacion_id: publicacionId,
+      subtema_id: null,
+      titulo: ind ? quitarHtml(ind.descripcion) : "Entrega del proyecto",
+      tipo_actividad: "proyecto",
+      contenido_actividad: { instrucciones, placeholder_titulo: "Título del proyecto", placeholder_descripcion: "Breve descripción de lo que entregás", min_caracteres_descripcion: 0 },
+      indicador_id: indicadorId
+    });
+    if (error) { alert("No se pudo habilitar la entrega: " + error.message); btnCrearEntrega.disabled = false; return; }
+    cargarIndicadoresDeMateria(materiaId, catNombre);
+  });
+
+  // --- 2. Comprobación ---
+  const btnGenerar = cont.querySelector("[data-pi-generar-preguntas]");
+  if (btnGenerar) btnGenerar.addEventListener("click", () => {
+    const indicadorId = cont.querySelector("[data-pi-ind-comp]").value;
+    const boton = holder.querySelector(`[data-generar-su-ind="${indicadorId}"]`);
+    const panel = holder.querySelector(`[data-generar-su-panel="${indicadorId}"]`);
+    if (!boton || !panel) { alert("No se encontró el indicador elegido."); return; }
+    if (!panel.innerHTML.trim()) boton.click();
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  const btnToggleComp = cont.querySelector("[data-pi-toggle-comp]");
+  if (btnToggleComp) btnToggleComp.addEventListener("click", async () => {
+    const yaHabilitada = btnToggleComp.dataset.estado === "habilitado";
+    if (!confirm(yaHabilitada ? "¿Deshabilitar la comprobación? Los estudiantes dejarán de verla." : "¿Habilitar la comprobación para que los estudiantes puedan hacerla?")) return;
+    await sb.from("trabajos_cotidianos").update({ habilitado: !yaHabilitada }).eq("id", btnToggleComp.dataset.piToggleComp);
+    cargarIndicadoresDeMateria(materiaId, catNombre);
+  });
+
+  // --- 3. Evaluación según criterios ---
+  cont.querySelectorAll("[data-pi-nota]").forEach(sel => sel.addEventListener("change", () => { sel.dataset.cambio = "1"; sel.style.outline = "2px solid var(--brick)"; }));
+
+  const inferirMime = (nombreArchivo, tipo) => {
+    if (tipo && tipo !== "application/octet-stream") return tipo;
+    const ext = String(nombreArchivo || "").toLowerCase().split(".").pop();
+    return ({ pdf: "application/pdf", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif" })[ext] || tipo || "";
+  };
+  const indicadoresParaIA = indEvaluables.map(i => ({
+    letra: i.letra,
+    descripcion: quitarHtml(i.descripcion),
+    maximo: Number(i.puntaje_maximo) || 3,
+    criterios: (i.criterios_indicador || []).map(c => ({ puntaje: c.puntaje, nivel: c.nivel || "", descripcion: quitarHtml(c.descripcion) }))
+  }));
+
+  async function evaluarEstudiante(estId) {
+    const e = ultimaPorEst[estId];
+    if (!e || !e.archivo_ruta) throw new Error("No tiene un archivo entregado.");
+    const { data: pub } = sb.storage.from("materiales").getPublicUrl(e.archivo_ruta);
+    const respuestaArchivo = await fetch(pub.publicUrl);
+    if (!respuestaArchivo.ok) throw new Error("No se pudo descargar el documento.");
+    const blob = await respuestaArchivo.blob();
+    const datosBase64 = await new Promise((resolve, reject) => {
+      const lector = new FileReader();
+      lector.onload = () => resolve(String(lector.result).split(",")[1] || "");
+      lector.onerror = () => reject(new Error("No se pudo leer el documento."));
+      lector.readAsDataURL(blob);
+    });
+    const r = await fetch("/api/evaluar-proyecto-criterios", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        instrucciones: (trabajoEntrega.contenido_actividad || {}).instrucciones || "",
+        titulo: e.titulo, descripcion: e.descripcion,
+        indicadores: indicadoresParaIA,
+        archivo: { mimeType: inferirMime(e.archivo_nombre, blob.type), datosBase64, nombre: e.archivo_nombre }
+      })
+    });
+    const { datos, error } = await leerRespuestaIA(r);
+    if (!datos || !r.ok) throw new Error(error || (datos && datos.error) || "error desconocido");
+    const res = datos.contenido || {};
+    (res.indicadores || []).forEach(x => {
+      const sel = cont.querySelector(`[data-pi-nota][data-est="${estId}"][data-letra="${CSS.escape(String(x.letra))}"]`);
+      if (sel) { sel.value = String(x.puntaje); sel.dataset.cambio = "1"; sel.style.outline = "2px solid var(--brick)"; }
+    });
+    const filaJ = cont.querySelector(`[data-pi-justif="${estId}"]`);
+    if (filaJ) {
+      filaJ.style.display = "";
+      filaJ.firstElementChild.innerHTML = `${(res.indicadores || []).map(x => `<div><strong>${esc(x.letra)} (${esc(x.puntaje)}):</strong> ${esc(x.justificacion)}</div>`).join("")}${res.comentario ? `<div style="margin-top:0.3rem;"><em>Comentario general:</em> ${esc(res.comentario)}</div>` : ""}<div style="margin-top:0.3rem; color:var(--brick);">Propuesta de la IA — revisala y tocá «Guardar notas».</div>`;
+    }
+  }
+
+  cont.querySelectorAll("[data-pi-evaluar]").forEach(btn => btn.addEventListener("click", async () => {
+    const estado = cont.querySelector("[data-pi-estado3]");
+    btn.disabled = true; btn.textContent = "Evaluando…";
+    try { await evaluarEstudiante(btn.dataset.piEvaluar); estado.textContent = "✓ Propuesta lista. Revisala y guardá."; }
+    catch (err) { estado.textContent = "No se pudo evaluar: " + (err.message || err); }
+    finally { btn.disabled = false; btn.textContent = "🤖 Evaluar"; }
+  }));
+
+  const btnEvaluarTodos = cont.querySelector("[data-pi-evaluar-todos]");
+  if (btnEvaluarTodos) btnEvaluarTodos.addEventListener("click", async () => {
+    const estado = cont.querySelector("[data-pi-estado3]");
+    const pendientes = listaEst.filter(s => ultimaPorEst[s.id] && indEvaluables.every(i => nota[`${s.id}-${i.id}`] === undefined || nota[`${s.id}-${i.id}`] === null));
+    if (!pendientes.length) { estado.textContent = "No hay entregas pendientes de evaluar (todas ya tienen alguna nota). Usá 🤖 Evaluar en cada fila si querés re-evaluar."; return; }
+    btnEvaluarTodos.disabled = true;
+    let ok = 0, fallos = 0;
+    for (let k = 0; k < pendientes.length; k++) {
+      estado.textContent = `Evaluando ${k + 1} de ${pendientes.length}: ${nombre(pendientes[k])}…`;
+      try { await evaluarEstudiante(pendientes[k].id); ok++; } catch { fallos++; }
+    }
+    btnEvaluarTodos.disabled = false;
+    estado.textContent = `✓ ${ok} propuesta${ok === 1 ? "" : "s"} lista${ok === 1 ? "" : "s"}${fallos ? ` · ${fallos} no se pudieron evaluar (revisá su archivo)` : ""}. Revisalas y tocá «Guardar notas».`;
+  });
+
+  const btnGuardarNotas = cont.querySelector("[data-pi-guardar-notas]");
+  if (btnGuardarNotas) btnGuardarNotas.addEventListener("click", async () => {
+    const estado = cont.querySelector("[data-pi-estado3]");
+    const filas = Array.from(cont.querySelectorAll("[data-pi-nota][data-cambio='1']"))
+      .filter(sel => sel.value !== "")
+      .map(sel => ({ indicador_id: Number(sel.dataset.ind), estudiante_id: sel.dataset.est, puntaje_obtenido: Number(sel.value) }));
+    if (!filas.length) { estado.textContent = "No hay cambios para guardar."; return; }
+    btnGuardarNotas.disabled = true;
+    const { error } = await sb.from("calificaciones_indicador").upsert(filas, { onConflict: "indicador_id,estudiante_id" });
+    btnGuardarNotas.disabled = false;
+    if (error) { estado.textContent = "No se pudieron guardar: " + error.message; return; }
+    cont.querySelectorAll("[data-pi-nota][data-cambio='1']").forEach(sel => { delete sel.dataset.cambio; sel.style.outline = ""; });
+    filas.forEach(f => { nota[`${f.estudiante_id}-${f.indicador_id}`] = f.puntaje_obtenido; });
+    estado.textContent = `✓ ${filas.length} nota${filas.length === 1 ? "" : "s"} guardada${filas.length === 1 ? "" : "s"} en Rúbrica y Evaluaciones.`;
   });
 }
 
