@@ -7859,6 +7859,25 @@ async function pintarProyectoIntegral(holder, materiaId, catNombre, indicadores,
     }
     mostrarErrorFila(estId, "");
     const res = datos.contenido || {};
+    await guardarPropuesta(estId, e, res);
+    mostrarPropuesta(estId, res);
+  }
+
+  // Las propuestas de la IA se guardan (como PROPUESTA, no como nota) dentro
+  // del trabajo de entrega, en contenido_actividad.evaluaciones_ia, para que
+  // no se pierdan al recargar. Se vuelven a mostrar mientras ese estudiante no
+  // tenga notas guardadas y no haya subido un documento nuevo.
+  async function guardarPropuesta(estId, entrega, res) {
+    try {
+      const { data: fresco } = await sb.from("trabajos_cotidianos").select("contenido_actividad").eq("id", trabajoEntrega.id).maybeSingle();
+      const ca = { ...((fresco && fresco.contenido_actividad) || trabajoEntrega.contenido_actividad || {}) };
+      ca.evaluaciones_ia = { ...(ca.evaluaciones_ia || {}), [estId]: { ...res, entrega_id: entrega.id, fecha: new Date().toISOString() } };
+      await sb.from("trabajos_cotidianos").update({ contenido_actividad: ca }).eq("id", trabajoEntrega.id);
+      trabajoEntrega.contenido_actividad = ca;
+    } catch (err) { console.error("No se pudo guardar la propuesta de la IA:", err); }
+  }
+
+  function mostrarPropuesta(estId, res) {
     (res.indicadores || []).forEach(x => {
       const sel = cont.querySelector(`[data-pi-nota][data-est="${estId}"][data-letra="${CSS.escape(String(x.letra))}"]`);
       if (sel) { sel.value = String(x.puntaje); sel.dataset.cambio = "1"; sel.style.outline = "2px solid var(--brick)"; }
@@ -7957,8 +7976,8 @@ async function pintarProyectoIntegral(holder, materiaId, catNombre, indicadores,
   const btnEvaluarTodos = cont.querySelector("[data-pi-evaluar-todos]");
   if (btnEvaluarTodos) btnEvaluarTodos.addEventListener("click", async () => {
     const estado = cont.querySelector("[data-pi-estado3]");
-    const pendientes = listaEst.filter(s => ultimaPorEst[s.id] && indEvaluables.every(i => nota[`${s.id}-${i.id}`] === undefined || nota[`${s.id}-${i.id}`] === null));
-    if (!pendientes.length) { estado.textContent = "No hay entregas pendientes de evaluar (todas ya tienen alguna nota). Usá 🤖 Evaluar en cada fila si querés re-evaluar."; return; }
+    const pendientes = listaEst.filter(s => ultimaPorEst[s.id] && !tienePropuestaVigente(s.id) && indEvaluables.every(i => nota[`${s.id}-${i.id}`] === undefined || nota[`${s.id}-${i.id}`] === null));
+    if (!pendientes.length) { estado.textContent = "No hay entregas pendientes de evaluar: todas ya tienen nota o una propuesta de la IA por revisar (en rojo). Usá 🤖 Evaluar en una fila si querés volver a evaluarla."; return; }
     btnEvaluarTodos.disabled = true;
     let ok = 0, fallos = 0;
     for (let k = 0; k < pendientes.length; k++) {
@@ -7973,6 +7992,26 @@ async function pintarProyectoIntegral(holder, materiaId, catNombre, indicadores,
     btnEvaluarTodos.disabled = false;
     estado.textContent = `✓ ${ok} propuesta${ok === 1 ? "" : "s"} lista${ok === 1 ? "" : "s"}${fallos ? ` · ${fallos} no se pudieron evaluar (el motivo está debajo de cada fila)` : ""}. Revisalas y tocá «Guardar notas».`;
   });
+
+  // Al abrir: muestra las propuestas guardadas de quienes todavía no tienen
+  // notas en estos indicadores (y no han vuelto a entregar desde entonces).
+  function tienePropuestaVigente(estId) {
+    const guardadas = (trabajoEntrega && trabajoEntrega.contenido_actividad && trabajoEntrega.contenido_actividad.evaluaciones_ia) || {};
+    const p = guardadas[estId];
+    return !!(p && ultimaPorEst[estId] && p.entrega_id === ultimaPorEst[estId].id);
+  }
+  let propuestasCargadas = 0;
+  listaEst.forEach(s => {
+    const sinNotas = indEvaluables.every(i => nota[`${s.id}-${i.id}`] === undefined || nota[`${s.id}-${i.id}`] === null);
+    if (sinNotas && tienePropuestaVigente(s.id)) {
+      mostrarPropuesta(s.id, trabajoEntrega.contenido_actividad.evaluaciones_ia[s.id]);
+      propuestasCargadas++;
+    }
+  });
+  if (propuestasCargadas) {
+    const estado = cont.querySelector("[data-pi-estado3]");
+    if (estado) estado.textContent = `${propuestasCargadas} propuesta${propuestasCargadas === 1 ? "" : "s"} de la IA pendiente${propuestasCargadas === 1 ? "" : "s"} de revisar (marcadas en rojo). Revisalas y tocá «Guardar notas».`;
+  }
 
   const btnGuardarNotas = cont.querySelector("[data-pi-guardar-notas]");
   if (btnGuardarNotas) btnGuardarNotas.addEventListener("click", async () => {

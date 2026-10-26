@@ -163,7 +163,7 @@ ${listaIndicadores}
 1. Basate estricta y únicamente en las evidencias visibles dentro del trabajo entregado. No asumas ni infieras información que no esté escrita.
 2. Compará el contenido de cada sección del trabajo contra cada criterio de la rúbrica.
 3. Asigná el puntaje exacto de la escala cuyo nivel describa mejor el desempeño en cada criterio. Usá 0 solo si el trabajo no trata ese criterio en absoluto.
-4. Justificá cada calificación citando fragmentos textuales breves o aspectos concretos del trabajo analizado (entre comillas cuando sea una cita).
+4. Justificá cada calificación citando fragmentos textuales breves o aspectos concretos del trabajo analizado. Escribí las citas entre comillas angulares «así», NUNCA con comillas dobles, porque rompen el JSON.
 5. Indicá qué le faltó para alcanzar el puntaje máximo en cada criterio (si ya tiene el máximo, dejalo vacío).
 6. Si el documento no se puede leer, está en blanco o no corresponde al proyecto, asigná puntajes bajos y decilo en las justificaciones.
 
@@ -220,8 +220,24 @@ Devolvé ÚNICAMENTE un JSON válido, sin texto antes ni después, con esta form
     try {
       contenido = extraerJson(texto);
     } catch {
-      res.status(502).json({ error: "La IA no devolvió una evaluación válida. Intentá de nuevo." });
-      return;
+      // Casi siempre es una comilla doble sin escapar dentro de una cita: se
+      // le pide a la IA (sin volver a mandar el documento) que corrija el JSON.
+      try {
+        const r2 = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+          body: JSON.stringify({
+            model: "claude-sonnet-5-5",
+            max_tokens: 4000,
+            messages: [{ role: "user", content: "El siguiente texto debía ser un JSON válido pero tiene errores de formato (por ejemplo comillas dobles sin escapar dentro de los textos). Devolvé ÚNICAMENTE el mismo contenido como JSON válido, sin cambiar puntajes ni redacción; reemplazá las comillas dobles internas por «». Texto:\n\n" + texto }]
+          })
+        });
+        const d2 = await r2.json();
+        contenido = extraerJson((d2.content || []).map(b => b.text || "").join("").trim());
+      } catch {
+        res.status(502).json({ error: "La IA no devolvió una evaluación válida. Intentá de nuevo." });
+        return;
+      }
     }
     const maximoPorLetra = {};
     indicadores.forEach(i => { maximoPorLetra[i.letra] = i.maximo; });
