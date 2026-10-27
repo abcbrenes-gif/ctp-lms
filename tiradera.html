@@ -196,6 +196,14 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .tabla-reg{width:100%;border-collapse:collapse;font-size:.9rem}
 .tabla-reg th,.tabla-reg td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
 .tabla-reg th{background:#f1eaff;font-weight:800}
+.tabla-eval td{white-space:normal;vertical-align:top}
+.eval-box{background:#f7f4ff;border-radius:12px;padding:10px 12px;font-size:.9rem;flex:1 1 260px}
+.modal{position:fixed;inset:0;background:rgba(20,8,60,.6);z-index:80;display:grid;place-items:center;padding:16px}
+.modal-card{background:#fff;border-radius:20px;box-shadow:var(--shadow);padding:22px;max-width:860px;width:100%;max-height:90vh;overflow:auto}
+body.embed{background:#fff}
+body.embed .topbar{display:none}
+body.embed .wrap{padding:0}
+body.embed .card{box-shadow:none;padding:4px}
 .tabla-reg td.pos-d{color:#15803d;font-weight:800}.tabla-reg td.neg-d{color:#b91c1c;font-weight:800}
 .footer-note{color:rgba(255,255,255,.75);text-align:center;font-size:.85rem;margin:20px 0}
 @media (max-width:560px){
@@ -285,7 +293,7 @@ function crearCanal(pin, miId, alEvento, alPresencia) {
   return new Promise(resolve => {
     let resuelto = false;
     const ch = sbClient.channel(nombre, { config: { broadcast: { self: false }, presence: { key: miId } } });
-    ["state", "result", "join", "answer", "ping", "kick"].forEach(ev =>
+    ["state", "result", "join", "answer", "ping", "kick", "aviso", "monitor"].forEach(ev =>
       ch.on("broadcast", { event: ev }, ({ payload }) => alEvento(ev, payload)));
     ch.on("presence", { event: "sync" }, () => { if (alPresencia) alPresencia(ch.presenceState()); });
     ch.subscribe(status => {
@@ -407,8 +415,27 @@ const GRUPOS = [
   { emoji: "🔴", nombre: "Rojos", color: "#e21b3c" }, { emoji: "🔵", nombre: "Azules", color: "#1368ce" },
   { emoji: "🟢", nombre: "Verdes", color: "#26890c" }, { emoji: "🟡", nombre: "Amarillos", color: "#d89e00" },
   { emoji: "🟣", nombre: "Morados", color: "#7c3aed" }, { emoji: "🟠", nombre: "Naranjas", color: "#ea580c" },
-  { emoji: "⚫", nombre: "Negros", color: "#334155" }, { emoji: "⚪", nombre: "Blancos", color: "#94a3b8" }
+  { emoji: "⚫", nombre: "Negros", color: "#334155" }, { emoji: "⚪", nombre: "Blancos", color: "#94a3b8" },
+  { emoji: "🔷", nombre: "Celestes", color: "#0ea5e9" }, { emoji: "💗", nombre: "Rosados", color: "#ec4899" },
+  { emoji: "🟫", nombre: "Cafés", color: "#92400e" }, { emoji: "💎", nombre: "Turquesas", color: "#14b8a6" },
+  { emoji: "🌸", nombre: "Lilas", color: "#c084fc" }, { emoji: "⭐", nombre: "Dorados", color: "#ca8a04" },
+  { emoji: "🔘", nombre: "Plateados", color: "#64748b" }, { emoji: "🍇", nombre: "Vinos", color: "#9f1239" },
+  { emoji: "🍋", nombre: "Limones", color: "#84cc16" }, { emoji: "🐚", nombre: "Corales", color: "#fb7185" }
 ];
+// Criterios de evaluación (los mismos de la estrategia "La Tiradera" de la
+// plataforma). Si la partida está ligada a un trabajo, se usan los del trabajo.
+const CRITERIOS_BASE = [
+  { nombre: "Dominio del contenido: porcentaje de logro en los retos", puntos_max: 3, auto: "dominio_pct" },
+  { nombre: "Participación: responde los retos dentro del tiempo", puntos_max: 3, auto: "participacion_pct" },
+  { nombre: "Precisión: puntos ganados frente a puntos perdidos por errores", puntos_max: 3, auto: "precision_pct" },
+  { nombre: "Rapidez: responde correctamente con tiempo de sobra", puntos_max: 3, auto: "rapidez_pct" }
+];
+const COMO_SE_MIDE = {
+  dominio_pct: "Porcentaje de lo logrado en todos los retos: respuestas correctas, palabras encontradas en la sopa y palabras bien escritas en el crucigrama.",
+  participacion_pct: "Porcentaje de los retos que respondiste antes de que se acabara el tiempo.",
+  precision_pct: "Puntos ganados ÷ (puntos ganados + puntos perdidos por errores o por no responder).",
+  rapidez_pct: "Tiempo que te sobraba, en promedio, en tus aciertos (con 43 % o más de tiempo sobrante llegás a 3)."
+};
 const etiquetaGrupo = k => (GRUPOS[k] ? GRUPOS[k].emoji + " " + GRUPOS[k].nombre : "Sin grupo");
 const S = {
   rol: null,           // "host" | "player"
@@ -417,7 +444,9 @@ const S = {
   yo: store.sget("tiradera_yo", null), // {id, nombre, apodo, est, grupo} del participante
   // ---- solo host ----
   retos: store.get("tiradera_retos", null),
-  cfg: Object.assign({ modalidad: "individual", grupos: 4, asignacion: "libre", maximo: 0 }, store.get("tiradera_cfg", {})),
+  cfg: Object.assign({ modalidad: "individual", grupos: 4, asignacion: "libre", maximo: 0, porGrupo: 0 }, store.get("tiradera_cfg", {})),
+  criterios: CRITERIOS_BASE,
+  verEvaluacion: false, evalMostrada: false,
   trabajo: null,       // trabajo de la plataforma donde se guarda el registro {id, titulo}
   jugadores: {},       // id → {id, nombre, apodo, est, grupo, pts, racha, ultimoDelta, online, stats, detalle}
   fase: "lobby",       // lobby | pregunta | revelar | final
@@ -553,8 +582,9 @@ function vistaConfig() {
       <h2 style="margin-bottom:10px">👥 Modalidad y participantes</h2>
       <div class="row">
         <div class="field"><label for="cfgModo">Modalidad</label><select id="cfgModo"><option value="individual" ${S.cfg.modalidad === "individual" ? "selected" : ""}>👤 Individual</option><option value="grupal" ${S.cfg.modalidad === "grupal" ? "selected" : ""}>👥 Por grupos</option></select></div>
-        <div class="field cfg-grupal"><label for="cfgGrupos">Cantidad de grupos</label><select id="cfgGrupos">${[2, 3, 4, 5, 6, 7, 8].map(n => `<option ${+S.cfg.grupos === n ? "selected" : ""}>${n}</option>`).join("")}</select></div>
+        <div class="field cfg-grupal"><label for="cfgGrupos">Cantidad de grupos</label><select id="cfgGrupos">${Array.from({ length: 17 }, (_, i) => i + 2).map(n => `<option ${+S.cfg.grupos === n ? "selected" : ""}>${n}</option>`).join("")}</select></div>
         <div class="field cfg-grupal"><label for="cfgAsig">¿Cómo se forman?</label><select id="cfgAsig"><option value="libre" ${S.cfg.asignacion === "libre" ? "selected" : ""}>Cada estudiante elige su grupo</option><option value="azar" ${S.cfg.asignacion === "azar" ? "selected" : ""}>Al azar (grupos parejos)</option></select></div>
+        <div class="field cfg-grupal"><label for="cfgPorGrupo">Máximo de estudiantes por grupo</label><select id="cfgPorGrupo"><option value="0" ${!+S.cfg.porGrupo ? "selected" : ""}>Sin límite</option>${Array.from({ length: 18 }, (_, i) => i + 1).map(n => `<option value="${n}" ${+S.cfg.porGrupo === n ? "selected" : ""}>${n}</option>`).join("")}</select></div>
         <div class="field"><label for="cfgMax">Máximo de participantes</label><input id="cfgMax" type="number" min="0" max="200" value="${+S.cfg.maximo || 0}"><small class="muted">0 = sin límite</small></div>
       </div>
       <p class="muted cfg-grupal" style="font-size:.85rem;margin:0">En grupos, cada estudiante juega desde su dispositivo y el puntaje del grupo es el promedio de sus integrantes. El registro sigue siendo individual.</p>
@@ -563,11 +593,11 @@ function vistaConfig() {
     <div id="editor" style="margin-top:16px"></div>
     <div class="center" style="margin-top:14px"><button class="btn ghost" id="btnVolver">← Volver al inicio</button></div>`);
   const syncCfg = () => {
-    S.cfg = { modalidad: $("#cfgModo").value, grupos: +$("#cfgGrupos").value, asignacion: $("#cfgAsig").value, maximo: Math.max(0, +$("#cfgMax").value || 0) };
+    S.cfg = { modalidad: $("#cfgModo").value, grupos: +$("#cfgGrupos").value, asignacion: $("#cfgAsig").value, maximo: Math.max(0, +$("#cfgMax").value || 0), porGrupo: Math.max(0, Math.min(18, +$("#cfgPorGrupo").value || 0)) };
     guardarCfg();
     $$(".cfg-grupal").forEach(el => el.style.display = S.cfg.modalidad === "grupal" ? "" : "none");
   };
-  ["#cfgModo", "#cfgGrupos", "#cfgAsig", "#cfgMax"].forEach(sel => $(sel).addEventListener("change", syncCfg));
+  ["#cfgModo", "#cfgGrupos", "#cfgAsig", "#cfgMax", "#cfgPorGrupo"].forEach(sel => $(sel).addEventListener("change", syncCfg));
   syncCfg();
   $$("[data-edit]").forEach(b => b.onclick = () => { editando = +b.dataset.edit; vistaEditor(); });
   $$("[data-del]").forEach(b => b.onclick = () => { if (confirm("¿Eliminar este reto?")) { S.retos.splice(+b.dataset.del, 1); guardarRetos(); vistaConfig(); } });
@@ -678,11 +708,17 @@ function nuevoJugador(id) {
     stats: { ganados: 0, perdidos: 0, aciertos: 0, errores: 0, sinResp: 0, logros: [], rest: [] }, detalle: [] };
 }
 const esGrupal = () => S.cfg.modalidad === "grupal";
-function grupoMenosLleno() {
+// Grupo con menos integrantes que todavía tenga espacio (-1 si todos están llenos).
+function grupoMenosLleno(excluirId) {
+  const cupo = Number(S.cfg.porGrupo) || 0;
   const n = Array(S.cfg.grupos).fill(0);
-  Object.values(S.jugadores).forEach(j => { if (j.grupo != null && j.grupo < n.length) n[j.grupo]++; });
-  let mejor = 0; n.forEach((v, k) => { if (v < n[mejor]) mejor = k; });
+  Object.values(S.jugadores).forEach(j => { if (j.id !== excluirId && j.grupo != null && j.grupo < n.length) n[j.grupo]++; });
+  let mejor = -1; n.forEach((v, k) => { if ((!cupo || v < cupo) && (mejor < 0 || v < n[mejor])) mejor = k; });
   return mejor;
+}
+function grupoTieneEspacio(k, excluirId) {
+  const cupo = Number(S.cfg.porGrupo) || 0;
+  return !cupo || Object.values(S.jugadores).filter(j => j.id !== excluirId && j.grupo === k).length < cupo;
 }
 function apodoUnico(apodo, id) {
   const base = apodo; let k = 2;
@@ -695,11 +731,14 @@ async function abrirPartida() {
   S.rol = "host";
   S.pin = String(Math.floor(100000 + Math.random() * 900000));
   S.jugadores = {}; S.fase = "lobby"; S.idx = -1; S.respuestas = {}; S.bots = []; S.rondasJugadas = 0;
-  S.registroGuardado = null;
+  S.registroGuardado = null; S.evalMostrada = false; S.verEvaluacion = false;
   pantalla(`<div class="card center"><h2>Abriendo la partida…</h2></div>`);
   S.canal = await crearCanal(S.pin, "host-" + uid(), hostEvento, hostPresencia);
+  // Canal aparte, solo para el monitor del profesor (los estudiantes no se conectan a este).
+  S.canalMon = await crearCanal(S.pin + "-prof", "host-" + uid(), ev => { if (ev === "ping") difundirMonitor(); }, null);
   vistaLobbyHost();
   difundirEstado();
+  if (S.trabajo) actualizarContenidoTrabajo(c => ({ ...c, tiradera_en_vivo: { pin: S.pin, fecha: new Date().toISOString(), estado: "abierta" } }));
 }
 function hostPresencia(estado) {
   const enLinea = new Set(Object.keys(estado || {}));
@@ -721,12 +760,21 @@ function hostEvento(ev, data) {
     j.est = data.est || null; j.online = true;
     if (esGrupal()) {
       const g = Number(data.grupo);
-      if (S.cfg.asignacion === "libre" && Number.isInteger(g) && g >= 0 && g < S.cfg.grupos && data.grupo !== null && data.grupo !== undefined) j.grupo = g;
-      else if (j.grupo == null || j.grupo >= S.cfg.grupos) j.grupo = grupoMenosLleno();
+      const pidio = S.cfg.asignacion === "libre" && data.grupo !== null && data.grupo !== undefined && Number.isInteger(g) && g >= 0 && g < S.cfg.grupos;
+      if (pidio && g !== j.grupo) {
+        if (grupoTieneEspacio(g, j.id)) j.grupo = g;
+        else S.canal.enviar("aviso", { id: j.id, msg: `El grupo ${etiquetaGrupo(g)} ya está lleno (máximo ${S.cfg.porGrupo}). Elegí otro.` });
+      }
+      if (j.grupo == null || j.grupo >= S.cfg.grupos) {
+        const k = grupoMenosLleno(j.id);
+        if (k < 0) { delete S.jugadores[j.id]; S.canal.enviar("kick", { id: data.id, motivo: "grupos", max: S.cfg.porGrupo }); return; }
+        j.grupo = k;
+      }
     }
     if (S.fase === "lobby") pintarJugadoresLobby();
     difundirEstado();
     if (S.respuestas[data.id] && S.fase !== "lobby") S.canal.enviar("result", resultadoPara(data.id));
+    difundirMonitor();
   }
   if (ev === "answer" && data && data.id) recibirRespuesta(data);
   if (ev === "ping") difundirEstado();
@@ -739,7 +787,8 @@ function vistaLobbyHost() {
       <p style="font-weight:800;font-size:1.1rem;margin:0">Entrá a <b>${esc(location.host + location.pathname)}</b> y usá el PIN</p>
       <div class="pin">${S.pin}</div>
       <p style="margin:4px 0"><button class="btn small ghost" id="btnCopiar">📋 Copiar enlace directo</button></p>
-      <p style="margin:6px 0"><span class="pill">${modo}</span> <span class="pill">${Number(S.cfg.maximo) ? "Cupo: " + S.cfg.maximo + " participantes" : "Sin límite de participantes"}</span></p>
+      <p style="margin:6px 0"><span class="pill">${modo}${esGrupal() && +S.cfg.porGrupo ? ` · máx. ${S.cfg.porGrupo} por grupo` : ""}</span> <span class="pill">${Number(S.cfg.maximo) ? "Cupo: " + S.cfg.maximo + " participantes" : "Sin límite de participantes"}</span></p>
+      <p style="margin:6px 0"><button class="btn small" id="btnEval">📋 Evaluación</button> <button class="btn small ghost" id="btnMonitor" title="Ábralo en su celular o computadora, no en el proyector">📡 Resultados en vivo (solo profesor)</button></p>
       <h2 style="margin-top:14px" id="cuentaJug">0 jugadores</h2>
       <div id="listaJug"></div>
       <div class="row" style="justify-content:center;margin-top:22px;max-width:620px;margin-left:auto;margin-right:auto">
@@ -750,9 +799,23 @@ function vistaLobbyHost() {
       <p><button class="btn small ghost" id="btnCancelarP">Cancelar partida</button></p>
     </div>`);
   $("#btnCopiar").onclick = async () => { try { await navigator.clipboard.writeText(url); toast("Enlace copiado ✓"); } catch { toast(url, 6000); } };
-  $("#btnEmpezar").onclick = () => { if (!Object.keys(S.jugadores).length && !confirm("Todavía no hay jugadores. ¿Empezar igual?")) return; siguienteReto(); };
+  $("#btnEmpezar").onclick = () => {
+    if (!Object.keys(S.jugadores).length && !confirm("Todavía no hay jugadores. ¿Empezar igual?")) return;
+    // Antes de la primera ronda se informa la evaluación a todos.
+    if (!S.evalMostrada) { mostrarEvaluacionATodos(true); return; }
+    siguienteReto();
+  };
+  $("#btnEval").onclick = () => mostrarEvaluacionATodos(false);
+  $("#btnMonitor").onclick = () => {
+    const urlMon = location.origin + location.pathname + "?monitor=" + S.pin;
+    window.open(urlMon, "_blank", "noopener");
+    toast(S.trabajo ? "También lo ve en la plataforma: trabajo → 🧮 Calificar." : "Abra ese enlace en su celular o computadora (no en el proyector).", 4500);
+  };
   $("#btnBots").onclick = agregarBots;
-  $("#btnCancelarP").onclick = () => { if (confirm("¿Cancelar la partida?")) { S.fase = "final"; difundirEstado(); S.canal.cerrar(); vistaConfig(); } };
+  $("#btnCancelarP").onclick = () => { if (confirm("¿Cancelar la partida?")) {
+    S.fase = "final"; difundirEstado(); difundirMonitor(true); S.canal.cerrar(); if (S.canalMon) S.canalMon.cerrar();
+    if (S.trabajo) actualizarContenidoTrabajo(c => ({ ...c, tiradera_en_vivo: { pin: S.pin, fecha: new Date().toISOString(), estado: "terminada" } }));
+    vistaConfig(); } };
   pintarJugadoresLobby();
 }
 function chipJugador(j) {
@@ -777,9 +840,11 @@ function agregarBots() {
     const id = "bot-" + uid();
     const nombre = nombres[(S.bots.length) % nombres.length];
     S.bots.push({ id, nombre, habilidad: 0.45 + Math.random() * 0.45 });
+    const g = esGrupal() ? grupoMenosLleno() : null;
+    if (esGrupal() && g < 0) { toast("Los grupos ya están llenos."); break; }
     const j = S.jugadores[id] = nuevoJugador(id);
     j.nombre = nombre; j.apodo = apodoUnico(nombre, id); j.bot = true;
-    if (esGrupal()) j.grupo = grupoMenosLleno();
+    if (esGrupal()) j.grupo = g;
   }
   pintarJugadoresLobby(); difundirEstado();
 }
@@ -799,12 +864,13 @@ function siguienteReto() {
   if (r.tipo === "sopa") r._sopa = generarSopa(r.palabras.map(p => p.palabra), 10);
   if (r.tipo === "cruci") r._cruci = generarCrucigrama(r.palabras);
   S.reto = r; S.publico = retoPublico(r);
-  S.respuestas = {};
+  S.respuestas = {}; S.verEvaluacion = false; cerrarEvaluacion();
   S.fase = "pregunta";
   S.terminaEn = Date.now() + r.tiempo * 1000;
   Object.values(S.jugadores).forEach(j => { j.ultimoDelta = 0; });
   vistaRondaHost();
   difundirEstado();
+  difundirMonitor();
   correrBots();
   clearTimeout(S._finRonda);
   S._finRonda = setTimeout(cerrarRonda, r.tiempo * 1000 + 300);
@@ -891,6 +957,7 @@ function recibirRespuesta({ id, idx, payload }) {
   S.canal.enviar("result", resultadoPara(id));
   actualizarVivoHost();
   difundirEstadoThrottle();
+  difundirMonitor();
   const activos = Object.values(S.jugadores).filter(x => x.online !== false);
   if (activos.length && activos.every(x => S.respuestas[x.id] && S.respuestas[x.id].final)) {
     clearTimeout(S._finRonda); S._finRonda = setTimeout(cerrarRonda, 700);
@@ -929,12 +996,14 @@ function cerrarRonda() {
   Object.keys(S.jugadores).forEach(id => S.canal.enviar("result", resultadoPara(id)));
   vistaRondaHost();
   difundirEstado();
+  difundirMonitor();
 }
 function terminarPartida() {
   if (S.fase === "pregunta") cerrarRonda();
   clearTimeout(S._finRonda);
   S.fase = "final";
   difundirEstado();
+  difundirMonitor(true);
   vistaFinal(rankingPublico(), null, esGrupal() ? rankingGrupos() : null);
   guardarRegistro();
 }
@@ -959,7 +1028,8 @@ function rankingGrupos() {
 function estadoPublico() {
   const rk = rankingPublico();
   const e = { fase: S.fase, pin: S.pin, idx: S.idx, total: S.retos.length, ranking: rk, respondieron: Object.keys(S.respuestas).length, jugadores: rk.length,
-    modalidad: S.cfg.modalidad, asignacion: S.cfg.asignacion };
+    modalidad: S.cfg.modalidad, asignacion: S.cfg.asignacion, porGrupo: +S.cfg.porGrupo || 0,
+    criterios: S.criterios.map(c => ({ nombre: c.nombre, puntos_max: c.puntos_max, auto: c.auto || null })), verEvaluacion: S.verEvaluacion };
   if (esGrupal()) {
     e.grupos = Array.from({ length: S.cfg.grupos }, (_, k) => ({ k, nombre: etiquetaGrupo(k), n: Object.values(S.jugadores).filter(j => j.grupo === k).length }));
     e.rankingGrupos = rankingGrupos();
@@ -977,6 +1047,41 @@ function solucionReto(r) {
 function difundirEstado() { if (S.canal) S.canal.enviar("state", estadoPublico()); }
 let _thr = null;
 function difundirEstadoThrottle() { if (_thr) return; _thr = setTimeout(() => { _thr = null; difundirEstado(); }, 350); }
+
+/* ---------- Monitor del profesor (resultados en vivo con nombres reales) ---------- */
+function datosMonitor() {
+  const rk = ranking();
+  const enRonda = S.fase === "pregunta";
+  return {
+    pin: S.pin, fase: S.fase, idx: S.idx, total: S.retos.length, rondas: S.rondasJugadas, modalidad: S.cfg.modalidad,
+    reto: S.reto && S.fase !== "lobby" ? { tipo: TIPOS[S.reto.tipo].nombre, pregunta: String(S.reto.pregunta).slice(0, 140) } : null,
+    trabajo: S.trabajo ? S.trabajo.titulo : null,
+    grupos: esGrupal() ? rankingGrupos() : null,
+    filas: rk.map((j, i) => {
+      const x = enRonda ? S.respuestas[j.id] : null, st = j.stats;
+      let ronda = "";
+      if (enRonda) ronda = !x ? "⏳ Sin responder aún" : !x.final ? "✍️ Resolviendo" : x.correcto ? "✅ Correcto" : x.logro > 0 ? `🟡 Parcial ${Math.round(x.logro * 100)} %` : (x.detalle && x.detalle.sinResponder ? "⌛ Sin responder" : "❌ Incorrecto");
+      else if (j.detalle.length) { const d = j.detalle[j.detalle.length - 1]; ronda = (d.resultado === "Correcto" ? "✅ " : d.resultado === "Incorrecto" ? "❌ " : d.resultado === "Sin responder" ? "⌛ " : "🟡 ") + d.resultado; }
+      return { puesto: i + 1, nombre: j.nombre, apodo: j.apodo, bot: !!j.bot, online: j.online !== false, grupo: esGrupal() ? etiquetaGrupo(j.grupo) : null, pts: j.pts,
+        ganados: st.ganados + (x ? x.gana : 0), perdidos: st.perdidos + (x ? x.pierde : 0), aciertos: st.aciertos + (x && x.correcto ? 1 : 0),
+        errores: st.errores + (x ? x.errores : 0), sinResp: st.sinResp, ronda };
+    })
+  };
+}
+let _mon = null;
+function difundirMonitor(ya) {
+  if (!S.canalMon) return;
+  if (ya) { clearTimeout(_mon); _mon = null; S.canalMon.enviar("monitor", datosMonitor()); return; }
+  if (_mon) return;
+  _mon = setTimeout(() => { _mon = null; S.canalMon.enviar("monitor", datosMonitor()); }, 500);
+}
+
+/* ---------- Evaluación: se informa antes de empezar ---------- */
+function mostrarEvaluacionATodos(paraEmpezar) {
+  S.verEvaluacion = true; S.evalMostrada = true; difundirEstado();
+  abrirEvaluacion(S.criterios, paraEmpezar ? () => { S.verEvaluacion = false; cerrarEvaluacion(); siguienteReto(); } : null,
+    () => { S.verEvaluacion = false; difundirEstado(); });
+}
 
 /* ---------- Registro para el profesor ---------- */
 // Porcentajes que usa la estrategia de evaluación para sugerir la nota de cada criterio.
@@ -1017,7 +1122,7 @@ async function guardarRegistro(trabajoElegido) {
   const ok = await actualizarContenidoTrabajo(c => {
     const lista = Array.isArray(c.tiradera_partidas) ? c.tiradera_partidas.filter(p => p.id !== partida.id) : [];
     lista.push(partida);
-    return { ...c, tiradera_partidas: lista.slice(-30), tiradera_retos: S.retos };
+    return { ...c, tiradera_partidas: lista.slice(-30), tiradera_retos: S.retos, tiradera_en_vivo: { pin: S.pin, fecha: new Date().toISOString(), estado: "terminada" } };
   });
   if (ok) S.registroGuardado.enTrabajo = S.trabajo;
   pintarEstadoGuardado(ok ? null : "No se pudo guardar en la plataforma (sin conexión). Descargá el registro o probá de nuevo.");
@@ -1100,6 +1205,33 @@ function actualizarVivoHost() {
 /* ============================================================
    8. COMPONENTES COMPARTIDOS: TEMPORIZADOR, PODIO, SOPA, CRUCIGRAMA
    ============================================================ */
+function evaluacionHTML(criterios) {
+  const total = criterios.reduce((a, c) => a + (Number(c.puntos_max) || 0), 0);
+  return `
+    <h2 style="margin-bottom:4px">📋 Evaluación de La Tiradera</h2>
+    <p class="muted" style="margin:0 0 12px">Así se va a calificar esta actividad. Cada criterio vale ${criterios.length && criterios.every(c => +c.puntos_max === 3) ? "3 puntos" : "los puntos indicados"} (total ${total} puntos) y la nota se pasa a la escala de 0 a 3 de la plataforma.</p>
+    <div style="overflow-x:auto"><table class="tabla-reg tabla-eval"><thead><tr><th>Criterio</th><th>Puntos</th><th>Cómo se mide</th></tr></thead><tbody>
+      ${criterios.map((c, i) => `<tr><td><b>${i + 1}. ${esc(c.nombre)}</b></td><td>${c.puntos_max}</td><td>${esc(c.auto ? COMO_SE_MIDE[c.auto] || "" : "Lo califica el profesor durante la actividad.")}</td></tr>`).join("")}
+    </tbody></table></div>
+    <div class="row" style="margin-top:12px;gap:10px">
+      <div class="eval-box"><b>Escala de cada criterio</b><br>85 % o más → 3 · 60 a 84 % → 2 · 35 a 59 % → 1 · menos de 35 % → 0</div>
+      <div class="eval-box"><b>Cómo se ganan y pierden puntos</b><br>✅ Acierto: hasta ${PUNTOS.base} pts (más rápido, más puntos) · 🔥 Racha: +${PUNTOS.racha} por acierto seguido<br>❌ Error: −${PUNTOS.error} · ⌛ Sin responder: −${PUNTOS.sinResponder} · 🔎 Selección equivocada en la sopa: −${PUNTOS.sopaErrorSel} · 🧩 Palabra mal en el crucigrama: −${PUNTOS.cruciErrorPal}</div>
+    </div>`;
+}
+function abrirEvaluacion(criterios, alEmpezar, alCerrar) {
+  cerrarEvaluacion();
+  const d = document.createElement("div");
+  d.id = "evalModal"; d.className = "modal";
+  d.innerHTML = `<div class="modal-card">${evaluacionHTML(criterios || CRITERIOS_BASE)}
+    <div class="row" style="margin-top:16px;justify-content:flex-end">
+      ${alEmpezar ? `<button class="btn big pink" id="evalEmpezar" style="flex:0 0 auto">▶ Entendido, ¡a empezar!</button>` : ""}
+      <button class="btn ghost" id="evalCerrar" style="flex:0 0 auto">Cerrar</button></div></div>`;
+  document.body.appendChild(d);
+  $("#evalCerrar").onclick = () => { cerrarEvaluacion(); if (alCerrar) alCerrar(); };
+  if (alEmpezar) $("#evalEmpezar").onclick = alEmpezar;
+}
+function cerrarEvaluacion() { const m = $("#evalModal"); if (m) m.remove(); }
+
 function timerHTML() {
   return `<div class="timer" id="timer"><svg viewBox="0 0 100 100" width="100%" height="100%"><circle class="bg" cx="50" cy="50" r="44" stroke-width="10" fill="none"/><circle class="fg" id="timerFg" cx="50" cy="50" r="44" stroke-width="10" fill="none" stroke="#4ade80" stroke-linecap="round" stroke-dasharray="276.46" stroke-dashoffset="0"/></svg><div class="t-num" id="timerNum"></div></div>`;
 }
@@ -1196,12 +1328,15 @@ function jugadorEvento(ev, data) {
   if (S.expulsado) return;
   if (ev === "kick" && data && data.id === S.yo.id) {
     S.expulsado = true;
-    pantalla(`<div class="card center"><h2>😕 La partida está llena</h2><p class="muted">El ponente puso un cupo de ${esc(data.max || "")} participantes y ya se completó. Avisale al profe.</p><button class="btn ghost" id="btnAtras">← Volver</button></div>`);
+    pantalla(`<div class="card center"><h2>😕 ${data.motivo === "grupos" ? "Los grupos están llenos" : "La partida está llena"}</h2><p class="muted">${data.motivo === "grupos" ? `Cada grupo admite hasta ${esc(data.max || "")} estudiantes y ya no queda espacio.` : `El ponente puso un cupo de ${esc(data.max || "")} participantes y ya se completó.`} Avisale al profe.</p><button class="btn ghost" id="btnAtras">← Volver</button></div>`);
     $("#btnAtras").onclick = () => { S.canal.cerrar(); vistaInicio(); };
     return;
   }
+  if (ev === "aviso" && data && data.id === S.yo.id) { toast(data.msg, 4000); return; }
   if (ev === "state") {
     const previo = S.estadoRemoto; S.estadoRemoto = data;
+    if (data.verEvaluacion && !(previo && previo.verEvaluacion)) abrirEvaluacion(data.criterios);
+    if (!data.verEvaluacion && previo && previo.verEvaluacion) cerrarEvaluacion();
     const cambioRonda = !previo || previo.fase !== data.fase || previo.idx !== data.idx;
     const yo = data.ranking.find(j => j.id === S.yo.id);
     if (!yo && data.fase !== "final") S.canal.enviar("join", S.yo);
@@ -1231,13 +1366,15 @@ function pintarJugador() {
     if (e.modalidad === "grupal" && e.grupos) {
       const libre = e.asignacion === "libre";
       grupos = `<h3 style="margin-top:18px">${libre ? "Elegí tu grupo" : "Tu grupo (lo asignó el sistema al azar)"}</h3>
-        <div class="players">${e.grupos.map(x => `<button class="chip grp ${g === x.k ? "on" : ""}" data-grupo="${x.k}" ${libre ? "" : "disabled"}>${esc(x.nombre)} · ${x.n}</button>`).join("")}</div>`;
+        <div class="players">${e.grupos.map(x => { const lleno = e.porGrupo && x.n >= e.porGrupo && g !== x.k; return `<button class="chip grp ${g === x.k ? "on" : ""}" data-grupo="${x.k}" ${libre && !lleno ? "" : "disabled"} style="${lleno ? "opacity:.5" : ""}">${esc(x.nombre)} · ${x.n}${e.porGrupo ? "/" + e.porGrupo : ""}${lleno ? " (lleno)" : ""}</button>`; }).join("")}</div>`;
     }
     pantalla(`<div class="pin-box"><h2 style="font-size:2rem">¡Ya estás adentro, ${esc(S.yo.apodo)}! 🎉</h2>
-      <p style="font-size:1.1rem">Esperá a que el ponente empiece la tiradera…</p>${grupos}
+      <p style="font-size:1.1rem">Esperá a que el ponente empiece la tiradera…</p>
+      <p><button class="btn small" id="btnVerEval">📋 Evaluación</button></p>${grupos}
       <h3 style="margin-top:18px">En la partida</h3>
       <div class="players">${e.ranking.map(j => `<span class="chip ${j.id === S.yo.id ? "grp on" : ""}">${j.bot ? "🤖 " : ""}${esc(j.nombre)}</span>`).join("")}</div></div>`);
     $$("[data-grupo]").forEach(b => b.onclick = () => { S.yo.grupo = +b.dataset.grupo; store.sset("tiradera_yo", S.yo); S.canal.enviar("join", S.yo); });
+    $("#btnVerEval").onclick = () => abrirEvaluacion(e.criterios);
     return;
   }
   if (e.fase === "final") { vistaFinal(e.ranking, S.yo.id, e.rankingGrupos || null); return; }
@@ -1427,6 +1564,42 @@ function lanzarConfeti() {
 }
 
 /* ============================================================
+   10b. MONITOR DEL PROFESOR
+   Se abre con ?monitor=PIN (o embebido en la plataforma con &embed=1).
+   Muestra nombres reales y puntos ganados/perdidos en vivo.
+   ============================================================ */
+async function vistaMonitor(pin) {
+  S.rol = "monitor";
+  if (QS.get("embed")) document.body.classList.add("embed");
+  pantalla(`<div class="card center"><h2>📡 Conectando con la partida ${esc(pin)}…</h2></div>`);
+  let ultimo = null;
+  S.canalMon = await crearCanal(pin + "-prof", "mon-" + uid(), (ev, data) => { if (ev === "monitor" && data) { ultimo = data; pintarMonitor(data); } }, null);
+  const pedir = () => { if (S.canalMon) S.canalMon.enviar("ping", {}); };
+  pedir();
+  setInterval(() => { if (!ultimo || ultimo.fase !== "final") pedir(); }, 6000);
+  setTimeout(() => { if (!ultimo) pantalla(`<div class="card center"><h2>📡 Esperando la partida ${esc(pin)}…</h2><p class="muted">Todavía no llegan datos. Revisá que la partida esté abierta en la pantalla del ponente.</p></div>`); }, 9000);
+}
+function pintarMonitor(m) {
+  const fase = { lobby: "🕓 En sala de espera", pregunta: `▶ Reto ${m.idx + 1} de ${m.total} en curso`, revelar: `⏹ Reto ${m.idx + 1} de ${m.total} cerrado`, final: "🏁 Partida terminada" }[m.fase] || m.fase;
+  const filas = m.filas.filter(f => !f.bot || true);
+  const grupal = m.modalidad === "grupal";
+  app.innerHTML = `
+    <div class="card">
+      <div class="row" style="align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+        <h2 style="flex:2 1 260px;font-size:1.3rem">📡 Resultados en vivo · PIN ${esc(m.pin)}</h2>
+        <span class="pill" style="background:#ede4ff;color:#5b21b6;flex:0 0 auto">${fase}</span>
+      </div>
+      <p class="muted" style="margin:0 0 8px;font-size:.88rem">🔒 Solo para el profesor: aquí se ven los nombres reales. ${m.trabajo ? `Trabajo: «${esc(m.trabajo)}».` : ""}${m.reto ? ` Reto: ${esc(m.reto.tipo)} — ${esc(m.reto.pregunta)}` : ""}</p>
+      ${m.grupos && m.grupos.length ? `<p style="margin:0 0 8px;font-size:.9rem"><b>Grupos:</b> ${m.grupos.map((g, i) => `${i + 1}° ${esc(g.nombre)} ${g.pts} pts (${g.n})`).join(" · ")}</p>` : ""}
+      <div style="overflow-x:auto"><table class="tabla-reg">
+        <thead><tr><th>#</th><th>Nombre</th><th>Apodo</th>${grupal ? "<th>Grupo</th>" : ""}<th>Puntos</th><th>Ganados</th><th>Perdidos</th><th>Aciertos</th><th>Errores</th><th>Sin resp.</th><th>${m.fase === "pregunta" ? "Este reto" : "Último reto"}</th></tr></thead>
+        <tbody>${filas.map(f => `<tr style="${f.online ? "" : "opacity:.5"}"><td>${f.puesto}</td><td>${f.bot ? "🤖 " : ""}${esc(f.nombre || "—")}</td><td>${esc(f.apodo)}</td>${grupal ? `<td>${esc(f.grupo || "")}</td>` : ""}<td><b>${f.pts}</b></td><td class="pos-d">+${f.ganados}</td><td class="neg-d">−${f.perdidos}</td><td>${f.aciertos}</td><td>${f.errores}</td><td>${f.sinResp}</td><td>${esc(f.ronda)}</td></tr>`).join("") || `<tr><td colspan="11" class="muted">Todavía no hay estudiantes en la partida.</td></tr>`}</tbody>
+      </table></div>
+      ${m.fase === "final" ? `<p style="margin:10px 0 0"><b>La partida terminó.</b> ${m.trabajo ? "En la plataforma, tocá «🔄 Actualizar» para ver el registro y aplicar las notas de los criterios." : "El registro está en la pantalla del ponente (descargable)."}</p>` : ""}
+    </div>`;
+}
+
+/* ============================================================
    11. ARRANQUE
    ============================================================ */
 marcarConexion(!!sbClient);
@@ -1434,6 +1607,8 @@ $("#connPill").textContent = sbClient ? "Listo para jugar" : "Modo local (esta c
 (async () => {
   // Abierto desde un trabajo de la plataforma (estrategia de evaluación):
   // va directo a la configuración del ponente y usa los retos guardados ahí.
+  const pinMonitor = (QS.get("monitor") || "").replace(/\D/g, "");
+  if (pinMonitor.length === 6) { vistaMonitor(pinMonitor); return; }
   const trabajoId = QS.get("trabajo");
   if (trabajoId) {
     pantalla(`<div class="card center"><h2>Cargando el trabajo de la plataforma…</h2></div>`);
@@ -1442,6 +1617,7 @@ $("#connPill").textContent = sbClient ? "Listo para jugar" : "Modo local (esta c
       S.trabajo = { id: t.id, titulo: t.titulo };
       const c = t.contenido_actividad || {};
       if (Array.isArray(c.tiradera_retos) && c.tiradera_retos.length) { S.retos = c.tiradera_retos; store.set("tiradera_retos", S.retos); }
+      if (Array.isArray(c.criterios) && c.criterios.length) S.criterios = c.criterios.map((x, i) => ({ ...x, auto: x.auto || (CRITERIOS_BASE[i] && CRITERIOS_BASE[i].auto) || null }));
       vistaConfig();
       return;
     }

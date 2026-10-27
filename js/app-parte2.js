@@ -5450,15 +5450,29 @@ async function pintarBloqueTiradera(cont, panel, trabajo, ordenados, nombrePorId
   const preset = ESTRATEGIAS_EVALUACION.juego_tiradera;
   const autoDe = (c, i) => c.auto || (preset.criterios[i] && preset.criterios[i].auto) || null;
   const partidas = (contenido.tiradera_partidas || []).slice().reverse();
-  const caja = (html) => `<div style="background:var(--surface-soft); border:1px solid var(--paper-line); border-radius:10px; padding:0.8rem;">${html}</div>`;
+  const caja = (html) => `<div style="background:var(--surface-soft); border:1px solid var(--paper-line); border-radius:10px; padding:0.8rem;">${vivoHTML}${html}</div>`;
+  // Resultados en vivo (solo el profesor): monitor embebido de la partida abierta.
+  const vivo = contenido.tiradera_en_vivo;
+  const vivoActivo = vivo && vivo.pin && vivo.estado !== "terminada" && (Date.now() - new Date(vivo.fecha).getTime()) < 6 * 3600 * 1000;
+  const vivoHTML = `<div style="margin-bottom:0.8rem; padding-bottom:0.8rem; border-bottom:1px solid var(--paper-line);">
+      <div class="row" style="align-items:center; justify-content:space-between; gap:0.5rem;">
+        <strong>📡 Resultados en vivo <span style="font-weight:400; color:var(--text-muted); font-size:0.8rem;">(solo usted los ve, con nombres reales)</span></strong>
+        <button class="btn secondary small" data-tir-refrescar type="button">🔄 Actualizar</button>
+      </div>
+      ${vivoActivo
+        ? `<iframe src="tiradera.html?monitor=${encodeURIComponent(vivo.pin)}&embed=1" title="Resultados en vivo" style="width:100%; height:440px; border:1px solid var(--paper-line); border-radius:8px; margin-top:0.5rem; background:#fff;"></iframe>`
+        : `<p style="font-size:0.8rem; color:var(--text-muted); margin:0.4rem 0 0;">No hay una partida abierta en este momento. Cuando la lance con "⚡ Lanzar La Tiradera", tocá 🔄 Actualizar y acá vas a ver en vivo cómo le va a cada estudiante.</p>`}
+    </div>`;
   const encabezado = `<div class="row" style="align-items:center; justify-content:space-between; gap:0.5rem; margin-bottom:0.5rem;">
       <strong>⚡ Registro de La Tiradera</strong>
       <a class="btn small" href="tiradera.html?trabajo=${trabajo.id}" target="_blank" rel="noopener">⚡ Lanzar La Tiradera</a></div>`;
   if (!partidas.length) {
-    cont.innerHTML = caja(`${encabezado}<p style="font-size:0.82rem; color:var(--text-muted); margin:0;">Todavía no se ha jugado. Tocá "⚡ Lanzar La Tiradera", armá los retos y jugá con la clase: al terminar, el registro de puntos llega solo acá y se sugieren las notas de cada criterio.</p>`);
+    cont.innerHTML = caja(`${encabezado}<p style="font-size:0.82rem; color:var(--text-muted); margin:0;">Todavía no hay partidas terminadas. Tocá "⚡ Lanzar La Tiradera", armá los retos y jugá con la clase: al terminar, el registro de puntos llega solo acá y se sugieren las notas de cada criterio.</p>`);
+    ligarRefrescar();
     return;
   }
   let sel = 0;
+  function ligarRefrescar() { const b = cont.querySelector("[data-tir-refrescar]"); if (b) b.addEventListener("click", () => alAplicar()); }
   const opciones = [{ id: "", label: "— Sin asignar —" }].concat(ordenados.map(id => ({ id: String(id), label: nombrePorId[id] || id })));
   const nivel = pct => puntajeDesdePorcentaje(Number(pct) || 0);
   const sugeridos = fila => criterios.map((c, i) => {
@@ -5505,6 +5519,7 @@ async function pintarBloqueTiradera(cont, panel, trabajo, ordenados, nombrePorId
         <button class="btn small" data-tir-aplicar>✅ Aplicar notas sugeridas</button>
         <span data-tir-estado style="font-size:0.78rem; color:var(--text-muted);">${sinAsignar ? `⚠️ ${sinAsignar} fila(s) sin estudiante asignado: elegilo en la lista (o quedan sin aplicar).` : "Todos los participantes están emparejados con su estudiante."}</span>
       </div>`);
+    ligarRefrescar();
     cont.querySelector("[data-tir-partida]").addEventListener("change", e => { sel = Number(e.target.value) || 0; pintar(); });
     cont.querySelectorAll("[data-tir-est]").forEach(s => s.addEventListener("change", () => { filas[Number(s.dataset.tirEst)].estId = s.value; s.style.border = s.value ? "" : "2px solid var(--brick)"; }));
     cont.querySelector("[data-tir-aplicar]").addEventListener("click", async (ev) => {
