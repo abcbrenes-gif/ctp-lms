@@ -1487,6 +1487,18 @@ async function renderMateriasEstudiante(el, s) {
           </div>
         </div>
       </a>
+      <a class="section-tile flip-card" href="tiradera.html?nombre=${encodeURIComponent(`${s.nombre || ""} ${s.apellido1 || ""}`.trim())}" style="height:180px;">
+        <div class="flip-card-inner">
+          <div class="flip-card-front">
+            <div class="num" style="font-size:1.7rem;">⚡ La Tiradera</div>
+            <div class="count" style="font-size:0.95rem;">Entrá con el PIN que da el profe y competí por el podio</div>
+          </div>
+          <div class="flip-card-back">
+            <div class="flip-cta" style="font-size:1.3rem;">Jugar →</div>
+            <div class="flip-sub" style="font-size:0.9rem;">La Tiradera</div>
+          </div>
+        </div>
+      </a>
     </div>`;
 
   if (materiasAsignadas.length === 0) {

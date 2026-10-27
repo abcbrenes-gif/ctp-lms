@@ -200,7 +200,10 @@ input,select,textarea{font:inherit;color:var(--ink)}
 <body>
 <div class="topbar">
   <div class="logo"><span class="bolt">⚡</span> La Tiradera</div>
-  <span id="connPill" class="pill">Conectando…</span>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+    <a class="pill" href="index.html" style="text-decoration:none">← Plataforma</a>
+    <span id="connPill" class="pill">Conectando…</span>
+  </div>
 </div>
 <main class="wrap" id="app"></main>
 <canvas class="confetti hidden" id="confetti"></canvas>
@@ -439,7 +442,9 @@ const guardarRetos = () => store.set("tiradera_retos", S.retos);
    5. PANTALLA DE INICIO
    ============================================================ */
 function vistaInicio() {
-  const pinUrl = new URLSearchParams(location.search).get("pin") || "";
+  const qs = new URLSearchParams(location.search);
+  const pinUrl = qs.get("pin") || "";
+  const nombreUrl = qs.get("nombre") || "";
   pantalla(`
     <p class="tagline">El <b>ponente</b> lanza el reto, la clase responde en tiempo real y se pelean el <b>podio</b>. Rápido y bien suma; equivocarse o dejar correr el tiempo, resta.</p>
     <div class="hero">
@@ -453,7 +458,7 @@ function vistaInicio() {
         <div class="emoji">🎮</div>
         <h2>Quiero jugar</h2>
         <div class="field"><label for="inPin">PIN de la partida</label><input id="inPin" class="pin-input" inputmode="numeric" maxlength="6" placeholder="000000" value="${esc(pinUrl)}"></div>
-        <div class="field"><label for="inNombre">Tu nombre</label><input id="inNombre" maxlength="24" placeholder="Ej.: Valentina G." value="${esc(S.yo ? S.yo.nombre : "")}"></div>
+        <div class="field"><label for="inNombre">Tu nombre</label><input id="inNombre" maxlength="24" placeholder="Ej.: Valentina G." value="${esc(S.yo ? S.yo.nombre : nombreUrl)}"></div>
         <button class="btn big green" id="btnJoin" style="width:100%">Entrar a la partida</button>
       </div>
     </div>
