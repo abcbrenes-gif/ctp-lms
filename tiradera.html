@@ -1,0 +1,1163 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>La Tiradera · CTP Mercedes Norte</title>
+<meta name="description" content="Juego educativo en tiempo real: el ponente lanza retos y la clase compite por el podio.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+/* ============================================================
+   La Tiradera — juego educativo en tiempo real
+   Un solo archivo: estilos, interfaz y lógica.
+   ============================================================ */
+:root{
+  --bg1:#3b1d8f; --bg2:#7b2ff7; --bg3:#ff4fa0;
+  --card:#ffffff; --ink:#1d1640; --muted:#6b6590; --line:#e6e1f5;
+  --a:#e21b3c; --b:#1368ce; --c:#d89e00; --d:#26890c;
+  --ok:#22c55e; --bad:#ef4444; --gold:#f5b301; --silver:#a8b3c4; --bronze:#c97b3a;
+  --radius:18px; --shadow:0 10px 30px rgba(20,8,60,.25);
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{
+  font-family:"Nunito",system-ui,sans-serif;color:var(--ink);
+  background:radial-gradient(1200px 700px at 10% -10%,#9b5cff 0,transparent 60%),
+             radial-gradient(900px 600px at 110% 10%,#ff5fa8 0,transparent 55%),
+             linear-gradient(160deg,var(--bg1),var(--bg2));
+  background-attachment:fixed;min-height:100vh;
+}
+h1,h2,h3,.display{font-family:"Baloo 2",system-ui,sans-serif;margin:0;line-height:1.1}
+button{font:inherit;cursor:pointer;border:0}
+input,select,textarea{font:inherit;color:var(--ink)}
+.wrap{max-width:1100px;margin:0 auto;padding:16px}
+.hidden{display:none!important}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#fff;padding:10px 16px;max-width:1100px;margin:0 auto}
+.logo{display:flex;align-items:center;gap:10px;font-family:"Baloo 2";font-weight:800;font-size:1.6rem;letter-spacing:.5px}
+.logo .bolt{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#ffd23f,#ff7a00);box-shadow:0 6px 0 #c25200;font-size:1.4rem}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.16);color:#fff;font-weight:700;font-size:.85rem}
+.pill.conn-ok::before{content:"";width:8px;height:8px;border-radius:50%;background:#4ade80}
+.pill.conn-bad::before{content:"";width:8px;height:8px;border-radius:50%;background:#fbbf24}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;border-radius:14px;font-weight:800;font-size:1rem;transition:transform .08s,filter .15s;background:var(--b);color:#fff;box-shadow:0 5px 0 rgba(0,0,0,.25)}
+.btn:active{transform:translateY(3px);box-shadow:0 2px 0 rgba(0,0,0,.25)}
+.btn:hover{filter:brightness(1.07)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.big{padding:18px 26px;font-size:1.2rem;border-radius:18px}
+.btn.pink{background:linear-gradient(135deg,#ff4fa0,#ff7a00)}
+.btn.green{background:var(--d)}
+.btn.ghost{background:#efeaff;color:var(--ink);box-shadow:0 4px 0 #d4ccef}
+.btn.red{background:var(--a)}
+.btn.small{padding:8px 12px;font-size:.88rem;border-radius:10px}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.field label{font-weight:800;font-size:.9rem}
+.field input,.field select,.field textarea{border:2px solid var(--line);border-radius:12px;padding:10px 12px;background:#fbfaff;min-width:0}
+.field input:focus,.field select:focus,.field textarea:focus{outline:3px solid #c4b5fd;border-color:#8b5cf6}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.row>*{flex:1 1 180px}
+.muted{color:var(--muted)}
+.center{text-align:center}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1d1640;color:#fff;padding:12px 18px;border-radius:12px;font-weight:700;z-index:99;box-shadow:var(--shadow);max-width:90vw}
+
+/* ---------- Inicio ---------- */
+.hero{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));margin-top:16px}
+.hero .card h2{font-size:1.7rem;margin-bottom:6px}
+.hero .emoji{font-size:2.6rem}
+.tagline{color:#fff;text-align:center;margin:18px auto 0;max-width:640px;font-size:1.08rem}
+.tagline b{color:#ffd23f}
+.pin-input{font-family:"Baloo 2";font-size:2rem!important;text-align:center;letter-spacing:6px}
+
+/* ---------- Configuración ---------- */
+.reto-list{display:flex;flex-direction:column;gap:10px}
+.reto-item{display:flex;align-items:center;gap:10px;border:2px solid var(--line);border-radius:14px;padding:10px 12px;background:#fbfaff}
+.reto-item .num{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#fff;font-weight:800;background:#8b5cf6;flex:0 0 auto}
+.reto-item .txt{flex:1;min-width:0}
+.reto-item .txt b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tipo-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.tipo-tabs button{padding:12px 6px;border-radius:12px;background:#efeaff;font-weight:800;color:var(--ink);border:2px solid transparent}
+.tipo-tabs button.on{background:#ede4ff;border-color:#8b5cf6;color:#5b21b6}
+.opt-edit{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.opt-edit .shape{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;color:#fff;font-size:1.1rem;flex:0 0 auto}
+.opt-edit input[type=text]{flex:1;border:2px solid var(--line);border-radius:10px;padding:9px 10px;min-width:0}
+.opt-edit label.correct{display:flex;align-items:center;gap:4px;font-size:.8rem;font-weight:800;color:var(--d);white-space:nowrap}
+.word-edit{display:flex;gap:8px;margin-bottom:8px}
+.word-edit input{border:2px solid var(--line);border-radius:10px;padding:9px 10px;min-width:0}
+.word-edit input.w{flex:0 0 34%}
+.word-edit input.c{flex:1}
+
+/* ---------- Lobby ---------- */
+.pin-box{text-align:center;color:#fff}
+.pin-box .pin{font-family:"Baloo 2";font-size:clamp(3rem,12vw,6rem);font-weight:800;letter-spacing:10px;background:#fff;color:#3b1d8f;border-radius:22px;display:inline-block;padding:4px 26px;box-shadow:0 10px 0 rgba(0,0,0,.2);margin:8px 0}
+.players{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:16px}
+.chip{background:#fff;border-radius:999px;padding:8px 14px;font-weight:800;box-shadow:0 4px 0 rgba(0,0,0,.15);animation:pop .35s ease-out}
+.chip.off{opacity:.45}
+@keyframes pop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+
+/* ---------- Juego ---------- */
+.game-head{display:flex;align-items:center;gap:14px;justify-content:space-between;color:#fff;margin-bottom:12px;flex-wrap:wrap}
+.q-count{font-weight:800;background:rgba(255,255,255,.16);padding:6px 12px;border-radius:999px}
+.timer{position:relative;width:92px;height:92px;flex:0 0 auto}
+.timer svg{transform:rotate(-90deg)}
+.timer .t-num{position:absolute;inset:0;display:grid;place-items:center;font-family:"Baloo 2";font-size:2rem;font-weight:800;color:#fff}
+.timer circle.bg{stroke:rgba(255,255,255,.2)}
+.timer circle.fg{transition:stroke-dashoffset .25s linear,stroke .3s}
+.timer.warn .t-num{animation:pulse 1s infinite}
+@keyframes pulse{50%{transform:scale(1.15)}}
+.question{background:#fff;border-radius:var(--radius);padding:22px;text-align:center;box-shadow:var(--shadow);margin-bottom:14px}
+.question h2{font-size:clamp(1.25rem,3.4vw,2rem)}
+.question .tipo{display:inline-block;font-weight:800;font-size:.8rem;text-transform:uppercase;letter-spacing:1px;color:#7c3aed;background:#f1eaff;border-radius:999px;padding:4px 10px;margin-bottom:8px}
+.answers{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.ans{display:flex;align-items:center;gap:12px;min-height:84px;padding:14px 16px;border-radius:16px;color:#fff;font-weight:800;font-size:clamp(1rem,2.4vw,1.3rem);text-align:left;box-shadow:0 6px 0 rgba(0,0,0,.25);transition:transform .1s,opacity .2s,filter .2s}
+.ans .shape{font-size:1.5rem;flex:0 0 auto}
+.ans:active{transform:translateY(3px)}
+.ans.dim{opacity:.35;filter:grayscale(.6)}
+.ans.right{outline:5px solid #fff;box-shadow:0 0 0 9px var(--ok)}
+.ans.picked{outline:5px solid #fff}
+.c0{background:var(--a)}.c1{background:var(--b)}.c2{background:var(--c)}.c3{background:var(--d)}
+.ans .count{margin-left:auto;background:rgba(0,0,0,.2);border-radius:999px;padding:2px 10px;font-size:.95rem}
+.feedback{text-align:center;color:#fff;padding:26px 12px}
+.feedback .big{font-family:"Baloo 2";font-size:clamp(2.2rem,8vw,4rem);font-weight:800}
+.feedback .delta{display:inline-block;margin-top:8px;font-family:"Baloo 2";font-size:2rem;font-weight:800;padding:6px 18px;border-radius:14px;background:rgba(255,255,255,.18)}
+.feedback.good .big{color:#bbf7d0}.feedback.bad .big{color:#fecaca}
+.split{display:grid;grid-template-columns:1.6fr 1fr;gap:14px}
+@media (max-width:860px){.split{grid-template-columns:1fr}}
+
+/* ---------- Podio en vivo ---------- */
+.live{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:16px}
+.live h3{font-size:1.2rem;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.mini-podium{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:end;gap:8px;margin-bottom:12px;min-height:150px}
+.mp{display:flex;flex-direction:column;align-items:center;gap:6px}
+.mp .who{font-weight:800;font-size:.85rem;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:transform .4s}
+.mp .pts{font-size:.8rem;color:var(--muted);font-weight:700}
+.mp .step{width:100%;border-radius:12px 12px 4px 4px;display:grid;place-items:center;color:#fff;font-family:"Baloo 2";font-weight:800;font-size:1.6rem;transition:height .5s cubic-bezier(.2,.9,.3,1.3)}
+.mp.p1 .step{height:100px;background:linear-gradient(#ffd54a,var(--gold))}
+.mp.p2 .step{height:74px;background:linear-gradient(#d5dbe5,var(--silver))}
+.mp.p3 .step{height:54px;background:linear-gradient(#e0a06b,var(--bronze))}
+.mp.flash .who{animation:flash .9s}
+@keyframes flash{0%{transform:scale(1)}30%{transform:scale(1.25);color:#7c3aed}100%{transform:scale(1)}}
+.rank{list-style:none;margin:0;padding:0;position:relative}
+.rank li{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;margin-bottom:6px;background:#f7f4ff;font-weight:700;transition:transform .55s cubic-bezier(.2,.8,.2,1),background .4s}
+.rank li .pos{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;background:#8b5cf6;color:#fff;font-weight:800;font-size:.85rem;flex:0 0 auto}
+.rank li .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rank li .sc{font-family:"Baloo 2";font-weight:800}
+.rank li .dl{font-size:.8rem;font-weight:800;min-width:46px;text-align:right}
+.rank li.up{background:#dcfce7}.rank li.down{background:#fee2e2}
+.rank li.me{outline:3px solid #8b5cf6}
+.dl.pos-d{color:#15803d}.dl.neg-d{color:#b91c1c}
+.answered{color:#fff;font-weight:800;text-align:center;margin:10px 0}
+
+/* ---------- Sopa de letras ---------- */
+.wordsearch{display:grid;gap:4px;user-select:none;touch-action:none;margin:0 auto;max-width:560px}
+.wordsearch .cell{aspect-ratio:1;display:grid;place-items:center;background:#fff;border-radius:8px;font-weight:800;font-size:clamp(.8rem,2.6vw,1.2rem);box-shadow:0 2px 0 #d9d1f3;transition:background .15s,transform .1s}
+.wordsearch .cell.sel{background:#fde68a;transform:scale(1.06)}
+.wordsearch .cell.found{background:#86efac}
+.wordsearch .cell.reveal{background:#c4b5fd}
+.wordlist{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:12px 0}
+.wordlist span{background:#fff;padding:6px 12px;border-radius:999px;font-weight:800;box-shadow:0 3px 0 rgba(0,0,0,.15)}
+.wordlist span.found{background:#86efac;text-decoration:line-through}
+
+/* ---------- Crucigrama ---------- */
+.cw-wrap{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:start}
+@media (max-width:760px){.cw-wrap{grid-template-columns:1fr}}
+.crossword{display:grid;gap:3px;margin:0 auto;max-width:100%;overflow:auto}
+.crossword .cw{aspect-ratio:1;position:relative;min-width:26px}
+.crossword .cw.block{background:transparent}
+.crossword .cw input{width:100%;height:100%;border:2px solid #c4b5fd;border-radius:6px;text-align:center;font-weight:800;font-size:clamp(.8rem,2.4vw,1.1rem);text-transform:uppercase;padding:0;background:#fff}
+.crossword .cw input:focus{outline:3px solid #f59e0b}
+.crossword .cw .n{position:absolute;top:1px;left:3px;font-size:.55rem;font-weight:800;color:#6d28d9;pointer-events:none}
+.crossword .cw.ok input{background:#bbf7d0;border-color:#22c55e}
+.crossword .cw.no input{background:#fecaca;border-color:#ef4444}
+.clues{background:#fff;border-radius:14px;padding:12px 14px;font-size:.92rem}
+.clues h4{margin:6px 0;font-family:"Baloo 2";font-size:1.05rem}
+.clues ol{margin:0;padding-left:0;list-style:none}
+.clues li{margin-bottom:6px}
+.clues li b{color:#6d28d9}
+
+/* ---------- Final ---------- */
+.final-podium{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:end;gap:12px;max-width:720px;margin:30px auto 10px}
+.fp{display:flex;flex-direction:column;align-items:center;gap:8px;opacity:0;transform:translateY(40px);animation:rise .8s forwards}
+.fp.p2{animation-delay:.5s}.fp.p3{animation-delay:.2s}.fp.p1{animation-delay:1s}
+@keyframes rise{to{opacity:1;transform:none}}
+.fp .medal{font-size:3rem}
+.fp .who{color:#fff;font-weight:800;font-size:1.1rem;text-align:center}
+.fp .pts{color:#ffe;font-weight:700}
+.fp .step{width:100%;border-radius:16px 16px 6px 6px;display:grid;place-items:center;font-family:"Baloo 2";font-size:3rem;font-weight:800;color:#fff;box-shadow:0 10px 0 rgba(0,0,0,.2)}
+.fp.p1 .step{height:220px;background:linear-gradient(#ffe27a,var(--gold))}
+.fp.p2 .step{height:160px;background:linear-gradient(#e7ebf1,var(--silver))}
+.fp.p3 .step{height:115px;background:linear-gradient(#ecb385,var(--bronze))}
+.confetti{position:fixed;inset:0;pointer-events:none;z-index:50}
+.footer-note{color:rgba(255,255,255,.75);text-align:center;font-size:.85rem;margin:20px 0}
+@media (max-width:560px){
+  .answers{grid-template-columns:1fr}
+  .ans{min-height:64px}
+  .tipo-tabs{grid-template-columns:repeat(2,1fr)}
+  .timer{width:72px;height:72px}.timer .t-num{font-size:1.5rem}
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="logo"><span class="bolt">⚡</span> La Tiradera</div>
+  <span id="connPill" class="pill">Conectando…</span>
+</div>
+<main class="wrap" id="app"></main>
+<canvas class="confetti hidden" id="confetti"></canvas>
+<div class="toast hidden" id="toast"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   1. CONFIGURACIÓN Y UTILIDADES
+   ============================================================ */
+// Misma base de datos (Supabase) de la plataforma ctp-lms. Solo se usa el canal
+// en vivo (Realtime broadcast/presence): no se crean ni se leen tablas.
+const SUPABASE_URL = "https://dyulfowcvvmdmwbjhubq.supabase.co";
+const SUPABASE_KEY = "sb_publishable_WXHTshzfy4vMITGIHbfY3g_ra1U3mBd";
+
+const PUNTOS = {
+  base: 1000,          // puntos de un acierto instantáneo
+  minAcierto: 0.5,     // un acierto al último segundo vale el 50 %
+  error: 250,          // se resta al equivocarse
+  sinResponder: 150,   // se resta si se agota el tiempo sin responder
+  racha: 100,          // bono por cada acierto seguido (máx. 5)
+  sopaErrorSel: 30,    // se resta por cada selección incorrecta en la sopa
+  cruciErrorPal: 80    // se resta por cada palabra mal escrita en el crucigrama
+};
+const TIPOS = {
+  seleccion: { nombre: "Selección única", icono: "🔷" },
+  vf:        { nombre: "Falso y verdadero", icono: "✅" },
+  sopa:      { nombre: "Sopa de letras", icono: "🔎" },
+  cruci:     { nombre: "Crucigrama", icono: "🧩" }
+};
+const SHAPES = ["▲", "◆", "●", "■"];
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = v => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const uid = () => Math.random().toString(36).slice(2, 10);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+// Letras para sopa/crucigrama: sin tildes (la Ñ se conserva), solo A-Z/Ñ.
+const normPal = s => String(s || "").toUpperCase().replace(/Ñ/g, "\u0001").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\u0001/g, "Ñ").replace(/[^A-ZÑ]/g, "");
+function toast(msg, ms = 2600) {
+  const t = $("#toast"); t.textContent = msg; t.classList.remove("hidden");
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.add("hidden"), ms);
+}
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  sget(k, d) { try { const v = sessionStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  sset(k, v) { try { sessionStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+
+/* ============================================================
+   2. TRANSPORTE EN TIEMPO REAL
+   Supabase Realtime (entre dispositivos) o, si no hay conexión,
+   BroadcastChannel (entre pestañas del mismo navegador, para probar).
+   ============================================================ */
+let sbClient = null;
+try { if (window.supabase && window.supabase.createClient) sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch { sbClient = null; }
+
+function crearCanal(pin, miId, alEvento, alPresencia) {
+  const nombre = "tiradera-" + pin;
+  const canal = { modo: "local", listo: false, enviar: () => {}, trackPresencia: () => {}, cerrar: () => {} };
+  const usarLocal = () => {
+    const bc = new BroadcastChannel(nombre);
+    bc.onmessage = e => { const m = e.data; if (m && m.ev) alEvento(m.ev, m.data); };
+    canal.modo = "local"; canal.listo = true;
+    canal.enviar = (ev, data) => bc.postMessage({ ev, data });
+    canal.cerrar = () => bc.close();
+    marcarConexion(false);
+  };
+  if (!sbClient) { usarLocal(); return Promise.resolve(canal); }
+  return new Promise(resolve => {
+    let resuelto = false;
+    const ch = sbClient.channel(nombre, { config: { broadcast: { self: false }, presence: { key: miId } } });
+    ["state", "result", "join", "answer", "ping", "kick"].forEach(ev =>
+      ch.on("broadcast", { event: ev }, ({ payload }) => alEvento(ev, payload)));
+    ch.on("presence", { event: "sync" }, () => { if (alPresencia) alPresencia(ch.presenceState()); });
+    ch.subscribe(status => {
+      if (status === "SUBSCRIBED" && !resuelto) {
+        resuelto = true;
+        canal.modo = "vivo"; canal.listo = true;
+        canal.enviar = (ev, data) => ch.send({ type: "broadcast", event: ev, payload: data });
+        canal.trackPresencia = meta => ch.track(meta);
+        canal.cerrar = () => sbClient.removeChannel(ch);
+        marcarConexion(true);
+        resolve(canal);
+      } else if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT") && !resuelto) {
+        resuelto = true; try { sbClient.removeChannel(ch); } catch {}
+        usarLocal(); resolve(canal);
+      }
+    });
+    setTimeout(() => { if (!resuelto) { resuelto = true; try { sbClient.removeChannel(ch); } catch {} usarLocal(); resolve(canal); } }, 7000);
+  });
+}
+function marcarConexion(vivo) {
+  const p = $("#connPill");
+  p.className = "pill " + (vivo ? "conn-ok" : "conn-bad");
+  p.textContent = vivo ? "En vivo" : "Modo local (esta computadora)";
+  p.title = vivo ? "Conectado: los estudiantes pueden unirse desde cualquier dispositivo." : "Sin conexión en vivo: solo funciona entre pestañas de este navegador.";
+}
+
+/* ============================================================
+   3. GENERADORES: SOPA DE LETRAS Y CRUCIGRAMA
+   ============================================================ */
+function generarSopa(palabras, tam) {
+  const words = palabras.map(normPal).filter(w => w.length >= 2).sort((a, b) => b.length - a.length);
+  const N = Math.max(tam || 10, Math.max(...words.map(w => w.length), 6) + 1);
+  const grid = Array.from({ length: N }, () => Array(N).fill(""));
+  const dirs = [[0, 1], [1, 0], [1, 1], [-1, 1], [0, -1], [-1, 0]];
+  const colocadas = [];
+  for (const w of words) {
+    let ok = false;
+    for (let intento = 0; intento < 400 && !ok; intento++) {
+      const [dr, dc] = dirs[Math.floor(Math.random() * (intento < 200 ? 3 : dirs.length))];
+      const r0 = Math.floor(Math.random() * N), c0 = Math.floor(Math.random() * N);
+      const rN = r0 + dr * (w.length - 1), cN = c0 + dc * (w.length - 1);
+      if (rN < 0 || rN >= N || cN < 0 || cN >= N) continue;
+      let cabe = true;
+      for (let i = 0; i < w.length; i++) { const ch = grid[r0 + dr * i][c0 + dc * i]; if (ch && ch !== w[i]) { cabe = false; break; } }
+      if (!cabe) continue;
+      const celdas = [];
+      for (let i = 0; i < w.length; i++) { grid[r0 + dr * i][c0 + dc * i] = w[i]; celdas.push([r0 + dr * i, c0 + dc * i]); }
+      colocadas.push({ palabra: w, celdas });
+      ok = true;
+    }
+  }
+  const ABC = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ";
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (!grid[r][c]) grid[r][c] = ABC[Math.floor(Math.random() * ABC.length)];
+  return { N, grid, colocadas };
+}
+
+function generarCrucigrama(items) {
+  // items: [{palabra, pista}] → coloca palabras cruzándolas cuando se puede.
+  const lista = items.map(x => ({ w: normPal(x.palabra), pista: x.pista })).filter(x => x.w.length >= 2).sort((a, b) => b.w.length - a.w.length);
+  const celdas = new Map(); // "r,c" → letra
+  const puestas = [];
+  const key = (r, c) => r + "," + c;
+  const puede = (w, r, c, dir) => {
+    const [dr, dc] = dir === "H" ? [0, 1] : [1, 0];
+    const antes = celdas.get(key(r - dr, c - dc)), despues = celdas.get(key(r + dr * w.length, c + dc * w.length));
+    if (antes || despues) return -1;
+    let cruces = 0;
+    for (let i = 0; i < w.length; i++) {
+      const rr = r + dr * i, cc = c + dc * i, ch = celdas.get(key(rr, cc));
+      if (ch) { if (ch !== w[i]) return -1; cruces++; continue; }
+      // sin vecinos laterales (para no formar palabras falsas)
+      const l1 = celdas.get(key(rr + dc, cc + dr)), l2 = celdas.get(key(rr - dc, cc - dr));
+      if (l1 || l2) return -1;
+    }
+    return cruces;
+  };
+  const poner = (x, r, c, dir) => {
+    const [dr, dc] = dir === "H" ? [0, 1] : [1, 0];
+    for (let i = 0; i < x.w.length; i++) celdas.set(key(r + dr * i, c + dc * i), x.w[i]);
+    puestas.push({ ...x, r, c, dir });
+  };
+  if (!lista.length) return { filas: 0, cols: 0, palabras: [] };
+  poner(lista[0], 0, 0, "H");
+  const pendientes = lista.slice(1);
+  for (let vuelta = 0; vuelta < 3 && pendientes.length; vuelta++) {
+    for (let k = 0; k < pendientes.length; k++) {
+      const x = pendientes[k]; let mejor = null;
+      for (const p of puestas) for (let i = 0; i < p.w.length; i++) for (let j = 0; j < x.w.length; j++) {
+        if (p.w[i] !== x.w[j]) continue;
+        const dir = p.dir === "H" ? "V" : "H";
+        const r = p.dir === "H" ? p.r - j : p.r + i, c = p.dir === "H" ? p.c + i : p.c - j;
+        const cr = puede(x.w, r, c, dir);
+        if (cr > 0 && (!mejor || cr > mejor.cr)) mejor = { r, c, dir, cr };
+      }
+      if (mejor) { poner(x, mejor.r, mejor.c, mejor.dir); pendientes.splice(k, 1); k--; }
+    }
+  }
+  // Las que no cruzan se ponen aparte, debajo, en horizontal.
+  for (const x of pendientes) {
+    const maxR = Math.max(...[...celdas.keys()].map(k => +k.split(",")[0]));
+    const minC = Math.min(...[...celdas.keys()].map(k => +k.split(",")[1]));
+    poner(x, maxR + 2, minC, "H");
+  }
+  const rs = [...celdas.keys()].map(k => +k.split(",")[0]), cs = [...celdas.keys()].map(k => +k.split(",")[1]);
+  const r0 = Math.min(...rs), c0 = Math.min(...cs);
+  const palabras = puestas.map(p => ({ ...p, r: p.r - r0, c: p.c - c0 }));
+  // Numeración por posición (como en un crucigrama de periódico)
+  const inicios = [...new Set(palabras.map(p => p.r + "," + p.c))].sort((a, b) => { const [ar, ac] = a.split(",").map(Number), [br, bc] = b.split(",").map(Number); return ar - br || ac - bc; });
+  palabras.forEach(p => { p.num = inicios.indexOf(p.r + "," + p.c) + 1; });
+  return { filas: Math.max(...rs) - r0 + 1, cols: Math.max(...cs) - c0 + 1, palabras };
+}
+
+/* ============================================================
+   4. ESTADO GLOBAL Y NAVEGACIÓN
+   ============================================================ */
+const S = {
+  rol: null,           // "host" | "player"
+  pin: null,
+  canal: null,
+  yo: store.sget("tiradera_yo", null), // {id, nombre} del participante
+  // ---- solo host ----
+  retos: store.get("tiradera_retos", null),
+  jugadores: {},       // id → {id, nombre, pts, racha, ultimoDelta, online}
+  fase: "lobby",       // lobby | pregunta | revelar | final
+  idx: -1,
+  reto: null,          // reto actual (completo, con respuestas)
+  publico: null,       // versión sin respuestas que se envía
+  terminaEn: 0,
+  respuestas: {},      // id → {payload, ms, correcto, delta, detalle}
+  rankingPrevio: [],
+  bots: [],
+  // ---- solo player ----
+  estadoRemoto: null,
+  miResultado: null,
+  enviado: false,
+  sopaHallazgos: [],
+  timerRAF: null
+};
+const app = $("#app");
+
+function pantalla(html) { app.innerHTML = html; window.scrollTo({ top: 0, behavior: "smooth" }); }
+
+/* Retos de ejemplo (Contabilidad · temas laborales) */
+function retosEjemplo() {
+  return [
+    { id: uid(), tipo: "seleccion", pregunta: "¿Cuál es el porcentaje total de cuotas obreras (CCSS y Banco Popular) desde enero de 2026?", opciones: ["9,34 %", "10,83 %", "26,83 %", "5,50 %"], correcta: 1, tiempo: 30 },
+    { id: uid(), tipo: "vf", pregunta: "El aguinaldo se calcula con los salarios del 1 de diciembre al 30 de noviembre.", correcta: true, tiempo: 20 },
+    { id: uid(), tipo: "seleccion", pregunta: "El preaviso de un trabajador con más de un año de trabajo continuo equivale a:", opciones: ["Una semana", "Quince días", "Un mes"], correcta: 2, tiempo: 30 },
+    { id: uid(), tipo: "sopa", pregunta: "Encontrá los términos de la planilla", palabras: [{ palabra: "Planilla" }, { palabra: "Aguinaldo" }, { palabra: "Cesantía" }, { palabra: "Preaviso" }, { palabra: "Salario" }, { palabra: "Renta" }], tiempo: 90 },
+    { id: uid(), tipo: "cruci", pregunta: "Crucigrama de derechos laborales", palabras: [
+      { palabra: "Vacaciones", pista: "Días de descanso pagado que se ganan por cada 50 semanas de trabajo" },
+      { palabra: "Cesantia", pista: "Indemnización por años trabajados cuando el despido es con responsabilidad patronal" },
+      { palabra: "Aguinaldo", pista: "Pago que se recibe en diciembre" },
+      { palabra: "Jornada", pista: "Tiempo de trabajo diario: diurna, mixta o nocturna" },
+      { palabra: "Neto", pista: "Salario que se recibe después de las deducciones" }
+    ], tiempo: 120 }
+  ];
+}
+if (!Array.isArray(S.retos) || !S.retos.length) S.retos = retosEjemplo();
+const guardarRetos = () => store.set("tiradera_retos", S.retos);
+
+/* ============================================================
+   5. PANTALLA DE INICIO
+   ============================================================ */
+function vistaInicio() {
+  const pinUrl = new URLSearchParams(location.search).get("pin") || "";
+  pantalla(`
+    <p class="tagline">El <b>ponente</b> lanza el reto, la clase responde en tiempo real y se pelean el <b>podio</b>. Rápido y bien suma; equivocarse o dejar correr el tiempo, resta.</p>
+    <div class="hero">
+      <div class="card">
+        <div class="emoji">🎤</div>
+        <h2>Soy el ponente</h2>
+        <p class="muted">Armá los retos (selección única, falso y verdadero, sopa de letras o crucigrama), abrí la partida y proyectá esta pantalla.</p>
+        <button class="btn big pink" id="btnHost" style="width:100%">Crear partida</button>
+      </div>
+      <div class="card">
+        <div class="emoji">🎮</div>
+        <h2>Quiero jugar</h2>
+        <div class="field"><label for="inPin">PIN de la partida</label><input id="inPin" class="pin-input" inputmode="numeric" maxlength="6" placeholder="000000" value="${esc(pinUrl)}"></div>
+        <div class="field"><label for="inNombre">Tu nombre</label><input id="inNombre" maxlength="24" placeholder="Ej.: Valentina G." value="${esc(S.yo ? S.yo.nombre : "")}"></div>
+        <button class="btn big green" id="btnJoin" style="width:100%">Entrar a la partida</button>
+      </div>
+    </div>
+    <p class="footer-note">CTP Mercedes Norte · Especialidad de Contabilidad</p>`);
+  $("#btnHost").onclick = vistaConfig;
+  $("#btnJoin").onclick = unirse;
+  $("#inNombre").addEventListener("keydown", e => { if (e.key === "Enter") unirse(); });
+}
+
+/* ============================================================
+   6. CONFIGURACIÓN DE RETOS (ponente)
+   ============================================================ */
+let editando = null; // índice del reto en edición o "nuevo"
+function vistaConfig() {
+  S.rol = "host";
+  const lista = S.retos.map((r, i) => `
+    <div class="reto-item">
+      <span class="num">${i + 1}</span>
+      <div class="txt"><b>${esc(r.pregunta || "(sin enunciado)")}</b><small class="muted">${TIPOS[r.tipo].icono} ${TIPOS[r.tipo].nombre} · ${r.tiempo} s</small></div>
+      <button class="btn small ghost" data-up="${i}" title="Subir" ${i === 0 ? "disabled" : ""}>↑</button>
+      <button class="btn small ghost" data-edit="${i}">Editar</button>
+      <button class="btn small red" data-del="${i}" title="Eliminar">✕</button>
+    </div>`).join("");
+  pantalla(`
+    <div class="card">
+      <div class="row" style="align-items:center;margin-bottom:10px">
+        <h2 style="flex:2 1 260px">🛠️ Retos de la partida</h2>
+        <div style="flex:0 0 auto;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn small ghost" id="btnEjemplo">Cargar ejemplo</button>
+          <button class="btn small ghost" id="btnExport">Exportar</button>
+          <label class="btn small ghost" style="cursor:pointer">Importar<input type="file" id="inImport" accept="application/json" hidden></label>
+        </div>
+      </div>
+      <div class="reto-list">${lista || '<p class="muted">Todavía no hay retos. Agregá el primero.</p>'}</div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn ghost" id="btnNuevo">＋ Agregar reto</button>
+        <button class="btn big pink" id="btnAbrir" ${S.retos.length ? "" : "disabled"}>Abrir partida ▶</button>
+      </div>
+    </div>
+    <div id="editor" style="margin-top:16px"></div>
+    <div class="center" style="margin-top:14px"><button class="btn ghost" id="btnVolver">← Volver al inicio</button></div>`);
+  $$("[data-edit]").forEach(b => b.onclick = () => { editando = +b.dataset.edit; vistaEditor(); });
+  $$("[data-del]").forEach(b => b.onclick = () => { if (confirm("¿Eliminar este reto?")) { S.retos.splice(+b.dataset.del, 1); guardarRetos(); vistaConfig(); } });
+  $$("[data-up]").forEach(b => b.onclick = () => { const i = +b.dataset.up; [S.retos[i - 1], S.retos[i]] = [S.retos[i], S.retos[i - 1]]; guardarRetos(); vistaConfig(); });
+  $("#btnNuevo").onclick = () => { editando = "nuevo"; vistaEditor(); };
+  $("#btnAbrir").onclick = abrirPartida;
+  $("#btnVolver").onclick = vistaInicio;
+  $("#btnEjemplo").onclick = () => { if (confirm("¿Reemplazar los retos actuales por los de ejemplo?")) { S.retos = retosEjemplo(); guardarRetos(); vistaConfig(); } };
+  $("#btnExport").onclick = () => {
+    const blob = new Blob([JSON.stringify(S.retos, null, 2)], { type: "application/json" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "retos-tiradera.json"; a.click();
+  };
+  $("#inImport").onchange = async e => {
+    try {
+      const datos = JSON.parse(await e.target.files[0].text());
+      if (!Array.isArray(datos)) throw new Error("formato");
+      S.retos = datos.filter(r => TIPOS[r.tipo]).map(r => ({ ...r, id: r.id || uid() }));
+      guardarRetos(); vistaConfig(); toast("Retos importados ✓");
+    } catch { toast("Ese archivo no es una lista de retos válida."); }
+  };
+  if (editando !== null) vistaEditor();
+}
+
+function vistaEditor() {
+  const base = editando === "nuevo" ? { id: uid(), tipo: "seleccion", pregunta: "", opciones: ["", "", "", ""], correcta: 0, tiempo: 30 } : JSON.parse(JSON.stringify(S.retos[editando]));
+  const cont = $("#editor");
+  const render = () => {
+    const t = base.tipo;
+    let cuerpo = "";
+    if (t === "seleccion") {
+      base.opciones = base.opciones && base.opciones.length ? base.opciones : ["", "", "", ""];
+      cuerpo = `<label style="font-weight:800;font-size:.9rem">Opciones (de 2 a 4) — marcá la correcta</label>
+        ${base.opciones.map((o, i) => `<div class="opt-edit"><span class="shape c${i}">${SHAPES[i]}</span><input type="text" data-op="${i}" value="${esc(o)}" placeholder="Opción ${i + 1}${i > 1 ? " (opcional)" : ""}"><label class="correct"><input type="radio" name="corr" value="${i}" ${base.correcta === i ? "checked" : ""}> Correcta</label></div>`).join("")}`;
+    } else if (t === "vf") {
+      cuerpo = `<label style="font-weight:800;font-size:.9rem">Respuesta correcta</label>
+        <div class="row"><label class="btn ghost"><input type="radio" name="vf" value="true" ${base.correcta !== false ? "checked" : ""}> Verdadero</label><label class="btn ghost"><input type="radio" name="vf" value="false" ${base.correcta === false ? "checked" : ""}> Falso</label></div>`;
+    } else {
+      base.palabras = base.palabras && base.palabras.length ? base.palabras : [{ palabra: "", pista: "" }, { palabra: "", pista: "" }, { palabra: "", pista: "" }, { palabra: "", pista: "" }];
+      cuerpo = `<label style="font-weight:800;font-size:.9rem">${t === "sopa" ? "Palabras a encontrar (de 3 a 12)" : "Palabras y sus pistas (de 3 a 10)"}</label>
+        ${base.palabras.map((p, i) => `<div class="word-edit"><input class="w" data-pw="${i}" value="${esc(p.palabra)}" placeholder="Palabra ${i + 1}">${t === "cruci" ? `<input class="c" data-pc="${i}" value="${esc(p.pista || "")}" placeholder="Pista">` : ""}<button class="btn small ghost" data-pdel="${i}" title="Quitar">✕</button></div>`).join("")}
+        <button class="btn small ghost" id="btnAddPal">＋ Palabra</button>
+        <p class="muted" style="font-size:.82rem">Se quitan las tildes automáticamente (la Ñ se conserva). Sin espacios: «Salario neto» queda «SALARIONETO».</p>`;
+    }
+    cont.innerHTML = `
+      <div class="card">
+        <h2 style="margin-bottom:12px">${editando === "nuevo" ? "＋ Nuevo reto" : "✏️ Editar reto " + (editando + 1)}</h2>
+        <div class="tipo-tabs">${Object.entries(TIPOS).map(([k, v]) => `<button type="button" data-tipo="${k}" class="${k === t ? "on" : ""}">${v.icono}<br>${v.nombre}</button>`).join("")}</div>
+        <div class="field"><label for="inPreg">${t === "sopa" || t === "cruci" ? "Título o instrucción del reto" : "Pregunta"}</label><textarea id="inPreg" rows="2" placeholder="Escribí aquí el enunciado">${esc(base.pregunta)}</textarea></div>
+        ${cuerpo}
+        <div class="field" style="margin-top:12px;max-width:260px"><label for="inTiempo">Tiempo límite</label>
+          <select id="inTiempo">${[10, 15, 20, 30, 45, 60, 90, 120, 180, 240].map(s => `<option value="${s}" ${+base.tiempo === s ? "selected" : ""}>${s} segundos</option>`).join("")}</select></div>
+        <div class="row"><button class="btn green" id="btnGuardar">💾 Guardar reto</button><button class="btn ghost" id="btnCancelar">Cancelar</button></div>
+      </div>`;
+    const leer = () => {
+      base.pregunta = $("#inPreg").value.trim();
+      base.tiempo = +$("#inTiempo").value;
+      if (base.tipo === "seleccion") { base.opciones = $$("[data-op]", cont).map(i => i.value.trim()); const r = $("input[name=corr]:checked", cont); base.correcta = r ? +r.value : 0; }
+      if (base.tipo === "vf") { const r = $("input[name=vf]:checked", cont); base.correcta = r ? r.value === "true" : true; }
+      if (base.tipo === "sopa" || base.tipo === "cruci") base.palabras = $$("[data-pw]", cont).map((i, k) => ({ palabra: i.value.trim(), pista: ($(`[data-pc="${k}"]`, cont) || {}).value?.trim() || "" }));
+    };
+    $$("[data-tipo]", cont).forEach(b => b.onclick = () => { leer(); base.tipo = b.dataset.tipo; if (base.tipo === "vf" && typeof base.correcta !== "boolean") base.correcta = true; if (base.tipo === "seleccion" && typeof base.correcta !== "number") base.correcta = 0; if ((base.tipo === "sopa" || base.tipo === "cruci") && base.tiempo < 60) base.tiempo = 90; render(); });
+    $$("[data-pdel]", cont).forEach(b => b.onclick = () => { leer(); base.palabras.splice(+b.dataset.pdel, 1); render(); });
+    const add = $("#btnAddPal", cont); if (add) add.onclick = () => { leer(); base.palabras.push({ palabra: "", pista: "" }); render(); };
+    $("#btnCancelar").onclick = () => { editando = null; cont.innerHTML = ""; };
+    $("#btnGuardar").onclick = () => {
+      leer();
+      const err = validarReto(base);
+      if (err) { toast(err); return; }
+      const limpio = limpiarReto(base);
+      if (editando === "nuevo") S.retos.push(limpio); else S.retos[editando] = limpio;
+      guardarRetos(); editando = null; vistaConfig(); toast("Reto guardado ✓");
+    };
+  };
+  render();
+  cont.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+function limpiarReto(r) {
+  const x = { id: r.id || uid(), tipo: r.tipo, pregunta: r.pregunta, tiempo: +r.tiempo || 30 };
+  if (r.tipo === "seleccion") {
+    const ops = r.opciones.map((o, i) => ({ o, i })).filter(z => z.o);
+    x.opciones = ops.map(z => z.o); x.correcta = Math.max(0, ops.findIndex(z => z.i === r.correcta));
+  }
+  if (r.tipo === "vf") x.correcta = r.correcta !== false;
+  if (r.tipo === "sopa" || r.tipo === "cruci") x.palabras = r.palabras.filter(p => normPal(p.palabra).length >= 2).map(p => ({ palabra: p.palabra, pista: p.pista || "" }));
+  return x;
+}
+function validarReto(r) {
+  if (!r.pregunta) return "Falta el enunciado del reto.";
+  if (r.tipo === "seleccion") {
+    const llenas = r.opciones.filter(Boolean).length;
+    if (llenas < 2) return "Poné al menos 2 opciones.";
+    if (!r.opciones[r.correcta]) return "La opción marcada como correcta está vacía.";
+  }
+  if (r.tipo === "sopa" || r.tipo === "cruci") {
+    const ok = r.palabras.filter(p => normPal(p.palabra).length >= 2);
+    if (ok.length < 3) return "Poné al menos 3 palabras (de 2 letras o más).";
+    if (r.tipo === "sopa" && ok.some(p => normPal(p.palabra).length > 14)) return "En la sopa, cada palabra puede tener hasta 14 letras.";
+    if (r.tipo === "cruci" && r.palabras.some(p => normPal(p.palabra).length >= 2 && !p.pista)) return "Cada palabra del crucigrama necesita su pista.";
+  }
+  return "";
+}
+
+/* ============================================================
+   7. PONENTE: LOBBY, RONDAS Y PUNTUACIÓN
+   ============================================================ */
+async function abrirPartida() {
+  S.rol = "host";
+  S.pin = String(Math.floor(100000 + Math.random() * 900000));
+  S.jugadores = {}; S.fase = "lobby"; S.idx = -1; S.respuestas = {}; S.bots = [];
+  pantalla(`<div class="card center"><h2>Abriendo la partida…</h2></div>`);
+  S.canal = await crearCanal(S.pin, "host-" + uid(), hostEvento, hostPresencia);
+  vistaLobbyHost();
+  difundirEstado();
+}
+function hostPresencia(estado) {
+  const enLinea = new Set(Object.keys(estado || {}));
+  Object.values(S.jugadores).forEach(j => { if (!j.bot) j.online = enLinea.has(j.id); });
+  if (S.fase === "lobby") pintarJugadoresLobby();
+}
+function hostEvento(ev, data) {
+  if (ev === "join" && data && data.id) {
+    const nombre = String(data.nombre || "Jugador").slice(0, 24);
+    const j = S.jugadores[data.id] || { id: data.id, nombre, pts: 0, racha: 0, ultimoDelta: 0 };
+    j.nombre = nombre; j.online = true; S.jugadores[data.id] = j;
+    if (S.fase === "lobby") pintarJugadoresLobby();
+    difundirEstado();
+    // al que llega tarde a una ronda: se le reenvía su resultado si ya respondió
+    const r = S.respuestas[data.id];
+    if (r && S.fase !== "lobby") S.canal.enviar("result", resultadoPara(data.id));
+  }
+  if (ev === "answer" && data && data.id) recibirRespuesta(data);
+  if (ev === "ping") difundirEstado();
+}
+function vistaLobbyHost() {
+  const url = location.origin + location.pathname + "?pin=" + S.pin;
+  pantalla(`
+    <div class="pin-box">
+      <p style="font-weight:800;font-size:1.1rem;margin:0">Entrá a <b>${esc(location.host + location.pathname)}</b> y usá el PIN</p>
+      <div class="pin">${S.pin}</div>
+      <p style="margin:4px 0"><button class="btn small ghost" id="btnCopiar">📋 Copiar enlace directo</button></p>
+      <h2 style="margin-top:14px" id="cuentaJug">0 jugadores</h2>
+      <div class="players" id="listaJug"></div>
+      <div class="row" style="justify-content:center;margin-top:22px;max-width:620px;margin-left:auto;margin-right:auto">
+        <button class="btn big pink" id="btnEmpezar">¡Empezar la tiradera! 🔥</button>
+        <button class="btn ghost" id="btnBots">🤖 Agregar 3 bots de prueba</button>
+      </div>
+      <p class="footer-note">${S.retos.length} reto(s) · ${S.canal.modo === "vivo" ? "Los estudiantes pueden unirse desde el celular." : "Modo local: abrí otra pestaña de este navegador para unirte como jugador."}</p>
+      <p><button class="btn small ghost" id="btnCancelarP">Cancelar partida</button></p>
+    </div>`);
+  $("#btnCopiar").onclick = async () => { try { await navigator.clipboard.writeText(url); toast("Enlace copiado ✓"); } catch { toast(url, 6000); } };
+  $("#btnEmpezar").onclick = () => { if (!Object.keys(S.jugadores).length && !confirm("Todavía no hay jugadores. ¿Empezar igual?")) return; siguienteReto(); };
+  $("#btnBots").onclick = agregarBots;
+  $("#btnCancelarP").onclick = () => { if (confirm("¿Cancelar la partida?")) { S.fase = "final"; difundirEstado(); S.canal.cerrar(); vistaConfig(); } };
+  pintarJugadoresLobby();
+}
+function pintarJugadoresLobby() {
+  const l = $("#listaJug"); if (!l) return;
+  const js = Object.values(S.jugadores);
+  l.innerHTML = js.map(j => `<span class="chip ${j.online === false ? "off" : ""}">${j.bot ? "🤖 " : ""}${esc(j.nombre)}</span>`).join("") || '<span class="pill">Esperando jugadores…</span>';
+  $("#cuentaJug").textContent = js.length + (js.length === 1 ? " jugador" : " jugadores");
+}
+function agregarBots() {
+  const nombres = ["Bot Cuentas", "Bot Planilla", "Bot Balance", "Bot Asiento", "Bot Renta", "Bot Débito"];
+  for (let k = 0; k < 3; k++) {
+    const id = "bot-" + uid();
+    const nombre = nombres[(S.bots.length) % nombres.length];
+    S.bots.push({ id, nombre, habilidad: 0.45 + Math.random() * 0.45 });
+    S.jugadores[id] = { id, nombre, pts: 0, racha: 0, ultimoDelta: 0, online: true, bot: true };
+  }
+  pintarJugadoresLobby(); difundirEstado();
+}
+
+// Versión del reto sin respuestas, para mandarla a los jugadores.
+function retoPublico(r) {
+  const p = { id: r.id, tipo: r.tipo, pregunta: r.pregunta, tiempo: r.tiempo };
+  if (r.tipo === "seleccion") p.opciones = r.opciones;
+  if (r.tipo === "sopa") { p.N = r._sopa.N; p.grid = r._sopa.grid; p.palabras = r._sopa.colocadas.map(x => x.palabra); }
+  if (r.tipo === "cruci") { p.filas = r._cruci.filas; p.cols = r._cruci.cols; p.palabras = r._cruci.palabras.map(x => ({ num: x.num, r: x.r, c: x.c, dir: x.dir, len: x.w.length, pista: x.pista })); }
+  return p;
+}
+function siguienteReto() {
+  S.idx++;
+  if (S.idx >= S.retos.length) return terminarPartida();
+  const r = JSON.parse(JSON.stringify(S.retos[S.idx]));
+  if (r.tipo === "sopa") r._sopa = generarSopa(r.palabras.map(p => p.palabra), 10);
+  if (r.tipo === "cruci") r._cruci = generarCrucigrama(r.palabras);
+  S.reto = r; S.publico = retoPublico(r);
+  S.respuestas = {};
+  S.rankingPrevio = ranking().map(j => j.id);
+  S.fase = "pregunta";
+  S.terminaEn = Date.now() + r.tiempo * 1000;
+  Object.values(S.jugadores).forEach(j => { j.ultimoDelta = 0; });
+  vistaRondaHost();
+  difundirEstado();
+  correrBots();
+  clearTimeout(S._finRonda);
+  S._finRonda = setTimeout(cerrarRonda, r.tiempo * 1000 + 300);
+}
+function correrBots() {
+  const r = S.reto;
+  for (const b of S.bots) {
+    const ms = (0.15 + Math.random() * 0.7) * r.tiempo * 1000;
+    setTimeout(() => {
+      if (S.fase !== "pregunta" || S.reto !== r) return;
+      const acierta = Math.random() < b.habilidad;
+      let payload;
+      if (r.tipo === "seleccion") payload = { opcion: acierta ? r.correcta : (r.correcta + 1 + Math.floor(Math.random() * (r.opciones.length - 1))) % r.opciones.length };
+      if (r.tipo === "vf") payload = { valor: acierta ? r.correcta : !r.correcta };
+      if (r.tipo === "sopa") payload = { hallazgos: r._sopa.colocadas.filter(() => Math.random() < b.habilidad).map(x => x.celdas), errores: acierta ? 0 : 2, final: true };
+      if (r.tipo === "cruci") payload = { palabras: Object.fromEntries(r._cruci.palabras.map(x => [x.num + x.dir, Math.random() < b.habilidad ? x.w : x.w.slice(0, -1) + "X"])), final: true };
+      recibirRespuesta({ id: b.id, idx: S.idx, payload });
+    }, ms);
+  }
+}
+function recibirRespuesta({ id, idx, payload }) {
+  if (S.fase !== "pregunta" || idx !== S.idx || !S.jugadores[id]) return;
+  const r = S.reto;
+  const restante = Math.max(0, S.terminaEn - Date.now());
+  const factor = PUNTOS.minAcierto + (1 - PUNTOS.minAcierto) * (restante / (r.tiempo * 1000));
+  const j = S.jugadores[id];
+  const previo = S.respuestas[id];
+  // Selección y V/F: una sola respuesta.
+  if ((r.tipo === "seleccion" || r.tipo === "vf") && previo) return;
+  let correcto = false, delta = 0, detalle = {};
+  if (r.tipo === "seleccion" || r.tipo === "vf") {
+    correcto = r.tipo === "seleccion" ? Number(payload.opcion) === r.correcta : Boolean(payload.valor) === r.correcta;
+    if (correcto) { j.racha = (j.racha || 0) + 1; delta = Math.round(PUNTOS.base * factor) + Math.min(5, j.racha - 1) * PUNTOS.racha; }
+    else { j.racha = 0; delta = -PUNTOS.error; }
+    detalle = r.tipo === "seleccion" ? { opcion: Number(payload.opcion) } : { valor: Boolean(payload.valor) };
+  }
+  if (r.tipo === "sopa") {
+    // Cada hallazgo se valida contra las palabras colocadas (por celdas).
+    const colocadas = r._sopa.colocadas;
+    const hallados = new Set(previo ? previo.detalle.hallados : []);
+    let nuevos = 0, malos = 0;
+    for (const celdas of (payload.hallazgos || [])) {
+      const k = JSON.stringify(celdas), kr = JSON.stringify([...celdas].reverse());
+      const w = colocadas.find(x => JSON.stringify(x.celdas) === k || JSON.stringify(x.celdas) === kr);
+      if (w && !hallados.has(w.palabra)) { hallados.add(w.palabra); nuevos++; } else if (!w) malos++;
+    }
+    malos += Number(payload.errores) || 0;
+    const porPalabra = PUNTOS.base / colocadas.length;
+    delta = Math.round(nuevos * porPalabra * factor) - malos * PUNTOS.sopaErrorSel;
+    const completo = hallados.size === colocadas.length;
+    if (completo && !(previo && previo.detalle.completo)) delta += Math.round(PUNTOS.base * 0.25 * factor);
+    correcto = completo;
+    detalle = { hallados: [...hallados], completo };
+    if (previo) { delta += 0; }
+  }
+  if (r.tipo === "cruci") {
+    if (previo && previo.final) return;
+    const ps = r._cruci.palabras;
+    let bien = 0, mal = 0; const estado = {};
+    for (const x of ps) {
+      const resp = normPal((payload.palabras || {})[x.num + x.dir] || "");
+      if (!resp) continue;
+      if (resp === x.w) { bien++; estado[x.num + x.dir] = true; } else { mal++; estado[x.num + x.dir] = false; }
+    }
+    delta = Math.round(bien * (PUNTOS.base / ps.length) * factor) - mal * PUNTOS.cruciErrorPal;
+    if (bien === ps.length) delta += Math.round(PUNTOS.base * 0.25 * factor);
+    correcto = bien === ps.length;
+    if (bien === 0) { j.racha = 0; if (mal === 0) delta = -PUNTOS.sinResponder; }
+    detalle = { bien, mal, total: ps.length, estado };
+  }
+  j.pts = Math.max(0, j.pts + delta);
+  j.ultimoDelta = (previo ? previo.delta : 0) + delta;
+  S.respuestas[id] = { payload, correcto, delta: j.ultimoDelta, detalle, final: !!payload.final || r.tipo === "seleccion" || r.tipo === "vf" };
+  S.canal.enviar("result", resultadoPara(id));
+  actualizarVivoHost();
+  difundirEstadoThrottle();
+  // Si todos los que están en línea ya terminaron, se cierra antes.
+  const activos = Object.values(S.jugadores).filter(x => x.online !== false);
+  if (activos.length && activos.every(x => S.respuestas[x.id] && S.respuestas[x.id].final)) {
+    clearTimeout(S._finRonda); S._finRonda = setTimeout(cerrarRonda, 700);
+  }
+}
+function resultadoPara(id) {
+  const r = S.respuestas[id], j = S.jugadores[id];
+  const rk = ranking(); const puesto = rk.findIndex(x => x.id === id) + 1;
+  return { id, idx: S.idx, correcto: r ? r.correcto : false, delta: r ? r.delta : j.ultimoDelta, pts: j.pts, puesto, total: rk.length, detalle: r ? r.detalle : null, final: r ? r.final : true };
+}
+function cerrarRonda() {
+  if (S.fase !== "pregunta") return;
+  // Penalización a quien no respondió.
+  Object.values(S.jugadores).forEach(j => {
+    if (!S.respuestas[j.id]) {
+      j.racha = 0; j.pts = Math.max(0, j.pts - PUNTOS.sinResponder); j.ultimoDelta = -PUNTOS.sinResponder;
+      S.respuestas[j.id] = { payload: null, correcto: false, delta: -PUNTOS.sinResponder, detalle: { sinResponder: true }, final: true };
+    }
+  });
+  S.fase = "revelar";
+  Object.keys(S.jugadores).forEach(id => S.canal.enviar("result", resultadoPara(id)));
+  vistaRondaHost();
+  difundirEstado();
+}
+function terminarPartida() {
+  clearTimeout(S._finRonda);
+  S.fase = "final";
+  difundirEstado();
+  vistaFinal(ranking());
+}
+function ranking() {
+  return Object.values(S.jugadores).sort((a, b) => b.pts - a.pts || a.nombre.localeCompare(b.nombre));
+}
+// Lo que ven los jugadores (sin respuestas, salvo al revelar).
+function estadoPublico() {
+  const rk = ranking().map(j => ({ id: j.id, nombre: j.nombre, pts: j.pts, delta: j.ultimoDelta, bot: !!j.bot }));
+  const e = { fase: S.fase, pin: S.pin, idx: S.idx, total: S.retos.length, ranking: rk, respondieron: Object.keys(S.respuestas).length, jugadores: rk.length };
+  if (S.fase === "pregunta" || S.fase === "revelar") { e.reto = S.publico; e.restanteMs = Math.max(0, S.terminaEn - Date.now()); }
+  if (S.fase === "revelar") e.solucion = solucionReto(S.reto);
+  return e;
+}
+function solucionReto(r) {
+  if (r.tipo === "seleccion") return { correcta: r.correcta, conteo: r.opciones.map((_, i) => Object.values(S.respuestas).filter(x => x.payload && Number(x.payload.opcion) === i).length) };
+  if (r.tipo === "vf") return { correcta: r.correcta, conteo: [true, false].map(v => Object.values(S.respuestas).filter(x => x.payload && Boolean(x.payload.valor) === v).length) };
+  if (r.tipo === "sopa") return { colocadas: r._sopa.colocadas };
+  if (r.tipo === "cruci") return { palabras: r._cruci.palabras.map(x => ({ num: x.num, dir: x.dir, w: x.w })) };
+}
+function difundirEstado() { if (S.canal) S.canal.enviar("state", estadoPublico()); }
+let _thr = null;
+function difundirEstadoThrottle() { if (_thr) return; _thr = setTimeout(() => { _thr = null; difundirEstado(); }, 350); }
+
+/* ---------- Vista del ponente durante la ronda ---------- */
+function vistaRondaHost() {
+  const r = S.reto, revelar = S.fase === "revelar";
+  const sol = revelar ? solucionReto(r) : null;
+  let cuerpo = "";
+  if (r.tipo === "seleccion") cuerpo = `<div class="answers">${r.opciones.map((o, i) => `<div class="ans c${i} ${revelar && i !== r.correcta ? "dim" : ""} ${revelar && i === r.correcta ? "right" : ""}"><span class="shape">${SHAPES[i]}</span><span>${esc(o)}</span>${revelar ? `<span class="count">${sol.conteo[i]}</span>` : ""}</div>`).join("")}</div>`;
+  if (r.tipo === "vf") cuerpo = `<div class="answers">${[["Verdadero", true, 3], ["Falso", false, 0]].map(([t, v, c]) => `<div class="ans c${c} ${revelar && v !== r.correcta ? "dim" : ""} ${revelar && v === r.correcta ? "right" : ""}"><span class="shape">${v ? "✔" : "✘"}</span><span>${t}</span>${revelar ? `<span class="count">${sol.conteo[v ? 0 : 1]}</span>` : ""}</div>`).join("")}</div>`;
+  if (r.tipo === "sopa") cuerpo = sopaHTML(S.publico, revelar ? r._sopa.colocadas : null, true);
+  if (r.tipo === "cruci") cuerpo = cruciHTML(S.publico, revelar ? sol.palabras : null, true);
+  pantalla(`
+    <div class="game-head">
+      <span class="q-count">Reto ${S.idx + 1} de ${S.retos.length} · PIN ${S.pin}</span>
+      ${revelar ? `<span class="pill">⏹ Tiempo</span>` : timerHTML()}
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${revelar ? `<button class="btn pink" id="btnSig">${S.idx + 1 < S.retos.length ? "Siguiente reto ▶" : "Ver podio final 🏆"}</button>` : `<button class="btn ghost" id="btnCerrar">⏹ Cerrar ronda</button>`}
+        <button class="btn small ghost" id="btnFin">Terminar</button>
+      </div>
+    </div>
+    <div class="split">
+      <div>
+        <div class="question"><span class="tipo">${TIPOS[r.tipo].icono} ${TIPOS[r.tipo].nombre}</span><h2>${esc(r.pregunta)}</h2></div>
+        ${cuerpo}
+        <p class="answered" id="contResp"></p>
+      </div>
+      <div class="live" id="vivo"></div>
+    </div>`);
+  if (!revelar) iniciarTimer(S.terminaEn, r.tiempo);
+  const sig = $("#btnSig"); if (sig) sig.onclick = siguienteReto;
+  const cer = $("#btnCerrar"); if (cer) cer.onclick = () => { clearTimeout(S._finRonda); cerrarRonda(); };
+  $("#btnFin").onclick = () => { if (confirm("¿Terminar la partida y mostrar el podio?")) terminarPartida(); };
+  actualizarVivoHost(true);
+}
+function actualizarVivoHost(primera) {
+  const v = $("#vivo"); if (!v) return;
+  const rk = ranking().map(j => ({ id: j.id, nombre: j.nombre, pts: j.pts, delta: j.ultimoDelta, bot: j.bot }));
+  pintarVivo(v, rk, null);
+  const c = $("#contResp");
+  if (c) c.textContent = `${Object.keys(S.respuestas).length} de ${rk.length} respondieron`;
+}
+
+/* ============================================================
+   8. COMPONENTES COMPARTIDOS: TEMPORIZADOR, PODIO, SOPA, CRUCIGRAMA
+   ============================================================ */
+function timerHTML() {
+  return `<div class="timer" id="timer"><svg viewBox="0 0 100 100" width="100%" height="100%"><circle class="bg" cx="50" cy="50" r="44" stroke-width="10" fill="none"/><circle class="fg" id="timerFg" cx="50" cy="50" r="44" stroke-width="10" fill="none" stroke="#4ade80" stroke-linecap="round" stroke-dasharray="276.46" stroke-dashoffset="0"/></svg><div class="t-num" id="timerNum"></div></div>`;
+}
+function iniciarTimer(terminaEn, totalS) {
+  cancelAnimationFrame(S.timerRAF);
+  const tick = () => {
+    const fg = $("#timerFg"), num = $("#timerNum"), box = $("#timer");
+    if (!fg) return;
+    const rest = Math.max(0, terminaEn - Date.now()), frac = rest / (totalS * 1000);
+    fg.setAttribute("stroke-dashoffset", String(276.46 * (1 - frac)));
+    fg.setAttribute("stroke", frac > 0.5 ? "#4ade80" : frac > 0.2 ? "#facc15" : "#f87171");
+    num.textContent = Math.ceil(rest / 1000);
+    box.classList.toggle("warn", rest <= 5000 && rest > 0);
+    if (rest > 0) S.timerRAF = requestAnimationFrame(tick);
+  };
+  tick();
+}
+// Podio en vivo + ranking con animación FLIP (las filas se deslizan al cambiar de puesto).
+function pintarVivo(cont, rk, miId) {
+  const top = [rk[0], rk[1], rk[2]];
+  const previos = {};
+  $$(".rank li", cont).forEach(li => { previos[li.dataset.id] = li.getBoundingClientRect().top; });
+  const posPrev = cont._pos || {};
+  const pos = {}; rk.forEach((j, i) => { pos[j.id] = i; });
+  const lider = cont._lider;
+  cont.innerHTML = `
+    <h3>🏆 Podio en vivo</h3>
+    <div class="mini-podium">
+      ${[1, 0, 2].map(k => { const j = top[k]; return `<div class="mp p${k + 1} ${j && cont._top && cont._top[k] !== j.id ? "flash" : ""}"><span class="who">${j ? (j.bot ? "🤖 " : "") + esc(j.nombre) : "—"}</span><span class="pts">${j ? j.pts + " pts" : ""}</span><div class="step">${k + 1}°</div></div>`; }).join("")}
+    </div>
+    <ol class="rank">${rk.map((j, i) => {
+      const mov = posPrev[j.id] === undefined ? "" : (pos[j.id] < posPrev[j.id] ? "up" : pos[j.id] > posPrev[j.id] ? "down" : "");
+      return `<li data-id="${esc(j.id)}" class="${mov} ${j.id === miId ? "me" : ""}"><span class="pos">${i + 1}</span><span class="nm">${j.bot ? "🤖 " : ""}${esc(j.nombre)}</span><span class="dl ${j.delta > 0 ? "pos-d" : j.delta < 0 ? "neg-d" : ""}">${j.delta ? (j.delta > 0 ? "+" : "") + j.delta : ""}</span><span class="sc">${j.pts}</span></li>`;
+    }).join("") || '<li><span class="nm muted">Todavía no hay jugadores</span></li>'}</ol>`;
+  // FLIP
+  $$(".rank li", cont).forEach(li => {
+    const antes = previos[li.dataset.id]; if (antes === undefined) return;
+    const dy = antes - li.getBoundingClientRect().top;
+    if (dy) { li.style.transition = "none"; li.style.transform = `translateY(${dy}px)`; requestAnimationFrame(() => { li.style.transition = ""; li.style.transform = ""; }); }
+  });
+  cont._pos = pos; cont._top = top.map(j => j && j.id); cont._lider = rk[0] && rk[0].id;
+}
+function sopaHTML(p, revelar, soloVer) {
+  return `<div class="wordlist" id="sopaLista">${p.palabras.map(w => `<span data-w="${esc(w)}">${esc(w)}</span>`).join("")}</div>
+    <div class="wordsearch" id="sopa" style="grid-template-columns:repeat(${p.N},1fr)">${p.grid.map((fila, r) => fila.map((ch, c) => {
+      const rev = revelar && revelar.some(x => x.celdas.some(([a, b]) => a === r && b === c));
+      return `<div class="cell ${rev ? "reveal" : ""}" data-r="${r}" data-c="${c}">${ch}</div>`; }).join("")).join("")}</div>
+    ${soloVer ? "" : `<p class="center muted" style="color:#fff">Tocá la primera y la última letra de cada palabra (o arrastrá).</p>`}`;
+}
+function cruciHTML(p, revelar, soloVer) {
+  const mapa = {}; // "r,c" → {num}
+  p.palabras.forEach(x => {
+    for (let i = 0; i < x.len; i++) { const r = x.r + (x.dir === "V" ? i : 0), c = x.c + (x.dir === "H" ? i : 0); mapa[r + "," + c] = mapa[r + "," + c] || {}; }
+    mapa[x.r + "," + x.c].num = x.num;
+  });
+  const letraRev = {};
+  if (revelar) revelar.forEach(s => { const x = p.palabras.find(y => y.num === s.num && y.dir === s.dir); for (let i = 0; i < s.w.length; i++) letraRev[(x.r + (x.dir === "V" ? i : 0)) + "," + (x.c + (x.dir === "H" ? i : 0))] = s.w[i]; });
+  let celdas = "";
+  for (let r = 0; r < p.filas; r++) for (let c = 0; c < p.cols; c++) {
+    const m = mapa[r + "," + c];
+    celdas += m ? `<div class="cw" data-r="${r}" data-c="${c}">${m.num ? `<span class="n">${m.num}</span>` : ""}<input maxlength="1" data-r="${r}" data-c="${c}" ${soloVer ? "readonly" : ""} value="${letraRev[r + "," + c] || ""}" autocomplete="off" autocapitalize="characters"></div>` : `<div class="cw block"></div>`;
+  }
+  const pistas = dir => p.palabras.filter(x => x.dir === dir).sort((a, b) => a.num - b.num).map(x => `<li><b>${x.num}.</b> ${esc(x.pista)} <span class="muted">(${x.len})</span></li>`).join("");
+  return `<div class="cw-wrap"><div class="crossword" id="cruci" style="grid-template-columns:repeat(${p.cols},minmax(26px,40px))">${celdas}</div>
+    <div class="clues"><h4>➡️ Horizontales</h4><ol>${pistas("H") || "<li class='muted'>—</li>"}</ol><h4>⬇️ Verticales</h4><ol>${pistas("V") || "<li class='muted'>—</li>"}</ol></div></div>`;
+}
+
+/* ============================================================
+   9. PARTICIPANTE
+   ============================================================ */
+async function unirse() {
+  const pin = ($("#inPin").value || "").replace(/\D/g, "");
+  const nombre = ($("#inNombre").value || "").trim();
+  if (pin.length !== 6) { toast("El PIN tiene 6 números."); return; }
+  if (!nombre) { toast("Escribí tu nombre."); return; }
+  S.rol = "player"; S.pin = pin;
+  S.yo = { id: (S.yo && S.yo.id) || "j-" + uid(), nombre };
+  store.sset("tiradera_yo", S.yo);
+  pantalla(`<div class="card center"><h2>Entrando a la partida ${pin}…</h2><p class="muted">Si tarda, revisá que el PIN sea el correcto.</p></div>`);
+  S.canal = await crearCanal(pin, S.yo.id, jugadorEvento, null);
+  S.canal.trackPresencia({ nombre });
+  S.canal.enviar("join", S.yo);
+  S.estadoRemoto = null;
+  // Si no hay respuesta del ponente, se reintenta y se avisa.
+  let intentos = 0;
+  const reintentar = setInterval(() => {
+    if (S.estadoRemoto) { clearInterval(reintentar); return; }
+    intentos++; S.canal.enviar("join", S.yo); S.canal.enviar("ping", {});
+    if (intentos === 4) pantalla(`<div class="card center"><h2>No encontramos la partida ${pin}</h2><p class="muted">Revisá el PIN o pedile al ponente que abra la partida. Seguimos intentando…</p><button class="btn ghost" id="btnAtras">← Volver</button></div>`), $("#btnAtras").onclick = () => { clearInterval(reintentar); S.canal.cerrar(); vistaInicio(); };
+  }, 2500);
+}
+function jugadorEvento(ev, data) {
+  if (ev === "state") {
+    const previo = S.estadoRemoto; S.estadoRemoto = data;
+    const cambioRonda = !previo || previo.fase !== data.fase || previo.idx !== data.idx;
+    if (!data.ranking.some(j => j.id === S.yo.id) && data.fase !== "final") { S.canal.enviar("join", S.yo); }
+    if (cambioRonda) {
+      if (data.fase === "pregunta" && (!previo || previo.idx !== data.idx)) { S.miResultado = null; S.enviado = false; S.sopaHallazgos = []; }
+      pintarJugador();
+    } else actualizarVivoJugador();
+  }
+  if (ev === "result" && data && data.id === S.yo.id) {
+    const nuevo = !S.miResultado || S.miResultado.delta !== data.delta || S.miResultado.final !== data.final;
+    S.miResultado = data;
+    const e = S.estadoRemoto;
+    if (e && e.fase === "pregunta" && (e.reto.tipo === "seleccion" || e.reto.tipo === "vf")) pintarJugador();
+    else if (e && e.fase === "pregunta" && e.reto.tipo === "sopa") marcarSopaJugador();
+    else if (e && e.fase === "pregunta" && e.reto.tipo === "cruci" && data.final) pintarJugador();
+    else if (nuevo) actualizarVivoJugador();
+  }
+}
+function pintarJugador() {
+  const e = S.estadoRemoto; if (!e) return;
+  if (e.fase === "lobby") {
+    pantalla(`<div class="pin-box"><h2 style="font-size:2rem">¡Ya estás adentro, ${esc(S.yo.nombre)}! 🎉</h2><p style="font-size:1.1rem">Esperá a que el ponente empiece la tiradera…</p><div class="players">${e.ranking.map(j => `<span class="chip">${j.bot ? "🤖 " : ""}${esc(j.nombre)}</span>`).join("")}</div></div>`);
+    return;
+  }
+  if (e.fase === "final") { vistaFinal(e.ranking, S.yo.id); return; }
+  const r = e.reto, revelar = e.fase === "revelar", res = S.miResultado;
+  const terminaEn = Date.now() + (e.restanteMs || 0);
+  if (!revelar && !S._terminaLocal) S._terminaLocal = {};
+  if (!revelar) S._terminaLocal[e.idx] = S._terminaLocal[e.idx] || terminaEn;
+  const fin = revelar ? 0 : S._terminaLocal[e.idx];
+  let cuerpo = "";
+  const yaRespondio = res && res.idx === e.idx && res.final;
+  if ((r.tipo === "seleccion" || r.tipo === "vf") && yaRespondio && !revelar) cuerpo = feedbackHTML(res, "Respuesta enviada");
+  else if (r.tipo === "seleccion") {
+    const elegida = res && res.detalle ? res.detalle.opcion : null;
+    cuerpo = `<div class="answers">${r.opciones.map((o, i) => `<button class="ans c${i} ${revelar && e.solucion.correcta !== i ? "dim" : ""} ${revelar && e.solucion.correcta === i ? "right" : ""} ${elegida === i ? "picked" : ""}" data-op="${i}" ${revelar ? "disabled" : ""}><span class="shape">${SHAPES[i]}</span><span>${esc(o)}</span></button>`).join("")}</div>`;
+  } else if (r.tipo === "vf") {
+    const elegida = res && res.detalle ? res.detalle.valor : null;
+    cuerpo = `<div class="answers">${[["Verdadero", true, 3], ["Falso", false, 0]].map(([t, v, c]) => `<button class="ans c${c} ${revelar && e.solucion.correcta !== v ? "dim" : ""} ${revelar && e.solucion.correcta === v ? "right" : ""} ${elegida === v ? "picked" : ""}" data-vf="${v}" ${revelar ? "disabled" : ""}><span class="shape">${v ? "✔" : "✘"}</span><span>${t}</span></button>`).join("")}</div>`;
+  } else if (r.tipo === "sopa") cuerpo = sopaHTML(r, revelar ? e.solucion.colocadas : null, revelar);
+  else if (r.tipo === "cruci") cuerpo = (yaRespondio && !revelar) ? feedbackHTML(res, "Crucigrama enviado") : cruciHTML(r, revelar ? e.solucion.palabras : null, revelar) + (revelar ? "" : `<div class="center" style="margin-top:12px"><button class="btn big green" id="btnEnviarCruci">Enviar crucigrama ✔</button></div>`);
+  pantalla(`
+    <div class="game-head">
+      <span class="q-count">Reto ${e.idx + 1} de ${e.total}</span>
+      ${revelar ? "" : timerHTML()}
+      <span class="pill">${esc(S.yo.nombre)} · ${miPuntaje()} pts</span>
+    </div>
+    ${revelar ? feedbackHTML(res, null) : ""}
+    <div class="question"><span class="tipo">${TIPOS[r.tipo].icono} ${TIPOS[r.tipo].nombre}</span><h2>${esc(r.pregunta)}</h2></div>
+    ${cuerpo}
+    <div class="live" id="vivoJ" style="margin-top:14px"></div>`);
+  if (!revelar) iniciarTimer(fin, r.tiempo);
+  $$("[data-op]").forEach(b => b.onclick = () => enviarRespuesta({ opcion: +b.dataset.op }));
+  $$("[data-vf]").forEach(b => b.onclick = () => enviarRespuesta({ valor: b.dataset.vf === "true" }));
+  if (r.tipo === "sopa" && !revelar) activarSopa(r);
+  if (r.tipo === "cruci" && !revelar && !yaRespondio) activarCruci(r, fin);
+  actualizarVivoJugador();
+}
+function miPuntaje() {
+  const e = S.estadoRemoto; const yo = e && e.ranking.find(j => j.id === S.yo.id);
+  return S.miResultado ? S.miResultado.pts : (yo ? yo.pts : 0);
+}
+function feedbackHTML(res, titulo) {
+  const e = S.estadoRemoto;
+  if (titulo && res) return `<div class="feedback"><div class="big">⏳ ${titulo}</div><p style="font-size:1.1rem">Esperá a que se acabe el tiempo para ver si acertaste…</p><div class="delta">Vas ${res.puesto}° de ${res.total}</div></div>`;
+  if (!res || res.idx !== e.idx) return `<div class="feedback bad"><div class="big">⌛ Se acabó el tiempo</div></div>`;
+  const d = res.delta;
+  const sinResp = res.detalle && res.detalle.sinResponder;
+  const msg = sinResp ? "⌛ No respondiste" : res.correcto ? "🎉 ¡Correcto!" : (e.reto.tipo === "sopa" || e.reto.tipo === "cruci") && d > 0 ? "👍 ¡Bien!" : "😬 Incorrecto";
+  return `<div class="feedback ${d >= 0 && !sinResp ? "good" : "bad"}"><div class="big">${msg}</div><div class="delta">${d > 0 ? "+" : ""}${d} pts · ${res.puesto}° lugar</div></div>`;
+}
+function actualizarVivoJugador() {
+  const e = S.estadoRemoto, v = $("#vivoJ"); if (!e || !v) return;
+  pintarVivo(v, e.ranking, S.yo.id);
+}
+function enviarRespuesta(payload, opciones = {}) {
+  const e = S.estadoRemoto; if (!e || e.fase !== "pregunta") return;
+  if (!opciones.parcial && S.enviado) return;
+  if (!opciones.parcial) S.enviado = true;
+  S.canal.enviar("answer", { id: S.yo.id, idx: e.idx, payload });
+  if (!opciones.parcial && (e.reto.tipo === "seleccion" || e.reto.tipo === "vf")) {
+    $$(".ans").forEach(b => { b.disabled = true; });
+    const btn = payload.opcion !== undefined ? $(`[data-op="${payload.opcion}"]`) : $(`[data-vf="${payload.valor}"]`);
+    if (btn) btn.classList.add("picked");
+  }
+}
+/* --- Sopa de letras: selección por toque inicio/fin o arrastre --- */
+function activarSopa(r) {
+  const grid = $("#sopa"); let inicio = null, arrastrando = false;
+  const celda = el => el && el.classList && el.classList.contains("cell") ? [+el.dataset.r, +el.dataset.c] : null;
+  const linea = (a, b) => {
+    const dr = Math.sign(b[0] - a[0]), dc = Math.sign(b[1] - a[1]);
+    const lr = Math.abs(b[0] - a[0]), lc = Math.abs(b[1] - a[1]);
+    if (!(lr === 0 || lc === 0 || lr === lc)) return null;
+    const n = Math.max(lr, lc) + 1; return Array.from({ length: n }, (_, i) => [a[0] + dr * i, a[1] + dc * i]);
+  };
+  const pintarSel = cs => { $$(".cell.sel", grid).forEach(x => x.classList.remove("sel")); (cs || []).forEach(([a, b]) => { const el = $(`.cell[data-r="${a}"][data-c="${b}"]`, grid); if (el) el.classList.add("sel"); }); };
+  const terminar = fin => {
+    const cs = inicio && fin ? linea(inicio, fin) : null;
+    pintarSel(null); inicio = null;
+    if (!cs || cs.length < 2) return;
+    const palabra = cs.map(([a, b]) => r.grid[a][b]).join("");
+    const inv = [...palabra].reverse().join("");
+    if (r.palabras.includes(palabra) || r.palabras.includes(inv)) {
+      if (S.sopaHallazgos.some(h => JSON.stringify(h) === JSON.stringify(cs))) return;
+      S.sopaHallazgos.push(cs);
+      cs.forEach(([a, b]) => $(`.cell[data-r="${a}"][data-c="${b}"]`, grid).classList.add("found"));
+      const w = r.palabras.includes(palabra) ? palabra : inv;
+      const span = $(`#sopaLista [data-w="${w}"]`); if (span) span.classList.add("found");
+      const completo = S.sopaHallazgos.length >= r.palabras.length;
+      enviarRespuesta({ hallazgos: [cs], final: completo }, { parcial: true });
+    } else {
+      enviarRespuesta({ hallazgos: [], errores: 1 }, { parcial: true });
+      toast(`«${palabra}» no está en la lista (−${PUNTOS.sopaErrorSel})`, 1500);
+    }
+  };
+  grid.addEventListener("pointerdown", ev => { const c = celda(ev.target); if (!c) return; ev.preventDefault();
+    if (inicio && !arrastrando) { terminar(c); return; }
+    inicio = c; arrastrando = true; pintarSel([c]); });
+  grid.addEventListener("pointermove", ev => { if (!arrastrando || !inicio) return; const el = document.elementFromPoint(ev.clientX, ev.clientY); const c = celda(el); if (c) pintarSel(linea(inicio, c) || [inicio]); });
+  grid.addEventListener("pointerup", ev => { if (!arrastrando) return; arrastrando = false; const el = document.elementFromPoint(ev.clientX, ev.clientY); const c = celda(el);
+    if (c && inicio && (c[0] !== inicio[0] || c[1] !== inicio[1])) terminar(c); });
+  // Restaurar lo ya encontrado (si se repinta la pantalla).
+  S.sopaHallazgos.forEach(cs => cs.forEach(([a, b]) => { const el = $(`.cell[data-r="${a}"][data-c="${b}"]`, grid); if (el) el.classList.add("found"); }));
+  marcarSopaJugador();
+}
+function marcarSopaJugador() {
+  const res = S.miResultado; if (!res || !res.detalle || !res.detalle.hallados) { actualizarVivoJugador(); return; }
+  res.detalle.hallados.forEach(w => { const s = $(`#sopaLista [data-w="${w}"]`); if (s) s.classList.add("found"); });
+  const pill = $(".game-head .pill"); if (pill) pill.textContent = `${S.yo.nombre} · ${res.pts} pts`;
+  actualizarVivoJugador();
+}
+/* --- Crucigrama: escribir letras, avanzar solo, enviar --- */
+function activarCruci(r, fin) {
+  const cont = $("#cruci");
+  const borrador = store.sget("tiradera_cruci_" + S.pin + "_" + S.estadoRemoto.idx, {});
+  $$("input", cont).forEach(inp => {
+    const k = inp.dataset.r + "," + inp.dataset.c;
+    if (borrador[k]) inp.value = borrador[k];
+    inp.addEventListener("input", () => {
+      inp.value = normPal(inp.value).slice(-1);
+      borrador[k] = inp.value; store.sset("tiradera_cruci_" + S.pin + "_" + S.estadoRemoto.idx, borrador);
+      if (inp.value) { // saltar a la siguiente celda de la palabra (horizontal primero)
+        const r0 = +inp.dataset.r, c0 = +inp.dataset.c;
+        const sig = $(`input[data-r="${r0}"][data-c="${c0 + 1}"]`, cont) || $(`input[data-r="${r0 + 1}"][data-c="${c0}"]`, cont);
+        if (sig) sig.focus();
+      }
+    });
+  });
+  const leer = () => {
+    const out = {};
+    r.palabras.forEach(x => { let w = ""; for (let i = 0; i < x.len; i++) { const rr = x.r + (x.dir === "V" ? i : 0), cc = x.c + (x.dir === "H" ? i : 0); w += ($(`input[data-r="${rr}"][data-c="${cc}"]`, cont) || {}).value || "·"; } out[x.num + x.dir] = w.includes("·") ? "" : w; });
+    return out;
+  };
+  $("#btnEnviarCruci").onclick = () => { if (!confirm("¿Enviar el crucigrama? Ya no lo vas a poder cambiar.")) return; enviarRespuesta({ palabras: leer(), final: true }); };
+  // Al agotarse el tiempo se envía solo lo que haya escrito.
+  clearTimeout(S._autoCruci);
+  S._autoCruci = setTimeout(() => { if (!S.enviado && S.estadoRemoto && S.estadoRemoto.fase === "pregunta") enviarRespuesta({ palabras: leer(), final: true }); }, Math.max(0, fin - Date.now() - 400));
+}
+
+/* ============================================================
+   10. PODIO FINAL Y CONFETI
+   ============================================================ */
+function vistaFinal(rk, miId) {
+  cancelAnimationFrame(S.timerRAF);
+  const [p1, p2, p3] = rk;
+  const fp = (j, n, medal) => `<div class="fp p${n}"><span class="medal">${medal}</span><span class="who">${j ? (j.bot ? "🤖 " : "") + esc(j.nombre) : "—"}</span><span class="pts">${j ? j.pts + " pts" : ""}</span><div class="step">${n}°</div></div>`;
+  const yo = miId ? rk.findIndex(j => j.id === miId) + 1 : 0;
+  pantalla(`
+    <div class="center" style="color:#fff"><h1 style="font-size:clamp(2.2rem,7vw,3.6rem)">🏆 ¡Podio final!</h1>
+      ${yo ? `<p style="font-size:1.2rem;font-weight:800">Quedaste en el ${yo}° lugar de ${rk.length} con ${rk[yo - 1].pts} puntos</p>` : ""}</div>
+    <div class="final-podium">${fp(p2, 2, "🥈")}${fp(p1, 1, "🥇")}${fp(p3, 3, "🥉")}</div>
+    <div class="live" style="max-width:640px;margin:20px auto"><h3>📋 Tabla completa</h3>
+      <ol class="rank">${rk.map((j, i) => `<li class="${j.id === miId ? "me" : ""}"><span class="pos">${i + 1}</span><span class="nm">${j.bot ? "🤖 " : ""}${esc(j.nombre)}</span><span class="sc">${j.pts}</span></li>`).join("")}</ol></div>
+    <div class="center" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      ${S.rol === "host" ? `<button class="btn pink" id="btnCsv">⬇️ Descargar resultados</button><button class="btn ghost" id="btnOtra">Nueva partida</button>` : `<button class="btn ghost" id="btnSalir">Salir</button>`}
+    </div>`);
+  lanzarConfeti();
+  const csv = $("#btnCsv"); if (csv) csv.onclick = () => {
+    const filas = [["Puesto", "Nombre", "Puntos"], ...rk.map((j, i) => [i + 1, j.nombre, j.pts])];
+    const blob = new Blob(["﻿" + filas.map(f => f.map(x => `"${String(x).replace(/"/g, '""')}"`).join(";")).join("\n")], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `tiradera-${S.pin}.csv`; a.click();
+  };
+  const otra = $("#btnOtra"); if (otra) otra.onclick = () => { S.canal.cerrar(); vistaConfig(); };
+  const salir = $("#btnSalir"); if (salir) salir.onclick = () => { S.canal.cerrar(); vistaInicio(); };
+}
+function lanzarConfeti() {
+  const cv = $("#confetti"), ctx = cv.getContext("2d"); cv.classList.remove("hidden");
+  const W = cv.width = innerWidth, H = cv.height = innerHeight;
+  const cols = ["#ffd23f", "#ff4fa0", "#4ade80", "#60a5fa", "#a78bfa", "#fb923c"];
+  const ps = Array.from({ length: 180 }, () => ({ x: Math.random() * W, y: -20 - Math.random() * H, vy: 2 + Math.random() * 4, vx: -1.5 + Math.random() * 3, s: 6 + Math.random() * 7, r: Math.random() * 6, vr: -0.2 + Math.random() * 0.4, c: cols[Math.floor(Math.random() * cols.length)] }));
+  const t0 = performance.now();
+  const frame = t => {
+    ctx.clearRect(0, 0, W, H);
+    ps.forEach(p => { p.x += p.vx; p.y += p.vy; p.r += p.vr; ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c; ctx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); ctx.restore(); });
+    if (t - t0 < 5000) requestAnimationFrame(frame); else { ctx.clearRect(0, 0, W, H); cv.classList.add("hidden"); }
+  };
+  requestAnimationFrame(frame);
+}
+
+/* ============================================================
+   11. ARRANQUE
+   ============================================================ */
+marcarConexion(!!sbClient);
+$("#connPill").textContent = sbClient ? "Listo para jugar" : "Modo local (esta computadora)";
+vistaInicio();
+</script>
+</body>
+</html>
