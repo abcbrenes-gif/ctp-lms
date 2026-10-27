@@ -1487,7 +1487,7 @@ async function renderMateriasEstudiante(el, s) {
           </div>
         </div>
       </a>
-      <a class="section-tile flip-card" href="tiradera.html?nombre=${encodeURIComponent(`${s.nombre || ""} ${s.apellido1 || ""}`.trim())}" style="height:180px;">
+      <a class="section-tile flip-card" href="tiradera.html?nombre=${encodeURIComponent(`${s.nombre || ""} ${s.apellido1 || ""} ${s.apellido2 || ""}`.replace(/\s+/g, " ").trim())}&est=${encodeURIComponent(s.id)}" style="height:180px;">
         <div class="flip-card-inner">
           <div class="flip-card-front">
             <div class="num" style="font-size:1.7rem;">⚡ La Tiradera</div>
@@ -2846,6 +2846,15 @@ async function renderSubtema(id, soloLectura) {
         if (!titulo) { alert("Ponele un título a la actividad."); return; }
         const resultado = leerContenidoActividadDesdeFormulario(tipo, panel.querySelector("#actividad-constructor"));
         if (!resultado.valido) { alert(resultado.error); return; }
+        const presetElegido = ESTRATEGIAS_EVALUACION[valorSelect];
+        if (presetElegido && presetElegido.tiradera) {
+          // Se marca la estrategia y qué dato del juego alimenta cada criterio.
+          resultado.contenido.estrategia = valorSelect;
+          resultado.contenido.criterios = (resultado.contenido.criterios || []).map((c, i) => {
+            const auto = presetElegido.criterios[i] && presetElegido.criterios[i].auto;
+            return auto ? { ...c, auto } : c;
+          });
+        }
         if (!pub.materia_id) { alert("Este subtema no tiene una materia asociada, no se puede crear el indicador de calificación."); return; }
         const horaInicioInput = panel.querySelector("#au-prueba-hora-inicio");
         const fechaHoraInicio = (tipo === "prueba" && horaInicioInput && horaInicioInput.value) ? new Date(horaInicioInput.value).toISOString() : null;
@@ -3986,6 +3995,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
             ${t.tipo_actividad === "lluvia_ideas" ? `<button class="btn secondary small" data-ver-ideas="${t.id}">💡 Ver intervenciones</button>` : ""}
             ${t.tipo_actividad === "respuesta_abierta" ? `<button class="btn secondary small" data-ver-entregas-abiertas="${t.id}">📨 Ver entregas</button>` : ""}
             ${t.tipo_actividad === "autoevaluacion" ? `<button class="btn secondary small" data-ver-autoeval="${t.id}">🪞 Ver respuestas</button>` : ""}
+            ${t.contenido_actividad && t.contenido_actividad.estrategia === "juego_tiradera" ? `<a class="btn small" href="tiradera.html?trabajo=${t.id}" target="_blank" rel="noopener">⚡ Lanzar La Tiradera</a>` : ""}
             ${t.tipo_actividad === "rubrica_directa" ? `<button class="btn secondary small" data-calificar-rubrica="${t.id}">🧮 Calificar</button>` : ""}
             ${esEditable(t) ? `<button class="btn secondary small" data-editar-trabajo-subtema="${t.id}">✏️ Editar</button>` : ""}
             ${t.indicador_id
@@ -5387,9 +5397,15 @@ async function pintarPanelCalificarRubrica(panel, trabajo, materiaId) {
     </details>`;
   };
 
+  const esTiradera = trabajo.contenido_actividad && trabajo.contenido_actividad.estrategia === "juego_tiradera";
   panel.innerHTML = `
+    ${esTiradera ? `<div data-tiradera-bloque style="margin-bottom:0.8rem;"></div>` : ""}
     <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">Ponele puntos a cada criterio por estudiante (podés dejar algunos sin calificar y volver después). La nota 0-3 se calcula sola según el % del total de puntos.</p>
     <div>${ordenados.map(filaEstudiante).join("")}</div>`;
+  if (esTiradera) {
+    pintarBloqueTiradera(panel.querySelector("[data-tiradera-bloque]"), panel, trabajo, ordenados, nombrePorId, estudiantes || [],
+      () => pintarPanelCalificarRubrica(panel, trabajo, materiaId));
+  }
 
   panel.querySelectorAll("[data-guardar-rubrica]").forEach(btn => {
     btn.addEventListener("click", async () => {
@@ -5407,6 +5423,119 @@ async function pintarPanelCalificarRubrica(panel, trabajo, materiaId) {
       if (estado) estado.textContent = `✓ Guardado — ${Math.round(porcentaje)}% → nota ${puntaje}/3.`;
     });
   });
+}
+
+// --- La Tiradera (estrategia de evaluación con juego en vivo) ---
+// Muestra el registro que guardó el juego (puntos ganados / perdidos por
+// estudiante), sugiere los puntos de cada criterio "auto" y permite
+// aplicarlos a todos de una vez. Los criterios sin "auto" (si el profesor
+// agregó alguno) conservan lo que ya tengan puesto.
+const normNombreTiradera = v => String(v || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zñ\s]/g, " ").split(/\s+/).filter(x => x.length >= 2);
+function emparejarEstudianteTiradera(fila, estudiantes) {
+  if (fila.estudiante_id && estudiantes.some(e => String(e.id) === String(fila.estudiante_id))) return String(fila.estudiante_id);
+  const t = normNombreTiradera(fila.nombre);
+  if (t.length < 2) return "";
+  const candidatos = estudiantes.filter(e => {
+    const n = new Set(normNombreTiradera([e.nombre, e.apellido1, e.apellido2].join(" ")));
+    return t.filter(x => n.has(x)).length >= Math.min(t.length, 2) && t.every(x => n.has(x) || x.length <= 2);
+  });
+  return candidatos.length === 1 ? String(candidatos[0].id) : "";
+}
+async function pintarBloqueTiradera(cont, panel, trabajo, ordenados, nombrePorId, estudiantes, alAplicar) {
+  if (!cont) return;
+  cont.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando registro de La Tiradera…</p>`;
+  const { data: fresco } = await sb.from("trabajos_cotidianos").select("contenido_actividad").eq("id", trabajo.id).maybeSingle();
+  const contenido = (fresco && fresco.contenido_actividad) || trabajo.contenido_actividad || {};
+  const criterios = contenido.criterios || [];
+  const preset = ESTRATEGIAS_EVALUACION.juego_tiradera;
+  const autoDe = (c, i) => c.auto || (preset.criterios[i] && preset.criterios[i].auto) || null;
+  const partidas = (contenido.tiradera_partidas || []).slice().reverse();
+  const caja = (html) => `<div style="background:var(--surface-soft); border:1px solid var(--paper-line); border-radius:10px; padding:0.8rem;">${html}</div>`;
+  const encabezado = `<div class="row" style="align-items:center; justify-content:space-between; gap:0.5rem; margin-bottom:0.5rem;">
+      <strong>⚡ Registro de La Tiradera</strong>
+      <a class="btn small" href="tiradera.html?trabajo=${trabajo.id}" target="_blank" rel="noopener">⚡ Lanzar La Tiradera</a></div>`;
+  if (!partidas.length) {
+    cont.innerHTML = caja(`${encabezado}<p style="font-size:0.82rem; color:var(--text-muted); margin:0;">Todavía no se ha jugado. Tocá "⚡ Lanzar La Tiradera", armá los retos y jugá con la clase: al terminar, el registro de puntos llega solo acá y se sugieren las notas de cada criterio.</p>`);
+    return;
+  }
+  let sel = 0;
+  const opciones = [{ id: "", label: "— Sin asignar —" }].concat(ordenados.map(id => ({ id: String(id), label: nombrePorId[id] || id })));
+  const nivel = pct => puntajeDesdePorcentaje(Number(pct) || 0);
+  const sugeridos = fila => criterios.map((c, i) => {
+    const k = autoDe(c, i);
+    if (!k) return null;
+    return Math.round(nivel(fila[k]) / 3 * (Number(c.puntos_max) || 0));
+  });
+  const pintar = () => {
+    const p = partidas[sel];
+    const filas = p.registro.map((f, idx) => ({ ...f, idx, estId: emparejarEstudianteTiradera(f, estudiantes) }));
+    const sinAsignar = filas.filter(f => !f.estId).length;
+    const grupal = p.modalidad === "grupal";
+    cont.innerHTML = caja(`${encabezado}
+      <div class="row" style="align-items:center; gap:0.5rem; margin-bottom:0.5rem;">
+        <label style="font-size:0.82rem;">Partida:
+          <select data-tir-partida style="padding:0.3rem;">${partidas.map((x, i) => `<option value="${i}" ${i === sel ? "selected" : ""}>${new Date(x.fecha).toLocaleString("es-CR")} · ${x.registro.length} estudiantes · ${x.retos} retos${x.modalidad === "grupal" ? " · grupal" : ""}</option>`).join("")}</select></label>
+      </div>
+      ${p.grupos ? `<p style="font-size:0.8rem; margin:0 0 0.4rem;"><strong>Grupos:</strong> ${p.grupos.map(g => `${g.puesto}° ${g.nombre} (${g.puntos} pts, ${g.integrantes})`).join(" · ")}</p>` : ""}
+      <div style="overflow-x:auto;">
+      <table style="width:100%; border-collapse:collapse; font-size:0.78rem;">
+        <thead><tr style="text-align:left; border-bottom:1px solid var(--paper-line);">
+          <th style="padding:0.3rem;">Estudiante en la plataforma</th><th>Nombre que escribió / apodo</th>${grupal ? "<th>Grupo</th>" : ""}<th>Pts</th><th>Ganados</th><th>Perdidos</th><th>Aciertos</th><th>Errores</th><th>Sin resp.</th>
+          ${criterios.map((c, i) => `<th title="${String(c.nombre).replace(/"/g, "&quot;")}">C${i + 1}</th>`).join("")}<th>Nota</th></tr></thead>
+        <tbody>${filas.map(f => {
+          const sug = sugeridos(f);
+          const puntosParaNota = sug.map(v => v == null ? 0 : v);
+          const nota = puntajeDesdePorcentaje(porcentajeDesdeCriterios(criterios, puntosParaNota));
+          return `<tr style="border-bottom:1px solid var(--paper-line);">
+            <td style="padding:0.3rem;"><select data-tir-est="${f.idx}" style="max-width:15rem; padding:0.2rem; ${f.estId ? "" : "border:2px solid var(--brick);"}">${opciones.map(o => `<option value="${o.id}" ${o.id === f.estId ? "selected" : ""}>${o.label}</option>`).join("")}</select></td>
+            <td>${escAC(f.nombre || "—")}<br><span style="color:var(--text-muted);">«${escAC(f.apodo)}»</span></td>
+            ${grupal ? `<td>${escAC(f.grupo || "")}</td>` : ""}
+            <td><strong>${f.puntos}</strong></td><td style="color:#1d7a43;">+${f.ganados}</td><td style="color:#c0392b;">−${f.perdidos}</td>
+            <td>${f.aciertos}/${f.rondas}</td><td>${f.errores}</td><td>${f.sin_responder}</td>
+            ${sug.map((v, i) => `<td title="${autoDe(criterios[i], i) ? f[autoDe(criterios[i], i)] + " %" : "Se califica a mano"}">${v == null ? "—" : v + "/" + criterios[i].puntos_max}</td>`).join("")}
+            <td><strong>${nota}/3</strong></td></tr>`;
+        }).join("")}</tbody>
+      </table></div>
+      <details style="margin-top:0.5rem; font-size:0.78rem;"><summary style="cursor:pointer;">Ver detalle por reto y qué mide cada criterio</summary>
+        <ul style="margin:0.4rem 0; padding-left:1.2rem;">${criterios.map((c, i) => `<li><strong>C${i + 1}</strong> ${escAC(c.nombre)}${autoDe(c, i) ? "" : " — <em>se califica a mano</em>"}</li>`).join("")}</ul>
+        <p style="margin:0.3rem 0;">Escala de cada criterio automático: 85 % o más = 3 · 60–84 % = 2 · 35–59 % = 1 · menos de 35 % = 0 (proporcional si el criterio vale otra cantidad de puntos). Rapidez: el % es el doble del tiempo que le sobraba en promedio en sus aciertos (con 43 % de tiempo sobrante o más llega a 3).</p>
+        ${filas.map(f => `<div style="margin-top:0.4rem;"><strong>${escAC(f.nombre || f.apodo)}</strong>: ${(f.detalle || []).map(d => `R${d.reto} ${escAC(d.resultado)} (+${d.ganados}/−${d.perdidos})`).join(" · ")}</div>`).join("")}
+      </details>
+      <div class="row" style="margin-top:0.6rem; align-items:center; gap:0.5rem;">
+        <button class="btn small" data-tir-aplicar>✅ Aplicar notas sugeridas</button>
+        <span data-tir-estado style="font-size:0.78rem; color:var(--text-muted);">${sinAsignar ? `⚠️ ${sinAsignar} fila(s) sin estudiante asignado: elegilo en la lista (o quedan sin aplicar).` : "Todos los participantes están emparejados con su estudiante."}</span>
+      </div>`);
+    cont.querySelector("[data-tir-partida]").addEventListener("change", e => { sel = Number(e.target.value) || 0; pintar(); });
+    cont.querySelectorAll("[data-tir-est]").forEach(s => s.addEventListener("change", () => { filas[Number(s.dataset.tirEst)].estId = s.value; s.style.border = s.value ? "" : "2px solid var(--brick)"; }));
+    cont.querySelector("[data-tir-aplicar]").addEventListener("click", async (ev) => {
+      const estado = cont.querySelector("[data-tir-estado]");
+      const aAplicar = filas.filter(f => f.estId);
+      const repetidos = aAplicar.map(f => f.estId).filter((id, i, a) => a.indexOf(id) !== i);
+      if (repetidos.length) { estado.textContent = "⚠️ Hay un mismo estudiante asignado a dos filas. Corregilo antes de aplicar."; return; }
+      if (!aAplicar.length) { estado.textContent = "Asigná al menos un estudiante."; return; }
+      if (!confirm(`¿Aplicar las notas sugeridas a ${aAplicar.length} estudiante(s)? Se reemplazan los puntos de los criterios automáticos.`)) return;
+      ev.target.disabled = true;
+      let ok = 0, fallos = 0;
+      for (const f of aAplicar) {
+        estado.textContent = `Guardando ${ok + fallos + 1} de ${aAplicar.length}…`;
+        const sug = sugeridos(f);
+        const puntos = sug.map((v, i) => {
+          if (v != null) return v;
+          const inp = panel.querySelector(`[data-rubrica-criterio="${f.estId}"][data-i="${i}"]`);
+          return inp && inp.value !== "" ? Number(inp.value) : 0;
+        });
+        const porcentaje = porcentajeDesdeCriterios(criterios, puntos);
+        const puntaje = puntajeDesdePorcentaje(porcentaje);
+        let r = await guardarNotaManualActividad(trabajo, f.estId, puntaje, { respuestas: puntos, porcentaje });
+        if (r && r.error) { await new Promise(res => setTimeout(res, 1500)); r = await guardarNotaManualActividad(trabajo, f.estId, puntaje, { respuestas: puntos, porcentaje }); }
+        if (r && r.error) fallos++; else ok++;
+      }
+      ev.target.disabled = false;
+      alert(`✓ Notas aplicadas a ${ok} estudiante(s)${fallos ? `; ${fallos} no se pudieron guardar (probá de nuevo)` : ""}.`);
+      alAplicar();
+    });
+  };
+  pintar();
 }
 
 // Panel del profesor para un "Proyecto": todas las entregas (puede haber

@@ -47,6 +47,22 @@ const SIMULADOR_B2B_URL = "simulador-b2b.html";
 // se califica solo). Esto permite ofrecer 20 estrategias con solo 3
 // motores reales que sí funcionan de principio a fin.
 const ESTRATEGIAS_EVALUACION = {
+  // La Tiradera: juego en vivo (tiradera.html). Se califica como rúbrica
+  // directa, pero los criterios marcados con "auto" se sugieren solos con
+  // el registro de puntos que el juego guarda en el trabajo
+  // (contenido_actividad.tiradera_partidas). Escala: 85 % o más = 3,
+  // 60–84 % = 2, 35–59 % = 1, menos de 35 % = 0.
+  juego_tiradera: {
+    tipo: "rubrica_directa", grupo: "Juegos en vivo", icono: "⚡", etiqueta: "La Tiradera (retos en vivo)", tiradera: true,
+    instrucciones: "Juego en vivo: el docente lanza retos (selección única, falso y verdadero, sopa de letras y crucigrama) y los estudiantes compiten con un apodo, en forma individual o por grupos. Al terminar, el registro de puntos ganados y perdidos llega a este trabajo y la nota de cada criterio se sugiere sola (85 % o más = 3, 60–84 % = 2, 35–59 % = 1, menos de 35 % = 0).",
+    criterios: [
+      { nombre: "Dominio del contenido: porcentaje de logro en los retos", puntos_max: 3, auto: "dominio_pct" },
+      { nombre: "Participación: responde los retos dentro del tiempo", puntos_max: 3, auto: "participacion_pct" },
+      { nombre: "Precisión: puntos ganados frente a puntos perdidos por errores", puntos_max: 3, auto: "precision_pct" },
+      { nombre: "Rapidez: responde correctamente con tiempo de sobra", puntos_max: 3, auto: "rapidez_pct" }
+    ],
+    demo: { escenario: "Tiradera sobre planillas, aguinaldo y liquidación laboral.", puntajes: [3, 3, 2, 2] }
+  },
   lista_cotejo_general: {
     tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "✅", etiqueta: "Lista de cotejo general",
     instrucciones: "Marcá si el estudiante cumplió o no con cada punto.",
