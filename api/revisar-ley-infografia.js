@@ -34,14 +34,26 @@ module.exports = async (req, res) => {
 
   const bloques = [];
   const textosDocx = [];
+  // El servidor descarga cada archivo y se lo pasa a la IA en base64 (más
+  // confiable que dejar que la IA lo descargue por URL).
   for (const a of archivos) {
-    const tipo = String(a.tipo || "").toLowerCase();
-    if (tipo.includes("pdf")) bloques.push({ type: "document", source: { type: "url", url: a.url } });
-    else if (tipo.startsWith("image/")) bloques.push({ type: "image", source: { type: "url", url: a.url } });
-    else if (tipo.includes("wordprocessingml") || /\.docx$/i.test(a.url)) {
+    let buf = null, tipo = String(a.tipo || "").toLowerCase();
+    try {
+      const r = await fetch(a.url);
+      if (r.ok) { buf = Buffer.from(await r.arrayBuffer()); tipo = tipo || String(r.headers.get("content-type") || "").toLowerCase(); }
+    } catch { buf = null; }
+    if (!buf) continue;
+    if (!tipo || tipo === "application/octet-stream") {
+      const cab = buf.slice(0, 4).toString("hex");
+      tipo = cab.startsWith("25504446") ? "application/pdf" : cab.startsWith("89504e47") ? "image/png" : cab.startsWith("ffd8") ? "image/jpeg" : cab.startsWith("504b0304") ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : tipo;
+    }
+    if (tipo.includes("pdf")) {
+      if (buf.length < 30 * 1024 * 1024) bloques.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: buf.toString("base64") } });
+    } else if (/^image\/(png|jpeg|jpg|gif|webp)/.test(tipo)) {
+      if (buf.length <= 4.8 * 1024 * 1024) bloques.push({ type: "image", source: { type: "base64", media_type: tipo.replace("jpg", "jpeg").split(";")[0], data: buf.toString("base64") } });
+      else bloques.push({ type: "image", source: { type: "url", url: a.url } });
+    } else if (tipo.includes("wordprocessingml") || /\.docx$/i.test(a.url)) {
       try {
-        const r = await fetch(a.url);
-        const buf = Buffer.from(await r.arrayBuffer());
         const mammoth = require("mammoth");
         const out = await mammoth.extractRawText({ buffer: buf });
         textosDocx.push(String(out.value || "").slice(0, 15000));
@@ -71,13 +83,14 @@ Escala "presentacion":
 
 Respondé ÚNICAMENTE con JSON válido (sin texto extra), con esta forma exacta:
 {"ley_presentada":"nombre oficial de la ley que trata la infografía","numero":"7092 (solo el número de ley o decreto, vacío si no aplica)","corresponde_titulo":true,"presentacion":"Bien","nota":90,"aciertos":"1 frase","errores":"errores o faltantes concretos, vacío si no hay","retro":"2 o 3 oraciones dirigidas a la persona estudiante, en español de Costa Rica, tono respetuoso y formativo"}
+Sé breve: cada campo de texto en máximo 2 oraciones (la retro en máximo 3).
 No uses comillas dobles dentro de los textos; si necesitás citar, usá «».${textosDocx.length ? `\n\n--- TEXTO DEL WORD ---\n${textosDocx.join("\n---\n")}\n--- FIN ---` : ""}`;
 
   const llamar = async (contenido, maxTokens) => {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: "claude-sonnet-5-5", max_tokens: maxTokens || 1200, messages: [{ role: "user", content: contenido }] })
+      body: JSON.stringify({ model: "claude-sonnet-5-5", max_tokens: maxTokens || 2500, messages: [{ role: "user", content: contenido }] })
     });
     const d = await r.json();
     return { r, d };
@@ -94,7 +107,8 @@ No uses comillas dobles dentro de los textos; si necesitás citar, usá «».${t
     let j;
     try { j = extraerJson(texto); }
     catch {
-      const { d: d2 } = await llamar("Devolvé ÚNICAMENTE este contenido como JSON válido, sin cambiar la redacción; reemplazá comillas dobles internas por «». Texto:\n\n" + texto, 1200);
+      if (texto.indexOf("{") < 0) { res.status(422).json({ error: "La IA no pudo revisar la infografía: " + texto.slice(0, 200) }); return; }
+      const { d: d2 } = await llamar("Devolvé ÚNICAMENTE este contenido como JSON válido, sin cambiar la redacción; reemplazá comillas dobles internas por «». Texto:\n\n" + texto, 2500);
       j = extraerJson((d2.content || []).map(b => b.text || "").join("").trim());
     }
     const PRES = ["Bien", "Regular", "Deficiente", "No corresponde"];
