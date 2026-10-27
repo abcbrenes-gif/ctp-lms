@@ -5487,6 +5487,7 @@ async function pintarBloqueTiradera(cont, panel, trabajo, ordenados, nombrePorId
       ["participacion_pct", "Automático: % de retos respondidos a tiempo"],
       ["precision_pct", "Automático: puntos ganados vs. perdidos"],
       ["rapidez_pct", "Automático: tiempo sobrante en los aciertos"],
+      ["aportes_pct", "Automático: preguntas propuestas y aprobadas (1 = 1, 2 = 2, 3 o más = 3)"],
       ["", "Lo califico yo a mano"]
     ];
     const ed = cont.querySelector("[data-tir-crit-editor]");
@@ -5558,7 +5559,7 @@ async function pintarBloqueTiradera(cont, panel, trabajo, ordenados, nombrePorId
       <div style="overflow-x:auto;">
       <table style="width:100%; border-collapse:collapse; font-size:0.78rem;">
         <thead><tr style="text-align:left; border-bottom:1px solid var(--paper-line);">
-          <th style="padding:0.3rem;">Estudiante en la plataforma</th><th>Nombre que escribió / apodo</th>${grupal ? "<th>Grupo</th>" : ""}<th>Pts</th><th>Ganados</th><th>Perdidos</th><th>Aciertos</th><th>Errores</th><th>Sin resp.</th>
+          <th style="padding:0.3rem;">Estudiante en la plataforma</th><th>Nombre que escribió / apodo</th>${grupal ? "<th>Grupo</th>" : ""}<th>Pts</th><th>Ganados</th><th>Perdidos</th><th>Aciertos</th><th>Errores</th><th>Sin resp.</th><th>✍️ Aportes</th>
           ${criterios.map((c, i) => `<th title="${String(c.nombre).replace(/"/g, "&quot;")}">C${i + 1}</th>`).join("")}<th>Nota</th></tr></thead>
         <tbody>${filas.map(f => {
           const sug = sugeridos(f);
@@ -5569,7 +5570,7 @@ async function pintarBloqueTiradera(cont, panel, trabajo, ordenados, nombrePorId
             <td>${escAC(f.nombre || "—")}<br><span style="color:var(--text-muted);">«${escAC(f.apodo)}»</span></td>
             ${grupal ? `<td>${escAC(f.grupo || "")}</td>` : ""}
             <td><strong>${f.puntos}</strong></td><td style="color:#1d7a43;">+${f.ganados}</td><td style="color:#c0392b;">−${f.perdidos}</td>
-            <td>${f.aciertos}/${f.rondas}</td><td>${f.errores}</td><td>${f.sin_responder}</td>
+            <td>${f.aciertos}/${f.rondas}</td><td>${f.errores}</td><td>${f.sin_responder}</td><td>${f.preguntas_aportadas || 0}</td>
             ${sug.map((v, i) => `<td title="${autoDe(criterios[i], i) ? f[autoDe(criterios[i], i)] + " %" : "Se califica a mano"}">${v == null ? "—" : v + "/" + criterios[i].puntos_max}</td>`).join("")}
             <td><strong>${nota}/3</strong></td></tr>`;
         }).join("")}</tbody>

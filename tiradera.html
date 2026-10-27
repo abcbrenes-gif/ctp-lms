@@ -40,7 +40,7 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.16);color:#fff;font-weight:700;font-size:.85rem}
 .pill.conn-ok::before{content:"";width:8px;height:8px;border-radius:50%;background:#4ade80}
 .pill.conn-bad::before{content:"";width:8px;height:8px;border-radius:50%;background:#fbbf24}
-.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+.card{background:var(--card);color:var(--ink);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;border-radius:14px;font-weight:800;font-size:1rem;transition:transform .08s,filter .15s;background:var(--b);color:#fff;box-shadow:0 5px 0 rgba(0,0,0,.25)}
 .btn:active{transform:translateY(3px);box-shadow:0 2px 0 rgba(0,0,0,.25)}
 .btn:hover{filter:brightness(1.07)}
@@ -197,6 +197,12 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .tabla-reg th,.tabla-reg td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
 .tabla-reg th{background:#f1eaff;font-weight:800}
 .tabla-eval td{white-space:normal;vertical-align:top}
+.prop-item{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border:2px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;background:#fbfaff;color:var(--ink)}
+.prop-item>div:first-child{flex:1 1 220px!important}
+.ok-op{color:#15803d;font-weight:800}
+.estado-prop{font-weight:800;font-size:.85rem;border-radius:999px;padding:4px 10px;background:#efeaff;flex:0 0 auto}
+.estado-prop.aprobada{background:#dcfce7;color:#15803d}.estado-prop.rechazada{background:#fee2e2;color:#b91c1c}
+.question .tipo.autor{background:#fff3c4;color:#92400e;margin-left:6px}
 .eval-box{background:#f7f4ff;border-radius:12px;padding:10px 12px;font-size:.9rem;flex:1 1 260px}
 .modal{position:fixed;inset:0;background:rgba(20,8,60,.6);z-index:80;display:grid;place-items:center;padding:16px}
 .modal-card{background:#fff;border-radius:20px;box-shadow:var(--shadow);padding:22px;max-width:860px;width:100%;max-height:90vh;overflow:auto}
@@ -293,7 +299,7 @@ function crearCanal(pin, miId, alEvento, alPresencia) {
   return new Promise(resolve => {
     let resuelto = false;
     const ch = sbClient.channel(nombre, { config: { broadcast: { self: false }, presence: { key: miId } } });
-    ["state", "result", "join", "answer", "ping", "kick", "aviso", "monitor"].forEach(ev =>
+    ["state", "result", "join", "answer", "ping", "kick", "aviso", "monitor", "propuesta", "propuesta_estado"].forEach(ev =>
       ch.on("broadcast", { event: ev }, ({ payload }) => alEvento(ev, payload)));
     ch.on("presence", { event: "sync" }, () => { if (alPresencia) alPresencia(ch.presenceState()); });
     ch.subscribe(status => {
@@ -434,7 +440,8 @@ const COMO_SE_MIDE = {
   dominio_pct: "Porcentaje de lo logrado en todos los retos: respuestas correctas, palabras encontradas en la sopa y palabras bien escritas en el crucigrama.",
   participacion_pct: "Porcentaje de los retos que respondiste antes de que se acabara el tiempo.",
   precision_pct: "Puntos ganados ÷ (puntos ganados + puntos perdidos por errores o por no responder).",
-  rapidez_pct: "Tiempo que te sobraba, en promedio, en tus aciertos (con 43 % o más de tiempo sobrante llegás a 3)."
+  rapidez_pct: "Tiempo que te sobraba, en promedio, en tus aciertos (con 43 % o más de tiempo sobrante llegás a 3).",
+  aportes_pct: "Preguntas que propusiste y el profe aprobó: 1 pregunta = 1, 2 preguntas = 2, 3 o más = 3."
 };
 const etiquetaGrupo = k => (GRUPOS[k] ? GRUPOS[k].emoji + " " + GRUPOS[k].nombre : "Sin grupo");
 const S = {
@@ -444,7 +451,8 @@ const S = {
   yo: store.sget("tiradera_yo", null), // {id, nombre, apodo, est, grupo} del participante
   // ---- solo host ----
   retos: store.get("tiradera_retos", null),
-  cfg: Object.assign({ modalidad: "individual", grupos: 4, asignacion: "libre", maximo: 0, porGrupo: 0 }, store.get("tiradera_cfg", {})),
+  cfg: Object.assign({ modalidad: "individual", grupos: 4, asignacion: "libre", maximo: 0, porGrupo: 0, propuestas: false }, store.get("tiradera_cfg", {})),
+  propuestas: [],      // preguntas que proponen los estudiantes {pid, autorId, autorApodo, autorNombre, tipo, pregunta, opciones, correcta, estado}
   criterios: CRITERIOS_BASE,
   verEvaluacion: false, evalMostrada: false,
   trabajo: null,       // trabajo de la plataforma donde se guarda el registro {id, titulo}
@@ -557,7 +565,7 @@ function vistaConfig() {
   const lista = S.retos.map((r, i) => `
     <div class="reto-item">
       <span class="num">${i + 1}</span>
-      <div class="txt"><b>${esc(r.pregunta || "(sin enunciado)")}</b><small class="muted">${TIPOS[r.tipo].icono} ${TIPOS[r.tipo].nombre} · ${r.tiempo} s</small></div>
+      <div class="txt"><b>${esc(r.pregunta || "(sin enunciado)")}</b><small class="muted">${TIPOS[r.tipo].icono} ${TIPOS[r.tipo].nombre} · ${r.tiempo} s${r.autor ? ` · ✍️ propuesta por ${esc(r.autor)}` : ""}</small></div>
       <button class="btn small ghost" data-up="${i}" title="Subir" ${i === 0 ? "disabled" : ""}>↑</button>
       <button class="btn small ghost" data-edit="${i}">Editar</button>
       <button class="btn small red" data-del="${i}" title="Eliminar">✕</button>
@@ -587,17 +595,18 @@ function vistaConfig() {
         <div class="field cfg-grupal"><label for="cfgPorGrupo">Máximo de estudiantes por grupo</label><select id="cfgPorGrupo"><option value="0" ${!+S.cfg.porGrupo ? "selected" : ""}>Sin límite</option>${Array.from({ length: 18 }, (_, i) => i + 1).map(n => `<option value="${n}" ${+S.cfg.porGrupo === n ? "selected" : ""}>${n}</option>`).join("")}</select></div>
         <div class="field"><label for="cfgMax">Máximo de participantes</label><input id="cfgMax" type="number" min="0" max="200" value="${+S.cfg.maximo || 0}"><small class="muted">0 = sin límite</small></div>
       </div>
+      <label style="display:flex;gap:8px;align-items:center;font-weight:800;margin:4px 0 10px"><input type="checkbox" id="cfgProp" ${S.cfg.propuestas ? "checked" : ""} style="width:20px;height:20px"> ✍️ Los estudiantes pueden proponer preguntas (selección única y falso/verdadero) desde su celular, y yo las apruebo</label>
       <p class="muted cfg-grupal" style="font-size:.85rem;margin:0">En grupos, cada estudiante juega desde su dispositivo y el puntaje del grupo es el promedio de sus integrantes. El registro sigue siendo individual.</p>
     </div>
     ${S.trabajo ? `<div class="card" style="margin-top:16px;background:#fff8e1">📌 Partida ligada al trabajo <b>«${esc(S.trabajo.titulo)}»</b> de la plataforma: los retos y el registro de puntos se guardan ahí para calificar con los criterios.</div>` : ""}
     <div id="editor" style="margin-top:16px"></div>
     <div class="center" style="margin-top:14px"><button class="btn ghost" id="btnVolver">← Volver al inicio</button></div>`);
   const syncCfg = () => {
-    S.cfg = { modalidad: $("#cfgModo").value, grupos: +$("#cfgGrupos").value, asignacion: $("#cfgAsig").value, maximo: Math.max(0, +$("#cfgMax").value || 0), porGrupo: Math.max(0, Math.min(18, +$("#cfgPorGrupo").value || 0)) };
+    S.cfg = { modalidad: $("#cfgModo").value, grupos: +$("#cfgGrupos").value, asignacion: $("#cfgAsig").value, maximo: Math.max(0, +$("#cfgMax").value || 0), porGrupo: Math.max(0, Math.min(18, +$("#cfgPorGrupo").value || 0)), propuestas: $("#cfgProp").checked };
     guardarCfg();
     $$(".cfg-grupal").forEach(el => el.style.display = S.cfg.modalidad === "grupal" ? "" : "none");
   };
-  ["#cfgModo", "#cfgGrupos", "#cfgAsig", "#cfgMax", "#cfgPorGrupo"].forEach(sel => $(sel).addEventListener("change", syncCfg));
+  ["#cfgModo", "#cfgGrupos", "#cfgAsig", "#cfgMax", "#cfgPorGrupo", "#cfgProp"].forEach(sel => $(sel).addEventListener("change", syncCfg));
   syncCfg();
   $$("[data-edit]").forEach(b => b.onclick = () => { editando = +b.dataset.edit; vistaEditor(); });
   $$("[data-del]").forEach(b => b.onclick = () => { if (confirm("¿Eliminar este reto?")) { S.retos.splice(+b.dataset.del, 1); guardarRetos(); vistaConfig(); } });
@@ -705,7 +714,7 @@ function validarReto(r) {
    ============================================================ */
 function nuevoJugador(id) {
   return { id, nombre: "", apodo: "", pts: 0, racha: 0, ultimoDelta: 0, online: true,
-    stats: { ganados: 0, perdidos: 0, aciertos: 0, errores: 0, sinResp: 0, logros: [], rest: [] }, detalle: [] };
+    stats: { ganados: 0, perdidos: 0, aciertos: 0, errores: 0, sinResp: 0, logros: [], rest: [], excluidas: 0, aportes: 0 }, detalle: [] };
 }
 const esGrupal = () => S.cfg.modalidad === "grupal";
 // Grupo con menos integrantes que todavía tenga espacio (-1 si todos están llenos).
@@ -731,7 +740,9 @@ async function abrirPartida() {
   S.rol = "host";
   S.pin = String(Math.floor(100000 + Math.random() * 900000));
   S.jugadores = {}; S.fase = "lobby"; S.idx = -1; S.respuestas = {}; S.bots = []; S.rondasJugadas = 0;
-  S.registroGuardado = null; S.evalMostrada = false; S.verEvaluacion = false;
+  S.registroGuardado = null; S.evalMostrada = false; S.verEvaluacion = false; S.propuestas = [];
+  // Las preguntas de estudiantes de partidas anteriores ya no tienen autor en esta partida.
+  S.retos.forEach(r => { delete r.autorId; });
   pantalla(`<div class="card center"><h2>Abriendo la partida…</h2></div>`);
   S.canal = await crearCanal(S.pin, "host-" + uid(), hostEvento, hostPresencia);
   // Canal aparte, solo para el monitor del profesor (los estudiantes no se conectan a este).
@@ -778,6 +789,70 @@ function hostEvento(ev, data) {
   }
   if (ev === "answer" && data && data.id) recibirRespuesta(data);
   if (ev === "ping") difundirEstado();
+  if (ev === "propuesta" && data && data.id && data.p) recibirPropuesta(data.id, data.p);
+}
+/* ---------- Preguntas propuestas por los estudiantes ---------- */
+const MAX_PROPUESTAS = 15;
+function recibirPropuesta(id, p) {
+  const j = S.jugadores[id];
+  const responder = (estado, motivo) => S.canal.enviar("propuesta_estado", { id, pid: p.pid, estado, motivo });
+  if (!j || j.bot) return;
+  if (!S.cfg.propuestas || S.fase === "final") return responder("rechazada", "El profe no está recibiendo preguntas en este momento.");
+  if (S.propuestas.some(x => x.pid === p.pid)) return;
+  if (S.propuestas.filter(x => x.autorId === id && x.estado !== "rechazada").length >= MAX_PROPUESTAS) return responder("rechazada", `Llegaste al máximo de ${MAX_PROPUESTAS} preguntas.`);
+  const pregunta = String(p.pregunta || "").trim().slice(0, 220);
+  if (pregunta.length < 5) return responder("rechazada", "La pregunta está muy corta.");
+  const x = { pid: String(p.pid).slice(0, 20), autorId: id, autorApodo: j.apodo, autorNombre: j.nombre, tipo: p.tipo === "vf" ? "vf" : "seleccion", pregunta, estado: "pendiente" };
+  if (x.tipo === "seleccion") {
+    x.opciones = (Array.isArray(p.opciones) ? p.opciones : []).map(o => String(o || "").trim().slice(0, 90)).filter(Boolean).slice(0, 4);
+    x.correcta = Number(p.correcta);
+    if (x.opciones.length < 2) return responder("rechazada", "Poné al menos 2 opciones.");
+    if (!(x.correcta >= 0 && x.correcta < x.opciones.length)) return responder("rechazada", "Marcá cuál opción es la correcta.");
+  } else x.correcta = p.correcta !== false;
+  S.propuestas.push(x);
+  responder("pendiente");
+  pintarPropuestasHost();
+  if (S.fase === "lobby") toast(`✍️ Nueva pregunta de ${j.apodo}`, 1800);
+}
+function resolverPropuesta(pid, aprobar) {
+  const x = S.propuestas.find(y => y.pid === pid); if (!x || x.estado !== "pendiente") return;
+  x.estado = aprobar ? "aprobada" : "rechazada";
+  if (aprobar) {
+    const reto = { id: uid(), tipo: x.tipo, pregunta: x.pregunta, tiempo: x.tipo === "vf" ? 20 : 30, autor: x.autorApodo, autorNombre: x.autorNombre, autorId: x.autorId, correcta: x.correcta };
+    if (x.tipo === "seleccion") reto.opciones = x.opciones;
+    S.retos.push(reto);
+    const j = S.jugadores[x.autorId]; if (j) j.stats.aportes++;
+    guardarRetos();
+  }
+  S.canal.enviar("propuesta_estado", { id: x.autorId, pid, estado: x.estado, motivo: aprobar ? "" : "El profe no la aprobó." });
+  pintarPropuestasHost(); difundirEstado(); difundirMonitor();
+}
+function pintarPropuestasHost() {
+  const box = $("#propHost"); if (!box) return;
+  const pend = S.propuestas.filter(x => x.estado === "pendiente"), apro = S.propuestas.filter(x => x.estado === "aprobada");
+  if (!S.cfg.propuestas && !S.propuestas.length) {
+    box.innerHTML = `<div class="row" style="align-items:center"><span style="flex:2 1 260px">✍️ ¿Querés que los estudiantes propongan preguntas desde su celular?</span><button class="btn small green" id="btnPropOn" style="flex:0 0 auto">Activar preguntas de estudiantes</button></div>`;
+    $("#btnPropOn").onclick = () => { S.cfg.propuestas = true; guardarCfg(); difundirEstado(); pintarPropuestasHost(); };
+    return;
+  }
+  const item = x => `<div class="prop-item">
+      <div style="flex:1;min-width:0"><small class="muted">${TIPOS[x.tipo].icono} ${TIPOS[x.tipo].nombre} · ✍️ ${esc(x.autorApodo)}</small><br><b>${esc(x.pregunta)}</b>
+        <div style="font-size:.88rem;margin-top:4px">${x.tipo === "seleccion" ? x.opciones.map((o, i) => `<span class="${i === x.correcta ? "ok-op" : ""}">${SHAPES[i]} ${esc(o)}${i === x.correcta ? " ✔" : ""}</span>`).join(" &nbsp; ") : `Respuesta correcta: <span class="ok-op">${x.correcta ? "Verdadero ✔" : "Falso ✔"}</span>`}</div></div>
+      <div style="display:flex;gap:6px;flex:0 0 auto"><button class="btn small green" data-aprobar="${esc(x.pid)}">✅ Aprobar</button><button class="btn small red" data-rechazar="${esc(x.pid)}">✕</button></div></div>`;
+  box.innerHTML = `
+    <div class="row" style="align-items:center;margin-bottom:8px">
+      <h3 style="flex:2 1 260px;margin:0">✍️ Preguntas de los estudiantes · ${pend.length} por revisar · ${apro.length} aprobada(s)</h3>
+      <div style="display:flex;gap:6px;flex:0 0 auto;flex-wrap:wrap">
+        ${pend.length > 1 ? `<button class="btn small green" id="btnAprobarTodas">✅ Aprobar todas</button>` : ""}
+        <button class="btn small ghost" id="btnPropToggle">${S.cfg.propuestas ? "⏸ Dejar de recibir" : "▶ Volver a recibir"}</button>
+      </div></div>
+    ${pend.length ? pend.map(item).join("") : `<p class="muted" style="margin:0">${S.cfg.propuestas ? "Esperando preguntas… Los estudiantes las escriben en su celular, en la sala de espera." : "No se están recibiendo preguntas."}</p>`}
+    ${apro.length ? `<p class="muted" style="margin:8px 0 0;font-size:.88rem">Las aprobadas ya se sumaron a la lista de retos (ahora hay ${S.retos.length}). A quien propuso la pregunta no le suma ni le resta en esa ronda.</p>` : ""}`;
+  $$("[data-aprobar]", box).forEach(b => b.onclick = () => resolverPropuesta(b.dataset.aprobar, true));
+  $$("[data-rechazar]", box).forEach(b => b.onclick = () => resolverPropuesta(b.dataset.rechazar, false));
+  const todas = $("#btnAprobarTodas"); if (todas) todas.onclick = () => pend.forEach(x => resolverPropuesta(x.pid, true));
+  $("#btnPropToggle").onclick = () => { S.cfg.propuestas = !S.cfg.propuestas; guardarCfg(); difundirEstado(); pintarPropuestasHost(); };
+  const cnt = $("#cuentaRetos"); if (cnt) cnt.textContent = S.retos.length;
 }
 function vistaLobbyHost() {
   const url = location.origin + location.pathname + "?pin=" + S.pin;
@@ -791,11 +866,12 @@ function vistaLobbyHost() {
       <p style="margin:6px 0"><button class="btn small" id="btnEval">📋 Evaluación</button> <button class="btn small ghost" id="btnMonitor" title="Ábralo en su celular o computadora, no en el proyector">📡 Resultados en vivo (solo profesor)</button></p>
       <h2 style="margin-top:14px" id="cuentaJug">0 jugadores</h2>
       <div id="listaJug"></div>
+      <div class="card" id="propHost" style="max-width:900px;margin:18px auto 0;text-align:left"></div>
       <div class="row" style="justify-content:center;margin-top:22px;max-width:620px;margin-left:auto;margin-right:auto">
         <button class="btn big pink" id="btnEmpezar">¡Empezar la tiradera! 🔥</button>
         <button class="btn ghost" id="btnBots">🤖 Agregar 3 bots de prueba</button>
       </div>
-      <p class="footer-note">${S.retos.length} reto(s) · ${S.canal.modo === "vivo" ? "Los estudiantes pueden unirse desde el celular." : "Modo local: abrí otra pestaña de este navegador para unirte como jugador."}${S.trabajo ? `<br>📌 El registro se guardará en el trabajo «${esc(S.trabajo.titulo)}» de la plataforma.` : ""}</p>
+      <p class="footer-note"><span id="cuentaRetos">${S.retos.length}</span> reto(s) · ${S.canal.modo === "vivo" ? "Los estudiantes pueden unirse desde el celular." : "Modo local: abrí otra pestaña de este navegador para unirte como jugador."}${S.trabajo ? `<br>📌 El registro se guardará en el trabajo «${esc(S.trabajo.titulo)}» de la plataforma.` : ""}</p>
       <p><button class="btn small ghost" id="btnCancelarP">Cancelar partida</button></p>
     </div>`);
   $("#btnCopiar").onclick = async () => { try { await navigator.clipboard.writeText(url); toast("Enlace copiado ✓"); } catch { toast(url, 6000); } };
@@ -812,6 +888,7 @@ function vistaLobbyHost() {
     toast(S.trabajo ? "También lo ve en la plataforma: trabajo → 🧮 Calificar." : "Abra ese enlace en su celular o computadora (no en el proyector).", 4500);
   };
   $("#btnBots").onclick = agregarBots;
+  pintarPropuestasHost();
   $("#btnCancelarP").onclick = () => { if (confirm("¿Cancelar la partida?")) {
     S.fase = "final"; difundirEstado(); difundirMonitor(true); S.canal.cerrar(); if (S.canalMon) S.canalMon.cerrar();
     if (S.trabajo) actualizarContenidoTrabajo(c => ({ ...c, tiradera_en_vivo: { pin: S.pin, fecha: new Date().toISOString(), estado: "terminada" } }));
@@ -851,7 +928,7 @@ function agregarBots() {
 
 // Versión del reto sin respuestas, para mandarla a los jugadores.
 function retoPublico(r) {
-  const p = { id: r.id, tipo: r.tipo, pregunta: r.pregunta, tiempo: r.tiempo };
+  const p = { id: r.id, tipo: r.tipo, pregunta: r.pregunta, tiempo: r.tiempo, autor: r.autor || null, autorId: r.autorId || null };
   if (r.tipo === "seleccion") p.opciones = r.opciones;
   if (r.tipo === "sopa") { p.N = r._sopa.N; p.grid = r._sopa.grid; p.palabras = r._sopa.colocadas.map(x => x.palabra); }
   if (r.tipo === "cruci") { p.filas = r._cruci.filas; p.cols = r._cruci.cols; p.palabras = r._cruci.palabras.map(x => ({ num: x.num, r: x.r, c: x.c, dir: x.dir, len: x.w.length, pista: x.pista })); }
@@ -894,6 +971,7 @@ function correrBots() {
 // Califica una respuesta. Separa lo que se GANA de lo que se PIERDE para el registro.
 function recibirRespuesta({ id, idx, payload }) {
   if (S.fase !== "pregunta" || idx !== S.idx || !S.jugadores[id] || !payload) return;
+  if (S.reto.autorId && S.reto.autorId === id) return; // el autor no responde su propia pregunta
   const r = S.reto;
   const restante = Math.max(0, S.terminaEn - Date.now());
   const restFrac = restante / (r.tiempo * 1000);
@@ -958,7 +1036,7 @@ function recibirRespuesta({ id, idx, payload }) {
   actualizarVivoHost();
   difundirEstadoThrottle();
   difundirMonitor();
-  const activos = Object.values(S.jugadores).filter(x => x.online !== false);
+  const activos = Object.values(S.jugadores).filter(x => x.online !== false && x.id !== S.reto.autorId);
   if (activos.length && activos.every(x => S.respuestas[x.id] && S.respuestas[x.id].final)) {
     clearTimeout(S._finRonda); S._finRonda = setTimeout(cerrarRonda, 700);
   }
@@ -974,6 +1052,13 @@ function cerrarRonda() {
   const r = S.reto;
   S.rondasJugadas++;
   Object.values(S.jugadores).forEach(j => {
+    if (r.autorId && j.id === r.autorId) {
+      // Su propia pregunta: no suma, no resta y no cuenta para sus porcentajes.
+      j.ultimoDelta = 0; j.stats.excluidas++;
+      S.respuestas[j.id] = { payload: null, correcto: false, delta: 0, gana: 0, pierde: 0, errores: 0, logro: 0, restFrac: null, detalle: { autor: true }, final: true };
+      j.detalle.push({ reto: S.idx + 1, tipo: TIPOS[r.tipo].nombre, pregunta: String(r.pregunta).slice(0, 120), resultado: "Su propia pregunta (no cuenta)", ganados: 0, perdidos: 0 });
+      return;
+    }
     if (!S.respuestas[j.id]) {
       j.racha = 0; j.pts = Math.max(0, j.pts - PUNTOS.sinResponder); j.ultimoDelta = -PUNTOS.sinResponder;
       S.respuestas[j.id] = { payload: null, correcto: false, delta: -PUNTOS.sinResponder, gana: 0, pierde: PUNTOS.sinResponder, errores: 0, logro: 0, restFrac: null, detalle: { sinResponder: true }, final: true };
@@ -1029,7 +1114,7 @@ function estadoPublico() {
   const rk = rankingPublico();
   const e = { fase: S.fase, pin: S.pin, idx: S.idx, total: S.retos.length, ranking: rk, respondieron: Object.keys(S.respuestas).length, jugadores: rk.length,
     modalidad: S.cfg.modalidad, asignacion: S.cfg.asignacion, porGrupo: +S.cfg.porGrupo || 0,
-    criterios: S.criterios.map(c => ({ nombre: c.nombre, puntos_max: c.puntos_max, auto: c.auto || null })), verEvaluacion: S.verEvaluacion };
+    criterios: S.criterios.map(c => ({ nombre: c.nombre, puntos_max: c.puntos_max, auto: c.auto || null })), verEvaluacion: S.verEvaluacion, propuestasAbiertas: !!S.cfg.propuestas && S.fase === "lobby" };
   if (esGrupal()) {
     e.grupos = Array.from({ length: S.cfg.grupos }, (_, k) => ({ k, nombre: etiquetaGrupo(k), n: Object.values(S.jugadores).filter(j => j.grupo === k).length }));
     e.rankingGrupos = rankingGrupos();
@@ -1064,7 +1149,7 @@ function datosMonitor() {
       else if (j.detalle.length) { const d = j.detalle[j.detalle.length - 1]; ronda = (d.resultado === "Correcto" ? "✅ " : d.resultado === "Incorrecto" ? "❌ " : d.resultado === "Sin responder" ? "⌛ " : "🟡 ") + d.resultado; }
       return { puesto: i + 1, nombre: j.nombre, apodo: j.apodo, bot: !!j.bot, online: j.online !== false, grupo: esGrupal() ? etiquetaGrupo(j.grupo) : null, pts: j.pts,
         ganados: st.ganados + (x ? x.gana : 0), perdidos: st.perdidos + (x ? x.pierde : 0), aciertos: st.aciertos + (x && x.correcto ? 1 : 0),
-        errores: st.errores + (x ? x.errores : 0), sinResp: st.sinResp, ronda };
+        errores: st.errores + (x ? x.errores : 0), sinResp: st.sinResp, aportes: st.aportes || 0, ronda: S.reto && S.reto.autorId === j.id && enRonda ? "✍️ Es su pregunta" : ronda };
     })
   };
 }
@@ -1086,18 +1171,20 @@ function mostrarEvaluacionATodos(paraEmpezar) {
 /* ---------- Registro para el profesor ---------- */
 // Porcentajes que usa la estrategia de evaluación para sugerir la nota de cada criterio.
 function registroPartida() {
-  const rondas = Math.max(1, S.rondasJugadas);
+  const rondasGlobal = Math.max(1, S.rondasJugadas);
   const rk = ranking();
   const pct = v => Math.round(Math.max(0, Math.min(100, v)) * 10) / 10;
   const registro = rk.filter(j => !j.bot).map(j => {
     const st = j.stats;
     const respondidas = st.logros.length - st.sinResp;
+    const rondas = Math.max(1, rondasGlobal - (st.excluidas || 0));
     const promRest = st.rest.length ? st.rest.reduce((a, b) => a + b, 0) / st.rest.length : 0;
     return {
       estudiante_id: j.est || null, nombre: j.nombre, apodo: j.apodo,
       grupo: esGrupal() ? etiquetaGrupo(j.grupo) : null,
       puesto: rk.indexOf(j) + 1, puntos: j.pts,
-      ganados: st.ganados, perdidos: st.perdidos, aciertos: st.aciertos, errores: st.errores, sin_responder: st.sinResp, rondas,
+      ganados: st.ganados, perdidos: st.perdidos, aciertos: st.aciertos, errores: st.errores, sin_responder: st.sinResp, rondas, preguntas_aportadas: st.aportes || 0,
+      aportes_pct: Math.min(100, (st.aportes || 0) * 35),
       dominio_pct: pct(st.logros.reduce((a, b) => a + b, 0) / rondas * 100),
       participacion_pct: pct(respondidas / rondas * 100),
       precision_pct: pct(st.ganados + st.perdidos > 0 ? st.ganados / (st.ganados + st.perdidos) * 100 : 0),
@@ -1148,13 +1235,13 @@ function pintarEstadoGuardado(msg) {
   })();
 }
 function registroHTML(partida) {
-  const filas = partida.registro.map(x => `<tr><td>${x.puesto}</td><td>${esc(x.nombre || "—")}</td><td>${esc(x.apodo)}</td>${partida.modalidad === "grupal" ? `<td>${esc(x.grupo || "")}</td>` : ""}<td><b>${x.puntos}</b></td><td class="pos-d">+${x.ganados}</td><td class="neg-d">−${x.perdidos}</td><td>${x.aciertos}</td><td>${x.errores}</td><td>${x.sin_responder}</td></tr>`).join("");
-  return `<div style="overflow-x:auto"><table class="tabla-reg"><thead><tr><th>#</th><th>Nombre</th><th>Apodo</th>${partida.modalidad === "grupal" ? "<th>Grupo</th>" : ""}<th>Puntos</th><th>Ganados</th><th>Perdidos</th><th>Aciertos</th><th>Errores</th><th>Sin resp.</th></tr></thead><tbody>${filas || `<tr><td colspan="10" class="muted">No hubo estudiantes (solo bots).</td></tr>`}</tbody></table></div>`;
+  const filas = partida.registro.map(x => `<tr><td>${x.puesto}</td><td>${esc(x.nombre || "—")}</td><td>${esc(x.apodo)}</td>${partida.modalidad === "grupal" ? `<td>${esc(x.grupo || "")}</td>` : ""}<td><b>${x.puntos}</b></td><td class="pos-d">+${x.ganados}</td><td class="neg-d">−${x.perdidos}</td><td>${x.aciertos}</td><td>${x.errores}</td><td>${x.sin_responder}</td><td>${x.preguntas_aportadas || 0}</td></tr>`).join("");
+  return `<div style="overflow-x:auto"><table class="tabla-reg"><thead><tr><th>#</th><th>Nombre</th><th>Apodo</th>${partida.modalidad === "grupal" ? "<th>Grupo</th>" : ""}<th>Puntos</th><th>Ganados</th><th>Perdidos</th><th>Aciertos</th><th>Errores</th><th>Sin resp.</th><th>✍️ Aportes</th></tr></thead><tbody>${filas || `<tr><td colspan="11" class="muted">No hubo estudiantes (solo bots).</td></tr>`}</tbody></table></div>`;
 }
 function descargarRegistroCSV(partida) {
   const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const lineas = [["Puesto", "Nombre", "Apodo", "Grupo", "Puntos", "Puntos ganados", "Puntos perdidos", "Aciertos", "Errores", "Sin responder", "Retos", "% dominio", "% participación", "% precisión", "% rapidez"].map(q).join(";")];
-  partida.registro.forEach(x => lineas.push([x.puesto, x.nombre, x.apodo, x.grupo || "", x.puntos, x.ganados, x.perdidos, x.aciertos, x.errores, x.sin_responder, x.rondas, x.dominio_pct, x.participacion_pct, x.precision_pct, x.rapidez_pct].map(q).join(";")));
+  const lineas = [["Puesto", "Nombre", "Apodo", "Grupo", "Puntos", "Puntos ganados", "Puntos perdidos", "Aciertos", "Errores", "Sin responder", "Retos", "Preguntas aportadas", "% dominio", "% participación", "% precisión", "% rapidez", "% aportes"].map(q).join(";")];
+  partida.registro.forEach(x => lineas.push([x.puesto, x.nombre, x.apodo, x.grupo || "", x.puntos, x.ganados, x.perdidos, x.aciertos, x.errores, x.sin_responder, x.rondas, x.preguntas_aportadas || 0, x.dominio_pct, x.participacion_pct, x.precision_pct, x.rapidez_pct, x.aportes_pct || 0].map(q).join(";")));
   lineas.push("", ["Detalle por reto"].map(q).join(";"), ["Nombre", "Apodo", "Reto", "Tipo", "Pregunta", "Resultado", "Ganados", "Perdidos"].map(q).join(";"));
   partida.registro.forEach(x => x.detalle.forEach(d => lineas.push([x.nombre, x.apodo, d.reto, d.tipo, d.pregunta, d.resultado, d.ganados, d.perdidos].map(q).join(";"))));
   if (partida.grupos) { lineas.push("", ["Grupos"].map(q).join(";"), ["Puesto", "Grupo", "Puntos (promedio)", "Integrantes"].map(q).join(";")); partida.grupos.forEach(g => lineas.push([g.puesto, g.nombre, g.puntos, g.integrantes].map(q).join(";"))); }
@@ -1182,7 +1269,7 @@ function vistaRondaHost() {
     </div>
     <div class="split">
       <div>
-        <div class="question"><span class="tipo">${TIPOS[r.tipo].icono} ${TIPOS[r.tipo].nombre}</span><h2>${esc(r.pregunta)}</h2></div>
+        <div class="question"><span class="tipo">${TIPOS[r.tipo].icono} ${TIPOS[r.tipo].nombre}</span>${r.autor ? `<span class="tipo autor">✍️ Propuesta por ${esc(r.autor)}</span>` : ""}<h2>${esc(r.pregunta)}</h2></div>
         ${cuerpo}
         <p class="answered" id="contResp"></p>
       </div>
@@ -1333,6 +1420,13 @@ function jugadorEvento(ev, data) {
     return;
   }
   if (ev === "aviso" && data && data.id === S.yo.id) { toast(data.msg, 4000); return; }
+  if (ev === "propuesta_estado" && data && data.id === S.yo.id) {
+    const x = misPropuestas().find(y => y.pid === data.pid);
+    if (x) { x.estado = data.estado; x.motivo = data.motivo || ""; guardarMisPropuestas(); pintarMisPropuestas(); }
+    if (data.estado === "aprobada") toast("✅ ¡El profe aprobó tu pregunta!", 2500);
+    if (data.estado === "rechazada" && data.motivo) toast("✕ " + data.motivo, 3500);
+    return;
+  }
   if (ev === "state") {
     const previo = S.estadoRemoto; S.estadoRemoto = data;
     if (data.verEvaluacion && !(previo && previo.verEvaluacion)) abrirEvaluacion(data.criterios);
@@ -1368,13 +1462,22 @@ function pintarJugador() {
       grupos = `<h3 style="margin-top:18px">${libre ? "Elegí tu grupo" : "Tu grupo (lo asignó el sistema al azar)"}</h3>
         <div class="players">${e.grupos.map(x => { const lleno = e.porGrupo && x.n >= e.porGrupo && g !== x.k; return `<button class="chip grp ${g === x.k ? "on" : ""}" data-grupo="${x.k}" ${libre && !lleno ? "" : "disabled"} style="${lleno ? "opacity:.5" : ""}">${esc(x.nombre)} · ${x.n}${e.porGrupo ? "/" + e.porGrupo : ""}${lleno ? " (lleno)" : ""}</button>`; }).join("")}</div>`;
     }
-    pantalla(`<div class="pin-box"><h2 style="font-size:2rem">¡Ya estás adentro, ${esc(S.yo.apodo)}! 🎉</h2>
-      <p style="font-size:1.1rem">Esperá a que el ponente empiece la tiradera…</p>
-      <p><button class="btn small" id="btnVerEval">📋 Evaluación</button></p>${grupos}
-      <h3 style="margin-top:18px">En la partida</h3>
-      <div class="players">${e.ranking.map(j => `<span class="chip ${j.id === S.yo.id ? "grp on" : ""}">${j.bot ? "🤖 " : ""}${esc(j.nombre)}</span>`).join("")}</div></div>`);
+    // La sala se arma una sola vez (para no borrar lo que el estudiante está
+    // escribiendo en el formulario de preguntas) y luego solo se actualiza.
+    if (!$("#lobbyJ")) {
+      pantalla(`<div class="pin-box" id="lobbyJ"><h2 style="font-size:2rem">¡Ya estás adentro, ${esc(S.yo.apodo)}! 🎉</h2>
+        <p style="font-size:1.1rem">Esperá a que el ponente empiece la tiradera…</p>
+        <p><button class="btn small" id="btnVerEval">📋 Evaluación</button></p>
+        <div id="lbGrupos"></div>
+        <div id="lbProp"></div>
+        <h3 style="margin-top:18px">En la partida</h3>
+        <div class="players" id="lbJug"></div></div>`);
+      $("#btnVerEval").onclick = () => abrirEvaluacion(S.estadoRemoto.criterios);
+    }
+    $("#lbGrupos").innerHTML = grupos;
+    $("#lbJug").innerHTML = e.ranking.map(j => `<span class="chip ${j.id === S.yo.id ? "grp on" : ""}">${j.bot ? "🤖 " : ""}${esc(j.nombre)}</span>`).join("");
     $$("[data-grupo]").forEach(b => b.onclick = () => { S.yo.grupo = +b.dataset.grupo; store.sset("tiradera_yo", S.yo); S.canal.enviar("join", S.yo); });
-    $("#btnVerEval").onclick = () => abrirEvaluacion(e.criterios);
+    pintarFormPropuesta(e.propuestasAbiertas);
     return;
   }
   if (e.fase === "final") { vistaFinal(e.ranking, S.yo.id, e.rankingGrupos || null); return; }
@@ -1385,7 +1488,9 @@ function pintarJugador() {
   const fin = revelar ? 0 : S._terminaLocal[e.pin + "-" + e.idx];
   let cuerpo = "";
   const yaRespondio = res && res.idx === e.idx && res.final;
-  if ((r.tipo === "seleccion" || r.tipo === "vf") && yaRespondio && !revelar) cuerpo = feedbackHTML(res, "Respuesta enviada");
+  const esMia = r.autorId && r.autorId === S.yo.id;
+  if (esMia && !revelar) cuerpo = `<div class="feedback"><div class="big">✍️ ¡Es tu pregunta!</div><p style="font-size:1.1rem">Esta ronda no te suma ni te resta. Mirá cómo les va a los demás 😉</p></div>`;
+  else if ((r.tipo === "seleccion" || r.tipo === "vf") && yaRespondio && !revelar) cuerpo = feedbackHTML(res, "Respuesta enviada");
   else if (r.tipo === "seleccion") {
     const elegida = res && res.detalle ? res.detalle.opcion : null;
     cuerpo = `<div class="answers">${r.opciones.map((o, i) => `<button class="ans c${i} ${revelar && e.solucion.correcta !== i ? "dim" : ""} ${revelar && e.solucion.correcta === i ? "right" : ""} ${elegida === i ? "picked" : ""}" data-op="${i}" ${revelar ? "disabled" : ""}><span class="shape">${SHAPES[i]}</span><span>${esc(o)}</span></button>`).join("")}</div>`;
@@ -1402,7 +1507,7 @@ function pintarJugador() {
       <span class="pill" id="miPill">${esc(S.yo.apodo)} · ${miPuntaje()} pts</span>
     </div>
     ${revelar ? feedbackHTML(res, null) : ""}
-    <div class="question"><span class="tipo">${TIPOS[r.tipo].icono} ${TIPOS[r.tipo].nombre}</span><h2>${esc(r.pregunta)}</h2></div>
+    <div class="question"><span class="tipo">${TIPOS[r.tipo].icono} ${TIPOS[r.tipo].nombre}</span>${r.autor ? `<span class="tipo autor">✍️ Propuesta por ${esc(r.autor)}</span>` : ""}<h2>${esc(r.pregunta)}</h2></div>
     ${cuerpo}
     <div class="live" id="vivoJ" style="margin-top:14px"></div>`);
   if (!revelar) iniciarTimer(fin, r.tiempo);
@@ -1411,6 +1516,61 @@ function pintarJugador() {
   if (r.tipo === "sopa" && !revelar) activarSopa(r);
   if (r.tipo === "cruci" && !revelar && !yaRespondio) activarCruci(r, fin);
   actualizarVivoJugador();
+}
+/* --- Formulario para proponer preguntas (sala de espera del estudiante) --- */
+function misPropuestas() { S._misProp = S._misProp || store.sget("tiradera_prop_" + S.pin, []); return S._misProp; }
+function guardarMisPropuestas() { store.sset("tiradera_prop_" + S.pin, misPropuestas()); }
+function pintarFormPropuesta(abiertas) {
+  const box = $("#lbProp"); if (!box) return;
+  if (!abiertas) { if (box.dataset.abierto !== "0") { box.dataset.abierto = "0"; box.innerHTML = misPropuestas().length ? `<div class="card" style="text-align:left;margin-top:16px"><h3>✍️ Tus preguntas</h3><div id="lbMis"></div></div>` : ""; pintarMisPropuestas(); } return; }
+  if (box.dataset.abierto === "1") return;
+  box.dataset.abierto = "1";
+  S._ppTipo = S._ppTipo || "seleccion";
+  box.innerHTML = `<div class="card" style="text-align:left;margin-top:16px">
+    <h3 style="margin-bottom:4px">✍️ Proponé preguntas para la tiradera</h3>
+    <p class="muted" style="margin:0 0 10px;font-size:.88rem">Podés mandar todas las que quieras (hasta ${MAX_PROPUESTAS}). El profe las revisa antes de que entren al juego. Si sale tu pregunta, esa ronda no te suma ni te resta.</p>
+    <div class="tipo-tabs" style="grid-template-columns:1fr 1fr"><button type="button" data-pt="seleccion">🔷 Selección única</button><button type="button" data-pt="vf">✅ Falso y verdadero</button></div>
+    <div class="field"><label for="ppPreg">Pregunta</label><textarea id="ppPreg" rows="2" maxlength="220" placeholder="Escribí tu pregunta"></textarea></div>
+    <div id="ppCuerpo"></div>
+    <button class="btn green" id="ppEnviar" style="width:100%;margin-top:6px">📨 Enviar pregunta</button>
+    <h3 style="margin-top:16px">Tus preguntas</h3><div id="lbMis"></div></div>`;
+  const cuerpo = () => {
+    $$("[data-pt]", box).forEach(b => b.classList.toggle("on", b.dataset.pt === S._ppTipo));
+    $("#ppCuerpo").innerHTML = S._ppTipo === "seleccion"
+      ? `<label style="font-weight:800;font-size:.9rem">Opciones (mínimo 2) — marcá la correcta</label>${[0, 1, 2, 3].map(i => `<div class="opt-edit"><span class="shape c${i}">${SHAPES[i]}</span><input type="text" data-ppop="${i}" maxlength="90" placeholder="Opción ${i + 1}${i > 1 ? " (opcional)" : ""}"><label class="correct"><input type="radio" name="ppCorr" value="${i}" ${i === 0 ? "checked" : ""}> Correcta</label></div>`).join("")}`
+      : `<label style="font-weight:800;font-size:.9rem">Respuesta correcta</label><div class="row"><label class="btn ghost"><input type="radio" name="ppVf" value="true" checked> Verdadero</label><label class="btn ghost"><input type="radio" name="ppVf" value="false"> Falso</label></div>`;
+  };
+  $$("[data-pt]", box).forEach(b => b.onclick = () => { S._ppTipo = b.dataset.pt; cuerpo(); });
+  cuerpo();
+  $("#ppEnviar").onclick = () => {
+    const pregunta = $("#ppPreg").value.trim();
+    if (pregunta.length < 5) { toast("Escribí la pregunta."); return; }
+    const p = { pid: uid(), tipo: S._ppTipo, pregunta };
+    if (p.tipo === "seleccion") {
+      const ops = $$("[data-ppop]", box).map(i => i.value.trim());
+      const corr = +($("input[name=ppCorr]:checked", box) || { value: 0 }).value;
+      if (ops.filter(Boolean).length < 2) { toast("Poné al menos 2 opciones."); return; }
+      if (!ops[corr]) { toast("La opción marcada como correcta está vacía."); return; }
+      const llenas = ops.map((o, i) => ({ o, i })).filter(z => z.o);
+      p.opciones = llenas.map(z => z.o); p.correcta = llenas.findIndex(z => z.i === corr);
+    } else p.correcta = ($("input[name=ppVf]:checked", box) || { value: "true" }).value === "true";
+    if (misPropuestas().filter(x => x.estado !== "rechazada").length >= MAX_PROPUESTAS) { toast(`Ya mandaste ${MAX_PROPUESTAS} preguntas.`); return; }
+    misPropuestas().unshift({ ...p, estado: "enviando" }); guardarMisPropuestas();
+    S.canal.enviar("propuesta", { id: S.yo.id, p });
+    $("#ppPreg").value = ""; $$("[data-ppop]", box).forEach(i => { i.value = ""; });
+    toast("📨 Pregunta enviada al profe", 1800);
+    pintarMisPropuestas();
+    // Si no llega confirmación, se reenvía una vez.
+    setTimeout(() => { const x = misPropuestas().find(y => y.pid === p.pid); if (x && x.estado === "enviando") S.canal.enviar("propuesta", { id: S.yo.id, p }); }, 4000);
+  };
+  pintarMisPropuestas();
+}
+function pintarMisPropuestas() {
+  const box = $("#lbMis"); if (!box) return;
+  const et = { enviando: "📨 Enviando…", pendiente: "⏳ El profe la está revisando", aprobada: "✅ Aprobada: entra al juego", rechazada: "✕ No aprobada" };
+  const l = misPropuestas();
+  box.innerHTML = l.length ? l.map(x => `<div class="prop-item"><div style="flex:1;min-width:0"><small class="muted">${TIPOS[x.tipo].icono} ${TIPOS[x.tipo].nombre}</small><br><b>${esc(x.pregunta)}</b>${x.motivo ? `<br><small class="muted">${esc(x.motivo)}</small>` : ""}</div><span class="estado-prop ${x.estado}">${et[x.estado] || x.estado}</span></div>`).join("")
+    : `<p class="muted" style="margin:0">Todavía no has mandado preguntas.</p>`;
 }
 function miPuntaje() {
   const e = S.estadoRemoto; const yo = e && e.ranking.find(j => j.id === S.yo.id);
@@ -1421,6 +1581,7 @@ function feedbackHTML(res, titulo) {
   if (titulo && res) return `<div class="feedback"><div class="big">⏳ ${titulo}</div><p style="font-size:1.1rem">Esperá a que se acabe el tiempo para ver si acertaste…</p><div class="delta">Vas ${res.puesto}° de ${res.total}</div></div>`;
   if (!res || res.idx !== e.idx) return `<div class="feedback bad"><div class="big">⌛ Se acabó el tiempo</div></div>`;
   const d = res.delta;
+  if (res.detalle && res.detalle.autor) return `<div class="feedback good"><div class="big">✍️ Tu pregunta</div><div class="delta">No suma ni resta · ${res.puesto}° lugar</div></div>`;
   const sinResp = res.detalle && res.detalle.sinResponder;
   const msg = sinResp ? "⌛ No respondiste" : res.correcto ? "🎉 ¡Correcto!" : (e.reto.tipo === "sopa" || e.reto.tipo === "cruci") && d > 0 ? "👍 ¡Bien!" : "😬 Incorrecto";
   return `<div class="feedback ${d >= 0 && !sinResp ? "good" : "bad"}"><div class="big">${msg}</div><div class="delta">${d > 0 ? "+" : ""}${d} pts · ${res.puesto}° lugar</div></div>`;
@@ -1592,8 +1753,8 @@ function pintarMonitor(m) {
       <p class="muted" style="margin:0 0 8px;font-size:.88rem">🔒 Solo para el profesor: aquí se ven los nombres reales. ${m.trabajo ? `Trabajo: «${esc(m.trabajo)}».` : ""}${m.reto ? ` Reto: ${esc(m.reto.tipo)} — ${esc(m.reto.pregunta)}` : ""}</p>
       ${m.grupos && m.grupos.length ? `<p style="margin:0 0 8px;font-size:.9rem"><b>Grupos:</b> ${m.grupos.map((g, i) => `${i + 1}° ${esc(g.nombre)} ${g.pts} pts (${g.n})`).join(" · ")}</p>` : ""}
       <div style="overflow-x:auto"><table class="tabla-reg">
-        <thead><tr><th>#</th><th>Nombre</th><th>Apodo</th>${grupal ? "<th>Grupo</th>" : ""}<th>Puntos</th><th>Ganados</th><th>Perdidos</th><th>Aciertos</th><th>Errores</th><th>Sin resp.</th><th>${m.fase === "pregunta" ? "Este reto" : "Último reto"}</th></tr></thead>
-        <tbody>${filas.map(f => `<tr style="${f.online ? "" : "opacity:.5"}"><td>${f.puesto}</td><td>${f.bot ? "🤖 " : ""}${esc(f.nombre || "—")}</td><td>${esc(f.apodo)}</td>${grupal ? `<td>${esc(f.grupo || "")}</td>` : ""}<td><b>${f.pts}</b></td><td class="pos-d">+${f.ganados}</td><td class="neg-d">−${f.perdidos}</td><td>${f.aciertos}</td><td>${f.errores}</td><td>${f.sinResp}</td><td>${esc(f.ronda)}</td></tr>`).join("") || `<tr><td colspan="11" class="muted">Todavía no hay estudiantes en la partida.</td></tr>`}</tbody>
+        <thead><tr><th>#</th><th>Nombre</th><th>Apodo</th>${grupal ? "<th>Grupo</th>" : ""}<th>Puntos</th><th>Ganados</th><th>Perdidos</th><th>Aciertos</th><th>Errores</th><th>Sin resp.</th><th>✍️ Aportes</th><th>${m.fase === "pregunta" ? "Este reto" : "Último reto"}</th></tr></thead>
+        <tbody>${filas.map(f => `<tr style="${f.online ? "" : "opacity:.5"}"><td>${f.puesto}</td><td>${f.bot ? "🤖 " : ""}${esc(f.nombre || "—")}</td><td>${esc(f.apodo)}</td>${grupal ? `<td>${esc(f.grupo || "")}</td>` : ""}<td><b>${f.pts}</b></td><td class="pos-d">+${f.ganados}</td><td class="neg-d">−${f.perdidos}</td><td>${f.aciertos}</td><td>${f.errores}</td><td>${f.sinResp}</td><td>${f.aportes || 0}</td><td>${esc(f.ronda)}</td></tr>`).join("") || `<tr><td colspan="12" class="muted">Todavía no hay estudiantes en la partida.</td></tr>`}</tbody>
       </table></div>
       ${m.fase === "final" ? `<p style="margin:10px 0 0"><b>La partida terminó.</b> ${m.trabajo ? "En la plataforma, tocá «🔄 Actualizar» para ver el registro y aplicar las notas de los criterios." : "El registro está en la pantalla del ponente (descargable)."}</p>` : ""}
     </div>`;
