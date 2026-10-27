@@ -3521,6 +3521,18 @@ async function trabajosCalificadosIds(trabajos, estudianteId) {
   return new Set(conIndicador.filter(t => indicadores.has(t.indicador_id)).map(t => t.id));
 }
 
+// Texto de "Completado" de una actividad. En una prueba calificada por
+// puntos (selección + apareamiento + caso práctico), se muestra el puntaje
+// real sobre el total y el % obtenido, no solo la parte automática.
+function textoCompletadoActividad(t, res) {
+  const dp = (res && res.datos_prueba) || {};
+  if (t && t.tipo_actividad === "prueba" && dp.puntos_obtenidos_total != null && dp.puntos_totales) {
+    const pct = Math.round((Number(dp.puntos_obtenidos_total) / Number(dp.puntos_totales)) * 1000) / 10;
+    return `✓ Completado — ${dp.puntos_obtenidos_total} de ${dp.puntos_totales} puntos (${String(pct).replace(".", ",")} %)`;
+  }
+  return `✓ Completado — Nota: ${res.puntaje}/3`;
+}
+
 async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId, materiaId) {
   const holder = document.getElementById("subtema-trabajos-lista");
   if (!holder) return;
@@ -3711,7 +3723,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         const aunNoEsHora = t.tipo_actividad === "prueba" && t.fecha_hora_inicio && new Date(t.fecha_hora_inicio) > new Date();
         let accionInicio;
         if (completo) {
-          accionInicio = `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Completado — Nota: ${res.puntaje}/3</span> ${badgeSalidas(res.intentos_salida)}`;
+          accionInicio = `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">${textoCompletadoActividad(t, res)}</span> ${badgeSalidas(res.intentos_salida)}`;
         } else if (aunNoEsHora) {
           accionInicio = `<span class="badge" style="background:var(--warn-bg); color:var(--warn-text);">⏳ Disponible a partir de ${formatearFechaHora(t.fecha_hora_inicio)}</span>`;
         } else {
@@ -6413,7 +6425,7 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
         const aunNoEsHora = t.tipo_actividad === "prueba" && t.fecha_hora_inicio && new Date(t.fecha_hora_inicio) > new Date();
         let accionInicio;
         if (completo) {
-          accionInicio = `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Completado — Nota: ${res.puntaje}/3</span> ${badgeSalidas(res.intentos_salida)}`;
+          accionInicio = `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">${textoCompletadoActividad(t, res)}</span> ${badgeSalidas(res.intentos_salida)}`;
         } else if (aunNoEsHora) {
           accionInicio = `<span class="badge" style="background:var(--warn-bg); color:var(--warn-text);">⏳ Disponible a partir de ${formatearFechaHora(t.fecha_hora_inicio)}</span>`;
         } else {
