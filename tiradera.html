@@ -545,14 +545,15 @@ const guardarRetos = () => {
 };
 
 /* ---------- Conexión con la plataforma (trabajo de evaluación) ---------- */
-async function actualizarContenidoTrabajo(fn) {
-  if (!sbClient || !S.trabajo) return false;
+async function actualizarContenidoTrabajo(fn, trabajoId) {
+  const idDestino = trabajoId || (S.trabajo && S.trabajo.id);
+  if (!sbClient || !idDestino) return false;
   for (let intento = 0; intento < 4; intento++) {
     try {
-      const { data, error } = await sbClient.from("trabajos_cotidianos").select("contenido_actividad").eq("id", S.trabajo.id).maybeSingle();
+      const { data, error } = await sbClient.from("trabajos_cotidianos").select("contenido_actividad").eq("id", idDestino).maybeSingle();
       if (error) throw error;
       const nuevo = fn({ ...((data && data.contenido_actividad) || {}) });
-      const { error: e2 } = await sbClient.from("trabajos_cotidianos").update({ contenido_actividad: nuevo }).eq("id", S.trabajo.id);
+      const { error: e2 } = await sbClient.from("trabajos_cotidianos").update({ contenido_actividad: nuevo }).eq("id", idDestino);
       if (e2) throw e2;
       return true;
     } catch (err) { await sleep(1200 * (intento + 1)); }
@@ -937,7 +938,7 @@ async function abrirPartida() {
   S.rol = "host";
   S.pin = String(Math.floor(100000 + Math.random() * 900000));
   S.jugadores = {}; S.fase = "lobby"; S.idx = -1; S.respuestas = {}; S.bots = []; S.rondasJugadas = 0;
-  S.registroGuardado = null; S.evalMostrada = false; S.verEvaluacion = false; S.propuestas = [];
+  S.partidaFecha = null; S.registroGuardado = null; S.evalMostrada = false; S.verEvaluacion = false; S.propuestas = []; S.partidaId = uid();
   // Las preguntas de estudiantes de partidas anteriores ya no tienen autor en esta partida.
   S.retos.forEach(r => { delete r.autorId; });
   pantalla(`<div class="card center"><h2>Abriendo la partida…</h2></div>`);
@@ -1279,6 +1280,7 @@ function cerrarRonda() {
   vistaRondaHost();
   difundirEstado();
   difundirMonitor();
+  autoguardar();
 }
 function terminarPartida() {
   if (S.fase === "pregunta") cerrarRonda();
@@ -1390,18 +1392,63 @@ function registroPartida() {
     };
   });
   return {
-    id: uid(), fecha: new Date().toISOString(), pin: S.pin, modalidad: S.cfg.modalidad, retos: S.rondasJugadas,
+    id: S.partidaId || (S.partidaId = uid()), fecha: S.partidaFecha || (S.partidaFecha = new Date().toISOString()), actualizada: new Date().toISOString(),
+    estado: S.fase === "final" ? "terminada" : "en curso", pin: S.pin, modalidad: S.cfg.modalidad, retos: S.rondasJugadas,
     grupos: esGrupal() ? rankingGrupos().map((g, i) => ({ puesto: i + 1, nombre: g.nombre, puntos: g.pts, integrantes: g.n })) : null,
     registro
   };
 }
+/* ---------- Guardado automático (después de cada reto) ---------- */
+// Toda partida se guarda en la plataforma mientras se juega: en su trabajo,
+// o si no tiene, en "Partidas de La Tiradera (sin asignar)". Así no se
+// pierde aunque se cierre la pestaña antes del podio final.
+function guardarLocal(partida) {
+  const hist = store.get("tiradera_historial", []).filter(p => p.id !== partida.id);
+  hist.unshift(partida); store.set("tiradera_historial", hist.slice(0, 30));
+}
+async function obtenerTrabajoSinAsignar() {
+  if (S._bucket) return S._bucket;
+  if (!sbClient) return null;
+  try {
+    const { data } = await sbClient.from("trabajos_cotidianos").select("id, titulo").eq("contenido_actividad->>estrategia", "juego_tiradera").eq("contenido_actividad->>sin_asignar", "true").limit(1);
+    if (data && data[0]) return (S._bucket = data[0]);
+    const { data: nuevo } = await sbClient.from("trabajos_cotidianos").insert({
+      titulo: "Partidas de La Tiradera (sin asignar)", tipo_actividad: "rubrica_directa",
+      contenido_actividad: { estrategia: "juego_tiradera", sin_asignar: true, instrucciones: "Partidas jugadas sin un trabajo. Desde 📚 Resultados de La Tiradera se pueden pasar al trabajo que corresponda.", criterios: criteriosLimpios(), tiradera_partidas: [] }
+    }).select("id, titulo").maybeSingle();
+    return (S._bucket = nuevo || null);
+  } catch { return null; }
+}
+let _autoT = null, _autoCorriendo = false;
+function autoguardar(inmediato) {
+  clearTimeout(_autoT);
+  _autoT = setTimeout(async () => {
+    if (_autoCorriendo) { autoguardar(); return; }
+    _autoCorriendo = true;
+    try {
+      const partida = registroPartida();
+      if (!partida.registro.length) return;
+      guardarLocal(partida);
+      const destino = S.trabajo || await obtenerTrabajoSinAsignar();
+      if (destino) await actualizarContenidoTrabajo(c => {
+        const lista = Array.isArray(c.tiradera_partidas) ? c.tiradera_partidas.filter(p => p.id !== partida.id) : [];
+        lista.push(partida);
+        return { ...c, tiradera_partidas: lista.slice(-60) };
+      }, destino.id);
+    } finally { _autoCorriendo = false; }
+  }, inmediato ? 0 : 600);
+}
 async function guardarRegistro(trabajoElegido) {
-  const partida = S.registroGuardado ? S.registroGuardado.partida : registroPartida();
-  // Copia local siempre (por si no hay conexión).
-  const hist = store.get("tiradera_historial", []); if (!S.registroGuardado) { hist.unshift(partida); store.set("tiradera_historial", hist.slice(0, 15)); }
+  const partida = registroPartida();
+  guardarLocal(partida); // copia local siempre (por si no hay conexión)
   S.registroGuardado = { partida, enTrabajo: S.registroGuardado ? S.registroGuardado.enTrabajo : null };
-  if (trabajoElegido) S.trabajo = trabajoElegido;
-  if (!S.trabajo) { pintarEstadoGuardado(); return; }
+  if (trabajoElegido) {
+    S.trabajo = trabajoElegido;
+    // Si estaba en "sin asignar", se quita de ahí para no duplicarla.
+    const b = await obtenerTrabajoSinAsignar();
+    if (b && b.id !== trabajoElegido.id) actualizarContenidoTrabajo(c => ({ ...c, tiradera_partidas: (c.tiradera_partidas || []).filter(p => p.id !== partida.id) }), b.id);
+  }
+  if (!S.trabajo) { autoguardar(true); pintarEstadoGuardado(); return; }
   pintarEstadoGuardado("Guardando el registro en la plataforma…");
   const ok = await actualizarContenidoTrabajo(c => {
     const lista = Array.isArray(c.tiradera_partidas) ? c.tiradera_partidas.filter(p => p.id !== partida.id) : [];
@@ -1419,14 +1466,14 @@ function pintarEstadoGuardado(msg) {
     box.innerHTML = `<p>✅ Registro guardado en el trabajo <b>«${esc(g.enTrabajo.titulo)}»</b>. En la plataforma, abrí ese trabajo → <b>🧮 Calificar</b> para ver los puntos de cada estudiante y aplicar las notas de los criterios.</p>`;
     return;
   }
-  box.innerHTML = `<p style="margin:0 0 8px">Esta partida no está ligada a un trabajo de la plataforma. Elegí uno de tipo <b>La Tiradera</b> para guardar el registro y calificar:</p>
+  box.innerHTML = `<p style="margin:0 0 8px">✅ El registro quedó guardado en la plataforma en <b>«Partidas de La Tiradera (sin asignar)»</b>. Para calificar, páselo a un trabajo de tipo <b>La Tiradera</b>:</p>
     <div class="row" style="align-items:center"><select id="selTrabajo" style="flex:2 1 240px;border:2px solid var(--line);border-radius:10px;padding:9px"><option value="">Cargando trabajos…</option></select>
     <button class="btn small green" id="btnGuardarEn" style="flex:0 0 auto">💾 Guardar ahí</button></div>
     <p class="muted" style="font-size:.82rem;margin:8px 0 0">¿No aparece ninguno? En la plataforma: subtema → «+ Agregar actividad interactiva» → Estrategias de evaluación → ⚡ La Tiradera.</p>`;
   (async () => {
     const sel = $("#selTrabajo"); if (!sel) return;
     let lista = [];
-    try { const { data } = await sbClient.from("trabajos_cotidianos").select("id, titulo, fecha").eq("contenido_actividad->>estrategia", "juego_tiradera").order("id", { ascending: false }).limit(60); lista = data || []; } catch {}
+    try { const { data } = await sbClient.from("trabajos_cotidianos").select("id, titulo, fecha, contenido_actividad->>sin_asignar").eq("contenido_actividad->>estrategia", "juego_tiradera").order("id", { ascending: false }).limit(60); lista = (data || []).filter(t => t.sin_asignar !== "true"); } catch {}
     sel.innerHTML = lista.length ? `<option value="">— Elegí el trabajo —</option>` + lista.map(t => `<option value="${t.id}">${esc(t.titulo)}${t.fecha ? " · " + esc(t.fecha) : ""}</option>`).join("") : `<option value="">No hay trabajos de La Tiradera todavía</option>`;
     $("#btnGuardarEn").onclick = () => { const t = lista.find(x => String(x.id) === sel.value); if (!t) { toast("Elegí un trabajo."); return; } guardarRegistro({ id: t.id, titulo: t.titulo }); };
   })();
@@ -1938,7 +1985,9 @@ async function vistaHistorial() {
   if (sbClient) {
     try {
       const { data } = await sbClient.from("trabajos_cotidianos").select("id, titulo, contenido_actividad").eq("contenido_actividad->>estrategia", "juego_tiradera");
-      (data || []).forEach(t => ((t.contenido_actividad || {}).tiradera_partidas || []).forEach(p => enTrabajos.push({ ...p, origen: "Plataforma", trabajo: { id: t.id, titulo: t.titulo } })));
+      const vistos = {};
+      (data || []).sort((a, b) => ((a.contenido_actividad || {}).sin_asignar ? 1 : 0) - ((b.contenido_actividad || {}).sin_asignar ? 1 : 0))
+        .forEach(t => ((t.contenido_actividad || {}).tiradera_partidas || []).forEach(p => { if (vistos[p.id]) return; vistos[p.id] = 1; enTrabajos.push({ ...p, origen: "Plataforma", trabajo: { id: t.id, titulo: t.titulo, sinAsignar: !!(t.contenido_actividad || {}).sin_asignar } }); }));
     } catch {}
   }
   const ids = new Set(enTrabajos.map(p => p.id));
@@ -1947,14 +1996,14 @@ async function vistaHistorial() {
   pantalla(`
     <div class="card">
       <div class="row" style="align-items:center;margin-bottom:8px"><h2 style="flex:2 1 260px">📚 Partidas anteriores</h2><button class="btn small ghost" id="btnHVolver" style="flex:0 0 auto">← Volver</button></div>
-      <p class="muted" style="margin:0 0 12px;font-size:.9rem">Partidas con estudiantes guardadas en la plataforma y en esta computadora. Las que se jugaron en otra computadora sin guardarlas en un trabajo solo aparecen en esa computadora.</p>
+      <p class="muted" style="margin:0 0 12px;font-size:.9rem">Desde el 27 de octubre de 2026 cada partida se guarda sola en la plataforma después de cada reto, aunque no se termine. Las partidas anteriores que no se guardaron en un trabajo solo aparecen en la computadora donde se jugaron, y solo si llegaron al podio final.</p>
       ${todas.length ? todas.map((p, i) => `
         <details class="hist-item" ${i === 0 ? "open" : ""}>
-          <summary><b>${fecha(p.fecha)}</b> · PIN ${esc(p.pin)} · ${p.registro.length} estudiantes · ${p.retos} retos · ${p.modalidad === "grupal" ? "grupal" : "individual"} · <span class="muted">${p.trabajo ? "📌 " + esc(p.trabajo.titulo) : "💻 " + esc(p.origen)}</span></summary>
+          <summary><b>${fecha(p.fecha)}</b> · PIN ${esc(p.pin)} · ${p.registro.length} estudiantes · ${p.retos} retos · ${p.modalidad === "grupal" ? "grupal" : "individual"}${p.estado === "en curso" ? ' · <b style="color:#b45309">sin terminar</b>' : ""} · <span class="muted">${p.trabajo ? (p.trabajo.sinAsignar ? "📥 Sin asignar" : "📌 " + esc(p.trabajo.titulo)) : "💻 " + esc(p.origen)}</span></summary>
           <div style="margin-top:10px">${registroHTML(p)}</div>
           <div class="row" style="margin-top:10px;align-items:center">
             <button class="btn small pink" data-hcsv="${i}" style="flex:0 0 auto">⬇️ Descargar (Excel)</button>
-            ${p.trabajo ? "" : `<button class="btn small green" data-hguardar="${i}" style="flex:0 0 auto">💾 Guardar en un trabajo de la plataforma</button>`}
+            ${p.trabajo && !p.trabajo.sinAsignar ? "" : `<button class="btn small green" data-hguardar="${i}" style="flex:0 0 auto">💾 ${p.trabajo ? "Pasar a un trabajo" : "Guardar en un trabajo de la plataforma"}</button>`}
             <span data-hest="${i}" class="muted" style="font-size:.85rem"></span>
           </div>
         </details>`).join("") : `<p class="muted">No hay partidas con estudiantes guardadas.</p>`}
@@ -1964,7 +2013,7 @@ async function vistaHistorial() {
   $$("[data-hguardar]").forEach(b => b.onclick = async () => {
     const p = todas[+b.dataset.hguardar], est = $(`[data-hest="${b.dataset.hguardar}"]`);
     let lista = [];
-    try { const { data } = await sbClient.from("trabajos_cotidianos").select("id, titulo").eq("contenido_actividad->>estrategia", "juego_tiradera").order("id", { ascending: false }); lista = data || []; } catch {}
+    try { const { data } = await sbClient.from("trabajos_cotidianos").select("id, titulo, contenido_actividad->>sin_asignar").eq("contenido_actividad->>estrategia", "juego_tiradera").order("id", { ascending: false }); lista = (data || []).filter(t => t.sin_asignar !== "true"); } catch {}
     if (!lista.length) { est.textContent = "No hay trabajos de La Tiradera en la plataforma. Créelo primero en un subtema."; return; }
     est.innerHTML = `<select data-hsel style="border:2px solid var(--line);border-radius:10px;padding:6px">${lista.map(t => `<option value="${t.id}">${esc(t.titulo)}</option>`).join("")}</select> <button class="btn small" data-hok>Guardar</button>`;
     $("[data-hok]", est).onclick = async () => {
@@ -1973,6 +2022,7 @@ async function vistaHistorial() {
       est.textContent = "Guardando…";
       const ok = await actualizarContenidoTrabajo(c => { const l = (c.tiradera_partidas || []).filter(x => x.id !== p.id); l.push({ ...p, origen: undefined, trabajo: undefined }); return { ...c, tiradera_partidas: l.slice(-30) }; });
       S.trabajo = null;
+      if (ok && p.trabajo && p.trabajo.sinAsignar) await actualizarContenidoTrabajo(c => ({ ...c, tiradera_partidas: (c.tiradera_partidas || []).filter(x => x.id !== p.id) }), p.trabajo.id);
       est.textContent = ok ? `✅ Guardada en «${t.titulo}». En la plataforma: ese trabajo → 🧮 Calificar.` : "No se pudo guardar (sin conexión).";
     };
   });
