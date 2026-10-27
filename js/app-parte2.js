@@ -5530,12 +5530,14 @@ async function pintarBloqueTiradera(cont, panel, trabajo, ordenados, nombrePorId
           <button class="btn danger small" data-ce-quitar="${i}" type="button">✕</button></div>
         <details style="margin:0.4rem 0 0 2rem;" ${c.auto ? "" : "open"}><summary style="cursor:pointer; font-size:0.78rem; font-weight:600;">Niveles de desempeño (evidencia de cada nivel)</summary>
           ${TIRADERA_NIVELES.map(([k, et, v]) => `<label style="display:flex; gap:0.4rem; align-items:flex-start; margin-top:0.3rem; font-size:0.78rem;"><span style="flex:0 0 7rem; font-weight:600;">${et} (${v})</span><textarea data-ce-nivel="${i}" data-k="${k}" rows="2" style="flex:1; padding:0.3rem; font-family:inherit; font-size:0.8rem;">${escAC(c.niveles[k] || "")}</textarea></label>`).join("")}
+          <button class="btn secondary small" data-ce-ia="${i}" type="button" style="margin-top:0.3rem;">✨ Mejorar este indicador con IA</button>
+          ${c.iaNota ? `<div style="font-size:0.75rem; color:#1d7a43; margin-top:0.2rem;">✨ ${escAC(c.iaNota)}</div>` : ""}
         </details></div>`;
     const leer = () => {
       ed.querySelectorAll("[data-ins]").forEach(x => { ins[x.dataset.ins] = x.value.trim(); });
       lista = lista.map((c, i) => {
         const niveles = {}; ed.querySelectorAll(`[data-ce-nivel="${i}"]`).forEach(t => { niveles[t.dataset.k] = t.value.trim(); });
-        return { nombre: (ed.querySelector(`[data-ce-nombre="${i}"]`)?.value || "").trim(), puntos_max: Number(ed.querySelector(`[data-ce-max="${i}"]`)?.value) || 0, auto: ed.querySelector(`[data-ce-auto="${i}"]`)?.value || "", niveles };
+        return { nombre: (ed.querySelector(`[data-ce-nombre="${i}"]`)?.value || "").trim(), puntos_max: Number(ed.querySelector(`[data-ce-max="${i}"]`)?.value) || 0, auto: ed.querySelector(`[data-ce-auto="${i}"]`)?.value || "", niveles, iaNota: c.iaNota };
       });
     };
     const pintarEd = () => {
@@ -5549,6 +5551,14 @@ async function pintarBloqueTiradera(cont, panel, trabajo, ordenados, nombrePorId
           ${campo("subarea", "Subárea", "Ej.: Gestión contable")}${campo("unidad", "Unidad de estudio / tema", "Ej.: Planillas")}
         </div>
         <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.6rem;">${campo("resultado", "Resultado de aprendizaje (copiar del programa)", "Resultado de aprendizaje")}${campo("indicador", "Indicador de logro (copiar del programa)", "Indicador de logro")}</div>
+        <div style="background:var(--surface-soft); border:1px dashed var(--paper-line); border-radius:8px; padding:0.5rem 0.6rem; margin-bottom:0.6rem;">
+          <strong style="font-size:0.85rem;">✨ Mejorar con IA</strong> <span style="font-size:0.78rem; color:var(--text-muted);">— redacta los indicadores (verbo + contenido + condición) y la evidencia de cada nivel según el tema y el resultado de aprendizaje. Queda en el editor para que lo revise; no se guarda hasta que toque 💾.</span>
+          <div class="row" style="gap:0.4rem; margin-top:0.4rem; align-items:center;">
+            <input data-ce-ia-indic maxlength="400" placeholder="Indicaciones para la IA (opcional)" style="flex:3 1 16rem; padding:0.35rem;" />
+            <button class="btn small" data-ce-ia="todos" type="button">✨ Mejorar todos los niveles</button>
+          </div>
+          <span data-ce-ia-estado style="font-size:0.78rem; color:var(--text-muted);"></span>
+        </div>
         <p style="font-size:0.85rem; font-weight:600; margin:0.3rem 0;">Indicadores y criterios de desempeño</p>
         ${lista.map(fila).join("")}
         <div class="row" style="gap:0.4rem; margin-top:0.4rem; align-items:center;">
@@ -5559,6 +5569,32 @@ async function pintarBloqueTiradera(cont, panel, trabajo, ordenados, nombrePorId
           <span data-ce-estado style="font-size:0.78rem; color:var(--text-muted);"></span>
         </div></div>`;
       ed.querySelectorAll("[data-ce-quitar]").forEach(b => b.addEventListener("click", () => { leer(); lista.splice(Number(b.dataset.ceQuitar), 1); pintarEd(); }));
+      ed.querySelectorAll("[data-ce-ia]").forEach(b => b.addEventListener("click", async () => {
+        leer();
+        const estado = ed.querySelector("[data-ce-ia-estado]");
+        const indices = b.dataset.ceIa === "todos" ? null : [Number(b.dataset.ceIa)];
+        const indic = ed.querySelector("[data-ce-ia-indic]")?.value || "";
+        ed.querySelectorAll("[data-ce-ia]").forEach(x => { x.disabled = true; });
+        if (estado) estado.textContent = "✨ La IA está trabajando…";
+        let datos = null, error = "";
+        for (let intento = 0; intento < 3 && !datos; intento++) {
+          try {
+            const r = await fetch("/api/mejorar-niveles-ia", { method: "POST", headers: { "content-type": "application/json" },
+              body: JSON.stringify({ instrumento: ins, criterios: lista, indices, instrucciones: indic }) });
+            const j = await r.json().catch(() => ({}));
+            if (r.ok && Array.isArray(j.criterios)) datos = j; else { error = j.error || ("Error " + r.status); if (r.status !== 503) break; await new Promise(res => setTimeout(res, 3000)); }
+          } catch (e) { error = "No hay conexión."; break; }
+        }
+        if (!datos) { ed.querySelectorAll("[data-ce-ia]").forEach(x => { x.disabled = false; }); if (estado) estado.textContent = "No se pudo mejorar con IA: " + error; return; }
+        const antes = lista.map(c => ({ ...c, niveles: { ...c.niveles } }));
+        datos.criterios.forEach(p => { if (lista[p.i]) { lista[p.i].nombre = p.nombre; lista[p.i].niveles = { ...p.niveles }; lista[p.i].iaNota = p.nota || "Redacción mejorada por la IA."; } });
+        const iaIndic = indic;
+        pintarEd();
+        const est2 = ed.querySelector("[data-ce-ia-estado]"); const inp2 = ed.querySelector("[data-ce-ia-indic]"); if (inp2) inp2.value = iaIndic;
+        if (est2) { est2.innerHTML = `✨ Listo: ${datos.criterios.length} indicador(es) mejorado(s) en el editor. Revíselos y toque <strong>💾 Guardar evaluación</strong>. <button class="btn secondary small" type="button" data-ce-deshacer>↩ Deshacer</button>`;
+          est2.querySelector("[data-ce-deshacer]").addEventListener("click", () => { lista = antes; pintarEd(); }); }
+        ed.querySelectorAll("details").forEach(dt => { dt.open = true; });
+      }));
       ed.querySelectorAll("[data-ce-auto]").forEach(sel => sel.addEventListener("change", () => { leer(); const i = Number(sel.dataset.ceAuto); lista[i].niveles = sel.value ? { ...TIRADERA_NIVELES_AUTO[sel.value] } : { ...TIRADERA_NIVELES_MANUAL }; pintarEd(); }));
       ed.querySelectorAll("[data-ce-max]").forEach(inp => inp.addEventListener("change", () => { leer(); pintarEd(); }));
       ed.querySelector("[data-ce-agregar]").addEventListener("click", () => { leer(); lista.push({ nombre: "", puntos_max: 3, auto: "", niveles: { ...TIRADERA_NIVELES_MANUAL } }); pintarEd(); });
@@ -5570,7 +5606,7 @@ async function pintarBloqueTiradera(cont, panel, trabajo, ordenados, nombrePorId
         const malo = lista.findIndex(c => !c.nombre || c.puntos_max <= 0);
         if (malo >= 0) { estado.textContent = `Completá el nombre y los puntos del indicador ${malo + 1}.`; return; }
         ev.target.disabled = true; estado.textContent = "Guardando…";
-        const nuevos = lista.map(c => { const x = { nombre: c.nombre, puntos_max: c.puntos_max, niveles: c.niveles }; if (c.auto) x.auto = c.auto; return x; });
+        const nuevos = lista.map(c => { const x = { nombre: c.nombre, puntos_max: c.puntos_max, niveles: c.niveles }; if (c.auto) x.auto = c.auto; return x; }); // (iaNota no se guarda)
         const { data: actual } = await sb.from("trabajos_cotidianos").select("contenido_actividad").eq("id", trabajo.id).maybeSingle();
         const nuevoContenido = { ...((actual && actual.contenido_actividad) || contenido), criterios: nuevos, tiradera_instrumento: ins };
         const { error } = await sb.from("trabajos_cotidianos").update({ contenido_actividad: nuevoContenido }).eq("id", trabajo.id);

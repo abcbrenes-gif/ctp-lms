@@ -203,6 +203,13 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .crit-edit input[type=text]{flex:3 1 240px;border:2px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0}
 .crit-edit .pts{display:flex;align-items:center;gap:6px;font-weight:800;font-size:.85rem}
 .crit-edit .pts input{width:64px;border:2px solid var(--line);border-radius:10px;padding:7px}
+.ia-box{background:linear-gradient(135deg,#fff4fb,#f3edff);border:2px dashed #e9a8ff;border-radius:14px;padding:10px 12px;margin-bottom:12px}
+.ia-prop{border:2px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px}
+.ia-usar{display:flex;gap:8px;align-items:center;font-weight:800;margin-bottom:6px}
+.ia-cmp{display:flex;gap:8px;margin-top:6px;font-size:.88rem}
+.ia-cmp .nv-lbl{flex:0 0 110px;font-weight:800;color:#5b21b6}
+.ia-antes{color:#94a3b8;text-decoration:line-through}
+.ia-despues{color:#15803d;font-weight:700}
 .niveles-edit{flex:1 1 100%;margin-left:38px}
 .niveles-edit summary{cursor:pointer;font-weight:800;font-size:.85rem;color:#5b21b6}
 .nivel-edit{display:flex;gap:8px;align-items:flex-start;margin-top:6px}
@@ -703,6 +710,13 @@ function pintarEditorEvaluacion() {
         <button class="btn small ghost" id="evalBase">↺ Indicadores sugeridos</button>
       </div>
     </div>
+    <div class="ia-box">
+      <b>✨ Mejorar con IA</b> <span class="muted" style="font-size:.85rem">— redacta los indicadores (verbo + contenido + condición) y la evidencia de cada nivel según el tema y el resultado de aprendizaje. Usted revisa la propuesta antes de usarla.</span>
+      <div class="row" style="align-items:center;margin-top:6px">
+        <input type="text" id="iaIndic" maxlength="400" placeholder="Indicaciones para la IA (opcional). Ej.: enfocar en cargas sociales y aguinaldo, lenguaje sencillo" style="flex:3 1 260px;border:2px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0">
+        <button class="btn small pink" id="iaTodos" style="flex:0 0 auto">✨ Mejorar todos los niveles</button>
+      </div>
+    </div>
     <p class="muted" style="margin:0 0 12px;font-size:.9rem">Solo usted define la evaluación. Instrumento técnicamente elaborado según el programa de estudio y los lineamientos del MEP: cada indicador de logro con la evidencia de sus niveles de desempeño (Avanzado 3 · Intermedio 2 · Inicial 1; 0 si no presenta evidencia). Calificación = puntos obtenidos × 100 ÷ total de puntos.</p>
     <h3 style="margin:4px 0 8px">Datos del instrumento</h3>
     <div class="row">
@@ -725,6 +739,7 @@ function pintarEditorEvaluacion() {
         <button class="btn small red" data-cq="${i}" title="Quitar">✕</button>
         <details class="niveles-edit" ${!c.auto ? "open" : ""}><summary>Niveles de desempeño (evidencia de cada nivel)</summary>
           ${NIVELES.map(([k, et, v]) => `<label class="nivel-edit"><span class="nv nv-${k}">${et} (${v})</span><textarea data-cl="${i}" data-k="${k}" rows="2" maxlength="300">${esc(nv[k] || "")}</textarea></label>`).join("")}
+          <button class="btn small ghost" data-ia1="${i}" type="button" style="margin-top:6px">✨ Mejorar este indicador con IA</button><br>
           ${c.auto ? `<small class="muted">Este indicador se califica solo con el registro del juego; puede ajustar la redacción de los niveles, pero el cálculo sigue la escala 85 % / 60 % / 35 %.</small>` : `<small class="muted">Este indicador lo califica usted en la plataforma (🧮 Calificar), según estos niveles.</small>`}
         </details>
       </div>`; }).join("")}
@@ -754,7 +769,57 @@ function pintarEditorEvaluacion() {
   $("#evalAgregar").onclick = () => { leer(); S.criterios.push({ nombre: "", puntos_max: 3, niveles: { ...NIVELES_MANUAL } }); pintarEditorEvaluacion(); const ult = $(`[data-cn="${S.criterios.length - 1}"]`, box); if (ult) ult.focus(); };
   $("#evalBase").onclick = () => { if (!confirm("¿Reemplazar los indicadores por los sugeridos (formato MEP)?")) return; S.criterios = CRITERIOS_BASE.map(x => ({ ...x, niveles: { ...x.niveles } })); guardarCriterios(); pintarEditorEvaluacion(); };
   $("#evalVista").onclick = () => { leer(); abrirEvaluacion(criteriosLimpios(), null, null, S.instrumento); };
+  $("#iaTodos").onclick = () => { leer(); mejorarNivelesIA(null); };
+  $$("[data-ia1]", box).forEach(b => b.onclick = () => { leer(); mejorarNivelesIA([+b.dataset.ia1]); });
   box._pintando = false;
+}
+
+/* ---------- ✨ Mejorar indicadores y niveles con IA (propone; el docente decide) ---------- */
+async function mejorarNivelesIA(indices) {
+  const btns = $$("#iaTodos,[data-ia1]"); btns.forEach(b => { b.disabled = true; });
+  const quien = indices ? `el indicador ${indices[0] + 1}` : "todos los indicadores";
+  toast(`✨ La IA está mejorando ${quien}…`, 20000);
+  const cuerpo = { instrumento: S.instrumento, criterios: criteriosLimpios(), indices, instrucciones: ($("#iaIndic") || {}).value || "" };
+  let datos = null, error = "";
+  for (let intento = 0; intento < 3 && !datos; intento++) {
+    try {
+      const r = await fetch("/api/mejorar-niveles-ia", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(cuerpo) });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && Array.isArray(j.criterios)) datos = j;
+      else { error = j.error || ("Error " + r.status); if (r.status !== 503) break; await sleep(3000); }
+    } catch (e) { error = "No hay conexión con la plataforma (la IA solo funciona en línea)."; break; }
+  }
+  btns.forEach(b => { b.disabled = false; });
+  $("#toast").classList.add("hidden");
+  if (!datos) { toast("No se pudo mejorar con IA: " + error, 6000); return; }
+  mostrarPropuestaIA(datos.criterios);
+}
+function mostrarPropuestaIA(props) {
+  cerrarEvaluacion();
+  const d = document.createElement("div"); d.id = "evalModal"; d.className = "modal";
+  const bloque = (et, antes, despues) => `<div class="ia-cmp"><span class="nv-lbl">${et}</span><div><div class="ia-antes">${esc(antes || "—")}</div><div class="ia-despues">${esc(despues)}</div></div></div>`;
+  d.innerHTML = `<div class="modal-card">
+    <h2 style="margin-bottom:4px">✨ Propuesta de la IA</h2>
+    <p class="muted" style="margin:0 0 12px">Tachado = lo actual · en verde = lo que propone la IA. Marque lo que quiere usar; puede seguir editando después.</p>
+    ${props.map(p => { const c = S.criterios[p.i] || {}; const nv = nivelesDe(c); return `
+      <div class="ia-prop">
+        <label class="ia-usar"><input type="checkbox" data-usar="${p.i}" checked> Usar la propuesta para el indicador ${p.i + 1}</label>
+        ${bloque("Indicador", c.nombre, p.nombre)}
+        ${NIVELES.map(([k, et, v]) => bloque(`${et} (${v})`, nv[k], p.niveles[k])).join("")}
+        ${p.nota ? `<small class="muted">💡 ${esc(p.nota)}</small>` : ""}
+      </div>`; }).join("")}
+    <div class="row" style="margin-top:14px;justify-content:flex-end">
+      <button class="btn green" id="iaAplicar" style="flex:0 0 auto">✅ Aplicar seleccionadas</button>
+      <button class="btn ghost" id="iaCancelar" style="flex:0 0 auto">Cancelar</button>
+    </div></div>`;
+  document.body.appendChild(d);
+  $("#iaCancelar").onclick = cerrarEvaluacion;
+  $("#iaAplicar").onclick = () => {
+    let n = 0;
+    props.forEach(p => { const chk = $(`[data-usar="${p.i}"]`, d); if (chk && chk.checked && S.criterios[p.i]) { S.criterios[p.i].nombre = p.nombre; S.criterios[p.i].niveles = { ...p.niveles }; n++; } });
+    cerrarEvaluacion();
+    if (n) { guardarCriterios(); pintarEditorEvaluacion(); toast(`✓ Se aplicó la propuesta en ${n} indicador(es).`); }
+  };
 }
 
 function vistaEditor() {
