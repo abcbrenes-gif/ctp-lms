@@ -54,14 +54,15 @@ const ESTRATEGIAS_EVALUACION = {
   // 60–84 % = 2, 35–59 % = 1, menos de 35 % = 0.
   juego_tiradera: {
     tipo: "rubrica_directa", grupo: "Juegos en vivo", icono: "⚡", etiqueta: "La Tiradera (retos en vivo)", tiradera: true,
-    instrucciones: "Juego en vivo: el docente lanza retos (selección única, falso y verdadero, sopa de letras y crucigrama) y los estudiantes compiten con un apodo, en forma individual o por grupos. Al terminar, el registro de puntos ganados y perdidos llega a este trabajo y la nota de cada criterio se sugiere sola (85 % o más = 3, 60–84 % = 2, 35–59 % = 1, menos de 35 % = 0).",
+    instrucciones: "Juego en vivo (trabajo cotidiano). Instrumento: escala de desempeño con indicadores de logro y niveles Avanzado (3), Intermedio (2) e Inicial (1); 0 si no presenta evidencia. Los indicadores automáticos se califican con el registro de la partida (85 % o más = 3, 60–84 % = 2, 35–59 % = 1, menos de 35 % = 0); el de competencia para el desarrollo humano lo califica el docente. Calificación = puntos obtenidos × 100 ÷ total de puntos.",
     criterios: [
-      { nombre: "Dominio del contenido: porcentaje de logro en los retos", puntos_max: 3, auto: "dominio_pct" },
-      { nombre: "Participación: responde los retos dentro del tiempo", puntos_max: 3, auto: "participacion_pct" },
-      { nombre: "Precisión: puntos ganados frente a puntos perdidos por errores", puntos_max: 3, auto: "precision_pct" },
-      { nombre: "Rapidez: responde correctamente con tiempo de sobra", puntos_max: 3, auto: "rapidez_pct" }
+      { nombre: "Identifica los conceptos y procedimientos del tema al resolver los retos planteados.", puntos_max: 3, auto: "dominio_pct" },
+      { nombre: "Resuelve los retos dentro del tiempo establecido para cada uno.", puntos_max: 3, auto: "participacion_pct" },
+      { nombre: "Responde con precisión, evitando respuestas incorrectas.", puntos_max: 3, auto: "precision_pct" },
+      { nombre: "Aplica sus conocimientos con agilidad al responder correctamente.", puntos_max: 3, auto: "rapidez_pct" },
+      { nombre: "Demuestra respeto, colaboración y comunicación asertiva durante la dinámica (competencia para el desarrollo humano).", puntos_max: 3 }
     ],
-    demo: { escenario: "Tiradera sobre planillas, aguinaldo y liquidación laboral.", puntajes: [3, 3, 2, 2] }
+    demo: { escenario: "Tiradera sobre planillas, aguinaldo y liquidación laboral.", puntajes: [3, 3, 2, 2, 3] }
   },
   lista_cotejo_general: {
     tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "✅", etiqueta: "Lista de cotejo general",

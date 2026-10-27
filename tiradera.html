@@ -203,6 +203,15 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .crit-edit input[type=text]{flex:3 1 240px;border:2px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0}
 .crit-edit .pts{display:flex;align-items:center;gap:6px;font-weight:800;font-size:.85rem}
 .crit-edit .pts input{width:64px;border:2px solid var(--line);border-radius:10px;padding:7px}
+.niveles-edit{flex:1 1 100%;margin-left:38px}
+.niveles-edit summary{cursor:pointer;font-weight:800;font-size:.85rem;color:#5b21b6}
+.nivel-edit{display:flex;gap:8px;align-items:flex-start;margin-top:6px}
+.nivel-edit textarea{flex:1;border:2px solid var(--line);border-radius:10px;padding:6px 8px;font-size:.88rem;resize:vertical;min-width:0}
+.nv{flex:0 0 110px;font-weight:800;font-size:.82rem;border-radius:8px;padding:6px 8px;text-align:center}
+.nv-avanzado{background:#dcfce7;color:#15803d}.nv-intermedio{background:#fef9c3;color:#a16207}.nv-inicial{background:#fee2e2;color:#b91c1c}
+th.nv-th{text-align:center}
+.eval-datos{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:4px 16px;background:#f7f4ff;border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:.9rem}
+.eval-datos:empty{display:none}
 .crit-edit select{flex:2 1 220px;border:2px solid var(--line);border-radius:10px;padding:8px;min-width:0}
 .prop-item>div:first-child{flex:1 1 220px!important}
 .ok-op{color:#15803d;font-weight:800}
@@ -436,19 +445,30 @@ const GRUPOS = [
 ];
 // Criterios de evaluación (los mismos de la estrategia "La Tiradera" de la
 // plataforma). Si la partida está ligada a un trabajo, se usan los del trabajo.
-const CRITERIOS_BASE = [
-  { nombre: "Dominio del contenido: porcentaje de logro en los retos", puntos_max: 3, auto: "dominio_pct" },
-  { nombre: "Participación: responde los retos dentro del tiempo", puntos_max: 3, auto: "participacion_pct" },
-  { nombre: "Precisión: puntos ganados frente a puntos perdidos por errores", puntos_max: 3, auto: "precision_pct" },
-  { nombre: "Rapidez: responde correctamente con tiempo de sobra", puntos_max: 3, auto: "rapidez_pct" }
-];
-const COMO_SE_MIDE = {
-  dominio_pct: "Porcentaje de lo logrado en todos los retos: respuestas correctas, palabras encontradas en la sopa y palabras bien escritas en el crucigrama.",
-  participacion_pct: "Porcentaje de los retos que respondiste antes de que se acabara el tiempo.",
-  precision_pct: "Puntos ganados ÷ (puntos ganados + puntos perdidos por errores o por no responder).",
-  rapidez_pct: "Tiempo que te sobraba, en promedio, en tus aciertos (con 43 % o más de tiempo sobrante llegás a 3).",
-  aportes_pct: "Preguntas que propusiste y el profe aprobó: 1 pregunta = 1, 2 preguntas = 2, 3 o más = 3."
+// Instrumento de evaluación con el formato que pide el MEP para el trabajo
+// cotidiano (programa de estudio ETP Contabilidad, CSE 2020; Lineamientos
+// técnicos 2024): indicadores de logro ligados al resultado de aprendizaje,
+// criterios de desempeño con la evidencia de cada nivel y calificación =
+// puntos obtenidos × 100 ÷ total de puntos.
+const NIVELES = [["avanzado", "Avanzado", 3], ["intermedio", "Intermedio", 2], ["inicial", "Inicial", 1]];
+const NIVELES_AUTO = {
+  dominio_pct: { avanzado: "Logra el 85 % o más de los retos (respuestas correctas, palabras encontradas o bien escritas).", intermedio: "Logra entre el 60 % y el 84 % de los retos.", inicial: "Logra entre el 35 % y el 59 % de los retos." },
+  participacion_pct: { avanzado: "Responde el 85 % o más de los retos dentro del tiempo establecido.", intermedio: "Responde a tiempo entre el 60 % y el 84 % de los retos.", inicial: "Responde a tiempo entre el 35 % y el 59 % de los retos." },
+  precision_pct: { avanzado: "El 85 % o más de sus puntos son ganados; casi no comete errores.", intermedio: "Entre el 60 % y el 84 % de sus puntos son ganados; comete algunos errores.", inicial: "Entre el 35 % y el 59 % de sus puntos son ganados; comete errores frecuentes." },
+  rapidez_pct: { avanzado: "En sus aciertos le sobra, en promedio, el 43 % o más del tiempo disponible.", intermedio: "En sus aciertos le sobra, en promedio, entre el 30 % y el 42 % del tiempo.", inicial: "En sus aciertos le sobra, en promedio, entre el 18 % y el 29 % del tiempo." },
+  aportes_pct: { avanzado: "Propone 3 o más preguntas que el docente aprueba.", intermedio: "Propone 2 preguntas que el docente aprueba.", inicial: "Propone 1 pregunta que el docente aprueba." }
 };
+const NIVELES_MANUAL = { avanzado: "Cumple el indicador de forma completa y constante durante toda la dinámica.", intermedio: "Cumple el indicador la mayor parte del tiempo, con apoyo ocasional.", inicial: "Cumple el indicador de forma parcial o requiere apoyo frecuente." };
+const CRITERIOS_BASE = [
+  { nombre: "Identifica los conceptos y procedimientos del tema al resolver los retos planteados.", puntos_max: 3, auto: "dominio_pct" },
+  { nombre: "Resuelve los retos dentro del tiempo establecido para cada uno.", puntos_max: 3, auto: "participacion_pct" },
+  { nombre: "Responde con precisión, evitando respuestas incorrectas.", puntos_max: 3, auto: "precision_pct" },
+  { nombre: "Aplica sus conocimientos con agilidad al responder correctamente.", puntos_max: 3, auto: "rapidez_pct" },
+  { nombre: "Demuestra respeto, colaboración y comunicación asertiva durante la dinámica (competencia para el desarrollo humano).", puntos_max: 3,
+    niveles: { avanzado: "Participa activamente, respeta los turnos y apoya a sus compañeros durante toda la dinámica.", intermedio: "Participa y respeta las normas de la dinámica la mayor parte del tiempo.", inicial: "Participa poco o requiere llamadas de atención frecuentes." } }
+].map(c => ({ ...c, niveles: c.niveles || NIVELES_AUTO[c.auto] }));
+const nivelesDe = c => ({ ...(c.auto ? NIVELES_AUTO[c.auto] : NIVELES_MANUAL), ...(c.niveles || {}) });
+const INSTRUMENTO_BASE = { componente: "Trabajo cotidiano", tipo: "Escala de desempeño", subarea: "", unidad: "", resultado: "", indicador: "" };
 const etiquetaGrupo = k => (GRUPOS[k] ? GRUPOS[k].emoji + " " + GRUPOS[k].nombre : "Sin grupo");
 const S = {
   rol: null,           // "host" | "player"
@@ -459,7 +479,14 @@ const S = {
   retos: store.get("tiradera_retos", null),
   cfg: Object.assign({ modalidad: "individual", grupos: 4, asignacion: "libre", maximo: 0, porGrupo: 0, propuestas: false }, store.get("tiradera_cfg", {})),
   propuestas: [],      // preguntas que proponen los estudiantes {pid, autorId, autorApodo, autorNombre, tipo, pregunta, opciones, correcta, estado}
-  criterios: (() => { const c = store.get("tiradera_criterios", null); return Array.isArray(c) && c.length ? c : CRITERIOS_BASE.map(x => ({ ...x })); })(),
+  instrumento: Object.assign({}, INSTRUMENTO_BASE, store.get("tiradera_instrumento", {})),
+  criterios: (() => {
+    const c = store.get("tiradera_criterios", null);
+    // Los criterios de la primera versión (sin formato MEP) se cambian por los indicadores nuevos.
+    const viejos = ["Dominio del contenido: porcentaje de logro en los retos", "Participación: responde los retos dentro del tiempo"];
+    if (!Array.isArray(c) || !c.length || c.some(x => viejos.includes(x.nombre))) return CRITERIOS_BASE.map(x => ({ ...x, niveles: { ...x.niveles } }));
+    return c;
+  })(),
   verEvaluacion: false, evalMostrada: false,
   trabajo: null,       // trabajo de la plataforma donde se guarda el registro {id, titulo}
   jugadores: {},       // id → {id, nombre, apodo, est, grupo, pts, racha, ultimoDelta, online, stats, detalle}
@@ -651,51 +678,83 @@ const MEDIDAS_JUEGO = [
   ["aportes_pct", "Automático: preguntas propuestas y aprobadas"],
   ["", "Lo califico yo (a mano)"]
 ];
-const criteriosLimpios = () => S.criterios.map(c => c.auto ? { nombre: String(c.nombre).trim(), puntos_max: Number(c.puntos_max) || 0, auto: c.auto } : { nombre: String(c.nombre).trim(), puntos_max: Number(c.puntos_max) || 0 });
+const criteriosLimpios = () => S.criterios.map(c => { const x = { nombre: String(c.nombre).trim(), puntos_max: Number(c.puntos_max) || 0, niveles: nivelesDe(c) }; if (c.auto) x.auto = c.auto; return x; });
 function guardarCriterios() {
   store.set("tiradera_criterios", S.criterios);
+  store.set("tiradera_instrumento", S.instrumento);
   if (S.trabajo) { clearTimeout(guardarCriterios._t); guardarCriterios._t = setTimeout(async () => {
-    const ok = await actualizarContenidoTrabajo(c => ({ ...c, criterios: criteriosLimpios() }));
+    const ok = await actualizarContenidoTrabajo(c => ({ ...c, criterios: criteriosLimpios(), tiradera_instrumento: S.instrumento }));
     const est = $("#evalEstado"); if (est) est.textContent = ok ? "✓ Guardado también en el trabajo de la plataforma." : "No se pudo guardar en la plataforma (sin conexión); quedó en esta computadora.";
   }, 900); }
 }
 function pintarEditorEvaluacion() {
   const box = $("#evalCard"); if (!box) return;
+  const I = S.instrumento;
   const total = S.criterios.reduce((a, c) => a + (Number(c.puntos_max) || 0), 0);
+  // Mientras se redibuja, se ignoran los "change" que el navegador dispara al quitar los campos viejos.
+  box._pintando = true;
+  if (document.activeElement && box.contains(document.activeElement)) document.activeElement.blur();
+  const campo = (k, label, ph, ancho) => `<div class="field" style="flex:${ancho || "1 1 220px"}"><label>${label}</label><input type="text" data-ins="${k}" value="${esc(I[k] || "")}" maxlength="300" placeholder="${ph}"></div>`;
   box.innerHTML = `
     <div class="row" style="align-items:center;margin-bottom:6px">
-      <h2 style="flex:2 1 260px">📋 Evaluación de esta partida</h2>
+      <h2 style="flex:2 1 260px">📋 Evaluación de esta partida <small class="muted" style="font-size:.9rem">(formato MEP)</small></h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap;flex:0 0 auto">
         <button class="btn small ghost" id="evalVista">👁️ Ver como la ven los estudiantes</button>
-        <button class="btn small ghost" id="evalBase">↺ Criterios de La Tiradera</button>
+        <button class="btn small ghost" id="evalBase">↺ Indicadores sugeridos</button>
       </div>
     </div>
-    <p class="muted" style="margin:0 0 12px;font-size:.9rem">Solo usted define la evaluación. Los estudiantes la ven con el botón <b>📋 Evaluación</b> y se les muestra antes del primer reto. Los criterios automáticos se calculan con el registro de la partida (85 % o más = puntaje máximo del criterio); los "a mano" los pone usted en la plataforma.</p>
-    ${S.criterios.map((c, i) => `
+    <p class="muted" style="margin:0 0 12px;font-size:.9rem">Solo usted define la evaluación. Instrumento técnicamente elaborado según el programa de estudio y los lineamientos del MEP: cada indicador de logro con la evidencia de sus niveles de desempeño (Avanzado 3 · Intermedio 2 · Inicial 1; 0 si no presenta evidencia). Calificación = puntos obtenidos × 100 ÷ total de puntos.</p>
+    <h3 style="margin:4px 0 8px">Datos del instrumento</h3>
+    <div class="row">
+      <div class="field" style="flex:1 1 200px"><label>Componente</label><select data-ins="componente">${["Trabajo cotidiano", "Tareas", "Proyecto", "Pruebas"].map(o => `<option ${I.componente === o ? "selected" : ""}>${o}</option>`).join("")}</select></div>
+      <div class="field" style="flex:1 1 200px"><label>Tipo de instrumento</label><select data-ins="tipo">${["Escala de desempeño", "Rúbrica", "Lista de cotejo"].map(o => `<option ${I.tipo === o ? "selected" : ""}>${o}</option>`).join("")}</select></div>
+      ${campo("subarea", "Subárea", "Ej.: Gestión contable")}
+      ${campo("unidad", "Unidad de estudio / tema", "Ej.: Planillas y liquidación laboral")}
+    </div>
+    <div class="row">
+      ${campo("resultado", "Resultado de aprendizaje (del programa)", "Copie el resultado de aprendizaje del programa de estudio", "2 1 320px")}
+      ${campo("indicador", "Indicador de logro (del programa)", "Copie el indicador de logro del programa", "2 1 320px")}
+    </div>
+    <h3 style="margin:8px 0 8px">Indicadores y criterios de desempeño</h3>
+    ${S.criterios.map((c, i) => { const nv = nivelesDe(c); return `
       <div class="crit-edit">
         <span class="num">${i + 1}</span>
-        <input type="text" data-cn="${i}" value="${esc(c.nombre)}" maxlength="140" placeholder="Nombre del criterio (ej.: Dominio del contenido)">
+        <input type="text" data-cn="${i}" value="${esc(c.nombre)}" maxlength="220" placeholder="Indicador: verbo + contenido + condición (ej.: Identifica los conceptos de planilla al resolver los retos)">
         <label class="pts">Puntos <input type="number" data-cp="${i}" min="1" max="20" value="${Number(c.puntos_max) || 3}"></label>
         <select data-ca="${i}">${MEDIDAS_JUEGO.map(([v, t]) => `<option value="${v}" ${(c.auto || "") === v ? "selected" : ""}>${t}</option>`).join("")}</select>
         <button class="btn small red" data-cq="${i}" title="Quitar">✕</button>
-      </div>`).join("")}
+        <details class="niveles-edit" ${!c.auto ? "open" : ""}><summary>Niveles de desempeño (evidencia de cada nivel)</summary>
+          ${NIVELES.map(([k, et, v]) => `<label class="nivel-edit"><span class="nv nv-${k}">${et} (${v})</span><textarea data-cl="${i}" data-k="${k}" rows="2" maxlength="300">${esc(nv[k] || "")}</textarea></label>`).join("")}
+          ${c.auto ? `<small class="muted">Este indicador se califica solo con el registro del juego; puede ajustar la redacción de los niveles, pero el cálculo sigue la escala 85 % / 60 % / 35 %.</small>` : `<small class="muted">Este indicador lo califica usted en la plataforma (🧮 Calificar), según estos niveles.</small>`}
+        </details>
+      </div>`; }).join("")}
     <div class="row" style="align-items:center;margin-top:8px">
-      <button class="btn small ghost" id="evalAgregar" style="flex:0 0 auto">＋ Agregar criterio</button>
-      <span class="muted" style="flex:2 1 200px;font-size:.88rem">Total: <b>${total}</b> puntos · ${S.criterios.length} criterio(s). <span id="evalEstado">${S.trabajo ? "Se guarda en el trabajo «" + esc(S.trabajo.titulo) + "»." : "Se guarda en esta computadora y, al terminar, junto con el registro."}</span></span>
+      <button class="btn small ghost" id="evalAgregar" style="flex:0 0 auto">＋ Agregar indicador</button>
+      <span class="muted" style="flex:2 1 200px;font-size:.88rem">Total: <b>${total}</b> puntos · ${S.criterios.length} indicador(es). <span id="evalEstado">${S.trabajo ? "Se guarda en el trabajo «" + esc(S.trabajo.titulo) + "»." : "Se guarda en esta computadora y, al terminar, junto con el registro."}</span></span>
     </div>`;
   const leer = () => {
+    $$("[data-ins]", box).forEach(el => { S.instrumento[el.dataset.ins] = el.value.trim(); });
     S.criterios = S.criterios.map((c, i) => {
       const auto = $(`[data-ca="${i}"]`, box).value;
-      const x = { nombre: $(`[data-cn="${i}"]`, box).value, puntos_max: Math.max(0, Math.min(20, +$(`[data-cp="${i}"]`, box).value || 0)) };
+      const niveles = {}; $$(`[data-cl="${i}"]`, box).forEach(t => { niveles[t.dataset.k] = t.value.trim(); });
+      const x = { nombre: $(`[data-cn="${i}"]`, box).value, puntos_max: Math.max(0, Math.min(20, +$(`[data-cp="${i}"]`, box).value || 0)), niveles };
       if (auto) x.auto = auto;
       return x;
     });
   };
-  $$("[data-cn],[data-cp],[data-ca]", box).forEach(el => el.addEventListener("change", () => { leer(); guardarCriterios(); if (el.dataset.cp !== undefined) pintarEditorEvaluacion(); }));
+  $$("[data-ins],[data-cn],[data-cp],[data-ca],[data-cl]", box).forEach(el => el.addEventListener("change", () => {
+    if (box._pintando || !box.contains(el)) return; // evento tardío de un campo que ya se redibujó
+    const repintar = el.dataset.cp !== undefined || el.dataset.ca !== undefined;
+    leer();
+    // Si cambió la forma de calificar, se proponen los niveles de esa medición.
+    if (el.dataset.ca !== undefined) { const i = +el.dataset.ca, a = el.value; S.criterios[i].niveles = a ? { ...NIVELES_AUTO[a] } : { ...NIVELES_MANUAL }; }
+    guardarCriterios(); if (repintar) pintarEditorEvaluacion();
+  }));
   $$("[data-cq]", box).forEach(b => b.onclick = () => { leer(); S.criterios.splice(+b.dataset.cq, 1); guardarCriterios(); pintarEditorEvaluacion(); });
-  $("#evalAgregar").onclick = () => { leer(); S.criterios.push({ nombre: "", puntos_max: 3 }); pintarEditorEvaluacion(); const ult = $(`[data-cn="${S.criterios.length - 1}"]`, box); if (ult) ult.focus(); };
-  $("#evalBase").onclick = () => { if (!confirm("¿Reemplazar por los 4 criterios de La Tiradera (dominio, participación, precisión y rapidez)?")) return; S.criterios = CRITERIOS_BASE.map(x => ({ ...x })); guardarCriterios(); pintarEditorEvaluacion(); };
-  $("#evalVista").onclick = () => { leer(); abrirEvaluacion(S.criterios); };
+  $("#evalAgregar").onclick = () => { leer(); S.criterios.push({ nombre: "", puntos_max: 3, niveles: { ...NIVELES_MANUAL } }); pintarEditorEvaluacion(); const ult = $(`[data-cn="${S.criterios.length - 1}"]`, box); if (ult) ult.focus(); };
+  $("#evalBase").onclick = () => { if (!confirm("¿Reemplazar los indicadores por los sugeridos (formato MEP)?")) return; S.criterios = CRITERIOS_BASE.map(x => ({ ...x, niveles: { ...x.niveles } })); guardarCriterios(); pintarEditorEvaluacion(); };
+  $("#evalVista").onclick = () => { leer(); abrirEvaluacion(criteriosLimpios(), null, null, S.instrumento); };
+  box._pintando = false;
 }
 
 function vistaEditor() {
@@ -1182,7 +1241,7 @@ function estadoPublico() {
   const rk = rankingPublico();
   const e = { fase: S.fase, pin: S.pin, idx: S.idx, total: S.retos.length, ranking: rk, respondieron: Object.keys(S.respuestas).length, jugadores: rk.length,
     modalidad: S.cfg.modalidad, asignacion: S.cfg.asignacion, porGrupo: +S.cfg.porGrupo || 0,
-    criterios: S.criterios.map(c => ({ nombre: c.nombre, puntos_max: c.puntos_max, auto: c.auto || null })), verEvaluacion: S.verEvaluacion, propuestasAbiertas: !!S.cfg.propuestas && S.fase === "lobby" };
+    criterios: criteriosLimpios(), instrumento: S.instrumento, verEvaluacion: S.verEvaluacion, propuestasAbiertas: !!S.cfg.propuestas && S.fase === "lobby" };
   if (esGrupal()) {
     e.grupos = Array.from({ length: S.cfg.grupos }, (_, k) => ({ k, nombre: etiquetaGrupo(k), n: Object.values(S.jugadores).filter(j => j.grupo === k).length }));
     e.rankingGrupos = rankingGrupos();
@@ -1232,7 +1291,7 @@ function difundirMonitor(ya) {
 /* ---------- Evaluación: se informa antes de empezar ---------- */
 function mostrarEvaluacionATodos(paraEmpezar) {
   S.verEvaluacion = true; S.evalMostrada = true; difundirEstado();
-  abrirEvaluacion(S.criterios, paraEmpezar ? () => { S.verEvaluacion = false; cerrarEvaluacion(); siguienteReto(); } : null,
+  abrirEvaluacion(criteriosLimpios(), paraEmpezar ? () => { S.verEvaluacion = false; cerrarEvaluacion(); siguienteReto(); } : null,
     () => { S.verEvaluacion = false; difundirEstado(); });
 }
 
@@ -1277,7 +1336,7 @@ async function guardarRegistro(trabajoElegido) {
   const ok = await actualizarContenidoTrabajo(c => {
     const lista = Array.isArray(c.tiradera_partidas) ? c.tiradera_partidas.filter(p => p.id !== partida.id) : [];
     lista.push(partida);
-    return { ...c, tiradera_partidas: lista.slice(-30), tiradera_retos: S.retos, criterios: criteriosLimpios(), tiradera_en_vivo: { pin: S.pin, fecha: new Date().toISOString(), estado: "terminada" } };
+    return { ...c, tiradera_partidas: lista.slice(-30), tiradera_retos: S.retos, criterios: criteriosLimpios(), tiradera_instrumento: S.instrumento, tiradera_en_vivo: { pin: S.pin, fecha: new Date().toISOString(), estado: "terminada" } };
   });
   if (ok) S.registroGuardado.enTrabajo = S.trabajo;
   pintarEstadoGuardado(ok ? null : "No se pudo guardar en la plataforma (sin conexión). Descargá el registro o probá de nuevo.");
@@ -1360,24 +1419,28 @@ function actualizarVivoHost() {
 /* ============================================================
    8. COMPONENTES COMPARTIDOS: TEMPORIZADOR, PODIO, SOPA, CRUCIGRAMA
    ============================================================ */
-function evaluacionHTML(criterios) {
+function evaluacionHTML(criterios, I) {
+  I = Object.assign({}, INSTRUMENTO_BASE, I || {});
   const total = criterios.reduce((a, c) => a + (Number(c.puntos_max) || 0), 0);
+  const dato = (et, v) => v ? `<div><b>${et}:</b> ${esc(v)}</div>` : "";
   return `
-    <h2 style="margin-bottom:4px">📋 Evaluación de La Tiradera</h2>
-    <p class="muted" style="margin:0 0 12px">Así se va a calificar esta actividad. Cada criterio vale ${criterios.length && criterios.every(c => +c.puntos_max === 3) ? "3 puntos" : "los puntos indicados"} (total ${total} puntos) y la nota se pasa a la escala de 0 a 3 de la plataforma.</p>
-    <div style="overflow-x:auto"><table class="tabla-reg tabla-eval"><thead><tr><th>Criterio</th><th>Puntos</th><th>Cómo se mide</th></tr></thead><tbody>
-      ${criterios.map((c, i) => `<tr><td><b>${i + 1}. ${esc(c.nombre)}</b></td><td>${c.puntos_max}</td><td>${esc(c.auto ? COMO_SE_MIDE[c.auto] || "" : "Lo califica el profesor durante la actividad.")}</td></tr>`).join("")}
+    <h2 style="margin-bottom:2px">📋 Instrumento de evaluación · La Tiradera</h2>
+    <p class="muted" style="margin:0 0 10px">${esc(I.tipo)} · Componente: ${esc(I.componente)} · CTP Mercedes Norte</p>
+    <div class="eval-datos">${dato("Subárea", I.subarea)}${dato("Unidad / tema", I.unidad)}${dato("Resultado de aprendizaje", I.resultado)}${dato("Indicador de logro", I.indicador)}</div>
+    <div style="overflow-x:auto"><table class="tabla-reg tabla-eval"><thead><tr><th>Indicador / criterio de desempeño</th>${NIVELES.map(([k, et, v]) => `<th class="nv-th nv-${k}">${et} (${v})</th>`).join("")}<th>Puntos</th></tr></thead><tbody>
+      ${criterios.map((c, i) => { const nv = nivelesDe(c); return `<tr><td><b>${i + 1}. ${esc(c.nombre)}</b><br><small class="muted">${c.auto ? "Se califica con el registro del juego." : "Lo califica el docente durante la dinámica."}</small></td>${NIVELES.map(([k]) => `<td>${esc(nv[k] || "")}</td>`).join("")}<td><b>${c.puntos_max}</b></td></tr>`; }).join("")}
+      <tr><td colspan="4" style="text-align:right"><b>Total de puntos</b></td><td><b>${total}</b></td></tr>
     </tbody></table></div>
     <div class="row" style="margin-top:12px;gap:10px">
-      <div class="eval-box"><b>Escala de cada criterio</b><br>85 % o más → 3 · 60 a 84 % → 2 · 35 a 59 % → 1 · menos de 35 % → 0</div>
-      <div class="eval-box"><b>Cómo se ganan y pierden puntos</b><br>✅ Acierto: hasta ${PUNTOS.base} pts (más rápido, más puntos) · 🔥 Racha: +${PUNTOS.racha} por acierto seguido<br>❌ Error: −${PUNTOS.error} · ⌛ Sin responder: −${PUNTOS.sinResponder} · 🔎 Selección equivocada en la sopa: −${PUNTOS.sopaErrorSel} · 🧩 Palabra mal en el crucigrama: −${PUNTOS.cruciErrorPal}</div>
+      <div class="eval-box"><b>Calificación</b><br>Puntos obtenidos × 100 ÷ ${total} = calificación del instrumento.<br>Si no presenta evidencia en un indicador, obtiene 0 puntos en ese indicador.</div>
+      <div class="eval-box"><b>Puntos del juego (no son la nota)</b><br>✅ Acierto: hasta ${PUNTOS.base} pts (más rápido, más puntos) · 🔥 Racha: +${PUNTOS.racha}<br>❌ Error: −${PUNTOS.error} · ⌛ Sin responder: −${PUNTOS.sinResponder} · 🔎 Sopa: −${PUNTOS.sopaErrorSel} por selección equivocada · 🧩 Crucigrama: −${PUNTOS.cruciErrorPal} por palabra mal</div>
     </div>`;
 }
-function abrirEvaluacion(criterios, alEmpezar, alCerrar) {
+function abrirEvaluacion(criterios, alEmpezar, alCerrar, instrumento) {
   cerrarEvaluacion();
   const d = document.createElement("div");
   d.id = "evalModal"; d.className = "modal";
-  d.innerHTML = `<div class="modal-card">${evaluacionHTML(criterios || CRITERIOS_BASE)}
+  d.innerHTML = `<div class="modal-card">${evaluacionHTML(criterios || CRITERIOS_BASE, instrumento || (S.rol === "host" ? S.instrumento : S.estadoRemoto && S.estadoRemoto.instrumento))}
     <div class="row" style="margin-top:16px;justify-content:flex-end">
       ${alEmpezar ? `<button class="btn big pink" id="evalEmpezar" style="flex:0 0 auto">▶ Entendido, ¡a empezar!</button>` : ""}
       <button class="btn ghost" id="evalCerrar" style="flex:0 0 auto">Cerrar</button></div></div>`;
@@ -1846,6 +1909,8 @@ $("#connPill").textContent = sbClient ? "Listo para jugar" : "Modo local (esta c
       S.trabajo = { id: t.id, titulo: t.titulo };
       const c = t.contenido_actividad || {};
       if (Array.isArray(c.tiradera_retos) && c.tiradera_retos.length) { S.retos = c.tiradera_retos; store.set("tiradera_retos", S.retos); }
+      if (c.tiradera_instrumento) S.instrumento = Object.assign({}, INSTRUMENTO_BASE, c.tiradera_instrumento);
+      else S.instrumento = Object.assign({}, INSTRUMENTO_BASE, S.instrumento, { unidad: S.instrumento.unidad || t.titulo || "" });
       if (Array.isArray(c.criterios) && c.criterios.length) S.criterios = c.criterios.map((x, i) => ({ ...x, auto: x.auto || (CRITERIOS_BASE[i] && CRITERIOS_BASE[i].auto) || null }));
       vistaConfig();
       return;

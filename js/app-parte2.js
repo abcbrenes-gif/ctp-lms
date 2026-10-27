@@ -5525,7 +5525,8 @@ async function pintarBloqueTiradera(cont, panel, trabajo, ordenados, nombrePorId
         const malo = lista.findIndex(c => !c.nombre || c.puntos_max <= 0);
         if (malo >= 0) { estado.textContent = `Completá el nombre y los puntos del criterio ${malo + 1}.`; return; }
         ev.target.disabled = true; estado.textContent = "Guardando…";
-        const nuevos = lista.map(c => c.auto ? { nombre: c.nombre, puntos_max: c.puntos_max, auto: c.auto } : { nombre: c.nombre, puntos_max: c.puntos_max });
+        // Se conservan los niveles de desempeño (formato MEP) que el juego guardó para cada indicador.
+        const nuevos = lista.map((c, i) => { const x = { nombre: c.nombre, puntos_max: c.puntos_max }; if (c.auto) x.auto = c.auto; const prev = criterios[i]; if (prev && prev.niveles && (prev.auto || "") === (c.auto || "")) x.niveles = prev.niveles; return x; });
         const { data: actual } = await sb.from("trabajos_cotidianos").select("contenido_actividad").eq("id", trabajo.id).maybeSingle();
         const nuevoContenido = { ...((actual && actual.contenido_actividad) || contenido), criterios: nuevos };
         const { error } = await sb.from("trabajos_cotidianos").update({ contenido_actividad: nuevoContenido }).eq("id", trabajo.id);
