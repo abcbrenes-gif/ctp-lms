@@ -46,6 +46,38 @@ const SIMULADOR_B2B_URL = "simulador-b2b.html";
 // (el estudiante se autoevalúa o evalúa a un compañero con una escala,
 // se califica solo). Esto permite ofrecer 20 estrategias con solo 3
 // motores reales que sí funcionan de principio a fin.
+// --- Instrumento MEP de La Tiradera (los mismos textos que usa tiradera.html) ---
+// Programa ETP Contabilidad (CSE 2020) y Lineamientos técnicos MEP 2024:
+// indicadores de logro, criterios de desempeño con evidencia por nivel y
+// calificación = puntos obtenidos × 100 ÷ total de puntos.
+const TIRADERA_NIVELES = [["avanzado", "Avanzado", 3], ["intermedio", "Intermedio", 2], ["inicial", "Inicial", 1]];
+const TIRADERA_NIVELES_AUTO = {
+  dominio_pct: { avanzado: "Logra el 85 % o más de los retos (respuestas correctas, palabras encontradas o bien escritas).", intermedio: "Logra entre el 60 % y el 84 % de los retos.", inicial: "Logra entre el 35 % y el 59 % de los retos." },
+  participacion_pct: { avanzado: "Responde el 85 % o más de los retos dentro del tiempo establecido.", intermedio: "Responde a tiempo entre el 60 % y el 84 % de los retos.", inicial: "Responde a tiempo entre el 35 % y el 59 % de los retos." },
+  precision_pct: { avanzado: "El 85 % o más de sus puntos son ganados; casi no comete errores.", intermedio: "Entre el 60 % y el 84 % de sus puntos son ganados; comete algunos errores.", inicial: "Entre el 35 % y el 59 % de sus puntos son ganados; comete errores frecuentes." },
+  rapidez_pct: { avanzado: "En sus aciertos le sobra, en promedio, el 43 % o más del tiempo disponible.", intermedio: "En sus aciertos le sobra, en promedio, entre el 30 % y el 42 % del tiempo.", inicial: "En sus aciertos le sobra, en promedio, entre el 18 % y el 29 % del tiempo." },
+  aportes_pct: { avanzado: "Propone 3 o más preguntas que el docente aprueba.", intermedio: "Propone 2 preguntas que el docente aprueba.", inicial: "Propone 1 pregunta que el docente aprueba." }
+};
+const TIRADERA_NIVELES_MANUAL = { avanzado: "Cumple el indicador de forma completa y constante durante toda la dinámica.", intermedio: "Cumple el indicador la mayor parte del tiempo, con apoyo ocasional.", inicial: "Cumple el indicador de forma parcial o requiere apoyo frecuente." };
+const TIRADERA_INSTRUMENTO_BASE = { componente: "Trabajo cotidiano", tipo: "Escala de desempeño", subarea: "", unidad: "", resultado: "", indicador: "" };
+function tiraderaNivelesDe(c) { return { ...(c && c.auto ? TIRADERA_NIVELES_AUTO[c.auto] : TIRADERA_NIVELES_MANUAL), ...((c && c.niveles) || {}) }; }
+// HTML del instrumento completo (para ver o imprimir).
+function tiraderaInstrumentoHTML(titulo, criterios, instrumento) {
+  const I = { ...TIRADERA_INSTRUMENTO_BASE, ...(instrumento || {}) };
+  const e = v => String(v == null ? "" : v).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const total = (criterios || []).reduce((a, c) => a + (Number(c.puntos_max) || 0), 0);
+  const dato = (k, v) => `<tr><th style="text-align:left;width:32%;">${k}</th><td>${e(v) || "&nbsp;"}</td></tr>`;
+  return `
+    <h2 style="margin:0 0 2px;">Instrumento de evaluación · ${e(titulo || "La Tiradera")}</h2>
+    <p style="margin:0 0 10px; color:#555;">CTP Mercedes Norte · ${e(I.tipo)} · Componente: ${e(I.componente)}</p>
+    <table class="tir-ins" style="margin-bottom:10px;">${dato("Subárea", I.subarea)}${dato("Unidad de estudio / tema", I.unidad)}${dato("Resultado de aprendizaje", I.resultado)}${dato("Indicador de logro", I.indicador)}${dato("Nombre de la persona estudiante", "")}</table>
+    <table class="tir-ins"><thead><tr><th>Indicador / criterio de desempeño</th>${TIRADERA_NIVELES.map(([, et, v]) => `<th>${et} (${v})</th>`).join("")}<th>Puntos</th><th>Obtenidos</th></tr></thead><tbody>
+      ${(criterios || []).map((c, i) => { const nv = tiraderaNivelesDe(c); return `<tr><td><strong>${i + 1}. ${e(c.nombre)}</strong><br><small>${c.auto ? "Se califica con el registro del juego." : "Lo califica el docente durante la dinámica."}</small></td>${TIRADERA_NIVELES.map(([k]) => `<td>${e(nv[k])}</td>`).join("")}<td style="text-align:center;">${c.puntos_max}</td><td></td></tr>`; }).join("")}
+      <tr><td colspan="4" style="text-align:right;"><strong>Total</strong></td><td style="text-align:center;"><strong>${total}</strong></td><td></td></tr>
+    </tbody></table>
+    <p style="margin:10px 0 0; font-size:0.85rem;">Escala: Avanzado = 3 · Intermedio = 2 · Inicial = 1 · Sin evidencia = 0. Calificación = puntos obtenidos × 100 ÷ ${total}. Los indicadores automáticos usan el registro de la partida: 85 % o más = 3 · 60–84 % = 2 · 35–59 % = 1 · menos de 35 % = 0. Los puntos del juego no son la nota.</p>`;
+}
+
 const ESTRATEGIAS_EVALUACION = {
   // La Tiradera: juego en vivo (tiradera.html). Se califica como rúbrica
   // directa, pero los criterios marcados con "auto" se sugieren solos con
@@ -60,7 +92,8 @@ const ESTRATEGIAS_EVALUACION = {
       { nombre: "Resuelve los retos dentro del tiempo establecido para cada uno.", puntos_max: 3, auto: "participacion_pct" },
       { nombre: "Responde con precisión, evitando respuestas incorrectas.", puntos_max: 3, auto: "precision_pct" },
       { nombre: "Aplica sus conocimientos con agilidad al responder correctamente.", puntos_max: 3, auto: "rapidez_pct" },
-      { nombre: "Demuestra respeto, colaboración y comunicación asertiva durante la dinámica (competencia para el desarrollo humano).", puntos_max: 3 }
+      { nombre: "Demuestra respeto, colaboración y comunicación asertiva durante la dinámica (competencia para el desarrollo humano).", puntos_max: 3,
+        niveles: { avanzado: "Participa activamente, respeta los turnos y apoya a sus compañeros durante toda la dinámica.", intermedio: "Participa y respeta las normas de la dinámica la mayor parte del tiempo.", inicial: "Participa poco o requiere llamadas de atención frecuentes." } }
     ],
     demo: { escenario: "Tiradera sobre planillas, aguinaldo y liquidación laboral.", puntajes: [3, 3, 2, 2, 3] }
   },

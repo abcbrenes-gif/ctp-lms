@@ -2851,9 +2851,14 @@ async function renderSubtema(id, soloLectura) {
           // Se marca la estrategia y qué dato del juego alimenta cada criterio.
           resultado.contenido.estrategia = valorSelect;
           resultado.contenido.criterios = (resultado.contenido.criterios || []).map((c, i) => {
-            const auto = presetElegido.criterios[i] && presetElegido.criterios[i].auto;
-            return auto ? { ...c, auto } : c;
+            const base = presetElegido.criterios[i] || {};
+            const x = { ...c };
+            if (base.auto) x.auto = base.auto;
+            // Niveles de desempeño (formato MEP) del indicador sugerido, si no se le cambió el nombre.
+            x.niveles = base.nombre === c.nombre && base.niveles ? base.niveles : tiraderaNivelesDe(x);
+            return x;
           });
+          resultado.contenido.tiradera_instrumento = { ...TIRADERA_INSTRUMENTO_BASE, unidad: titulo };
         }
         if (!pub.materia_id) { alert("Este subtema no tiene una materia asociada, no se puede crear el indicador de calificación."); return; }
         const horaInicioInput = panel.querySelector("#au-prueba-hora-inicio");
@@ -5374,6 +5379,16 @@ async function pintarPanelCalificarRubrica(panel, trabajo, materiaId) {
   const entregaPorEstudiante = {};
   (entregas || []).forEach(e => { entregaPorEstudiante[e.estudiante_id] = e; });
 
+  const esTiraderaTrabajo = trabajo.contenido_actividad && trabajo.contenido_actividad.estrategia === "juego_tiradera";
+  // En La Tiradera, los indicadores "a mano" se califican por nivel de desempeño (formato MEP).
+  const campoCriterio = (estId, c, i, valor) => {
+    if (esTiraderaTrabajo && !c.auto) {
+      const max = Number(c.puntos_max) || 3, nv = tiraderaNivelesDe(c);
+      const opts = [["", "— Sin calificar —"], [0, "Sin evidencia (0)"]].concat(TIRADERA_NIVELES.slice().reverse().map(([k, et, v]) => [Math.round(v / 3 * max), `${et} (${Math.round(v / 3 * max)}) — ${nv[k]}`]));
+      return `<select data-rubrica-criterio="${estId}" data-i="${i}" style="max-width:22rem; padding:0.3rem;">${opts.map(([v, t]) => `<option value="${v}" ${valor != null && String(valor) === String(v) ? "selected" : ""}>${escAC(t)}</option>`).join("")}</select>`;
+    }
+    return `<input type="number" data-rubrica-criterio="${estId}" data-i="${i}" min="0" max="${c.puntos_max}" value="${valor != null ? valor : ""}" placeholder="0-${c.puntos_max}" style="width:4.5rem; padding:0.3rem;" ${esTiraderaTrabajo && c.auto ? 'title="Se sugiere solo con el registro del juego (✅ Aplicar notas sugeridas)"' : ""} />`;
+  };
   const filaEstudiante = (estId) => {
     const entrega = entregaPorEstudiante[estId];
     const puntosGuardados = (entrega && Array.isArray(entrega.respuestas) && entrega.respuestas) || [];
@@ -5386,8 +5401,8 @@ async function pintarPanelCalificarRubrica(panel, trabajo, materiaId) {
       <div style="margin-top:0.6rem; display:grid; gap:0.5rem;">
         ${criterios.map((c, i) => `
           <label style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; font-size:0.82rem;">
-            <span style="flex:1;">${c.nombre}</span>
-            <input type="number" data-rubrica-criterio="${estId}" data-i="${i}" min="0" max="${c.puntos_max}" value="${puntosGuardados[i] != null ? puntosGuardados[i] : ""}" placeholder="0-${c.puntos_max}" style="width:4.5rem; padding:0.3rem;" />
+            <span style="flex:1;">${c.nombre}${esTiraderaTrabajo ? ` <span style="color:var(--text-muted); font-size:0.75rem;">${c.auto ? "(automático)" : "(a mano, por nivel)"}</span>` : ""}</span>
+            ${campoCriterio(estId, c, i, puntosGuardados[i])}
           </label>`).join("")}
       </div>
       <div class="row" style="margin-top:0.6rem; align-items:center; gap:0.5rem;">
@@ -5466,7 +5481,8 @@ async function pintarBloqueTiradera(cont, panel, trabajo, ordenados, nombrePorId
   const encabezado = `<div class="row" style="align-items:center; justify-content:space-between; gap:0.5rem; margin-bottom:0.5rem;">
       <strong>⚡ Registro de La Tiradera</strong>
       <span style="display:flex; gap:0.4rem; flex-wrap:wrap;">
-        <button class="btn secondary small" data-tir-editar-crit type="button">📋 Criterios de evaluación</button>
+        <button class="btn secondary small" data-tir-editar-crit type="button">📋 Evaluación (formato MEP)</button>
+        <button class="btn secondary small" data-tir-ver-ins type="button">📄 Ver / imprimir instrumento</button>
         <a class="btn small" href="tiradera.html?trabajo=${trabajo.id}" target="_blank" rel="noopener">⚡ Lanzar La Tiradera</a></span></div>
       <div data-tir-crit-editor style="display:none; margin-bottom:0.8rem;"></div>`;
   if (!partidas.length) {
@@ -5478,57 +5494,85 @@ async function pintarBloqueTiradera(cont, panel, trabajo, ordenados, nombrePorId
   function ligarRefrescar() {
     const b = cont.querySelector("[data-tir-refrescar]"); if (b) b.addEventListener("click", () => alAplicar());
     const e = cont.querySelector("[data-tir-editar-crit]"); if (e) e.addEventListener("click", () => abrirEditorCriterios());
+    const v = cont.querySelector("[data-tir-ver-ins]"); if (v) v.addEventListener("click", () => verInstrumento());
   }
   // Editor de los criterios de evaluación de este trabajo (lo que ven los
   // estudiantes con el botón "📋 Evaluación" del juego).
+  function verInstrumento() {
+    const w = window.open("", "_blank");
+    if (!w) { alert("El navegador bloqueó la ventana. Permití ventanas emergentes para este sitio."); return; }
+    w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Instrumento · ${escAC(trabajo.titulo)}</title>
+      <style>body{font-family:Arial,sans-serif;margin:24px;color:#111}table.tir-ins{width:100%;border-collapse:collapse;font-size:12px}table.tir-ins th,table.tir-ins td{border:1px solid #888;padding:6px;vertical-align:top}table.tir-ins th{background:#eee}button{margin-bottom:12px;padding:8px 14px}@media print{button{display:none}}</style></head>
+      <body><button onclick="window.print()">🖨️ Imprimir / guardar PDF</button>${tiraderaInstrumentoHTML(trabajo.titulo, criterios, contenido.tiradera_instrumento)}</body></html>`);
+    w.document.close();
+  }
   function abrirEditorCriterios() {
     const MEDIDAS = [
       ["dominio_pct", "Automático: % de logro en los retos"],
       ["participacion_pct", "Automático: % de retos respondidos a tiempo"],
       ["precision_pct", "Automático: puntos ganados vs. perdidos"],
       ["rapidez_pct", "Automático: tiempo sobrante en los aciertos"],
-      ["aportes_pct", "Automático: preguntas propuestas y aprobadas (1 = 1, 2 = 2, 3 o más = 3)"],
-      ["", "Lo califico yo a mano"]
+      ["aportes_pct", "Automático: preguntas propuestas y aprobadas"],
+      ["", "Lo califico yo (a mano, por nivel)"]
     ];
     const ed = cont.querySelector("[data-tir-crit-editor]");
     if (!ed) return;
     if (ed.style.display !== "none") { ed.style.display = "none"; return; }
-    let lista = criterios.map((c, i) => ({ nombre: c.nombre, puntos_max: Number(c.puntos_max) || 3, auto: autoDe(c, i) || "" }));
-    const fila = (c, i) => `<div style="display:flex; gap:0.4rem; flex-wrap:wrap; align-items:center; margin-bottom:0.4rem;">
-        <strong style="width:1.6rem;">${i + 1}.</strong>
-        <input data-ce-nombre="${i}" value="${escAC(c.nombre)}" placeholder="Nombre del criterio" style="flex:3 1 16rem; padding:0.35rem;" />
-        <label style="font-size:0.78rem;">Puntos <input data-ce-max="${i}" type="number" min="1" max="20" value="${c.puntos_max}" style="width:4rem; padding:0.3rem;" /></label>
-        <select data-ce-auto="${i}" style="flex:2 1 13rem; padding:0.3rem;">${MEDIDAS.map(([v, t]) => `<option value="${v}" ${v === c.auto ? "selected" : ""}>${t}</option>`).join("")}</select>
-        <button class="btn danger small" data-ce-quitar="${i}" type="button">✕</button></div>`;
-    const leer = () => { lista = lista.map((c, i) => ({
-      nombre: (ed.querySelector(`[data-ce-nombre="${i}"]`)?.value || "").trim(),
-      puntos_max: Number(ed.querySelector(`[data-ce-max="${i}"]`)?.value) || 0,
-      auto: ed.querySelector(`[data-ce-auto="${i}"]`)?.value || "" })); };
+    let ins = { ...TIRADERA_INSTRUMENTO_BASE, unidad: trabajo.titulo || "", ...(contenido.tiradera_instrumento || {}) };
+    let lista = criterios.map((c, i) => { const auto = autoDe(c, i) || ""; return { nombre: c.nombre, puntos_max: Number(c.puntos_max) || 3, auto, niveles: tiraderaNivelesDe({ ...c, auto }) }; });
+    const campo = (k, et, ph) => `<label style="display:flex; flex-direction:column; gap:0.2rem; font-size:0.78rem; flex:1 1 14rem;">${et}<input data-ins="${k}" value="${escAC(ins[k] || "")}" placeholder="${ph}" style="padding:0.35rem;" /></label>`;
+    const fila = (c, i) => `<div style="border:1px solid var(--paper-line); border-radius:8px; padding:0.5rem; margin-bottom:0.5rem;">
+        <div style="display:flex; gap:0.4rem; flex-wrap:wrap; align-items:center;">
+          <strong style="width:1.6rem;">${i + 1}.</strong>
+          <input data-ce-nombre="${i}" value="${escAC(c.nombre)}" placeholder="Indicador: verbo + contenido + condición" style="flex:3 1 16rem; padding:0.35rem;" />
+          <label style="font-size:0.78rem;">Puntos <input data-ce-max="${i}" type="number" min="1" max="20" value="${c.puntos_max}" style="width:4rem; padding:0.3rem;" /></label>
+          <select data-ce-auto="${i}" style="flex:2 1 13rem; padding:0.3rem;">${MEDIDAS.map(([v, t]) => `<option value="${v}" ${v === c.auto ? "selected" : ""}>${t}</option>`).join("")}</select>
+          <button class="btn danger small" data-ce-quitar="${i}" type="button">✕</button></div>
+        <details style="margin:0.4rem 0 0 2rem;" ${c.auto ? "" : "open"}><summary style="cursor:pointer; font-size:0.78rem; font-weight:600;">Niveles de desempeño (evidencia de cada nivel)</summary>
+          ${TIRADERA_NIVELES.map(([k, et, v]) => `<label style="display:flex; gap:0.4rem; align-items:flex-start; margin-top:0.3rem; font-size:0.78rem;"><span style="flex:0 0 7rem; font-weight:600;">${et} (${v})</span><textarea data-ce-nivel="${i}" data-k="${k}" rows="2" style="flex:1; padding:0.3rem; font-family:inherit; font-size:0.8rem;">${escAC(c.niveles[k] || "")}</textarea></label>`).join("")}
+        </details></div>`;
+    const leer = () => {
+      ed.querySelectorAll("[data-ins]").forEach(x => { ins[x.dataset.ins] = x.value.trim(); });
+      lista = lista.map((c, i) => {
+        const niveles = {}; ed.querySelectorAll(`[data-ce-nivel="${i}"]`).forEach(t => { niveles[t.dataset.k] = t.value.trim(); });
+        return { nombre: (ed.querySelector(`[data-ce-nombre="${i}"]`)?.value || "").trim(), puntos_max: Number(ed.querySelector(`[data-ce-max="${i}"]`)?.value) || 0, auto: ed.querySelector(`[data-ce-auto="${i}"]`)?.value || "", niveles };
+      });
+    };
     const pintarEd = () => {
       ed.style.display = "";
       ed.innerHTML = `<div style="background:var(--surface); border:1px solid var(--paper-line); border-radius:8px; padding:0.7rem;">
-        <p style="font-size:0.8rem; color:var(--text-muted); margin:0 0 0.5rem;">Estos son los criterios que los estudiantes ven en el botón <strong>📋 Evaluación</strong> del juego antes de empezar, y con los que se sugiere la nota. Los automáticos se calculan con el registro de la partida (85 % o más = nota máxima del criterio); los "a mano" los pone usted abajo, en la lista de estudiantes.</p>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin:0 0 0.5rem;">Instrumento en formato MEP (programa de estudio y lineamientos técnicos): indicadores de logro con la evidencia de cada nivel — Avanzado (3), Intermedio (2), Inicial (1); 0 si no presenta evidencia. Es lo mismo que ven los estudiantes en el botón <strong>📋 Evaluación</strong> del juego. Calificación = puntos obtenidos × 100 ÷ total.</p>
+        <p style="font-size:0.85rem; font-weight:600; margin:0.3rem 0;">Datos del instrumento</p>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.6rem;">
+          <label style="display:flex; flex-direction:column; gap:0.2rem; font-size:0.78rem; flex:1 1 10rem;">Componente<select data-ins="componente" style="padding:0.35rem;">${["Trabajo cotidiano", "Tareas", "Proyecto", "Pruebas"].map(o => `<option ${ins.componente === o ? "selected" : ""}>${o}</option>`).join("")}</select></label>
+          <label style="display:flex; flex-direction:column; gap:0.2rem; font-size:0.78rem; flex:1 1 10rem;">Tipo de instrumento<select data-ins="tipo" style="padding:0.35rem;">${["Escala de desempeño", "Rúbrica", "Lista de cotejo"].map(o => `<option ${ins.tipo === o ? "selected" : ""}>${o}</option>`).join("")}</select></label>
+          ${campo("subarea", "Subárea", "Ej.: Gestión contable")}${campo("unidad", "Unidad de estudio / tema", "Ej.: Planillas")}
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.6rem;">${campo("resultado", "Resultado de aprendizaje (copiar del programa)", "Resultado de aprendizaje")}${campo("indicador", "Indicador de logro (copiar del programa)", "Indicador de logro")}</div>
+        <p style="font-size:0.85rem; font-weight:600; margin:0.3rem 0;">Indicadores y criterios de desempeño</p>
         ${lista.map(fila).join("")}
-        <div class="row" style="gap:0.4rem; margin-top:0.4rem;">
-          <button class="btn secondary small" data-ce-agregar type="button">+ Agregar criterio</button>
-          <button class="btn small" data-ce-guardar type="button">💾 Guardar criterios</button>
-          <button class="btn secondary small" data-ce-base type="button">↺ Usar los 4 criterios de La Tiradera</button>
+        <div class="row" style="gap:0.4rem; margin-top:0.4rem; align-items:center;">
+          <button class="btn secondary small" data-ce-agregar type="button">+ Agregar indicador</button>
+          <button class="btn small" data-ce-guardar type="button">💾 Guardar evaluación</button>
+          <button class="btn secondary small" data-ce-base type="button">↺ Indicadores sugeridos (MEP)</button>
+          <span style="font-size:0.78rem; color:var(--text-muted);">Total: ${lista.reduce((a, c) => a + (Number(c.puntos_max) || 0), 0)} puntos</span>
           <span data-ce-estado style="font-size:0.78rem; color:var(--text-muted);"></span>
         </div></div>`;
       ed.querySelectorAll("[data-ce-quitar]").forEach(b => b.addEventListener("click", () => { leer(); lista.splice(Number(b.dataset.ceQuitar), 1); pintarEd(); }));
-      ed.querySelector("[data-ce-agregar]").addEventListener("click", () => { leer(); lista.push({ nombre: "", puntos_max: 3, auto: "" }); pintarEd(); });
-      ed.querySelector("[data-ce-base]").addEventListener("click", () => { lista = preset.criterios.map(c => ({ ...c })); pintarEd(); });
+      ed.querySelectorAll("[data-ce-auto]").forEach(sel => sel.addEventListener("change", () => { leer(); const i = Number(sel.dataset.ceAuto); lista[i].niveles = sel.value ? { ...TIRADERA_NIVELES_AUTO[sel.value] } : { ...TIRADERA_NIVELES_MANUAL }; pintarEd(); }));
+      ed.querySelectorAll("[data-ce-max]").forEach(inp => inp.addEventListener("change", () => { leer(); pintarEd(); }));
+      ed.querySelector("[data-ce-agregar]").addEventListener("click", () => { leer(); lista.push({ nombre: "", puntos_max: 3, auto: "", niveles: { ...TIRADERA_NIVELES_MANUAL } }); pintarEd(); });
+      ed.querySelector("[data-ce-base]").addEventListener("click", () => { if (!confirm("¿Reemplazar por los 5 indicadores sugeridos (formato MEP)?")) return; lista = preset.criterios.map(c => ({ nombre: c.nombre, puntos_max: c.puntos_max, auto: c.auto || "", niveles: tiraderaNivelesDe(c) })); pintarEd(); });
       ed.querySelector("[data-ce-guardar]").addEventListener("click", async (ev) => {
         leer();
         const estado = ed.querySelector("[data-ce-estado]");
-        if (!lista.length) { estado.textContent = "Dejá al menos un criterio."; return; }
+        if (!lista.length) { estado.textContent = "Dejá al menos un indicador."; return; }
         const malo = lista.findIndex(c => !c.nombre || c.puntos_max <= 0);
-        if (malo >= 0) { estado.textContent = `Completá el nombre y los puntos del criterio ${malo + 1}.`; return; }
+        if (malo >= 0) { estado.textContent = `Completá el nombre y los puntos del indicador ${malo + 1}.`; return; }
         ev.target.disabled = true; estado.textContent = "Guardando…";
-        // Se conservan los niveles de desempeño (formato MEP) que el juego guardó para cada indicador.
-        const nuevos = lista.map((c, i) => { const x = { nombre: c.nombre, puntos_max: c.puntos_max }; if (c.auto) x.auto = c.auto; const prev = criterios[i]; if (prev && prev.niveles && (prev.auto || "") === (c.auto || "")) x.niveles = prev.niveles; return x; });
+        const nuevos = lista.map(c => { const x = { nombre: c.nombre, puntos_max: c.puntos_max, niveles: c.niveles }; if (c.auto) x.auto = c.auto; return x; });
         const { data: actual } = await sb.from("trabajos_cotidianos").select("contenido_actividad").eq("id", trabajo.id).maybeSingle();
-        const nuevoContenido = { ...((actual && actual.contenido_actividad) || contenido), criterios: nuevos };
+        const nuevoContenido = { ...((actual && actual.contenido_actividad) || contenido), criterios: nuevos, tiradera_instrumento: ins };
         const { error } = await sb.from("trabajos_cotidianos").update({ contenido_actividad: nuevoContenido }).eq("id", trabajo.id);
         ev.target.disabled = false;
         if (error) { estado.textContent = "No se pudo guardar: " + error.message; return; }
