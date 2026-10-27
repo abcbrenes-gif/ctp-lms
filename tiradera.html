@@ -2022,6 +2022,7 @@ $("#connPill").textContent = sbClient ? "Listo para jugar" : "Modo local (esta c
 (async () => {
   // Abierto desde un trabajo de la plataforma (estrategia de evaluación):
   // va directo a la configuración del ponente y usa los retos guardados ahí.
+  if (QS.get("historial")) { vistaHistorial(); return; }
   const pinMonitor = (QS.get("monitor") || "").replace(/\D/g, "");
   if (pinMonitor.length === 6) { vistaMonitor(pinMonitor); return; }
   const trabajoId = QS.get("trabajo");

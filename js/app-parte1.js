@@ -267,6 +267,7 @@ async function renderHome() {
     { href: AULA_CONTABLE_URL, icono: "🧮", titulo: "Aula de Conta", sub: "Simulador del ciclo contable (NIC/NIIF)", cta: "Abrir aula →" },
     { href: SIMULADOR_B2B_URL, icono: "🏆", titulo: "ContaRed", sub: "Simulador B2B de firmas contables (gamificado)", cta: "Abrir ContaRed →" },
     { href: "tiradera.html", icono: "⚡", titulo: "La Tiradera", sub: "Retos en vivo para la clase: selección, falso/verdadero, sopa de letras y crucigrama, con podio", cta: "Lanzar retos →" },
+    { href: "tiradera.html?historial=1", icono: "📚", titulo: "Resultados de La Tiradera", sub: "Partidas anteriores: puntos ganados y perdidos de cada estudiante, descarga en Excel", cta: "Ver resultados →" },
     { href: "planilla-opoly.html", icono: "🎲", titulo: "Planilla Opoly", sub: "Juego 3D tipo Monopoly para 2–4 jugadores: compra empresas resolviendo problemas de planilla", cta: "Jugar →" }
   ].map(a => `
     <a class="section-tile flip-card" href="${a.href}" ${a.externo ? 'target="_blank" rel="noopener"' : ""}>
