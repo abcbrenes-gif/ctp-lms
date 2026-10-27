@@ -5465,14 +5465,78 @@ async function pintarBloqueTiradera(cont, panel, trabajo, ordenados, nombrePorId
     </div>`;
   const encabezado = `<div class="row" style="align-items:center; justify-content:space-between; gap:0.5rem; margin-bottom:0.5rem;">
       <strong>⚡ Registro de La Tiradera</strong>
-      <a class="btn small" href="tiradera.html?trabajo=${trabajo.id}" target="_blank" rel="noopener">⚡ Lanzar La Tiradera</a></div>`;
+      <span style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+        <button class="btn secondary small" data-tir-editar-crit type="button">📋 Criterios de evaluación</button>
+        <a class="btn small" href="tiradera.html?trabajo=${trabajo.id}" target="_blank" rel="noopener">⚡ Lanzar La Tiradera</a></span></div>
+      <div data-tir-crit-editor style="display:none; margin-bottom:0.8rem;"></div>`;
   if (!partidas.length) {
     cont.innerHTML = caja(`${encabezado}<p style="font-size:0.82rem; color:var(--text-muted); margin:0;">Todavía no hay partidas terminadas. Tocá "⚡ Lanzar La Tiradera", armá los retos y jugá con la clase: al terminar, el registro de puntos llega solo acá y se sugieren las notas de cada criterio.</p>`);
     ligarRefrescar();
     return;
   }
   let sel = 0;
-  function ligarRefrescar() { const b = cont.querySelector("[data-tir-refrescar]"); if (b) b.addEventListener("click", () => alAplicar()); }
+  function ligarRefrescar() {
+    const b = cont.querySelector("[data-tir-refrescar]"); if (b) b.addEventListener("click", () => alAplicar());
+    const e = cont.querySelector("[data-tir-editar-crit]"); if (e) e.addEventListener("click", () => abrirEditorCriterios());
+  }
+  // Editor de los criterios de evaluación de este trabajo (lo que ven los
+  // estudiantes con el botón "📋 Evaluación" del juego).
+  const MEDIDAS = [
+    ["dominio_pct", "Automático: % de logro en los retos"],
+    ["participacion_pct", "Automático: % de retos respondidos a tiempo"],
+    ["precision_pct", "Automático: puntos ganados vs. perdidos"],
+    ["rapidez_pct", "Automático: tiempo sobrante en los aciertos"],
+    ["", "Lo califico yo a mano"]
+  ];
+  function abrirEditorCriterios() {
+    const ed = cont.querySelector("[data-tir-crit-editor]");
+    if (!ed) return;
+    if (ed.style.display !== "none") { ed.style.display = "none"; return; }
+    let lista = criterios.map((c, i) => ({ nombre: c.nombre, puntos_max: Number(c.puntos_max) || 3, auto: autoDe(c, i) || "" }));
+    const fila = (c, i) => `<div style="display:flex; gap:0.4rem; flex-wrap:wrap; align-items:center; margin-bottom:0.4rem;">
+        <strong style="width:1.6rem;">${i + 1}.</strong>
+        <input data-ce-nombre="${i}" value="${escAC(c.nombre)}" placeholder="Nombre del criterio" style="flex:3 1 16rem; padding:0.35rem;" />
+        <label style="font-size:0.78rem;">Puntos <input data-ce-max="${i}" type="number" min="1" max="20" value="${c.puntos_max}" style="width:4rem; padding:0.3rem;" /></label>
+        <select data-ce-auto="${i}" style="flex:2 1 13rem; padding:0.3rem;">${MEDIDAS.map(([v, t]) => `<option value="${v}" ${v === c.auto ? "selected" : ""}>${t}</option>`).join("")}</select>
+        <button class="btn danger small" data-ce-quitar="${i}" type="button">✕</button></div>`;
+    const leer = () => { lista = lista.map((c, i) => ({
+      nombre: (ed.querySelector(`[data-ce-nombre="${i}"]`)?.value || "").trim(),
+      puntos_max: Number(ed.querySelector(`[data-ce-max="${i}"]`)?.value) || 0,
+      auto: ed.querySelector(`[data-ce-auto="${i}"]`)?.value || "" })); };
+    const pintarEd = () => {
+      ed.style.display = "";
+      ed.innerHTML = `<div style="background:var(--surface); border:1px solid var(--paper-line); border-radius:8px; padding:0.7rem;">
+        <p style="font-size:0.8rem; color:var(--text-muted); margin:0 0 0.5rem;">Estos son los criterios que los estudiantes ven en el botón <strong>📋 Evaluación</strong> del juego antes de empezar, y con los que se sugiere la nota. Los automáticos se calculan con el registro de la partida (85 % o más = nota máxima del criterio); los "a mano" los pone usted abajo, en la lista de estudiantes.</p>
+        ${lista.map(fila).join("")}
+        <div class="row" style="gap:0.4rem; margin-top:0.4rem;">
+          <button class="btn secondary small" data-ce-agregar type="button">+ Agregar criterio</button>
+          <button class="btn small" data-ce-guardar type="button">💾 Guardar criterios</button>
+          <button class="btn secondary small" data-ce-base type="button">↺ Usar los 4 criterios de La Tiradera</button>
+          <span data-ce-estado style="font-size:0.78rem; color:var(--text-muted);"></span>
+        </div></div>`;
+      ed.querySelectorAll("[data-ce-quitar]").forEach(b => b.addEventListener("click", () => { leer(); lista.splice(Number(b.dataset.ceQuitar), 1); pintarEd(); }));
+      ed.querySelector("[data-ce-agregar]").addEventListener("click", () => { leer(); lista.push({ nombre: "", puntos_max: 3, auto: "" }); pintarEd(); });
+      ed.querySelector("[data-ce-base]").addEventListener("click", () => { lista = preset.criterios.map(c => ({ ...c })); pintarEd(); });
+      ed.querySelector("[data-ce-guardar]").addEventListener("click", async (ev) => {
+        leer();
+        const estado = ed.querySelector("[data-ce-estado]");
+        if (!lista.length) { estado.textContent = "Dejá al menos un criterio."; return; }
+        const malo = lista.findIndex(c => !c.nombre || c.puntos_max <= 0);
+        if (malo >= 0) { estado.textContent = `Completá el nombre y los puntos del criterio ${malo + 1}.`; return; }
+        ev.target.disabled = true; estado.textContent = "Guardando…";
+        const nuevos = lista.map(c => c.auto ? { nombre: c.nombre, puntos_max: c.puntos_max, auto: c.auto } : { nombre: c.nombre, puntos_max: c.puntos_max });
+        const { data: actual } = await sb.from("trabajos_cotidianos").select("contenido_actividad").eq("id", trabajo.id).maybeSingle();
+        const nuevoContenido = { ...((actual && actual.contenido_actividad) || contenido), criterios: nuevos };
+        const { error } = await sb.from("trabajos_cotidianos").update({ contenido_actividad: nuevoContenido }).eq("id", trabajo.id);
+        ev.target.disabled = false;
+        if (error) { estado.textContent = "No se pudo guardar: " + error.message; return; }
+        trabajo.contenido_actividad = nuevoContenido;
+        estado.textContent = "✓ Guardado.";
+        alAplicar();
+      });
+    };
+    pintarEd();
+  }
   const opciones = [{ id: "", label: "— Sin asignar —" }].concat(ordenados.map(id => ({ id: String(id), label: nombrePorId[id] || id })));
   const nivel = pct => puntajeDesdePorcentaje(Number(pct) || 0);
   const sugeridos = fila => criterios.map((c, i) => {
