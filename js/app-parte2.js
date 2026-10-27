@@ -520,7 +520,7 @@ async function pintarRetroProyectoEstudiante(holder, s, materias) {
                  <p style="margin:0.4rem 0 0; font-size:0.82rem; text-align:center; color:var(--text-muted);">Disponible cuando tu profesor publique las notas del proyecto.</p>`}
           </div>
           <div style="flex:1; min-width:15rem;">
-            ${compDisponible
+            ${!comprobacion ? "" : compDisponible
               ? `<button class="btn" style="${estiloBoton} width:100%;" data-desc-comp="${m.id}" type="button">⬇️ Descargar comprobación (prueba)</button>
                  <p style="margin:0.4rem 0 0; font-size:0.85rem; text-align:center;">Tu resultado: <strong>${esc(miActividad.puntaje)} / 3</strong>${miActividad.porcentaje != null ? ` · ${Math.round(Number(miActividad.porcentaje))} % de aciertos` : ""}</p>`
               : `<button class="btn secondary" style="${estiloBoton} width:100%; opacity:0.55;" disabled type="button">⬇️ Descargar comprobación (prueba)</button>
@@ -622,6 +622,46 @@ async function descargarPdfRetroProyecto(d, nombreEst, quitarHtml) {
     if (y + 10 + lineas.length * 5 > doc.internal.pageSize.getHeight() - 15) { doc.addPage(); y = 20; }
     doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.text("Comentario general", 14, y);
     doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text(lineas, 14, y + 6);
+    y += 10 + lineas.length * 5;
+  }
+  // Proyecto de leyes (11-3): detalle de cada ley presentada y las que faltan.
+  const leyes = d.dictamen && d.dictamen.leyes;
+  if (leyes && Array.isArray(leyes.presentadas)) {
+    doc.addPage(); y = 18;
+    doc.setFont("helvetica", "bold"); doc.setFontSize(12.5);
+    doc.text(`Leyes presentadas: ${leyes.presentadas.length} de ${leyes.esperadas || "—"}`, 14, y);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+    doc.text(`Bien: ${leyes.conteo ? leyes.conteo.Bien || 0 : 0} · Regular: ${leyes.conteo ? leyes.conteo.Regular || 0 : 0} · Deficiente: ${leyes.conteo ? leyes.conteo.Deficiente || 0 : 0} · No corresponde: ${leyes.conteo ? leyes.conteo["No corresponde"] || 0 : 0}`, 14, y + 5);
+    doc.autoTable({
+      startY: y + 8,
+      head: [["#", "Ley que presentaste", "Resultado", "Retroalimentación"]],
+      body: leyes.presentadas.map((x, i) => [String(i + 1), x.ley + (x.numero ? ` (N.º ${x.numero})` : ""), `${x.presentacion}${x.nota != null ? ` · ${x.nota}` : ""}`, [x.retro, x.errores ? `Revisar: ${x.errores}` : ""].filter(Boolean).join("\n")]),
+      styles: { font: "helvetica", fontSize: 7.8, cellPadding: 1.6, valign: "top" },
+      headStyles: { fillColor: [31, 78, 61], textColor: 255 },
+      columnStyles: { 0: { cellWidth: 8, halign: "center" }, 1: { cellWidth: 52 }, 2: { cellWidth: 24 }, 3: { cellWidth: 102 } },
+      didParseCell: (data) => {
+        if (data.section === "body" && data.column.index === 2) {
+          const t = String(data.cell.raw || "");
+          data.cell.styles.textColor = t.startsWith("Bien") ? [29, 122, 67] : t.startsWith("Regular") ? [165, 105, 10] : [192, 57, 43];
+          data.cell.styles.fontStyle = "bold";
+        }
+      },
+      margin: { left: 14, right: 14 }
+    });
+    if (Array.isArray(leyes.faltantes) && leyes.faltantes.length) {
+      doc.addPage();
+      doc.setFont("helvetica", "bold"); doc.setFontSize(12.5);
+      doc.text(`Leyes que no presentaste (${leyes.faltantes.length})`, 14, 18);
+      doc.autoTable({
+        startY: 22,
+        head: [["#", "Ley"]],
+        body: leyes.faltantes.map((x, i) => [String(i + 1), x]),
+        styles: { font: "helvetica", fontSize: 8.4, cellPadding: 1.6 },
+        headStyles: { fillColor: [192, 57, 43], textColor: 255 },
+        columnStyles: { 0: { cellWidth: 10, halign: "center" } },
+        margin: { left: 14, right: 14 }
+      });
+    }
   }
   doc.save(nombreArchivoPdf("Retroalimentacion_proyecto", nombreEst));
 }
