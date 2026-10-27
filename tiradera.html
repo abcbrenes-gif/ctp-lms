@@ -220,6 +220,8 @@ th.nv-th{text-align:center}
 .eval-datos{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:4px 16px;background:#f7f4ff;border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:.9rem}
 .eval-datos:empty{display:none}
 .crit-edit select{flex:2 1 220px;border:2px solid var(--line);border-radius:10px;padding:8px;min-width:0}
+.hist-item{border:2px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px}
+.hist-item summary{cursor:pointer}
 .prop-item>div:first-child{flex:1 1 220px!important}
 .ok-op{color:#15803d;font-weight:800}
 .estado-prop{font-weight:800;font-size:.85rem;border-radius:999px;padding:4px 10px;background:#efeaff;flex:0 0 auto}
@@ -579,6 +581,7 @@ function vistaInicio() {
         <h2>Soy el ponente</h2>
         <p class="muted">Armá los retos (selección única, falso y verdadero, sopa de letras o crucigrama), elegí si se juega individual o por grupos, abrí la partida y proyectá esta pantalla.</p>
         <button class="btn big pink" id="btnHost" style="width:100%">Crear partida</button>
+        <button class="btn ghost" id="btnHist" style="width:100%;margin-top:10px">📚 Partidas anteriores (resultados)</button>
       </div>
       <div class="card">
         <div class="emoji">🎮</div>
@@ -592,6 +595,7 @@ function vistaInicio() {
     </div>
     <p class="footer-note">CTP Mercedes Norte · Especialidad de Contabilidad</p>`);
   $("#btnHost").onclick = vistaConfig;
+  $("#btnHist").onclick = vistaHistorial;
   $("#btnJoin").onclick = unirse;
   $("#inApodo").addEventListener("keydown", e => { if (e.key === "Enter") unirse(); });
 }
@@ -641,7 +645,8 @@ function vistaConfig() {
     ${S.trabajo ? `<div class="card" style="margin-top:16px;background:#fff8e1">📌 Partida ligada al trabajo <b>«${esc(S.trabajo.titulo)}»</b> de la plataforma: los retos y el registro de puntos se guardan ahí para calificar con los criterios.</div>` : ""}
     <div class="card" style="margin-top:16px" id="evalCard"></div>
     <div id="editor" style="margin-top:16px"></div>
-    <div class="center" style="margin-top:14px"><button class="btn ghost" id="btnVolver">← Volver al inicio</button></div>`);
+    <div class="center" style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn ghost" id="btnVolver">← Volver al inicio</button><button class="btn ghost" id="btnHist2">📚 Partidas anteriores</button></div>`);
+  $("#btnHist2").onclick = vistaHistorial;
   const syncCfg = () => {
     S.cfg = { modalidad: $("#cfgModo").value, grupos: +$("#cfgGrupos").value, asignacion: $("#cfgAsig").value, maximo: Math.max(0, +$("#cfgMax").value || 0), porGrupo: Math.max(0, Math.min(18, +$("#cfgPorGrupo").value || 0)), propuestas: $("#cfgProp").checked };
     guardarCfg();
@@ -1918,6 +1923,59 @@ function lanzarConfeti() {
     if (t - t0 < 5000) requestAnimationFrame(frame); else { ctx.clearRect(0, 0, W, H); cv.classList.add("hidden"); }
   };
   requestAnimationFrame(frame);
+}
+
+/* ============================================================
+   10a. PARTIDAS ANTERIORES (resultados finales)
+   Junta las partidas guardadas en esta computadora y las guardadas en
+   los trabajos de La Tiradera de la plataforma.
+   ============================================================ */
+async function vistaHistorial() {
+  S.rol = "host";
+  pantalla(`<div class="card center"><h2>📚 Buscando partidas…</h2></div>`);
+  const local = store.get("tiradera_historial", []).map(p => ({ ...p, origen: "Esta computadora", trabajo: null }));
+  let enTrabajos = [];
+  if (sbClient) {
+    try {
+      const { data } = await sbClient.from("trabajos_cotidianos").select("id, titulo, contenido_actividad").eq("contenido_actividad->>estrategia", "juego_tiradera");
+      (data || []).forEach(t => ((t.contenido_actividad || {}).tiradera_partidas || []).forEach(p => enTrabajos.push({ ...p, origen: "Plataforma", trabajo: { id: t.id, titulo: t.titulo } })));
+    } catch {}
+  }
+  const ids = new Set(enTrabajos.map(p => p.id));
+  const todas = enTrabajos.concat(local.filter(p => !ids.has(p.id))).filter(p => p.registro && p.registro.length).sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
+  const fecha = f => new Date(f).toLocaleString("es-CR", { dateStyle: "medium", timeStyle: "short" });
+  pantalla(`
+    <div class="card">
+      <div class="row" style="align-items:center;margin-bottom:8px"><h2 style="flex:2 1 260px">📚 Partidas anteriores</h2><button class="btn small ghost" id="btnHVolver" style="flex:0 0 auto">← Volver</button></div>
+      <p class="muted" style="margin:0 0 12px;font-size:.9rem">Partidas con estudiantes guardadas en la plataforma y en esta computadora. Las que se jugaron en otra computadora sin guardarlas en un trabajo solo aparecen en esa computadora.</p>
+      ${todas.length ? todas.map((p, i) => `
+        <details class="hist-item" ${i === 0 ? "open" : ""}>
+          <summary><b>${fecha(p.fecha)}</b> · PIN ${esc(p.pin)} · ${p.registro.length} estudiantes · ${p.retos} retos · ${p.modalidad === "grupal" ? "grupal" : "individual"} · <span class="muted">${p.trabajo ? "📌 " + esc(p.trabajo.titulo) : "💻 " + esc(p.origen)}</span></summary>
+          <div style="margin-top:10px">${registroHTML(p)}</div>
+          <div class="row" style="margin-top:10px;align-items:center">
+            <button class="btn small pink" data-hcsv="${i}" style="flex:0 0 auto">⬇️ Descargar (Excel)</button>
+            ${p.trabajo ? "" : `<button class="btn small green" data-hguardar="${i}" style="flex:0 0 auto">💾 Guardar en un trabajo de la plataforma</button>`}
+            <span data-hest="${i}" class="muted" style="font-size:.85rem"></span>
+          </div>
+        </details>`).join("") : `<p class="muted">No hay partidas con estudiantes guardadas.</p>`}
+    </div>`);
+  $("#btnHVolver").onclick = vistaInicio;
+  $$("[data-hcsv]").forEach(b => b.onclick = () => descargarRegistroCSV(todas[+b.dataset.hcsv]));
+  $$("[data-hguardar]").forEach(b => b.onclick = async () => {
+    const p = todas[+b.dataset.hguardar], est = $(`[data-hest="${b.dataset.hguardar}"]`);
+    let lista = [];
+    try { const { data } = await sbClient.from("trabajos_cotidianos").select("id, titulo").eq("contenido_actividad->>estrategia", "juego_tiradera").order("id", { ascending: false }); lista = data || []; } catch {}
+    if (!lista.length) { est.textContent = "No hay trabajos de La Tiradera en la plataforma. Créelo primero en un subtema."; return; }
+    est.innerHTML = `<select data-hsel style="border:2px solid var(--line);border-radius:10px;padding:6px">${lista.map(t => `<option value="${t.id}">${esc(t.titulo)}</option>`).join("")}</select> <button class="btn small" data-hok>Guardar</button>`;
+    $("[data-hok]", est).onclick = async () => {
+      const t = lista.find(x => String(x.id) === $("[data-hsel]", est).value);
+      S.trabajo = { id: t.id, titulo: t.titulo };
+      est.textContent = "Guardando…";
+      const ok = await actualizarContenidoTrabajo(c => { const l = (c.tiradera_partidas || []).filter(x => x.id !== p.id); l.push({ ...p, origen: undefined, trabajo: undefined }); return { ...c, tiradera_partidas: l.slice(-30) }; });
+      S.trabajo = null;
+      est.textContent = ok ? `✅ Guardada en «${t.titulo}». En la plataforma: ese trabajo → 🧮 Calificar.` : "No se pudo guardar (sin conexión).";
+    };
+  });
 }
 
 /* ============================================================
