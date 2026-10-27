@@ -198,6 +198,12 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .tabla-reg th{background:#f1eaff;font-weight:800}
 .tabla-eval td{white-space:normal;vertical-align:top}
 .prop-item{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border:2px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;background:#fbfaff;color:var(--ink)}
+.crit-edit{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border:2px solid var(--line);border-radius:12px;padding:8px 10px;margin-bottom:8px;background:#fbfaff}
+.crit-edit .num{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#fff;font-weight:800;background:#8b5cf6;flex:0 0 auto}
+.crit-edit input[type=text]{flex:3 1 240px;border:2px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0}
+.crit-edit .pts{display:flex;align-items:center;gap:6px;font-weight:800;font-size:.85rem}
+.crit-edit .pts input{width:64px;border:2px solid var(--line);border-radius:10px;padding:7px}
+.crit-edit select{flex:2 1 220px;border:2px solid var(--line);border-radius:10px;padding:8px;min-width:0}
 .prop-item>div:first-child{flex:1 1 220px!important}
 .ok-op{color:#15803d;font-weight:800}
 .estado-prop{font-weight:800;font-size:.85rem;border-radius:999px;padding:4px 10px;background:#efeaff;flex:0 0 auto}
@@ -453,7 +459,7 @@ const S = {
   retos: store.get("tiradera_retos", null),
   cfg: Object.assign({ modalidad: "individual", grupos: 4, asignacion: "libre", maximo: 0, porGrupo: 0, propuestas: false }, store.get("tiradera_cfg", {})),
   propuestas: [],      // preguntas que proponen los estudiantes {pid, autorId, autorApodo, autorNombre, tipo, pregunta, opciones, correcta, estado}
-  criterios: CRITERIOS_BASE,
+  criterios: (() => { const c = store.get("tiradera_criterios", null); return Array.isArray(c) && c.length ? c : CRITERIOS_BASE.map(x => ({ ...x })); })(),
   verEvaluacion: false, evalMostrada: false,
   trabajo: null,       // trabajo de la plataforma donde se guarda el registro {id, titulo}
   jugadores: {},       // id → {id, nombre, apodo, est, grupo, pts, racha, ultimoDelta, online, stats, detalle}
@@ -599,6 +605,7 @@ function vistaConfig() {
       <p class="muted cfg-grupal" style="font-size:.85rem;margin:0">En grupos, cada estudiante juega desde su dispositivo y el puntaje del grupo es el promedio de sus integrantes. El registro sigue siendo individual.</p>
     </div>
     ${S.trabajo ? `<div class="card" style="margin-top:16px;background:#fff8e1">📌 Partida ligada al trabajo <b>«${esc(S.trabajo.titulo)}»</b> de la plataforma: los retos y el registro de puntos se guardan ahí para calificar con los criterios.</div>` : ""}
+    <div class="card" style="margin-top:16px" id="evalCard"></div>
     <div id="editor" style="margin-top:16px"></div>
     <div class="center" style="margin-top:14px"><button class="btn ghost" id="btnVolver">← Volver al inicio</button></div>`);
   const syncCfg = () => {
@@ -608,11 +615,16 @@ function vistaConfig() {
   };
   ["#cfgModo", "#cfgGrupos", "#cfgAsig", "#cfgMax", "#cfgPorGrupo", "#cfgProp"].forEach(sel => $(sel).addEventListener("change", syncCfg));
   syncCfg();
+  pintarEditorEvaluacion();
   $$("[data-edit]").forEach(b => b.onclick = () => { editando = +b.dataset.edit; vistaEditor(); });
   $$("[data-del]").forEach(b => b.onclick = () => { if (confirm("¿Eliminar este reto?")) { S.retos.splice(+b.dataset.del, 1); guardarRetos(); vistaConfig(); } });
   $$("[data-up]").forEach(b => b.onclick = () => { const i = +b.dataset.up; [S.retos[i - 1], S.retos[i]] = [S.retos[i], S.retos[i - 1]]; guardarRetos(); vistaConfig(); });
   $("#btnNuevo").onclick = () => { editando = "nuevo"; vistaEditor(); };
-  $("#btnAbrir").onclick = abrirPartida;
+  $("#btnAbrir").onclick = () => {
+    const malo = S.criterios.findIndex(c => !String(c.nombre || "").trim() || !(Number(c.puntos_max) > 0));
+    if (!S.criterios.length || malo >= 0) { toast(!S.criterios.length ? "Poné al menos un criterio de evaluación." : `Completá el nombre y los puntos del criterio ${malo + 1}.`); $("#evalCard").scrollIntoView({ behavior: "smooth" }); return; }
+    abrirPartida();
+  };
   $("#btnVolver").onclick = vistaInicio;
   $("#btnEjemplo").onclick = () => { if (confirm("¿Reemplazar los retos actuales por los de ejemplo?")) { S.retos = retosEjemplo(); guardarRetos(); vistaConfig(); } };
   $("#btnExport").onclick = () => {
@@ -628,6 +640,62 @@ function vistaConfig() {
     } catch { toast("Ese archivo no es una lista de retos válida."); }
   };
   if (editando !== null) vistaEditor();
+}
+
+/* ---------- Evaluación de la partida (solo el ponente la define) ---------- */
+const MEDIDAS_JUEGO = [
+  ["dominio_pct", "Automático: % de logro en los retos"],
+  ["participacion_pct", "Automático: % de retos respondidos a tiempo"],
+  ["precision_pct", "Automático: puntos ganados vs. perdidos"],
+  ["rapidez_pct", "Automático: tiempo sobrante en los aciertos"],
+  ["aportes_pct", "Automático: preguntas propuestas y aprobadas"],
+  ["", "Lo califico yo (a mano)"]
+];
+const criteriosLimpios = () => S.criterios.map(c => c.auto ? { nombre: String(c.nombre).trim(), puntos_max: Number(c.puntos_max) || 0, auto: c.auto } : { nombre: String(c.nombre).trim(), puntos_max: Number(c.puntos_max) || 0 });
+function guardarCriterios() {
+  store.set("tiradera_criterios", S.criterios);
+  if (S.trabajo) { clearTimeout(guardarCriterios._t); guardarCriterios._t = setTimeout(async () => {
+    const ok = await actualizarContenidoTrabajo(c => ({ ...c, criterios: criteriosLimpios() }));
+    const est = $("#evalEstado"); if (est) est.textContent = ok ? "✓ Guardado también en el trabajo de la plataforma." : "No se pudo guardar en la plataforma (sin conexión); quedó en esta computadora.";
+  }, 900); }
+}
+function pintarEditorEvaluacion() {
+  const box = $("#evalCard"); if (!box) return;
+  const total = S.criterios.reduce((a, c) => a + (Number(c.puntos_max) || 0), 0);
+  box.innerHTML = `
+    <div class="row" style="align-items:center;margin-bottom:6px">
+      <h2 style="flex:2 1 260px">📋 Evaluación de esta partida</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;flex:0 0 auto">
+        <button class="btn small ghost" id="evalVista">👁️ Ver como la ven los estudiantes</button>
+        <button class="btn small ghost" id="evalBase">↺ Criterios de La Tiradera</button>
+      </div>
+    </div>
+    <p class="muted" style="margin:0 0 12px;font-size:.9rem">Solo usted define la evaluación. Los estudiantes la ven con el botón <b>📋 Evaluación</b> y se les muestra antes del primer reto. Los criterios automáticos se calculan con el registro de la partida (85 % o más = puntaje máximo del criterio); los "a mano" los pone usted en la plataforma.</p>
+    ${S.criterios.map((c, i) => `
+      <div class="crit-edit">
+        <span class="num">${i + 1}</span>
+        <input type="text" data-cn="${i}" value="${esc(c.nombre)}" maxlength="140" placeholder="Nombre del criterio (ej.: Dominio del contenido)">
+        <label class="pts">Puntos <input type="number" data-cp="${i}" min="1" max="20" value="${Number(c.puntos_max) || 3}"></label>
+        <select data-ca="${i}">${MEDIDAS_JUEGO.map(([v, t]) => `<option value="${v}" ${(c.auto || "") === v ? "selected" : ""}>${t}</option>`).join("")}</select>
+        <button class="btn small red" data-cq="${i}" title="Quitar">✕</button>
+      </div>`).join("")}
+    <div class="row" style="align-items:center;margin-top:8px">
+      <button class="btn small ghost" id="evalAgregar" style="flex:0 0 auto">＋ Agregar criterio</button>
+      <span class="muted" style="flex:2 1 200px;font-size:.88rem">Total: <b>${total}</b> puntos · ${S.criterios.length} criterio(s). <span id="evalEstado">${S.trabajo ? "Se guarda en el trabajo «" + esc(S.trabajo.titulo) + "»." : "Se guarda en esta computadora y, al terminar, junto con el registro."}</span></span>
+    </div>`;
+  const leer = () => {
+    S.criterios = S.criterios.map((c, i) => {
+      const auto = $(`[data-ca="${i}"]`, box).value;
+      const x = { nombre: $(`[data-cn="${i}"]`, box).value, puntos_max: Math.max(0, Math.min(20, +$(`[data-cp="${i}"]`, box).value || 0)) };
+      if (auto) x.auto = auto;
+      return x;
+    });
+  };
+  $$("[data-cn],[data-cp],[data-ca]", box).forEach(el => el.addEventListener("change", () => { leer(); guardarCriterios(); if (el.dataset.cp !== undefined) pintarEditorEvaluacion(); }));
+  $$("[data-cq]", box).forEach(b => b.onclick = () => { leer(); S.criterios.splice(+b.dataset.cq, 1); guardarCriterios(); pintarEditorEvaluacion(); });
+  $("#evalAgregar").onclick = () => { leer(); S.criterios.push({ nombre: "", puntos_max: 3 }); pintarEditorEvaluacion(); const ult = $(`[data-cn="${S.criterios.length - 1}"]`, box); if (ult) ult.focus(); };
+  $("#evalBase").onclick = () => { if (!confirm("¿Reemplazar por los 4 criterios de La Tiradera (dominio, participación, precisión y rapidez)?")) return; S.criterios = CRITERIOS_BASE.map(x => ({ ...x })); guardarCriterios(); pintarEditorEvaluacion(); };
+  $("#evalVista").onclick = () => { leer(); abrirEvaluacion(S.criterios); };
 }
 
 function vistaEditor() {
@@ -1209,7 +1277,7 @@ async function guardarRegistro(trabajoElegido) {
   const ok = await actualizarContenidoTrabajo(c => {
     const lista = Array.isArray(c.tiradera_partidas) ? c.tiradera_partidas.filter(p => p.id !== partida.id) : [];
     lista.push(partida);
-    return { ...c, tiradera_partidas: lista.slice(-30), tiradera_retos: S.retos, tiradera_en_vivo: { pin: S.pin, fecha: new Date().toISOString(), estado: "terminada" } };
+    return { ...c, tiradera_partidas: lista.slice(-30), tiradera_retos: S.retos, criterios: criteriosLimpios(), tiradera_en_vivo: { pin: S.pin, fecha: new Date().toISOString(), estado: "terminada" } };
   });
   if (ok) S.registroGuardado.enTrabajo = S.trabajo;
   pintarEstadoGuardado(ok ? null : "No se pudo guardar en la plataforma (sin conexión). Descargá el registro o probá de nuevo.");
