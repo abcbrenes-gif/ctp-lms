@@ -5481,14 +5481,14 @@ async function pintarBloqueTiradera(cont, panel, trabajo, ordenados, nombrePorId
   }
   // Editor de los criterios de evaluación de este trabajo (lo que ven los
   // estudiantes con el botón "📋 Evaluación" del juego).
-  const MEDIDAS = [
-    ["dominio_pct", "Automático: % de logro en los retos"],
-    ["participacion_pct", "Automático: % de retos respondidos a tiempo"],
-    ["precision_pct", "Automático: puntos ganados vs. perdidos"],
-    ["rapidez_pct", "Automático: tiempo sobrante en los aciertos"],
-    ["", "Lo califico yo a mano"]
-  ];
   function abrirEditorCriterios() {
+    const MEDIDAS = [
+      ["dominio_pct", "Automático: % de logro en los retos"],
+      ["participacion_pct", "Automático: % de retos respondidos a tiempo"],
+      ["precision_pct", "Automático: puntos ganados vs. perdidos"],
+      ["rapidez_pct", "Automático: tiempo sobrante en los aciertos"],
+      ["", "Lo califico yo a mano"]
+    ];
     const ed = cont.querySelector("[data-tir-crit-editor]");
     if (!ed) return;
     if (ed.style.display !== "none") { ed.style.display = "none"; return; }
