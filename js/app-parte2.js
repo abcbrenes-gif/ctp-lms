@@ -724,6 +724,7 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
   // Si hay varias notas en la misma categoría, se promedian antes de ponderar.
   // Las categorías sin ninguna nota todavía no suman (se excluyen del cálculo,
   // para no penalizar antes de tiempo lo que aún no se ha evaluado).
+  const aportePruebasPorMateria = {};
   const finalesPorMateria = await Promise.all(materiasAsignadas.map(async m => {
     const notasMateria = (notas || []).filter(n => n.materia_id === m.id);
     let pesoUsado = 0, suma = 0;
@@ -736,6 +737,18 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
         pesoUsado += Number(c.porcentaje);
         detalle.push({ nombre: c.nombre, porcentaje: c.porcentaje, promedio: resultado.nota });
         continue;
+      }
+      // Pruebas: igual que en la tabla del profesor, cada prueba aporta solo
+      // su propio peso (peso_prueba), no el % completo de la categoría.
+      if (c.nombre.trim().toLowerCase() === "pruebas") {
+        const ap = await calcularAportePruebas(s.id, m.id, c.nombre, c.porcentaje);
+        if (ap) {
+          suma += ap.aporte;
+          pesoUsado += Number(c.porcentaje);
+          detalle.push({ nombre: c.nombre, porcentaje: c.porcentaje, promedio: ap.aporte / Number(c.porcentaje) * 100 });
+          aportePruebasPorMateria[m.id] = ap;
+          continue;
+        }
       }
       const porIndicadores = await calcularNotaIndicadores(s.id, m.id, c.nombre, isSelf);
       if (porIndicadores) {
@@ -909,7 +922,8 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
 
   function tablaIndicadores(m, info) {
     const categoriaObj = categorias.find(c => c.nombre === activa);
-    const resultadoPct = categoriaObj ? (info.nota * categoriaObj.porcentaje / 100).toFixed(1) : info.nota.toFixed(1);
+    const apPr = /^\s*pruebas\s*$/i.test(activa || "") ? aportePruebasPorMateria[m.id] : null;
+    const resultadoPct = apPr ? apPr.aporte.toFixed(1) : (categoriaObj ? (info.nota * categoriaObj.porcentaje / 100).toFixed(1) : info.nota.toFixed(1));
     const calificados = info.indicadores.filter(i => info.porIndicador[i.id] !== undefined).length;
     return `
       <h4 style="margin-top:1rem; display:flex; align-items:center; gap:0.6rem;">${m.nombre} <span class="badge" style="font-weight:400;">Progreso: ${calificados}/${info.indicadores.length} indicadores calificados</span></h4>
@@ -997,7 +1011,7 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
           </tbody>
         </table>
       </div>
-      <p class="num" style="font-weight:600; margin-top:0.4rem;">Resultado de ${activa} (valor: ${categoriaObj?.porcentaje || "?"}% de la nota final): ${resultadoPct}%</p>
+      <p class="num" style="font-weight:600; margin-top:0.4rem;">Resultado de ${activa} (valor: ${categoriaObj?.porcentaje || "?"}% de la nota final): ${resultadoPct}%${apPr && apPr.notaReal != null ? ` <span style="font-weight:400; color:var(--text-muted); font-size:0.85rem;">— obtuviste el ${apPr.notaReal.toFixed(1)} % de los puntos; cada prueba aporta solo el peso que vale (${info.indicadores.filter(i => i.peso_prueba != null).map(i => i.letra + ": " + i.peso_prueba + " %").join(", ")})</span>` : ""}</p>
       <details style="margin-top:0.5rem;">
         <summary style="font-size:0.82rem; color:var(--text-muted); cursor:pointer;">Ver criterios de cada trabajo</summary>
         <table class="grades" style="margin-top:0.5rem;">
@@ -1547,6 +1561,10 @@ async function renderRubricaEstudiante(el, s, isSelf) {
         if (c.nombre.trim().toLowerCase() === "asistencia") {
           const resultado = await calcularNotaAsistencia(s.id, m.id);
           promedio = resultado ? resultado.nota : null;
+        } else if (c.nombre.trim().toLowerCase() === "pruebas" && await calcularAportePruebas(s.id, m.id, c.nombre, c.porcentaje)) {
+          // Cada prueba aporta su propio peso (igual que en la tabla del profesor).
+          const ap = await calcularAportePruebas(s.id, m.id, c.nombre, c.porcentaje);
+          promedio = ap.aporte / Number(c.porcentaje) * 100;
         } else {
           const porIndicadores = await calcularNotaIndicadores(s.id, m.id, c.nombre, isSelf);
           if (porIndicadores) {
