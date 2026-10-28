@@ -1484,6 +1484,18 @@ const DIAS_SEMANA = [
   { num: 4, nombre: "Jueves" },
   { num: 5, nombre: "Viernes" }
 ];
+// Supabase devuelve como máximo 1000 filas por consulta: esto pide de 1000
+// en 1000 hasta traerlas todas (para contar bien las lecciones impartidas).
+async function traerTodasLasFilas(armarConsulta) {
+  const todas = [];
+  for (let desde = 0; desde < 200000; desde += 1000) {
+    const { data, error } = await armarConsulta().range(desde, desde + 999);
+    if (error || !data) break;
+    todas.push(...data);
+    if (data.length < 1000) break;
+  }
+  return todas;
+}
 function horaCorta(hhmmss) { return (hhmmss || "").slice(0, 5); }
 
 // Estados de asistencia según el artículo 31° del REA (Reglamento de Evaluación
@@ -1516,7 +1528,7 @@ async function calcularNotaAsistencia(estudianteId, materiaId) {
   // varias secciones eso fácilmente pasa de las 1000 filas que Supabase
   // devuelve por consulta, y los registros de algunos estudiantes
   // quedaban fuera del corte (dando 0 ausencias = 100% de nota).
-  const { data: todosRegistros } = await sb.from("asistencia_lecciones").select("leccion_id, fecha").in("leccion_id", leccionIds);
+  const todosRegistros = await traerTodasLasFilas(() => sb.from("asistencia_lecciones").select("leccion_id, fecha").in("leccion_id", leccionIds).order("id"));
   if (!todosRegistros || todosRegistros.length === 0) return null;
   const { data: delEstudiante } = await sb.from("asistencia_lecciones").select("estado").eq("estudiante_id", estudianteId).in("leccion_id", leccionIds);
 
@@ -1541,8 +1553,8 @@ async function calcularNotaAsistenciaPeriodo(estudianteId, materiaId, fechaInici
   // Igual que en calcularNotaAsistencia: dos consultas separadas para no
   // perder registros del estudiante si la materia completa pasa de las
   // 1000 filas que Supabase devuelve por consulta.
-  const { data: todosRegistros } = await sb.from("asistencia_lecciones").select("leccion_id, fecha")
-    .in("leccion_id", leccionIds).gte("fecha", fechaInicio).lte("fecha", fechaFin);
+  const todosRegistros = await traerTodasLasFilas(() => sb.from("asistencia_lecciones").select("leccion_id, fecha")
+    .in("leccion_id", leccionIds).gte("fecha", fechaInicio).lte("fecha", fechaFin).order("id"));
   if (!todosRegistros || todosRegistros.length === 0) return null;
   const { data: delEstudianteRaw } = await sb.from("asistencia_lecciones").select("leccion_id, fecha, estado")
     .eq("estudiante_id", estudianteId).in("leccion_id", leccionIds).gte("fecha", fechaInicio).lte("fecha", fechaFin);
@@ -1724,7 +1736,10 @@ async function renderHorario() {
     const filas = [];
     const celdasLlenas = new Set();
     document.querySelectorAll("#horario-tabla select").forEach(sel => {
-      const clave = `${sel.dataset.dia}-${sel.dataset.ini}`;
+      // Misma forma de clave que abajo (hora corta "07:00"): antes una lado
+      // usaba "07:00:00" y el otro "07:00", nunca coincidían y al guardar se
+      // borraban TODAS las lecciones (y con ellas toda la asistencia).
+      const clave = `${sel.dataset.dia}-${horaCorta(sel.dataset.ini)}`;
       if (!sel.value) return;
       celdasLlenas.add(clave);
       const materia = (materiasPorSeccion || []).find(m => m.id === Number(sel.value));
@@ -1746,7 +1761,18 @@ async function renderHorario() {
       }
     }
     const celdasVacias = (lecciones || []).filter(l => !celdasLlenas.has(`${l.dia_semana}-${horaCorta(l.hora_inicio)}`));
-    if (celdasVacias.length > 0) await sb.from("lecciones").delete().in("id", celdasVacias.map(l => l.id));
+    if (celdasVacias.length > 0) {
+      // Nunca borrar en silencio una lección que ya tiene asistencia: al
+      // borrarla se pierde toda la asistencia registrada en ella.
+      const { data: conAsistencia } = await sb.from("asistencia_lecciones").select("leccion_id").in("leccion_id", celdasVacias.map(l => l.id));
+      const idsConAsistencia = new Set((conAsistencia || []).map(r => r.leccion_id));
+      let borrar = celdasVacias.filter(l => !idsConAsistencia.has(l.id));
+      const protegidas = celdasVacias.filter(l => idsConAsistencia.has(l.id));
+      if (protegidas.length && confirm(`Quitó del horario ${protegidas.length} lección(es) que ya tienen asistencia registrada. Si se borran, esa asistencia se pierde.\n\n¿Borrarlas de todos modos? (Cancelar = dejarlas para no perder la asistencia)`)) {
+        borrar = celdasVacias;
+      }
+      if (borrar.length > 0) await sb.from("lecciones").delete().in("id", borrar.map(l => l.id));
+    }
     btn.textContent = "Guardado ✓";
     setTimeout(() => { btn.textContent = "Guardar horario"; }, 1500);
   });
