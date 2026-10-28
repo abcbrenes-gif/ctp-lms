@@ -832,12 +832,88 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
     }
   } catch (e) { console.warn("salidas", e); }
 
+  // Tema (apartado) de cada indicador, para agrupar el resumen por tema
+  // igual que en "Calificar a toda la sección".
+  const temaPorResultadoNota = {};
+  try {
+    const resIds = [...new Set(Object.values(indicadoresPorMateria).flatMap(info => info.indicadores.map(i => i.resultado_id)).filter(Boolean))];
+    if (resIds.length) {
+      const { data: temasRes } = await sb.from("publicaciones").select("resultado_id, titulo").in("resultado_id", resIds).eq("tipo", "apartado");
+      (temasRes || []).forEach(t => { if (!temaPorResultadoNota[t.resultado_id]) temaPorResultadoNota[t.resultado_id] = t.titulo; });
+    }
+  } catch (e) { console.warn("temas resumen", e); }
+
+  // Resumen horizontal de indicadores (A, B, C…): puntos de cada uno, total
+  // de los indicadores y total acumulado.
+  function resumenIndicadoresHTML(m, info) {
+    const inds = info.indicadores;
+    const limpiar = t => String(t || "").replace(/^\s*Nuevo\s*r(?=[A-ZÁÉÍÓÚ])/, "").replace(/\s+/g, " ").trim();
+    const grupos = [];
+    inds.forEach(i => {
+      const tema = (i.resultado_id && temaPorResultadoNota[i.resultado_id]) || "Sin tema vinculado";
+      const ult = grupos[grupos.length - 1];
+      if (ult && ult.tema === tema) ult.n++; else grupos.push({ tema, n: 1 });
+    });
+    const totalMax = inds.reduce((a, i) => a + Number(i.puntaje_maximo || 0), 0);
+    const totalObt = inds.reduce((a, i) => a + Number(info.porIndicador[i.id] || 0), 0);
+    const calif = inds.filter(i => info.porIndicador[i.id] !== undefined);
+    const maxCalif = calif.reduce((a, i) => a + Number(i.puntaje_maximo || 0), 0);
+    const pct = totalMax > 0 ? (totalObt / totalMax * 100) : 0;
+    const catObj = (categorias || []).find(c => c.nombre === activa);
+    const aporte = catObj && !/prueba/i.test(activa) ? (pct * Number(catObj.porcentaje) / 100) : null;
+    const celda = "text-align:center; padding:0.35rem 0.45rem; border-bottom:1px solid var(--paper-line); white-space:nowrap;";
+    const tot = "text-align:center; padding:0.35rem 0.6rem; border-bottom:1px solid var(--paper-line); white-space:nowrap; background:var(--surface-soft); font-weight:700;";
+    return `
+      <div style="border:1px solid var(--paper-line); border-radius:12px; padding:0.8rem; margin:0.6rem 0 1rem; background:var(--surface);">
+        <strong style="font-family:var(--serif);">📊 Resumen de indicadores — ${activa}</strong>
+        <div style="display:flex; flex-wrap:wrap; gap:0.5rem; margin:0.5rem 0 0.6rem;">
+          <span class="badge">Total acumulado: <strong>${totalObt}</strong> de ${totalMax} puntos</span>
+          <span class="badge">Logro: <strong>${pct.toFixed(1)} %</strong></span>
+          ${aporte !== null ? `<span class="badge">Aporte a la nota: <strong>${aporte.toFixed(2)} %</strong> de ${catObj.porcentaje} %</span>` : ""}
+          <span class="badge" style="font-weight:400;">${calif.length}/${inds.length} indicadores calificados${calif.length < inds.length ? ` (en los calificados: ${totalObt} de ${maxCalif})` : ""}</span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table style="border-collapse:collapse; font-size:0.85rem; min-width:100%;">
+            <thead>
+              <tr>
+                <th style="${celda} text-align:left;"></th>
+                ${grupos.map(g => `<th colspan="${g.n}" title="${escAC(limpiar(g.tema))}" style="${celda} font-weight:500; font-size:0.72rem; color:var(--text-muted); white-space:normal; max-width:${Math.max(6, g.n * 3.2)}rem; vertical-align:bottom;">📘 ${escAC(limpiar(g.tema).slice(0, 70))}${limpiar(g.tema).length > 70 ? "…" : ""}</th>`).join("")}
+                <th colspan="2" style="${tot}">Totales</th>
+              </tr>
+              <tr>
+                <th style="${celda} text-align:left;">Indicador</th>
+                ${inds.map(i => `<th title="${escAC(i.descripcion)}" style="${celda}">${i.letra || "·"}</th>`).join("")}
+                <th style="${tot}">Acumulado</th>
+                <th style="${tot}">Indicadores</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="${celda} text-align:left; font-weight:600;">Mis puntos</td>
+                ${inds.map(i => { const v = info.porIndicador[i.id]; return `<td style="${celda} font-weight:600;${v === undefined ? " color:var(--text-muted);" : Number(v) === 0 ? " color:#c0392b;" : ""}">${v === undefined ? "—" : v}</td>`; }).join("")}
+                <td style="${tot}">${totalObt}</td>
+                <td style="${tot}">${totalMax}</td>
+              </tr>
+              <tr>
+                <td style="${celda} text-align:left; color:var(--text-muted);">Puntaje máximo</td>
+                ${inds.map(i => `<td style="${celda} color:var(--text-muted);">${i.puntaje_maximo}</td>`).join("")}
+                <td style="${tot} font-weight:400;">${pct.toFixed(1)} %</td>
+                <td style="${tot} font-weight:400;">100 %</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="font-size:0.75rem; color:var(--text-muted); margin:0.4rem 0 0;">«—» = todavía sin calificar (cuenta como 0 en el acumulado). Pasá el cursor sobre una letra para ver el indicador.</p>
+      </div>`;
+  }
+
   function tablaIndicadores(m, info) {
     const categoriaObj = categorias.find(c => c.nombre === activa);
     const resultadoPct = categoriaObj ? (info.nota * categoriaObj.porcentaje / 100).toFixed(1) : info.nota.toFixed(1);
     const calificados = info.indicadores.filter(i => info.porIndicador[i.id] !== undefined).length;
     return `
       <h4 style="margin-top:1rem; display:flex; align-items:center; gap:0.6rem;">${m.nombre} <span class="badge" style="font-weight:400;">Progreso: ${calificados}/${info.indicadores.length} indicadores calificados</span></h4>
+      ${resumenIndicadoresHTML(m, info)}
       <div style="overflow-x:auto;">
         <table class="grades">
           <thead><tr>
