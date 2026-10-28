@@ -42,17 +42,25 @@ module.exports = async (req, res) => {
   const objetivo = soloIndices && soloIndices.length ? criterios.filter(c => soloIndices.includes(c.i)) : criterios;
   if (!objetivo.length) { res.status(400).json({ error: "No hay indicadores para mejorar." }); return; }
   const instrucciones = corto(body.instrucciones, 600);
+  // Si viene "actividad", es un trabajo cotidiano, tarea o proyecto de la
+  // plataforma (no el juego): se ajusta la descripción del contexto.
+  const actividad = corto(body.actividad, 300);
+  const componente = corto(body.componente || ins.componente, 60) || "Trabajo cotidiano";
+  const contexto = actividad
+    ? `un instrumento de evaluación del componente «${componente}» para la actividad «${actividad}». Lo aplica el docente revisando el trabajo, la tarea o el proyecto de cada persona estudiante`
+    : `un instrumento de evaluación de trabajo cotidiano para "La Tiradera", un juego en vivo en el que el estudiantado resuelve retos (selección única, falso y verdadero, sopa de letras y crucigrama) y compite por puntos`;
+  const observar = actividad ? "durante la actividad o en el producto que entrega" : "durante la dinámica";
 
-  const listado = objetivo.map(c => `INDICADOR ${c.i + 1} (índice ${c.i}) — ${c.puntos_max} puntos — ${c.auto ? "AUTOMÁTICO (lo calcula el juego). Umbrales FIJOS que NO se pueden cambiar: " + UMBRALES[c.auto] : "A MANO (lo califica el docente observando la dinámica)"}
+  const listado = objetivo.map(c => `INDICADOR ${c.i + 1} (índice ${c.i}) — ${c.puntos_max} puntos — ${c.auto ? "AUTOMÁTICO (lo calcula el juego). Umbrales FIJOS que NO se pueden cambiar: " + UMBRALES[c.auto] : "A MANO (lo califica el docente)"}
   Redacción actual: «${c.nombre || "(sin redactar)"}»
   Avanzado (3): «${c.niveles.avanzado}»
   Intermedio (2): «${c.niveles.intermedio}»
   Inicial (1): «${c.niveles.inicial}»`).join("\n\n");
 
-  const prompt = `Sos especialista en evaluación de los aprendizajes del Ministerio de Educación Pública (MEP) de Costa Rica, en Educación Técnica Profesional (especialidad de Contabilidad). Mejorá un instrumento de evaluación de trabajo cotidiano para "La Tiradera", un juego en vivo en el que el estudiantado resuelve retos (selección única, falso y verdadero, sopa de letras y crucigrama) y compite por puntos.
+  const prompt = `Sos especialista en evaluación de los aprendizajes del Ministerio de Educación Pública (MEP) de Costa Rica, en Educación Técnica Profesional (especialidad de Contabilidad). Mejorá ${contexto}.
 
 DATOS DEL INSTRUMENTO
-- Componente: ${corto(ins.componente, 60) || "Trabajo cotidiano"} · Tipo: ${corto(ins.tipo, 60) || "Escala de desempeño"}
+- Componente: ${componente} · Tipo: ${corto(ins.tipo, 60) || "Escala de desempeño"}
 - Subárea: ${corto(ins.subarea, 200) || "(no indicada)"}
 - Unidad de estudio / tema: ${corto(ins.unidad, 200) || "(no indicado)"}
 - Resultado de aprendizaje del programa: ${corto(ins.resultado, 500) || "(no indicado)"}
@@ -65,7 +73,7 @@ REGLAS (lineamientos técnicos del MEP y programa de estudio ETP)
 1. Cada indicador se redacta en tercera persona singular, presente: VERBO observable + CONTENIDO + CONDICIÓN (ej.: «Identifica los rebajos de ley de la planilla al resolver los retos planteados»). Si hay tema o resultado de aprendizaje, ligá el indicador a ese contenido. Un solo desempeño por indicador. Máximo 200 caracteres.
 2. Los niveles describen la EVIDENCIA observable del desempeño, de forma gradual y excluyente: Avanzado (3) = logro pleno; Intermedio (2) = logro parcial; Inicial (1) = logro mínimo o con apoyo. Sin juicios negativos sobre la persona, lenguaje inclusivo («la persona estudiante» o en tercera persona sin sujeto). Máximo 220 caracteres por nivel.
 3. En los indicadores AUTOMÁTICOS conservá EXACTAMENTE los umbrales numéricos indicados (los porcentajes o cantidades) en cada nivel; solo mejorá la redacción y el contexto. No inventes otros números.
-4. En los indicadores A MANO, describí conductas que el docente pueda observar durante la dinámica.
+4. En los indicadores A MANO, describí conductas o evidencias que el docente pueda observar ${observar}.
 5. Español de Costa Rica, claro y breve. No uses comillas dobles dentro de los textos; si necesitás citar, usá «».
 
 Respondé ÚNICAMENTE con JSON válido, sin texto adicional, con esta forma exacta:

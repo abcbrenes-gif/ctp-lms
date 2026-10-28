@@ -940,6 +940,7 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
                 <td>
                   <strong>${i.descripcion}</strong>
                   ${i.fecha_evaluacion ? `<div style="font-size:0.75rem; color:var(--text-muted);">Fecha: ${i.fecha_evaluacion}${i.lecciones ? " · " + i.lecciones + " lecciones" : ""}</div>` : ""}
+                  ${mepCategoriaConFormato(activa) ? `<div style="margin-top:0.3rem;"><button class="btn secondary small" type="button" data-mep-ver="${i.id}" data-mep-materia="${m.id}">📋 Evaluación</button></div>` : ""}
                   ${salidasPorIndicador[i.id] !== undefined ? `<div style="margin-top:0.25rem;">${badgeSalidas(salidasPorIndicador[i.id])}</div>` : ""}
                   ${trabajoPrueba && (trabajoPrueba.subtema_id || trabajoPrueba.publicacion_id) ? `<div style="margin-top:0.3rem;"><a class="btn secondary small" href="${trabajoPrueba.subtema_id ? "#/subtema/" + trabajoPrueba.subtema_id : "#/apartado/" + trabajoPrueba.publicacion_id}" onclick="try{sessionStorage.setItem('ctp_abrir_tab_trabajos','1')}catch(e){}">➡️ Ir al trabajo en el subtema</a></div>` : ""}
                   ${esPruebaPendiente ? (aunNoEsHora
@@ -1119,6 +1120,12 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
     const holderRetro = el.querySelector("#proyecto-retro-holder");
     if (holderRetro) pintarRetroProyectoEstudiante(holderRetro, s, materiasAsignadas).catch(err => console.error("Retroalimentación del proyecto:", err));
   }
+  el.querySelectorAll("[data-mep-ver]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const info = indicadoresPorMateria[btn.dataset.mepMateria];
+      mepVerEvaluacion({ materiaId: Number(btn.dataset.mepMateria), categoria: activa, indicadorId: Number(btn.dataset.mepVer), obtenidos: info ? info.porIndicador : null, soloHabilitados: isSelf });
+    });
+  });
   el.querySelectorAll("[data-cat-nota]").forEach(btn => {
     btn.addEventListener("click", () => renderNotasInterno(el, s, isSelf, btn.dataset.catNota));
   });
@@ -3843,6 +3850,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
       </div>`;
     }).map((h, i) => `<div data-fila-trabajo="${trabajos[i].id}" style="display:contents">${h}</div>`).join("");
     await agregarDocumentoDefinitivo(holder, trabajos, estudianteId);
+    mepInyectarBotonesTrabajos(holder, trabajos);
 
     holder.querySelectorAll("[data-mi-trabajo-subtema]").forEach(cb => {
       cb.addEventListener("change", async () => {
@@ -6544,6 +6552,7 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
       </div>`;
     }).map((h, i) => `<div data-fila-trabajo="${trabajos[i].id}" style="display:contents">${h}</div>`).join("");
     await agregarDocumentoDefinitivo(holder, trabajos, estudianteId);
+    mepInyectarBotonesTrabajos(holder, trabajos);
 
     holder.querySelectorAll("[data-mi-trabajo]").forEach(cb => {
       cb.addEventListener("change", async () => {
@@ -7595,6 +7604,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
               ${botonGenerarSeleccionProyecto(ind)}
               ${botonVerEntregasProyectoIndicador(ind)}
               ${linkTrabajo(ind)}
+              ${mepCategoriaConFormato(catNombre) && !esPruebaAuto ? `<button class="btn small" data-mep-ind="${ind.id}" type="button" style="background:#7c3aed; border-color:#7c3aed;">📋 Formato MEP</button>` : ""}
               <button class="btn secondary small" data-editar-ind="${ind.id}" type="button">✏️ Editar</button>
               <button class="btn danger small" data-del-indicador="${ind.id}">Eliminar</button>
             </span>
@@ -7604,6 +7614,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
           ${trabajoPorIndicador[ind.id] && TIPOS_CON_RETRO.includes(trabajoPorIndicador[ind.id].tipo_actividad) ? `<div data-diagnostico-ind-panel="${trabajoPorIndicador[ind.id].id}"></div>` : ""}
           ${trabajoPorIndicador[ind.id] && trabajoPorIndicador[ind.id].tipo_actividad === "prueba" ? `<div data-puntos-ind-panel="${trabajoPorIndicador[ind.id].id}" data-indicador-para-puntos="${ind.id}"></div>` : ""}
           <div data-editar-ind-panel="${ind.id}"></div>
+          <div data-mep-panel="${ind.id}"></div>
           ${!trabajoPorIndicador[ind.id] ? `<div data-pedir-archivo-panel="${ind.id}"></div>` : ""}
           ${!trabajoPorIndicador[ind.id] ? `<div data-pedir-proyecto-panel="${ind.id}"></div>` : ""}
           ${!trabajoPorIndicador[ind.id] && catNombre === "Proyectos" ? `<div data-generar-su-panel="${ind.id}"></div>` : ""}
@@ -7692,6 +7703,25 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
   // ✏️ Editar un indicador ya creado: descripción, fecha y criterios de cada
   // nivel. No toca las notas ya puestas ni el trabajo vinculado (entrega o
   // prueba); el puntaje máximo no se cambia aquí para no descuadrar notas.
+  // 📋 Formato MEP: editor del instrumento (borrador → publicar a estudiantes).
+  holder.querySelectorAll("[data-mep-ind]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const panel = holder.querySelector(`[data-mep-panel="${btn.dataset.mepInd}"]`);
+      if (!panel) return;
+      mepAbrirEditor(panel, { materiaId, categoria: catNombre, indicadorId: Number(btn.dataset.mepInd), alPublicar: () => {} })
+        .catch(err => { panel.innerHTML = `<p class="no-phone-note">No se pudo abrir el editor: ${err.message || err}</p>`; });
+    });
+  });
+  // Marca los que tienen borrador sin publicar o ya están publicados.
+  if (mepCategoriaConFormato(catNombre)) {
+    mepLeerConfig(materiaId).then(cfg => {
+      holder.querySelectorAll("[data-mep-ind]").forEach(btn => {
+        const r = cfg[mepClave(catNombre, btn.dataset.mepInd)];
+        if (r && r.borrador) btn.textContent = "📋 Formato MEP · 🟡 borrador";
+        else if (r && r.publicado) btn.textContent = "📋 Formato MEP · 🟢 publicado";
+      });
+    }).catch(() => {});
+  }
   holder.querySelectorAll("[data-editar-ind]").forEach(btn => {
     btn.addEventListener("click", () => {
       const indicadorId = btn.dataset.editarInd;
