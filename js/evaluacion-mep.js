@@ -34,7 +34,7 @@ const MEP_COLOR = ["#fde2e2", "#fdecc8", "#fff6c2", "#dff5e3", "#d6f0ff", "#e8e1
 const MEP_COLOR_TXT = ["#9b1c1c", "#92400e", "#854d0e", "#166534", "#075985", "#4c1d95"];
 
 const mepEsc = v => String(v == null ? "" : v).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const mepLimpio = v => String(v == null ? "" : v).replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/^\s*Nuevo\s*r(?=[A-ZÁÉÍÓÚ])/, "").replace(/\s+/g, " ").trim();
+const mepLimpio = v => String(v == null ? "" : v).replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/^\s*Nuevo\s*r(?=[A-ZÁÉÍÓÚ])/, "").replace(/\s*Nuevo resultado( de aprendizaje)?\s*$/i, "").replace(/\s+/g, " ").trim();
 const mepClave = (categoria, indicadorId) => categoria === "Proyectos" ? "cat:Proyectos" : "ind:" + indicadorId;
 const mepCategoriaConFormato = c => !!MEP_COMPONENTE[c];
 const mepFecha = iso => { try { return new Date(iso).toLocaleString("es-CR", { dateStyle: "medium", timeStyle: "short" }); } catch { return iso || ""; } };
