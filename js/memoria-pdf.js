@@ -10,7 +10,7 @@ async function memoriaExtraerCartasDePdf(file, progreso) {
   const ESCALA = 2;
   const mul = (m, n) => [m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1], m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3], m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5]];
   const ap = (m, x, y) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
-  const cartas = [], avisos = [];
+  const cartas = [], avisos = [], laminas = [];
 
   for (let p = 1; p <= pdf.numPages; p++) {
     if (progreso) progreso(`Leyendo página ${p} de ${pdf.numPages}…`);
@@ -41,7 +41,16 @@ async function memoriaExtraerCartasDePdf(file, progreso) {
     const unidas = [];
     imgs.forEach(c => { const u = unidas.find(x => solapa(x, c) > 0.5); if (u) { u.x0 = Math.min(u.x0, c.x0); u.y0 = Math.min(u.y0, c.y0); u.x1 = Math.max(u.x1, c.x1); u.y1 = Math.max(u.y1, c.y1); } else unidas.push({ ...c }); });
     imgs = unidas.sort((a, b) => Math.abs(a.y0 - b.y0) > 30 ? a.y0 - b.y0 : a.x0 - b.x0);
-    if (!imgs.length) { avisos.push(`Página ${p}: no tiene imágenes separables (si es una foto o un escaneo, súbala como imagen).`); continue; }
+    if (!imgs.length) {
+      // Página escaneada o hecha de una sola imagen: se devuelve entera para
+      // dividirla como lámina (cuadros con título, dibujo y explicación).
+      const lam = document.createElement("canvas");
+      lam.width = Math.ceil(vp.width); lam.height = Math.ceil(vp.height);
+      await page.render({ canvasContext: lam.getContext("2d"), viewport: vp }).promise;
+      laminas.push({ lienzo: lam, pagina: p });
+      page.cleanup();
+      continue;
+    }
 
     // 2) Líneas de texto con su posición.
     const tc = await page.getTextContent();
@@ -97,7 +106,7 @@ async function memoriaExtraerCartasDePdf(file, progreso) {
     }
     page.cleanup();
   }
-  return { cartas, avisos };
+  return { cartas, avisos, laminas };
 }
 
 // Saca el concepto (lo que el estudiante debe escribir) y una pista de cada

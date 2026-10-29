@@ -8,9 +8,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=20261029c"></script>
-<script src="js/actividades.js?v=20261029c"></script>
-<script src="js/memoria-pdf.js?v=20261029c"></script>
+<script src="js/config.js?v=20261029d"></script>
+<script src="js/actividades.js?v=20261029d"></script>
+<script src="js/memoria-pdf.js?v=20261029d"></script>
+<script src="js/memoria-dividir.js?v=20261029d"></script>
 <style>
 /* Layout: consola de juego — panel de métricas arriba, tablero al centro, barra de respuesta fija abajo. Un solo look oscuro a propósito. */
 :root{
@@ -219,6 +220,21 @@ table.ins th.nv-avanzado{color:var(--ok)} table.ins th.nv-intermedio{color:var(-
 table.ins td.c{text-align:center}
 .modal code{font-family:var(--mono); color:var(--cyan)}
 .panel-doc code{font-family:var(--mono); color:var(--cyan)}
+.acciones-carta{display:flex; flex-direction:column; gap:6px; align-items:flex-end}
+.acciones-carta .btn{padding:6px 9px; font-size:.8rem}
+.div-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:12px; margin-top:10px}
+.div-tile{background:var(--panel-2); border:1px solid var(--line); border-radius:14px; padding:10px; display:flex; flex-direction:column; gap:6px; min-width:0}
+.div-tile.off{opacity:.45}
+.div-tile input:not([type=checkbox]){background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:7px 8px; font-size:.85rem; min-width:0}
+.div-tile input.falta{border-color:var(--bad)}
+.div-vista{position:relative; border-radius:8px; overflow:hidden; touch-action:none; background:#fff}
+.div-vista canvas{display:block; width:100%; height:auto}
+.div-som{position:absolute; left:0; right:0; background:rgba(8,10,20,.62); pointer-events:none}
+.div-som.arriba{top:0}
+.div-som.abajo{bottom:0}
+.div-linea{position:absolute; left:0; right:0; height:16px; margin-top:-8px; cursor:ns-resize; z-index:2}
+.div-linea::after{content:""; position:absolute; left:0; right:0; top:7px; height:3px; background:var(--magenta); box-shadow:0 0 8px var(--magenta)}
+.div-linea::before{content:"⇕"; position:absolute; right:6px; top:-4px; font-size:14px; color:#fff; background:var(--magenta); border-radius:6px; padding:0 5px; line-height:22px}
 .expl{grid-column:1 / -1; font-size:.78rem; color:var(--muted)}
 .expl summary{cursor:pointer}
 .expl div{padding:4px 2px 0}
@@ -376,8 +392,8 @@ table.ins td.c{text-align:center}
     if (!EDC) EDC = JSON.parse(JSON.stringify(C.memoria_cartas));
     $("#vista").innerHTML = `
       <section class="panel-doc">
-        <p class="note">Suba <b>un PDF</b> con varias imágenes y su explicación debajo: la plataforma separa cada imagen como una carta y saca de la explicación el <b>concepto</b> que el estudiante debe escribir y una pista. También puede subir imágenes sueltas (el nombre del archivo se usa como concepto: <code>impuesto_de_salida.png</code> → «Impuesto de salida»). Revise siempre los conceptos antes de guardar. La validación ignora mayúsculas, tildes y espacios.</p>
-        <label class="drop" id="drop" for="archivos"><b>📄 Subir PDF o imágenes</b> · arrástrelos aquí o toque para elegir (puede elegir varios a la vez)
+        <p class="note">Suba sus <b>láminas</b> (una imagen con varios cuadros: título, dibujo y explicación) o un <b>PDF</b>. La plataforma separa cada cuadro como una carta que muestra <b>solo el dibujo</b>: el título pasa a ser el <b>concepto</b> que el estudiante escribe y la explicación, la pista. Antes de crear las cartas usted revisa cada recorte. Las cartas que ya subió se pueden separar con <b>✂️ Dividir</b>. La validación ignora mayúsculas, tildes y espacios.</p>
+        <label class="drop" id="drop" for="archivos"><b>📄 Subir láminas, imágenes o PDF</b> · arrástrelos aquí o toque para elegir (puede elegir varios a la vez)
           <input id="archivos" type="file" accept="application/pdf,.pdf,image/*" multiple hidden></label>
         <input id="cambiarImg" type="file" accept="image/*" hidden>
         <div class="row" style="justify-content:space-between; margin-top:10px"><span class="note">${EDC.length} carta${EDC.length === 1 ? "" : "s"}</span><button class="btn ghost" type="button" id="emoji">+ Carta con emoji</button></div>
@@ -391,13 +407,22 @@ table.ins td.c{text-align:center}
               ${c.img ? "" : `<input data-campo="ico" data-i="${i}" value="${esc(c.ico)}" placeholder="Emoji" aria-label="Emoji de la carta ${i + 1}">`}
               ${c.explicacion ? `<details class="expl"><summary>Explicación del PDF</summary><div>${esc(c.explicacion)}</div></details>` : ""}
             </div>
-            <button type="button" class="quitar" data-quitar="${i}" aria-label="Quitar carta ${i + 1}">✕</button>
+            <span class="acciones-carta">${c.img ? `<button type="button" class="btn ghost" data-dividir="${i}" title="Separar esta imagen en varias cartas o quitarle el título">✂️ Dividir</button>` : ""}<button type="button" class="quitar" data-quitar="${i}" aria-label="Quitar carta ${i + 1}">✕</button></span>
           </div>`).join("") : `<p class="note">Todavía no hay cartas. Suba imágenes arriba.</p>`}</div>
         <div class="barra-guardar"><span class="note" id="nota"></span><button class="btn primary" type="button" id="guardarCartas">💾 GUARDAR CARTAS</button></div>
       </section>`;
     const lista = $("#lista");
     lista.querySelectorAll("[data-campo]").forEach(inp => inp.addEventListener("input", () => { EDC[inp.dataset.i][inp.dataset.campo] = inp.value; if (inp.dataset.campo === "concepto") inp.classList.toggle("falta", !inp.value.trim()); }));
     lista.querySelectorAll("[data-quitar]").forEach(b => b.addEventListener("click", () => { EDC.splice(Number(b.dataset.quitar), 1); pintarCartas(); aviso("Carta quitada. Toque Guardar para confirmar."); }));
+    lista.querySelectorAll("[data-dividir]").forEach(b => b.addEventListener("click", async () => {
+      const i = Number(b.dataset.dividir), c = EDC[i];
+      aviso("Abriendo la imagen…");
+      try {
+        const lienzo = await memoriaLienzoDe(c.img);
+        const hechas = await memoriaDividirLamina({ lienzo, nombre: c.concepto || "Imagen " + (i + 1), tema: T.titulo, subir: bl => subirBlob(bl, "carta") });
+        if (hechas.length) { EDC.splice(i, 1, ...hechas); pintarCartas(); aviso(`Se reemplazó por ${hechas.length} carta(s). Toque <b>Guardar cartas</b>.`); } else aviso("");
+      } catch (e) { aviso(esc(e.message || e), true); }
+    }));
     lista.querySelectorAll("[data-cambiar]").forEach(b => b.addEventListener("click", () => { cambiarIdx = Number(b.dataset.cambiar); $("#cambiarImg").click(); }));
     $("#emoji").addEventListener("click", () => { EDC.push({ img: "", ico: "📌", concepto: "", pista: "", otras: "" }); pintarCartas(); });
     const agregar = async files => {
@@ -408,9 +433,15 @@ table.ins td.c{text-align:center}
       // PDF: cada imagen con su explicación de abajo → una carta.
       for (const f of pdfs) {
         try {
-          const { cartas, avisos: av } = await memoriaExtraerCartasDePdf(f, m => aviso(`${esc(f.name)}: ${m}`));
+          const { cartas, avisos: av, laminas } = await memoriaExtraerCartasDePdf(f, m => aviso(`${esc(f.name)}: ${m}`));
           avisos.push(...av);
-          if (!cartas.length) { avisos.push(`${f.name}: no se encontraron imágenes con su explicación.`); continue; }
+          // Páginas que son una sola imagen (lámina o escaneo): se dividen en cuadros.
+          for (const lam of laminas) {
+            const hechas = await memoriaDividirLamina({ lienzo: lam.lienzo, nombre: `${f.name} · página ${lam.pagina}`, tema: T.titulo, subir: b => subirBlob(b, f.name) });
+            EDC.push(...hechas);
+            if (hechas.length) resumen.push(`${hechas.length} carta${hechas.length === 1 ? "" : "s"} de la página ${lam.pagina}`);
+          }
+          if (!cartas.length) { if (!laminas.length) avisos.push(`${f.name}: no se encontraron imágenes con su explicación.`); continue; }
           aviso(`${esc(f.name)}: buscando el concepto de cada explicación…`);
           const ia = await memoriaConceptosDeTextos(cartas.map(c => c.texto), T.titulo);
           let n = 0;
@@ -422,13 +453,19 @@ table.ins td.c{text-align:center}
           resumen.push(`${cartas.length} carta${cartas.length === 1 ? "" : "s"} de ${f.name}`);
         } catch (e) { avisos.push(`${f.name}: ${e.message || e}`); }
       }
+      // Imágenes: cada una se revisa en el divisor (una lámina con varios
+      // cuadros → varias cartas; una imagen simple → 1 carta sin el título).
       let n = 0;
       for (const f of fs) {
-        aviso(`Subiendo imágenes… ${++n}/${fs.length}`);
-        try { EDC.push({ img: await subirImagen(f), ico: "", concepto: conceptoDeArchivo(f.name), pista: "", otras: "" }); }
-        catch (e) { avisos.push(e.message); }
+        aviso(`Abriendo ${esc(f.name)} (${++n}/${fs.length})…`);
+        try {
+          const lienzo = await memoriaLienzoDe(f);
+          const hechas = await memoriaDividirLamina({ lienzo, nombre: f.name, tema: T.titulo, subir: b => subirBlob(b, f.name) });
+          hechas.forEach(h => { if (!h.concepto) h.concepto = conceptoDeArchivo(f.name); });
+          EDC.push(...hechas);
+          if (hechas.length) resumen.push(`${hechas.length} carta${hechas.length === 1 ? "" : "s"} de ${f.name}`);
+        } catch (e) { avisos.push(`${f.name}: ${e.message || e}`); }
       }
-      if (fs.length) resumen.push(`${fs.length} imagen${fs.length === 1 ? "" : "es"}`);
       pintarCartas();
       const sinConcepto = EDC.filter(c => !(c.concepto || "").trim()).length;
       aviso((resumen.length ? `Se agregaron ${resumen.join(" y ")}. ` : "") + (sinConcepto ? `<b>${sinConcepto} carta(s) sin concepto</b> (en rojo): escríbalo. ` : "") + "Revise los conceptos y toque <b>Guardar cartas</b>." + (avisos.length ? `<br>⚠️ ${avisos.map(esc).join("<br>⚠️ ")}` : ""), !resumen.length && avisos.length);
