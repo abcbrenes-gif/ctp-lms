@@ -8,8 +8,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=20261029b"></script>
-<script src="js/actividades.js?v=20261029b"></script>
+<script src="js/config.js?v=20261029c"></script>
+<script src="js/actividades.js?v=20261029c"></script>
+<script src="js/memoria-pdf.js?v=20261029c"></script>
 <style>
 /* Layout: consola de juego — panel de métricas arriba, tablero al centro, barra de respuesta fija abajo. Un solo look oscuro a propósito. */
 :root{
@@ -218,6 +219,9 @@ table.ins th.nv-avanzado{color:var(--ok)} table.ins th.nv-intermedio{color:var(-
 table.ins td.c{text-align:center}
 .modal code{font-family:var(--mono); color:var(--cyan)}
 .panel-doc code{font-family:var(--mono); color:var(--cyan)}
+.expl{grid-column:1 / -1; font-size:.78rem; color:var(--muted)}
+.expl summary{cursor:pointer}
+.expl div{padding:4px 2px 0}
 </style>
 </head>
 <body>
@@ -361,20 +365,20 @@ table.ins td.c{text-align:center}
       im.src = url;
     });
   }
-  async function subirImagen(file) {
-    const blob = await achicar(file);
+  async function subirImagen(file) { return subirBlob(await achicar(file), file.name); }
+  async function subirBlob(blob, nombre) {
     const ruta = `memoria/${T.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
     const { error } = await sb.storage.from("materiales").upload(ruta, blob, { contentType: "image/webp" });
-    if (error) throw new Error("No se pudo subir " + file.name + ": " + error.message);
+    if (error) throw new Error("No se pudo subir " + (nombre || "la imagen") + ": " + error.message);
     return sb.storage.from("materiales").getPublicUrl(ruta).data.publicUrl;
   }
   function pintarCartas() {
     if (!EDC) EDC = JSON.parse(JSON.stringify(C.memoria_cartas));
     $("#vista").innerHTML = `
       <section class="panel-doc">
-        <p class="note">Suba las imágenes y escriba el <b>concepto exacto</b> de cada una. El nombre del archivo se usa como concepto inicial (<code>impuesto_de_salida.png</code> → «Impuesto de salida»). La validación ignora mayúsculas, tildes y espacios.</p>
-        <label class="drop" id="drop" for="archivos"><b>Subir imágenes</b> · arrástrelas aquí o toque para elegir (puede elegir muchas a la vez)
-          <input id="archivos" type="file" accept="image/*" multiple hidden></label>
+        <p class="note">Suba <b>un PDF</b> con varias imágenes y su explicación debajo: la plataforma separa cada imagen como una carta y saca de la explicación el <b>concepto</b> que el estudiante debe escribir y una pista. También puede subir imágenes sueltas (el nombre del archivo se usa como concepto: <code>impuesto_de_salida.png</code> → «Impuesto de salida»). Revise siempre los conceptos antes de guardar. La validación ignora mayúsculas, tildes y espacios.</p>
+        <label class="drop" id="drop" for="archivos"><b>📄 Subir PDF o imágenes</b> · arrástrelos aquí o toque para elegir (puede elegir varios a la vez)
+          <input id="archivos" type="file" accept="application/pdf,.pdf,image/*" multiple hidden></label>
         <input id="cambiarImg" type="file" accept="image/*" hidden>
         <div class="row" style="justify-content:space-between; margin-top:10px"><span class="note">${EDC.length} carta${EDC.length === 1 ? "" : "s"}</span><button class="btn ghost" type="button" id="emoji">+ Carta con emoji</button></div>
         <div class="ed-lista" id="lista">${EDC.length ? EDC.map((c, i) => `
@@ -385,6 +389,7 @@ table.ins td.c{text-align:center}
               <input data-campo="pista" data-i="${i}" value="${esc(c.pista)}" placeholder="Pista corta (opcional)" aria-label="Pista de la carta ${i + 1}">
               <input data-campo="otras" data-i="${i}" value="${esc(c.otras)}" placeholder="Otras respuestas válidas; separadas por ;" aria-label="Otras respuestas de la carta ${i + 1}">
               ${c.img ? "" : `<input data-campo="ico" data-i="${i}" value="${esc(c.ico)}" placeholder="Emoji" aria-label="Emoji de la carta ${i + 1}">`}
+              ${c.explicacion ? `<details class="expl"><summary>Explicación del PDF</summary><div>${esc(c.explicacion)}</div></details>` : ""}
             </div>
             <button type="button" class="quitar" data-quitar="${i}" aria-label="Quitar carta ${i + 1}">✕</button>
           </div>`).join("") : `<p class="note">Todavía no hay cartas. Suba imágenes arriba.</p>`}</div>
@@ -396,14 +401,37 @@ table.ins td.c{text-align:center}
     lista.querySelectorAll("[data-cambiar]").forEach(b => b.addEventListener("click", () => { cambiarIdx = Number(b.dataset.cambiar); $("#cambiarImg").click(); }));
     $("#emoji").addEventListener("click", () => { EDC.push({ img: "", ico: "📌", concepto: "", pista: "", otras: "" }); pintarCartas(); });
     const agregar = async files => {
-      const fs = [...files].filter(f => f.type.startsWith("image/"));
+      const todos = [...files];
+      const pdfs = todos.filter(f => f.type === "application/pdf" || /\.pdf$/i.test(f.name));
+      const fs = todos.filter(f => f.type.startsWith("image/"));
+      const resumen = [], avisos = [];
+      // PDF: cada imagen con su explicación de abajo → una carta.
+      for (const f of pdfs) {
+        try {
+          const { cartas, avisos: av } = await memoriaExtraerCartasDePdf(f, m => aviso(`${esc(f.name)}: ${m}`));
+          avisos.push(...av);
+          if (!cartas.length) { avisos.push(`${f.name}: no se encontraron imágenes con su explicación.`); continue; }
+          aviso(`${esc(f.name)}: buscando el concepto de cada explicación…`);
+          const ia = await memoriaConceptosDeTextos(cartas.map(c => c.texto), T.titulo);
+          let n = 0;
+          for (let k = 0; k < cartas.length; k++) {
+            aviso(`${esc(f.name)}: subiendo imágenes… ${++n}/${cartas.length}`);
+            const img = await subirBlob(cartas[k].blob, f.name);
+            EDC.push({ img, ico: "", concepto: ia[k].concepto || "", pista: ia[k].pista || "", otras: ia[k].otras || "", explicacion: (cartas[k].texto || "").replace(/\n/g, " ").trim() });
+          }
+          resumen.push(`${cartas.length} carta${cartas.length === 1 ? "" : "s"} de ${f.name}`);
+        } catch (e) { avisos.push(`${f.name}: ${e.message || e}`); }
+      }
       let n = 0;
       for (const f of fs) {
         aviso(`Subiendo imágenes… ${++n}/${fs.length}`);
         try { EDC.push({ img: await subirImagen(f), ico: "", concepto: conceptoDeArchivo(f.name), pista: "", otras: "" }); }
-        catch (e) { aviso(esc(e.message), true); pintarCartas(); return; }
+        catch (e) { avisos.push(e.message); }
       }
-      pintarCartas(); aviso(`Se subieron ${fs.length} imagen${fs.length === 1 ? "" : "es"}. Revise los conceptos y toque <b>Guardar cartas</b>.`);
+      if (fs.length) resumen.push(`${fs.length} imagen${fs.length === 1 ? "" : "es"}`);
+      pintarCartas();
+      const sinConcepto = EDC.filter(c => !(c.concepto || "").trim()).length;
+      aviso((resumen.length ? `Se agregaron ${resumen.join(" y ")}. ` : "") + (sinConcepto ? `<b>${sinConcepto} carta(s) sin concepto</b> (en rojo): escríbalo. ` : "") + "Revise los conceptos y toque <b>Guardar cartas</b>." + (avisos.length ? `<br>⚠️ ${avisos.map(esc).join("<br>⚠️ ")}` : ""), !resumen.length && avisos.length);
     };
     $("#archivos").addEventListener("change", e => { agregar(e.target.files); e.target.value = ""; });
     $("#cambiarImg").addEventListener("change", async e => {
@@ -416,7 +444,7 @@ table.ins td.c{text-align:center}
     ["dragleave", "drop"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove("over"); }));
     drop.addEventListener("drop", e => agregar(e.dataTransfer.files));
     $("#guardarCartas").addEventListener("click", async ev => {
-      const limpio = EDC.map(c => ({ img: c.img || "", ico: (c.ico || "").trim(), concepto: (c.concepto || "").trim(), pista: (c.pista || "").trim(), otras: (c.otras || "").trim() }));
+      const limpio = EDC.map(c => ({ img: c.img || "", ico: (c.ico || "").trim(), concepto: (c.concepto || "").trim(), pista: (c.pista || "").trim(), otras: (c.otras || "").trim(), ...(c.explicacion ? { explicacion: c.explicacion } : {}) }));
       const falta = limpio.findIndex(c => !c.concepto);
       if (falta >= 0) { aviso(`Falta el concepto de la carta ${falta + 1}.`, true); return; }
       if (limpio.some(c => !c.img && !c.ico)) { aviso("Cada carta necesita una imagen o un emoji.", true); return; }
@@ -574,7 +602,7 @@ table.ins td.c{text-align:center}
   function comenzar() {
     clearInterval(S.reloj);
     const base = C.memoria_cartas, n = C.memoria_cfg.cantidad === "todas" ? base.length : Math.min(Number(C.memoria_cfg.cantidad) || 12, base.length);
-    S.cartas = barajar(base.slice()).slice(0, n).map((c, i) => ({ id: i, ico: c.ico, img: c.img, concepto: c.concepto, pista: c.pista,
+    S.cartas = barajar(base.slice()).slice(0, n).map((c, i) => ({ id: i, ico: c.ico, img: c.img, concepto: c.concepto, pista: c.pista, explicacion: c.explicacion || "",
       validas: [c.concepto, ...String(c.otras || "").split(";")].map(norm).filter(Boolean), hecha: false, fallos: 0, pistaUsada: false }));
     Object.assign(S, { activa: null, puntos: 0, combo: 0, mejorCombo: 0, intentos: 0, aciertos: 0, pistas: 0, inicio: 0, fin: 0, bloqueado: false });
     $("#vista").innerHTML = `
@@ -635,6 +663,7 @@ table.ins td.c{text-align:center}
       S.puntos += Math.max(20, (100 - c.fallos * 20 - (c.pistaUsada ? 25 : 0)) * mult);
       c.hecha = true;
       b.querySelector("[data-solved]").textContent = c.concepto;
+      if (c.explicacion) b.title = c.explicacion;
       b.classList.remove("active", "bad"); b.classList.add("done", "ok"); b.disabled = true;
       toast(b, FRASES[Math.floor(Math.random() * FRASES.length)] + (mult > 1 ? ` ×${mult}` : ""), "ok");
       sonido(true); S.activa = null; ocultarRespuesta(); pintarHUD(true);
