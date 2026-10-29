@@ -56,8 +56,14 @@ const TIRADERA_NIVELES_AUTO = {
   participacion_pct: { avanzado: "Responde el 85 % o más de los retos dentro del tiempo establecido.", intermedio: "Responde a tiempo entre el 60 % y el 84 % de los retos.", inicial: "Responde a tiempo entre el 35 % y el 59 % de los retos." },
   precision_pct: { avanzado: "El 85 % o más de sus puntos son ganados; casi no comete errores.", intermedio: "Entre el 60 % y el 84 % de sus puntos son ganados; comete algunos errores.", inicial: "Entre el 35 % y el 59 % de sus puntos son ganados; comete errores frecuentes." },
   rapidez_pct: { avanzado: "En sus aciertos le sobra, en promedio, el 43 % o más del tiempo disponible.", intermedio: "En sus aciertos le sobra, en promedio, entre el 30 % y el 42 % del tiempo.", inicial: "En sus aciertos le sobra, en promedio, entre el 18 % y el 29 % del tiempo." },
-  aportes_pct: { avanzado: "Propone 3 o más preguntas que el docente aprueba.", intermedio: "Propone 2 preguntas que el docente aprueba.", inicial: "Propone 1 pregunta que el docente aprueba." }
+  aportes_pct: { avanzado: "Propone 3 o más preguntas que el docente aprueba.", intermedio: "Propone 2 preguntas que el docente aprueba.", inicial: "Propone 1 pregunta que el docente aprueba." },
+  // Memoria Contable (memoria.html): se calculan con la partida del estudiante.
+  memoria_dominio_pct: { avanzado: "Escribe correctamente al primer intento el 85 % o más de los conceptos.", intermedio: "Escribe correctamente al primer intento entre el 60 % y el 84 % de los conceptos.", inicial: "Escribe correctamente al primer intento entre el 35 % y el 59 % de los conceptos." },
+  memoria_precision_pct: { avanzado: "El 85 % o más de sus respuestas son correctas.", intermedio: "Entre el 60 % y el 84 % de sus respuestas son correctas.", inicial: "Entre el 35 % y el 59 % de sus respuestas son correctas." },
+  memoria_autonomia_pct: { avanzado: "Resuelve el 85 % o más de las cartas sin usar pistas.", intermedio: "Resuelve sin pistas entre el 60 % y el 84 % de las cartas.", inicial: "Resuelve sin pistas entre el 35 % y el 59 % de las cartas." },
+  memoria_rapidez_pct: { avanzado: "Resuelve cada carta en 12 segundos o menos, en promedio.", intermedio: "Resuelve cada carta en 13 a 20 segundos, en promedio.", inicial: "Resuelve cada carta en 21 a 30 segundos, en promedio." }
 };
+const MEMORIA_INSTRUMENTO_BASE = { componente: "Trabajo cotidiano", tipo: "Escala de desempeño", subarea: "", unidad: "", resultado: "", indicador: "" };
 const TIRADERA_NIVELES_MANUAL = { avanzado: "Cumple el indicador de forma completa y constante durante toda la dinámica.", intermedio: "Cumple el indicador la mayor parte del tiempo, con apoyo ocasional.", inicial: "Cumple el indicador de forma parcial o requiere apoyo frecuente." };
 const TIRADERA_INSTRUMENTO_BASE = { componente: "Trabajo cotidiano", tipo: "Escala de desempeño", subarea: "", unidad: "", resultado: "", indicador: "" };
 function tiraderaNivelesDe(c) { return { ...(c && c.auto ? TIRADERA_NIVELES_AUTO[c.auto] : TIRADERA_NIVELES_MANUAL), ...((c && c.niveles) || {}) }; }
@@ -96,6 +102,21 @@ const ESTRATEGIAS_EVALUACION = {
         niveles: { avanzado: "Participa activamente, respeta los turnos y apoya a sus compañeros durante toda la dinámica.", intermedio: "Participa y respeta las normas de la dinámica la mayor parte del tiempo.", inicial: "Participa poco o requiere llamadas de atención frecuentes." } }
     ],
     demo: { escenario: "Tiradera sobre planillas, aguinaldo y liquidación laboral.", puntajes: [3, 3, 2, 2, 3] }
+  },
+  // Memoria Contable: juego individual (memoria.html). El estudiante voltea
+  // cartas con imágenes que sube el docente y digita el concepto técnico.
+  // Al terminar, la nota se calcula sola con los indicadores automáticos
+  // (85 % o más = 3, 60–84 % = 2, 35–59 % = 1, menos de 35 % = 0).
+  juego_memoria: {
+    tipo: "rubrica_directa", grupo: "Juegos en vivo", icono: "🧠", etiqueta: "Memoria Contable (cartas con imágenes)", memoria: true,
+    instrucciones: "Juego individual (trabajo cotidiano). El estudiante voltea cada carta, observa la imagen y digita el concepto técnico exacto. Instrumento: escala de desempeño con indicadores de logro y niveles Avanzado (3), Intermedio (2) e Inicial (1); 0 si no presenta evidencia. Los indicadores se calculan solos con la partida (85 % o más = 3, 60–84 % = 2, 35–59 % = 1, menos de 35 % = 0). Calificación = puntos obtenidos × 100 ÷ total de puntos.",
+    criterios: [
+      { nombre: "Identifica los conceptos técnicos del tema a partir de su representación gráfica.", puntos_max: 3, auto: "memoria_dominio_pct" },
+      { nombre: "Escribe con exactitud la terminología técnica del tema.", puntos_max: 3, auto: "memoria_precision_pct" },
+      { nombre: "Resuelve los retos de forma autónoma, sin depender de pistas.", puntos_max: 3, auto: "memoria_autonomia_pct" },
+      { nombre: "Recuerda los conceptos con agilidad al resolver cada carta.", puntos_max: 3, auto: "memoria_rapidez_pct" }
+    ],
+    demo: { escenario: "Memoria Contable con imágenes de impuestos (aduana, marchamo, IVA).", puntajes: [3, 3, 2, 2] }
   },
   lista_cotejo_general: {
     tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "✅", etiqueta: "Lista de cotejo general",

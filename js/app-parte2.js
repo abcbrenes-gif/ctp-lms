@@ -2988,7 +2988,7 @@ async function renderSubtema(id, soloLectura) {
         const resultado = leerContenidoActividadDesdeFormulario(tipo, panel.querySelector("#actividad-constructor"));
         if (!resultado.valido) { alert(resultado.error); return; }
         const presetElegido = ESTRATEGIAS_EVALUACION[valorSelect];
-        if (presetElegido && presetElegido.tiradera) {
+        if (presetElegido && (presetElegido.tiradera || presetElegido.memoria)) {
           // Se marca la estrategia y qué dato del juego alimenta cada criterio.
           resultado.contenido.estrategia = valorSelect;
           resultado.contenido.criterios = (resultado.contenido.criterios || []).map((c, i) => {
@@ -2999,7 +2999,13 @@ async function renderSubtema(id, soloLectura) {
             x.niveles = base.nombre === c.nombre && base.niveles ? base.niveles : tiraderaNivelesDe(x);
             return x;
           });
-          resultado.contenido.tiradera_instrumento = { ...TIRADERA_INSTRUMENTO_BASE, unidad: titulo };
+          if (presetElegido.memoria) {
+            resultado.contenido.memoria_instrumento = { ...MEMORIA_INSTRUMENTO_BASE, unidad: titulo };
+            resultado.contenido.memoria_cartas = [];
+            resultado.contenido.memoria_cfg = { cantidad: 12, cuenta: "primero" };
+          } else {
+            resultado.contenido.tiradera_instrumento = { ...TIRADERA_INSTRUMENTO_BASE, unidad: titulo };
+          }
         }
         if (!pub.materia_id) { alert("Este subtema no tiene una materia asociada, no se puede crear el indicador de calificación."); return; }
         const horaInicioInput = panel.querySelector("#au-prueba-hora-inicio");
@@ -3869,6 +3875,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
     }).map((h, i) => `<div data-fila-trabajo="${trabajos[i].id}" style="display:contents">${h}</div>`).join("");
     await agregarDocumentoDefinitivo(holder, trabajos, estudianteId);
     mepInyectarBotonesTrabajos(holder, trabajos);
+    memoriaInyectarBotones(holder, trabajos);
 
     holder.querySelectorAll("[data-mi-trabajo-subtema]").forEach(cb => {
       cb.addEventListener("change", async () => {
@@ -4155,6 +4162,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
             ${t.tipo_actividad === "respuesta_abierta" ? `<button class="btn secondary small" data-ver-entregas-abiertas="${t.id}">📨 Ver entregas</button>` : ""}
             ${t.tipo_actividad === "autoevaluacion" ? `<button class="btn secondary small" data-ver-autoeval="${t.id}">🪞 Ver respuestas</button>` : ""}
             ${t.contenido_actividad && t.contenido_actividad.estrategia === "juego_tiradera" ? `<a class="btn small" href="tiradera.html?trabajo=${t.id}" target="_blank" rel="noopener">⚡ Lanzar La Tiradera</a>` : ""}
+            ${t.contenido_actividad && t.contenido_actividad.estrategia === "juego_memoria" ? `<a class="btn small" href="memoria.html?trabajo=${t.id}&docente=1" target="_blank" rel="noopener">🧠 Cartas y evaluación</a>` : ""}
             ${t.tipo_actividad === "rubrica_directa" ? `<button class="btn secondary small" data-calificar-rubrica="${t.id}">🧮 Calificar</button>` : ""}
             ${esEditable(t) ? `<button class="btn secondary small" data-editar-trabajo-subtema="${t.id}">✏️ Editar</button>` : ""}
             ${t.indicador_id
@@ -5516,6 +5524,51 @@ async function pintarPanelAutoevaluaciones(panel, trabajo) {
 // Panel del profesor para "Rúbrica / Lista de cotejo": NO hay entrega del
 // estudiante — el profesor califica directamente a cada integrante de la
 // sección con los criterios definidos, y se calcula la nota 0-3 sola.
+// Memoria Contable: resumen de las partidas de cada estudiante (la nota se
+// guarda sola al terminar; acá el docente la revisa y puede ajustarla).
+function pintarBloqueMemoria(trabajo, ordenados, nombrePorId, entregaPorEstudiante) {
+  const c = trabajo.contenido_actividad || {};
+  const cartas = (c.memoria_cartas || []).length;
+  const filas = ordenados.map(id => {
+    const e = entregaPorEstudiante[id];
+    const m = e && e.datos_prueba && e.datos_prueba.memoria;
+    const cal = m && m.calificada;
+    const n = m && Array.isArray(m.partidas) ? m.partidas.length : 0;
+    return `<tr><td>${escAC(nombrePorId[id] || id)}</td>
+      <td style="text-align:center;">${n || "—"}</td>
+      <td style="text-align:center;">${cal ? cal.aciertos + "/" + cal.cartas : "—"}</td>
+      <td style="text-align:center;">${cal ? Math.round(cal.precision_pct) + " %" : "—"}</td>
+      <td style="text-align:center;">${cal ? cal.pistas : "—"}</td>
+      <td style="text-align:center;">${cal ? Math.round(cal.segundos_por_carta) + " s" : "—"}</td>
+      <td style="text-align:center; font-weight:700;">${e && e.puntaje != null ? e.puntaje + "/3" : "—"}</td></tr>`;
+  }).join("");
+  return `<div style="background:var(--surface-soft); border:1px solid var(--paper-line); border-radius:10px; padding:0.8rem; margin-bottom:0.8rem;">
+    <div class="row" style="align-items:center; justify-content:space-between; gap:0.5rem; margin-bottom:0.5rem;">
+      <strong>🧠 Memoria Contable <span style="font-weight:400; color:var(--text-muted); font-size:0.8rem;">· ${cartas} carta${cartas === 1 ? "" : "s"} · cuenta ${c.memoria_cfg && c.memoria_cfg.cuenta === "mejor" ? "la mejor partida" : "la primera partida completa"}</span></strong>
+      <a class="btn small" href="memoria.html?trabajo=${trabajo.id}&docente=1" target="_blank" rel="noopener">🧠 Cartas y evaluación</a>
+    </div>
+    <p style="font-size:0.78rem; color:var(--text-muted); margin:0 0 0.5rem;">La nota se guarda sola cuando el estudiante termina el tablero, con los indicadores automáticos. Si agregó indicadores "a mano", califíquelos abajo y toque Guardar nota.</p>
+    <div style="overflow-x:auto;"><table class="grades" style="font-size:0.82rem;"><thead><tr><th>Estudiante</th><th>Partidas</th><th>Aciertos</th><th>Precisión</th><th>Pistas</th><th>Tiempo/carta</th><th>Nota</th></tr></thead><tbody>${filas}</tbody></table></div>
+  </div>`;
+}
+
+// Botón "🧠 Jugar" en los trabajos de Memoria Contable que ve el estudiante.
+function memoriaInyectarBotones(holder, trabajos) {
+  try {
+    (trabajos || []).filter(t => t.contenido_actividad && t.contenido_actividad.estrategia === "juego_memoria").forEach(t => {
+      const fila = holder.querySelector(`[data-fila-trabajo="${t.id}"]`);
+      const destino = fila && (fila.firstElementChild || fila);
+      if (!destino || destino.querySelector("[data-memoria-jugar]")) return;
+      const a = document.createElement("a");
+      a.className = "btn small"; a.dataset.memoriaJugar = t.id;
+      a.href = `memoria.html?trabajo=${t.id}&est=${encodeURIComponent(session && session.id || "")}`;
+      a.style.cssText = "margin-top:0.3rem; align-self:flex-start;";
+      a.textContent = "🧠 Jugar Memoria Contable";
+      destino.appendChild(a);
+    });
+  } catch (e) { console.warn("memoria botones", e); }
+}
+
 async function pintarPanelCalificarRubrica(panel, trabajo, materiaId) {
   const criterios = (trabajo.contenido_actividad && trabajo.contenido_actividad.criterios) || [];
   const { data: inscritos } = await sb.from("estudiante_materias").select("estudiante_id").eq("materia_id", materiaId);
@@ -5533,7 +5586,7 @@ async function pintarPanelCalificarRubrica(panel, trabajo, materiaId) {
   const entregaPorEstudiante = {};
   (entregas || []).forEach(e => { entregaPorEstudiante[e.estudiante_id] = e; });
 
-  const esTiraderaTrabajo = trabajo.contenido_actividad && trabajo.contenido_actividad.estrategia === "juego_tiradera";
+  const esTiraderaTrabajo = trabajo.contenido_actividad && ["juego_tiradera", "juego_memoria"].includes(trabajo.contenido_actividad.estrategia);
   // En La Tiradera, los indicadores "a mano" se califican por nivel de desempeño (formato MEP).
   const campoCriterio = (estId, c, i, valor) => {
     if (esTiraderaTrabajo && !c.auto) {
@@ -5567,8 +5620,10 @@ async function pintarPanelCalificarRubrica(panel, trabajo, materiaId) {
   };
 
   const esTiradera = trabajo.contenido_actividad && trabajo.contenido_actividad.estrategia === "juego_tiradera";
+  const esMemoria = trabajo.contenido_actividad && trabajo.contenido_actividad.estrategia === "juego_memoria";
   panel.innerHTML = `
     ${esTiradera ? `<div data-tiradera-bloque style="margin-bottom:0.8rem;"></div>` : ""}
+    ${esMemoria ? pintarBloqueMemoria(trabajo, ordenados, nombrePorId, entregaPorEstudiante) : ""}
     <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">Ponele puntos a cada criterio por estudiante (podés dejar algunos sin calificar y volver después). La nota 0-3 se calcula sola según el % del total de puntos.</p>
     <div>${ordenados.map(filaEstudiante).join("")}</div>`;
   if (esTiradera) {
@@ -6571,6 +6626,7 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
     }).map((h, i) => `<div data-fila-trabajo="${trabajos[i].id}" style="display:contents">${h}</div>`).join("");
     await agregarDocumentoDefinitivo(holder, trabajos, estudianteId);
     mepInyectarBotonesTrabajos(holder, trabajos);
+    memoriaInyectarBotones(holder, trabajos);
 
     holder.querySelectorAll("[data-mi-trabajo]").forEach(cb => {
       cb.addEventListener("change", async () => {

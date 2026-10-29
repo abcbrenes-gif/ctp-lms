@@ -14,7 +14,11 @@ const UMBRALES = {
   participacion_pct: "85 % o más (Avanzado), 60–84 % (Intermedio), 35–59 % (Inicial) de los retos respondidos a tiempo",
   precision_pct: "85 % o más (Avanzado), 60–84 % (Intermedio), 35–59 % (Inicial) de sus puntos son ganados (frente a los perdidos por errores)",
   rapidez_pct: "en sus aciertos le sobra en promedio 43 % o más (Avanzado), 30–42 % (Intermedio), 18–29 % (Inicial) del tiempo",
-  aportes_pct: "3 o más (Avanzado), 2 (Intermedio), 1 (Inicial) preguntas propuestas que el docente aprueba"
+  aportes_pct: "3 o más (Avanzado), 2 (Intermedio), 1 (Inicial) preguntas propuestas que el docente aprueba",
+  memoria_dominio_pct: "85 % o más (Avanzado), 60–84 % (Intermedio), 35–59 % (Inicial) de los conceptos escritos bien al primer intento",
+  memoria_precision_pct: "85 % o más (Avanzado), 60–84 % (Intermedio), 35–59 % (Inicial) de respuestas correctas",
+  memoria_autonomia_pct: "85 % o más (Avanzado), 60–84 % (Intermedio), 35–59 % (Inicial) de las cartas resueltas sin pistas",
+  memoria_rapidez_pct: "12 s o menos por carta en promedio (Avanzado), 13–20 s (Intermedio), 21–30 s (Inicial)"
 };
 
 function extraerJson(texto) {
@@ -51,7 +55,7 @@ module.exports = async (req, res) => {
     : `un instrumento de evaluación de trabajo cotidiano para "La Tiradera", un juego en vivo en el que el estudiantado resuelve retos (selección única, falso y verdadero, sopa de letras y crucigrama) y compite por puntos`;
   const observar = actividad ? "durante la actividad o en el producto que entrega" : "durante la dinámica";
 
-  const listado = objetivo.map(c => `INDICADOR ${c.i + 1} (índice ${c.i}) — ${c.puntos_max} puntos — ${c.auto ? "AUTOMÁTICO (lo calcula el juego). Umbrales FIJOS que NO se pueden cambiar: " + UMBRALES[c.auto] : "A MANO (lo califica el docente)"}
+  const listado = objetivo.map(c => `INDICADOR ${c.i + 1} (índice ${c.i}) — ${c.puntos_max} puntos — ${c.auto ? "AUTOMÁTICO (lo calcula el juego con la partida). Umbrales FIJOS que NO se pueden cambiar: " + UMBRALES[c.auto] : "A MANO (lo califica el docente)"}
   Redacción actual: «${c.nombre || "(sin redactar)"}»
   Avanzado (3): «${c.niveles.avanzado}»
   Intermedio (2): «${c.niveles.intermedio}»
