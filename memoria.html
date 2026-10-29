@@ -208,7 +208,7 @@ a.btn{text-decoration:none; display:inline-flex; align-items:center}
 .nv-inicial{background:color-mix(in oklab, var(--bad) 22%, transparent); color:#ff8f9a}
 .nivel textarea{flex:1 1 16rem}
 .ind .quitar{background:transparent; border:1px solid var(--line); border-radius:8px; color:var(--bad); padding:6px 9px; cursor:pointer}
-.barra-guardar{position:sticky; bottom:0; display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:flex-end; padding-block:10px 4px; background:var(--panel); border-top:1px solid var(--line); margin-top:6px}
+.barra-guardar{position:sticky; bottom:0; z-index:5; display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:flex-end; padding-block:10px 4px; background:var(--panel); border-top:1px solid var(--line); margin-top:6px}
 .chk{display:flex; gap:8px; align-items:center; font-size:.9rem}
 .qty span{font-size:.8rem; color:var(--muted)}
 .ins-datos{background:var(--panel-2); border:1px solid var(--line); border-radius:12px; padding:10px 12px; font-size:.88rem; display:grid; gap:4px; margin:10px 0}
@@ -227,9 +227,10 @@ table.ins td.c{text-align:center}
 .div-tile.off{opacity:.45}
 .div-tile input:not([type=checkbox]){background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:7px 8px; font-size:.85rem; min-width:0}
 .div-tile input.falta{border-color:var(--bad)}
-.div-vista{position:relative; border-radius:8px; overflow:hidden; touch-action:none; background:#fff}
+.div-vista{position:relative; border-radius:8px; overflow:hidden; touch-action:none; background:#fff; isolation:isolate}
 .div-vista canvas{display:block; width:100%; height:auto}
-.div-som{position:absolute; left:0; right:0; background:rgba(8,10,20,.62); pointer-events:none}
+.div-som{position:absolute; left:0; right:0; background:repeating-linear-gradient(45deg, rgba(8,10,20,.86) 0 8px, rgba(8,10,20,.74) 8px 16px); pointer-events:none; display:flex; align-items:center; justify-content:center}
+.div-som::after{content:"no se muestra"; font-family:var(--display); font-size:.7rem; letter-spacing:.12em; text-transform:uppercase; color:#ffffffb0}
 .div-som.arriba{top:0}
 .div-som.abajo{bottom:0}
 .div-linea{position:absolute; left:0; right:0; height:16px; margin-top:-8px; cursor:ns-resize; z-index:2}

@@ -35,7 +35,7 @@ Para cada cuadro devolvé:
 - "explicacion": el texto de explicación del cuadro, tal cual.
 - "pista": pista breve (máximo 14 palabras) basada en la explicación, que NO incluya el concepto ni sus palabras.
 - "otras": otras respuestas válidas (siglas, singular/plural, sin la palabra «sociedades», etc.), separadas por ";". Vacío si no hay.
-- "dibujo_desde": fracción de la ALTURA del cuadro (0 = borde de arriba, 1 = borde de abajo) donde termina el título y empieza el dibujo. Dejá un pequeño margen para que NO se vea ninguna letra del título.
+- "dibujo_desde": fracción de la ALTURA del cuadro (0 = borde de arriba, 1 = borde de abajo) justo debajo de la ÚLTIMA línea del título (el título puede ocupar 2 líneas). No cortes el dibujo: si dentro del dibujo hay letreros o rótulos, esos sí se dejan visibles. Que NO se vea ninguna letra del título.
 - "dibujo_hasta": fracción de la altura donde termina el dibujo y empieza la explicación de abajo (si no hay explicación, cerca de 1).
 - "es_carta": false si el cuadro no es un concepto (portada, encabezado, logo, adorno); si no, true.
 
