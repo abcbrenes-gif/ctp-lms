@@ -5533,18 +5533,29 @@ async function pintarPanelAutoevaluaciones(panel, trabajo) {
 function pintarBloqueMemoria(trabajo, ordenados, nombrePorId, entregaPorEstudiante) {
   const c = trabajo.contenido_actividad || {};
   const cartas = (c.memoria_cartas || []).length;
+  let sinTerminar = 0;
   const filas = ordenados.map(id => {
     const e = entregaPorEstudiante[id];
     const m = e && e.datos_prueba && e.datos_prueba.memoria;
     const cal = m && m.calificada;
+    const vivo = m && m.en_curso;
     const n = m && Array.isArray(m.partidas) ? m.partidas.length : 0;
+    const x = cal || vivo;
+    const resueltas = x ? (x.resueltas != null ? x.resueltas : x.cartas) : null;
+    const tieneNota = e && e.puntaje != null && e.completado;
+    if (!tieneNota && vivo) sinTerminar++;
+    const estado = tieneNota ? (cal && cal.completa === false ? "🏁 Entregó sin terminar" : "✅ Terminó")
+      : vivo ? `⏳ Sin terminar: ${vivo.resueltas}/${vivo.cartas} cartas`
+      : "— No jugó (o jugó antes de que se guardara el avance)";
     return `<tr><td>${escAC(nombrePorId[id] || id)}</td>
+      <td style="font-size:0.78rem;">${estado}</td>
       <td style="text-align:center;">${n || "—"}</td>
-      <td style="text-align:center;">${cal ? cal.aciertos + "/" + cal.cartas : "—"}</td>
-      <td style="text-align:center;">${cal ? Math.round(cal.precision_pct) + " %" : "—"}</td>
-      <td style="text-align:center;">${cal ? cal.pistas : "—"}</td>
-      <td style="text-align:center;">${cal ? Math.round(cal.segundos_por_carta) + " s" : "—"}</td>
-      <td style="text-align:center; font-weight:700;">${e && e.puntaje != null ? e.puntaje + "/3" : "—"}</td></tr>`;
+      <td style="text-align:center;">${x ? resueltas + "/" + x.cartas : "—"}</td>
+      <td style="text-align:center;">${x ? Math.round(x.precision_pct) + " %" : "—"}</td>
+      <td style="text-align:center;">${x ? x.pistas : "—"}</td>
+      <td style="text-align:center;">${x && x.segundos_por_carta ? Math.round(x.segundos_por_carta) + " s" : "—"}</td>
+      <td style="text-align:center; font-weight:700;">${tieneNota ? e.puntaje + "/3" : "—"}</td>
+      <td>${!tieneNota && vivo ? `<button class="btn small" type="button" data-memoria-calificar="${escAC(id)}">Poner nota con lo que lleva</button>` : ""}</td></tr>`;
   }).join("");
   return `<div style="background:var(--surface-soft); border:1px solid var(--paper-line); border-radius:10px; padding:0.8rem; margin-bottom:0.8rem;">
     <div class="row" style="align-items:center; justify-content:space-between; gap:0.5rem; margin-bottom:0.5rem;">
@@ -5552,8 +5563,41 @@ function pintarBloqueMemoria(trabajo, ordenados, nombrePorId, entregaPorEstudian
       <a class="btn small" href="memoria.html?trabajo=${trabajo.id}&docente=1">🧠 Cartas y evaluación</a>
     </div>
     <p style="font-size:0.78rem; color:var(--text-muted); margin:0 0 0.5rem;">La nota se guarda sola cuando el estudiante termina el tablero, con los indicadores automáticos. Si agregó indicadores "a mano", califíquelos abajo y toque Guardar nota.</p>
-    <div style="overflow-x:auto;"><table class="grades" style="font-size:0.82rem;"><thead><tr><th>Estudiante</th><th>Partidas</th><th>Aciertos</th><th>Precisión</th><th>Pistas</th><th>Tiempo/carta</th><th>Nota</th></tr></thead><tbody>${filas}</tbody></table></div>
+    ${sinTerminar ? `<div class="row" style="gap:0.5rem; align-items:center; margin-bottom:0.5rem;"><button class="btn small" type="button" data-memoria-calificar-todos>📥 Poner nota con lo que llevan a los ${sinTerminar} que no terminaron</button><span style="font-size:0.78rem; color:var(--text-muted);">Las cartas que no resolvieron cuentan como no logradas.</span></div>` : ""}
+    <span data-memoria-estado style="font-size:0.8rem; color:var(--text-muted);"></span>
+    <div style="overflow-x:auto;"><table class="grades" style="font-size:0.82rem;"><thead><tr><th>Estudiante</th><th>Estado</th><th>Partidas</th><th>Cartas resueltas</th><th>Precisión</th><th>Pistas</th><th>Tiempo/carta</th><th>Nota</th><th></th></tr></thead><tbody>${filas}</tbody></table></div>
   </div>`;
+}
+
+// Pone la nota a quien no terminó el tablero, con lo que llevaba guardado.
+function ligarBloqueMemoria(panel, trabajo, entregaPorEstudiante, recargar) {
+  const criterios = (trabajo.contenido_actividad && trabajo.contenido_actividad.criterios) || [];
+  const estado = t => { const e = panel.querySelector("[data-memoria-estado]"); if (e) e.textContent = t; };
+  const calificarUno = async id => {
+    const e = entregaPorEstudiante[id];
+    const mem = (e && e.datos_prueba && e.datos_prueba.memoria) || {};
+    const m = mem.en_curso;
+    if (!m) return false;
+    const nota = memoriaNotaDesdeMetricas(criterios, m, Array.isArray(e.respuestas) ? e.respuestas : []);
+    const nuevo = { ...mem, partidas: [...(mem.partidas || []), { ...m, porcentaje: nota.porcentaje, puntaje: nota.puntaje, calificada_por_docente: true }].slice(-30), calificada: { ...m, completa: false, porcentaje: nota.porcentaje } };
+    delete nuevo.en_curso;
+    const { error } = await guardarNotaManualActividad(trabajo, id, nota.puntaje, { respuestas: nota.puntos, porcentaje: nota.porcentaje, datos_prueba: { ...(e.datos_prueba || {}), memoria: nuevo } });
+    if (error) throw new Error(error);
+    return true;
+  };
+  panel.querySelectorAll("[data-memoria-calificar]").forEach(b => b.addEventListener("click", async () => {
+    b.disabled = true; estado("Guardando nota…");
+    try { await calificarUno(b.dataset.memoriaCalificar); recargar(); } catch (err) { b.disabled = false; estado("No se pudo guardar: " + (err.message || err)); }
+  }));
+  const todos = panel.querySelector("[data-memoria-calificar-todos]");
+  if (todos) todos.addEventListener("click", async () => {
+    if (!confirm("¿Poner la nota con lo que llevan a todos los que no terminaron? Las cartas que no resolvieron cuentan como no logradas.")) return;
+    todos.disabled = true;
+    const ids = [...panel.querySelectorAll("[data-memoria-calificar]")].map(b => b.dataset.memoriaCalificar);
+    let ok = 0;
+    for (const id of ids) { estado(`Guardando notas… ${ok + 1}/${ids.length}`); try { if (await calificarUno(id)) ok++; } catch (err) { estado("Error con un estudiante: " + (err.message || err)); } }
+    recargar();
+  });
 }
 
 // Botón "🧠 Jugar" en los trabajos de Memoria Contable que ve el estudiante.
@@ -5647,6 +5691,7 @@ async function pintarPanelCalificarRubrica(panel, trabajo, materiaId) {
     pintarBloqueTiradera(panel.querySelector("[data-tiradera-bloque]"), panel, trabajo, ordenados, nombrePorId, estudiantes || [],
       () => pintarPanelCalificarRubrica(panel, trabajo, materiaId));
   }
+  if (esMemoria) ligarBloqueMemoria(panel, trabajo, entregaPorEstudiante, () => pintarPanelCalificarRubrica(panel, trabajo, materiaId));
 
   panel.querySelectorAll("[data-guardar-rubrica]").forEach(btn => {
     btn.addEventListener("click", async () => {

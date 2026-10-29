@@ -63,6 +63,17 @@ const TIRADERA_NIVELES_AUTO = {
   memoria_autonomia_pct: { avanzado: "Resuelve el 85 % o más de las cartas sin usar pistas.", intermedio: "Resuelve sin pistas entre el 60 % y el 84 % de las cartas.", inicial: "Resuelve sin pistas entre el 35 % y el 59 % de las cartas." },
   memoria_rapidez_pct: { avanzado: "Resuelve cada carta en 12 segundos o menos, en promedio.", intermedio: "Resuelve cada carta en 13 a 20 segundos, en promedio.", inicial: "Resuelve cada carta en 21 a 30 segundos, en promedio." }
 };
+// Nota de Memoria Contable a partir de las métricas de una partida (completa
+// o a medias). Las cartas que no resolvió cuentan como no logradas.
+function memoriaNotaDesdeMetricas(criterios, m, previos) {
+  const puntos = (criterios || []).map((c, i) => {
+    const max = Number(c.puntos_max) || 3;
+    if (c.auto && m && m[c.auto] != null) return Math.round(puntajeDesdePorcentaje(m[c.auto]) / 3 * max);
+    return previos && previos[i] != null ? Number(previos[i]) : 0; // indicador a mano: lo pone el docente
+  });
+  const porcentaje = porcentajeDesdeCriterios(criterios || [], puntos);
+  return { puntos, porcentaje, puntaje: puntajeDesdePorcentaje(porcentaje) };
+}
 const MEMORIA_INSTRUMENTO_BASE = { componente: "Trabajo cotidiano", tipo: "Escala de desempeño", subarea: "", unidad: "", resultado: "", indicador: "" };
 const TIRADERA_NIVELES_MANUAL = { avanzado: "Cumple el indicador de forma completa y constante durante toda la dinámica.", intermedio: "Cumple el indicador la mayor parte del tiempo, con apoyo ocasional.", inicial: "Cumple el indicador de forma parcial o requiere apoyo frecuente." };
 const TIRADERA_INSTRUMENTO_BASE = { componente: "Trabajo cotidiano", tipo: "Escala de desempeño", subarea: "", unidad: "", resultado: "", indicador: "" };

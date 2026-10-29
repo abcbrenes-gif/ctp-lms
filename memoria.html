@@ -8,10 +8,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=20261029e"></script>
-<script src="js/actividades.js?v=20261029e"></script>
-<script src="js/memoria-pdf.js?v=20261029e"></script>
-<script src="js/memoria-dividir.js?v=20261029e"></script>
+<script src="js/config.js?v=20261029f"></script>
+<script src="js/actividades.js?v=20261029f"></script>
+<script src="js/memoria-pdf.js?v=20261029f"></script>
+<script src="js/memoria-dividir.js?v=20261029f"></script>
 <style>
 /* Layout: consola de juego — panel de métricas arriba, tablero al centro, barra de respuesta fija abajo. Un solo look oscuro a propósito. */
 :root{
@@ -650,7 +650,7 @@ table.ins td.c{text-align:center}
         <div class="stat"><div class="k">Tiempo</div><div class="v" id="tiempo">00:00</div></div>
         <div class="stat"><div class="k">Precisión</div><div class="v" id="precision">—</div></div>
       </section>
-      <div class="progress-row"><div class="progress" aria-hidden="true"><i id="barra"></i></div><span id="progresoTxt">0/${n}</span></div>
+      <div class="progress-row"><div class="progress" aria-hidden="true"><i id="barra"></i></div><span id="progresoTxt">0/${n}</span><button class="btn ghost" type="button" id="entregarYa" title="Terminar y entregar con las cartas que llevás">🏁 Entregar ahora</button></div>
       <main class="board" id="tablero" aria-label="Tablero de cartas"></main>`;
     $("#pista").hidden = C.memoria_cfg.pistas === false;
     const slots = t => t.split(" ").map(w => "_".repeat(w.length).split("").join(" ")).join("   ");
@@ -667,8 +667,32 @@ table.ins td.c{text-align:center}
         </span>
       </button>`).join("");
     $("#tablero").querySelectorAll(".card").forEach(b => b.addEventListener("click", () => voltear(Number(b.dataset.id))));
+    $("#entregarYa").addEventListener("click", () => {
+      const h = S.cartas.filter(c => c.hecha).length;
+      abrirModal(`<h2>🏁 ¿Entregar ahora?</h2><p>Llevás <b>${h} de ${S.cartas.length}</b> cartas resueltas. Si entregás, las ${S.cartas.length - h} que faltan cuentan como <b>no logradas</b> en tu nota.</p>
+        <div class="row" style="justify-content:flex-end; margin-top:14px"><button class="btn ghost" type="button" id="seguir">Seguir jugando</button><button class="btn primary" type="button" id="entregarSi">Sí, entregar</button></div>`);
+      $("#seguir").addEventListener("click", cerrarModal);
+      $("#entregarSi").addEventListener("click", () => { cerrarModal(); taparActiva(); ocultarRespuesta(); terminar(true); });
+    });
     pintarHUD();
   }
+
+  // Guarda el avance mientras juega: si no termina el tablero, el docente
+  // puede calificarle lo que lleva.
+  let tAvance = null;
+  function guardarAvance(ya) {
+    if (S.prueba || !EST_ID || S.fin || !S.inicio) return;
+    clearTimeout(tAvance);
+    tAvance = setTimeout(async () => {
+      try {
+        const mem = (ENTREGA && ENTREGA.datos_prueba && ENTREGA.datos_prueba.memoria) || { partidas: [] };
+        const nuevo = { ...mem, en_curso: { ...medir(), en_curso: true } };
+        const { error } = await upsertSinConflicto("actividades_estudiante", { trabajo_id: T.id, estudiante_id: EST_ID }, { datos_prueba: { ...((ENTREGA && ENTREGA.datos_prueba) || {}), memoria: nuevo }, actualizado_en: new Date().toISOString() });
+        if (!error) ENTREGA = { ...(ENTREGA || { trabajo_id: T.id, estudiante_id: EST_ID }), datos_prueba: { ...((ENTREGA && ENTREGA.datos_prueba) || {}), memoria: nuevo } };
+      } catch (e) {}
+    }, ya ? 0 : 1200);
+  }
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") guardarAvance(true); });
   const el = id => $(`.card[data-id="${id}"]`);
   function voltear(id) {
     const c = S.cartas[id];
@@ -705,14 +729,14 @@ table.ins td.c{text-align:center}
       b.classList.remove("active", "bad"); b.classList.add("done", "ok"); b.disabled = true;
       toast(b, FRASES[Math.floor(Math.random() * FRASES.length)] + (mult > 1 ? ` ×${mult}` : ""), "ok");
       sonido(true); S.activa = null; ocultarRespuesta(); pintarHUD(true);
-      if (S.cartas.every(x => x.hecha)) terminar();
+      if (S.cartas.every(x => x.hecha)) terminar(); else guardarAvance();
     } else {
       c.fallos++; S.combo = 0; S.puntos = Math.max(0, S.puntos - 10);
       b.classList.remove("bad"); void b.offsetWidth; b.classList.add("bad");
       const campo = $("#campo"); campo.classList.remove("err"); void campo.offsetWidth; campo.classList.add("err");
       const cerca = txt.length >= 3 && c.validas.some(v => v.startsWith(txt.slice(0, 3)));
       $("#msg").textContent = cerca ? "Casi: revisá cómo se escribe el concepto." : "No es ese concepto. La carta se oculta; probá de nuevo.";
-      toast(b, "✕ Fallo", "bad"); sonido(false); pintarHUD();
+      toast(b, "✕ Fallo", "bad"); sonido(false); pintarHUD(); guardarAvance();
       S.bloqueado = true; const id = S.activa;
       setTimeout(() => { S.bloqueado = false; if (S.activa === id) { taparActiva(); ocultarRespuesta(); } }, 1200);
     }
@@ -755,32 +779,31 @@ table.ins td.c{text-align:center}
   }
 
   // ───── Final: métricas, indicadores MEP y nota ─────
+  // Métricas de la partida. Sirve completa o a medias: las cartas que no
+  // resolvió cuentan como no logradas (dominio y autonomía se dividen entre
+  // el total de cartas del tablero).
   function medir() {
-    const n = S.cartas.length, seg = (S.fin - S.inicio) / 1000, spc = seg / n;
-    const primer = S.cartas.filter(c => c.fallos === 0 && !c.pistaUsada).length;
-    const sinPista = S.cartas.filter(c => !c.pistaUsada).length;
-    return { cartas: n, aciertos: S.aciertos, intentos: S.intentos, pistas: S.pistas, segundos: Math.round(seg), segundos_por_carta: spc,
+    const n = S.cartas.length, hechas = S.cartas.filter(c => c.hecha).length;
+    const seg = ((S.fin || Date.now()) - (S.inicio || Date.now())) / 1000, spc = hechas ? seg / hechas : 0;
+    const primer = S.cartas.filter(c => c.hecha && c.fallos === 0 && !c.pistaUsada).length;
+    const sinPista = S.cartas.filter(c => c.hecha && !c.pistaUsada).length;
+    return { cartas: n, resueltas: hechas, completa: hechas === n, aciertos: S.aciertos, intentos: S.intentos, pistas: S.pistas, segundos: Math.round(seg), segundos_por_carta: spc,
       memoria_dominio_pct: primer / n * 100, memoria_precision_pct: S.intentos ? S.aciertos / S.intentos * 100 : 0,
-      memoria_autonomia_pct: sinPista / n * 100, memoria_rapidez_pct: spc <= 12 ? 100 : spc <= 20 ? 72 : spc <= 30 ? 47 : 20,
+      memoria_autonomia_pct: sinPista / n * 100, memoria_rapidez_pct: !hechas ? 0 : spc <= 12 ? 100 : spc <= 20 ? 72 : spc <= 30 ? 47 : 20,
       precision_pct: S.intentos ? S.aciertos / S.intentos * 100 : 0, puntos_juego: S.puntos, fecha: new Date().toISOString() };
   }
   function calificar(m) {
-    const previos = ENTREGA && Array.isArray(ENTREGA.respuestas) ? ENTREGA.respuestas : [];
-    const puntos = C.criterios.map((c, i) => {
-      const max = Number(c.puntos_max) || 3;
-      if (c.auto && m[c.auto] != null) return Math.round(puntajeDesdePorcentaje(m[c.auto]) / 3 * max);
-      return previos[i] != null ? Number(previos[i]) : 0; // indicador a mano: lo pone el docente
-    });
-    const porcentaje = porcentajeDesdeCriterios(C.criterios, puntos);
-    return { puntos, porcentaje, puntaje: puntajeDesdePorcentaje(porcentaje) };
+    return memoriaNotaDesdeMetricas(C.criterios, m, ENTREGA && Array.isArray(ENTREGA.respuestas) ? ENTREGA.respuestas : []);
   }
 
-  async function terminar() {
+  async function terminar(parcial) {
+    clearTimeout(tAvance);
     S.fin = Date.now(); clearInterval(S.reloj); pintarTiempo();
     const m = medir(), nota = calificar(m);
     let estadoGuardado = S.prueba ? "prueba" : "sin";
     if (!S.prueba && EST_ID) {
-      const mem = (ENTREGA && ENTREGA.datos_prueba && ENTREGA.datos_prueba.memoria) || { partidas: [] };
+      const memPrev = (ENTREGA && ENTREGA.datos_prueba && ENTREGA.datos_prueba.memoria) || { partidas: [] };
+      const mem = { ...memPrev }; delete mem.en_curso;
       const partidas = [...(mem.partidas || []), { ...m, porcentaje: nota.porcentaje, puntaje: nota.puntaje }].slice(-30);
       const cal = mem.calificada;
       const cuenta = !cal || (C.memoria_cfg.cuenta === "mejor" && nota.porcentaje > (ENTREGA.porcentaje || 0));
@@ -799,13 +822,13 @@ table.ins td.c{text-align:center}
         ENTREGA = data || ENTREGA;
       } catch (e) { estadoGuardado = "error:" + (e.message || e); }
     }
-    mostrarFinal(m, nota, estadoGuardado);
+    mostrarFinal(m, nota, estadoGuardado, parcial);
   }
 
-  function mostrarFinal(m, nota, estado) {
+  function mostrarFinal(m, nota, estado, parcial) {
     const prec = m.precision_pct;
     let r;
-    if (prec >= 90 && m.segundos_por_carta <= 12 && m.pistas === 0) r = ["🏆", "Leyenda", "Precisión de élite y muy rápido. Dominás el tema."];
+    if (!parcial && prec >= 90 && m.segundos_por_carta <= 12 && m.pistas === 0) r = ["🏆", "Leyenda", "Precisión de élite y muy rápido. Dominás el tema."];
     else if (prec >= 80) r = ["🥇", "Oro", "Muy buen dominio de los conceptos."];
     else if (prec >= 65) r = ["🥈", "Plata", "Vas bien; repasá los que fallaste."];
     else if (prec >= 50) r = ["🥉", "Bronce", "Repasá los conceptos y volvé a intentarlo."];
@@ -819,7 +842,8 @@ table.ins td.c{text-align:center}
       : estado === "sin" ? `<p class="note err">No se identificó al estudiante: entrá desde la plataforma para que se guarde la nota.</p>`
       : `<p class="note err">No se pudo guardar la nota (${esc(estado.slice(6))}). Avisale al profe.</p>`;
     abrirModal(`
-      <h2>Tablero completo</h2>
+      <h2>${parcial ? "🏁 Partida entregada" : "Tablero completo"}</h2>
+      ${parcial ? `<p class="note">Resolviste <b>${m.resueltas} de ${m.cartas}</b> cartas; las que faltaron cuentan como no logradas.</p>` : ""}
       <div class="medal"><div class="m">${r[0]}</div><div><b>${r[1]}</b><span>${r[2]}</span></div></div>
       <div class="grid2">
         <div class="stat score"><div class="k">Puntos del juego</div><div class="v">${m.puntos_juego.toLocaleString("es-CR")}</div></div>
