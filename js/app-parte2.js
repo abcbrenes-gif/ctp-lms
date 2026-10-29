@@ -3818,7 +3818,11 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
             <span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>
           </div>
           ${instrucciones ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${instrucciones}</div>` : ""}
-          ${res && res.completado
+          ${t.contenido_actividad && t.contenido_actividad.estrategia === "juego_memoria"
+            ? (res && res.completado
+              ? `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Nota guardada: ${res.puntaje != null ? res.puntaje + "/3" : "—"}</span>`
+              : `<span class="badge" style="background:var(--warn-bg); color:var(--warn-text);">🧠 Jugá el tablero completo: tu nota se guarda sola al terminar</span>`)
+            : res && res.completado
             ? `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Calificado por tu profesor${res.puntaje != null ? " — Nota: " + res.puntaje + "/3" : ""}</span>`
             : `<span class="badge" style="background:var(--warn-bg); color:var(--warn-text);">⏳ Tu profesor te va a calificar directamente, no tenés que entregar nada acá</span>`}
         </div>`;
@@ -4162,7 +4166,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
             ${t.tipo_actividad === "respuesta_abierta" ? `<button class="btn secondary small" data-ver-entregas-abiertas="${t.id}">📨 Ver entregas</button>` : ""}
             ${t.tipo_actividad === "autoevaluacion" ? `<button class="btn secondary small" data-ver-autoeval="${t.id}">🪞 Ver respuestas</button>` : ""}
             ${t.contenido_actividad && t.contenido_actividad.estrategia === "juego_tiradera" ? `<a class="btn small" href="tiradera.html?trabajo=${t.id}" target="_blank" rel="noopener">⚡ Lanzar La Tiradera</a>` : ""}
-            ${t.contenido_actividad && t.contenido_actividad.estrategia === "juego_memoria" ? `<a class="btn small" href="memoria.html?trabajo=${t.id}&docente=1" target="_blank" rel="noopener">🧠 Cartas y evaluación</a>` : ""}
+            ${t.contenido_actividad && t.contenido_actividad.estrategia === "juego_memoria" ? `<a class="btn small" href="memoria.html?trabajo=${t.id}&docente=1">🧠 Cartas y evaluación</a>` : ""}
             ${t.tipo_actividad === "rubrica_directa" ? `<button class="btn secondary small" data-calificar-rubrica="${t.id}">🧮 Calificar</button>` : ""}
             ${esEditable(t) ? `<button class="btn secondary small" data-editar-trabajo-subtema="${t.id}">✏️ Editar</button>` : ""}
             ${t.indicador_id
@@ -5545,7 +5549,7 @@ function pintarBloqueMemoria(trabajo, ordenados, nombrePorId, entregaPorEstudian
   return `<div style="background:var(--surface-soft); border:1px solid var(--paper-line); border-radius:10px; padding:0.8rem; margin-bottom:0.8rem;">
     <div class="row" style="align-items:center; justify-content:space-between; gap:0.5rem; margin-bottom:0.5rem;">
       <strong>🧠 Memoria Contable <span style="font-weight:400; color:var(--text-muted); font-size:0.8rem;">· ${cartas} carta${cartas === 1 ? "" : "s"} · cuenta ${c.memoria_cfg && c.memoria_cfg.cuenta === "mejor" ? "la mejor partida" : "la primera partida completa"}</span></strong>
-      <a class="btn small" href="memoria.html?trabajo=${trabajo.id}&docente=1" target="_blank" rel="noopener">🧠 Cartas y evaluación</a>
+      <a class="btn small" href="memoria.html?trabajo=${trabajo.id}&docente=1">🧠 Cartas y evaluación</a>
     </div>
     <p style="font-size:0.78rem; color:var(--text-muted); margin:0 0 0.5rem;">La nota se guarda sola cuando el estudiante termina el tablero, con los indicadores automáticos. Si agregó indicadores "a mano", califíquelos abajo y toque Guardar nota.</p>
     <div style="overflow-x:auto;"><table class="grades" style="font-size:0.82rem;"><thead><tr><th>Estudiante</th><th>Partidas</th><th>Aciertos</th><th>Precisión</th><th>Pistas</th><th>Tiempo/carta</th><th>Nota</th></tr></thead><tbody>${filas}</tbody></table></div>
@@ -5559,12 +5563,25 @@ function memoriaInyectarBotones(holder, trabajos) {
       const fila = holder.querySelector(`[data-fila-trabajo="${t.id}"]`);
       const destino = fila && (fila.firstElementChild || fila);
       if (!destino || destino.querySelector("[data-memoria-jugar]")) return;
+      const esDocente = session && session.role !== "estudiante";
       const a = document.createElement("a");
       a.className = "btn small"; a.dataset.memoriaJugar = t.id;
       a.href = `memoria.html?trabajo=${t.id}&est=${encodeURIComponent(session && session.id || "")}`;
       a.style.cssText = "margin-top:0.3rem; align-self:flex-start;";
-      a.textContent = "🧠 Jugar Memoria Contable";
+      a.textContent = esDocente ? "▶ Probar el juego (vista del docente, no guarda nota)" : "🧠 Jugar Memoria Contable";
       destino.appendChild(a);
+      if (esDocente) {
+        const n = ((t.contenido_actividad || {}).memoria_cartas || []).length;
+        const b = document.createElement("a");
+        b.className = "btn secondary small"; b.href = `memoria.html?trabajo=${t.id}&docente=1`;
+        b.style.cssText = "margin-top:0.3rem; align-self:flex-start;";
+        b.textContent = "🧠 Cartas y evaluación (docente)";
+        destino.appendChild(b);
+        const aviso = document.createElement("div");
+        aviso.style.cssText = "font-size:0.78rem; margin-top:0.2rem; color:" + (n ? "var(--text-muted)" : "var(--brick)") + ";";
+        aviso.textContent = n ? `${n} carta${n === 1 ? "" : "s"} cargada${n === 1 ? "" : "s"}.` : "⚠️ Todavía no tiene cartas: súbalas en «Cartas y evaluación» antes de aplicarlo.";
+        destino.appendChild(aviso);
+      }
     });
   } catch (e) { console.warn("memoria botones", e); }
 }
@@ -9965,6 +9982,9 @@ const DOC_DEF_EXT_OK = /\.(pdf|docx?|xlsx?|pptx?|txt|csv|odt|ods|odp|jpe?g|png|w
 
 async function agregarDocumentoDefinitivo(holder, trabajos, estudianteId, prefijo) {
   prefijo = prefijo || "";
+  // Los juegos (Memoria Contable, La Tiradera) no llevan documento para adjuntar.
+  trabajos = (trabajos || []).filter(t => !(t.contenido_actividad && ["juego_memoria", "juego_tiradera"].includes(t.contenido_actividad.estrategia)));
+  if (!trabajos.length) return;
   if (!session) { const d = document.createElement("div"); d.textContent = "⚠️ Sin sesión para adjuntar documento."; holder && holder.appendChild(d); return; }
   try {
     if (!holder || !session) return;

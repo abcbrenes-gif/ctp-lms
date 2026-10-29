@@ -8,8 +8,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=20261029a"></script>
-<script src="js/actividades.js?v=20261029a"></script>
+<script src="js/config.js?v=20261029b"></script>
+<script src="js/actividades.js?v=20261029b"></script>
 <style>
 /* Layout: consola de juego — panel de métricas arriba, tablero al centro, barra de respuesta fija abajo. Un solo look oscuro a propósito. */
 :root{
@@ -329,7 +329,8 @@ table.ins td.c{text-align:center}
       <button class="btn ${pestana === "cartas" ? "primary" : "ghost"}" data-tab="cartas" type="button">🃏 Cartas</button>
       <button class="btn ${pestana === "eval" ? "primary" : "ghost"}" data-tab="eval" type="button">📋 Evaluación (MEP)</button>
       <button class="btn ${pestana === "cfg" ? "primary" : "ghost"}" data-tab="cfg" type="button">⚙️ Partida</button>
-      <button class="btn ghost" data-tab="probar" type="button">▶ Probar</button>`;
+      <button class="btn ghost" data-tab="probar" type="button">▶ Probar</button>
+      <a class="btn ghost" href="index.html" data-volver>← Plataforma</a>`;
     $("#controles").querySelectorAll("[data-tab]").forEach(b => b.addEventListener("click", () => {
       if (b.dataset.tab === "probar") { if (!C.memoria_cartas.length) { aviso("Primero suba cartas y guárdelas.", true); return; } pantallaInicio(true); return; }
       pestana = b.dataset.tab; vistaDocente();
@@ -547,7 +548,7 @@ table.ins td.c{text-align:center}
   function pantallaInicio(prueba) {
     S.prueba = !!prueba;
     const cal = estadoNota();
-    if (!prueba) $("#controles").innerHTML = `<button class="btn ghost" type="button" id="verEval">📋 Evaluación</button><a class="btn ghost" href="index.html">← Volver a la plataforma</a>`;
+    if (!prueba) $("#controles").innerHTML = `<button class="btn ghost" type="button" id="verEval">📋 Evaluación</button><a class="btn ghost" href="index.html" data-volver>← Volver a la plataforma</a>`;
     else $("#controles").innerHTML = `<button class="btn ghost" type="button" id="volverDoc">← Volver a editar</button><button class="btn ghost" type="button" id="verEval">📋 Evaluación</button>`;
     const n = C.memoria_cartas.length, cant = C.memoria_cfg.cantidad === "todas" ? n : Math.min(Number(C.memoria_cfg.cantidad) || 12, n);
     $("#vista").innerHTML = `
@@ -762,10 +763,16 @@ table.ins td.c{text-align:center}
       ${msgEstado}
       <div class="tabla-wrap"><table class="ins"><thead><tr><th>Indicador</th><th>Nivel</th><th>Puntos</th></tr></thead><tbody>${filas}</tbody></table></div>
       <p class="note">${m.aciertos} aciertos en ${m.intentos} intentos · ${m.pistas} pista${m.pistas === 1 ? "" : "s"}.${falladas.length ? " Para repasar: " + esc(falladas.join(", ")) + "." : " ¡Sin fallos!"} Los puntos del juego no son la nota.</p>
-      <div class="row" style="justify-content:flex-end; margin-top:14px">${S.prueba ? `<button class="btn ghost" type="button" id="aEditar">← Volver a editar</button>` : `<a class="btn ghost" href="index.html">← Volver a la plataforma</a>`}<button class="btn primary" type="button" id="otraVez">JUGAR DE NUEVO</button></div>`);
+      <div class="row" style="justify-content:flex-end; margin-top:14px">${S.prueba ? `<button class="btn ghost" type="button" id="aEditar">← Volver a editar</button>` : `<a class="btn ghost" href="index.html" data-volver>← Volver a la plataforma</a>`}<button class="btn primary" type="button" id="otraVez">JUGAR DE NUEVO</button></div>`);
     $("#otraVez").addEventListener("click", () => { cerrarModal(); pantallaInicio(S.prueba); });
     if ($("#aEditar")) $("#aEditar").addEventListener("click", () => { cerrarModal(); vistaDocente(); });
   }
+
+  // "Volver" regresa a la página anterior de la plataforma (tema o subtema).
+  document.addEventListener("click", e => {
+    const a = e.target.closest("[data-volver]");
+    if (a && document.referrer && document.referrer.startsWith(location.origin) && history.length > 1) { e.preventDefault(); history.back(); }
+  });
 
   // ═════════════════════ ARRANQUE ═════════════════════
   (async () => {
@@ -787,7 +794,7 @@ table.ins td.c{text-align:center}
       }
       pantallaInicio(sesion && sesion.role === "docente");
     } catch (e) {
-      $("#vista").innerHTML = `<section class="inicio"><h2>No se pudo abrir el juego</h2><p>${esc(e.message || e)}</p><a class="btn ghost" href="index.html">← Volver a la plataforma</a></section>`;
+      $("#vista").innerHTML = `<section class="inicio"><h2>No se pudo abrir el juego</h2><p>${esc(e.message || e)}</p><a class="btn ghost" href="index.html" data-volver>← Volver a la plataforma</a></section>`;
     }
   })();
 })();
