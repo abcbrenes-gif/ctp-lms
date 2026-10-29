@@ -80,7 +80,7 @@ function memoriaRecorte(lienzo, caja, maxLado) {
 async function memoriaLeerPaneles(lienzo, paneles, tema) {
   const imagenes = paneles.map(p => memoriaRecorte(lienzo, p, 760).toDataURL("image/jpeg", 0.85).split(",")[1]);
   try {
-    const r = await fetch("/api/memoria-dividir", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ imagenes, tema }) });
+    const r = await fetch("/api/memoria-conceptos", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ modo: "dividir", imagenes, tema }) });
     const j = await r.json().catch(() => ({}));
     if (r.ok && Array.isArray(j.paneles)) return j.paneles;
   } catch (e) {}
