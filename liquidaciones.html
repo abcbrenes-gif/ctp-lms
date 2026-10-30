@@ -11,7 +11,7 @@
 <script src="js/config.js?v=20261030f"></script>
 <script src="js/actividades.js?v=20261030f"></script>
 <script src="js/liquidacion-calculo.js?v=20261030f"></script>
-<script src="js/hoja-calculo.js?v=20261030f"></script>
+<script src="js/hoja-calculo.js?v=20261030h"></script>
 <style>
 /* Hoja de trabajo de liquidación: datos del caso a la izquierda del flujo, cada
    derecho (preaviso, cesantía, vacaciones, aguinaldo) en su propia pestaña. */
@@ -90,7 +90,10 @@ tr.hl td{background:#fff7d6; font-weight:700}
 .asiento td input{width:100%; min-width:8rem; text-align:right; font-family:var(--mono); background:#fff; border:1px solid var(--line); border-radius:7px; padding:5px 7px}
 .asiento tr.ok td{background:var(--ok-bg)} .asiento tr.bad td{background:var(--bad-bg)}
 .asiento td.haber{padding-left:2.2rem}
-.hoja{overflow:auto; max-height:70vh; border:1px solid var(--line); border-radius:10px}
+.hoja{position:relative; overflow:auto; max-height:70vh; border:1px solid var(--line); border-radius:10px; user-select:none}
+.hoja td.sel input{box-shadow:inset 0 0 0 2px var(--brand)}
+.hoja td.refd input{background:#e3ecff; box-shadow:inset 0 0 0 1px #6d8cf0}
+.hoja .asa{position:absolute; width:9px; height:9px; background:var(--brand); border:2px solid #fff; cursor:crosshair; z-index:3}
 .hoja table{border-collapse:separate; border-spacing:0; font-size:.84rem; width:max-content}
 .hoja th,.hoja td{border:0; border-right:1px solid var(--line); border-bottom:1px solid var(--line); padding:0}
 .hoja thead th{position:sticky; top:0; background:var(--soft); text-align:center; padding:4px 0; z-index:1; letter-spacing:0}
@@ -142,7 +145,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
   const EVALUABLES = ["salario", ...DERECHOS, "asiento"];
   // Una respuesta puede ser un número o una fórmula de la hoja del estudiante
   // (=D14, =SUMA(B2:B13)/12…): se toma el resultado de la hoja.
-  const valorDe = (v, resp) => { const t = String(v == null ? "" : v).trim(); if (!t.startsWith("=")) return v; const r = hojaEvaluar((resp && resp.__hoja) || {}, t); return r.error || typeof r.valor !== "number" ? "x" : r.valor; };
+  const valorDe = (v, resp) => { const t = String(v == null ? "" : v).trim(); if (!hojaEsFormula(t)) return v; const r = hojaEvaluar((resp && resp.__hoja) || {}, t); return r.error || typeof r.valor !== "number" ? "x" : r.valor; };
   const revisar = (p, resp) => liqRevisarPaso(p, valorDe(resp[p.k], resp));
   // Bloqueo de respuestas: lo decide el docente (fila de configuración en
   // trabajos_cotidianos con contenido_actividad.config_liq = true). Mientras
@@ -398,16 +401,20 @@ tr.hl td{background:#fff7d6; font-weight:700}
     </section>`;
   }
   // ───── Hoja de cálculo del estudiante (pestaña Salario) ─────
+  // Como en Excel: se escribe «=» (o «+»), se hace clic en una celda (o se
+  // arrastra para un rango) y se inserta su referencia; Enter confirma. El
+  // cuadrito de la esquina de la celda copia la fórmula hacia abajo o a la derecha.
+  let hojaMouseUp = null;
   function hojaHTML() {
     const H = S.resp.__hoja || {}, ro = S.bloqueado;
     const celda = ref => { const raw = H[ref]; if (raw == null || raw === "") return { txt: "", cls: "" }; const r = hojaValorCelda(H, ref); return { txt: hojaMostrar(r), cls: r.error ? "err" : typeof r.valor === "number" ? "num" : "" }; };
     return `<h3>🧮 Hoja de cálculo</h3>
-      <p class="muted" style="font-size:.84rem; margin:0 0 6px">Organizá el cálculo como quieras. Las fórmulas empiezan con <b class="num">=</b>: <span class="num">=B2/30*21</span>, <span class="num">=SUMA(C2:C13)</span>, <span class="num">=PROMEDIO(…)</span>, <span class="num">=REDONDEAR(D14/30;2)</span>. Abajo, en cada respuesta podés escribir la celda del resultado (ej. <span class="num">=D14</span>).</p>
+      <p class="muted" style="font-size:.84rem; margin:0 0 6px">Funciona como Excel: escribí <b class="num">=</b> (o <b class="num">+</b>), hacé clic en la celda que querés usar (o arrastrá para un rango), escribí el operador y otra celda, y tocá <b>Enter</b>. Ej.: <span class="num">=B2-B3</span>, <span class="num">=$B$1/30*C2</span>, <span class="num">=SUMA(C2:C13)</span>, <span class="num">=PROMEDIO(…)</span>, <span class="num">=REDONDEAR(D14/30;2)</span>. Para copiar una fórmula a las filas de abajo, arrastrá el <b>cuadrito azul</b> de la esquina de la celda. Abajo, en cada respuesta podés escribir la celda del resultado (ej. <span class="num">=D14</span>).</p>
       ${ro ? "" : `<div class="row" style="margin-bottom:6px"><button class="btn" type="button" id="hojaMeses">📅 Poner los 12 meses en la columna A</button><button class="btn" type="button" id="hojaBorrar">🧹 Borrar la hoja</button></div>`}
-      <div class="fx"><b id="fxRef">A1</b><input id="fxIn" placeholder="Contenido de la celda" ${ro ? "disabled" : ""}></div>
-      <div class="hoja"><table><thead><tr><th></th>${HOJA_COLS.map(c => `<th>${c}</th>`).join("")}</tr></thead><tbody>
-      ${Array.from({ length: HOJA_FILAS }, (_, i) => `<tr><th>${i + 1}</th>${HOJA_COLS.map(c => { const ref = c + (i + 1), x = celda(ref); return `<td><input data-cel="${ref}" class="${x.cls}" value="${esc(x.txt)}" aria-label="Celda ${ref}" ${ro ? "disabled" : ""}></td>`; }).join("")}</tr>`).join("")}
-      </tbody></table></div>`;
+      <div class="fx"><b id="fxRef">A1</b><span style="color:var(--muted)">fx</span><input id="fxIn" placeholder="Contenido de la celda" ${ro ? "disabled" : ""}></div>
+      <div class="hoja" id="hojaCaja"><table><thead><tr><th></th>${HOJA_COLS.map(c => `<th>${c}</th>`).join("")}</tr></thead><tbody>
+      ${Array.from({ length: HOJA_FILAS }, (_, i) => `<tr><th>${i + 1}</th>${HOJA_COLS.map(c => { const ref = c + (i + 1), x = celda(ref); return `<td data-td="${ref}"><input data-cel="${ref}" class="${x.cls}" value="${esc(x.txt)}" aria-label="Celda ${ref}" autocomplete="off" spellcheck="false" ${ro ? "disabled" : ""}></td>`; }).join("")}</tr>`).join("")}
+      </tbody></table><div class="asa" id="hojaAsa" hidden title="Arrastrá para copiar"></div></div>`;
   }
   function refrescarHoja() {
     const H = S.resp.__hoja || {};
@@ -415,25 +422,95 @@ tr.hl td{background:#fff7d6; font-weight:700}
     $("#vista").querySelectorAll("[data-r]").forEach(inp => { const det = inp.nextElementSibling; if (det && det.classList.contains("calc")) { const fv = valorDe(inp.value, S.resp); det.textContent = fv === "x" ? "fórmula inválida" : "= " + m(fv); } });
   }
   function ligarHoja() {
-    const v = $("#vista"), fx = $("#fxIn"), fr = $("#fxRef"); if (!fx) return;
-    let actual = "A1";
+    const v = $("#vista"), fx = $("#fxIn"), fr = $("#fxRef"), caja = $("#hojaCaja"), asa = $("#hojaAsa"); if (!fx || !caja) return;
     const H = () => (S.resp.__hoja = S.resp.__hoja || {});
     const poner = (ref, txt) => { if (txt === "") delete H()[ref]; else H()[ref] = txt; persistir(); };
+    const inpDe = ref => v.querySelector(`[data-cel="${ref}"]`);
+    const partes = ref => ({ c: HOJA_COLS.indexOf(ref[0]), f: Number(ref.slice(1)) });
+    let actual = "A1", editando = null, apuntando = null; // apuntando: {ini, desde, hasta} mientras se elige una celda para la fórmula
+    const marcar = (cls, refs) => { v.querySelectorAll("." + cls).forEach(x => x.classList.remove(cls)); (refs || []).forEach(r => { const td = v.querySelector(`[data-td="${r}"]`); if (td) td.classList.add(cls); }); };
+    const rangoRefs = (a, b) => { const A = partes(a), B = partes(b), out = []; for (let c = Math.min(A.c, B.c); c <= Math.max(A.c, B.c); c++) for (let f = Math.min(A.f, B.f); f <= Math.max(A.f, B.f); f++) out.push(HOJA_COLS[c] + f); return out; };
+    const ponerAsa = () => { const td = v.querySelector(`[data-td="${actual}"]`); if (!td || S.bloqueado) { asa.hidden = true; return; } const r = td.getBoundingClientRect(), rc = caja.getBoundingClientRect(); asa.style.left = (r.right - rc.left + caja.scrollLeft - 5) + "px"; asa.style.top = (r.bottom - rc.top + caja.scrollTop - 5) + "px"; asa.hidden = false; };
+    // ¿Se puede insertar una referencia en la posición del cursor?
+    const aceptaRef = inp => { const val = inp.value, pos = inp.selectionEnd == null ? val.length : inp.selectionEnd; if (!hojaEsFormula(val + "0") && !/^[=+]$/.test(val.trim())) return false; const antes = val.slice(0, pos).replace(/\s+$/, ""); return /[=+\-*/^(;,<>&%]$/.test(antes) || !!(apuntando && apuntando.ini != null); };
+    const insertarRef = (inp, texto) => {
+      const val = inp.value;
+      if (apuntando && apuntando.ini != null) { inp.value = val.slice(0, apuntando.ini) + texto + val.slice(apuntando.fin); apuntando.fin = apuntando.ini + texto.length; }
+      else { const pos = inp.selectionStart == null ? val.length : inp.selectionStart; inp.value = val.slice(0, pos) + texto + val.slice(inp.selectionEnd == null ? pos : inp.selectionEnd); apuntando = { ...(apuntando || {}), ini: pos, fin: pos + texto.length }; }
+      inp.setSelectionRange(apuntando.fin, apuntando.fin); fx.value = inp.value; poner(inp.dataset.cel, inp.value);
+    };
+    let clicPendiente = null;
     v.querySelectorAll("[data-cel]").forEach(inp => {
-      inp.addEventListener("focus", () => { actual = inp.dataset.cel; fr.textContent = actual; inp.value = H()[actual] || ""; fx.value = inp.value; inp.className = ""; });
-      inp.addEventListener("input", () => { fx.value = inp.value; poner(inp.dataset.cel, inp.value); });
-      inp.addEventListener("blur", () => { poner(inp.dataset.cel, inp.value.trim()); refrescarHoja(); });
+      inp.addEventListener("mousedown", () => { clicPendiente = document.activeElement === inp ? null : inp; });
+      inp.addEventListener("dblclick", () => { const n = inp.value.length; inp.setSelectionRange(n, n); });
+      inp.addEventListener("focus", () => {
+        actual = inp.dataset.cel; editando = inp; apuntando = null; fr.textContent = actual;
+        inp.value = H()[actual] || ""; fx.value = inp.value; inp.className = ""; marcar("sel", [actual]); ponerAsa();
+        inp.select(); // escribir encima reemplaza, como en Excel
+        if (clicPendiente === inp) { const fin = ev => { ev.preventDefault(); inp.removeEventListener("mouseup", fin); }; inp.addEventListener("mouseup", fin); } // que el clic no quite la selección
+      });
+      inp.addEventListener("input", () => { apuntando = null; marcar("refd"); fx.value = inp.value; poner(inp.dataset.cel, inp.value); });
+      inp.addEventListener("blur", () => { if (apuntando && apuntando.arrastrando) return; poner(inp.dataset.cel, inp.value.trim()); editando = null; apuntando = null; marcar("refd"); refrescarHoja(); });
       inp.addEventListener("keydown", e => {
-        const col = HOJA_COLS.indexOf(inp.dataset.cel[0]), fil = Number(inp.dataset.cel.slice(1));
-        let dest = null;
-        if (e.key === "Enter" || (e.key === "ArrowDown" && !e.altKey)) dest = HOJA_COLS[col] + Math.min(HOJA_FILAS, fil + 1);
-        else if (e.key === "ArrowUp") dest = HOJA_COLS[col] + Math.max(1, fil - 1);
-        else if (e.key === "Tab" && !e.shiftKey && col < HOJA_COLS.length - 1) dest = HOJA_COLS[col + 1] + fil;
-        if (dest) { e.preventDefault(); const t = v.querySelector(`[data-cel="${dest}"]`); if (t) t.focus(); }
+        const { c, f } = partes(inp.dataset.cel); let dest = null;
+        if (e.key === "Enter") dest = HOJA_COLS[c] + Math.min(HOJA_FILAS, f + (e.shiftKey ? -1 : 1));
+        else if (e.key === "Tab") dest = HOJA_COLS[Math.max(0, Math.min(HOJA_COLS.length - 1, c + (e.shiftKey ? -1 : 1)))] + f;
+        else if (e.key === "Escape") { inp.value = H()[inp.dataset.cel] || ""; inp.blur(); return; }
+        else if (!hojaEsFormula(inp.value) && !/^[=+]$/.test(inp.value.trim())) {
+          if (e.key === "ArrowDown") dest = HOJA_COLS[c] + Math.min(HOJA_FILAS, f + 1);
+          else if (e.key === "ArrowUp") dest = HOJA_COLS[c] + Math.max(1, f - 1);
+          else if (e.key === "ArrowRight" && inp.selectionStart === inp.value.length) dest = HOJA_COLS[Math.min(HOJA_COLS.length - 1, c + 1)] + f;
+          else if (e.key === "ArrowLeft" && inp.selectionStart === 0 && inp.selectionEnd === 0) dest = HOJA_COLS[Math.max(0, c - 1)] + f;
+        }
+        if (dest) { e.preventDefault(); const t = inpDe(dest); if (t) t.focus(); }
       });
     });
-    fx.addEventListener("input", () => { poner(actual, fx.value); const t = v.querySelector(`[data-cel="${actual}"]`); if (t && t === document.activeElement) t.value = fx.value; });
+    // Clic en otra celda mientras se escribe una fórmula → inserta la referencia (y arrastrando, el rango).
+    caja.addEventListener("mousedown", e => {
+      const td = e.target.closest("[data-td]"); if (!td || !editando || S.bloqueado) return;
+      const ref = td.dataset.td; if (ref === editando.dataset.cel || !aceptaRef(editando)) return;
+      e.preventDefault();
+      apuntando = { ...(apuntando || {}), desde: ref, hasta: ref, arrastrando: true };
+      insertarRef(editando, ref); marcar("refd", [ref]);
+    });
+    caja.addEventListener("mouseover", e => {
+      if (!apuntando || !apuntando.arrastrando || !editando) return;
+      const td = e.target.closest("[data-td]"); if (!td || td.dataset.td === apuntando.hasta) return;
+      apuntando.hasta = td.dataset.td; const txt = apuntando.desde === apuntando.hasta ? apuntando.desde : apuntando.desde + ":" + apuntando.hasta;
+      insertarRef(editando, txt); marcar("refd", rangoRefs(apuntando.desde, apuntando.hasta));
+    });
+    const finApuntar = () => { if (apuntando && apuntando.arrastrando) { apuntando.arrastrando = false; if (editando) editando.focus(); } };
+    // Cuadrito de llenado: copia la celda hacia abajo o a la derecha moviendo las referencias.
+    let llenando = null;
+    asa.addEventListener("mousedown", e => { e.preventDefault(); if (editando) { poner(editando.dataset.cel, editando.value.trim()); } llenando = { origen: actual, hasta: actual }; });
+    caja.addEventListener("mouseover", e => {
+      if (!llenando) return; const td = e.target.closest("[data-td]"); if (!td) return;
+      const o = partes(llenando.origen), t = partes(td.dataset.td);
+      llenando.hasta = Math.abs(t.f - o.f) >= Math.abs(t.c - o.c) ? HOJA_COLS[o.c] + Math.max(o.f, t.f) : HOJA_COLS[Math.max(o.c, t.c)] + o.f;
+      marcar("refd", rangoRefs(llenando.origen, llenando.hasta));
+    });
+    const finLlenar = () => {
+      if (!llenando) return; const { origen, hasta } = llenando; llenando = null; marcar("refd");
+      const raw = H()[origen]; if (raw == null || origen === hasta) return;
+      const o = partes(origen);
+      rangoRefs(origen, hasta).forEach(ref => { if (ref === origen) return; const t = partes(ref); poner(ref, hojaDesplazar(raw, t.c - o.c, t.f - o.f)); });
+      editando = null; refrescarHoja(); ponerAsa();
+    };
+    if (hojaMouseUp) document.removeEventListener("mouseup", hojaMouseUp);
+    hojaMouseUp = () => { finApuntar(); finLlenar(); };
+    document.addEventListener("mouseup", hojaMouseUp);
+    caja.addEventListener("scroll", ponerAsa);
+    // Barra de fórmulas
+    fx.addEventListener("input", () => { poner(actual, fx.value); const t = inpDe(actual); if (t) t.value = fx.value; });
+    fx.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); poner(actual, fx.value.trim()); refrescarHoja(); const { c, f } = partes(actual); const t = inpDe(HOJA_COLS[c] + Math.min(HOJA_FILAS, f + 1)); if (t) t.focus(); } });
     fx.addEventListener("change", () => { poner(actual, fx.value.trim()); refrescarHoja(); });
+    // Ctrl+C / Ctrl+V de varias celdas (por ejemplo, desde Excel)
+    caja.addEventListener("paste", e => {
+      const txt = (e.clipboardData || window.clipboardData).getData("text"); if (!txt || !/[\t\n]/.test(txt.trim()) || !editando) return;
+      e.preventDefault(); const o = partes(editando.dataset.cel);
+      txt.replace(/\r/g, "").replace(/\n$/, "").split("\n").forEach((fila, i) => fila.split("\t").forEach((val, j) => { const c = o.c + j, f = o.f + i; if (c < HOJA_COLS.length && f <= HOJA_FILAS) poner(HOJA_COLS[c] + f, val.trim()); }));
+      editando.blur(); refrescarHoja();
+    });
     const hm = $("#hojaMeses"); if (hm) hm.addEventListener("click", () => {
       const meses = liqMeses12(S.caso.fechaSalida); const h = H();
       if (!h.A1) h.A1 = "Mes"; meses.forEach((mes, i) => { if (!h["A" + (i + 2)]) h["A" + (i + 2)] = liqMesNombre(mes); });
