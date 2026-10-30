@@ -357,6 +357,8 @@ body.ro .edit-only{display:none!important}
 .ptable td{padding:6px 8px}
 .sheet input{width:120px;text-align:right;font-family:var(--f-num);padding:6px 8px}
 .sheet td{vertical-align:top}
+table.cmp td,table.cmp th{white-space:nowrap}
+table.cmp small{display:block}
 .cell-ok input{border-color:var(--ok);background:var(--okbg)}
 .cell-bad input{border-color:var(--bad);background:var(--badbg)}
 tr.cell-ok td,tr.cell-bad td{background:transparent}
@@ -1082,7 +1084,7 @@ function viewPorEmpresa(){
          <td>${R&&R.evalBest!=null?`<b class="num">${R.evalBest} %</b><br><small class="muted">${R.evals} evaluación(es)</small>`:R&&R.practicas?`<small class="muted">${R.practicas} práctica(s)</small>`:'<small class="muted">—</small>'}</td>
          ${CATS[g.cat]?["machote","asiento"].map(k=>{const ev=c.payroll&&c.payroll[k==="machote"?"evalM":"evalA"],r=ev&&ev.resultado;const on=c.evalCfg&&c.evalCfg[k]&&c.evalCfg[k].on;
            return `<td>${r?evBadge(r)+` <button class="btn sm ghost" data-act="evDetalle" data-key="${esc(g.key)}" data-est="${esc(w.id)}" data-co="${esc(c.id)}" data-k="${k}" title="Ver el detalle de sus respuestas">🔍</button><button class="btn sm ghost" data-act="evResetUno" data-est="${esc(w.id)}" data-co="${esc(c.id)}" data-k="${k}" title="Borrar el intento y dejar que la repita">↺</button>`:(on?'<small class="muted">Habilitada · sin entregar</small>':'<small class="muted">—</small>')}</td>`}).join(""):""}
-         <td><div class="row" style="flex-wrap:nowrap;justify-content:flex-end"><a class="btn sm primary" href="aula-contable.html?como_estudiante=${encodeURIComponent(w.id)}">Revisar</a>${CATS[g.cat]?`<button class="btn sm danger" data-act="delPracticaEst" data-est="${esc(w.id)}" data-co="${esc(c.id)}">Eliminar</button>`:""}</div></td></tr>${(()=>{const d=APP.evDet;if(!d||d.est!==w.id||d.co!==c.id)return "";const ev=c.payroll&&c.payroll[d.k==="machote"?"evalM":"evalA"],r=ev&&ev.resultado;
+         <td><div class="row" style="flex-wrap:nowrap;justify-content:flex-end"><button class="btn sm ${APP.cmpVer===(w.id+"|"+c.id)?"primary":"pop"}" data-act="verComparacion" data-est="${esc(w.id)}" data-co="${esc(c.id)}" title="Su trabajo comparado con la solución">📋 vs. solución</button><a class="btn sm primary" href="aula-contable.html?como_estudiante=${encodeURIComponent(w.id)}">Revisar</a>${CATS[g.cat]?`<button class="btn sm danger" data-act="delPracticaEst" data-est="${esc(w.id)}" data-co="${esc(c.id)}">Eliminar</button>`:""}</div></td></tr>${APP.cmpVer===(w.id+"|"+c.id)?`<tr><td colspan="10" style="background:var(--surface2)"><b>📋 ${esc(w.nombre)} · ${esc(c.name)} — su trabajo comparado con la solución</b>${comparacionHTML(c)}</td></tr>`:""}${(()=>{const d=APP.evDet;if(!d||d.est!==w.id||d.co!==c.id)return "";const ev=c.payroll&&c.payroll[d.k==="machote"?"evalM":"evalA"],r=ev&&ev.resultado;
            return r?`<tr><td colspan="10" style="background:var(--surface2)"><b>${d.k==="machote"?"Evaluación del machote":"Evaluación del asiento"} · ${esc(w.nombre)} · ${r.pct} % (${r.ok}/${r.total})</b> <small class="muted">${esc(fmtDate(r.fecha))}</small>${evDetalleHTML(r,true)}</td></tr>`:""})()}`}).join("")||'<tr><td colspan="7"><small class="muted">Sin resultados con ese filtro.</small></td></tr>'}
       </tbody></table></div></details>`}).join("")}
    <p class="note" style="margin:0">Datos en vivo del trabajo de cada estudiante. "Revisar" abre su cuenta de Aula de Conta tal como la ve él.</p>`;
@@ -2164,6 +2166,39 @@ async function guardarEntregaDirecta(companies){
   return meta;
 }
 
+// Comparación del trabajo del estudiante con la solución: machote de planilla
+// (cada casilla) y asiento de diario de cada planilla procesada (cada cuenta).
+function comparacionHTML(c){
+  const p=c&&c.payroll;if(!p||!(p.employees||[]).length)return `<p class="muted" style="margin:0">Esta empresa no tiene planilla para comparar.</p>`;
+  const P=p.params||PL_DEFAULT,cuenta=code=>((c.accounts||[]).find(a=>a.code===code)||{}).name||"";
+  const ok=`<b style="color:var(--ok)">✓</b>`,mal=`<b style="color:var(--bad)">✗</b>`;
+  const val=v=>{const n=parseNum(v);return String(v??"").trim()===""?'<span class="muted">—</span>':isNaN(n)?esc(v):money(n)};
+  let out="";
+  // 1) Machote
+  const rows=p.employees.map(e=>({e,k:plCalc(e,P)})),wr=rows.some(r=>r.k.totReb>0),F=plSheetFields(rows[0].k,wr);
+  const tieneMachote=p.sheet&&Object.keys(p.sheet).some(id=>Object.values(p.sheet[id]||{}).some(v=>String(v??"").trim()!==""));
+  if(tieneMachote){const st=plSheetStatus(p);
+    out+=`<h4 style="margin:6px 0">Machote de planilla · ${st.ok} de ${st.total} casillas correctas</h4>
+     <div class="tbl"><table class="cmp"><thead><tr><th>Colaborador</th>${F.map(([,l])=>`<th class="r">${esc(l)}</th>`).join("")}</tr></thead><tbody>
+     ${rows.map(({e,k})=>`<tr><td><b>${esc(e.nombre)}</b></td>${F.map(([q])=>{const x=st.cells[e.id][q],v=(p.sheet[e.id]||{})[q];
+       return `<td class="r ${x.ok?"cell-ok":"cell-bad"}"><div>${val(v)} ${x.ok?ok:mal}</div>${x.ok?"":`<small class="muted">Solución: <b class="num">${money(plSol(k,q))}</b></small>`}</td>`}).join("")}</tr>`).join("")}
+     </tbody></table></div>`}
+  // 2) Asiento de cada planilla procesada
+  const runs=(p.runs||[]).filter(r=>r.res&&r.res.length);
+  runs.forEach((run,i)=>{const sol=plEntryLines(run),m=run.mach||{};
+    const filas=sol.map(l=>{const t=m[l.code]||{},d=parseNum(t.d)||0,cr=parseNum(t.c)||0,bien=l.d?(near(d,l.d)&&!cr):(near(cr,l.c)&&!d);return {l,t,bien}});
+    const extra=Object.keys(m).filter(code=>!sol.some(l=>l.code===code)&&((parseNum(m[code].d)||0)||(parseNum(m[code].c)||0)));
+    const nOk=filas.filter(f=>f.bien).length;
+    out+=`<h4 style="margin:12px 0 6px">Asiento de la planilla${runs.length>1?" "+(i+1):""}${run.periodo?" · "+esc(run.periodo):""} · ${nOk} de ${sol.length} cuentas correctas${run.intentos?` · ${run.intentos} intento(s)`:""}</h4>
+     <div class="tbl"><table class="cmp"><thead><tr><th>Cuenta</th><th class="r">Su debe</th><th class="r">Su haber</th><th class="r">Debe correcto</th><th class="r">Haber correcto</th><th></th></tr></thead><tbody>
+     ${filas.map(({l,t,bien})=>`<tr class="${bien?"cell-ok":"cell-bad"}"><td><span class="code">${esc(l.code)}</span> ${esc(cuenta(l.code))}</td><td class="r">${val(t.d)}</td><td class="r">${val(t.c)}</td><td class="r num">${l.d?money(l.d):""}</td><td class="r num">${l.c?money(l.c):""}</td><td>${bien?ok:mal}</td></tr>`).join("")}
+     ${extra.map(code=>`<tr class="cell-bad"><td><span class="code">${esc(code)}</span> ${esc(cuenta(code))} <small class="muted">(no va en este asiento)</small></td><td class="r">${val(m[code].d)}</td><td class="r">${val(m[code].c)}</td><td></td><td></td><td>${mal}</td></tr>`).join("")}
+     </tbody></table></div>`});
+  if(!tieneMachote&&!runs.length)out=`<p class="muted" style="margin:0">Todavía no hay trabajo en el machote ni planillas procesadas para comparar.</p>`;
+  return out;
+}
+// El estudiante ve la comparación cuando ya entregó (tarea, evaluativa) o guardó su entrega (práctica).
+const veComparacion=c=>isTeacher()||!!APP.demo||!!(c&&(c.entregado||(c.payroll&&c.payroll.ultimaEntrega)));
 function plEvaluarTrabajo(p){
   const st=plSheetStatus(p);
   const runs=(p.runs||[]).filter(r=>r.entryId);
@@ -2200,6 +2235,7 @@ function plViewEntrega(c,p){
         ${ev.detalles.map(d=>`<div class="row" style="align-items:center;gap:8px"><span style="color:${d.ok?"var(--ok)":"var(--bad)"}">${d.ok?"✓":"✗"}</span><span>${esc(d.texto)}</span></div>`).join("")}
       </div>`:""}
       <div><button class="btn primary" data-pact="guardarEntregaPlanilla" ${puedeGuardar?"":"disabled"}>💾 Guardar como entrega</button></div>
+      ${veComparacion(c)?`<details class="panel" open style="margin:4px 0 0"><summary style="cursor:pointer;font-weight:800">📋 Tu trabajo comparado con la solución</summary><p class="muted" style="margin:6px 0 8px;font-size:.88rem">En verde lo que está bien; en rojo lo que no, con el monto correcto debajo.</p>${comparacionHTML(c)}</details>`:`<p class="note" style="margin:0">📋 Cuando guardés tu entrega vas a ver tu trabajo comparado con la solución.</p>`}
       ${!puedeGuardar?`<p class="note" style="margin:0">Primero procesá al menos una planilla del mes, en "Colaboradores y planilla".</p>`:`<p class="note" style="margin:0">Podés guardarla varias veces — cada vez que avancés más, volvé a guardar y vas a ver si ya quedó bien, y tu profesor va a ver la versión más reciente arriba de todas.</p>`}
     </div>
   </div>`;
@@ -3017,6 +3053,7 @@ document.addEventListener("click",async e=>{
   if(a==="revTab"){APP.revTab=APP.revTab||{};APP.revTab[b.dataset.key]=b.dataset.t;if(b.dataset.t==="ind"&&!APP.indData){render();cargarIndicadoresLms().then(()=>render()).catch(()=>{APP.indData={materias:[],indicadores:[]};render()});return}APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
   if(a==="toggleRevPractica"){APP.revPrac=APP.revPrac||{};APP.revPrac[b.dataset.key]=!APP.revPrac[b.dataset.key];APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
   if(a==="toggleRevGeneral"){APP.revGeneral=!APP.revGeneral;render();return}
+  if(a==="verComparacion"){const k=b.dataset.est+"|"+b.dataset.co;APP.cmpVer=APP.cmpVer===k?null:k;render();return}
   if(a==="igualarTipo"){(async()=>{const key=b.dataset.key;let row=null;
     for(const w of (APP.empData||[])){const c=w.companies.find(c=>claveGrupo(c)===key);if(c){row=c;break}}
     if(!row)return;const g={rows:[{c:row}]},t=tipoDelProfe(g);if(!t)return;
