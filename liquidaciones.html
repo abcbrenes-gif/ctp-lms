@@ -798,7 +798,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
     const { error } = await sb.from("trabajos_cotidianos").update({ contenido_actividad: nuevo }).eq("id", S.trabajo.id);
     if (error) { alert("No se pudo guardar: " + error.message); return; }
     S.trabajo.contenido_actividad = nuevo;
-    $("#banner").insertAdjacentHTML("afterbegin", `<div class="banner ok" style="margin-bottom:8px">✓ Caso guardado. Los estudiantes ya lo ven.</div>`);
+    $("#banner").insertAdjacentHTML("afterbegin", `<div class="banner ok" style="margin-bottom:8px">✓ Caso guardado. ${S.trabajo.contenido_actividad.liq_tipo && S.trabajo.habilitado === false ? "Para que los estudiantes la vean, vuelva a ← Actividades y tóquele ▶ Abrir." : "Los estudiantes ya lo ven."}</div>`);
   }
 
   // Editor de la evaluación del trabajo (formato MEP): datos del instrumento e
@@ -864,7 +864,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
   // en «📥 Entregas». Las evaluativas y las tareas tienen su indicador en la
   // categoría que corresponde, así la nota llega sola a Rúbrica y Evaluaciones.
   const TIPOS_ACT = {
-    diaria: { et: "🟢 Prácticas diarias", corto: "Práctica diaria", desc: "no llevan nota; usted ve lo que hizo cada estudiante", cat: null, comp: "Práctica diaria" },
+    diaria: { et: "🟢 Prácticas diarias", corto: "Práctica diaria", desc: "no llevan nota", cat: null, comp: "Práctica diaria" },
     evaluativa: { et: "📝 Prácticas evaluativas", corto: "Práctica evaluativa", desc: "cuentan como trabajo cotidiano", cat: "Trabajo cotidiano", comp: "Trabajo cotidiano" },
     tarea: { et: "🏠 Tareas", corto: "Tarea", desc: "cuentan en el rubro de Tareas, con fecha de entrega", cat: "Tareas", comp: "Tareas" }
   };
