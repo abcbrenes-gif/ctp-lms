@@ -233,6 +233,7 @@ select,input,textarea{border-radius:12px;padding:10px 12px}
 .sw:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 45%,transparent);outline-offset:2px}
 /* Métricas rápidas */
 .pills{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 14px}
+.pillbtn{cursor:pointer;font:inherit;font-weight:700;color:inherit}.pillbtn:hover{filter:brightness(.97);transform:translateY(-1px)}.pillbtn.on{outline:2px solid var(--accent,#6d5dfc);outline-offset:1px}
 .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:99px;border:1px solid var(--line);background:var(--surface);font-weight:700;font-size:.9rem;box-shadow:0 1px 2px rgba(15,23,42,.05)}
 .pill b{font-family:var(--f-num);font-size:1rem}
 .pill.ok{background:color-mix(in srgb,var(--ok) 12%,var(--surface));border-color:color-mix(in srgb,var(--ok) 35%,transparent);color:var(--ok)}
@@ -1055,6 +1056,31 @@ async function igualarTipoEstudiantes(nombre,cat){
 // Tipo que tiene esta práctica en la cuenta del profesor (si lo tiene y es distinto al del grupo).
 function tipoDelProfe(g){const p=(APP.companies||[]).find(c=>nomPractica(c)===nomPractica(g.rows[0]&&g.rows[0].c));return p&&p.categoria?catDe(p):null}
 document.addEventListener("toggle",e=>{const d=e.target;if(!d||!d.dataset||!d.dataset.gkey)return;APP.revOpen=APP.revOpen||{};APP.revOpen[d.dataset.gkey]=d.open},true);
+// Detalle de cada contador de «Entregas recibidas»: quién entregó, quién falta, etc.
+function detallePill(k){
+  const d=APP.empData||[],qs=APP.pillSec||"";const L=d.filter(w=>!qs||w.seccion===qs).sort((a,b)=>(a.seccion||"").localeCompare(b.seccion||"")||a.nombre.localeCompare(b.nombre));
+  const secs=[...new Set(d.map(w=>w.seccion).filter(Boolean))].sort();
+  const filtro=`<div class="field" style="flex:0 1 180px;margin:0"><label for="pillSec">Sección</label><select id="pillSec"><option value="">Todas</option>${secs.map(x=>`<option ${x===qs?"selected":""}>${esc(x)}</option>`).join("")}</select></div>`;
+  const trabajo=c=>{try{const R=plResumen([c]);return (c.entries||[]).length||R.casOk||R.asPlIntentos||R.evals||R.planillas}catch(e){return (c.entries||[]).length}};
+  const fecha=v=>v?esc(fmtDate(v)):'<span class="muted">—</span>';
+  const caja=(titulo,head,rows,nota)=>`<div class="panel stack" style="margin:-4px 0 14px"><div class="row" style="align-items:flex-end;justify-content:space-between"><h3 style="margin:0">${titulo}</h3>${filtro}</div>${nota?`<p class="muted" style="margin:0;font-size:.86rem">${nota}</p>`:""}
+    <div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.length?rows.join(""):`<tr><td colspan="${head.length}" class="muted">No hay.</td></tr>`}</tbody></table></div></div>`;
+  const nom=w=>`<b>${esc(w.nombre)}</b> <small class="muted">${esc(w.seccion||"")}</small>`;
+  if(k==="entregados"){const rows=[];for(const w of L)for(const c of w.companies)if(unaEntrega(c)&&c.entregado)rows.push(`<tr><td>${nom(w)}</td><td>${chipCat(catDe(c))} ${esc(c.name)}</td><td>${fecha(c.entregadoFecha)}</td></tr>`);
+    return caja("✅ Trabajos entregados",["Estudiante","Trabajo","Entregado el"],rows)}
+  if(k==="pendientes"){const rows=[];for(const w of L)for(const c of w.companies)if(unaEntrega(c)&&!c.entregado){const t=trabajo(c);rows.push(`<tr><td>${nom(w)}</td><td>${chipCat(catDe(c))} ${esc(c.name)}</td><td>${t?'<span class="chip tG" style="font-size:.7rem">En proceso</span>':'<span class="chip" style="font-size:.7rem">⏳ Sin empezar</span>'}</td><td>${fecha(w.actualizado)}</td></tr>`)}
+    return caja("⏳ Trabajos pendientes de entregar",["Estudiante","Trabajo","Avance","Último guardado del estudiante"],rows)}
+  if(k==="practicas"){const by={};for(const w of L)for(const c of w.companies)if(!unaEntrega(c)){const n=String(c.name||"").trim();const g=by[n.toLowerCase()]=by[n.toLowerCase()]||{n,tot:0,con:[],sin:[]};g.tot++;(trabajo(c)?g.con:g.sin).push(w.nombre)}
+    const rows=Object.values(by).sort((a,b)=>a.n.localeCompare(b.n)).map(g=>`<tr><td><b>${esc(g.n)}</b></td><td class="num">${g.tot}</td><td class="num">${g.con.length}</td><td><small class="muted">${g.sin.length?esc(g.sin.join(", ")):"—"}</small></td></tr>`);
+    return caja("🔄 Prácticas",["Práctica","Estudiantes que la tienen","La trabajaron","No la han trabajado"],rows)}
+  if(k==="estudiantes"){const rows=L.map(w=>{let tot=0,ent=0,pr=0,con=0;for(const c of w.companies){if(unaEntrega(c)){tot++;if(c.entregado)ent++}else pr++;if(trabajo(c))con++}
+      return `<tr><td>${nom(w)}<br><span class="code">${esc(w.id)}</span></td><td>${con?'<span class="chip tI" style="font-size:.7rem">✓ Ha trabajado</span>':'<span class="chip tG" style="font-size:.7rem">Sin trabajo todavía</span>'}</td><td>${fecha(w.actualizado)}</td><td class="num">${w.companies.length}</td><td class="num">${con}</td><td class="num">${ent}/${tot}</td><td class="num">${pr}</td><td><a class="btn sm primary" href="aula-contable.html?como_estudiante=${encodeURIComponent(w.id)}">Revisar</a></td></tr>`});
+    return caja("🎓 Estudiantes",["Estudiante","¿Ha trabajado?","Último guardado","Empresas","Con trabajo","Trabajos entregados","Prácticas",""],rows,"«Último guardado» es la última vez que se guardó su cuenta de Aula de Conta (cuando el estudiante trabaja, o cuando usted le asigna una práctica). «Ha trabajado» indica si tiene asientos, machote, planillas o evaluaciones hechas.")}
+  if(k==="codigo"){const l=(APP.entregas||[]).filter(e=>!qs||((d.find(w=>w.id===e.usuario)||{}).seccion===qs)).slice().sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
+    const rows=l.map(e=>`<tr><td><b>${esc(e.nombre)}</b> <span class="code">${esc(e.usuario)}</span></td><td>${fecha(e.fecha)}</td><td class="num">${esc(e.empresas??"")}</td><td><button class="btn sm primary" data-act="viewEntrega" data-id="${e.id}">Revisar</button></td></tr>`);
+    return caja("📥 Entregas por código",["Estudiante","Fecha","Empresas",""],rows)}
+  return "";
+}
 function viewPorEmpresa(){
   const d=APP.empData;
   if(!d)return '<div class="loading">Cargando empresas de los estudiantes…</div>';
@@ -1100,7 +1126,8 @@ function viewEntregas(){
      <p>El trabajo de cada estudiante en Aula de Conta, en vivo: revíselo por empresa o por estudiante.</p></div>
      <button class="btn ghost" data-act="reloadEntregas">↻ Actualizar</button></div>
    ${(()=>{const d=APP.empData;if(!d)return "";let t=0,e=0,pr=0;for(const w of d)for(const c of w.companies){if(unaEntrega(c)){t++;if(c.entregado)e++}else pr++}
-     return `<div class="pills"><span class="pill ok">✅ <b>${e}/${t}</b> trabajos entregados</span><span class="pill warn">⏳ <b>${t-e}</b> pendientes</span><span class="pill info">🔄 <b>${pr}</b> prácticas</span><span class="pill">🎓 <b>${d.length}</b> estudiantes</span><span class="pill">📥 <b>${(APP.entregas||[]).length}</b> entregas por código</span></div>`})()}
+     const pb=(k,cls,html)=>`<button type="button" class="pill ${cls} pillbtn ${APP.pillVer===k?"on":""}" data-act="pillVer" data-k="${k}" aria-expanded="${APP.pillVer===k}">${html} <span class="muted" style="font-weight:400">${APP.pillVer===k?"▴":"▾"}</span></button>`;
+     return `<div class="pills">${pb("entregados","ok",`✅ <b>${e}/${t}</b> trabajos entregados`)}${pb("pendientes","warn",`⏳ <b>${t-e}</b> pendientes`)}${pb("practicas","info",`🔄 <b>${pr}</b> prácticas`)}${pb("estudiantes","",`🎓 <b>${d.length}</b> estudiantes`)}${pb("codigo","",`📥 <b>${(APP.entregas||[]).length}</b> entregas por código`)}</div>${APP.pillVer?detallePill(APP.pillVer):""}`})()}
    <div class="stack">
     <details class="panel"${APP.modulosOpen!==false?" open":""} id="modulosBox"><summary style="cursor:pointer;font-weight:800;font-family:var(--f-display);font-size:1.05rem">🔓 Módulos habilitados</summary>
      <p class="muted" style="margin:8px 0 12px">Activa o desactiva cada módulo para todos los estudiantes a la vez. Empresas y Catálogo están disponibles siempre.</p>
@@ -3057,6 +3084,7 @@ document.addEventListener("click",async e=>{
   if(a==="revTab"){APP.revTab=APP.revTab||{};APP.revTab[b.dataset.key]=b.dataset.t;if(b.dataset.t==="ind"&&!APP.indData){render();cargarIndicadoresLms().then(()=>render()).catch(()=>{APP.indData={materias:[],indicadores:[]};render()});return}APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
   if(a==="toggleRevPractica"){APP.revPrac=APP.revPrac||{};APP.revPrac[b.dataset.key]=!APP.revPrac[b.dataset.key];APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
   if(a==="toggleRevGeneral"){APP.revGeneral=!APP.revGeneral;render();return}
+  if(a==="pillVer"){APP.pillVer=APP.pillVer===b.dataset.k?null:b.dataset.k;if(APP.pillVer==="codigo"&&!APP.entregas&&typeof loadEntregas==="function")loadEntregas();render();return}
   if(a==="verComparacion"){const k=b.dataset.est+"|"+b.dataset.co;APP.cmpVer=APP.cmpVer===k?null:k;
     APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true; // que la práctica siga abierta al volver a dibujar
     render();if(APP.cmpVer){const f=document.getElementById("cmpFila");if(f)f.scrollIntoView({behavior:"smooth",block:"nearest"})}return}
@@ -3116,6 +3144,7 @@ document.addEventListener("input",e=>{
 });
 document.addEventListener("change",e=>{
   if(e.target.id==="empSec"){APP.empSec=e.target.value;render();return}
+  if(e.target.id==="pillSec"){APP.pillSec=e.target.value;render();return}
   if(e.target.id==="coPick"){APP.activeId=e.target.value;APP.editAcc=null;resetDraft();if(["entregas","entregar"].includes(APP.view))APP.view="diario";render();toast("Trabajando en: "+co().name)}
   if(e.target.id==="mayorF"){APP.mayorF=e.target.value;render()}
   if(e.target.id==="aType"){const t=e.target.value;document.getElementById("aCls").innerHTML=Object.entries(CLS[t]).map(([k,v])=>`<option value="${k}">${v}</option>`).join("")}
