@@ -8,10 +8,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=20261030f"></script>
-<script src="js/actividades.js?v=20261030f"></script>
-<script src="js/liquidacion-calculo.js?v=20261030f"></script>
-<script src="js/hoja-calculo.js?v=20261030h"></script>
+<script src="js/config.js?v=20261030i"></script>
+<script src="js/actividades.js?v=20261030i"></script>
+<script src="js/liquidacion-calculo.js?v=20261030i"></script>
+<script src="js/hoja-calculo.js?v=20261030i"></script>
 <style>
 /* Hoja de trabajo de liquidación: datos del caso a la izquierda del flujo, cada
    derecho (preaviso, cesantía, vacaciones, aguinaldo) en su propia pestaña. */
@@ -106,6 +106,14 @@ tr.hl td{background:#fff7d6; font-weight:700}
 .fx{display:flex; gap:8px; align-items:center; margin:8px 0; font-family:var(--mono); font-size:.85rem}
 .fx b{min-width:2.6rem; text-align:center; background:var(--soft); border:1px solid var(--line); border-radius:7px; padding:4px}
 .fx input{flex:1; border:1px solid var(--line); border-radius:7px; padding:5px 8px; font-family:var(--mono)}
+.hubg{border-top:1px solid var(--line); padding-top:10px; margin-top:10px}
+.hubg:first-of-type{border-top:0; margin-top:4px; padding-top:0}
+.hubg h3{margin:0; font-size:.98rem}
+.pill{display:inline-block; border-radius:999px; padding:1px 9px; font-size:.75rem; font-weight:700; background:var(--soft); border:1px solid var(--line); white-space:nowrap}
+.pill.ok{background:var(--ok-bg); border-color:#b6e5c6; color:var(--ok)} .pill.warn{background:var(--warn-bg); border-color:#f1d39a; color:var(--warn)} .pill.bad{background:var(--bad-bg); border-color:#f0a9b0; color:var(--bad)}
+.act td{vertical-align:middle}
+.act .acc{display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end}
+.btn.sm{padding:5px 9px; font-size:.8rem}
 .calc{font-size:.78rem; color:var(--muted); font-family:var(--mono)}
 </style>
 </head>
@@ -115,6 +123,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
     <div><h1>📑 Liquidaciones laborales</h1><p id="sub">Preaviso, cesantía, vacaciones y aguinaldo · Código de Trabajo de Costa Rica</p></div>
     <div class="row" id="acciones"></div>
   </header>
+  <section id="hub"></section>
   <div id="banner"></div>
   <div id="empleados"></div>
   <nav class="tabs" id="tabs" aria-label="Partes de la liquidación"></nav>
@@ -197,9 +206,9 @@ tr.hl td{background:#fff7d6; font-weight:700}
   function pintarAcciones() {
     const a = $("#acciones");
     if (S.docente) {
-      a.innerHTML = `${botonBloqueo()}<button class="btn" type="button" id="practicaIA">🤖 Práctica con IA</button><button class="btn" type="button" id="aleatorio">🎲 Un caso al azar</button><button class="btn" type="button" id="editEval">📋 Evaluación (MEP)</button><button class="btn primary" type="button" id="guardarCaso">💾 Guardar caso</button><a class="btn" href="index.html" data-volver>← Plataforma</a>`;
+      a.innerHTML = `${botonBloqueo()}<button class="btn" type="button" id="practicaIA">🤖 Práctica con IA</button><button class="btn" type="button" id="aleatorio">🎲 Un caso al azar</button><button class="btn" type="button" id="editEval">📋 Evaluación (MEP)</button><button class="btn primary" type="button" id="guardarCaso">💾 Guardar caso</button>${S.trabajo.contenido_actividad.liq_tipo ? `<a class="btn" href="liquidaciones.html">← Actividades</a>` : `<a class="btn" href="index.html" data-volver>← Plataforma</a>`}`;
     } else if (S.asignado) {
-      a.innerHTML = `<button class="btn" type="button" id="verEval">📋 Evaluación</button>${S.bloqueado ? "" : `<button class="btn ok" type="button" id="entregar">📤 Entregar al profe</button>`}<a class="btn" href="index.html" data-volver>← Plataforma</a>`;
+      a.innerHTML = `${tipoTrabajo() === "diaria" ? "" : `<button class="btn" type="button" id="verEval">📋 Evaluación</button>`}${S.bloqueado ? "" : `<button class="btn ok" type="button" id="entregar">📤 Entregar al profe</button>`}<a class="btn" href="${S.verEst ? "liquidaciones.html" : "liquidaciones.html"}" data-volver>← Actividades</a>`;
     } else {
       a.innerHTML = `${botonBloqueo()}${bloqueadoParaMi() ? "" : `<span class="seg" role="group" aria-label="Forma de trabajar"><button type="button" data-modo="calc" class="${S.modo === "calc" ? "on" : ""}">🧮 Calculadora</button><button type="button" data-modo="practica" class="${S.modo === "practica" ? "on" : ""}">✍️ Lo calculo yo</button></span>`}
         ${ES_DOCENTE ? `<button class="btn primary" type="button" id="practicaIA">🤖 Práctica con IA</button>` : ""}
@@ -235,11 +244,14 @@ tr.hl td{background:#fff7d6; font-weight:700}
   }
   function pintarBanner() {
     const b = $("#banner");
-    if (S.docente) b.innerHTML = `<div class="banner"><b>Modo docente · ${esc(S.trabajo.titulo)}.</b> Escriba aquí el caso que van a resolver los estudiantes, tome uno al azar o arme una <b>🤖 práctica con IA</b> de varios empleados; escoja qué partes se evalúan, revise la <b>📋 Evaluación</b> y toque <b>💾 Guardar caso</b>. Los estudiantes lo resuelven en «✍️ Lo calculo yo» y la nota se calcula sola al entregar.
+    if (S.docente) b.innerHTML = `<div class="banner"><b>Modo docente · ${esc(S.trabajo.titulo)}.</b> Escriba aquí el caso que van a resolver los estudiantes, tome uno al azar o arme una <b>🤖 práctica con IA</b> de varios empleados; escoja qué partes se evalúan, revise la <b>📋 Evaluación</b> y toque <b>💾 Guardar caso</b>. ${S.trabajo.contenido_actividad.liq_tipo ? `Después vuelva a <b>← Actividades</b> y tóquele <b>▶ Abrir</b> para que los estudiantes la vean.${tipoTrabajo() === "diaria" ? " Esta práctica no lleva nota." : " La nota se calcula sola al entregar."}` : "Los estudiantes lo resuelven en «✍️ Lo calculo yo» y la nota se calcula sola al entregar."}
       <div class="row" style="margin-top:6px">Partes que se evalúan: ${EVALUABLES.map(k => `<label class="row" style="gap:4px"><input type="checkbox" data-parte="${k}" ${S.partesEval.includes(k) ? "checked" : ""}> ${PARTES.find(p => p[0] === k)[1]}</label>`).join("")}</div></div>`;
+    else if (S.verEst) b.innerHTML = `<div class="banner"><b>👁️ Trabajo de ${esc(S.verEst.nombre)}</b> · ${esc(S.trabajo.titulo)} · ${S.verEst.estado}. Se ve lo que escribió en cada parte (✓ / ✗ y la respuesta correcta) y, en <b>💰 Salario</b>, su hoja de cálculo. Solo lectura.</div>`;
     else if (S.asignado) b.innerHTML = S.bloqueado
-      ? `<div class="banner ok"><b>✓ Entregado.</b> Tu nota: <b>${S.entrega.puntaje}/3</b> (${Math.round(S.entrega.porcentaje)} %). Abajo podés ver qué pasos estaban bien.</div>`
-      : `<div class="banner"><b>${esc(S.trabajo.titulo)}.</b> Leé los datos del caso y resolvé cada parte: escribí el resultado de cada paso y tocá <b>✔ Revisar</b>. Cuando termines todas, tocá <b>📤 Entregar al profe</b>. Tu avance se guarda solo.</div>`;
+      ? (S.entrega.puntaje == null
+        ? `<div class="banner ok"><b>✓ Práctica entregada</b> (sin nota). Acertaste el <b>${Math.round(S.entrega.porcentaje || 0)} %</b> de los pasos. Abajo podés ver qué estaba bien.</div>`
+        : `<div class="banner ok"><b>✓ Entregado.</b> Tu nota: <b>${S.entrega.puntaje}/3</b> (${Math.round(S.entrega.porcentaje)} %). Abajo podés ver qué pasos estaban bien.</div>`)
+      : `<div class="banner"><b>${esc(S.trabajo.titulo)}</b>${tipoTrabajo() === "diaria" ? " · práctica diaria, <b>no lleva nota</b>" : tipoTrabajo() === "tarea" ? ` · tarea${S.trabajo.contenido_actividad.fecha_limite ? `, se entrega a más tardar el <b>${esc(S.trabajo.contenido_actividad.fecha_limite)}</b>` : ""}` : ""}. Leé los datos del caso y resolvé cada parte: escribí el resultado de cada paso y tocá <b>✔ Revisar</b>. Cuando termines todas, tocá <b>📤 Entregar al profe</b>. Tu avance se guarda solo.</div>`;
     else if (bloqueadoParaMi()) b.innerHTML = `<div class="banner">🔒 <b>El profe bloqueó las respuestas.</b> Llená los datos del caso (o tomá un caso de práctica), escribí el resultado de cada paso y tocá <b>✔ Revisar</b>: te dice qué está bien y qué no, sin mostrar el resultado.</div>`;
     else b.innerHTML = S.modo === "practica"
       ? `<div class="banner">✍️ <b>Lo calculo yo:</b> en cada pestaña escribí el resultado de cada paso y tocá <b>✔ Revisar</b>; la plataforma te dice qué está bien. Si te equivocás, abrí <b>💡 Cómo se calcula</b>.</div>`
@@ -384,7 +396,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
       cuerpo = `<ol class="pasos" style="--c:${col}">${pasosCalculo(k, R).map(([a, b, c]) => `<li><div><b>${esc(a)}</b><div class="det">${esc(b)}</div></div><div class="val">${esc(c)}</div></li>`).join("")}</ol>
         <div class="total"><span>${nombre}</span><b>${m(k === "preaviso" || k === "cesantia" ? (parte.aplica ? parte.monto : 0) : parte.monto)}</b></div>`;
     } else {
-      const pasos = liqPasosPractica(R)[k], rev = S.revisado[k] || S.bloqueado, ver = S.verSol && S.verSol[k] && !bloqueadoParaMi();
+      const pasos = liqPasosPractica(R)[k], rev = S.revisado[k] || S.bloqueado, ver = (S.verSol && S.verSol[k] && !bloqueadoParaMi()) || !!S.verEst;
       cuerpo = `<ol class="pasos" style="--c:${col}">${pasos.map(p => { const r = rev ? revisar(p, S.resp) : null; const esF = String(S.resp[p.k] || "").trim().startsWith("="), fv = esF ? valorDe(S.resp[p.k], S.resp) : null; return `<li class="${r === true ? "ok" : r === false || (rev && r === null) ? "bad" : ""}">
           <div><b>${esc(p.et)}</b>${(r === false || (rev && r === null)) && p.ayuda ? `<div class="det">💡 ${esc(p.ayuda)}</div>` : ""}${ver ? `<div class="det">Respuesta: <b class="num">${p.tipo === "monto" ? m(p.ok) : d(p.ok)}</b></div>` : ""}</div>
           <div><input data-r="${p.k}" inputmode="decimal" value="${esc(S.resp[p.k] == null ? "" : S.resp[p.k])}" placeholder="${p.tipo === "monto" ? (k === "salario" ? "₡ 0,00 o =celda" : "₡ 0,00") : "días"}" aria-label="${esc(p.et)}" ${S.bloqueado ? "disabled" : ""}>${esF ? `<div class="calc" style="text-align:right">${fv === "x" ? "fórmula inválida" : "= " + m(fv)}</div>` : ""}<span class="marca">${r === true ? "✓" : r === false || (rev && r === null) ? "✗" : ""}</span></div></li>`; }).join("")}</ol>
@@ -703,7 +715,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
     if (S.asignado && !S.docente) S.modo = "practica";
     if (bloqueadoParaMi()) S.modo = "practica";
     if (S.docente) S.modo = "calc";
-    pintarAcciones(); pintarBanner(); pintarEmpleados(); pintarTabs();
+    pintarHub(); pintarAcciones(); pintarBanner(); pintarEmpleados(); pintarTabs();
     const v = $("#vista");
     if (S.tab === "datos") { v.innerHTML = vistaDatos(); ligarDatos(); }
     else if (S.tab === "resumen") v.innerHTML = vistaResumen();
@@ -748,7 +760,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
   }
   async function entregar() {
     const faltan = S.partesEval.filter(k => puntajeGlobal(k).blancos > 0);
-    $("#modalCaja").innerHTML = `<h2>📤 ¿Entregar?</h2>${faltan.length ? `<p class="noaplica">Te faltan pasos por llenar en: ${faltan.map(k => PARTES.find(x => x[0] === k)[1]).join(", ")}. Los que dejes en blanco cuentan como incorrectos.</p>` : "<p>Ya llenaste todos los pasos.</p>"}<p>Después de entregar ya no podés cambiar las respuestas.</p>
+    $("#modalCaja").innerHTML = `<h2>📤 ¿Entregar?</h2>${faltan.length ? `<p class="noaplica">Te faltan pasos por llenar en: ${faltan.map(k => PARTES.find(x => x[0] === k)[1]).join(", ")}. Los que dejes en blanco cuentan como incorrectos.</p>` : "<p>Ya llenaste todos los pasos.</p>"}<p>Después de entregar ya no podés cambiar las respuestas.${tipoTrabajo() === "diaria" ? " Esta práctica <b>no lleva nota</b>: el profe ve lo que hiciste." : ""}</p>
       <div class="row" style="justify-content:flex-end"><button class="btn" type="button" id="no">Seguir trabajando</button><button class="btn ok" type="button" id="si">Sí, entregar</button></div>`;
     $("#modal").hidden = false;
     $("#no").addEventListener("click", () => { $("#modal").hidden = true; });
@@ -757,10 +769,17 @@ tr.hl td{background:#fff7d6; font-weight:700}
       const crit = S.trabajo.contenido_actividad.criterios || [];
       const met = metricas();
       const nota = memoriaNotaDesdeMetricas(crit, met, []);
+      const lim = S.trabajo.contenido_actividad.fecha_limite, tarde = !!(lim && new Date().toISOString().slice(0, 10) > lim);
       S.partesEval.forEach(k => { S.revisado[k] = true; Object.values(S.revTodas).forEach(r => { if (r && typeof r === "object") r[k] = true; }); });
       S.revTodas.empresa = true;
       clearTimeout(tAv);
-      const { error } = await guardarNotaManualActividad(S.trabajo, EST_ID, nota.puntaje, { respuestas: nota.puntos, porcentaje: nota.porcentaje, datos_prueba: { liquidacion: { respuestas: S.resp, respTodas: S.respTodas, metricas: met, entregado_en: new Date().toISOString() } } });
+      const dp = { liquidacion: { respuestas: S.resp, respTodas: S.respTodas, metricas: met, entregado_en: new Date().toISOString(), tarde } };
+      let error = null;
+      if (tipoTrabajo() === "diaria") {
+        const ps = S.partesEval.map(k => met["liq_" + k + "_pct"] || 0), prom = ps.length ? ps.reduce((a, b) => a + b, 0) / ps.length : 0;
+        const r = await upsertSinConflicto("actividades_estudiante", { trabajo_id: S.trabajo.id, estudiante_id: EST_ID }, { completado: true, puntaje: null, porcentaje: prom, datos_prueba: dp, actualizado_en: new Date().toISOString() });
+        error = r && r.error ? r.error.message : null; nota.puntaje = null; nota.porcentaje = prom;
+      } else ({ error } = await guardarNotaManualActividad(S.trabajo, EST_ID, nota.puntaje, { respuestas: nota.puntos, porcentaje: nota.porcentaje, datos_prueba: dp }));
       if (error) { ev.target.disabled = false; alert("No se pudo entregar: " + error); return; }
       S.entrega = { puntaje: nota.puntaje, porcentaje: nota.porcentaje }; S.bloqueado = true;
       $("#modal").hidden = true; S.tab = "resumen"; pintarTodo();
@@ -838,6 +857,166 @@ tr.hl td{background:#fff7d6; font-weight:700}
   document.addEventListener("click", e => { const a = e.target.closest("[data-volver]"); if (a && document.referrer.startsWith(location.origin) && history.length > 1) { e.preventDefault(); history.back(); } });
   $("#modal").addEventListener("click", e => { if (e.target.id === "modal") $("#modal").hidden = true; });
 
+  // ───── Módulo de actividades: prácticas diarias (sin nota), prácticas
+  // evaluativas (trabajo cotidiano) y tareas. Cada una es un trabajo de
+  // liquidación (trabajos_cotidianos con contenido_actividad.liq_tipo); lo que
+  // hace cada estudiante queda en actividades_estudiante y el docente lo revisa
+  // en «📥 Entregas». Las evaluativas y las tareas tienen su indicador en la
+  // categoría que corresponde, así la nota llega sola a Rúbrica y Evaluaciones.
+  const TIPOS_ACT = {
+    diaria: { et: "🟢 Prácticas diarias", corto: "Práctica diaria", desc: "no llevan nota; usted ve lo que hizo cada estudiante", cat: null, comp: "Práctica diaria" },
+    evaluativa: { et: "📝 Prácticas evaluativas", corto: "Práctica evaluativa", desc: "cuentan como trabajo cotidiano", cat: "Trabajo cotidiano", comp: "Trabajo cotidiano" },
+    tarea: { et: "🏠 Tareas", corto: "Tarea", desc: "cuentan en el rubro de Tareas, con fecha de entrega", cat: "Tareas", comp: "Tareas" }
+  };
+  const tipoTrabajo = () => (S.trabajo && S.trabajo.contenido_actividad && S.trabajo.contenido_actividad.liq_tipo) || "evaluativa";
+  const HUB = { acts: [], materias: [], misMaterias: [], mias: {}, listo: false };
+  const hoyISO = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+  async function cargarHub() {
+    if (!sesion) return;
+    try {
+      const [{ data }, { data: mats }] = await Promise.all([
+        sb.from("trabajos_cotidianos").select("id, titulo, fecha, habilitado, indicador_id, subtema_id, contenido_actividad").eq("contenido_actividad->>estrategia", "liquidacion_laboral").order("fecha", { ascending: false }).order("id", { ascending: false }),
+        sb.from("materias").select("id, nombre").order("id")]);
+      const acts = data || [];
+      const indIds = [...new Set(acts.map(t => t.indicador_id).filter(Boolean))], ind = {};
+      if (indIds.length) { const { data: I } = await sb.from("indicadores").select("id, materia_id, letra, categoria").in("id", indIds); (I || []).forEach(x => { ind[x.id] = x; }); }
+      acts.forEach(t => { const C = t.contenido_actividad || {}; t._ind = ind[t.indicador_id] || null; t._materia = Number(C.materia_id) || (t._ind && t._ind.materia_id) || null; t._tipo = C.liq_tipo || "evaluativa"; t._caso = !!(C.liq_caso || (C.liq_practica && C.liq_practica.empleados && C.liq_practica.empleados.length)); });
+      HUB.acts = acts; HUB.materias = mats || [];
+      if (!ES_DOCENTE && EST_ID) {
+        const [{ data: em }, { data: ae }] = await Promise.all([
+          sb.from("estudiante_materias").select("materia_id").eq("estudiante_id", EST_ID),
+          acts.length ? sb.from("actividades_estudiante").select("trabajo_id, completado, puntaje, porcentaje").eq("estudiante_id", EST_ID).in("trabajo_id", acts.map(t => t.id)) : { data: [] }]);
+        HUB.misMaterias = (em || []).map(x => x.materia_id);
+        HUB.mias = {}; (ae || []).forEach(x => { HUB.mias[x.trabajo_id] = x; });
+      }
+      HUB.listo = true;
+    } catch (e) { HUB.listo = false; }
+  }
+  const nomMateria = id => { const m = HUB.materias.find(x => x.id === id); return m ? m.nombre.trim() : "Sin materia"; };
+  function pintarHub() {
+    const h = $("#hub");
+    if (TRABAJO_ID || !sesion || !HUB.listo) { h.innerHTML = ""; return; }
+    const doc = ES_DOCENTE;
+    const acts = doc ? HUB.acts : HUB.acts.filter(t => t.habilitado !== false && t._caso && HUB.misMaterias.includes(t._materia));
+    const fila = t => {
+      const C = t.contenido_actividad || {}, lim = C.fecha_limite;
+      const fechas = `${t.fecha ? esc(t.fecha) : ""}${lim ? ` <span class="muted">· entrega ${esc(lim)}</span>` : ""}`;
+      if (doc) {
+        const est = !t._caso ? `<span class="pill warn">Falta el caso</span>` : t.habilitado === false ? `<span class="pill">⏸️ Cerrada</span>` : `<span class="pill ok">🟢 Abierta</span>`;
+        return `<tr><td><b>${esc(t.titulo)}</b><div class="muted" style="font-size:.8rem">${esc(nomMateria(t._materia))}${t._ind ? ` · indicador ${esc(t._ind.letra)} (${esc(t._ind.categoria)})` : ""}${t.subtema_id ? " · creada en un subtema" : ""}</div></td><td style="font-size:.84rem">${fechas}</td><td>${est}</td>
+          <td><div class="acc"><a class="btn sm" href="liquidaciones.html?trabajo=${t.id}&docente=1">✏️ Caso y evaluación</a><button class="btn sm" type="button" data-entregas="${t.id}">📥 Entregas</button>
+          ${t._caso ? `<button class="btn sm" type="button" data-hab="${t.id}">${t.habilitado === false ? "▶ Abrir" : "⏸️ Cerrar"}</button>` : ""}${C.liq_tipo ? `<button class="btn sm" type="button" data-borrar="${t.id}" title="Borrar">🗑️</button>` : ""}</div></td></tr>`;
+      }
+      const mi = HUB.mias[t.id];
+      const est = mi && mi.completado ? `<span class="pill ok">✅ ${mi.puntaje != null ? `Nota ${mi.puntaje}/3` : `Entregada · ${Math.round(mi.porcentaje || 0)} %`}</span>` : mi ? `<span class="pill warn">⏳ En curso</span>` : lim && hoyISO() > lim ? `<span class="pill bad">Atrasada</span>` : `<span class="pill">🆕 Pendiente</span>`;
+      return `<tr><td><b>${esc(t.titulo)}</b><div class="muted" style="font-size:.8rem">${esc(nomMateria(t._materia))}</div></td><td style="font-size:.84rem">${fechas}</td><td>${est}</td><td><div class="acc"><a class="btn sm ${mi && mi.completado ? "" : "primary"}" href="liquidaciones.html?trabajo=${t.id}">${mi && mi.completado ? "👁️ Ver" : mi ? "▶ Seguir" : "▶ Resolver"}</a></div></td></tr>`;
+    };
+    const grupo = k => {
+      const L = acts.filter(t => t._tipo === k);
+      return `<div class="hubg"><div class="row" style="justify-content:space-between"><h3>${TIPOS_ACT[k].et} <span class="muted" style="font-weight:500; font-size:.8rem">· ${TIPOS_ACT[k].desc}</span></h3>${doc ? `<button class="btn sm primary" type="button" data-nueva="${k}">➕ Nueva</button>` : ""}</div>
+        ${L.length ? `<div class="tbl act"><table><tbody>${L.map(fila).join("")}</tbody></table></div>` : `<p class="muted" style="font-size:.85rem; margin:6px 0 0">${doc ? "Todavía no hay." : "No hay por ahora."}</p>`}</div>`;
+    };
+    h.innerHTML = `<section class="card"><h2>📚 Actividades de liquidaciones</h2>
+      <p class="muted" style="margin:0 0 6px; font-size:.86rem">${doc ? "Cree aquí las prácticas y tareas, arme el caso de cada una, ábrala para los estudiantes y revise lo que hizo cada quien en <b>📥 Entregas</b>." : "Estas son las prácticas y tareas que te dejó el profe. Más abajo podés practicar libremente con la calculadora."}</p>
+      ${["diaria", "evaluativa", "tarea"].map(grupo).join("")}</section>`;
+    h.querySelectorAll("[data-nueva]").forEach(b => b.addEventListener("click", () => nuevaActividad(b.dataset.nueva)));
+    h.querySelectorAll("[data-entregas]").forEach(b => b.addEventListener("click", () => verEntregas(HUB.acts.find(t => t.id === Number(b.dataset.entregas)))));
+    h.querySelectorAll("[data-hab]").forEach(b => b.addEventListener("click", async () => {
+      const t = HUB.acts.find(x => x.id === Number(b.dataset.hab)); b.disabled = true;
+      const { error } = await sb.from("trabajos_cotidianos").update({ habilitado: t.habilitado === false }).eq("id", t.id);
+      if (error) { alert("No se pudo cambiar: " + error.message); b.disabled = false; return; }
+      t.habilitado = t.habilitado === false; pintarHub();
+    }));
+    h.querySelectorAll("[data-borrar]").forEach(b => b.addEventListener("click", async () => {
+      const t = HUB.acts.find(x => x.id === Number(b.dataset.borrar));
+      if (!confirm(`¿Borrar «${t.titulo}»? Se borra lo que hicieron los estudiantes${t.indicador_id ? " y su indicador con las notas" : ""}. No se puede deshacer.`)) return;
+      b.disabled = true;
+      await sb.from("actividades_estudiante").delete().eq("trabajo_id", t.id);
+      await sb.from("trabajos_cotidianos_estudiante").delete().eq("trabajo_id", t.id);
+      const { error } = await sb.from("trabajos_cotidianos").delete().eq("id", t.id);
+      if (error) { alert("No se pudo borrar: " + error.message); b.disabled = false; return; }
+      if (t.indicador_id) { await sb.from("calificaciones_indicador").delete().eq("indicador_id", t.indicador_id); await sb.from("criterios_indicador").delete().eq("indicador_id", t.indicador_id); await sb.from("indicadores").delete().eq("id", t.indicador_id); }
+      HUB.acts = HUB.acts.filter(x => x.id !== t.id); pintarHub();
+    }));
+  }
+  async function crearIndicadorLiq(materiaId, titulo, fecha, categoria) {
+    const { data: ex } = await sb.from("indicadores").select("id, letra").eq("materia_id", materiaId).eq("categoria", categoria);
+    const usadas = new Set((ex || []).map(e => String(e.letra || "").trim().toUpperCase()));
+    let i = 0, letra = "";
+    for (;;) { let n = i, l = ""; do { l = String.fromCharCode(65 + (n % 26)) + l; n = Math.floor(n / 26) - 1; } while (n >= 0); if (!usadas.has(l)) { letra = l; break; } i++; }
+    const { data, error } = await sb.from("indicadores").insert({ materia_id: materiaId, categoria, letra, descripcion: titulo, puntaje_maximo: 3, fecha_evaluacion: fecha || null, orden: (ex || []).length + 1 }).select().maybeSingle();
+    if (error || !data) throw new Error(error ? error.message : "no se pudo crear el indicador");
+    return data;
+  }
+  function nuevaActividad(k) {
+    const T = TIPOS_ACT[k];
+    $("#modalCaja").innerHTML = `<h2>➕ Nueva ${T.corto.toLowerCase()}</h2>
+      <p class="muted" style="font-size:.86rem">${k === "diaria" ? "No lleva nota: los estudiantes la resuelven y usted ve lo que hizo cada uno." : `Se crea su indicador en <b>${T.cat}</b> (Rúbrica y Evaluaciones) y la nota se pone sola cuando el estudiante entrega.`} Después de crearla arma el caso (con IA o al azar), revisa la evaluación y la abre para los estudiantes.</p>
+      <div class="grid"><label class="fld">Título<input id="naTit" maxlength="120" placeholder="Ej.: Liquidación de 3 empleados — despido con responsabilidad"></label>
+        <label class="fld">Materia / sección<select id="naMat">${HUB.materias.map(m => `<option value="${m.id}">${esc(m.nombre.trim())}</option>`).join("")}</select></label></div>
+      <div class="grid" style="margin-top:8px"><label class="fld">Fecha<input id="naFec" type="date" value="${hoyISO()}"></label>${k === "tarea" ? `<label class="fld">Fecha de entrega<input id="naLim" type="date"></label>` : ""}</div>
+      <p class="muted" id="naEst" style="min-height:1.2em"></p>
+      <div class="row" style="justify-content:flex-end"><button class="btn" type="button" id="naNo">Cancelar</button><button class="btn primary" type="button" id="naSi">Crear y armar el caso</button></div>`;
+    $("#modal").hidden = false;
+    $("#naNo").addEventListener("click", () => { $("#modal").hidden = true; });
+    $("#naSi").addEventListener("click", async ev => {
+      const titulo = $("#naTit").value.trim(), materia = Number($("#naMat").value), fecha = $("#naFec").value || null, lim = k === "tarea" ? ($("#naLim").value || null) : null;
+      if (!titulo) { $("#naEst").textContent = "Escriba un título."; return; }
+      if (k === "tarea" && !lim) { $("#naEst").textContent = "Ponga la fecha de entrega de la tarea."; return; }
+      ev.target.disabled = true; $("#naEst").textContent = "Creando…";
+      try {
+        const base = ESTRATEGIAS_EVALUACION.liquidacion_laboral.criterios;
+        const C = { estrategia: "liquidacion_laboral", liq_tipo: k, materia_id: materia, fecha_limite: lim, criterios: base.map(c => ({ ...c, niveles: tiraderaNivelesDe(c) })), liq_partes: EVALUABLES.slice(), liq_provisiones: true,
+          liq_instrumento: { componente: T.comp, tipo: "Escala de desempeño", subarea: "", unidad: titulo, resultado: "", indicador: "" } };
+        const ind = T.cat ? await crearIndicadorLiq(materia, titulo, fecha, T.cat) : null;
+        const { data, error } = await sb.from("trabajos_cotidianos").insert({ titulo, fecha, tipo_actividad: "rubrica_directa", habilitado: false, indicador_id: ind ? ind.id : null, contenido_actividad: C }).select("id").maybeSingle();
+        if (error || !data) { if (ind) await sb.from("indicadores").delete().eq("id", ind.id); throw new Error(error ? error.message : "sin respuesta"); }
+        location.href = `liquidaciones.html?trabajo=${data.id}&docente=1`;
+      } catch (e) { ev.target.disabled = false; $("#naEst").textContent = "No se pudo crear: " + (e.message || e); }
+    });
+  }
+  async function verEntregas(t) {
+    $("#modalCaja").innerHTML = `<h2>📥 Entregas · ${esc(t.titulo)}</h2><p class="muted">Cargando…</p>`; $("#modal").hidden = false;
+    if (!t._materia) { $("#modalCaja").innerHTML += `<p class="noaplica">Esta actividad no tiene materia: no se sabe qué estudiantes la tienen.</p>`; return; }
+    const C = t.contenido_actividad || {}, partes = Array.isArray(C.liq_partes) && C.liq_partes.length ? C.liq_partes : EVALUABLES, conNota = t._tipo !== "diaria";
+    const [{ data: em }, { data: ae }] = await Promise.all([
+      sb.from("estudiante_materias").select("estudiante_id").eq("materia_id", t._materia),
+      sb.from("actividades_estudiante").select("estudiante_id, completado, puntaje, porcentaje, datos_prueba").eq("trabajo_id", t.id)]);
+    const ids = (em || []).map(x => x.estudiante_id);
+    const { data: es } = ids.length ? await sb.from("estudiantes").select("id, nombre, apellido1, apellido2").in("id", ids) : { data: [] };
+    const por = {}; (ae || []).forEach(x => { por[x.estudiante_id] = x; });
+    const lista = (es || []).map(e => ({ id: e.id, nombre: [e.apellido1, e.apellido2, e.nombre].filter(Boolean).join(" ") })).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+    const pct = v => v == null ? "—" : `<span style="font-weight:700; color:${v >= 85 ? "var(--ok)" : v >= 60 ? "#9a6700" : v >= 35 ? "#b45309" : "var(--bad)"}">${Math.round(v)} %</span>`;
+    let entregaron = 0, trabajando = 0;
+    const filas = lista.map(e => {
+      const a = por[e.id], L = (a && a.datos_prueba && a.datos_prueba.liquidacion) || {}, met = L.metricas;
+      const ok = a && a.completado; if (ok) entregaron++; else if (met) trabajando++;
+      const estado = ok ? `<span class="pill ok">✅ ${L.calificado_por_docente ? "Calificado sin entregar" : "Entregó"}</span>${L.tarde ? ` <span class="pill bad">tarde</span>` : ""}` : met ? `<span class="pill warn">⏳ Trabajando</span>` : `<span class="pill">— Sin empezar</span>`;
+      return `<tr><td>${esc(e.nombre)}</td><td>${estado}</td>${partes.map(k => `<td class="r">${pct(met ? met["liq_" + k + "_pct"] : null)}</td>`).join("")}
+        <td class="r"><b>${ok ? (a.puntaje != null ? a.puntaje + "/3" : pct(a.porcentaje)) : "—"}</b></td>
+        <td><div class="acc">${met || ok ? `<a class="btn sm" href="liquidaciones.html?trabajo=${t.id}&est=${encodeURIComponent(e.id)}">👁️ Ver trabajo</a>` : ""}${conNota && !ok && met ? `<button class="btn sm" type="button" data-nota="${esc(e.id)}">Poner nota con lo que lleva</button>` : ""}</div></td></tr>`;
+    }).join("");
+    $("#modalCaja").innerHTML = `<h2>📥 Entregas · ${esc(t.titulo)}</h2>
+      <p class="muted" style="font-size:.86rem; margin:0 0 8px">${TIPOS_ACT[t._tipo].corto} · ${esc(nomMateria(t._materia))} · ${entregaron} de ${lista.length} entregaron${trabajando ? ` · ${trabajando} trabajando` : ""}. El % es la cantidad de pasos correctos de cada parte (sumando todos los empleados del caso).${conNota ? " Nota: 85 % o más = 3 · 60–84 % = 2 · 35–59 % = 1 por indicador." : " Esta práctica no lleva nota."}</p>
+      ${conNota && trabajando ? `<div class="row" style="margin-bottom:8px"><button class="btn sm" type="button" id="notaTodos">📥 Poner nota con lo que llevan a los ${trabajando} que no entregaron</button></div>` : ""}<span class="muted" id="entEst" style="font-size:.84rem"></span>
+      <div class="tbl"><table><thead><tr><th>Estudiante</th><th>Estado</th>${partes.map(k => `<th class="r">${esc(PARTES.find(p => p[0] === k)[1])}</th>`).join("")}<th class="r">${conNota ? "Nota" : "Aciertos"}</th><th></th></tr></thead><tbody>${filas || `<tr><td colspan="9" class="muted">No hay estudiantes en esta materia.</td></tr>`}</tbody></table></div>
+      <div class="row" style="justify-content:flex-end; margin-top:10px"><button class="btn primary" type="button" id="entCerrar">Cerrar</button></div>`;
+    $("#entCerrar").addEventListener("click", () => { $("#modal").hidden = true; });
+    const calificar = async id => {
+      const a = por[id], L = (a && a.datos_prueba && a.datos_prueba.liquidacion) || {}; if (!L.metricas) return;
+      const nota = memoriaNotaDesdeMetricas(C.criterios || [], L.metricas, []);
+      const { error } = await guardarNotaManualActividad(t, id, nota.puntaje, { respuestas: nota.puntos, porcentaje: nota.porcentaje, datos_prueba: { ...(a.datos_prueba || {}), liquidacion: { ...L, en_curso: false, calificado_por_docente: true, entregado_en: new Date().toISOString() } } });
+      if (error) throw new Error(error);
+    };
+    $("#modalCaja").querySelectorAll("[data-nota]").forEach(b => b.addEventListener("click", async () => { b.disabled = true; $("#entEst").textContent = "Guardando nota…"; try { await calificar(b.dataset.nota); verEntregas(t); } catch (e) { b.disabled = false; $("#entEst").textContent = "No se pudo: " + (e.message || e); } }));
+    const nt = $("#notaTodos"); if (nt) nt.addEventListener("click", async () => {
+      if (!confirm("¿Poner la nota con lo que llevan a todos los que no entregaron? Los pasos en blanco cuentan como incorrectos.")) return;
+      nt.disabled = true; const ids2 = [...$("#modalCaja").querySelectorAll("[data-nota]")].map(b => b.dataset.nota); let n = 0;
+      for (const id of ids2) { $("#entEst").textContent = `Guardando notas… ${++n}/${ids2.length}`; try { await calificar(id); } catch (e) {} }
+      verEntregas(t);
+    });
+  }
+
   // ───── Arranque ─────
   (async () => {
     await leerPublicadas();
@@ -847,6 +1026,10 @@ tr.hl td{background:#fff7d6; font-weight:700}
         if (!t || !t.contenido_actividad || t.contenido_actividad.estrategia !== "liquidacion_laboral") throw new Error("No se encontró este trabajo de liquidación.");
         S.trabajo = t; S.asignado = true;
         const C = t.contenido_actividad;
+        if (C.liq_tipo && t.habilitado === false && !ES_DOCENTE) {
+          const { data: ya } = EST_ID ? await sb.from("actividades_estudiante").select("completado").eq("trabajo_id", t.id).eq("estudiante_id", EST_ID).maybeSingle() : { data: null };
+          if (!(ya && ya.completado)) { $("#vista").innerHTML = `<section class="card"><h2>${esc(t.titulo)}</h2><p>Esta actividad todavía no está abierta (o ya se cerró). Consultá con el profe.</p><a class="btn" href="liquidaciones.html">← Actividades</a></section>`; return; }
+        }
         S.practica = null; S.respTodas = {}; S.revTodas = {};
         S.provisiones = C.liq_provisiones !== false;
         if (C.liq_practica && Array.isArray(C.liq_practica.empleados) && C.liq_practica.empleados.length) { S.practica = { ...C.liq_practica, id: "t" + t.id, origen: "trabajo" }; elegirEmpleado(0); }
@@ -860,13 +1043,27 @@ tr.hl td{background:#fff7d6; font-weight:700}
           const { data: e } = await sb.from("actividades_estudiante").select("*").eq("trabajo_id", t.id).eq("estudiante_id", EST_ID).maybeSingle();
           const L = e && e.datos_prueba && e.datos_prueba.liquidacion;
           if (L) {
-            if (S.practica) { S.respTodas = L.respTodas || {}; S.revTodas = L.revTodas || {}; elegirEmpleado(0); }
+            if (S.practica && !ES_DOCENTE) { S.respTodas = L.respTodas || {}; S.revTodas = L.revTodas || {}; elegirEmpleado(0); }
             else { S.resp = L.respuestas || {}; S.revisado = L.revisado || {}; }
           }
-          if (e && e.completado && e.puntaje != null) { S.bloqueado = true; S.entrega = e; S.partesEval.forEach(k => { S.revisado[k] = true; }); if (S.practica) { S.practica.empleados.forEach((_, i) => { S.revTodas[i] = S.revTodas[i] || {}; S.partesEval.forEach(k => { S.revTodas[i][k] = true; }); }); S.revTodas.empresa = true; elegirEmpleado(0); } }
+          if (e && e.completado && (e.puntaje != null || C.liq_tipo === "diaria")) { S.bloqueado = true; S.entrega = e; S.partesEval.forEach(k => { S.revisado[k] = true; }); if (S.practica) { S.practica.empleados.forEach((_, i) => { S.revTodas[i] = S.revTodas[i] || {}; S.partesEval.forEach(k => { S.revTodas[i][k] = true; }); }); S.revTodas.empresa = true; elegirEmpleado(0); } }
+        } else if (ES_DOCENTE && params.get("est")) {
+          // El docente revisa lo que hizo un estudiante (solo lectura).
+          const estId = params.get("est");
+          const [{ data: e }, { data: est }] = await Promise.all([
+            sb.from("actividades_estudiante").select("*").eq("trabajo_id", t.id).eq("estudiante_id", estId).maybeSingle(),
+            sb.from("estudiantes").select("id, nombre, apellido1, apellido2").eq("id", estId).maybeSingle()]);
+          const L = (e && e.datos_prueba && e.datos_prueba.liquidacion) || {};
+          if (S.practica) { S.respTodas = L.respTodas || {}; S.revTodas = {}; } else { S.resp = L.respuestas || {}; }
+          S.bloqueado = true; S.entrega = e || { puntaje: null, porcentaje: null };
+          S.verEst = { nombre: est ? [est.nombre, est.apellido1, est.apellido2].filter(Boolean).join(" ") : estId,
+            estado: e && e.completado ? (e.puntaje != null ? `entregó · nota ${e.puntaje}/3` : `entregó · ${Math.round(e.porcentaje || 0)} % de aciertos`) + (L.tarde ? " · tarde" : "") : L.metricas ? "sin entregar (avance guardado)" : "no ha empezado" };
+          S.partesEval.forEach(k => { S.revisado[k] = true; });
+          if (S.practica) { S.practica.empleados.forEach((_, i) => { S.revTodas[i] = S.revTodas[i] || {}; S.partesEval.forEach(k => { S.revTodas[i][k] = true; }); }); S.revTodas.empresa = true; elegirEmpleado(0); }
         } else if (ES_DOCENTE) { S.asignado = false; S.modo = "practica"; } // el docente prueba sin guardar
       } catch (e) { $("#vista").innerHTML = `<section class="card"><h2>No se pudo abrir</h2><p>${esc(e.message || e)}</p></section>`; return; }
     }
+    if (!TRABAJO_ID) await cargarHub();
     pintarTodo();
   })();
 })();
