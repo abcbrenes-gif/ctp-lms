@@ -1092,7 +1092,7 @@ function viewEntregas(){
   const q=(APP.entF||"").toLowerCase();
   const shown=l?l.filter(e=>!q||(e.nombre+" "+e.usuario).toLowerCase().includes(q)):[];
   return `<div class="head"><div><div class="eyebrow">Panel del profesor</div><h2>Entregas recibidas</h2>
-     <p>Pega aquí el código que te envía cada estudiante. La entrega queda guardada en línea, solo visible para ti, y puedes revisarla paso a paso.</p></div>
+     <p>El trabajo de cada estudiante en Aula de Conta, en vivo: revíselo por empresa o por estudiante.</p></div>
      <button class="btn ghost" data-act="reloadEntregas">↻ Actualizar</button></div>
    ${(()=>{const d=APP.empData;if(!d)return "";let t=0,e=0,pr=0;for(const w of d)for(const c of w.companies){if(unaEntrega(c)){t++;if(c.entregado)e++}else pr++}
      return `<div class="pills"><span class="pill ok">✅ <b>${e}/${t}</b> trabajos entregados</span><span class="pill warn">⏳ <b>${t-e}</b> pendientes</span><span class="pill info">🔄 <b>${pr}</b> prácticas</span><span class="pill">🎓 <b>${d.length}</b> estudiantes</span><span class="pill">📥 <b>${(APP.entregas||[]).length}</b> entregas por código</span></div>`})()}
@@ -1104,18 +1104,6 @@ function viewEntregas(){
         return `<div class="mod ${on?"on":""}"><span class="ic">${ic}</span><span class="tx"><b>${esc(LOCK_NAMES[k])}</b><small>${on?"Habilitado":"Bloqueado"}</small></span><button class="sw" type="button" role="switch" aria-checked="${on}" aria-label="${esc(LOCK_NAMES[k])}" data-act="toggleModulo" data-k="${k}"></button></div>`}).join("")}
      </div>
     </details>
-    <div class="panel stack">
-      <h3>Recibir una entrega</h3>
-      <div class="drop" id="dropZone"><div class="big">📥</div><b>Arrastra aquí el código de entrega</b> <span class="muted">(texto o archivo .txt)</span>
-        <p>o copia el código que te envió el estudiante y pégalo con un clic</p>
-        <div class="row" style="justify-content:center"><button class="btn primary" data-act="pegarPortapapeles">📋 Pegar código desde el portapapeles</button></div></div>
-      <details><summary class="muted" style="cursor:pointer">Prefiero pegarlo a mano</summary><textarea id="rcvTa" rows="3" class="num" placeholder="AULA-ENTREGA:…" style="width:100%;margin-top:8px"></textarea>
-       <div class="row" style="margin-top:8px"><button class="btn" data-act="checkDelivery">Verificar código</button></div></details>
-      ${p?`<div class="okcard"><span class="tick">✓</span><div style="flex:1;min-width:200px"><b>Código válido</b> <span class="muted">· verificación ${vcode(p.check)}</span><br><span class="muted" style="font-size:.88rem">${esc(p.payload.nombre)} · ${p.payload.companies.length} empresa(s) · ${p.payload.companies.reduce((s,c)=>s+(c.entries||[]).length,0)} asientos</span></div></div>
-        <div class="row" style="align-items:center"><div style="margin-right:auto"><b>${esc(p.payload.nombre)}</b> <span class="code">${esc(p.payload.usuario)}</span><br>
-          <small class="muted">Generado el ${esc(fmtDate(p.payload.fecha))} · ${p.payload.companies.length} empresa(s) · ${p.payload.companies.reduce((s,c)=>s+(c.entries||[]).length,0)} asientos</small></div>
-          <button class="btn ghost" data-act="cancelPreview">Descartar</button><button class="btn pop" data-act="saveDelivery">Guardar entrega</button></div>`:""}
-    </div>
     <div class="row" style="align-items:flex-end"><div class="tabs" style="margin:0;margin-right:auto"><button class="tab ${(APP.entTab||"emp")==="emp"?"on":""}" data-act="entTab" data-t="emp">Por empresa</button><button class="tab ${APP.entTab==="seg"?"on":""}" data-act="entTab" data-t="seg">Seguimiento por estudiante</button><button class="tab ${APP.entTab==="todas"?"on":""}" data-act="entTab" data-t="todas">Todas las entregas</button></div>
       <div class="field" style="flex:0 1 280px"><label for="entF">Buscar estudiante</label><input id="entF" value="${esc(APP.entF||"")}" placeholder="Nombre o usuario"></div></div>
     ${(APP.entTab||"emp")==="emp"?viewPorEmpresa():!l?'<div class="loading">Cargando entregas…</div>':!l.length?`<div class="empty"><h3>Aún no hay entregas por código</h3><p>Cuando un estudiante te envíe su código por Teams, pégalo arriba. El trabajo en vivo está en la pestaña "Por empresa".</p></div>`:APP.entTab==="seg"?viewSeguimiento(l):`<div class="tbl"><table><thead><tr><th>Estudiante</th><th>Generada</th><th>Recibida</th><th>Tareas / Prácticas</th><th class="r">Asientos</th><th>Verificación</th><th></th></tr></thead><tbody>
