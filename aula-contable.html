@@ -1881,6 +1881,8 @@ function liqFormulasHTML(R,inp){
   </div>`;
 }
 function plViewLiquidacion(c,p){
+  // La liquidación laboral ahora es un módulo aparte de la plataforma (liquidaciones.html).
+  return `<div class="card"><h3 style="margin:0 0 6px">📑 La liquidación laboral ahora es un módulo aparte</h3><p class="muted" style="margin:0 0 12px">Preaviso, cesantía, vacaciones y aguinaldo, cada uno en su propia pestaña, con calculadora paso a paso y práctica para resolverlo uno mismo.</p><a class="btn" href="liquidaciones.html">Abrir Liquidaciones laborales →</a></div>`;
   if(!p.employees.length)return `<div class="empty"><h3>Primero agrega colaboradores</h3><p>La liquidación toma el salario del colaborador como punto de partida.</p></div>`;
   if(!APP.liq||!p.employees.some(x=>x.id===APP.liq.empId))APP.liq=liqInit(c,p);
   const L=APP.liq,meses=liqMesesHistorial(L.fechaSalida),mesIng=L.fechaIngreso.slice(0,7);

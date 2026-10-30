@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Liquidaciones laborales · CTP Mercedes Norte</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js?v=20261030a"></script>
+<script src="js/actividades.js?v=20261030a"></script>
+<script src="js/liquidacion-calculo.js?v=20261030a"></script>
+<style>
+/* Hoja de trabajo de liquidación: datos del caso a la izquierda del flujo, cada
+   derecho (preaviso, cesantía, vacaciones, aguinaldo) en su propia pestaña. */
+:root{
+  --bg:#f3f5f9; --panel:#ffffff; --soft:#f7f8fc; --line:#e1e5ef; --ink:#17203a; --muted:#5d6785;
+  --brand:#2446c7; --brand-2:#e8edff; --ok:#16833f; --ok-bg:#e3f6ea; --bad:#c62f3c; --bad-bg:#fde8ea; --warn:#9a5b00; --warn-bg:#fff4dc;
+  --pre:#7c3aed; --ces:#0f766e; --vac:#d97706; --agu:#be185d;
+  --sans:"Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif; --mono:"JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:15px; line-height:1.5}
+button,input,select{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--brand); outline-offset:2px}
+[hidden]{display:none!important}
+.wrap{max-width:1120px; margin:0 auto; padding-block:18px 60px; padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); display:flex; flex-direction:column; gap:14px}
+.top{display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-end; gap:12px}
+.top h1{margin:0; font-size:clamp(1.4rem, 3.4vw, 1.9rem); letter-spacing:-.01em}
+.top p{margin:2px 0 0; color:var(--muted); font-size:.9rem}
+.row{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.btn{border:1px solid var(--line); background:var(--panel); border-radius:10px; padding:8px 13px; cursor:pointer; font-weight:600; font-size:.9rem; text-decoration:none; display:inline-flex; align-items:center; gap:6px}
+.btn:hover{border-color:var(--brand)}
+.btn.primary{background:var(--brand); color:#fff; border-color:var(--brand)}
+.btn.ok{background:var(--ok); color:#fff; border-color:var(--ok)}
+.btn:disabled{opacity:.5; cursor:not-allowed}
+.seg{display:inline-flex; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:3px; gap:3px; flex-wrap:wrap}
+.seg button{border:0; background:transparent; border-radius:9px; padding:7px 12px; cursor:pointer; font-weight:600; font-size:.88rem; color:var(--muted)}
+.seg button.on{background:var(--brand); color:#fff}
+.banner{background:var(--brand-2); border:1px solid #c9d4ff; border-radius:14px; padding:10px 14px; font-size:.9rem}
+.banner.ok{background:var(--ok-bg); border-color:#b6e5c6}
+.tabs{display:flex; gap:6px; overflow-x:auto; padding-bottom:2px}
+.tab{border:1px solid var(--line); background:var(--panel); border-radius:12px; padding:9px 14px; cursor:pointer; font-weight:700; font-size:.9rem; white-space:nowrap; display:flex; gap:7px; align-items:center}
+.tab.on{border-color:var(--ink); background:var(--ink); color:#fff}
+.tab .dot{width:9px; height:9px; border-radius:50%}
+.tab .sc{font-family:var(--mono); font-size:.75rem; background:#ffffff26; border-radius:6px; padding:0 5px}
+.tab:not(.on) .sc{background:var(--soft)}
+.card{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px}
+.card h2{margin:0 0 4px; font-size:1.15rem}
+.card h3{margin:14px 0 6px; font-size:.95rem}
+.muted{color:var(--muted)}
+.grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(14rem, 1fr)); gap:12px}
+.fld{display:flex; flex-direction:column; gap:4px; font-size:.82rem; font-weight:600; min-width:0}
+.fld input,.fld select{background:var(--soft); border:1px solid var(--line); border-radius:9px; padding:8px 10px; font-weight:500; font-size:.92rem; min-width:0}
+.fld input:disabled,.fld select:disabled{color:var(--muted)}
+.num{font-family:var(--mono); font-variant-numeric:tabular-nums}
+.tbl{overflow-x:auto}
+table{width:100%; border-collapse:collapse; font-size:.86rem}
+th,td{border-bottom:1px solid var(--line); padding:7px 8px; text-align:left; vertical-align:top}
+th{font-size:.75rem; text-transform:uppercase; letter-spacing:.06em; color:var(--muted)}
+td.r,th.r{text-align:right}
+tr.hl td{background:#fff7d6; font-weight:700}
+.meses input{width:100%; min-width:6.5rem; background:var(--soft); border:1px solid var(--line); border-radius:7px; padding:5px 7px; font-family:var(--mono); font-size:.85rem}
+.ley{border-left:4px solid var(--c, var(--brand)); background:var(--soft); border-radius:10px; padding:10px 12px; font-size:.88rem}
+.pasos{counter-reset:p; display:flex; flex-direction:column; gap:8px; margin:10px 0 0; padding:0; list-style:none}
+.pasos li{counter-increment:p; display:grid; grid-template-columns:2rem minmax(0,1fr) auto; gap:10px; align-items:center; background:var(--soft); border:1px solid var(--line); border-radius:12px; padding:9px 12px}
+.pasos li::before{content:counter(p); display:grid; place-items:center; width:1.8rem; height:1.8rem; border-radius:50%; background:var(--c, var(--brand)); color:#fff; font-weight:800; font-size:.85rem}
+.pasos .det{font-size:.8rem; color:var(--muted)}
+.pasos .val{font-family:var(--mono); font-weight:700; text-align:right; white-space:nowrap}
+.pasos input{width:11rem; max-width:40vw; text-align:right; font-family:var(--mono); background:#fff; border:1px solid var(--line); border-radius:8px; padding:7px 9px}
+.pasos li.ok{border-color:#9bd7b1; background:var(--ok-bg)}
+.pasos li.bad{border-color:#f0a9b0; background:var(--bad-bg)}
+.pasos .marca{font-weight:800; margin-left:6px}
+.total{display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:12px; padding:12px 14px; border-radius:12px; background:var(--ink); color:#fff}
+.total b{font-family:var(--mono); font-size:1.3rem}
+.noaplica{background:var(--warn-bg); border:1px solid #f1d39a; color:var(--warn); border-radius:10px; padding:8px 12px; font-size:.86rem; font-weight:600}
+.adv{background:var(--warn-bg); border-radius:10px; padding:8px 12px; font-size:.84rem; color:#6b4300}
+.puntaje{font-family:var(--mono); font-weight:800}
+.dos{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px}
+@media (max-width:760px){ .dos{grid-template-columns:1fr} .pasos li{grid-template-columns:1.8rem minmax(0,1fr)} .pasos li > :last-child{grid-column:2} .pasos input{width:100%; max-width:none} }
+.overlay{position:fixed; inset:0; background:rgba(15,20,40,.55); display:grid; place-items:center; padding:16px; z-index:50}
+.modal{background:var(--panel); border-radius:18px; padding:20px; width:min(860px,100%); max-height:90vh; overflow:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div><h1>📑 Liquidaciones laborales</h1><p id="sub">Preaviso, cesantía, vacaciones y aguinaldo · Código de Trabajo de Costa Rica</p></div>
+    <div class="row" id="acciones"></div>
+  </header>
+  <div id="banner"></div>
+  <nav class="tabs" id="tabs" aria-label="Partes de la liquidación"></nav>
+  <main id="vista"></main>
+</div>
+<div class="overlay" id="modal" hidden><div class="modal" id="modalCaja"></div></div>
+
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  const esc = t => String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const m = n => "₡" + (Number(n) || 0).toLocaleString("es-CR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const d = n => (Math.round((Number(n) || 0) * 100) / 100).toLocaleString("es-CR");
+  const params = new URLSearchParams(location.search);
+  const TRABAJO_ID = Number(params.get("trabajo")) || null;
+  let sesion = null; try { sesion = JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")); } catch (e) {}
+  const ES_DOCENTE = !!(sesion && sesion.role === "docente");
+  const EST_ID = (sesion && sesion.role === "estudiante" && sesion.id) || params.get("est") || null;
+  const leerLS = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
+  const guardarLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+
+  const PARTES = [
+    ["datos", "📋 Datos del caso", "var(--brand)"], ["preaviso", "🔔 Preaviso", "var(--pre)"], ["cesantia", "🛡️ Cesantía", "var(--ces)"],
+    ["vacaciones", "🏖️ Vacaciones", "var(--vac)"], ["aguinaldo", "🎄 Aguinaldo", "var(--agu)"], ["resumen", "🧾 Resumen", "var(--ink)"]
+  ];
+  const DERECHOS = ["preaviso", "cesantia", "vacaciones", "aguinaldo"];
+
+  // Estado
+  const S = {
+    tab: "datos", modo: "calc", caso: leerLS("liq_caso_v1") || liqCasoAleatorio(), resp: leerLS("liq_resp_v1") || {}, revisado: {},
+    asignado: false, docente: false, trabajo: null, entrega: null, partesEval: DERECHOS.slice(), bloqueado: false
+  };
+  const persistir = () => { if (!S.asignado) { guardarLS("liq_caso_v1", S.caso); guardarLS("liq_resp_v1", S.resp); } else guardarAvance(); };
+
+  // ───── Encabezado, pestañas ─────
+  function pintarAcciones() {
+    const a = $("#acciones");
+    if (S.docente) {
+      a.innerHTML = `<button class="btn" type="button" id="aleatorio">🎲 Caso al azar</button><button class="btn" type="button" id="verEval">📋 Evaluación</button><button class="btn primary" type="button" id="guardarCaso">💾 Guardar caso</button><a class="btn" href="index.html" data-volver>← Plataforma</a>`;
+    } else if (S.asignado) {
+      a.innerHTML = `<button class="btn" type="button" id="verEval">📋 Evaluación</button>${S.bloqueado ? "" : `<button class="btn ok" type="button" id="entregar">📤 Entregar al profe</button>`}<a class="btn" href="index.html" data-volver>← Plataforma</a>`;
+    } else {
+      a.innerHTML = `<span class="seg" role="group" aria-label="Forma de trabajar"><button type="button" data-modo="calc" class="${S.modo === "calc" ? "on" : ""}">🧮 Calculadora</button><button type="button" data-modo="practica" class="${S.modo === "practica" ? "on" : ""}">✍️ Lo calculo yo</button></span>
+        <button class="btn" type="button" id="aleatorio">🎲 Caso de práctica</button><button class="btn" type="button" id="vacio">＋ Caso propio</button><a class="btn" href="index.html" data-volver>← Plataforma</a>`;
+    }
+    a.querySelectorAll("[data-modo]").forEach(b => b.addEventListener("click", () => { S.modo = b.dataset.modo; S.revisado = {}; pintarTodo(); }));
+    const on = (id, fn) => { const x = $("#" + id); if (x) x.addEventListener("click", fn); };
+    on("aleatorio", () => { S.caso = liqCasoAleatorio(); S.resp = {}; S.revisado = {}; persistir(); S.tab = "datos"; pintarTodo(); });
+    on("vacio", () => { S.caso = liqCasoVacio(); S.resp = {}; S.revisado = {}; persistir(); S.tab = "datos"; pintarTodo(); });
+    on("verEval", verEvaluacion);
+    on("guardarCaso", guardarCasoDocente);
+    on("entregar", entregar);
+  }
+  function puntajeParte(p) {
+    const R = liqCalcularCaso(S.caso); if (R.error) return null;
+    const pasos = liqPasosPractica(R)[p];
+    const ok = pasos.filter(x => liqRevisarPaso(x, S.resp[x.k]) === true).length;
+    return { ok, total: pasos.length, pct: ok / pasos.length * 100 };
+  }
+  function pintarTabs() {
+    const practica = S.modo === "practica";
+    $("#tabs").innerHTML = PARTES.filter(([k]) => !S.asignado || k === "datos" || k === "resumen" || S.partesEval.includes(k) || S.docente).map(([k, et, col]) => {
+      let sc = "";
+      if (practica && DERECHOS.includes(k) && S.revisado[k]) { const p = puntajeParte(k); if (p) sc = `<span class="sc">${p.ok}/${p.total}</span>`; }
+      return `<button class="tab ${S.tab === k ? "on" : ""}" type="button" data-tab="${k}"><span class="dot" style="background:${col}"></span>${et}${sc}</button>`;
+    }).join("");
+    $("#tabs").querySelectorAll("[data-tab]").forEach(b => b.addEventListener("click", () => { S.tab = b.dataset.tab; pintarTodo(); }));
+  }
+  function pintarBanner() {
+    const b = $("#banner");
+    if (S.docente) b.innerHTML = `<div class="banner"><b>Modo docente · ${esc(S.trabajo.titulo)}.</b> Escriba aquí los datos del caso que van a resolver los estudiantes (o tome uno al azar), escoja qué partes se evalúan y toque <b>💾 Guardar caso</b>. Los estudiantes lo resuelven en «✍️ Lo calculo yo» y la nota se calcula sola al entregar.
+      <div class="row" style="margin-top:6px">Partes que se evalúan: ${DERECHOS.map(k => `<label class="row" style="gap:4px"><input type="checkbox" data-parte="${k}" ${S.partesEval.includes(k) ? "checked" : ""}> ${PARTES.find(p => p[0] === k)[1]}</label>`).join("")}</div></div>`;
+    else if (S.asignado) b.innerHTML = S.bloqueado
+      ? `<div class="banner ok"><b>✓ Entregado.</b> Tu nota: <b>${S.entrega.puntaje}/3</b> (${Math.round(S.entrega.porcentaje)} %). Abajo podés ver qué pasos estaban bien.</div>`
+      : `<div class="banner"><b>${esc(S.trabajo.titulo)}.</b> Leé los datos del caso y resolvé cada parte: escribí el resultado de cada paso y tocá <b>✔ Revisar</b>. Cuando termines todas, tocá <b>📤 Entregar al profe</b>. Tu avance se guarda solo.</div>`;
+    else b.innerHTML = S.modo === "practica"
+      ? `<div class="banner">✍️ <b>Lo calculo yo:</b> en cada pestaña escribí el resultado de cada paso y tocá <b>✔ Revisar</b>; la plataforma te dice qué está bien. Si te equivocás, abrí <b>💡 Cómo se calcula</b>.</div>`
+      : `<div class="banner">🧮 <b>Calculadora:</b> llená los datos del caso como prefieras (por fechas o por tiempo, y el salario fijo, mes a mes, por quincena, por semana o por hora). Cada pestaña muestra el cálculo paso a paso.</div>`;
+    b.querySelectorAll("[data-parte]").forEach(c => c.addEventListener("change", () => { S.partesEval = DERECHOS.filter(k => b.querySelector(`[data-parte="${k}"]`).checked); }));
+  }
+
+  // ───── Datos del caso ─────
+  function campo(k, et, tipo, extra) {
+    const v = S.caso[k] == null ? "" : S.caso[k];
+    return `<label class="fld">${et}<input data-c="${k}" type="${tipo || "number"}" value="${esc(v)}" ${tipo === "number" || !tipo ? 'inputmode="decimal" step="any" min="0"' : ""} ${extra || ""} ${soloLectura() ? "disabled" : ""}></label>`;
+  }
+  const soloLectura = () => S.asignado && !S.docente;
+  function sel(k, et, ops) { return `<label class="fld">${et}<select data-c="${k}" ${soloLectura() ? "disabled" : ""}>${ops.map(([v, t]) => `<option value="${v}" ${String(S.caso[k]) === v ? "selected" : ""}>${esc(t)}</option>`).join("")}</select></label>`; }
+  function seg(k, ops) { return `<span class="seg" role="group">${ops.map(([v, t]) => `<button type="button" data-seg="${k}" data-v="${v}" class="${S.caso[k] === v ? "on" : ""}" ${soloLectura() ? "disabled" : ""}>${esc(t)}</button>`).join("")}</span>`; }
+
+  function vistaDatos() {
+    const c = S.caso;
+    const tiempo = c.tiempoModo === "directo"
+      ? `<div class="grid">${campo("anios", "Años laborados")}${campo("meses", "Meses")}${campo("dias", "Días")}${campo("mesesAguinaldo", "Meses laborados desde el 1 de diciembre (aguinaldo)")}</div>`
+      : `<div class="grid">${campo("fechaIngreso", "Fecha de ingreso", "date")}${campo("fechaSalida", "Fecha de salida", "date")}</div>`;
+    let salario = "";
+    if (c.salarioModo === "mensual") salario = `<div class="grid">${campo("salarioMensual", "Salario mensual (₡)")}</div>`;
+    else if (c.salarioModo === "quincenal") salario = `<div class="grid">${campo("quincena", "Salario de cada quincena (₡)")}</div><p class="muted" style="font-size:.82rem">Salario mensual = quincena × 2.</p>`;
+    else if (c.salarioModo === "semanal") salario = `<div class="grid">${campo("semana", "Salario semanal (₡)")}${sel("actividad", "Tipo de actividad", [["comercial", "Comercial"], ["no_comercial", "No comercial (agrícola, industrial…)"]])}</div><p class="muted" style="font-size:.82rem">Salario mensual = semanal × ${LIQ_SEMANAS_MES}. En actividad no comercial con pago semanal, el diario de cesantía se saca dividiendo entre 26.</p>`;
+    else if (c.salarioModo === "hora") salario = `<div class="grid">${campo("valorHora", "Valor de la hora (₡)")}${campo("horasSemana", "Horas por semana")}</div><p class="muted" style="font-size:.82rem">Salario mensual = valor hora × horas por semana × ${LIQ_SEMANAS_MES}.</p>`;
+    else {
+      if (!Array.isArray(c.salarios) || c.salarios.length !== 12) c.salarios = liqMeses12(c.fechaSalida).map(mes => ({ mes, ordinario: 0, extra: 0, incap: false }));
+      salario = `<p class="muted" style="font-size:.82rem; margin:0 0 6px">Escriba lo devengado en cada mes (el último es el mes de salida). Marque «Incapacidad» en los meses con subsidio: no cuentan para el promedio.</p>
+        ${soloLectura() ? "" : `<div class="row" style="margin-bottom:6px"><button class="btn" type="button" id="copiarMes">Copiar el primer mes a todos</button>${c.tiempoModo === "fechas" ? `<button class="btn" type="button" id="ajustarMeses">Poner los meses según la fecha de salida</button>` : ""}</div>`}
+        <div class="tbl meses"><table><thead><tr><th>Mes</th><th class="r">Salario ordinario</th><th class="r">Horas extra / comisiones</th><th>Incapacidad</th></tr></thead><tbody>
+        ${c.salarios.map((x, i) => `<tr><td>${c.tiempoModo === "fechas" && /^\d{4}-\d{2}$/.test(x.mes) ? liqMesNombre(x.mes) : "Mes " + (i + 1)}</td>
+          <td><input data-sal="${i}" data-f="ordinario" inputmode="decimal" value="${esc(x.ordinario)}" ${soloLectura() ? "disabled" : ""}></td>
+          <td><input data-sal="${i}" data-f="extra" inputmode="decimal" value="${esc(x.extra)}" ${soloLectura() ? "disabled" : ""}></td>
+          <td><input type="checkbox" data-sal="${i}" data-f="incap" ${x.incap ? "checked" : ""} ${soloLectura() ? "disabled" : ""} style="width:auto"></td></tr>`).join("")}</tbody></table></div>`;
+    }
+    return `<section class="card">
+      <h2>📋 Datos del caso</h2>
+      <p class="muted" style="margin:0 0 10px">${soloLectura() ? "Estos son los datos que dio el profe. Resolvé cada parte en las pestañas de arriba." : "Llene los datos como los tenga. Puede cambiar la forma de ingresar el tiempo y el salario."}</p>
+      <div class="grid">${campo("trabajador", "Nombre de la persona trabajadora", "text")}${sel("motivo", "Motivo de la salida", LIQ_MOTIVOS)}</div>
+      <h3>1. Tiempo laborado</h3>${seg("tiempoModo", [["fechas", "Por fechas"], ["directo", "Años, meses y días"]])}<div style="margin-top:8px">${tiempo}</div>
+      <h3>2. Salario</h3>${seg("salarioModo", LIQ_SALARIO_MODOS)}<div style="margin-top:8px">${salario}</div>
+      <h3>3. Preaviso y vacaciones</h3>
+      <div class="grid">${sel("preavisoEstado", "¿Trabajó el preaviso?", [["no", "No lo trabajó"], ["parcial", "Una parte"], ["completo", "Completo"]])}
+        ${c.preavisoEstado === "parcial" ? campo("preavisoDias", "Días de preaviso que trabajó") : ""}
+        ${campo("vacDisfrutadas", "Días de vacaciones disfrutados en el período actual")}${campo("vacAnteriores", "Días pendientes de períodos anteriores")}</div>
+    </section>`;
+  }
+  function ligarDatos() {
+    const v = $("#vista");
+    v.querySelectorAll("[data-c]").forEach(inp => inp.addEventListener(inp.tagName === "SELECT" ? "change" : "input", () => {
+      const k = inp.dataset.c; S.caso[k] = inp.type === "number" ? (inp.value === "" ? "" : Number(inp.value)) : inp.value;
+      if (k === "fechaSalida" && S.caso.salarioModo === "meses") { const nm = liqMeses12(S.caso.fechaSalida); S.caso.salarios = S.caso.salarios.map((x, i) => ({ ...x, mes: nm[i] })); }
+      persistir();
+      if (inp.tagName === "SELECT") pintarTodo(); else { pintarTabs(); }
+    }));
+    v.querySelectorAll("[data-seg]").forEach(b => b.addEventListener("click", () => { S.caso[b.dataset.seg] = b.dataset.v; persistir(); pintarTodo(); }));
+    v.querySelectorAll("[data-sal]").forEach(inp => inp.addEventListener(inp.type === "checkbox" ? "change" : "input", () => {
+      const x = S.caso.salarios[Number(inp.dataset.sal)]; x[inp.dataset.f] = inp.type === "checkbox" ? inp.checked : (inp.value === "" ? "" : Number(String(inp.value).replace(/[^\d.]/g, "")));
+      persistir();
+    }));
+    const cp = $("#copiarMes"); if (cp) cp.addEventListener("click", () => { const f = S.caso.salarios[0]; S.caso.salarios = S.caso.salarios.map(x => ({ ...x, ordinario: f.ordinario, extra: f.extra })); persistir(); pintarTodo(); });
+    const aj = $("#ajustarMeses"); if (aj) aj.addEventListener("click", () => { const nm = liqMeses12(S.caso.fechaSalida); S.caso.salarios = S.caso.salarios.map((x, i) => ({ ...x, mes: nm[i] })); persistir(); pintarTodo(); });
+  }
+
+  // ───── Cada derecho ─────
+  const TEXTO_LEY = {
+    preaviso: `<b>Código de Trabajo, art. 28.</b> Quien termina un contrato por tiempo indefinido sin justa causa debe avisar con anticipación: <b>1 semana</b> después de 3 meses de trabajo, <b>15 días</b> después de 6 meses y <b>1 mes</b> después de 1 año. Si el patrono despide con responsabilidad y no da el preaviso, lo paga: <b>(días de preaviso − días que trabajó) × salario diario</b>. El salario diario sale del <b>promedio de los últimos 6 meses ÷ 30</b> (art. 30). En renuncia lo da el trabajador; en despido con justa causa no hay preaviso.`,
+    cesantia: `<b>Código de Trabajo, art. 29.</b> En despido con responsabilidad patronal (y en pensión o fallecimiento), se paga cesantía: <b>7 días</b> de 3 a 6 meses, <b>14 días</b> de 6 meses a 1 año y, con 1 año o más, los <b>días por año</b> de la tabla según los años laborados, hasta un <b>máximo de 8 años</b>. Una fracción de más de 6 meses cuenta como un año más. Salario diario = <b>promedio de los últimos 6 meses ÷ 30</b> (÷ 26 si el pago es semanal en actividad no comercial). No se paga en renuncia ni en despido con justa causa.`,
+    vacaciones: `<b>Código de Trabajo, arts. 153 y 157.</b> Corresponden 2 semanas por cada 50 semanas de trabajo; al terminar la relación antes de completar el período se paga <b>1 día por cada mes</b> laborado. Se pagan los días acumulados que no disfrutó: <b>días pendientes × salario diario</b>, con el promedio de lo devengado en las últimas 50 semanas (12 meses) ÷ 30. Se paga en cualquier motivo de salida.`,
+    aguinaldo: `<b>Ley 2412.</b> El aguinaldo es la doceava parte de los salarios ordinarios y extraordinarios devengados del <b>1 de diciembre</b> del año anterior al <b>30 de noviembre</b> (o hasta la salida): <b>total devengado ÷ 12</b>. Se paga en cualquier motivo de salida y no paga cargas sociales.`
+  };
+  function tablaLey(k, R) {
+    const t = R.antiguedad.mesesTotales;
+    if (k === "preaviso") {
+      const filas = [["Menos de 3 meses", "Sin preaviso", t < 3], ["De 3 a menos de 6 meses", "7 días", t >= 3 && t < 6], ["De 6 meses a menos de 1 año", "15 días", t >= 6 && t < 12], ["1 año o más", "30 días (1 mes)", t >= 12]];
+      return `<div class="tbl"><table><thead><tr><th>Tiempo laborado</th><th class="r">Preaviso</th></tr></thead><tbody>${filas.map(f => `<tr class="${f[2] ? "hl" : ""}"><td>${f[0]}</td><td class="r">${f[1]}</td></tr>`).join("")}</tbody></table></div>`;
+    }
+    if (k === "cesantia") {
+      const a = R.cesantia.aniosContados;
+      const filas = Object.entries(LIQ_CES_TABLA).map(([y, dd]) => `<tr class="${a >= 1 && Math.min(a, 13) === Number(y) ? "hl" : ""}"><td>${y === "13" ? "13 o más" : y} año${y === "1" ? "" : "s"}</td><td class="r">${String(dd).replace(".", ",")} días por año</td></tr>`).join("");
+      return `<div class="tbl"><table><thead><tr><th>Años laborados</th><th class="r">Cesantía</th></tr></thead><tbody>
+        <tr class="${t >= 3 && t < 6 ? "hl" : ""}"><td>De 3 a menos de 6 meses</td><td class="r">7 días</td></tr><tr class="${t >= 6 && t < 12 ? "hl" : ""}"><td>De 6 meses a menos de 1 año</td><td class="r">14 días</td></tr>${filas}</tbody></table></div>`;
+    }
+    return "";
+  }
+  function pasosCalculo(k, R) {
+    const s = R.salario, A = R.antiguedad;
+    const tiempo = `${A.anios} año(s), ${A.meses} mes(es) y ${Math.round(A.dias)} día(s) = ${d(A.mesesTotales)} meses`;
+    const prom = s.modo === "meses" ? `Promedio de los últimos ${s.usados6} meses con salario = ${m(s.promedio6)}` : `${s.formulaMensual} = ${m(s.promedio6)}`;
+    if (k === "preaviso") { const p = R.preaviso; return [
+      ["Tiempo laborado", tiempo, ""], ["Días de preaviso (tabla)", p.tramo, p.diasLegales + " días"],
+      ["Días a pagar", R.preaviso.aplica ? `${p.diasLegales} − ${p.diasLaborados} trabajados` : "No se paga con este motivo de salida", (p.aplica ? p.diasPagar : 0) + " días"],
+      ["Salario promedio mensual", prom, m(p.promedio)], ["Salario diario", `${m(p.promedio)} ÷ 30`, m(p.diario)],
+      ["Preaviso", p.aplica ? `${p.diasPagar} días × ${m(p.diario)}` : "No aplica", m(p.aplica ? p.monto : 0)]]; }
+    if (k === "cesantia") { const c = R.cesantia; return [
+      ["Tiempo laborado", tiempo, ""], ["Días de cesantía (tabla)", c.tramo, d(c.dias) + " días"],
+      ["Salario promedio mensual", prom, m(c.promedio)], ["Salario diario", `${m(c.promedio)} ÷ ${c.divisor}`, m(c.diario)],
+      ["Cesantía", c.aplica ? `${d(c.dias)} días × ${m(c.diario)}` : "No se paga con este motivo de salida", m(c.aplica ? c.monto : 0)]]; }
+    if (k === "vacaciones") { const v = R.vacaciones; return [
+      ["Meses del período actual", A.anios >= 1 ? `desde el último aniversario: ${A.meses} mes(es) y ${Math.round(A.dias)} día(s)` : tiempo, d(v.mesesPeriodo) + " meses"],
+      ["Días acumulados", `1 día por mes${v.anteriores ? ` + ${d(v.anteriores)} de períodos anteriores` : ""}`, d(v.acumulados) + " días"],
+      ["Días pendientes", `${d(v.acumulados)} − ${d(v.disfrutados)} disfrutados`, d(v.pendientes) + " días"],
+      ["Salario diario", s.modo === "meses" ? `promedio de ${s.usados12} meses ÷ 30 = ${m(v.promedio)} ÷ 30` : `${m(v.promedio)} ÷ 30`, m(v.diario)],
+      ["Vacaciones", `${d(v.pendientes)} días × ${m(v.diario)}`, m(v.monto)]]; }
+    const a = R.aguinaldo; return [
+      ["Período", a.periodo, d(a.meses) + " meses"],
+      ["Total devengado en el período", s.modo === "meses" ? "suma de los meses del período (ordinario + extras)" : `${m(s.promedio6)} × ${d(a.meses)} meses`, m(a.totalDevengado)],
+      ["Aguinaldo", `${m(a.totalDevengado)} ÷ 12`, m(a.monto)]];
+  }
+  function vistaDerecho(k) {
+    const R = liqCalcularCaso(S.caso), col = PARTES.find(p => p[0] === k)[2], nombre = PARTES.find(p => p[0] === k)[1];
+    if (R.error) return `<section class="card"><h2>${nombre}</h2><p class="noaplica">${esc(R.error)} Complete los datos del caso.</p></section>`;
+    const practica = S.modo === "practica";
+    const parte = R[k];
+    const noAplica = (k === "preaviso" || k === "cesantia") && !parte.aplica;
+    let cuerpo;
+    if (!practica) {
+      cuerpo = `<ol class="pasos" style="--c:${col}">${pasosCalculo(k, R).map(([a, b, c]) => `<li><div><b>${esc(a)}</b><div class="det">${esc(b)}</div></div><div class="val">${esc(c)}</div></li>`).join("")}</ol>
+        <div class="total"><span>${nombre}</span><b>${m(k === "preaviso" || k === "cesantia" ? (parte.aplica ? parte.monto : 0) : parte.monto)}</b></div>`;
+    } else {
+      const pasos = liqPasosPractica(R)[k], rev = S.revisado[k] || S.bloqueado, ver = S.verSol && S.verSol[k];
+      cuerpo = `<ol class="pasos" style="--c:${col}">${pasos.map(p => { const r = rev ? liqRevisarPaso(p, S.resp[p.k]) : null; return `<li class="${r === true ? "ok" : r === false || (rev && r === null) ? "bad" : ""}">
+          <div><b>${esc(p.et)}</b>${(r === false || (rev && r === null)) && p.ayuda ? `<div class="det">💡 ${esc(p.ayuda)}</div>` : ""}${ver ? `<div class="det">Respuesta: <b class="num">${p.tipo === "monto" ? m(p.ok) : d(p.ok)}</b></div>` : ""}</div>
+          <div><input data-r="${p.k}" inputmode="decimal" value="${esc(S.resp[p.k] == null ? "" : S.resp[p.k])}" placeholder="${p.tipo === "monto" ? "₡ 0,00" : "días"}" aria-label="${esc(p.et)}" ${S.bloqueado ? "disabled" : ""}><span class="marca">${r === true ? "✓" : r === false || (rev && r === null) ? "✗" : ""}</span></div></li>`; }).join("")}</ol>
+        ${S.bloqueado ? "" : `<div class="row" style="margin-top:10px"><button class="btn primary" type="button" id="revisar">✔ Revisar</button>${S.asignado ? "" : `<button class="btn" type="button" id="verSol">${ver ? "🙈 Ocultar respuestas" : "👀 Ver respuestas"}</button>`}<span class="puntaje" id="pp"></span></div>`}
+        <details style="margin-top:10px"><summary style="cursor:pointer; font-weight:700">💡 Cómo se calcula</summary><ol class="pasos" style="--c:${col}">${pasosCalculo(k, R).map(([a, b]) => `<li><div><b>${esc(a)}</b><div class="det">${S.asignado && !S.bloqueado ? "" : esc(b)}</div></div><div></div></li>`).join("")}</ol></details>`;
+    }
+    return `<section class="card" style="--c:${col}">
+      <h2>${nombre}</h2>
+      <div class="dos" style="margin-top:8px"><div class="ley" style="--c:${col}">${TEXTO_LEY[k]}</div><div>${tablaLey(k, R) || `<div class="ley" style="--c:${col}"><b>Datos que usa:</b> ${k === "vacaciones" ? "meses del período actual, días disfrutados y el promedio de los últimos 12 meses." : "lo devengado (ordinario + extraordinario) desde el 1 de diciembre hasta la salida."}</div>`}</div></div>
+      ${noAplica ? `<p class="noaplica" style="margin-top:10px">Con el motivo «${esc((LIQ_MOTIVOS.find(x => x[0] === S.caso.motivo) || [])[1])}» no se paga ${k === "preaviso" ? "preaviso" : "cesantía"}${R.antiguedad.mesesTotales < 3 ? " (además tiene menos de 3 meses)" : ""}.${practica ? " En la práctica, escribí 0 en los montos." : ""}</p>` : ""}
+      <h3>${practica ? "Escribí el resultado de cada paso" : "Cálculo paso a paso"}</h3>${cuerpo}
+    </section>`;
+  }
+  function ligarDerecho(k) {
+    const v = $("#vista");
+    v.querySelectorAll("[data-r]").forEach(inp => inp.addEventListener("input", () => { S.resp[inp.dataset.r] = inp.value; persistir(); }));
+    const r = $("#revisar"); if (r) r.addEventListener("click", () => { S.revisado[k] = true; persistir(); pintarTodo(); const p = puntajeParte(k); const pp = $("#pp"); if (pp && p) pp.textContent = `${p.ok} de ${p.total} correctos`; });
+    const vs = $("#verSol"); if (vs) vs.addEventListener("click", () => { S.verSol = { ...(S.verSol || {}), [k]: !(S.verSol && S.verSol[k]) }; pintarTodo(); });
+    if (S.revisado[k]) { const p = puntajeParte(k); const pp = $("#pp"); if (pp && p) pp.textContent = `${p.ok} de ${p.total} correctos`; }
+  }
+
+  function vistaResumen() {
+    const R = liqCalcularCaso(S.caso);
+    if (R.error) return `<section class="card"><h2>🧾 Resumen</h2><p class="noaplica">${esc(R.error)}</p></section>`;
+    const practica = S.modo === "practica";
+    const filas = DERECHOS.filter(k => !S.asignado || S.partesEval.includes(k)).map(k => {
+      const p = R[k], monto = (k === "preaviso" || k === "cesantia") && !p.aplica ? 0 : p.monto;
+      const sc = practica ? puntajeParte(k) : null;
+      return `<tr><td>${PARTES.find(x => x[0] === k)[1]}</td><td>${(k === "preaviso" || k === "cesantia") && !p.aplica ? "No aplica" : k === "aguinaldo" ? "Exento de cargas sociales" : k === "vacaciones" ? "Paga cargas sociales" : "Indemnización, exenta"}</td>
+        ${practica ? `<td class="r puntaje">${S.revisado[k] || S.bloqueado ? `${sc.ok}/${sc.total}` : "—"}</td>` : ""}<td class="r num">${practica && !S.bloqueado && !(S.verSol && S.verSol[k]) ? "—" : m(monto)}</td></tr>`;
+    }).join("");
+    return `<section class="card"><h2>🧾 Resumen de la liquidación${S.caso.trabajador ? " · " + esc(S.caso.trabajador) : ""}</h2>
+      <p class="muted" style="margin:0 0 8px">${esc((LIQ_MOTIVOS.find(x => x[0] === S.caso.motivo) || [])[1])} · ${R.antiguedad.anios} año(s), ${R.antiguedad.meses} mes(es) y ${Math.round(R.antiguedad.dias)} día(s) laborados.</p>
+      <div class="tbl"><table><thead><tr><th>Derecho</th><th>Nota</th>${practica ? `<th class="r">Pasos correctos</th>` : ""}<th class="r">Monto</th></tr></thead><tbody>${filas}</tbody></table></div>
+      ${practica && !S.bloqueado ? "" : `<div class="total"><span>Total a pagar</span><b>${m(R.total)}</b></div>`}
+      ${R.advertencias.length ? `<div class="adv" style="margin-top:10px">${R.advertencias.map(esc).join("<br>")}</div>` : ""}
+      <p class="muted" style="font-size:.78rem; margin-top:10px">Este módulo no calcula impuesto sobre la renta ni las cuotas obreras de la CCSS sobre las vacaciones. Verifique los valores vigentes con el Ministerio de Trabajo (MTSS).</p></section>`;
+  }
+
+  function pintarTodo() {
+    if (S.asignado && !S.docente) S.modo = "practica";
+    if (S.docente) S.modo = "calc";
+    pintarAcciones(); pintarBanner(); pintarTabs();
+    const v = $("#vista");
+    if (S.tab === "datos") { v.innerHTML = vistaDatos(); ligarDatos(); }
+    else if (S.tab === "resumen") v.innerHTML = vistaResumen();
+    else { v.innerHTML = vistaDerecho(S.tab); ligarDerecho(S.tab); }
+  }
+
+  // ───── Evaluación (trabajo asignado) ─────
+  function metricas() {
+    const out = {};
+    DERECHOS.forEach(k => { const p = puntajeParte(k); out["liq_" + k + "_pct"] = p ? p.pct : 0; });
+    return out;
+  }
+  function verEvaluacion() {
+    const C = (S.trabajo && S.trabajo.contenido_actividad) || {};
+    const crit = C.criterios || ESTRATEGIAS_EVALUACION.liquidacion_laboral.criterios;
+    const html = typeof tiraderaInstrumentoHTML === "function" ? tiraderaInstrumentoHTML(S.trabajo ? S.trabajo.titulo : "Liquidación laboral", crit, C.liq_instrumento || { componente: "Trabajo cotidiano", tipo: "Escala de desempeño", unidad: "Liquidación laboral" }) : "";
+    $("#modalCaja").innerHTML = `<style>table.tir-ins{width:100%;border-collapse:collapse;font-size:.82rem}table.tir-ins th,table.tir-ins td{border:1px solid var(--line);padding:6px;vertical-align:top}</style>${html.replace(/Se califica con el registro del juego\./g, "Se califica sola: % de pasos correctos de esa parte.")}<div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn primary" type="button" id="cerrarM">Cerrar</button></div>`;
+    $("#modal").hidden = false; $("#cerrarM").addEventListener("click", () => { $("#modal").hidden = true; });
+  }
+  let tAv = null;
+  function guardarAvance() {
+    if (!S.asignado || S.docente || !EST_ID || S.bloqueado) return;
+    clearTimeout(tAv);
+    tAv = setTimeout(async () => {
+      try { await upsertSinConflicto("actividades_estudiante", { trabajo_id: S.trabajo.id, estudiante_id: EST_ID }, { datos_prueba: { liquidacion: { respuestas: S.resp, revisado: S.revisado, en_curso: true } }, actualizado_en: new Date().toISOString() }); } catch (e) {}
+    }, 1000);
+  }
+  async function entregar() {
+    const faltan = S.partesEval.filter(k => liqPasosPractica(liqCalcularCaso(S.caso))[k].some(p => S.resp[p.k] == null || String(S.resp[p.k]).trim() === ""));
+    $("#modalCaja").innerHTML = `<h2>📤 ¿Entregar?</h2>${faltan.length ? `<p class="noaplica">Te faltan pasos por llenar en: ${faltan.map(k => PARTES.find(x => x[0] === k)[1]).join(", ")}. Los que dejes en blanco cuentan como incorrectos.</p>` : "<p>Ya llenaste todos los pasos.</p>"}<p>Después de entregar ya no podés cambiar las respuestas.</p>
+      <div class="row" style="justify-content:flex-end"><button class="btn" type="button" id="no">Seguir trabajando</button><button class="btn ok" type="button" id="si">Sí, entregar</button></div>`;
+    $("#modal").hidden = false;
+    $("#no").addEventListener("click", () => { $("#modal").hidden = true; });
+    $("#si").addEventListener("click", async ev => {
+      ev.target.disabled = true;
+      const crit = S.trabajo.contenido_actividad.criterios || [];
+      const met = metricas();
+      const nota = memoriaNotaDesdeMetricas(crit, met, []);
+      S.partesEval.forEach(k => { S.revisado[k] = true; });
+      const { error } = await guardarNotaManualActividad(S.trabajo, EST_ID, nota.puntaje, { respuestas: nota.puntos, porcentaje: nota.porcentaje, datos_prueba: { liquidacion: { respuestas: S.resp, metricas: met, entregado_en: new Date().toISOString() } } });
+      if (error) { ev.target.disabled = false; alert("No se pudo entregar: " + error); return; }
+      S.entrega = { puntaje: nota.puntaje, porcentaje: nota.porcentaje }; S.bloqueado = true;
+      $("#modal").hidden = true; S.tab = "resumen"; pintarTodo();
+    });
+  }
+  async function guardarCasoDocente() {
+    const R = liqCalcularCaso(S.caso);
+    if (R.error) { alert(R.error); return; }
+    if (!S.partesEval.length) { alert("Escoja al menos una parte para evaluar."); return; }
+    const base = ESTRATEGIAS_EVALUACION.liquidacion_laboral.criterios;
+    const previos = S.trabajo.contenido_actividad.criterios || [];
+    const criterios = base.filter(c => S.partesEval.includes(c.auto.replace(/^liq_|_pct$/g, ""))).map(c => previos.find(p => p.auto === c.auto) || { ...c, niveles: tiraderaNivelesDe(c) });
+    const { data: actual } = await sb.from("trabajos_cotidianos").select("contenido_actividad").eq("id", S.trabajo.id).maybeSingle();
+    const nuevo = { ...((actual && actual.contenido_actividad) || {}), liq_caso: S.caso, liq_partes: S.partesEval, criterios };
+    const { error } = await sb.from("trabajos_cotidianos").update({ contenido_actividad: nuevo }).eq("id", S.trabajo.id);
+    if (error) { alert("No se pudo guardar: " + error.message); return; }
+    S.trabajo.contenido_actividad = nuevo;
+    $("#banner").insertAdjacentHTML("afterbegin", `<div class="banner ok" style="margin-bottom:8px">✓ Caso guardado. Los estudiantes ya lo ven.</div>`);
+  }
+
+  document.addEventListener("click", e => { const a = e.target.closest("[data-volver]"); if (a && document.referrer.startsWith(location.origin) && history.length > 1) { e.preventDefault(); history.back(); } });
+  $("#modal").addEventListener("click", e => { if (e.target.id === "modal") $("#modal").hidden = true; });
+
+  // ───── Arranque ─────
+  (async () => {
+    if (TRABAJO_ID) {
+      try {
+        const { data: t } = await sb.from("trabajos_cotidianos").select("*").eq("id", TRABAJO_ID).maybeSingle();
+        if (!t || !t.contenido_actividad || t.contenido_actividad.estrategia !== "liquidacion_laboral") throw new Error("No se encontró este trabajo de liquidación.");
+        S.trabajo = t; S.asignado = true;
+        const C = t.contenido_actividad;
+        S.caso = C.liq_caso || liqCasoAleatorio();
+        S.partesEval = Array.isArray(C.liq_partes) && C.liq_partes.length ? C.liq_partes : DERECHOS.slice();
+        $("#sub").textContent = t.titulo;
+        if (params.get("docente") === "1") {
+          if (!ES_DOCENTE) { $("#vista").innerHTML = `<section class="card"><h2>Solo para el docente</h2><p>Iniciá sesión como docente en la plataforma y abrí el trabajo desde ahí.</p></section>`; return; }
+          S.docente = true;
+        } else if (EST_ID && !ES_DOCENTE) {
+          const { data: e } = await sb.from("actividades_estudiante").select("*").eq("trabajo_id", t.id).eq("estudiante_id", EST_ID).maybeSingle();
+          const L = e && e.datos_prueba && e.datos_prueba.liquidacion;
+          if (L) { S.resp = L.respuestas || {}; S.revisado = L.revisado || {}; }
+          if (e && e.completado && e.puntaje != null) { S.bloqueado = true; S.entrega = e; S.partesEval.forEach(k => { S.revisado[k] = true; }); }
+        } else if (ES_DOCENTE) { S.asignado = false; S.modo = "practica"; } // el docente prueba sin guardar
+      } catch (e) { $("#vista").innerHTML = `<section class="card"><h2>No se pudo abrir</h2><p>${esc(e.message || e)}</p></section>`; return; }
+    }
+    pintarTodo();
+  })();
+})();
+</script>
+</body>
+</html>

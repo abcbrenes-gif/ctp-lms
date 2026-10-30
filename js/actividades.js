@@ -61,6 +61,10 @@ const TIRADERA_NIVELES_AUTO = {
   memoria_dominio_pct: { avanzado: "Escribe correctamente al primer intento el 85 % o más de los conceptos.", intermedio: "Escribe correctamente al primer intento entre el 60 % y el 84 % de los conceptos.", inicial: "Escribe correctamente al primer intento entre el 35 % y el 59 % de los conceptos." },
   memoria_precision_pct: { avanzado: "El 85 % o más de sus respuestas son correctas.", intermedio: "Entre el 60 % y el 84 % de sus respuestas son correctas.", inicial: "Entre el 35 % y el 59 % de sus respuestas son correctas." },
   memoria_autonomia_pct: { avanzado: "Resuelve el 85 % o más de las cartas sin usar pistas.", intermedio: "Resuelve sin pistas entre el 60 % y el 84 % de las cartas.", inicial: "Resuelve sin pistas entre el 35 % y el 59 % de las cartas." },
+  liq_preaviso_pct: { avanzado: "Calcula correctamente el 85 % o más de los pasos del preaviso.", intermedio: "Calcula correctamente entre el 60 % y el 84 % de los pasos del preaviso.", inicial: "Calcula correctamente entre el 35 % y el 59 % de los pasos del preaviso." },
+  liq_cesantia_pct: { avanzado: "Calcula correctamente el 85 % o más de los pasos de la cesantía.", intermedio: "Calcula correctamente entre el 60 % y el 84 % de los pasos de la cesantía.", inicial: "Calcula correctamente entre el 35 % y el 59 % de los pasos de la cesantía." },
+  liq_vacaciones_pct: { avanzado: "Calcula correctamente el 85 % o más de los pasos de las vacaciones.", intermedio: "Calcula correctamente entre el 60 % y el 84 % de los pasos de las vacaciones.", inicial: "Calcula correctamente entre el 35 % y el 59 % de los pasos de las vacaciones." },
+  liq_aguinaldo_pct: { avanzado: "Calcula correctamente el 85 % o más de los pasos del aguinaldo.", intermedio: "Calcula correctamente entre el 60 % y el 84 % de los pasos del aguinaldo.", inicial: "Calcula correctamente entre el 35 % y el 59 % de los pasos del aguinaldo." },
   memoria_rapidez_pct: { avanzado: "Resuelve cada carta en 12 segundos o menos, en promedio.", intermedio: "Resuelve cada carta en 13 a 20 segundos, en promedio.", inicial: "Resuelve cada carta en 21 a 30 segundos, en promedio." }
 };
 // Nota de Memoria Contable a partir de las métricas de una partida (completa
@@ -128,6 +132,20 @@ const ESTRATEGIAS_EVALUACION = {
       { nombre: "Recuerda los conceptos con agilidad al resolver cada carta.", puntos_max: 3, auto: "memoria_rapidez_pct" }
     ],
     demo: { escenario: "Memoria Contable con imágenes de impuestos (aduana, marchamo, IVA).", puntajes: [3, 3, 2, 2] }
+  },
+  // Liquidación laboral (liquidaciones.html): el docente pone el caso y el
+  // estudiante calcula cada derecho paso a paso; la nota sale sola con el %
+  // de pasos correctos de cada parte (85 % o más = 3, 60–84 % = 2, 35–59 % = 1).
+  liquidacion_laboral: {
+    tipo: "rubrica_directa", grupo: "Simuladores", icono: "📑", etiqueta: "Liquidación laboral (preaviso, cesantía, vacaciones, aguinaldo)", liquidacion: true,
+    instrucciones: "Caso de liquidación laboral (trabajo cotidiano). El estudiante calcula, paso a paso, el preaviso, la cesantía, las vacaciones y el aguinaldo según el Código de Trabajo y la Ley 2412. Cada parte se califica sola con el porcentaje de pasos correctos: 85 % o más = Avanzado (3), 60–84 % = Intermedio (2), 35–59 % = Inicial (1), menos de 35 % = 0.",
+    criterios: [
+      { nombre: "Calcula el preaviso según el tiempo laborado y el motivo de salida (Código de Trabajo, art. 28).", puntos_max: 3, auto: "liq_preaviso_pct" },
+      { nombre: "Calcula la cesantía con la tabla del art. 29 y el salario promedio de los últimos seis meses.", puntos_max: 3, auto: "liq_cesantia_pct" },
+      { nombre: "Calcula las vacaciones proporcionales pendientes de disfrutar (arts. 153 y 157).", puntos_max: 3, auto: "liq_vacaciones_pct" },
+      { nombre: "Calcula el aguinaldo proporcional con los salarios devengados desde el 1 de diciembre (Ley 2412).", puntos_max: 3, auto: "liq_aguinaldo_pct" }
+    ],
+    demo: { escenario: "Liquidación de una persona despedida con responsabilidad patronal tras 2 años y 8 meses.", puntajes: [3, 2, 3, 3] }
   },
   lista_cotejo_general: {
     tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "✅", etiqueta: "Lista de cotejo general",

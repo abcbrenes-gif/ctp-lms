@@ -1628,6 +1628,18 @@ async function renderMateriasEstudiante(el, s) {
           </div>
         </div>
       </a>
+      <a class="section-tile flip-card" href="liquidaciones.html" style="height:180px;">
+        <div class="flip-card-inner">
+          <div class="flip-card-front">
+            <div class="num" style="font-size:1.6rem;">📑 Liquidaciones</div>
+            <div class="count" style="font-size:0.95rem;">Preaviso, cesantía, vacaciones y aguinaldo paso a paso</div>
+          </div>
+          <div class="flip-card-back">
+            <div class="flip-cta" style="font-size:1.3rem;">Practicar →</div>
+            <div class="flip-sub" style="font-size:0.9rem;">Liquidaciones laborales</div>
+          </div>
+        </div>
+      </a>
       <a class="section-tile flip-card" href="tiradera.html?nombre=${encodeURIComponent(`${s.nombre || ""} ${s.apellido1 || ""} ${s.apellido2 || ""}`.replace(/\s+/g, " ").trim())}&est=${encodeURIComponent(s.id)}" style="height:180px;">
         <div class="flip-card-inner">
           <div class="flip-card-front">
@@ -2988,7 +3000,7 @@ async function renderSubtema(id, soloLectura) {
         const resultado = leerContenidoActividadDesdeFormulario(tipo, panel.querySelector("#actividad-constructor"));
         if (!resultado.valido) { alert(resultado.error); return; }
         const presetElegido = ESTRATEGIAS_EVALUACION[valorSelect];
-        if (presetElegido && (presetElegido.tiradera || presetElegido.memoria)) {
+        if (presetElegido && (presetElegido.tiradera || presetElegido.memoria || presetElegido.liquidacion)) {
           // Se marca la estrategia y qué dato del juego alimenta cada criterio.
           resultado.contenido.estrategia = valorSelect;
           resultado.contenido.criterios = (resultado.contenido.criterios || []).map((c, i) => {
@@ -2999,7 +3011,9 @@ async function renderSubtema(id, soloLectura) {
             x.niveles = base.nombre === c.nombre && base.niveles ? base.niveles : tiraderaNivelesDe(x);
             return x;
           });
-          if (presetElegido.memoria) {
+          if (presetElegido.liquidacion) {
+            resultado.contenido.liq_partes = ["preaviso", "cesantia", "vacaciones", "aguinaldo"];
+          } else if (presetElegido.memoria) {
             resultado.contenido.memoria_instrumento = { ...MEMORIA_INSTRUMENTO_BASE, unidad: titulo };
             resultado.contenido.memoria_cartas = [];
             resultado.contenido.memoria_cfg = { cantidad: 12, cuenta: "primero" };
@@ -3818,7 +3832,11 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
             <span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>
           </div>
           ${instrucciones ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${instrucciones}</div>` : ""}
-          ${t.contenido_actividad && t.contenido_actividad.estrategia === "juego_memoria"
+          ${t.contenido_actividad && t.contenido_actividad.estrategia === "liquidacion_laboral"
+            ? (res && res.completado
+              ? `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Liquidación entregada — Nota: ${res.puntaje != null ? res.puntaje + "/3" : "—"}</span>`
+              : `<span class="badge" style="background:var(--warn-bg); color:var(--warn-text);">📑 Resolvé la liquidación paso a paso y entregala: la nota se calcula sola</span>`)
+            : t.contenido_actividad && t.contenido_actividad.estrategia === "juego_memoria"
             ? (res && res.completado
               ? `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Nota guardada: ${res.puntaje != null ? res.puntaje + "/3" : "—"}</span>`
               : `<span class="badge" style="background:var(--warn-bg); color:var(--warn-text);">🧠 Jugá el tablero completo: tu nota se guarda sola al terminar</span>`)
@@ -4167,6 +4185,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
             ${t.tipo_actividad === "autoevaluacion" ? `<button class="btn secondary small" data-ver-autoeval="${t.id}">🪞 Ver respuestas</button>` : ""}
             ${t.contenido_actividad && t.contenido_actividad.estrategia === "juego_tiradera" ? `<a class="btn small" href="tiradera.html?trabajo=${t.id}" target="_blank" rel="noopener">⚡ Lanzar La Tiradera</a>` : ""}
             ${t.contenido_actividad && t.contenido_actividad.estrategia === "juego_memoria" ? `<a class="btn small" href="memoria.html?trabajo=${t.id}&docente=1">🧠 Cartas y evaluación</a>` : ""}
+            ${t.contenido_actividad && t.contenido_actividad.estrategia === "liquidacion_laboral" ? `<a class="btn small" href="liquidaciones.html?trabajo=${t.id}&docente=1">📑 Caso de liquidación</a>` : ""}
             ${t.tipo_actividad === "rubrica_directa" ? `<button class="btn secondary small" data-calificar-rubrica="${t.id}">🧮 Calificar</button>` : ""}
             ${esEditable(t) ? `<button class="btn secondary small" data-editar-trabajo-subtema="${t.id}">✏️ Editar</button>` : ""}
             ${t.indicador_id
@@ -5600,9 +5619,29 @@ function ligarBloqueMemoria(panel, trabajo, entregaPorEstudiante, recargar) {
   });
 }
 
-// Botón "🧠 Jugar" en los trabajos de Memoria Contable que ve el estudiante.
+// Botón "🧠 Jugar" en los trabajos de Memoria Contable que ve el estudiante
+// (y "📑 Resolver" en los de liquidación laboral).
 function memoriaInyectarBotones(holder, trabajos) {
   try {
+    (trabajos || []).filter(t => t.contenido_actividad && t.contenido_actividad.estrategia === "liquidacion_laboral").forEach(t => {
+      const fila = holder.querySelector(`[data-fila-trabajo="${t.id}"]`);
+      const destino = fila && (fila.firstElementChild || fila);
+      if (!destino || destino.querySelector("[data-liq-resolver]")) return;
+      const esDocente = session && session.role !== "estudiante";
+      const a = document.createElement("a");
+      a.className = "btn small"; a.dataset.liqResolver = t.id;
+      a.href = `liquidaciones.html?trabajo=${t.id}&est=${encodeURIComponent(session && session.id || "")}`;
+      a.style.cssText = "margin-top:0.3rem; align-self:flex-start;";
+      a.textContent = esDocente ? "▶ Probar el caso (vista del docente, no guarda nota)" : "📑 Resolver la liquidación";
+      destino.appendChild(a);
+      if (esDocente) {
+        const b = document.createElement("a");
+        b.className = "btn secondary small"; b.href = `liquidaciones.html?trabajo=${t.id}&docente=1`;
+        b.style.cssText = "margin-top:0.3rem; align-self:flex-start;"; b.textContent = "📑 Caso de liquidación (docente)";
+        destino.appendChild(b);
+        if (!(t.contenido_actividad || {}).liq_caso) { const av = document.createElement("div"); av.style.cssText = "font-size:0.78rem; margin-top:0.2rem; color:var(--brick);"; av.textContent = "⚠️ Todavía no tiene caso: póngalo en «Caso de liquidación» antes de aplicarlo."; destino.appendChild(av); }
+      }
+    });
     (trabajos || []).filter(t => t.contenido_actividad && t.contenido_actividad.estrategia === "juego_memoria").forEach(t => {
       const fila = holder.querySelector(`[data-fila-trabajo="${t.id}"]`);
       const destino = fila && (fila.firstElementChild || fila);
@@ -5647,7 +5686,7 @@ async function pintarPanelCalificarRubrica(panel, trabajo, materiaId) {
   const entregaPorEstudiante = {};
   (entregas || []).forEach(e => { entregaPorEstudiante[e.estudiante_id] = e; });
 
-  const esTiraderaTrabajo = trabajo.contenido_actividad && ["juego_tiradera", "juego_memoria"].includes(trabajo.contenido_actividad.estrategia);
+  const esTiraderaTrabajo = trabajo.contenido_actividad && ["juego_tiradera", "juego_memoria", "liquidacion_laboral"].includes(trabajo.contenido_actividad.estrategia);
   // En La Tiradera, los indicadores "a mano" se califican por nivel de desempeño (formato MEP).
   const campoCriterio = (estId, c, i, valor) => {
     if (esTiraderaTrabajo && !c.auto) {
@@ -10028,7 +10067,7 @@ const DOC_DEF_EXT_OK = /\.(pdf|docx?|xlsx?|pptx?|txt|csv|odt|ods|odp|jpe?g|png|w
 async function agregarDocumentoDefinitivo(holder, trabajos, estudianteId, prefijo) {
   prefijo = prefijo || "";
   // Los juegos (Memoria Contable, La Tiradera) no llevan documento para adjuntar.
-  trabajos = (trabajos || []).filter(t => !(t.contenido_actividad && ["juego_memoria", "juego_tiradera"].includes(t.contenido_actividad.estrategia)));
+  trabajos = (trabajos || []).filter(t => !(t.contenido_actividad && ["juego_memoria", "juego_tiradera", "liquidacion_laboral"].includes(t.contenido_actividad.estrategia)));
   if (!trabajos.length) return;
   if (!session) { const d = document.createElement("div"); d.textContent = "⚠️ Sin sesión para adjuntar documento."; holder && holder.appendChild(d); return; }
   try {

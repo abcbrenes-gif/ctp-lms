@@ -265,6 +265,7 @@ async function renderHome() {
     { href: "#/estrategias", icono: "🧪", titulo: "Estrategias de evaluación", sub: `Catálogo de ${Object.keys(ESTRATEGIAS_EVALUACION).length} estrategias para trabajos asignados`, cta: "Ver catálogo →" },
     { href: "#/mediacion", icono: "🎓", titulo: "Estrategias de mediación", sub: `Catálogo de ${Object.keys(ESTRATEGIAS_MEDIACION).length} formas de dar la clase, con pasos y guía en vivo`, cta: "Ver catálogo →" },
     { href: AULA_CONTABLE_URL, icono: "🧮", titulo: "Aula de Conta", sub: "Simulador del ciclo contable (NIC/NIIF)", cta: "Abrir aula →" },
+    { href: "liquidaciones.html", icono: "📑", titulo: "Liquidaciones laborales", sub: "Preaviso, cesantía, vacaciones y aguinaldo: calculadora paso a paso y práctica", cta: "Abrir →" },
     { href: SIMULADOR_B2B_URL, icono: "🏆", titulo: "ContaRed", sub: "Simulador B2B de firmas contables (gamificado)", cta: "Abrir ContaRed →" },
     { href: "tiradera.html", icono: "⚡", titulo: "La Tiradera", sub: "Retos en vivo para la clase: selección, falso/verdadero, sopa de letras y crucigrama, con podio", cta: "Lanzar retos →" },
     { href: "tiradera.html?historial=1", icono: "📚", titulo: "Resultados de La Tiradera", sub: "Partidas anteriores: puntos ganados y perdidos de cada estudiante, descarga en Excel", cta: "Ver resultados →" },
