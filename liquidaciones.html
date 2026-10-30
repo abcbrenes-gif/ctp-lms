@@ -115,6 +115,25 @@ tr.hl td{background:#fff7d6; font-weight:700}
     ["vacaciones", "🏖️ Vacaciones", "var(--vac)"], ["aguinaldo", "🎄 Aguinaldo", "var(--agu)"], ["resumen", "🧾 Resumen", "var(--ink)"]
   ];
   const DERECHOS = ["preaviso", "cesantia", "vacaciones", "aguinaldo"];
+  // Bloqueo de respuestas: lo decide el docente (fila de configuración en
+  // trabajos_cotidianos con contenido_actividad.config_liq = true). Mientras
+  // esté bloqueado, el estudiante no ve la calculadora ni los resultados:
+  // solo resuelve y revisa si cada paso está bien o mal.
+  let BLOQUEO = true;
+  const bloqueadoParaMi = () => BLOQUEO && !ES_DOCENTE;
+  async function leerBloqueo() {
+    try { const { data } = await sb.from("trabajos_cotidianos").select("id, contenido_actividad").eq("contenido_actividad->>config_liq", "true").order("id").limit(1); if (data && data[0]) { BLOQUEO = data[0].contenido_actividad.bloquear_respuestas !== false; return data[0]; } } catch (e) {}
+    return null;
+  }
+  async function cambiarBloqueo() {
+    const fila = await leerBloqueo(), nuevo = !BLOQUEO;
+    const cont = { ...((fila && fila.contenido_actividad) || { config_liq: true, sin_asignar: true }), bloquear_respuestas: nuevo };
+    const r = fila ? await sb.from("trabajos_cotidianos").update({ contenido_actividad: cont }).eq("id", fila.id)
+      : await sb.from("trabajos_cotidianos").insert({ titulo: "Liquidaciones laborales (configuración, no borrar)", tipo_actividad: "rubrica_directa", habilitado: false, contenido_actividad: cont });
+    if (r.error) { alert("No se pudo cambiar: " + r.error.message); return; }
+    BLOQUEO = nuevo; pintarTodo();
+  }
+  const botonBloqueo = () => ES_DOCENTE ? `<button class="btn" type="button" id="bloqueo" title="Para los estudiantes">${BLOQUEO ? "🔒 Respuestas bloqueadas" : "🔓 Respuestas visibles"}</button>` : "";
 
   // Estado
   const S = {
@@ -127,11 +146,11 @@ tr.hl td{background:#fff7d6; font-weight:700}
   function pintarAcciones() {
     const a = $("#acciones");
     if (S.docente) {
-      a.innerHTML = `<button class="btn" type="button" id="aleatorio">🎲 Caso al azar</button><button class="btn" type="button" id="verEval">📋 Evaluación</button><button class="btn primary" type="button" id="guardarCaso">💾 Guardar caso</button><a class="btn" href="index.html" data-volver>← Plataforma</a>`;
+      a.innerHTML = `${botonBloqueo()}<button class="btn" type="button" id="aleatorio">🎲 Caso al azar</button><button class="btn" type="button" id="verEval">📋 Evaluación</button><button class="btn primary" type="button" id="guardarCaso">💾 Guardar caso</button><a class="btn" href="index.html" data-volver>← Plataforma</a>`;
     } else if (S.asignado) {
       a.innerHTML = `<button class="btn" type="button" id="verEval">📋 Evaluación</button>${S.bloqueado ? "" : `<button class="btn ok" type="button" id="entregar">📤 Entregar al profe</button>`}<a class="btn" href="index.html" data-volver>← Plataforma</a>`;
     } else {
-      a.innerHTML = `<span class="seg" role="group" aria-label="Forma de trabajar"><button type="button" data-modo="calc" class="${S.modo === "calc" ? "on" : ""}">🧮 Calculadora</button><button type="button" data-modo="practica" class="${S.modo === "practica" ? "on" : ""}">✍️ Lo calculo yo</button></span>
+      a.innerHTML = `${botonBloqueo()}${bloqueadoParaMi() ? "" : `<span class="seg" role="group" aria-label="Forma de trabajar"><button type="button" data-modo="calc" class="${S.modo === "calc" ? "on" : ""}">🧮 Calculadora</button><button type="button" data-modo="practica" class="${S.modo === "practica" ? "on" : ""}">✍️ Lo calculo yo</button></span>`}
         <button class="btn" type="button" id="aleatorio">🎲 Caso de práctica</button><button class="btn" type="button" id="vacio">＋ Caso propio</button><a class="btn" href="index.html" data-volver>← Plataforma</a>`;
     }
     a.querySelectorAll("[data-modo]").forEach(b => b.addEventListener("click", () => { S.modo = b.dataset.modo; S.revisado = {}; pintarTodo(); }));
@@ -141,6 +160,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
     on("verEval", verEvaluacion);
     on("guardarCaso", guardarCasoDocente);
     on("entregar", entregar);
+    on("bloqueo", cambiarBloqueo);
   }
   function puntajeParte(p) {
     const R = liqCalcularCaso(S.caso); if (R.error) return null;
@@ -164,6 +184,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
     else if (S.asignado) b.innerHTML = S.bloqueado
       ? `<div class="banner ok"><b>✓ Entregado.</b> Tu nota: <b>${S.entrega.puntaje}/3</b> (${Math.round(S.entrega.porcentaje)} %). Abajo podés ver qué pasos estaban bien.</div>`
       : `<div class="banner"><b>${esc(S.trabajo.titulo)}.</b> Leé los datos del caso y resolvé cada parte: escribí el resultado de cada paso y tocá <b>✔ Revisar</b>. Cuando termines todas, tocá <b>📤 Entregar al profe</b>. Tu avance se guarda solo.</div>`;
+    else if (bloqueadoParaMi()) b.innerHTML = `<div class="banner">🔒 <b>El profe bloqueó las respuestas.</b> Llená los datos del caso (o tomá un caso de práctica), escribí el resultado de cada paso y tocá <b>✔ Revisar</b>: te dice qué está bien y qué no, sin mostrar el resultado.</div>`;
     else b.innerHTML = S.modo === "practica"
       ? `<div class="banner">✍️ <b>Lo calculo yo:</b> en cada pestaña escribí el resultado de cada paso y tocá <b>✔ Revisar</b>; la plataforma te dice qué está bien. Si te equivocás, abrí <b>💡 Cómo se calcula</b>.</div>`
       : `<div class="banner">🧮 <b>Calculadora:</b> llená los datos del caso como prefieras (por fechas o por tiempo, y el salario fijo, mes a mes, por quincena, por semana o por hora). Cada pestaña muestra el cálculo paso a paso.</div>`;
@@ -284,12 +305,12 @@ tr.hl td{background:#fff7d6; font-weight:700}
       cuerpo = `<ol class="pasos" style="--c:${col}">${pasosCalculo(k, R).map(([a, b, c]) => `<li><div><b>${esc(a)}</b><div class="det">${esc(b)}</div></div><div class="val">${esc(c)}</div></li>`).join("")}</ol>
         <div class="total"><span>${nombre}</span><b>${m(k === "preaviso" || k === "cesantia" ? (parte.aplica ? parte.monto : 0) : parte.monto)}</b></div>`;
     } else {
-      const pasos = liqPasosPractica(R)[k], rev = S.revisado[k] || S.bloqueado, ver = S.verSol && S.verSol[k];
+      const pasos = liqPasosPractica(R)[k], rev = S.revisado[k] || S.bloqueado, ver = S.verSol && S.verSol[k] && !bloqueadoParaMi();
       cuerpo = `<ol class="pasos" style="--c:${col}">${pasos.map(p => { const r = rev ? liqRevisarPaso(p, S.resp[p.k]) : null; return `<li class="${r === true ? "ok" : r === false || (rev && r === null) ? "bad" : ""}">
           <div><b>${esc(p.et)}</b>${(r === false || (rev && r === null)) && p.ayuda ? `<div class="det">💡 ${esc(p.ayuda)}</div>` : ""}${ver ? `<div class="det">Respuesta: <b class="num">${p.tipo === "monto" ? m(p.ok) : d(p.ok)}</b></div>` : ""}</div>
           <div><input data-r="${p.k}" inputmode="decimal" value="${esc(S.resp[p.k] == null ? "" : S.resp[p.k])}" placeholder="${p.tipo === "monto" ? "₡ 0,00" : "días"}" aria-label="${esc(p.et)}" ${S.bloqueado ? "disabled" : ""}><span class="marca">${r === true ? "✓" : r === false || (rev && r === null) ? "✗" : ""}</span></div></li>`; }).join("")}</ol>
-        ${S.bloqueado ? "" : `<div class="row" style="margin-top:10px"><button class="btn primary" type="button" id="revisar">✔ Revisar</button>${S.asignado ? "" : `<button class="btn" type="button" id="verSol">${ver ? "🙈 Ocultar respuestas" : "👀 Ver respuestas"}</button>`}<span class="puntaje" id="pp"></span></div>`}
-        <details style="margin-top:10px"><summary style="cursor:pointer; font-weight:700">💡 Cómo se calcula</summary><ol class="pasos" style="--c:${col}">${pasosCalculo(k, R).map(([a, b]) => `<li><div><b>${esc(a)}</b><div class="det">${S.asignado && !S.bloqueado ? "" : esc(b)}</div></div><div></div></li>`).join("")}</ol></details>`;
+        ${S.bloqueado ? "" : `<div class="row" style="margin-top:10px"><button class="btn primary" type="button" id="revisar">✔ Revisar</button>${S.asignado || bloqueadoParaMi() ? "" : `<button class="btn" type="button" id="verSol">${ver ? "🙈 Ocultar respuestas" : "👀 Ver respuestas"}</button>`}<span class="puntaje" id="pp"></span></div>`}
+        <details style="margin-top:10px"><summary style="cursor:pointer; font-weight:700">💡 Cómo se calcula</summary><ol class="pasos" style="--c:${col}">${pasosCalculo(k, R).map(([a, b]) => `<li><div><b>${esc(a)}</b><div class="det">${(S.asignado && !S.bloqueado) || bloqueadoParaMi() ? "" : esc(b)}</div></div><div></div></li>`).join("")}</ol></details>`;
     }
     return `<section class="card" style="--c:${col}">
       <h2>${nombre}</h2>
@@ -314,18 +335,19 @@ tr.hl td{background:#fff7d6; font-weight:700}
       const p = R[k], monto = (k === "preaviso" || k === "cesantia") && !p.aplica ? 0 : p.monto;
       const sc = practica ? puntajeParte(k) : null;
       return `<tr><td>${PARTES.find(x => x[0] === k)[1]}</td><td>${(k === "preaviso" || k === "cesantia") && !p.aplica ? "No aplica" : k === "aguinaldo" ? "Exento de cargas sociales" : k === "vacaciones" ? "Paga cargas sociales" : "Indemnización, exenta"}</td>
-        ${practica ? `<td class="r puntaje">${S.revisado[k] || S.bloqueado ? `${sc.ok}/${sc.total}` : "—"}</td>` : ""}<td class="r num">${practica && !S.bloqueado && !(S.verSol && S.verSol[k]) ? "—" : m(monto)}</td></tr>`;
+        ${practica ? `<td class="r puntaje">${S.revisado[k] || S.bloqueado ? `${sc.ok}/${sc.total}` : "—"}</td>` : ""}<td class="r num">${bloqueadoParaMi() || (practica && !S.bloqueado && !(S.verSol && S.verSol[k])) ? "—" : m(monto)}</td></tr>`;
     }).join("");
     return `<section class="card"><h2>🧾 Resumen de la liquidación${S.caso.trabajador ? " · " + esc(S.caso.trabajador) : ""}</h2>
       <p class="muted" style="margin:0 0 8px">${esc((LIQ_MOTIVOS.find(x => x[0] === S.caso.motivo) || [])[1])} · ${R.antiguedad.anios} año(s), ${R.antiguedad.meses} mes(es) y ${Math.round(R.antiguedad.dias)} día(s) laborados.</p>
       <div class="tbl"><table><thead><tr><th>Derecho</th><th>Nota</th>${practica ? `<th class="r">Pasos correctos</th>` : ""}<th class="r">Monto</th></tr></thead><tbody>${filas}</tbody></table></div>
-      ${practica && !S.bloqueado ? "" : `<div class="total"><span>Total a pagar</span><b>${m(R.total)}</b></div>`}
+      ${bloqueadoParaMi() || (practica && !S.bloqueado) ? "" : `<div class="total"><span>Total a pagar</span><b>${m(R.total)}</b></div>`}
       ${R.advertencias.length ? `<div class="adv" style="margin-top:10px">${R.advertencias.map(esc).join("<br>")}</div>` : ""}
       <p class="muted" style="font-size:.78rem; margin-top:10px">Este módulo no calcula impuesto sobre la renta ni las cuotas obreras de la CCSS sobre las vacaciones. Verifique los valores vigentes con el Ministerio de Trabajo (MTSS).</p></section>`;
   }
 
   function pintarTodo() {
     if (S.asignado && !S.docente) S.modo = "practica";
+    if (bloqueadoParaMi()) S.modo = "practica";
     if (S.docente) S.modo = "calc";
     pintarAcciones(); pintarBanner(); pintarTabs();
     const v = $("#vista");
@@ -393,6 +415,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
 
   // ───── Arranque ─────
   (async () => {
+    await leerBloqueo();
     if (TRABAJO_ID) {
       try {
         const { data: t } = await sb.from("trabajos_cotidianos").select("*").eq("id", TRABAJO_ID).maybeSingle();
