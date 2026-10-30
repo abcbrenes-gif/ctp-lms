@@ -61,6 +61,48 @@ No uses comillas dobles dentro de los textos.` });
   }
 }
 
+// modo "liquidaciones": la IA arma una práctica de liquidación laboral con N
+// empleados (empresa, enunciado y datos de cada caso). La usa liquidaciones.html.
+// (Va en este mismo archivo porque Vercel Hobby permite 12 funciones.)
+async function practicaLiquidaciones(body, res, apiKey) {
+  const n = Math.max(1, Math.min(12, Math.round(Number(body.empleados) || 3)));
+  const indic = corto(body.indicaciones, 400);
+  const hoy = corto(body.hoy, 10) || new Date().toISOString().slice(0, 10);
+  const prompt = `Sos docente de Contabilidad (Educación Técnica Profesional, Costa Rica). Creá una PRÁCTICA de liquidaciones laborales para estudiantes de colegio técnico con ${n} empleado(s) de una misma empresa ficticia costarricense.
+Fecha de hoy: ${hoy}. Las fechas de salida deben ser de los últimos meses (hasta hoy).
+${indic ? `Indicaciones del docente: ${indic}
+` : ""}
+Variá los casos para que se practique todo:
+- motivo: "despido_responsabilidad" (la mayoría), "renuncia", "despido_justa_causa" o "jubilacion_fallecimiento".
+- antigüedad: desde 4 meses hasta 12 años (incluí alguno con fracción de más de 6 meses y, si hay 4 o más empleados, uno con más de 8 años).
+- forma_pago: "mensual", "meses" (12 salarios distintos, con horas extra en algunos meses y, a veces, un mes de incapacidad), "quincenal", "semanal" (actividad "comercial" o "no_comercial") u "hora".
+- preaviso_trabajado: "no", "parcial" (con preaviso_dias) o "completo".
+- salarios realistas de Costa Rica (entre 380 000 y 1 500 000 colones al mes, montos redondos).
+- vacaciones_disfrutadas en el período actual (0 a 8 días) y, a veces, vacaciones_anteriores pendientes (1 a 6 días).
+Para cada empleado escribí un "enunciado" de 2 a 4 oraciones, en español de Costa Rica, con TODOS los datos necesarios (fechas, motivo, salario, preaviso, vacaciones) como lo leería el estudiante. No incluyas resultados ni cálculos.
+
+Respondé ÚNICAMENTE con JSON válido, sin texto extra:
+{"empresa":"nombre ficticio","actividad":"giro de la empresa","titulo":"título corto de la práctica","enunciado":"1 o 2 oraciones de contexto",
+ "empleados":[{"nombre":"","puesto":"","enunciado":"","fecha_ingreso":"AAAA-MM-DD","fecha_salida":"AAAA-MM-DD","motivo":"despido_responsabilidad","preaviso_trabajado":"no","preaviso_dias":0,
+   "forma_pago":"mensual","salario_mensual":0,"quincena":0,"salario_semanal":0,"actividad":"comercial","valor_hora":0,"horas_semana":48,
+   "salarios_12_meses":[{"ordinario":0,"extra":0,"incapacidad":false}],"vacaciones_disfrutadas":0,"vacaciones_anteriores":0}]}
+Llená solo los campos de salario que corresponden a la forma de pago (los demás en 0). "salarios_12_meses" solo con forma_pago "meses": 12 elementos, del mes más antiguo al mes de salida. No uses comillas dobles dentro de los textos.`;
+  try {
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({ model: "claude-sonnet-5-5", max_tokens: 12000, messages: [{ role: "user", content: prompt }] })
+    });
+    const d = await r.json();
+    if (!r.ok) { const msg = (d && d.error && d.error.message) || "Error de la IA."; res.status(r.status === 429 || r.status >= 500 ? 503 : 502).json({ error: msg }); return; }
+    const j = extraerJson((d.content || []).map(b => b.text || "").join(""));
+    if (!Array.isArray(j.empleados) || !j.empleados.length) { res.status(502).json({ error: "La IA no devolvió empleados. Probá de nuevo." }); return; }
+    res.status(200).json({ empresa: corto(j.empresa, 120), actividad: corto(j.actividad, 120), titulo: corto(j.titulo, 120), enunciado: corto(j.enunciado, 600), empleados: j.empleados.slice(0, n) });
+  } catch (e) {
+    res.status(500).json({ error: "No se pudo consultar la IA: " + (e && e.message ? e.message : "error") });
+  }
+}
+
 module.exports = async (req, res) => {
   if (req.method !== "POST") { res.status(405).json({ error: "Método no permitido." }); return; }
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -69,6 +111,7 @@ module.exports = async (req, res) => {
   if (typeof body === "string") { try { body = JSON.parse(body); } catch { body = {}; } }
   body = body || {};
   if (body.modo === "dividir") return dividir(body, res, apiKey);
+  if (body.modo === "liquidaciones") return practicaLiquidaciones(body, res, apiKey);
   const textos = (Array.isArray(body.textos) ? body.textos : []).slice(0, 120).map(t => String(t || "").slice(0, 1500));
   if (!textos.length) { res.status(400).json({ error: "No hay textos." }); return; }
   const tema = corto(body.tema, 200);

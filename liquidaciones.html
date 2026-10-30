@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="js/config.js?v=20261030a"></script>
 <script src="js/actividades.js?v=20261030a"></script>
-<script src="js/liquidacion-calculo.js?v=20261030a"></script>
+<script src="js/liquidacion-calculo.js?v=20261030b"></script>
 <style>
 /* Hoja de trabajo de liquidación: datos del caso a la izquierda del flujo, cada
    derecho (preaviso, cesantía, vacaciones, aguinaldo) en su propia pestaña. */
@@ -82,6 +82,13 @@ tr.hl td{background:#fff7d6; font-weight:700}
 @media (max-width:760px){ .dos{grid-template-columns:1fr} .pasos li{grid-template-columns:1.8rem minmax(0,1fr)} .pasos li > :last-child{grid-column:2} .pasos input{width:100%; max-width:none} }
 .overlay{position:fixed; inset:0; background:rgba(15,20,40,.55); display:grid; place-items:center; padding:16px; z-index:50}
 .modal{background:var(--panel); border-radius:18px; padding:20px; width:min(860px,100%); max-height:90vh; overflow:auto}
+.emps{display:flex; gap:6px; flex-wrap:wrap; align-items:center; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:8px 10px}
+.emps .chip{border:1px solid var(--line); background:var(--soft); border-radius:999px; padding:5px 11px; cursor:pointer; font-weight:600; font-size:.84rem}
+.emps .chip.on{background:var(--brand); border-color:var(--brand); color:#fff}
+.enun{background:#fffdf3; border:1px solid #f1e3b0; border-radius:12px; padding:10px 12px; font-size:.92rem; margin-bottom:12px}
+.asiento td input{width:100%; min-width:8rem; text-align:right; font-family:var(--mono); background:#fff; border:1px solid var(--line); border-radius:7px; padding:5px 7px}
+.asiento tr.ok td{background:var(--ok-bg)} .asiento tr.bad td{background:var(--bad-bg)}
+.asiento td.haber{padding-left:2.2rem}
 </style>
 </head>
 <body>
@@ -91,6 +98,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
     <div class="row" id="acciones"></div>
   </header>
   <div id="banner"></div>
+  <div id="empleados"></div>
   <nav class="tabs" id="tabs" aria-label="Partes de la liquidación"></nav>
   <main id="vista"></main>
 </div>
@@ -112,7 +120,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
 
   const PARTES = [
     ["datos", "📋 Datos del caso", "var(--brand)"], ["preaviso", "🔔 Preaviso", "var(--pre)"], ["cesantia", "🛡️ Cesantía", "var(--ces)"],
-    ["vacaciones", "🏖️ Vacaciones", "var(--vac)"], ["aguinaldo", "🎄 Aguinaldo", "var(--agu)"], ["resumen", "🧾 Resumen", "var(--ink)"]
+    ["vacaciones", "🏖️ Vacaciones", "var(--vac)"], ["aguinaldo", "🎄 Aguinaldo", "var(--agu)"], ["asiento", "📒 Asiento contable", "#475569"], ["resumen", "🧾 Resumen", "var(--ink)"]
   ];
   const DERECHOS = ["preaviso", "cesantia", "vacaciones", "aguinaldo"];
   // Bloqueo de respuestas: lo decide el docente (fila de configuración en
@@ -140,7 +148,24 @@ tr.hl td{background:#fff7d6; font-weight:700}
     tab: "datos", modo: "calc", caso: leerLS("liq_caso_v1") || liqCasoAleatorio(), resp: leerLS("liq_resp_v1") || {}, revisado: {},
     asignado: false, docente: false, trabajo: null, entrega: null, partesEval: DERECHOS.slice(), bloqueado: false
   };
-  const persistir = () => { if (!S.asignado) { guardarLS("liq_caso_v1", S.caso); guardarLS("liq_resp_v1", S.resp); } else guardarAvance(); };
+  // Práctica con varios empleados (generada por la IA o publicada por el profe).
+  const P0 = leerLS("liq_practica_v1");
+  S.practica = P0 && P0.practica || null; S.emp = (P0 && P0.emp) || 0; S.respTodas = (P0 && P0.respTodas) || {}; S.revTodas = (P0 && P0.revTodas) || {};
+  S.provisiones = P0 && P0.provisiones === false ? false : true; S.asVista = (P0 && P0.asVista) || "empresa";
+  function elegirEmpleado(i) {
+    if (!S.practica) return;
+    S.emp = Math.max(0, Math.min(i, S.practica.empleados.length - 1));
+    S.caso = S.practica.empleados[S.emp].caso;
+    S.resp = S.respTodas[S.emp] = S.respTodas[S.emp] || {};
+    S.revisado = S.revTodas[S.emp] = S.revTodas[S.emp] || {};
+  }
+  if (S.practica) elegirEmpleado(S.emp);
+  const persistir = () => {
+    if (S.asignado) { guardarAvance(); return; }
+    if (S.practica) guardarLS("liq_practica_v1", { practica: S.practica, emp: S.emp, respTodas: S.respTodas, revTodas: S.revTodas, provisiones: S.provisiones, asVista: S.asVista });
+    else { guardarLS("liq_caso_v1", S.caso); guardarLS("liq_resp_v1", S.resp); }
+  };
+  function salirDePractica() { S.practica = null; try { localStorage.removeItem("liq_practica_v1"); } catch (e) {} }
 
   // ───── Encabezado, pestañas ─────
   function pintarAcciones() {
@@ -151,12 +176,16 @@ tr.hl td{background:#fff7d6; font-weight:700}
       a.innerHTML = `<button class="btn" type="button" id="verEval">📋 Evaluación</button>${S.bloqueado ? "" : `<button class="btn ok" type="button" id="entregar">📤 Entregar al profe</button>`}<a class="btn" href="index.html" data-volver>← Plataforma</a>`;
     } else {
       a.innerHTML = `${botonBloqueo()}${bloqueadoParaMi() ? "" : `<span class="seg" role="group" aria-label="Forma de trabajar"><button type="button" data-modo="calc" class="${S.modo === "calc" ? "on" : ""}">🧮 Calculadora</button><button type="button" data-modo="practica" class="${S.modo === "practica" ? "on" : ""}">✍️ Lo calculo yo</button></span>`}
+        ${ES_DOCENTE ? `<button class="btn primary" type="button" id="practicaIA">🤖 Práctica con IA</button>` : ""}
+        ${PUBLICADAS.length ? `<select class="btn" id="publicadas" aria-label="Prácticas del profe"><option value="">📚 Prácticas del profe (${PUBLICADAS.length})</option>${PUBLICADAS.map((x, i) => `<option value="${i}" ${S.practica && S.practica.id === x.id ? "selected" : ""}>${esc(x.titulo || x.empresa)} · ${x.empleados.length} empleado(s)</option>`).join("")}</select>` : ""}
         <button class="btn" type="button" id="aleatorio">🎲 Caso de práctica</button><button class="btn" type="button" id="vacio">＋ Caso propio</button><a class="btn" href="index.html" data-volver>← Plataforma</a>`;
     }
     a.querySelectorAll("[data-modo]").forEach(b => b.addEventListener("click", () => { S.modo = b.dataset.modo; S.revisado = {}; pintarTodo(); }));
     const on = (id, fn) => { const x = $("#" + id); if (x) x.addEventListener("click", fn); };
-    on("aleatorio", () => { S.caso = liqCasoAleatorio(); S.resp = {}; S.revisado = {}; persistir(); S.tab = "datos"; pintarTodo(); });
-    on("vacio", () => { S.caso = liqCasoVacio(); S.resp = {}; S.revisado = {}; persistir(); S.tab = "datos"; pintarTodo(); });
+    on("aleatorio", () => { if (!S.docente) salirDePractica(); S.caso = liqCasoAleatorio(); S.resp = {}; S.revisado = {}; persistir(); S.tab = "datos"; pintarTodo(); });
+    on("vacio", () => { salirDePractica(); S.caso = liqCasoVacio(); S.resp = {}; S.revisado = {}; persistir(); S.tab = "datos"; pintarTodo(); });
+    on("practicaIA", abrirPracticaIA);
+    const pub = $("#publicadas"); if (pub) pub.addEventListener("change", () => { const x = PUBLICADAS[Number(pub.value)]; if (!x) return; cargarPractica(JSON.parse(JSON.stringify(x))); });
     on("verEval", verEvaluacion);
     on("guardarCaso", guardarCasoDocente);
     on("entregar", entregar);
@@ -196,7 +225,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
     const v = S.caso[k] == null ? "" : S.caso[k];
     return `<label class="fld">${et}<input data-c="${k}" type="${tipo || "number"}" value="${esc(v)}" ${tipo === "number" || !tipo ? 'inputmode="decimal" step="any" min="0"' : ""} ${extra || ""} ${soloLectura() ? "disabled" : ""}></label>`;
   }
-  const soloLectura = () => S.asignado && !S.docente;
+  const soloLectura = () => (S.asignado && !S.docente) || (S.practica && S.practica.origen === "profe" && !ES_DOCENTE);
   function sel(k, et, ops) { return `<label class="fld">${et}<select data-c="${k}" ${soloLectura() ? "disabled" : ""}>${ops.map(([v, t]) => `<option value="${v}" ${String(S.caso[k]) === v ? "selected" : ""}>${esc(t)}</option>`).join("")}</select></label>`; }
   function seg(k, ops) { return `<span class="seg" role="group">${ops.map(([v, t]) => `<button type="button" data-seg="${k}" data-v="${v}" class="${S.caso[k] === v ? "on" : ""}" ${soloLectura() ? "disabled" : ""}>${esc(t)}</button>`).join("")}</span>`; }
 
@@ -221,6 +250,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
           <td><input type="checkbox" data-sal="${i}" data-f="incap" ${x.incap ? "checked" : ""} ${soloLectura() ? "disabled" : ""} style="width:auto"></td></tr>`).join("")}</tbody></table></div>`;
     }
     return `<section class="card">
+      ${S.practica ? `<div class="enun"><b>🏢 ${esc(S.practica.empresa)}</b>${S.practica.actividad ? ` · ${esc(S.practica.actividad)}` : ""}${S.practica.enunciado ? `<br>${esc(S.practica.enunciado)}` : ""}<hr style="border:0;border-top:1px solid #f1e3b0;margin:8px 0"><b>👤 ${esc(S.practica.empleados[S.emp].nombre)}${S.practica.empleados[S.emp].puesto ? " · " + esc(S.practica.empleados[S.emp].puesto) : ""}</b><br>${esc(S.practica.empleados[S.emp].enunciado || "")}</div>` : ""}
       <h2>📋 Datos del caso</h2>
       <p class="muted" style="margin:0 0 10px">${soloLectura() ? "Estos son los datos que dio el profe. Resolvé cada parte en las pestañas de arriba." : "Llene los datos como los tenga. Puede cambiar la forma de ingresar el tiempo y el salario."}</p>
       <div class="grid">${campo("trabajador", "Nombre de la persona trabajadora", "text")}${sel("motivo", "Motivo de la salida", LIQ_MOTIVOS)}</div>
@@ -345,14 +375,144 @@ tr.hl td{background:#fff7d6; font-weight:700}
       <p class="muted" style="font-size:.78rem; margin-top:10px">Este módulo no calcula impuesto sobre la renta ni las cuotas obreras de la CCSS sobre las vacaciones. Verifique los valores vigentes con el Ministerio de Trabajo (MTSS).</p></section>`;
   }
 
+  // ───── Empleados de la práctica ─────
+  function pintarEmpleados() {
+    const c = $("#empleados");
+    if (!S.practica || S.asignado) { c.innerHTML = ""; return; }
+    const E = S.practica.empleados;
+    c.innerHTML = `<div class="emps"><b style="font-size:.86rem">🏢 ${esc(S.practica.titulo || S.practica.empresa)}</b><span class="muted" style="font-size:.82rem">· ${E.length} empleado(s):</span>
+      ${E.map((e, i) => `<button class="chip ${i === S.emp ? "on" : ""}" type="button" data-emp="${i}">👤 ${esc(e.nombre)}</button>`).join("")}
+      ${ES_DOCENTE && S.practica.origen !== "profe" ? `<button class="btn ok" type="button" id="publicar" style="margin-left:auto">📢 Publicar para estudiantes</button>` : ""}
+      ${ES_DOCENTE && S.practica.origen === "profe" ? `<button class="btn" type="button" id="despublicar" style="margin-left:auto">🗑️ Quitar de las publicadas</button>` : ""}
+      <button class="btn" type="button" id="cerrarPractica">✕ Cerrar práctica</button></div>`;
+    c.querySelectorAll("[data-emp]").forEach(b => b.addEventListener("click", () => { elegirEmpleado(Number(b.dataset.emp)); persistir(); pintarTodo(); }));
+    const on = (id, fn) => { const x = $("#" + id); if (x) x.addEventListener("click", fn); };
+    on("cerrarPractica", () => { salirDePractica(); S.caso = leerLS("liq_caso_v1") || liqCasoAleatorio(); S.resp = leerLS("liq_resp_v1") || {}; S.revisado = {}; pintarTodo(); });
+    on("publicar", publicarPractica);
+    on("despublicar", despublicarPractica);
+  }
+  function cargarPractica(pr) {
+    S.practica = pr; S.respTodas = {}; S.revTodas = {}; S.provisiones = pr.provisiones !== false; S.asVista = "empresa";
+    elegirEmpleado(0); S.tab = "datos"; persistir(); pintarTodo();
+  }
+  function enunciadoDe(c) {
+    const mot = (LIQ_MOTIVOS.find(x => x[0] === c.motivo) || [])[1] || "";
+    const sal = c.salarioModo === "quincenal" ? `recibía ${m(c.quincena)} por quincena` : c.salarioModo === "semanal" ? `recibía ${m(c.semana)} por semana (actividad ${c.actividad === "no_comercial" ? "no comercial" : "comercial"})` : c.salarioModo === "hora" ? `ganaba ${m(c.valorHora)} por hora y trabajaba ${c.horasSemana} horas por semana` : c.salarioModo === "meses" ? "sus salarios de los últimos 12 meses están en la tabla de datos" : `su salario mensual era de ${m(c.salarioMensual)}`;
+    return `Ingresó el ${c.fechaIngreso} y salió el ${c.fechaSalida}. Motivo: ${mot.toLowerCase()}. ${sal[0].toUpperCase() + sal.slice(1)}. ${c.preavisoEstado === "completo" ? "Trabajó el preaviso completo." : c.preavisoEstado === "parcial" ? `Trabajó ${c.preavisoDias} días del preaviso.` : "No trabajó el preaviso."} Disfrutó ${c.vacDisfrutadas} día(s) de vacaciones en el período actual.`;
+  }
+  function abrirPracticaIA() {
+    $("#modalCaja").innerHTML = `<h2>🤖 Práctica con IA</h2>
+      <p class="muted">La IA arma una empresa con los empleados que usted indique, cada uno con su enunciado y sus datos (fechas, motivo de salida y forma de pago variados). Después la puede revisar y publicar para los estudiantes.</p>
+      <div class="grid"><label class="fld">¿Cuántos empleados?<input id="iaN" type="number" min="1" max="12" value="4"></label>
+        <label class="fld">El asiento contable se hace…<select id="iaProv"><option value="si">Con provisiones (la empresa ya las tenía)</option><option value="no">Sin provisiones (directo al gasto)</option></select></label></div>
+      <label class="fld" style="margin-top:10px">Indicaciones para la IA (opcional)<input id="iaIndic" maxlength="400" placeholder="Ej.: empresa de transporte, todos despedidos con responsabilidad, salarios bajos"></label>
+      <p class="muted" id="iaEstado" style="min-height:1.2em"></p>
+      <div class="row" style="justify-content:flex-end"><button class="btn" type="button" id="iaCancelar">Cancelar</button><button class="btn" type="button" id="iaSin">🎲 Generar sin IA</button><button class="btn primary" type="button" id="iaGenerar">🤖 Generar práctica</button></div>`;
+    $("#modal").hidden = false;
+    $("#iaCancelar").addEventListener("click", () => { $("#modal").hidden = true; });
+    const base = () => ({ n: Math.max(1, Math.min(12, Number($("#iaN").value) || 1)), prov: $("#iaProv").value === "si" });
+    $("#iaSin").addEventListener("click", () => {
+      const { n, prov } = base();
+      const nombres = ["Ana Vargas", "Luis Mora", "Karla Solís", "José Rojas", "María Jiménez", "Diego Castro", "Sofía Araya", "Andrés Quesada", "Paola Méndez", "Carlos Ulate", "Valeria Chaves", "Jorge Salas"];
+      const empleados = Array.from({ length: n }, (_, i) => { const c = liqCasoAleatorio(); c.trabajador = nombres[i % nombres.length]; return { nombre: c.trabajador, puesto: "", enunciado: enunciadoDe(c), caso: c }; });
+      $("#modal").hidden = true;
+      cargarPractica({ id: "p" + Date.now(), titulo: `Práctica de liquidaciones (${n} empleado${n === 1 ? "" : "s"})`, empresa: "Comercial La Esperanza S.A.", actividad: "", enunciado: "", empleados, provisiones: prov, origen: "local" });
+    });
+    $("#iaGenerar").addEventListener("click", async ev => {
+      const { n, prov } = base();
+      ev.target.disabled = true; $("#iaEstado").textContent = `🤖 La IA está armando la práctica con ${n} empleado(s)… (puede tardar unos segundos)`;
+      let j = null, err = "";
+      for (let k = 0; k < 2 && !j; k++) {
+        try {
+          const r = await fetch("/api/memoria-conceptos", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ modo: "liquidaciones", empleados: n, indicaciones: $("#iaIndic").value, hoy: new Date().toISOString().slice(0, 10) }) });
+          const x = await r.json().catch(() => ({}));
+          if (r.ok && Array.isArray(x.empleados)) j = x; else { err = x.error || ("Error " + r.status); if (r.status !== 503) break; }
+        } catch (e) { err = "No hay conexión."; break; }
+      }
+      if (!j) { ev.target.disabled = false; $("#iaEstado").textContent = "No se pudo generar con IA: " + err + " Puede usar «Generar sin IA»."; return; }
+      const empleados = j.empleados.map(e => { const caso = liqCasoDesdeIA(e); const R = liqCalcularCaso(caso); return R.error ? null : { nombre: caso.trabajador || "Empleado", puesto: String(e.puesto || "").slice(0, 60), enunciado: String(e.enunciado || "").slice(0, 900) || enunciadoDe(caso), caso }; }).filter(Boolean);
+      if (!empleados.length) { ev.target.disabled = false; $("#iaEstado").textContent = "La IA devolvió datos inválidos. Probá de nuevo."; return; }
+      $("#modal").hidden = true;
+      cargarPractica({ id: "p" + Date.now(), titulo: j.titulo || "Práctica de liquidaciones", empresa: j.empresa || "Empresa", actividad: j.actividad || "", enunciado: j.enunciado || "", empleados, provisiones: prov, origen: "ia" });
+    });
+  }
+  // Prácticas publicadas (para los estudiantes): en la misma fila de configuración.
+  let PUBLICADAS = [];
+  async function leerPublicadas() { const f = await leerBloqueo(); PUBLICADAS = (f && Array.isArray(f.contenido_actividad.practicas)) ? f.contenido_actividad.practicas : []; return f; }
+  async function guardarPublicadas(lista) {
+    const fila = await leerBloqueo();
+    const cont = { ...((fila && fila.contenido_actividad) || { config_liq: true, sin_asignar: true, bloquear_respuestas: BLOQUEO }), practicas: lista };
+    const r = fila ? await sb.from("trabajos_cotidianos").update({ contenido_actividad: cont }).eq("id", fila.id)
+      : await sb.from("trabajos_cotidianos").insert({ titulo: "Liquidaciones laborales (configuración, no borrar)", tipo_actividad: "rubrica_directa", habilitado: false, contenido_actividad: cont });
+    if (r.error) throw r.error;
+    PUBLICADAS = lista;
+  }
+  async function publicarPractica() {
+    const pr = { ...S.practica, origen: "profe", provisiones: S.provisiones, fecha: new Date().toISOString() };
+    try { await leerPublicadas(); await guardarPublicadas([pr, ...PUBLICADAS.filter(x => x.id !== pr.id)].slice(0, 15)); S.practica.origen = "profe"; persistir(); pintarTodo(); $("#banner").insertAdjacentHTML("afterbegin", `<div class="banner ok" style="margin-bottom:8px">✓ Publicada. Los estudiantes la encuentran en «📚 Prácticas del profe».</div>`); }
+    catch (e) { alert("No se pudo publicar: " + (e.message || e)); }
+  }
+  async function despublicarPractica() {
+    if (!confirm("¿Quitar esta práctica de las publicadas? Los estudiantes dejarán de verla.")) return;
+    try { await leerPublicadas(); await guardarPublicadas(PUBLICADAS.filter(x => x.id !== S.practica.id)); S.practica.origen = "ia"; persistir(); pintarTodo(); } catch (e) { alert("No se pudo quitar: " + (e.message || e)); }
+  }
+
+  // ───── Asiento contable ─────
+  function vistaAsiento() {
+    const multi = S.practica && S.practica.empleados.length > 1;
+    const vista = multi ? S.asVista : "empleado";
+    let A, titulo, errores = [];
+    if (vista === "empresa") {
+      const asientos = S.practica.empleados.map(e => { const R = liqCalcularCaso(e.caso); if (R.error) { errores.push(e.nombre); return null; } return liqAsientoDe(R, { provisiones: S.provisiones }); }).filter(Boolean);
+      A = liqAsientoTotal(asientos); titulo = `Liquidación de ${S.practica.empleados.length} empleados · ${S.practica.empresa}`;
+    } else {
+      const R = liqCalcularCaso(S.caso);
+      if (R.error) return `<section class="card"><h2>📒 Asiento contable</h2><p class="noaplica">${esc(R.error)} Complete los datos del caso.</p></section>`;
+      A = liqAsientoDe(R, { provisiones: S.provisiones }); titulo = `Liquidación de ${S.caso.trabajador || "la persona trabajadora"}`;
+    }
+    const practica = S.modo === "practica", ocultar = bloqueadoParaMi() || practica;
+    const resp = vista === "empresa" ? (S.respTodas.empresa = S.respTodas.empresa || {}) : S.resp;
+    const revisado = vista === "empresa" ? S.revTodas.empresa : S.revisado.asiento;
+    const fila = l => {
+      const k = "as_" + l.cod + (l.debe ? "D" : "H"), val = l.debe || l.haber;
+      if (!ocultar) return `<tr><td class="num">${l.cod}</td><td class="${l.haber ? "haber" : ""}">${esc(l.cuenta)}</td><td class="r num">${l.debe ? m(l.debe) : ""}</td><td class="r num">${l.haber ? m(l.haber) : ""}</td></tr>`;
+      const r = revisado ? liqRevisarPaso({ tipo: "monto", ok: val }, resp[k]) : null;
+      const inp = `<input data-as="${k}" inputmode="decimal" value="${esc(resp[k] == null ? "" : resp[k])}" placeholder="₡ 0,00" aria-label="${esc(l.cuenta)}">`;
+      return `<tr class="${r === true ? "ok" : revisado ? "bad" : ""}"><td class="num">${l.cod}</td><td class="${l.haber ? "haber" : ""}">${esc(l.cuenta)}</td><td>${l.debe ? inp : ""}</td><td>${l.haber ? inp : ""}</td><td>${r === true ? "✓" : revisado ? "✗" : ""}</td></tr>`;
+    };
+    const correctas = revisado ? A.lineas.filter(l => liqRevisarPaso({ tipo: "monto", ok: l.debe || l.haber }, resp["as_" + l.cod + (l.debe ? "D" : "H")]) === true).length : 0;
+    return `<section class="card">
+      <h2>📒 Asiento contable</h2>
+      <div class="dos" style="margin-top:8px">
+        <div class="ley" style="--c:#475569"><b>Cómo se registra la liquidación.</b> Se carga (debe) lo que se le paga: el <b>preaviso</b> es un gasto; la <b>cesantía</b>, las <b>vacaciones</b> y el <b>aguinaldo</b> se cargan a su <b>provisión</b> si la empresa la venía acumulando, o al <b>gasto</b> si no. Se abona (haber) lo que se le retiene de las vacaciones —que son salario— a la <b>CCSS</b> (9,83 %: SEM 5,50 % + IVM 4,33 %) y al <b>Banco Popular</b> (1 %), y el neto que sale de <b>Bancos</b>. Preaviso, cesantía y aguinaldo no pagan cargas sociales.</div>
+        <div><div class="row" style="margin-bottom:8px"><span class="muted" style="font-size:.82rem">La empresa tenía provisiones:</span><span class="seg"><button type="button" data-prov="si" class="${S.provisiones ? "on" : ""}">Sí</button><button type="button" data-prov="no" class="${!S.provisiones ? "on" : ""}">No</button></span></div>
+        ${multi ? `<div class="row"><span class="muted" style="font-size:.82rem">Asiento de:</span><span class="seg"><button type="button" data-asv="empresa" class="${vista === "empresa" ? "on" : ""}">🏢 Toda la empresa</button><button type="button" data-asv="empleado" class="${vista === "empleado" ? "on" : ""}">👤 ${esc(S.caso.trabajador || "Empleado")}</button></span></div>` : ""}</div>
+      </div>
+      ${errores.length ? `<p class="noaplica" style="margin-top:10px">Faltan datos de: ${errores.map(esc).join(", ")}.</p>` : ""}
+      <h3>${ocultar ? "Escribí los montos del asiento" : "Asiento de diario"} — ${esc(titulo)}</h3>
+      <div class="tbl asiento"><table><thead><tr><th>Código</th><th>Cuenta</th><th class="r">Debe</th><th class="r">Haber</th>${ocultar ? "<th></th>" : ""}</tr></thead><tbody>${A.lineas.map(fila).join("")}
+        ${ocultar ? "" : `<tr><td></td><td><b>Totales</b></td><td class="r num"><b>${m(A.totalDebe)}</b></td><td class="r num"><b>${m(A.totalHaber)}</b></td></tr>`}</tbody></table></div>
+      <p class="muted" style="font-size:.84rem; margin:6px 0 0">Por el registro de la ${esc((titulo.charAt(0).toLowerCase() + titulo.slice(1)).replace(/\.+$/, ""))}.</p>
+      ${ocultar ? `<div class="row" style="margin-top:10px"><button class="btn primary" type="button" id="revAsiento">✔ Revisar asiento</button>${revisado ? `<span class="puntaje">${correctas} de ${A.lineas.length} líneas correctas</span>` : ""}</div>` : ""}
+    </section>`;
+  }
+  function ligarAsiento() {
+    const v = $("#vista"), multi = S.practica && S.practica.empleados.length > 1, vista = multi ? S.asVista : "empleado";
+    v.querySelectorAll("[data-prov]").forEach(b => b.addEventListener("click", () => { S.provisiones = b.dataset.prov === "si"; if (S.practica) S.practica.provisiones = S.provisiones; persistir(); pintarTodo(); }));
+    v.querySelectorAll("[data-asv]").forEach(b => b.addEventListener("click", () => { S.asVista = b.dataset.asv; persistir(); pintarTodo(); }));
+    v.querySelectorAll("[data-as]").forEach(inp => inp.addEventListener("input", () => { const r = vista === "empresa" ? (S.respTodas.empresa = S.respTodas.empresa || {}) : S.resp; r[inp.dataset.as] = inp.value; persistir(); }));
+    const rv = $("#revAsiento"); if (rv) rv.addEventListener("click", () => { if (vista === "empresa") S.revTodas.empresa = true; else S.revisado.asiento = true; persistir(); pintarTodo(); });
+  }
+
   function pintarTodo() {
     if (S.asignado && !S.docente) S.modo = "practica";
     if (bloqueadoParaMi()) S.modo = "practica";
     if (S.docente) S.modo = "calc";
-    pintarAcciones(); pintarBanner(); pintarTabs();
+    pintarAcciones(); pintarBanner(); pintarEmpleados(); pintarTabs();
     const v = $("#vista");
     if (S.tab === "datos") { v.innerHTML = vistaDatos(); ligarDatos(); }
     else if (S.tab === "resumen") v.innerHTML = vistaResumen();
+    else if (S.tab === "asiento") { v.innerHTML = vistaAsiento(); ligarAsiento(); }
     else { v.innerHTML = vistaDerecho(S.tab); ligarDerecho(S.tab); }
   }
 
@@ -415,7 +575,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
 
   // ───── Arranque ─────
   (async () => {
-    await leerBloqueo();
+    await leerPublicadas();
     if (TRABAJO_ID) {
       try {
         const { data: t } = await sb.from("trabajos_cotidianos").select("*").eq("id", TRABAJO_ID).maybeSingle();

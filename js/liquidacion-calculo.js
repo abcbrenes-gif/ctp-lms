@@ -192,3 +192,59 @@ function liqCasoVacio() {
     salarioModo: "mensual", salarioMensual: 0, quincena: 0, semana: 0, actividad: "comercial", valorHora: 0, horasSemana: 48, vacDisfrutadas: 0, vacAnteriores: 0,
     salarios: liqMeses12(hoy).map(mes => ({ mes, ordinario: 0, extra: 0, incap: false })) };
 }
+
+// ───── Asiento contable de la liquidación ─────
+// Mismas cuentas del catálogo de Aula de Conta. Si la empresa provisionó
+// (aguinaldo, vacaciones y cesantía) se carga la provisión (pasivo); si no,
+// el gasto. Las vacaciones son salario: se les rebaja la cuota obrera
+// (CCSS: SEM 5,50 % + IVM 4,33 % · Banco Popular 1 %). Preaviso, cesantía y
+// aguinaldo no pagan cargas sociales.
+const LIQ_CTAS = {
+  "1102": "Bancos", "2107": "CCSS por pagar", "2108": "Banco Popular por pagar",
+  "2111": "Provisión para aguinaldo", "2112": "Provisión para vacaciones", "2113": "Provisión para cesantía",
+  "6108": "Gasto por aguinaldo", "6109": "Gasto por vacaciones", "6110": "Gasto por cesantía", "6111": "Gasto por preaviso"
+};
+function liqAsientoDe(R, op) {
+  op = { provisiones: true, pctCcss: 9.83, pctBp: 1, ...(op || {}) };
+  const pre = R.preaviso.aplica ? R.preaviso.monto : 0, ces = R.cesantia.aplica ? R.cesantia.monto : 0;
+  const vac = R.vacaciones.monto, agu = R.aguinaldo.monto;
+  const ccss = liqR(vac * op.pctCcss / 100), bp = liqR(vac * op.pctBp / 100);
+  const L = [];
+  if (pre > 0) L.push({ cod: "6111", debe: pre });
+  if (ces > 0) L.push({ cod: op.provisiones ? "2113" : "6110", debe: ces });
+  if (vac > 0) L.push({ cod: op.provisiones ? "2112" : "6109", debe: vac });
+  if (agu > 0) L.push({ cod: op.provisiones ? "2111" : "6108", debe: agu });
+  if (ccss > 0) L.push({ cod: "2107", haber: ccss });
+  if (bp > 0) L.push({ cod: "2108", haber: bp });
+  const totalDebe = liqR(L.reduce((s, x) => s + (x.debe || 0), 0));
+  L.push({ cod: "1102", haber: liqR(totalDebe - ccss - bp) });
+  return { lineas: L.map(x => ({ ...x, cuenta: LIQ_CTAS[x.cod] })), totalDebe, totalHaber: totalDebe, retenciones: liqR(ccss + bp), neto: liqR(totalDebe - ccss - bp) };
+}
+// Suma los asientos de varios empleados por cuenta (asiento de la empresa).
+function liqAsientoTotal(asientos) {
+  const por = {};
+  asientos.forEach(a => a.lineas.forEach(l => { const k = l.cod + (l.debe ? "D" : "H"); por[k] = por[k] || { cod: l.cod, cuenta: l.cuenta, debe: 0, haber: 0 }; por[k].debe = liqR(por[k].debe + (l.debe || 0)); por[k].haber = liqR(por[k].haber + (l.haber || 0)); }));
+  const lineas = Object.values(por).sort((a, b) => (b.debe > 0) - (a.debe > 0) || (a.cod === "1102") - (b.cod === "1102") || a.cod.localeCompare(b.cod)).map(l => l.debe ? { cod: l.cod, cuenta: l.cuenta, debe: l.debe } : { cod: l.cod, cuenta: l.cuenta, haber: l.haber });
+  const t = liqR(lineas.reduce((s, x) => s + (x.debe || 0), 0));
+  return { lineas, totalDebe: t, totalHaber: liqR(lineas.reduce((s, x) => s + (x.haber || 0), 0)) };
+}
+
+// Convierte un empleado que propone la IA en un caso válido para el motor.
+function liqCasoDesdeIA(e) {
+  const c = liqCasoVacio();
+  const num = v => { const n = Number(v); return isFinite(n) && n >= 0 ? n : 0; };
+  c.trabajador = String(e.nombre || "").slice(0, 80);
+  c.tiempoModo = "fechas"; c.fechaIngreso = String(e.fecha_ingreso || "").slice(0, 10); c.fechaSalida = String(e.fecha_salida || "").slice(0, 10);
+  c.motivo = LIQ_MOTIVOS.some(m => m[0] === e.motivo) ? e.motivo : "despido_responsabilidad";
+  c.preavisoEstado = ["no", "parcial", "completo"].includes(e.preaviso_trabajado) ? e.preaviso_trabajado : "no";
+  c.preavisoDias = num(e.preaviso_dias);
+  c.salarioModo = LIQ_SALARIO_MODOS.some(m => m[0] === e.forma_pago) ? e.forma_pago : "mensual";
+  c.salarioMensual = num(e.salario_mensual); c.quincena = num(e.quincena); c.semana = num(e.salario_semanal);
+  c.actividad = e.actividad === "no_comercial" ? "no_comercial" : "comercial";
+  c.valorHora = num(e.valor_hora); c.horasSemana = num(e.horas_semana) || 48;
+  c.vacDisfrutadas = num(e.vacaciones_disfrutadas); c.vacAnteriores = num(e.vacaciones_anteriores);
+  const meses = liqMeses12(c.fechaSalida);
+  const lista = Array.isArray(e.salarios_12_meses) ? e.salarios_12_meses : [];
+  c.salarios = meses.map((mes, i) => { const x = lista[i] || {}; return { mes, ordinario: num(x.ordinario != null ? x.ordinario : x), extra: num(x.extra), incap: !!x.incapacidad }; });
+  return c;
+}
