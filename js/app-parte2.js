@@ -3012,7 +3012,7 @@ async function renderSubtema(id, soloLectura) {
             return x;
           });
           if (presetElegido.liquidacion) {
-            resultado.contenido.liq_partes = ["preaviso", "cesantia", "vacaciones", "aguinaldo", "asiento"];
+            resultado.contenido.liq_partes = ["salario", "preaviso", "cesantia", "vacaciones", "aguinaldo", "asiento"];
             resultado.contenido.liq_instrumento = { componente: "Trabajo cotidiano", tipo: "Escala de desempeño", subarea: "", unidad: titulo, resultado: "", indicador: "" };
           } else if (presetElegido.memoria) {
             resultado.contenido.memoria_instrumento = { ...MEMORIA_INSTRUMENTO_BASE, unidad: titulo };
@@ -5621,7 +5621,7 @@ function ligarBloqueMemoria(panel, trabajo, entregaPorEstudiante, recargar) {
 }
 
 // Liquidación laboral: avance y nota de cada estudiante por parte.
-const LIQ_PARTES_NOMBRE = { preaviso: "Preaviso", cesantia: "Cesantía", vacaciones: "Vacaciones", aguinaldo: "Aguinaldo", asiento: "Asiento" };
+const LIQ_PARTES_NOMBRE = { salario: "Salario", preaviso: "Preaviso", cesantia: "Cesantía", vacaciones: "Vacaciones", aguinaldo: "Aguinaldo", asiento: "Asiento" };
 function pintarBloqueLiquidacion(trabajo, ordenados, nombrePorId, entregaPorEstudiante) {
   const c = trabajo.contenido_actividad || {};
   const partes = Array.isArray(c.liq_partes) && c.liq_partes.length ? c.liq_partes : Object.keys(LIQ_PARTES_NOMBRE);

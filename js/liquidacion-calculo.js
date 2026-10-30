@@ -160,14 +160,24 @@ function liqCalcularCaso(c) {
   const aguinaldo = { periodo: agPeriodo, meses: agMeses, totalDevengado: agTotal, monto: liqR(agTotal / 12) };
 
   const total = liqR((preaviso.aplica ? preaviso.monto : 0) + (cesantia.aplica ? cesantia.monto : 0) + vacaciones.monto + aguinaldo.monto);
-  return { antiguedad: { ...ant, mesesTotales: liqR(mesesTot) }, salario: { modo: c.salarioModo, meses: auto, formulaMensual, promedio6: prom6, promedio12: prom12, usados6, usados12, diario, diarioCes, diarioVac, divCes }, preaviso, cesantia, vacaciones, aguinaldo, total, advertencias: adv };
+  return { antiguedad: { ...ant, mesesTotales: liqR(mesesTot) }, salario: { modo: c.salarioModo, meses: auto, total12: liqR(filas.filter(x => !x.incap).reduce((t, x) => t + x.total, 0)), formulaMensual, promedio6: prom6, promedio12: prom12, usados6, usados12, diario, diarioCes, diarioVac, divCes }, preaviso, cesantia, vacaciones, aguinaldo, total, advertencias: adv };
 }
 
 // Pasos que el estudiante llena en la práctica (cada uno se revisa solo).
-// tipo "dias" acepta ±0,01; "monto" acepta ±1 colón o 0,5 % (por redondeos).
+// tipo "dias" acepta ±0,01; "monto" acepta ±1 colón o 0,05 % (por redondeos).
 function liqPasosPractica(R) {
   const p = R.preaviso, c = R.cesantia, v = R.vacaciones, a = R.aguinaldo;
+  const s = R.salario;
   return {
+    salario: s.modo === "meses" ? [
+      { k: "sal_total12", et: "Total devengado en los últimos 12 meses (sin los meses de incapacidad)", tipo: "monto", ok: s.total12, ayuda: "Cada mes: salario mensual ÷ 30 × días laborados, más las horas extra o comisiones." },
+      { k: "sal_prom6", et: "Salario promedio mensual de los últimos 6 meses", tipo: "monto", ok: s.promedio6, ayuda: "Total de los últimos 6 meses ÷ meses laborados (un mes incompleto cuenta por sus días ÷ 30)." },
+      { k: "sal_prom12", et: "Salario promedio mensual de los últimos 12 meses", tipo: "monto", ok: s.promedio12 },
+      { k: "sal_diario", et: "Salario diario (promedio de 6 meses ÷ 30)", tipo: "monto", ok: s.diario }
+    ] : [
+      { k: "sal_prom6", et: "Salario promedio mensual", tipo: "monto", ok: s.promedio6 },
+      { k: "sal_diario", et: "Salario diario (promedio ÷ 30)", tipo: "monto", ok: s.diario }
+    ],
     preaviso: [
       { k: "pre_dias_legales", et: "Días de preaviso según el tiempo laborado", tipo: "dias", ok: p.diasLegales },
       { k: "pre_dias_pagar", et: "Días de preaviso a pagar", tipo: "dias", ok: p.aplica ? p.diasPagar : 0, ayuda: "Solo se paga en despido con responsabilidad patronal; se rebajan los días que sí trabajó." },
@@ -195,7 +205,7 @@ function liqPasosPractica(R) {
 const liqNumero = v => { const s = String(v == null ? "" : v).trim().replace(/[₡\s]/g, ""); if (!s) return null; const n = Number(s.includes(",") && !s.includes(".") ? s.replace(",", ".") : s.replace(/,/g, "")); return isFinite(n) ? n : null; };
 function liqRevisarPaso(paso, valor) {
   const n = liqNumero(valor); if (n === null) return null;
-  const tol = paso.tipo === "dias" ? 0.011 : Math.max(1, Math.abs(paso.ok) * 0.005);
+  const tol = paso.tipo === "dias" ? 0.011 : Math.max(1, Math.abs(paso.ok) * 0.0005);
   return Math.abs(n - paso.ok) <= tol;
 }
 

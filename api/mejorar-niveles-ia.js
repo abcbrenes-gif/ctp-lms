@@ -15,6 +15,7 @@ const UMBRALES = {
   precision_pct: "85 % o más (Avanzado), 60–84 % (Intermedio), 35–59 % (Inicial) de sus puntos son ganados (frente a los perdidos por errores)",
   rapidez_pct: "en sus aciertos le sobra en promedio 43 % o más (Avanzado), 30–42 % (Intermedio), 18–29 % (Inicial) del tiempo",
   aportes_pct: "3 o más (Avanzado), 2 (Intermedio), 1 (Inicial) preguntas propuestas que el docente aprueba",
+  liq_salario_pct: "85 % o más (Avanzado), 60–84 % (Intermedio), 35–59 % (Inicial) de los resultados del salario correctos (devengado, promedios y salario diario)",
   liq_preaviso_pct: "85 % o más (Avanzado), 60–84 % (Intermedio), 35–59 % (Inicial) de los pasos del preaviso correctos",
   liq_cesantia_pct: "85 % o más (Avanzado), 60–84 % (Intermedio), 35–59 % (Inicial) de los pasos de la cesantía correctos",
   liq_vacaciones_pct: "85 % o más (Avanzado), 60–84 % (Intermedio), 35–59 % (Inicial) de los pasos de las vacaciones correctos",

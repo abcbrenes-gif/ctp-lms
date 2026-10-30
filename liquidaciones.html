@@ -8,9 +8,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=20261030c"></script>
-<script src="js/actividades.js?v=20261030c"></script>
-<script src="js/liquidacion-calculo.js?v=20261030d"></script>
+<script src="js/config.js?v=20261030f"></script>
+<script src="js/actividades.js?v=20261030f"></script>
+<script src="js/liquidacion-calculo.js?v=20261030f"></script>
+<script src="js/hoja-calculo.js?v=20261030f"></script>
 <style>
 /* Hoja de trabajo de liquidación: datos del caso a la izquierda del flujo, cada
    derecho (preaviso, cesantía, vacaciones, aguinaldo) en su propia pestaña. */
@@ -89,6 +90,20 @@ tr.hl td{background:#fff7d6; font-weight:700}
 .asiento td input{width:100%; min-width:8rem; text-align:right; font-family:var(--mono); background:#fff; border:1px solid var(--line); border-radius:7px; padding:5px 7px}
 .asiento tr.ok td{background:var(--ok-bg)} .asiento tr.bad td{background:var(--bad-bg)}
 .asiento td.haber{padding-left:2.2rem}
+.hoja{overflow:auto; max-height:70vh; border:1px solid var(--line); border-radius:10px}
+.hoja table{border-collapse:separate; border-spacing:0; font-size:.84rem; width:max-content}
+.hoja th,.hoja td{border:0; border-right:1px solid var(--line); border-bottom:1px solid var(--line); padding:0}
+.hoja thead th{position:sticky; top:0; background:var(--soft); text-align:center; padding:4px 0; z-index:1; letter-spacing:0}
+.hoja tbody th{position:sticky; left:0; background:var(--soft); text-align:center; width:2.4rem; font-size:.75rem}
+.hoja input{width:8.5rem; border:0; padding:6px 7px; font-family:var(--mono); font-size:.84rem; background:#fff; outline:none}
+.hoja input:focus{box-shadow:inset 0 0 0 2px var(--brand)}
+.hoja input.num{text-align:right}
+.hoja input.err{color:var(--bad)}
+.hoja input:disabled{background:var(--soft); color:var(--ink)}
+.fx{display:flex; gap:8px; align-items:center; margin:8px 0; font-family:var(--mono); font-size:.85rem}
+.fx b{min-width:2.6rem; text-align:center; background:var(--soft); border:1px solid var(--line); border-radius:7px; padding:4px}
+.fx input{flex:1; border:1px solid var(--line); border-radius:7px; padding:5px 8px; font-family:var(--mono)}
+.calc{font-size:.78rem; color:var(--muted); font-family:var(--mono)}
 </style>
 </head>
 <body>
@@ -119,11 +134,16 @@ tr.hl td{background:#fff7d6; font-weight:700}
   const guardarLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 
   const PARTES = [
-    ["datos", "📋 Datos del caso", "var(--brand)"], ["preaviso", "🔔 Preaviso", "var(--pre)"], ["cesantia", "🛡️ Cesantía", "var(--ces)"],
+    ["datos", "📋 Datos del caso", "var(--brand)"], ["salario", "💰 Salario", "#0369a1"], ["preaviso", "🔔 Preaviso", "var(--pre)"], ["cesantia", "🛡️ Cesantía", "var(--ces)"],
     ["vacaciones", "🏖️ Vacaciones", "var(--vac)"], ["aguinaldo", "🎄 Aguinaldo", "var(--agu)"], ["asiento", "📒 Asiento contable", "#475569"], ["resumen", "🧾 Resumen", "var(--ink)"]
   ];
   const DERECHOS = ["preaviso", "cesantia", "vacaciones", "aguinaldo"];
-  const EVALUABLES = [...DERECHOS, "asiento"];
+  const CALCULOS = ["salario", ...DERECHOS];
+  const EVALUABLES = ["salario", ...DERECHOS, "asiento"];
+  // Una respuesta puede ser un número o una fórmula de la hoja del estudiante
+  // (=D14, =SUMA(B2:B13)/12…): se toma el resultado de la hoja.
+  const valorDe = (v, resp) => { const t = String(v == null ? "" : v).trim(); if (!t.startsWith("=")) return v; const r = hojaEvaluar((resp && resp.__hoja) || {}, t); return r.error || typeof r.valor !== "number" ? "x" : r.valor; };
+  const revisar = (p, resp) => liqRevisarPaso(p, valorDe(resp[p.k], resp));
   // Bloqueo de respuestas: lo decide el docente (fila de configuración en
   // trabajos_cotidianos con contenido_actividad.config_liq = true). Mientras
   // esté bloqueado, el estudiante no ve la calculadora ni los resultados:
@@ -198,14 +218,14 @@ tr.hl td{background:#fff7d6; font-weight:700}
   function puntajeParte(p) {
     const R = liqCalcularCaso(S.caso); if (R.error) return null;
     const pasos = liqPasosPractica(R)[p];
-    const ok = pasos.filter(x => liqRevisarPaso(x, S.resp[x.k]) === true).length;
+    const ok = pasos.filter(x => revisar(x, S.resp) === true).length;
     return { ok, total: pasos.length, pct: ok / pasos.length * 100 };
   }
   function pintarTabs() {
     const practica = S.modo === "practica";
-    $("#tabs").innerHTML = PARTES.filter(([k]) => !S.asignado || k === "datos" || k === "resumen" || S.partesEval.includes(k) || S.docente).map(([k, et, col]) => {
+    $("#tabs").innerHTML = PARTES.filter(([k]) => !S.asignado || k === "datos" || k === "salario" || k === "resumen" || S.partesEval.includes(k) || S.docente).map(([k, et, col]) => {
       let sc = "";
-      if (practica && DERECHOS.includes(k) && S.revisado[k]) { const p = puntajeParte(k); if (p) sc = `<span class="sc">${p.ok}/${p.total}</span>`; }
+      if (practica && CALCULOS.includes(k) && S.revisado[k]) { const p = puntajeParte(k); if (p) sc = `<span class="sc">${p.ok}/${p.total}</span>`; }
       return `<button class="tab ${S.tab === k ? "on" : ""}" type="button" data-tab="${k}"><span class="dot" style="background:${col}"></span>${et}${sc}</button>`;
     }).join("");
     $("#tabs").querySelectorAll("[data-tab]").forEach(b => b.addEventListener("click", () => { S.tab = b.dataset.tab; pintarTodo(); }));
@@ -234,7 +254,12 @@ tr.hl td{background:#fff7d6; font-weight:700}
   function seg(k, ops) { return `<span class="seg" role="group">${ops.map(([v, t]) => `<button type="button" data-seg="${k}" data-v="${v}" class="${S.caso[k] === v ? "on" : ""}" ${soloLectura() ? "disabled" : ""}>${esc(t)}</button>`).join("")}</span>`; }
 
   function tablaMesesHTML(c) {
-    const meses = liqMesesAuto(c), ro = soloLectura();
+    const meses = liqMesesAuto(c), ro = soloLectura(), oc = S.modo === "practica";
+    if (oc) return `<p class="muted" style="font-size:.82rem; margin:8px 0 6px">Estos son los 12 meses que terminan en el mes de salida. Lo que ganó cada mes lo calculás vos en la pestaña <b>💰 Salario</b> con las fechas del caso${ro ? "" : ". Agregá aquí las horas extra o comisiones y marcá «Incapacidad» si hubo subsidio"}.</p>
+        <div class="tbl meses"><table><thead><tr><th>Mes</th><th class="r">Horas extra / comisiones</th><th>Incapacidad</th></tr></thead><tbody>
+        ${meses.map((x, i) => `<tr${x.dias ? "" : ' style="opacity:.45"'}><td>${liqMesNombre(x.mes)}${x.dias ? "" : " · no laboraba"}</td>
+          <td><input data-sal="${i}" data-mes="${x.mes}" data-f="extra" inputmode="decimal" value="${x.extra ? esc(x.extra) : ""}" placeholder="0" ${ro || !x.dias ? "disabled" : ""}></td>
+          <td><input type="checkbox" data-sal="${i}" data-mes="${x.mes}" data-f="incap" ${x.incap ? "checked" : ""} ${ro || !x.dias ? "disabled" : ""} style="width:auto"></td></tr>`).join("")}</tbody></table></div>`;
       const tot = meses.reduce((s, x) => s + x.ordinario + x.extra, 0);
     return `<p class="muted" style="font-size:.82rem; margin:8px 0 6px">Los 12 meses se calculan solos con las fechas del caso: cada mes vale <b>salario mensual ÷ 30 × días laborados</b> (el mes de ingreso y el de salida pueden ir incompletos; los meses antes del ingreso quedan en 0). ${ro ? "" : "Agregue las horas extra o comisiones y marque «Incapacidad» si hubo subsidio (ese mes no cuenta)."}</p>
         <div class="tbl meses"><table><thead><tr><th>Mes</th><th class="r">Días laborados</th><th class="r">Salario ordinario</th><th class="r">Horas extra / comisiones</th><th>Incapacidad</th><th class="r">Total del mes</th></tr></thead><tbody>
@@ -297,6 +322,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
     preaviso: `<b>Código de Trabajo, art. 28.</b> Quien termina un contrato por tiempo indefinido sin justa causa debe avisar con anticipación: <b>1 semana</b> después de 3 meses de trabajo, <b>15 días</b> después de 6 meses y <b>1 mes</b> después de 1 año. Si el patrono despide con responsabilidad y no da el preaviso, lo paga: <b>(días de preaviso − días que trabajó) × salario diario</b>. El salario diario sale del <b>promedio de los últimos 6 meses ÷ 30</b> (art. 30). En renuncia lo da el trabajador; en despido con justa causa no hay preaviso.`,
     cesantia: `<b>Código de Trabajo, art. 29.</b> En despido con responsabilidad patronal (y en pensión o fallecimiento), se paga cesantía: <b>7 días</b> de 3 a 6 meses, <b>14 días</b> de 6 meses a 1 año y, con 1 año o más, los <b>días por año</b> de la tabla según los años laborados, hasta un <b>máximo de 8 años</b>. Una fracción de más de 6 meses cuenta como un año más. Salario diario = <b>promedio de los últimos 6 meses ÷ 30</b> (÷ 26 si el pago es semanal en actividad no comercial). No se paga en renuncia ni en despido con justa causa.`,
     vacaciones: `<b>Código de Trabajo, arts. 153 y 157.</b> Corresponden 2 semanas por cada 50 semanas de trabajo; al terminar la relación antes de completar el período se paga <b>1 día por cada mes</b> laborado. Se pagan los días acumulados que no disfrutó: <b>días pendientes × salario diario</b>, con el promedio de lo devengado en las últimas 50 semanas (12 meses) ÷ 30. Se paga en cualquier motivo de salida.`,
+    salario: `<b>Código de Trabajo, art. 30.</b> El preaviso y la cesantía se calculan con el <b>promedio de los salarios ordinarios y extraordinarios devengados en los últimos 6 meses</b>; las vacaciones, con el promedio de las últimas 50 semanas (12 meses); el aguinaldo, con lo devengado desde el 1 de diciembre. El <b>salario diario</b> es el promedio mensual ÷ 30. Calculá lo que ganó cada mes con las fechas del caso (un mes incompleto se paga por sus días: salario ÷ 30 × días) y no cuentes los meses con incapacidad. Podés usar la <b>hoja de cálculo</b> como quieras; en cada respuesta podés escribir el número o la celda donde está (por ejemplo <span class="num">=D14</span>).`,
     aguinaldo: `<b>Ley 2412.</b> El aguinaldo es la doceava parte de los salarios ordinarios y extraordinarios devengados del <b>1 de diciembre</b> del año anterior al <b>30 de noviembre</b> (o hasta la salida): <b>total devengado ÷ 12</b>. Se paga en cualquier motivo de salida y no paga cargas sociales.`
   };
   function tablaLey(k, R) {
@@ -315,6 +341,13 @@ tr.hl td{background:#fff7d6; font-weight:700}
   }
   function pasosCalculo(k, R) {
     const s = R.salario, A = R.antiguedad;
+    if (k === "salario") return s.modo === "meses" ? [
+      ["Lo devengado en cada mes", "salario mensual ÷ 30 × días laborados + horas extra (ver la tabla de Datos)", ""],
+      ["Total de los últimos 12 meses", "suma de los meses laborados, sin los de incapacidad", m(s.total12)],
+      ["Promedio de los últimos 6 meses", s.formulaMensual, m(s.promedio6)],
+      ["Promedio de los últimos 12 meses", `total ÷ ${d(s.usados12)} meses laborados`, m(s.promedio12)],
+      ["Salario diario", `${m(s.promedio6)} ÷ 30`, m(s.diario)]] : [
+      ["Salario promedio mensual", s.formulaMensual, m(s.promedio6)], ["Salario diario", `${m(s.promedio6)} ÷ 30`, m(s.diario)]];
     const tiempo = `${A.anios} año(s), ${A.meses} mes(es) y ${Math.round(A.dias)} día(s) = ${d(A.mesesTotales)} meses`;
     const prom = s.modo === "meses" ? `Promedio de los últimos 6 meses = ${s.formulaMensual} = ${m(s.promedio6)}` : `${s.formulaMensual} = ${m(s.promedio6)}`;
     if (k === "preaviso") { const p = R.preaviso; return [
@@ -349,22 +382,75 @@ tr.hl td{background:#fff7d6; font-weight:700}
         <div class="total"><span>${nombre}</span><b>${m(k === "preaviso" || k === "cesantia" ? (parte.aplica ? parte.monto : 0) : parte.monto)}</b></div>`;
     } else {
       const pasos = liqPasosPractica(R)[k], rev = S.revisado[k] || S.bloqueado, ver = S.verSol && S.verSol[k] && !bloqueadoParaMi();
-      cuerpo = `<ol class="pasos" style="--c:${col}">${pasos.map(p => { const r = rev ? liqRevisarPaso(p, S.resp[p.k]) : null; return `<li class="${r === true ? "ok" : r === false || (rev && r === null) ? "bad" : ""}">
+      cuerpo = `<ol class="pasos" style="--c:${col}">${pasos.map(p => { const r = rev ? revisar(p, S.resp) : null; const esF = String(S.resp[p.k] || "").trim().startsWith("="), fv = esF ? valorDe(S.resp[p.k], S.resp) : null; return `<li class="${r === true ? "ok" : r === false || (rev && r === null) ? "bad" : ""}">
           <div><b>${esc(p.et)}</b>${(r === false || (rev && r === null)) && p.ayuda ? `<div class="det">💡 ${esc(p.ayuda)}</div>` : ""}${ver ? `<div class="det">Respuesta: <b class="num">${p.tipo === "monto" ? m(p.ok) : d(p.ok)}</b></div>` : ""}</div>
-          <div><input data-r="${p.k}" inputmode="decimal" value="${esc(S.resp[p.k] == null ? "" : S.resp[p.k])}" placeholder="${p.tipo === "monto" ? "₡ 0,00" : "días"}" aria-label="${esc(p.et)}" ${S.bloqueado ? "disabled" : ""}><span class="marca">${r === true ? "✓" : r === false || (rev && r === null) ? "✗" : ""}</span></div></li>`; }).join("")}</ol>
+          <div><input data-r="${p.k}" inputmode="decimal" value="${esc(S.resp[p.k] == null ? "" : S.resp[p.k])}" placeholder="${p.tipo === "monto" ? (k === "salario" ? "₡ 0,00 o =celda" : "₡ 0,00") : "días"}" aria-label="${esc(p.et)}" ${S.bloqueado ? "disabled" : ""}>${esF ? `<div class="calc" style="text-align:right">${fv === "x" ? "fórmula inválida" : "= " + m(fv)}</div>` : ""}<span class="marca">${r === true ? "✓" : r === false || (rev && r === null) ? "✗" : ""}</span></div></li>`; }).join("")}</ol>
         ${S.bloqueado ? "" : `<div class="row" style="margin-top:10px"><button class="btn primary" type="button" id="revisar">✔ Revisar</button>${S.asignado || bloqueadoParaMi() ? "" : `<button class="btn" type="button" id="verSol">${ver ? "🙈 Ocultar respuestas" : "👀 Ver respuestas"}</button>`}<span class="puntaje" id="pp"></span></div>`}
         <details style="margin-top:10px"><summary style="cursor:pointer; font-weight:700">💡 Cómo se calcula</summary><ol class="pasos" style="--c:${col}">${pasosCalculo(k, R).map(([a, b]) => `<li><div><b>${esc(a)}</b><div class="det">${(S.asignado && !S.bloqueado) || bloqueadoParaMi() ? "" : esc(b)}</div></div><div></div></li>`).join("")}</ol></details>`;
     }
     return `<section class="card" style="--c:${col}">
       <h2>${nombre}</h2>
-      <div class="dos" style="margin-top:8px"><div class="ley" style="--c:${col}">${TEXTO_LEY[k]}</div><div>${tablaLey(k, R) || `<div class="ley" style="--c:${col}"><b>Datos que usa:</b> ${k === "vacaciones" ? "meses del período actual, días disfrutados y el promedio de los últimos 12 meses." : "lo devengado (ordinario + extraordinario) desde el 1 de diciembre hasta la salida."}</div>`}</div></div>
+      <div class="dos" style="margin-top:8px"><div class="ley" style="--c:${col}">${TEXTO_LEY[k]}</div><div>${tablaLey(k, R) || `<div class="ley" style="--c:${col}"><b>Datos que usa:</b> ${k === "salario" ? "fecha de ingreso y de salida, salario mensual, horas extra o comisiones e incapacidades (pestaña Datos)." : k === "vacaciones" ? "meses del período actual, días disfrutados y el promedio de los últimos 12 meses." : "lo devengado (ordinario + extraordinario) desde el 1 de diciembre hasta la salida."}</div>`}</div></div>
       ${noAplica ? `<p class="noaplica" style="margin-top:10px">Con el motivo «${esc((LIQ_MOTIVOS.find(x => x[0] === S.caso.motivo) || [])[1])}» no se paga ${k === "preaviso" ? "preaviso" : "cesantía"}${R.antiguedad.mesesTotales < 3 ? " (además tiene menos de 3 meses)" : ""}.${practica ? " En la práctica, escribí 0 en los montos." : ""}</p>` : ""}
-      <h3>${practica ? "Escribí el resultado de cada paso" : "Cálculo paso a paso"}</h3>${cuerpo}
+      ${k === "salario" && S.asignado && !S.partesEval.includes("salario") ? `<p class="muted" style="font-size:.84rem">En este trabajo el salario no se califica aparte: usá la hoja para tus cálculos.</p>` : ""}
+      ${k === "salario" && practica ? hojaHTML() : ""}
+      <h3>${practica ? (k === "salario" ? "Respuestas finales del salario" : "Escribí el resultado de cada paso") : "Cálculo paso a paso"}</h3>${cuerpo}
     </section>`;
+  }
+  // ───── Hoja de cálculo del estudiante (pestaña Salario) ─────
+  function hojaHTML() {
+    const H = S.resp.__hoja || {}, ro = S.bloqueado;
+    const celda = ref => { const raw = H[ref]; if (raw == null || raw === "") return { txt: "", cls: "" }; const r = hojaValorCelda(H, ref); return { txt: hojaMostrar(r), cls: r.error ? "err" : typeof r.valor === "number" ? "num" : "" }; };
+    return `<h3>🧮 Hoja de cálculo</h3>
+      <p class="muted" style="font-size:.84rem; margin:0 0 6px">Organizá el cálculo como quieras. Las fórmulas empiezan con <b class="num">=</b>: <span class="num">=B2/30*21</span>, <span class="num">=SUMA(C2:C13)</span>, <span class="num">=PROMEDIO(…)</span>, <span class="num">=REDONDEAR(D14/30;2)</span>. Abajo, en cada respuesta podés escribir la celda del resultado (ej. <span class="num">=D14</span>).</p>
+      ${ro ? "" : `<div class="row" style="margin-bottom:6px"><button class="btn" type="button" id="hojaMeses">📅 Poner los 12 meses en la columna A</button><button class="btn" type="button" id="hojaBorrar">🧹 Borrar la hoja</button></div>`}
+      <div class="fx"><b id="fxRef">A1</b><input id="fxIn" placeholder="Contenido de la celda" ${ro ? "disabled" : ""}></div>
+      <div class="hoja"><table><thead><tr><th></th>${HOJA_COLS.map(c => `<th>${c}</th>`).join("")}</tr></thead><tbody>
+      ${Array.from({ length: HOJA_FILAS }, (_, i) => `<tr><th>${i + 1}</th>${HOJA_COLS.map(c => { const ref = c + (i + 1), x = celda(ref); return `<td><input data-cel="${ref}" class="${x.cls}" value="${esc(x.txt)}" aria-label="Celda ${ref}" ${ro ? "disabled" : ""}></td>`; }).join("")}</tr>`).join("")}
+      </tbody></table></div>`;
+  }
+  function refrescarHoja() {
+    const H = S.resp.__hoja || {};
+    $("#vista").querySelectorAll("[data-cel]").forEach(inp => { if (inp === document.activeElement) return; const raw = H[inp.dataset.cel]; if (raw == null || raw === "") { inp.value = ""; inp.className = ""; return; } const r = hojaValorCelda(H, inp.dataset.cel); inp.value = hojaMostrar(r); inp.className = r.error ? "err" : typeof r.valor === "number" ? "num" : ""; });
+    $("#vista").querySelectorAll("[data-r]").forEach(inp => { const det = inp.nextElementSibling; if (det && det.classList.contains("calc")) { const fv = valorDe(inp.value, S.resp); det.textContent = fv === "x" ? "fórmula inválida" : "= " + m(fv); } });
+  }
+  function ligarHoja() {
+    const v = $("#vista"), fx = $("#fxIn"), fr = $("#fxRef"); if (!fx) return;
+    let actual = "A1";
+    const H = () => (S.resp.__hoja = S.resp.__hoja || {});
+    const poner = (ref, txt) => { if (txt === "") delete H()[ref]; else H()[ref] = txt; persistir(); };
+    v.querySelectorAll("[data-cel]").forEach(inp => {
+      inp.addEventListener("focus", () => { actual = inp.dataset.cel; fr.textContent = actual; inp.value = H()[actual] || ""; fx.value = inp.value; inp.className = ""; });
+      inp.addEventListener("input", () => { fx.value = inp.value; poner(inp.dataset.cel, inp.value); });
+      inp.addEventListener("blur", () => { poner(inp.dataset.cel, inp.value.trim()); refrescarHoja(); });
+      inp.addEventListener("keydown", e => {
+        const col = HOJA_COLS.indexOf(inp.dataset.cel[0]), fil = Number(inp.dataset.cel.slice(1));
+        let dest = null;
+        if (e.key === "Enter" || (e.key === "ArrowDown" && !e.altKey)) dest = HOJA_COLS[col] + Math.min(HOJA_FILAS, fil + 1);
+        else if (e.key === "ArrowUp") dest = HOJA_COLS[col] + Math.max(1, fil - 1);
+        else if (e.key === "Tab" && !e.shiftKey && col < HOJA_COLS.length - 1) dest = HOJA_COLS[col + 1] + fil;
+        if (dest) { e.preventDefault(); const t = v.querySelector(`[data-cel="${dest}"]`); if (t) t.focus(); }
+      });
+    });
+    fx.addEventListener("input", () => { poner(actual, fx.value); const t = v.querySelector(`[data-cel="${actual}"]`); if (t && t === document.activeElement) t.value = fx.value; });
+    fx.addEventListener("change", () => { poner(actual, fx.value.trim()); refrescarHoja(); });
+    const hm = $("#hojaMeses"); if (hm) hm.addEventListener("click", () => {
+      const meses = liqMeses12(S.caso.fechaSalida); const h = H();
+      if (!h.A1) h.A1 = "Mes"; meses.forEach((mes, i) => { if (!h["A" + (i + 2)]) h["A" + (i + 2)] = liqMesNombre(mes); });
+      persistir(); pintarTodo();
+    });
+    const hb = $("#hojaBorrar"); if (hb) hb.addEventListener("click", () => { if (!confirm("¿Borrar todo lo que escribiste en la hoja?")) return; S.resp.__hoja = {}; persistir(); pintarTodo(); });
   }
   function ligarDerecho(k) {
     const v = $("#vista");
+    if (k === "salario") ligarHoja();
     v.querySelectorAll("[data-r]").forEach(inp => inp.addEventListener("input", () => { S.resp[inp.dataset.r] = inp.value; persistir(); }));
+    v.querySelectorAll("[data-r]").forEach(inp => inp.addEventListener("input", () => {
+      let det = inp.nextElementSibling; const esF = String(inp.value).trim().startsWith("=");
+      if (!esF) { if (det && det.classList.contains("calc")) det.remove(); return; }
+      if (!det || !det.classList.contains("calc")) { det = document.createElement("div"); det.className = "calc"; det.style.textAlign = "right"; inp.after(det); }
+      const fv = valorDe(inp.value, S.resp); det.textContent = fv === "x" ? "fórmula inválida" : "= " + m(fv);
+    }));
     const r = $("#revisar"); if (r) r.addEventListener("click", () => { S.revisado[k] = true; persistir(); pintarTodo(); const p = puntajeParte(k); const pp = $("#pp"); if (pp && p) pp.textContent = `${p.ok} de ${p.total} correctos`; });
     const vs = $("#verSol"); if (vs) vs.addEventListener("click", () => { S.verSol = { ...(S.verSol || {}), [k]: !(S.verSol && S.verSol[k]) }; pintarTodo(); });
     if (S.revisado[k]) { const p = puntajeParte(k); const pp = $("#pp"); if (pp && p) pp.textContent = `${p.ok} de ${p.total} correctos`; }
@@ -553,14 +639,14 @@ tr.hl td{background:#fff7d6; font-weight:700}
   function puntajeGlobal(k) {
     const emps = S.practica ? S.practica.empleados.map((e, i) => ({ caso: e.caso, resp: S.respTodas[i] || {} })) : [{ caso: S.caso, resp: S.resp }];
     let ok = 0, total = 0, blancos = 0;
-    const contar = (pasoOk, valor) => { total++; if (valor == null || String(valor).trim() === "") blancos++; else if (liqRevisarPaso(pasoOk, valor) === true) ok++; };
+    const contar = (pasoOk, valor, resp) => { total++; if (valor == null || String(valor).trim() === "") blancos++; else if (liqRevisarPaso(pasoOk, resp ? valorDe(valor, resp) : valor) === true) ok++; };
     if (k === "asiento") {
       const multi = emps.length > 1;
       const asientos = emps.map(e => { const R = liqCalcularCaso(e.caso); return R.error ? null : liqAsientoDe(R, { provisiones: S.provisiones }); }).filter(Boolean);
       const A = multi ? liqAsientoTotal(asientos) : asientos[0];
       const resp = multi ? (S.respTodas.empresa || {}) : emps[0].resp;
       (A ? A.lineas : []).forEach(l => contar({ tipo: "monto", ok: l.debe || l.haber }, resp["as_" + l.cod + (l.debe ? "D" : "H")]));
-    } else emps.forEach(e => { const R = liqCalcularCaso(e.caso); if (R.error) return; liqPasosPractica(R)[k].forEach(p => contar(p, e.resp[p.k])); });
+    } else emps.forEach(e => { const R = liqCalcularCaso(e.caso); if (R.error) return; liqPasosPractica(R)[k].forEach(p => contar(p, e.resp[p.k], e.resp)); });
     return { ok, total, blancos, pct: total ? ok / total * 100 : 0 };
   }
   function metricas() {
@@ -657,7 +743,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
       $("#evIA").addEventListener("click", async ev => {
         leer(); ev.target.disabled = true; $("#evIAest").textContent = "✨ La IA está trabajando…";
         try {
-          const r = await fetch("/api/mejorar-niveles-ia", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ instrumento: ins, criterios: lista, instrucciones: $("#evIndic").value, actividad: "Liquidación laboral: el estudiante calcula paso a paso el preaviso, la cesantía, las vacaciones y el aguinaldo, y registra el asiento contable — " + S.trabajo.titulo, componente: ins.componente }) });
+          const r = await fetch("/api/mejorar-niveles-ia", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ instrumento: ins, criterios: lista, instrucciones: $("#evIndic").value, actividad: "Liquidación laboral: el estudiante calcula el salario en una hoja de cálculo y, paso a paso, el preaviso, la cesantía, las vacaciones y el aguinaldo, y registra el asiento contable — " + S.trabajo.titulo, componente: ins.componente }) });
           const j = await r.json().catch(() => ({}));
           if (!r.ok || !Array.isArray(j.criterios)) throw new Error(j.error || "Error " + r.status);
           j.criterios.forEach(x => { if (lista[x.i]) { lista[x.i].nombre = x.nombre; lista[x.i].niveles = x.niveles; lista[x.i].iaNota = x.nota || "Redacción mejorada por la IA."; } });
