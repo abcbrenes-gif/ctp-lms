@@ -578,6 +578,8 @@ const CATS={evaluativa:{icon:"📝",nombre:"Práctica con valor evaluativo",cort
   casa:{icon:"😊",nombre:"Trabajo en casa",corto:"Trabajo en casa",chip:"tC",una:true,practica:false,orden:3}};
 const normCat=v=>CATS[v]?v:"practica";
 const catDe=c=>normCat(c&&c.categoria);
+// Empresa que el profesor le asignó (práctica de clase, tarea…): el estudiante no la puede borrar.
+const esAsignada=c=>!!c&&(c.asignada===true||"nivelPractica" in c||"pdfInstrucciones" in c);
 const esPracticaCat=c=>CATS[catDe(c)].practica;
 const unaEntrega=c=>CATS[catDe(c)].una;
 const chipCat=k=>{const x=CATS[normCat(k)];return `<span class="chip ${x.chip}" style="font-size:.7rem">${x.icon} ${x.corto}</span>`};
@@ -1022,6 +1024,19 @@ function revisionDePractica(g){
    </tbody></table></div>`:""}
    </div>`;
 }
+// Estudiantes de las mismas secciones que no tienen esta práctica / tarea.
+function faltantesDeGrupo(g){
+  if(!g.rows.some(r=>esAsignada(r.c)))return [];
+  const secs=new Set(g.rows.map(r=>r.w.seccion).filter(Boolean)),con=new Set(g.rows.map(r=>r.w.id));
+  return (APP.empData||[]).filter(w=>secs.has(w.seccion)&&!con.has(w.id)).sort((a,b)=>a.nombre.localeCompare(b.nombre));
+}
+// Copia limpia (sin el avance de nadie) de una práctica asignada.
+function copiaLimpiaPractica(c,existentes){
+  const n=clone(c);n.id=uid();n.code=nextCodeFor(existentes);n.entries=[];n.entregado=false;n.asignada=true;
+  delete n.entregadoFecha;delete n.resumenInforme;
+  if(n.payroll){n.payroll.runs=[];n.payroll.evals=[];delete n.payroll.evalM;delete n.payroll.evalA}
+  return n;
+}
 function viewPorEmpresa(){
   const d=APP.empData;
   if(!d)return '<div class="loading">Cargando empresas de los estudiantes…</div>';
@@ -1042,6 +1057,7 @@ function viewPorEmpresa(){
      const entregadas=g.rows.filter(r=>r.c.entregado).length;
      return `<details class="panel"${APP.revOpen&&APP.revOpen[g.key]?" open":""}><summary style="cursor:pointer;font-weight:700">${chipCat(g.cat)} ${esc(g.name)} <small class="muted" style="font-weight:400">· ${g.rows.length} estudiante(s)${CATS[g.cat].una?` · ${entregadas} entregaron`:""}</small></summary>
       <div class="row" style="margin-top:8px"><button class="btn sm ${APP.revPrac&&APP.revPrac[g.key]?"primary":"pop"}" data-act="toggleRevPractica" data-key="${esc(g.key)}">📊 Evaluación y revisión de ${CATS[g.cat].practica?"esta práctica":"este trabajo"}</button></div>${APP.revPrac&&APP.revPrac[g.key]?revisionDePractica(g):""}
+      ${(()=>{const f=faltantesDeGrupo(g);return f.length?`<div class="row" style="margin-top:8px;align-items:center"><span class="chip tG" style="font-size:.78rem">⚠️ No la tienen (${f.length}): ${f.map(w=>esc(w.nombre)).join(", ")}</span><button class="btn sm pop" data-act="enviarFaltantes" data-key="${esc(g.key)}">📤 Enviarla a ${f.length===1?"ese estudiante":"esos "+f.length+" estudiantes"}</button></div>`:""})()}
       <div class="row" style="margin-top:8px"><button class="btn sm danger" data-act="delPracticaTodos" data-key="${esc(g.key)}">Eliminar ${CATS[g.cat].practica?"esta práctica":"este trabajo"} de todos los estudiantes</button></div>
       <div class="tbl" style="margin-top:10px"><table><thead><tr><th>Estudiante</th><th>Estado</th><th class="r">Asientos</th><th>Machote de planilla</th><th>Asiento de planilla</th><th>Evaluación</th>${CATS[g.cat]?"<th>Eval. machote</th><th>Eval. asiento</th>":""}<th></th></tr></thead><tbody>
       ${rows.map(({w,c})=>{let R;try{R=plResumen([c])}catch(e){R=null}
@@ -1540,7 +1556,7 @@ async function crearPracticaParaClase({nombreEmpresa,cantidad,seccion,nivel:nive
   const anio=new Date().getFullYear();
   const armarEmpresa=(code,pdfUrl)=>({
     id:uid(),code,name:nombreEmpresa,cedula:"",currency:"₡",period:anio,categoria:normCat(categoria),entregado:false,
-    nivelPractica:nivel,pdfInstrucciones:pdfUrl||null,
+    nivelPractica:nivel,pdfInstrucciones:pdfUrl||null,asignada:true,
     accounts:BASE.map(a=>({...a})),entries:[],
     payroll:{params:clone(PL_DEFAULT),employees:colaboradoresBase.map(e=>({...e,id:uid()})),runs:[],evals:[]}
   });
@@ -1955,6 +1971,10 @@ async function evRefrescarCfg(){
   try{
     if(!APP.store||!APP.store.loadWork||isTeacher())return;
     const fresh=await APP.store.loadWork();
+    // Empresas que el profe asignó mientras el estudiante tenía la página abierta:
+    // se agregan para que el guardado no las borre.
+    const borradas=APP.borradasLocal||new Set();
+    for(const f of fresh){if(!APP.companies.some(c=>c.id===f.id)&&!borradas.has(f.id))APP.companies.push(f)}
     for(const c of APP.companies){const f=fresh.find(x=>x.id===c.id);if(f&&f.categoria&&!c.entregado)c.categoria=f.categoria;if(f&&f.evalCfg){c.evalCfg=f.evalCfg;if(c.payroll)evAplicarReset(c,c.payroll)}}
   }catch(e){}
 }
@@ -2995,6 +3015,16 @@ document.addEventListener("click",async e=>{
   if(a==="revTab"){APP.revTab=APP.revTab||{};APP.revTab[b.dataset.key]=b.dataset.t;if(b.dataset.t==="ind"&&!APP.indData){render();cargarIndicadoresLms().then(()=>render()).catch(()=>{APP.indData={materias:[],indicadores:[]};render()});return}APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
   if(a==="toggleRevPractica"){APP.revPrac=APP.revPrac||{};APP.revPrac[b.dataset.key]=!APP.revPrac[b.dataset.key];APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
   if(a==="toggleRevGeneral"){APP.revGeneral=!APP.revGeneral;render();return}
+  if(a==="enviarFaltantes"){(async()=>{const key=b.dataset.key;
+    const by=[];for(const w of (APP.empData||[]))for(const c of w.companies)if(claveGrupo(c)===key)by.push({w,c});
+    const g={key,rows:by},falt=faltantesDeGrupo(g);if(!falt.length)return;
+    const molde=(by.find(r=>!(r.c.entries||[]).length&&!r.c.entregado)||by[0]).c;
+    b.disabled=true;let ok=0,fail=0;
+    for(const w of falt){try{const store=supabaseStudentStore(w.id);const cs=await store.loadWork();
+      if(cs.some(x=>claveGrupo(x)===key)){ok++;continue}
+      cs.push(copiaLimpiaPractica(molde,cs));await store.saveWork(null,null,cs);ok++}catch(e){fail++}}
+    toast(fail?`Enviada a ${ok}; ${fail} con error`:`Enviada a ${ok} estudiante(s) ✓`);
+    APP.revOpen=APP.revOpen||{};APP.revOpen[key]=true;await loadEmpData()})();return}
   if(a==="delPracticaEst"){armDelete(b,async()=>{try{await APP.store.deleteEmpresaEstudiante(b.dataset.est,b.dataset.co);toast("Práctica eliminada");loadEmpData()}catch(err){toast("No se pudo eliminar")}});return}
   if(a==="delPracticaTodos"){armDelete(b,async()=>{try{
     const key=b.dataset.key;let n=0;
@@ -3006,7 +3036,8 @@ document.addEventListener("click",async e=>{
   if(a==="editCo"){if(tareaBloqueada(APP.companies.find(x=>x.id===b.dataset.id))){toast("Esta tarea ya fue entregada y no se puede editar");return}APP.editCo=b.dataset.id;render();document.getElementById("fCo")?.scrollIntoView({behavior:"smooth"});return}
   if(a==="cancelEditCo"){APP.editCo=null;render();return}
   if(a==="dupCo"){const s=APP.companies.find(x=>x.id===b.dataset.id);if(tareaBloqueada(s)){toast("Esta tarea ya fue entregada: creá una empresa nueva en vez de duplicarla");return}const n=clone(s);n.id=uid();n.name=s.name+" (copia)";n.code=nextCoCode();n.entregado=false;APP.companies.push(n);touch(n);render();toast("Empresa duplicada como "+n.code);return}
-  if(a==="delCo"){if(tareaBloqueada(APP.companies.find(x=>x.id===b.dataset.id))){toast("Esta tarea ya fue entregada y no se puede eliminar");return}armDelete(b,async()=>{const id=b.dataset.id;APP.companies=APP.companies.filter(x=>x.id!==id);
+  if(a==="delCo"){if(tareaBloqueada(APP.companies.find(x=>x.id===b.dataset.id))){toast("Esta tarea ya fue entregada y no se puede eliminar");return}
+    if(!isTeacher()&&esAsignada(APP.companies.find(x=>x.id===b.dataset.id))){toast("Esta empresa te la asignó el profe: no se puede eliminar");return}armDelete(b,async()=>{const id=b.dataset.id;(APP.borradasLocal=APP.borradasLocal||new Set()).add(id);APP.companies=APP.companies.filter(x=>x.id!==id);
     try{if(APP.store.mode==="local"){pending.add("_");await flush()}else{pending.delete(id);await APP.store.deleteCompany(id)}}catch(err){toast("No se pudo eliminar")}
     if(APP.activeId===id)APP.activeId=sortCos(APP.companies)[0]?.id||null;resetDraft();render();toast("Empresa eliminada")});return}
   if(a==="loadBase"){c.accounts=BASE.map(x=>({...x}));touch(c);render();toast("Catálogo base cargado");return}
