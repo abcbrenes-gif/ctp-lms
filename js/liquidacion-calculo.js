@@ -14,11 +14,14 @@ const LIQ_MOTIVOS = [
 ];
 const LIQ_SALARIO_MODOS = [
   ["mensual", "Salario mensual fijo"],
-  ["meses", "Salario mes a mes (los últimos 12 meses)"],
-  ["quincenal", "Pago quincenal"],
-  ["semanal", "Pago semanal"],
-  ["hora", "Pago por hora"]
+  ["meses", "Últimos 12 meses (se calculan con las fechas)"]
 ];
+// Formas de pago anteriores (quincenal, semanal, por hora): se convierten a
+// salario mensual fijo para que los casos ya guardados sigan funcionando.
+function liqNormalizarCaso(c) {
+  if (!c || c.salarioModo === "mensual" || c.salarioModo === "meses") return c;
+  c.salarioMensual = liqMensualDe(c).mensual; c.salarioModo = "mensual"; return c;
+}
 // Días de cesantía por año, según los años de la relación laboral (art. 29).
 const LIQ_CES_TABLA = { 1: 19.5, 2: 20, 3: 20.5, 4: 21, 5: 21.24, 6: 21.5, 7: 22, 8: 22, 9: 22, 10: 21.5, 11: 21, 12: 20.5, 13: 20 };
 const LIQ_CES_TOPE = 8;
@@ -39,6 +42,29 @@ function liqMeses12(fechaSalida) {
   const s = liqFecha(fechaSalida) || new Date(), out = [];
   for (let i = 11; i >= 0; i--) { const d = new Date(Date.UTC(s.getUTCFullYear(), s.getUTCMonth() - i, 1)); out.push(d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0")); }
   return out;
+}
+
+// Días laborados en un mes (mes comercial de 30 días).
+function liqDiasDelMes(ym, ing, sal) {
+  const [y, m] = ym.split("-").map(Number);
+  const ini = Date.UTC(y, m - 1, 1), finMes = new Date(Date.UTC(y, m, 0)), fin = finMes.getTime();
+  if (sal && sal.getTime() < ini) return 0; if (ing && ing.getTime() > fin) return 0;
+  const ultimo = finMes.getUTCDate();
+  const dia = (d, esFin) => { const n = d.getUTCDate(); return esFin && n === ultimo ? 30 : Math.min(30, n); };
+  const desde = ing && ing.getTime() >= ini ? dia(ing, false) : 1;
+  const hasta = sal && sal.getTime() <= fin ? dia(sal, true) : 30;
+  return Math.max(0, Math.min(30, hasta - desde + 1));
+}
+// Los 12 meses calculados con las fechas: días laborados de cada mes y su
+// salario ordinario (salario mensual ÷ 30 × días). Las horas extra y las
+// incapacidades se toman de lo que se escribió en c.salarios.
+function liqMesesAuto(c) {
+  const ing = liqFecha(c.fechaIngreso), sal = liqFecha(c.fechaSalida), base = +c.salarioMensual || 0;
+  const prev = {}; (c.salarios || []).forEach(x => { if (x && x.mes) prev[x.mes] = x; });
+  return liqMeses12(c.fechaSalida).map(mes => {
+    const dias = ing && sal ? liqDiasDelMes(mes, ing, sal) : 30, p = prev[mes] || {};
+    return { mes, dias, ordinario: liqR(base / 30 * dias), extra: dias ? (+p.extra || 0) : 0, incap: dias ? !!p.incap : false };
+  });
 }
 
 // Salario mensual equivalente según la forma de pago.
@@ -66,14 +92,18 @@ function liqCalcularCaso(c) {
 
   // 2) Salarios: promedio de los últimos 6 meses (preaviso y cesantía) y de 12 (vacaciones)
   let prom6, prom12, usados6 = 0, usados12 = 0, formulaMensual = "";
-  const filas = (c.salarios || []).map(x => ({ mes: x.mes, total: liqR((+x.ordinario || 0) + (+x.extra || 0)), incap: !!x.incap }));
+  c = liqNormalizarCaso({ ...c });
+  if (c.salarioModo === "meses" && c.tiempoModo !== "fechas") c.salarioModo = "mensual";
+  const auto = c.salarioModo === "meses" ? liqMesesAuto(c) : [];
+  const filas = auto.map(x => ({ mes: x.mes, dias: x.dias, total: liqR(x.ordinario + x.extra), incap: x.incap }));
   if (c.salarioModo === "meses") {
-    const utiles = filas.filter(x => !x.incap && x.total > 0);
-    if (filas.some(x => x.incap)) adv.push("Los meses con incapacidad se excluyen del promedio (el subsidio no es salario).");
-    const u6 = utiles.slice(-6); usados6 = u6.length; usados12 = utiles.length;
-    prom6 = u6.length ? liqR(u6.reduce((s, x) => s + x.total, 0) / u6.length) : 0;
-    prom12 = utiles.length ? liqR(utiles.reduce((s, x) => s + x.total, 0) / utiles.length) : 0;
-    formulaMensual = `promedio de los ${usados6} últimos meses con salario`;
+    // Promedio = total devengado ÷ meses laborados; un mes incompleto cuenta por sus días ÷ 30.
+    const utiles = filas.filter(x => !x.incap && x.dias > 0);
+    if (filas.some(x => x.incap)) adv.push("Los meses con incapacidad se excluyen del promedio y del aguinaldo (el subsidio no es salario).");
+    const prom = L => { const m = L.reduce((s, x) => s + x.dias, 0) / 30; return m ? liqR(L.reduce((s, x) => s + x.total, 0) / m) : 0; };
+    const u6 = utiles.slice(-6); usados6 = liqR(u6.reduce((s, x) => s + x.dias, 0) / 30); usados12 = liqR(utiles.reduce((s, x) => s + x.dias, 0) / 30);
+    prom6 = prom(u6); prom12 = prom(utiles);
+    formulaMensual = `total devengado en los últimos 6 meses ÷ ${String(usados6).replace(".", ",")} meses laborados`;
   } else {
     const r = liqMensualDe(c); prom6 = prom12 = r.mensual; formulaMensual = r.formula; usados6 = usados12 = 0;
   }
@@ -117,21 +147,20 @@ function liqCalcularCaso(c) {
   let agTotal = 0, agMeses = 0, agPeriodo = "";
   if (c.tiempoModo === "directo") {
     agMeses = Math.min(12, +c.mesesAguinaldo || 0);
-    if (c.salarioModo === "meses") { const ult = filas.slice(-Math.ceil(agMeses)); agTotal = liqR(ult.reduce((s, x) => s + x.total, 0)); }
-    else agTotal = liqR(prom6 * agMeses);
+    agTotal = liqR(prom6 * agMeses);
     agPeriodo = `${agMeses} mes(es) desde el 1 de diciembre`;
   } else {
     const aY = sal.getUTCMonth() === 11 ? sal.getUTCFullYear() : sal.getUTCFullYear() - 1;
     const desde = new Date(Math.max(ing.getTime(), Date.UTC(aY, 11, 1)));
     const a = liqAntig(desde, sal); agMeses = liqR(Math.min(12, a.anios * 12 + a.meses + a.dias / 30));
     agPeriodo = `${liqIsoF(desde)} al ${c.fechaSalida}`;
-    if (c.salarioModo === "meses") { const dm = liqIsoF(desde).slice(0, 7); const sel = filas.filter(x => x.mes >= dm); agTotal = liqR(sel.reduce((s, x) => s + x.total, 0)); }
+    if (c.salarioModo === "meses") { const dm = liqIsoF(desde).slice(0, 7); const sel = filas.filter(x => x.mes >= dm && !x.incap); agTotal = liqR(sel.reduce((s, x) => s + x.total, 0)); }
     else agTotal = liqR(prom6 * agMeses);
   }
   const aguinaldo = { periodo: agPeriodo, meses: agMeses, totalDevengado: agTotal, monto: liqR(agTotal / 12) };
 
   const total = liqR((preaviso.aplica ? preaviso.monto : 0) + (cesantia.aplica ? cesantia.monto : 0) + vacaciones.monto + aguinaldo.monto);
-  return { antiguedad: { ...ant, mesesTotales: liqR(mesesTot) }, salario: { modo: c.salarioModo, formulaMensual, promedio6: prom6, promedio12: prom12, usados6, usados12, diario, diarioCes, diarioVac, divCes }, preaviso, cesantia, vacaciones, aguinaldo, total, advertencias: adv };
+  return { antiguedad: { ...ant, mesesTotales: liqR(mesesTot) }, salario: { modo: c.salarioModo, meses: auto, formulaMensual, promedio6: prom6, promedio12: prom12, usados6, usados12, diario, diarioCes, diarioVac, divCes }, preaviso, cesantia, vacaciones, aguinaldo, total, advertencias: adv };
 }
 
 // Pasos que el estudiante llena en la práctica (cada uno se revisa solo).
@@ -176,14 +205,14 @@ function liqCasoAleatorio() {
   const hoy = new Date(), salida = new Date(Date.UTC(hoy.getUTCFullYear(), r(0, 10), r(1, 28)));
   const totalMeses = [r(4, 5), r(7, 11), r(13, 30), r(31, 70), r(80, 130)][r(0, 4)];
   const ingreso = new Date(Date.UTC(salida.getUTCFullYear(), salida.getUTCMonth() - totalMeses, r(1, 28)));
-  const modo = ["mensual", "meses", "quincenal", "semanal", "hora"][r(0, 4)];
+  const modo = ["mensual", "meses"][r(0, 1)];
   const base = r(38, 95) * 10000;
   const nombres = ["Ana Vargas", "Luis Mora", "Karla Solís", "José Rojas", "María Jiménez", "Diego Castro", "Sofía Araya", "Andrés Quesada"];
   const c = { trabajador: nombres[r(0, nombres.length - 1)], tiempoModo: "fechas", fechaIngreso: liqIsoF(ingreso), fechaSalida: liqIsoF(salida),
     motivo: ["despido_responsabilidad", "despido_responsabilidad", "renuncia", "despido_justa_causa"][r(0, 3)], preavisoEstado: ["no", "no", "parcial", "completo"][r(0, 3)], preavisoDias: r(2, 6),
     salarioModo: modo, salarioMensual: base, quincena: Math.round(base / 2), semana: Math.round(base / LIQ_SEMANAS_MES), actividad: r(0, 1) ? "comercial" : "no_comercial",
     valorHora: Math.round(base / (48 * LIQ_SEMANAS_MES)), horasSemana: 48, vacDisfrutadas: r(0, 3), vacAnteriores: 0, salarios: [] };
-  c.salarios = liqMeses12(c.fechaSalida).map((mes, i) => ({ mes, ordinario: base + (i % 4 === 0 ? 15000 : 0), extra: r(0, 2) ? 0 : r(1, 6) * 5000, incap: false }));
+  c.salarios = liqMeses12(c.fechaSalida).map(mes => ({ mes, extra: r(0, 2) ? 0 : r(1, 6) * 5000, incap: false }));
   return c;
 }
 function liqCasoVacio() {
@@ -245,6 +274,7 @@ function liqCasoDesdeIA(e) {
   c.vacDisfrutadas = num(e.vacaciones_disfrutadas); c.vacAnteriores = num(e.vacaciones_anteriores);
   const meses = liqMeses12(c.fechaSalida);
   const lista = Array.isArray(e.salarios_12_meses) ? e.salarios_12_meses : [];
-  c.salarios = meses.map((mes, i) => { const x = lista[i] || {}; return { mes, ordinario: num(x.ordinario != null ? x.ordinario : x), extra: num(x.extra), incap: !!x.incapacidad }; });
-  return c;
+  c.salarios = meses.map((mes, i) => { const x = lista[i] || {}; return { mes, extra: num(x.extra), incap: !!x.incapacidad }; });
+  if (c.salarioModo === "meses" && !c.salarioMensual) c.salarioMensual = Math.max(0, ...lista.map(x => num(x && x.ordinario != null ? x.ordinario : x)));
+  return liqNormalizarCaso(c);
 }

@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="js/config.js?v=20261030c"></script>
 <script src="js/actividades.js?v=20261030c"></script>
-<script src="js/liquidacion-calculo.js?v=20261030b"></script>
+<script src="js/liquidacion-calculo.js?v=20261030d"></script>
 <style>
 /* Hoja de trabajo de liquidación: datos del caso a la izquierda del flujo, cada
    derecho (preaviso, cesantía, vacaciones, aguinaldo) en su propia pestaña. */
@@ -220,7 +220,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
     else if (bloqueadoParaMi()) b.innerHTML = `<div class="banner">🔒 <b>El profe bloqueó las respuestas.</b> Llená los datos del caso (o tomá un caso de práctica), escribí el resultado de cada paso y tocá <b>✔ Revisar</b>: te dice qué está bien y qué no, sin mostrar el resultado.</div>`;
     else b.innerHTML = S.modo === "practica"
       ? `<div class="banner">✍️ <b>Lo calculo yo:</b> en cada pestaña escribí el resultado de cada paso y tocá <b>✔ Revisar</b>; la plataforma te dice qué está bien. Si te equivocás, abrí <b>💡 Cómo se calcula</b>.</div>`
-      : `<div class="banner">🧮 <b>Calculadora:</b> llená los datos del caso como prefieras (por fechas o por tiempo, y el salario fijo, mes a mes, por quincena, por semana o por hora). Cada pestaña muestra el cálculo paso a paso.</div>`;
+      : `<div class="banner">🧮 <b>Calculadora:</b> llená los datos del caso como prefieras (por fechas o por tiempo, y el salario mensual fijo o los últimos 12 meses, que se calculan con las fechas). Cada pestaña muestra el cálculo paso a paso.</div>`;
     b.querySelectorAll("[data-parte]").forEach(c => c.addEventListener("change", () => { S.partesEval = EVALUABLES.filter(k => b.querySelector(`[data-parte="${k}"]`).checked); }));
   }
 
@@ -233,25 +233,29 @@ tr.hl td{background:#fff7d6; font-weight:700}
   function sel(k, et, ops) { return `<label class="fld">${et}<select data-c="${k}" ${soloLectura() ? "disabled" : ""}>${ops.map(([v, t]) => `<option value="${v}" ${String(S.caso[k]) === v ? "selected" : ""}>${esc(t)}</option>`).join("")}</select></label>`; }
   function seg(k, ops) { return `<span class="seg" role="group">${ops.map(([v, t]) => `<button type="button" data-seg="${k}" data-v="${v}" class="${S.caso[k] === v ? "on" : ""}" ${soloLectura() ? "disabled" : ""}>${esc(t)}</button>`).join("")}</span>`; }
 
+  function tablaMesesHTML(c) {
+    const meses = liqMesesAuto(c), ro = soloLectura();
+      const tot = meses.reduce((s, x) => s + x.ordinario + x.extra, 0);
+    return `<p class="muted" style="font-size:.82rem; margin:8px 0 6px">Los 12 meses se calculan solos con las fechas del caso: cada mes vale <b>salario mensual ÷ 30 × días laborados</b> (el mes de ingreso y el de salida pueden ir incompletos; los meses antes del ingreso quedan en 0). ${ro ? "" : "Agregue las horas extra o comisiones y marque «Incapacidad» si hubo subsidio (ese mes no cuenta)."}</p>
+        <div class="tbl meses"><table><thead><tr><th>Mes</th><th class="r">Días laborados</th><th class="r">Salario ordinario</th><th class="r">Horas extra / comisiones</th><th>Incapacidad</th><th class="r">Total del mes</th></tr></thead><tbody>
+        ${meses.map((x, i) => `<tr${x.dias ? "" : ' style="opacity:.45"'}><td>${liqMesNombre(x.mes)}</td><td class="r">${x.dias}</td><td class="r">${m(x.ordinario)}</td>
+          <td><input data-sal="${i}" data-mes="${x.mes}" data-f="extra" inputmode="decimal" value="${x.extra ? esc(x.extra) : ""}" placeholder="0" ${ro || !x.dias ? "disabled" : ""}></td>
+          <td><input type="checkbox" data-sal="${i}" data-mes="${x.mes}" data-f="incap" ${x.incap ? "checked" : ""} ${ro || !x.dias ? "disabled" : ""} style="width:auto"></td>
+          <td class="r">${x.incap ? "—" : m(x.ordinario + x.extra)}</td></tr>`).join("")}</tbody>
+          <tfoot><tr><th colspan="5">Total de los 12 meses</th><th class="r">${m(tot)}</th></tr></tfoot></table></div>`;
+
+  }
   function vistaDatos() {
     const c = S.caso;
     const tiempo = c.tiempoModo === "directo"
       ? `<div class="grid">${campo("anios", "Años laborados")}${campo("meses", "Meses")}${campo("dias", "Días")}${campo("mesesAguinaldo", "Meses laborados desde el 1 de diciembre (aguinaldo)")}</div>`
       : `<div class="grid">${campo("fechaIngreso", "Fecha de ingreso", "date")}${campo("fechaSalida", "Fecha de salida", "date")}</div>`;
+    liqNormalizarCaso(c);
     let salario = "";
-    if (c.salarioModo === "mensual") salario = `<div class="grid">${campo("salarioMensual", "Salario mensual (₡)")}</div>`;
-    else if (c.salarioModo === "quincenal") salario = `<div class="grid">${campo("quincena", "Salario de cada quincena (₡)")}</div><p class="muted" style="font-size:.82rem">Salario mensual = quincena × 2.</p>`;
-    else if (c.salarioModo === "semanal") salario = `<div class="grid">${campo("semana", "Salario semanal (₡)")}${sel("actividad", "Tipo de actividad", [["comercial", "Comercial"], ["no_comercial", "No comercial (agrícola, industrial…)"]])}</div><p class="muted" style="font-size:.82rem">Salario mensual = semanal × ${LIQ_SEMANAS_MES}. En actividad no comercial con pago semanal, el diario de cesantía se saca dividiendo entre 26.</p>`;
-    else if (c.salarioModo === "hora") salario = `<div class="grid">${campo("valorHora", "Valor de la hora (₡)")}${campo("horasSemana", "Horas por semana")}</div><p class="muted" style="font-size:.82rem">Salario mensual = valor hora × horas por semana × ${LIQ_SEMANAS_MES}.</p>`;
+    if (c.salarioModo !== "meses") salario = `<div class="grid">${campo("salarioMensual", "Salario mensual (₡)")}</div>`;
+    else if (c.tiempoModo !== "fechas") salario = `<div class="grid">${campo("salarioMensual", "Salario mensual (₡)")}</div><p class="muted" style="font-size:.82rem">⚠️ Los últimos 12 meses se calculan con la fecha de ingreso y la de salida. Cambie el tiempo laborado a <b>«Por fechas»</b>; mientras tanto se usa el salario mensual fijo.</p>`;
     else {
-      if (!Array.isArray(c.salarios) || c.salarios.length !== 12) c.salarios = liqMeses12(c.fechaSalida).map(mes => ({ mes, ordinario: 0, extra: 0, incap: false }));
-      salario = `<p class="muted" style="font-size:.82rem; margin:0 0 6px">Escriba lo devengado en cada mes (el último es el mes de salida). Marque «Incapacidad» en los meses con subsidio: no cuentan para el promedio.</p>
-        ${soloLectura() ? "" : `<div class="row" style="margin-bottom:6px"><button class="btn" type="button" id="copiarMes">Copiar el primer mes a todos</button>${c.tiempoModo === "fechas" ? `<button class="btn" type="button" id="ajustarMeses">Poner los meses según la fecha de salida</button>` : ""}</div>`}
-        <div class="tbl meses"><table><thead><tr><th>Mes</th><th class="r">Salario ordinario</th><th class="r">Horas extra / comisiones</th><th>Incapacidad</th></tr></thead><tbody>
-        ${c.salarios.map((x, i) => `<tr><td>${c.tiempoModo === "fechas" && /^\d{4}-\d{2}$/.test(x.mes) ? liqMesNombre(x.mes) : "Mes " + (i + 1)}</td>
-          <td><input data-sal="${i}" data-f="ordinario" inputmode="decimal" value="${esc(x.ordinario)}" ${soloLectura() ? "disabled" : ""}></td>
-          <td><input data-sal="${i}" data-f="extra" inputmode="decimal" value="${esc(x.extra)}" ${soloLectura() ? "disabled" : ""}></td>
-          <td><input type="checkbox" data-sal="${i}" data-f="incap" ${x.incap ? "checked" : ""} ${soloLectura() ? "disabled" : ""} style="width:auto"></td></tr>`).join("")}</tbody></table></div>`;
+      salario = `<div class="grid">${campo("salarioMensual", "Salario mensual (₡)")}</div><div id="mesesBox">${tablaMesesHTML(c)}</div>`;
     }
     return `<section class="card">
       ${S.practica ? `<div class="enun"><b>🏢 ${esc(S.practica.empresa)}</b>${S.practica.actividad ? ` · ${esc(S.practica.actividad)}` : ""}${S.practica.enunciado ? `<br>${esc(S.practica.enunciado)}` : ""}<hr style="border:0;border-top:1px solid #f1e3b0;margin:8px 0"><b>👤 ${esc(S.practica.empleados[S.emp].nombre)}${S.practica.empleados[S.emp].puesto ? " · " + esc(S.practica.empleados[S.emp].puesto) : ""}</b><br>${esc(S.practica.empleados[S.emp].enunciado || "")}</div>` : ""}
@@ -270,18 +274,23 @@ tr.hl td{background:#fff7d6; font-weight:700}
     const v = $("#vista");
     v.querySelectorAll("[data-c]").forEach(inp => inp.addEventListener(inp.tagName === "SELECT" ? "change" : "input", () => {
       const k = inp.dataset.c; S.caso[k] = inp.type === "number" ? (inp.value === "" ? "" : Number(inp.value)) : inp.value;
-      if (k === "fechaSalida" && S.caso.salarioModo === "meses") { const nm = liqMeses12(S.caso.fechaSalida); S.caso.salarios = S.caso.salarios.map((x, i) => ({ ...x, mes: nm[i] })); }
       persistir();
-      if (inp.tagName === "SELECT") pintarTodo(); else { pintarTabs(); }
+      if (inp.tagName === "SELECT" || (S.caso.salarioModo === "meses" && /^(fechaIngreso|fechaSalida|salarioMensual)$/.test(k))) { if (inp.tagName === "SELECT") pintarTodo(); else refrescarMeses(); } else { pintarTabs(); }
     }));
     v.querySelectorAll("[data-seg]").forEach(b => b.addEventListener("click", () => { S.caso[b.dataset.seg] = b.dataset.v; persistir(); pintarTodo(); }));
-    v.querySelectorAll("[data-sal]").forEach(inp => inp.addEventListener(inp.type === "checkbox" ? "change" : "input", () => {
-      const x = S.caso.salarios[Number(inp.dataset.sal)]; x[inp.dataset.f] = inp.type === "checkbox" ? inp.checked : (inp.value === "" ? "" : Number(String(inp.value).replace(/[^\d.]/g, "")));
-      persistir();
-    }));
-    const cp = $("#copiarMes"); if (cp) cp.addEventListener("click", () => { const f = S.caso.salarios[0]; S.caso.salarios = S.caso.salarios.map(x => ({ ...x, ordinario: f.ordinario, extra: f.extra })); persistir(); pintarTodo(); });
-    const aj = $("#ajustarMeses"); if (aj) aj.addEventListener("click", () => { const nm = liqMeses12(S.caso.fechaSalida); S.caso.salarios = S.caso.salarios.map((x, i) => ({ ...x, mes: nm[i] })); persistir(); pintarTodo(); });
+    ligarMeses();
   }
+
+  function ligarMeses() {
+    const v = $("#vista");
+    v.querySelectorAll("[data-sal]").forEach(inp => inp.addEventListener("change", () => {
+      const mes = inp.dataset.mes; S.caso.salarios = Array.isArray(S.caso.salarios) ? S.caso.salarios : [];
+      let x = S.caso.salarios.find(y => y && y.mes === mes); if (!x) { x = { mes, extra: 0, incap: false }; S.caso.salarios.push(x); }
+      x[inp.dataset.f] = inp.type === "checkbox" ? inp.checked : (inp.value === "" ? 0 : Number(String(inp.value).replace(/[^\d.]/g, "")) || 0);
+      persistir(); refrescarMeses();
+    }));
+  }
+  function refrescarMeses() { const box = $("#mesesBox"); if (!box) return; box.innerHTML = tablaMesesHTML(S.caso); ligarMeses(); pintarTabs(); }
 
   // ───── Cada derecho ─────
   const TEXTO_LEY = {
@@ -307,7 +316,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
   function pasosCalculo(k, R) {
     const s = R.salario, A = R.antiguedad;
     const tiempo = `${A.anios} año(s), ${A.meses} mes(es) y ${Math.round(A.dias)} día(s) = ${d(A.mesesTotales)} meses`;
-    const prom = s.modo === "meses" ? `Promedio de los últimos ${s.usados6} meses con salario = ${m(s.promedio6)}` : `${s.formulaMensual} = ${m(s.promedio6)}`;
+    const prom = s.modo === "meses" ? `Promedio de los últimos 6 meses = ${s.formulaMensual} = ${m(s.promedio6)}` : `${s.formulaMensual} = ${m(s.promedio6)}`;
     if (k === "preaviso") { const p = R.preaviso; return [
       ["Tiempo laborado", tiempo, ""], ["Días de preaviso (tabla)", p.tramo, p.diasLegales + " días"],
       ["Días a pagar", R.preaviso.aplica ? `${p.diasLegales} − ${p.diasLaborados} trabajados` : "No se paga con este motivo de salida", (p.aplica ? p.diasPagar : 0) + " días"],
@@ -321,7 +330,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
       ["Meses del período actual", A.anios >= 1 ? `desde el último aniversario: ${A.meses} mes(es) y ${Math.round(A.dias)} día(s)` : tiempo, d(v.mesesPeriodo) + " meses"],
       ["Días acumulados", `1 día por mes${v.anteriores ? ` + ${d(v.anteriores)} de períodos anteriores` : ""}`, d(v.acumulados) + " días"],
       ["Días pendientes", `${d(v.acumulados)} − ${d(v.disfrutados)} disfrutados`, d(v.pendientes) + " días"],
-      ["Salario diario", s.modo === "meses" ? `promedio de ${s.usados12} meses ÷ 30 = ${m(v.promedio)} ÷ 30` : `${m(v.promedio)} ÷ 30`, m(v.diario)],
+      ["Salario diario", s.modo === "meses" ? `promedio de los 12 meses (total ÷ ${String(s.usados12).replace(".", ",")} meses laborados) = ${m(v.promedio)} ÷ 30` : `${m(v.promedio)} ÷ 30`, m(v.diario)],
       ["Vacaciones", `${d(v.pendientes)} días × ${m(v.diario)}`, m(v.monto)]]; }
     const a = R.aguinaldo; return [
       ["Período", a.periodo, d(a.meses) + " meses"],
@@ -402,7 +411,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
   }
   function enunciadoDe(c) {
     const mot = (LIQ_MOTIVOS.find(x => x[0] === c.motivo) || [])[1] || "";
-    const sal = c.salarioModo === "quincenal" ? `recibía ${m(c.quincena)} por quincena` : c.salarioModo === "semanal" ? `recibía ${m(c.semana)} por semana (actividad ${c.actividad === "no_comercial" ? "no comercial" : "comercial"})` : c.salarioModo === "hora" ? `ganaba ${m(c.valorHora)} por hora y trabajaba ${c.horasSemana} horas por semana` : c.salarioModo === "meses" ? "sus salarios de los últimos 12 meses están en la tabla de datos" : `su salario mensual era de ${m(c.salarioMensual)}`;
+    const sal = c.salarioModo === "meses" ? `su salario mensual era de ${m(c.salarioMensual)} (los últimos 12 meses, con horas extra e incapacidades, están en la tabla de datos)` : `su salario mensual era de ${m(c.salarioMensual)}`;
     return `Ingresó el ${c.fechaIngreso} y salió el ${c.fechaSalida}. Motivo: ${mot.toLowerCase()}. ${sal[0].toUpperCase() + sal.slice(1)}. ${c.preavisoEstado === "completo" ? "Trabajó el preaviso completo." : c.preavisoEstado === "parcial" ? `Trabajó ${c.preavisoDias} días del preaviso.` : "No trabajó el preaviso."} Disfrutó ${c.vacDisfrutadas} día(s) de vacaciones en el período actual.`;
   }
   function abrirPracticaIA() {

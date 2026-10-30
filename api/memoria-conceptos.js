@@ -76,7 +76,7 @@ ${indic ? `Indicaciones del docente: ${indic}
 Variá los casos para que se practique todo:
 - motivo: "despido_responsabilidad" (la mayoría), "renuncia", "despido_justa_causa" o "jubilacion_fallecimiento".
 - antigüedad: desde 4 meses hasta 12 años (incluí alguno con fracción de más de 6 meses y, si hay 4 o más empleados, uno con más de 8 años).
-- forma_pago: "mensual", "meses" (12 salarios distintos, con horas extra en algunos meses y, a veces, un mes de incapacidad), "quincenal", "semanal" (actividad "comercial" o "no_comercial") u "hora".
+- forma_pago: solo "mensual" (salario mensual fijo) o "meses" (los últimos 12 meses: la plataforma los calcula con las fechas y el salario_mensual; vos solo das las horas extra o comisiones de algunos meses y, a veces, un mes de incapacidad).
 - preaviso_trabajado: "no", "parcial" (con preaviso_dias) o "completo".
 - salarios realistas de Costa Rica (entre 380 000 y 1 500 000 colones al mes, montos redondos).
 - vacaciones_disfrutadas en el período actual (0 a 8 días) y, a veces, vacaciones_anteriores pendientes (1 a 6 días).
@@ -85,9 +85,9 @@ Para cada empleado escribí un "enunciado" de 2 a 4 oraciones, en español de Co
 Respondé ÚNICAMENTE con JSON válido, sin texto extra:
 {"empresa":"nombre ficticio","actividad":"giro de la empresa","titulo":"título corto de la práctica","enunciado":"1 o 2 oraciones de contexto",
  "empleados":[{"nombre":"","puesto":"","enunciado":"","fecha_ingreso":"AAAA-MM-DD","fecha_salida":"AAAA-MM-DD","motivo":"despido_responsabilidad","preaviso_trabajado":"no","preaviso_dias":0,
-   "forma_pago":"mensual","salario_mensual":0,"quincena":0,"salario_semanal":0,"actividad":"comercial","valor_hora":0,"horas_semana":48,
-   "salarios_12_meses":[{"ordinario":0,"extra":0,"incapacidad":false}],"vacaciones_disfrutadas":0,"vacaciones_anteriores":0}]}
-Llená solo los campos de salario que corresponden a la forma de pago (los demás en 0). "salarios_12_meses" solo con forma_pago "meses": 12 elementos, del mes más antiguo al mes de salida. No uses comillas dobles dentro de los textos.`;
+   "forma_pago":"mensual","salario_mensual":0,
+   "salarios_12_meses":[{"extra":0,"incapacidad":false}],"vacaciones_disfrutadas":0,"vacaciones_anteriores":0}]}
+"salario_mensual" siempre. "salarios_12_meses" solo con forma_pago "meses": 12 elementos, del mes más antiguo al mes de salida. No uses comillas dobles dentro de los textos.`;
   try {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
