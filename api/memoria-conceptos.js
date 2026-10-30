@@ -71,6 +71,7 @@ async function practicaLiquidaciones(body, res, apiKey) {
   const prompt = `Sos docente de Contabilidad (Educación Técnica Profesional, Costa Rica). Creá una PRÁCTICA de liquidaciones laborales para estudiantes de colegio técnico con ${n} empleado(s) de una misma empresa ficticia costarricense.
 Fecha de hoy: ${hoy}. Las fechas de salida deben ser de los últimos meses (hasta hoy).
 ${indic ? `Indicaciones del docente: ${indic}
+` : ""}${body.empresa ? `La empresa ya existe: se llama «${corto(body.empresa, 120)}»${body.actividad ? ` (${corto(body.actividad, 120)})` : ""}; usá ese mismo nombre y no repitas estos empleados: ${corto(body.evitar, 300) || "ninguno"}.
 ` : ""}
 Variá los casos para que se practique todo:
 - motivo: "despido_responsabilidad" (la mayoría), "renuncia", "despido_justa_causa" o "jubilacion_fallecimiento".

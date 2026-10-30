@@ -420,15 +420,31 @@ tr.hl td{background:#fff7d6; font-weight:700}
     });
     $("#iaGenerar").addEventListener("click", async ev => {
       const { n, prov } = base();
-      ev.target.disabled = true; $("#iaEstado").textContent = `🤖 La IA está armando la práctica con ${n} empleado(s)… (puede tardar unos segundos)`;
+      ev.target.disabled = true; $("#iaEstado").textContent = `🤖 La IA está armando la práctica con ${n} empleado(s)… (puede tardar hasta un minuto)`;
+      // Se pide en tandas de hasta 3 empleados (la primera define la empresa; las
+      // demás van al mismo tiempo) para no pasar el límite de tiempo del servidor.
+      const pedir = async (cant, extra) => {
+        let err = "";
+        for (let k = 0; k < 2; k++) {
+          try {
+            const r = await fetch("/api/memoria-conceptos", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ modo: "liquidaciones", empleados: cant, indicaciones: $("#iaIndic").value, hoy: new Date().toISOString().slice(0, 10), ...(extra || {}) }) });
+            const x = await r.json().catch(() => ({}));
+            if (r.ok && Array.isArray(x.empleados)) return x;
+            err = x.error || ("Error " + r.status); if (r.status !== 503 && r.status !== 504) break;
+          } catch (e) { err = "No hay conexión."; }
+        }
+        throw new Error(err);
+      };
       let j = null, err = "";
-      for (let k = 0; k < 2 && !j; k++) {
-        try {
-          const r = await fetch("/api/memoria-conceptos", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ modo: "liquidaciones", empleados: n, indicaciones: $("#iaIndic").value, hoy: new Date().toISOString().slice(0, 10) }) });
-          const x = await r.json().catch(() => ({}));
-          if (r.ok && Array.isArray(x.empleados)) j = x; else { err = x.error || ("Error " + r.status); if (r.status !== 503) break; }
-        } catch (e) { err = "No hay conexión."; break; }
-      }
+      try {
+        j = await pedir(Math.min(n, 3));
+        const resto = []; for (let q = n - j.empleados.length; q > 0; q -= 3) resto.push(Math.min(3, q));
+        if (resto.length) {
+          $("#iaEstado").textContent = `🤖 Empresa lista (${j.empresa}). Armando los otros ${n - j.empleados.length} empleados…`;
+          const mas = await Promise.allSettled(resto.map(c => pedir(c, { empresa: j.empresa, actividad: j.actividad, evitar: j.empleados.map(e => e.nombre).join(", ") })));
+          mas.forEach(x => { if (x.status === "fulfilled") j.empleados.push(...x.value.empleados); });
+        }
+      } catch (e) { err = e.message || String(e); j = null; }
       if (!j) { ev.target.disabled = false; $("#iaEstado").textContent = "No se pudo generar con IA: " + err + " Puede usar «Generar sin IA»."; return; }
       const empleados = j.empleados.map(e => { const caso = liqCasoDesdeIA(e); const R = liqCalcularCaso(caso); return R.error ? null : { nombre: caso.trabajador || "Empleado", puesto: String(e.puesto || "").slice(0, 60), enunciado: String(e.enunciado || "").slice(0, 900) || enunciadoDe(caso), caso }; }).filter(Boolean);
       if (!empleados.length) { ev.target.disabled = false; $("#iaEstado").textContent = "La IA devolvió datos inválidos. Probá de nuevo."; return; }
