@@ -8,8 +8,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=20261030a"></script>
-<script src="js/actividades.js?v=20261030a"></script>
+<script src="js/config.js?v=20261030c"></script>
+<script src="js/actividades.js?v=20261030c"></script>
 <script src="js/liquidacion-calculo.js?v=20261030b"></script>
 <style>
 /* Hoja de trabajo de liquidación: datos del caso a la izquierda del flujo, cada
@@ -123,6 +123,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
     ["vacaciones", "🏖️ Vacaciones", "var(--vac)"], ["aguinaldo", "🎄 Aguinaldo", "var(--agu)"], ["asiento", "📒 Asiento contable", "#475569"], ["resumen", "🧾 Resumen", "var(--ink)"]
   ];
   const DERECHOS = ["preaviso", "cesantia", "vacaciones", "aguinaldo"];
+  const EVALUABLES = [...DERECHOS, "asiento"];
   // Bloqueo de respuestas: lo decide el docente (fila de configuración en
   // trabajos_cotidianos con contenido_actividad.config_liq = true). Mientras
   // esté bloqueado, el estudiante no ve la calculadora ni los resultados:
@@ -158,20 +159,22 @@ tr.hl td{background:#fff7d6; font-weight:700}
     S.caso = S.practica.empleados[S.emp].caso;
     S.resp = S.respTodas[S.emp] = S.respTodas[S.emp] || {};
     S.revisado = S.revTodas[S.emp] = S.revTodas[S.emp] || {};
+    if (S.bloqueado) S.partesEval.forEach(k => { S.revisado[k] = true; });
   }
   if (S.practica) elegirEmpleado(S.emp);
   const persistir = () => {
     if (S.asignado) { guardarAvance(); return; }
+    if (S.trabajo) return; // docente armando el caso del trabajo: se guarda con «💾 Guardar caso»
     if (S.practica) guardarLS("liq_practica_v1", { practica: S.practica, emp: S.emp, respTodas: S.respTodas, revTodas: S.revTodas, provisiones: S.provisiones, asVista: S.asVista });
     else { guardarLS("liq_caso_v1", S.caso); guardarLS("liq_resp_v1", S.resp); }
   };
-  function salirDePractica() { S.practica = null; try { localStorage.removeItem("liq_practica_v1"); } catch (e) {} }
+  function salirDePractica() { S.practica = null; if (!S.trabajo) { try { localStorage.removeItem("liq_practica_v1"); } catch (e) {} } }
 
   // ───── Encabezado, pestañas ─────
   function pintarAcciones() {
     const a = $("#acciones");
     if (S.docente) {
-      a.innerHTML = `${botonBloqueo()}<button class="btn" type="button" id="aleatorio">🎲 Caso al azar</button><button class="btn" type="button" id="verEval">📋 Evaluación</button><button class="btn primary" type="button" id="guardarCaso">💾 Guardar caso</button><a class="btn" href="index.html" data-volver>← Plataforma</a>`;
+      a.innerHTML = `${botonBloqueo()}<button class="btn" type="button" id="practicaIA">🤖 Práctica con IA</button><button class="btn" type="button" id="aleatorio">🎲 Un caso al azar</button><button class="btn" type="button" id="editEval">📋 Evaluación (MEP)</button><button class="btn primary" type="button" id="guardarCaso">💾 Guardar caso</button><a class="btn" href="index.html" data-volver>← Plataforma</a>`;
     } else if (S.asignado) {
       a.innerHTML = `<button class="btn" type="button" id="verEval">📋 Evaluación</button>${S.bloqueado ? "" : `<button class="btn ok" type="button" id="entregar">📤 Entregar al profe</button>`}<a class="btn" href="index.html" data-volver>← Plataforma</a>`;
     } else {
@@ -182,11 +185,12 @@ tr.hl td{background:#fff7d6; font-weight:700}
     }
     a.querySelectorAll("[data-modo]").forEach(b => b.addEventListener("click", () => { S.modo = b.dataset.modo; S.revisado = {}; pintarTodo(); }));
     const on = (id, fn) => { const x = $("#" + id); if (x) x.addEventListener("click", fn); };
-    on("aleatorio", () => { if (!S.docente) salirDePractica(); S.caso = liqCasoAleatorio(); S.resp = {}; S.revisado = {}; persistir(); S.tab = "datos"; pintarTodo(); });
+    on("aleatorio", () => { salirDePractica(); S.caso = liqCasoAleatorio(); S.resp = {}; S.revisado = {}; persistir(); S.tab = "datos"; pintarTodo(); });
     on("vacio", () => { salirDePractica(); S.caso = liqCasoVacio(); S.resp = {}; S.revisado = {}; persistir(); S.tab = "datos"; pintarTodo(); });
     on("practicaIA", abrirPracticaIA);
     const pub = $("#publicadas"); if (pub) pub.addEventListener("change", () => { const x = PUBLICADAS[Number(pub.value)]; if (!x) return; cargarPractica(JSON.parse(JSON.stringify(x))); });
     on("verEval", verEvaluacion);
+    on("editEval", editarEvaluacion);
     on("guardarCaso", guardarCasoDocente);
     on("entregar", entregar);
     on("bloqueo", cambiarBloqueo);
@@ -208,8 +212,8 @@ tr.hl td{background:#fff7d6; font-weight:700}
   }
   function pintarBanner() {
     const b = $("#banner");
-    if (S.docente) b.innerHTML = `<div class="banner"><b>Modo docente · ${esc(S.trabajo.titulo)}.</b> Escriba aquí los datos del caso que van a resolver los estudiantes (o tome uno al azar), escoja qué partes se evalúan y toque <b>💾 Guardar caso</b>. Los estudiantes lo resuelven en «✍️ Lo calculo yo» y la nota se calcula sola al entregar.
-      <div class="row" style="margin-top:6px">Partes que se evalúan: ${DERECHOS.map(k => `<label class="row" style="gap:4px"><input type="checkbox" data-parte="${k}" ${S.partesEval.includes(k) ? "checked" : ""}> ${PARTES.find(p => p[0] === k)[1]}</label>`).join("")}</div></div>`;
+    if (S.docente) b.innerHTML = `<div class="banner"><b>Modo docente · ${esc(S.trabajo.titulo)}.</b> Escriba aquí el caso que van a resolver los estudiantes, tome uno al azar o arme una <b>🤖 práctica con IA</b> de varios empleados; escoja qué partes se evalúan, revise la <b>📋 Evaluación</b> y toque <b>💾 Guardar caso</b>. Los estudiantes lo resuelven en «✍️ Lo calculo yo» y la nota se calcula sola al entregar.
+      <div class="row" style="margin-top:6px">Partes que se evalúan: ${EVALUABLES.map(k => `<label class="row" style="gap:4px"><input type="checkbox" data-parte="${k}" ${S.partesEval.includes(k) ? "checked" : ""}> ${PARTES.find(p => p[0] === k)[1]}</label>`).join("")}</div></div>`;
     else if (S.asignado) b.innerHTML = S.bloqueado
       ? `<div class="banner ok"><b>✓ Entregado.</b> Tu nota: <b>${S.entrega.puntaje}/3</b> (${Math.round(S.entrega.porcentaje)} %). Abajo podés ver qué pasos estaban bien.</div>`
       : `<div class="banner"><b>${esc(S.trabajo.titulo)}.</b> Leé los datos del caso y resolvé cada parte: escribí el resultado de cada paso y tocá <b>✔ Revisar</b>. Cuando termines todas, tocá <b>📤 Entregar al profe</b>. Tu avance se guarda solo.</div>`;
@@ -217,7 +221,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
     else b.innerHTML = S.modo === "practica"
       ? `<div class="banner">✍️ <b>Lo calculo yo:</b> en cada pestaña escribí el resultado de cada paso y tocá <b>✔ Revisar</b>; la plataforma te dice qué está bien. Si te equivocás, abrí <b>💡 Cómo se calcula</b>.</div>`
       : `<div class="banner">🧮 <b>Calculadora:</b> llená los datos del caso como prefieras (por fechas o por tiempo, y el salario fijo, mes a mes, por quincena, por semana o por hora). Cada pestaña muestra el cálculo paso a paso.</div>`;
-    b.querySelectorAll("[data-parte]").forEach(c => c.addEventListener("change", () => { S.partesEval = DERECHOS.filter(k => b.querySelector(`[data-parte="${k}"]`).checked); }));
+    b.querySelectorAll("[data-parte]").forEach(c => c.addEventListener("change", () => { S.partesEval = EVALUABLES.filter(k => b.querySelector(`[data-parte="${k}"]`).checked); }));
   }
 
   // ───── Datos del caso ─────
@@ -378,16 +382,17 @@ tr.hl td{background:#fff7d6; font-weight:700}
   // ───── Empleados de la práctica ─────
   function pintarEmpleados() {
     const c = $("#empleados");
-    if (!S.practica || S.asignado) { c.innerHTML = ""; return; }
+    if (!S.practica) { c.innerHTML = ""; return; }
+    const libre = !S.trabajo;
     const E = S.practica.empleados;
     c.innerHTML = `<div class="emps"><b style="font-size:.86rem">🏢 ${esc(S.practica.titulo || S.practica.empresa)}</b><span class="muted" style="font-size:.82rem">· ${E.length} empleado(s):</span>
       ${E.map((e, i) => `<button class="chip ${i === S.emp ? "on" : ""}" type="button" data-emp="${i}">👤 ${esc(e.nombre)}</button>`).join("")}
-      ${ES_DOCENTE && S.practica.origen !== "profe" ? `<button class="btn ok" type="button" id="publicar" style="margin-left:auto">📢 Publicar para estudiantes</button>` : ""}
-      ${ES_DOCENTE && S.practica.origen === "profe" ? `<button class="btn" type="button" id="despublicar" style="margin-left:auto">🗑️ Quitar de las publicadas</button>` : ""}
-      <button class="btn" type="button" id="cerrarPractica">✕ Cerrar práctica</button></div>`;
+      ${libre && ES_DOCENTE && S.practica.origen !== "profe" ? `<button class="btn ok" type="button" id="publicar" style="margin-left:auto">📢 Publicar para estudiantes</button>` : ""}
+      ${libre && ES_DOCENTE && S.practica.origen === "profe" ? `<button class="btn" type="button" id="despublicar" style="margin-left:auto">🗑️ Quitar de las publicadas</button>` : ""}
+      ${libre || S.docente ? `<button class="btn" type="button" id="cerrarPractica">✕ Cerrar práctica</button>` : ""}</div>`;
     c.querySelectorAll("[data-emp]").forEach(b => b.addEventListener("click", () => { elegirEmpleado(Number(b.dataset.emp)); persistir(); pintarTodo(); }));
     const on = (id, fn) => { const x = $("#" + id); if (x) x.addEventListener("click", fn); };
-    on("cerrarPractica", () => { salirDePractica(); S.caso = leerLS("liq_caso_v1") || liqCasoAleatorio(); S.resp = leerLS("liq_resp_v1") || {}; S.revisado = {}; pintarTodo(); });
+    on("cerrarPractica", () => { salirDePractica(); S.caso = S.docente ? liqCasoAleatorio() : (leerLS("liq_caso_v1") || liqCasoAleatorio()); S.resp = S.docente ? {} : (leerLS("liq_resp_v1") || {}); S.revisado = {}; pintarTodo(); });
     on("publicar", publicarPractica);
     on("despublicar", despublicarPractica);
   }
@@ -476,7 +481,8 @@ tr.hl td{background:#fff7d6; font-weight:700}
   // ───── Asiento contable ─────
   function vistaAsiento() {
     const multi = S.practica && S.practica.empleados.length > 1;
-    const vista = multi ? S.asVista : "empleado";
+    const fijo = S.asignado && !S.docente;
+    const vista = multi ? (fijo ? "empresa" : S.asVista) : "empleado";
     let A, titulo, errores = [];
     if (vista === "empresa") {
       const asientos = S.practica.empleados.map(e => { const R = liqCalcularCaso(e.caso); if (R.error) { errores.push(e.nombre); return null; } return liqAsientoDe(R, { provisiones: S.provisiones }); }).filter(Boolean);
@@ -488,7 +494,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
     }
     const practica = S.modo === "practica", ocultar = bloqueadoParaMi() || practica;
     const resp = vista === "empresa" ? (S.respTodas.empresa = S.respTodas.empresa || {}) : S.resp;
-    const revisado = vista === "empresa" ? S.revTodas.empresa : S.revisado.asiento;
+    const revisado = S.bloqueado || (vista === "empresa" ? S.revTodas.empresa : S.revisado.asiento);
     const fila = l => {
       const k = "as_" + l.cod + (l.debe ? "D" : "H"), val = l.debe || l.haber;
       if (!ocultar) return `<tr><td class="num">${l.cod}</td><td class="${l.haber ? "haber" : ""}">${esc(l.cuenta)}</td><td class="r num">${l.debe ? m(l.debe) : ""}</td><td class="r num">${l.haber ? m(l.haber) : ""}</td></tr>`;
@@ -501,23 +507,24 @@ tr.hl td{background:#fff7d6; font-weight:700}
       <h2>📒 Asiento contable</h2>
       <div class="dos" style="margin-top:8px">
         <div class="ley" style="--c:#475569"><b>Cómo se registra la liquidación.</b> Se carga (debe) lo que se le paga: el <b>preaviso</b> es un gasto; la <b>cesantía</b>, las <b>vacaciones</b> y el <b>aguinaldo</b> se cargan a su <b>provisión</b> si la empresa la venía acumulando, o al <b>gasto</b> si no. Se abona (haber) lo que se le retiene de las vacaciones —que son salario— a la <b>CCSS</b> (9,83 %: SEM 5,50 % + IVM 4,33 %) y al <b>Banco Popular</b> (1 %), y el neto que sale de <b>Bancos</b>. Preaviso, cesantía y aguinaldo no pagan cargas sociales.</div>
-        <div><div class="row" style="margin-bottom:8px"><span class="muted" style="font-size:.82rem">La empresa tenía provisiones:</span><span class="seg"><button type="button" data-prov="si" class="${S.provisiones ? "on" : ""}">Sí</button><button type="button" data-prov="no" class="${!S.provisiones ? "on" : ""}">No</button></span></div>
-        ${multi ? `<div class="row"><span class="muted" style="font-size:.82rem">Asiento de:</span><span class="seg"><button type="button" data-asv="empresa" class="${vista === "empresa" ? "on" : ""}">🏢 Toda la empresa</button><button type="button" data-asv="empleado" class="${vista === "empleado" ? "on" : ""}">👤 ${esc(S.caso.trabajador || "Empleado")}</button></span></div>` : ""}</div>
+        <div>${fijo ? `<p class="muted" style="font-size:.86rem; margin:0">${S.provisiones ? "La empresa <b>sí tenía provisiones</b> de aguinaldo, vacaciones y cesantía." : "La empresa <b>no tenía provisiones</b>: todo va al gasto."}${multi ? " Registrá el asiento de <b>toda la empresa</b> (sumando a todos los empleados por cuenta)." : ""}</p>` : `<div class="row" style="margin-bottom:8px"><span class="muted" style="font-size:.82rem">La empresa tenía provisiones:</span><span class="seg"><button type="button" data-prov="si" class="${S.provisiones ? "on" : ""}">Sí</button><button type="button" data-prov="no" class="${!S.provisiones ? "on" : ""}">No</button></span></div>`}
+        ${multi && !fijo ? `<div class="row"><span class="muted" style="font-size:.82rem">Asiento de:</span><span class="seg"><button type="button" data-asv="empresa" class="${vista === "empresa" ? "on" : ""}">🏢 Toda la empresa</button><button type="button" data-asv="empleado" class="${vista === "empleado" ? "on" : ""}">👤 ${esc(S.caso.trabajador || "Empleado")}</button></span></div>` : ""}</div>
       </div>
       ${errores.length ? `<p class="noaplica" style="margin-top:10px">Faltan datos de: ${errores.map(esc).join(", ")}.</p>` : ""}
       <h3>${ocultar ? "Escribí los montos del asiento" : "Asiento de diario"} — ${esc(titulo)}</h3>
       <div class="tbl asiento"><table><thead><tr><th>Código</th><th>Cuenta</th><th class="r">Debe</th><th class="r">Haber</th>${ocultar ? "<th></th>" : ""}</tr></thead><tbody>${A.lineas.map(fila).join("")}
         ${ocultar ? "" : `<tr><td></td><td><b>Totales</b></td><td class="r num"><b>${m(A.totalDebe)}</b></td><td class="r num"><b>${m(A.totalHaber)}</b></td></tr>`}</tbody></table></div>
       <p class="muted" style="font-size:.84rem; margin:6px 0 0">Por el registro de la ${esc((titulo.charAt(0).toLowerCase() + titulo.slice(1)).replace(/\.+$/, ""))}.</p>
-      ${ocultar ? `<div class="row" style="margin-top:10px"><button class="btn primary" type="button" id="revAsiento">✔ Revisar asiento</button>${revisado ? `<span class="puntaje">${correctas} de ${A.lineas.length} líneas correctas</span>` : ""}</div>` : ""}
+      ${ocultar && !S.bloqueado ? `<div class="row" style="margin-top:10px"><button class="btn primary" type="button" id="revAsiento">✔ Revisar asiento</button>${revisado ? `<span class="puntaje">${correctas} de ${A.lineas.length} líneas correctas</span>` : ""}</div>` : ""}
     </section>`;
   }
   function ligarAsiento() {
-    const v = $("#vista"), multi = S.practica && S.practica.empleados.length > 1, vista = multi ? S.asVista : "empleado";
+    const v = $("#vista"), multi = S.practica && S.practica.empleados.length > 1, vista = multi ? (S.asignado && !S.docente ? "empresa" : S.asVista) : "empleado";
     v.querySelectorAll("[data-prov]").forEach(b => b.addEventListener("click", () => { S.provisiones = b.dataset.prov === "si"; if (S.practica) S.practica.provisiones = S.provisiones; persistir(); pintarTodo(); }));
     v.querySelectorAll("[data-asv]").forEach(b => b.addEventListener("click", () => { S.asVista = b.dataset.asv; persistir(); pintarTodo(); }));
     v.querySelectorAll("[data-as]").forEach(inp => inp.addEventListener("input", () => { const r = vista === "empresa" ? (S.respTodas.empresa = S.respTodas.empresa || {}) : S.resp; r[inp.dataset.as] = inp.value; persistir(); }));
     const rv = $("#revAsiento"); if (rv) rv.addEventListener("click", () => { if (vista === "empresa") S.revTodas.empresa = true; else S.revisado.asiento = true; persistir(); pintarTodo(); });
+    if (S.bloqueado) v.querySelectorAll("[data-as]").forEach(i => { i.disabled = true; });
   }
 
   function pintarTodo() {
@@ -533,16 +540,30 @@ tr.hl td{background:#fff7d6; font-weight:700}
   }
 
   // ───── Evaluación (trabajo asignado) ─────
+  // Puntaje de una parte sumando a todos los empleados del trabajo.
+  function puntajeGlobal(k) {
+    const emps = S.practica ? S.practica.empleados.map((e, i) => ({ caso: e.caso, resp: S.respTodas[i] || {} })) : [{ caso: S.caso, resp: S.resp }];
+    let ok = 0, total = 0, blancos = 0;
+    const contar = (pasoOk, valor) => { total++; if (valor == null || String(valor).trim() === "") blancos++; else if (liqRevisarPaso(pasoOk, valor) === true) ok++; };
+    if (k === "asiento") {
+      const multi = emps.length > 1;
+      const asientos = emps.map(e => { const R = liqCalcularCaso(e.caso); return R.error ? null : liqAsientoDe(R, { provisiones: S.provisiones }); }).filter(Boolean);
+      const A = multi ? liqAsientoTotal(asientos) : asientos[0];
+      const resp = multi ? (S.respTodas.empresa || {}) : emps[0].resp;
+      (A ? A.lineas : []).forEach(l => contar({ tipo: "monto", ok: l.debe || l.haber }, resp["as_" + l.cod + (l.debe ? "D" : "H")]));
+    } else emps.forEach(e => { const R = liqCalcularCaso(e.caso); if (R.error) return; liqPasosPractica(R)[k].forEach(p => contar(p, e.resp[p.k])); });
+    return { ok, total, blancos, pct: total ? ok / total * 100 : 0 };
+  }
   function metricas() {
     const out = {};
-    DERECHOS.forEach(k => { const p = puntajeParte(k); out["liq_" + k + "_pct"] = p ? p.pct : 0; });
+    EVALUABLES.forEach(k => { out["liq_" + k + "_pct"] = puntajeGlobal(k).pct; });
     return out;
   }
   function verEvaluacion() {
     const C = (S.trabajo && S.trabajo.contenido_actividad) || {};
     const crit = C.criterios || ESTRATEGIAS_EVALUACION.liquidacion_laboral.criterios;
     const html = typeof tiraderaInstrumentoHTML === "function" ? tiraderaInstrumentoHTML(S.trabajo ? S.trabajo.titulo : "Liquidación laboral", crit, C.liq_instrumento || { componente: "Trabajo cotidiano", tipo: "Escala de desempeño", unidad: "Liquidación laboral" }) : "";
-    $("#modalCaja").innerHTML = `<style>table.tir-ins{width:100%;border-collapse:collapse;font-size:.82rem}table.tir-ins th,table.tir-ins td{border:1px solid var(--line);padding:6px;vertical-align:top}</style>${html.replace(/Se califica con el registro del juego\./g, "Se califica sola: % de pasos correctos de esa parte.")}<div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn primary" type="button" id="cerrarM">Cerrar</button></div>`;
+    $("#modalCaja").innerHTML = `<style>table.tir-ins{width:100%;border-collapse:collapse;font-size:.82rem}table.tir-ins th,table.tir-ins td{border:1px solid var(--line);padding:6px;vertical-align:top}</style>${html.replace(/Se califica con el registro del juego\./g, "Se califica sola: % de pasos correctos de esa parte.").replace(/Los indicadores automáticos usan el registro de la partida:[^<]*/, "Cada indicador se califica con el % de pasos correctos de su parte: 85 % o más = 3 · 60–84 % = 2 · 35–59 % = 1 · menos de 35 % = 0.")}<div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn primary" type="button" id="cerrarM">Cerrar</button></div>`;
     $("#modal").hidden = false; $("#cerrarM").addEventListener("click", () => { $("#modal").hidden = true; });
   }
   let tAv = null;
@@ -550,11 +571,11 @@ tr.hl td{background:#fff7d6; font-weight:700}
     if (!S.asignado || S.docente || !EST_ID || S.bloqueado) return;
     clearTimeout(tAv);
     tAv = setTimeout(async () => {
-      try { await upsertSinConflicto("actividades_estudiante", { trabajo_id: S.trabajo.id, estudiante_id: EST_ID }, { datos_prueba: { liquidacion: { respuestas: S.resp, revisado: S.revisado, en_curso: true } }, actualizado_en: new Date().toISOString() }); } catch (e) {}
+      try { await upsertSinConflicto("actividades_estudiante", { trabajo_id: S.trabajo.id, estudiante_id: EST_ID }, { datos_prueba: { liquidacion: { respuestas: S.resp, revisado: S.revisado, respTodas: S.respTodas, revTodas: S.revTodas, metricas: metricas(), en_curso: true, guardado_en: new Date().toISOString() } }, actualizado_en: new Date().toISOString() }); } catch (e) {}
     }, 1000);
   }
   async function entregar() {
-    const faltan = S.partesEval.filter(k => liqPasosPractica(liqCalcularCaso(S.caso))[k].some(p => S.resp[p.k] == null || String(S.resp[p.k]).trim() === ""));
+    const faltan = S.partesEval.filter(k => puntajeGlobal(k).blancos > 0);
     $("#modalCaja").innerHTML = `<h2>📤 ¿Entregar?</h2>${faltan.length ? `<p class="noaplica">Te faltan pasos por llenar en: ${faltan.map(k => PARTES.find(x => x[0] === k)[1]).join(", ")}. Los que dejes en blanco cuentan como incorrectos.</p>` : "<p>Ya llenaste todos los pasos.</p>"}<p>Después de entregar ya no podés cambiar las respuestas.</p>
       <div class="row" style="justify-content:flex-end"><button class="btn" type="button" id="no">Seguir trabajando</button><button class="btn ok" type="button" id="si">Sí, entregar</button></div>`;
     $("#modal").hidden = false;
@@ -564,26 +585,82 @@ tr.hl td{background:#fff7d6; font-weight:700}
       const crit = S.trabajo.contenido_actividad.criterios || [];
       const met = metricas();
       const nota = memoriaNotaDesdeMetricas(crit, met, []);
-      S.partesEval.forEach(k => { S.revisado[k] = true; });
-      const { error } = await guardarNotaManualActividad(S.trabajo, EST_ID, nota.puntaje, { respuestas: nota.puntos, porcentaje: nota.porcentaje, datos_prueba: { liquidacion: { respuestas: S.resp, metricas: met, entregado_en: new Date().toISOString() } } });
+      S.partesEval.forEach(k => { S.revisado[k] = true; Object.values(S.revTodas).forEach(r => { if (r && typeof r === "object") r[k] = true; }); });
+      S.revTodas.empresa = true;
+      clearTimeout(tAv);
+      const { error } = await guardarNotaManualActividad(S.trabajo, EST_ID, nota.puntaje, { respuestas: nota.puntos, porcentaje: nota.porcentaje, datos_prueba: { liquidacion: { respuestas: S.resp, respTodas: S.respTodas, metricas: met, entregado_en: new Date().toISOString() } } });
       if (error) { ev.target.disabled = false; alert("No se pudo entregar: " + error); return; }
       S.entrega = { puntaje: nota.puntaje, porcentaje: nota.porcentaje }; S.bloqueado = true;
       $("#modal").hidden = true; S.tab = "resumen"; pintarTodo();
     });
   }
   async function guardarCasoDocente() {
-    const R = liqCalcularCaso(S.caso);
-    if (R.error) { alert(R.error); return; }
+    const malos = (S.practica ? S.practica.empleados.map(e => e.caso) : [S.caso]).map(liqCalcularCaso).filter(R => R.error);
+    if (malos.length) { alert(malos[0].error); return; }
     if (!S.partesEval.length) { alert("Escoja al menos una parte para evaluar."); return; }
     const base = ESTRATEGIAS_EVALUACION.liquidacion_laboral.criterios;
     const previos = S.trabajo.contenido_actividad.criterios || [];
     const criterios = base.filter(c => S.partesEval.includes(c.auto.replace(/^liq_|_pct$/g, ""))).map(c => previos.find(p => p.auto === c.auto) || { ...c, niveles: tiraderaNivelesDe(c) });
     const { data: actual } = await sb.from("trabajos_cotidianos").select("contenido_actividad").eq("id", S.trabajo.id).maybeSingle();
-    const nuevo = { ...((actual && actual.contenido_actividad) || {}), liq_caso: S.caso, liq_partes: S.partesEval, criterios };
+    const pr = S.practica ? { titulo: S.practica.titulo, empresa: S.practica.empresa, actividad: S.practica.actividad, enunciado: S.practica.enunciado, empleados: S.practica.empleados } : null;
+    const nuevo = { ...((actual && actual.contenido_actividad) || {}), liq_caso: pr ? null : S.caso, liq_practica: pr, liq_provisiones: S.provisiones, liq_partes: S.partesEval, criterios };
     const { error } = await sb.from("trabajos_cotidianos").update({ contenido_actividad: nuevo }).eq("id", S.trabajo.id);
     if (error) { alert("No se pudo guardar: " + error.message); return; }
     S.trabajo.contenido_actividad = nuevo;
     $("#banner").insertAdjacentHTML("afterbegin", `<div class="banner ok" style="margin-bottom:8px">✓ Caso guardado. Los estudiantes ya lo ven.</div>`);
+  }
+
+  // Editor de la evaluación del trabajo (formato MEP): datos del instrumento e
+  // indicadores con la evidencia de cada nivel; la IA puede mejorar la redacción.
+  function editarEvaluacion() {
+    const C = S.trabajo.contenido_actividad;
+    const base = ESTRATEGIAS_EVALUACION.liquidacion_laboral.criterios;
+    let ins = { componente: "Trabajo cotidiano", tipo: "Escala de desempeño", subarea: "", unidad: S.trabajo.titulo, resultado: "", indicador: "", ...(C.liq_instrumento || {}) };
+    let lista = base.filter(c => S.partesEval.includes(c.auto.replace(/^liq_|_pct$/g, ""))).map(c => { const prev = (C.criterios || []).find(p => p.auto === c.auto) || c; return { nombre: prev.nombre, puntos_max: Number(prev.puntos_max) || 3, auto: c.auto, niveles: tiraderaNivelesDe(prev) }; });
+    const NV = [["avanzado", "Avanzado (3)"], ["intermedio", "Intermedio (2)"], ["inicial", "Inicial (1)"]];
+    const pintar = () => {
+      const campo = (k, et) => `<label class="fld">${et}<input data-ins="${k}" value="${esc(ins[k] || "")}"></label>`;
+      $("#modalCaja").innerHTML = `<h2>📋 Evaluación del trabajo <span class="muted" style="font-size:.85rem">(formato MEP)</span></h2>
+        <p class="muted" style="font-size:.86rem">Indicadores de logro con la evidencia de cada nivel (Avanzado 3 · Intermedio 2 · Inicial 1; 0 sin evidencia). Cada indicador se califica solo con el % de pasos correctos de esa parte: 85 % o más = 3, 60–84 % = 2, 35–59 % = 1. Calificación = puntos obtenidos × 100 ÷ total.</p>
+        <div class="banner" style="margin:8px 0"><b>✨ Mejorar con IA</b> — redacta los indicadores y la evidencia de cada nivel según el tema y el resultado de aprendizaje. Usted revisa antes de guardar.
+          <div class="row" style="margin-top:6px"><input id="evIndic" class="btn" style="flex:1 1 16rem; font-weight:400" placeholder="Indicaciones para la IA (opcional)"><button class="btn primary" type="button" id="evIA">✨ Mejorar todos los niveles</button></div><span class="muted" id="evIAest" style="font-size:.82rem"></span></div>
+        <h3>Datos del instrumento</h3>
+        <div class="grid">${campo("componente", "Componente")}${campo("tipo", "Tipo de instrumento")}${campo("subarea", "Subárea")}${campo("unidad", "Unidad de estudio / tema")}</div>
+        <div class="grid" style="margin-top:8px">${campo("resultado", "Resultado de aprendizaje (del programa)")}${campo("indicador", "Indicador de logro (del programa)")}</div>
+        <h3>Indicadores y criterios de desempeño</h3>
+        ${lista.map((c, i) => `<div class="card" style="padding:10px; margin-bottom:8px; background:var(--soft)">
+          <label class="fld">${i + 1}. Indicador <input data-nom="${i}" value="${esc(c.nombre)}"></label>
+          <div class="grid" style="margin-top:6px">${NV.map(([k, et]) => `<label class="fld">${et}<textarea data-niv="${i}" data-k="${k}" rows="3" style="background:#fff; border:1px solid var(--line); border-radius:9px; padding:7px; font:inherit; font-size:.84rem; font-weight:400">${esc(c.niveles[k] || "")}</textarea></label>`).join("")}</div>
+          ${c.iaNota ? `<div class="muted" style="font-size:.8rem; color:var(--ok)">✨ ${esc(c.iaNota)}</div>` : ""}</div>`).join("")}
+        <div class="row" style="justify-content:flex-end; margin-top:10px"><span class="muted" id="evEst"></span><button class="btn" type="button" id="evVer">👁️ Vista del estudiante</button><button class="btn" type="button" id="evCerrar">Cerrar</button><button class="btn primary" type="button" id="evGuardar">💾 Guardar evaluación</button></div>`;
+      $("#modal").hidden = false;
+      $("#evCerrar").addEventListener("click", () => { $("#modal").hidden = true; });
+      $("#evVer").addEventListener("click", () => { leer(); S.trabajo.contenido_actividad = { ...S.trabajo.contenido_actividad, criterios: lista, liq_instrumento: ins }; verEvaluacion(); });
+      $("#evGuardar").addEventListener("click", async ev => {
+        leer(); ev.target.disabled = true; $("#evEst").textContent = "Guardando…";
+        const { data: actual } = await sb.from("trabajos_cotidianos").select("contenido_actividad").eq("id", S.trabajo.id).maybeSingle();
+        const nuevo = { ...((actual && actual.contenido_actividad) || C), criterios: lista.map(c => ({ nombre: c.nombre, puntos_max: c.puntos_max, auto: c.auto, niveles: c.niveles })), liq_instrumento: ins };
+        const { error } = await sb.from("trabajos_cotidianos").update({ contenido_actividad: nuevo }).eq("id", S.trabajo.id);
+        ev.target.disabled = false;
+        if (error) { $("#evEst").textContent = "No se pudo guardar: " + error.message; return; }
+        S.trabajo.contenido_actividad = nuevo; $("#evEst").textContent = "✓ Guardada.";
+      });
+      $("#evIA").addEventListener("click", async ev => {
+        leer(); ev.target.disabled = true; $("#evIAest").textContent = "✨ La IA está trabajando…";
+        try {
+          const r = await fetch("/api/mejorar-niveles-ia", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ instrumento: ins, criterios: lista, instrucciones: $("#evIndic").value, actividad: "Liquidación laboral: el estudiante calcula paso a paso el preaviso, la cesantía, las vacaciones y el aguinaldo, y registra el asiento contable — " + S.trabajo.titulo, componente: ins.componente }) });
+          const j = await r.json().catch(() => ({}));
+          if (!r.ok || !Array.isArray(j.criterios)) throw new Error(j.error || "Error " + r.status);
+          j.criterios.forEach(x => { if (lista[x.i]) { lista[x.i].nombre = x.nombre; lista[x.i].niveles = x.niveles; lista[x.i].iaNota = x.nota || "Redacción mejorada por la IA."; } });
+          pintar(); $("#evIAest").textContent = "✨ Listo: revise y toque Guardar evaluación.";
+        } catch (e) { ev.target.disabled = false; $("#evIAest").textContent = "No se pudo mejorar con IA: " + (e.message || e); }
+      });
+    };
+    const leer = () => {
+      $("#modalCaja").querySelectorAll("[data-ins]").forEach(x => { ins[x.dataset.ins] = x.value.trim(); });
+      lista = lista.map((c, i) => { const niveles = {}; $("#modalCaja").querySelectorAll(`[data-niv="${i}"]`).forEach(t => { niveles[t.dataset.k] = t.value.trim(); }); return { ...c, nombre: ($("#modalCaja").querySelector(`[data-nom="${i}"]`) || {}).value || c.nombre, niveles }; });
+    };
+    pintar();
   }
 
   document.addEventListener("click", e => { const a = e.target.closest("[data-volver]"); if (a && document.referrer.startsWith(location.origin) && history.length > 1) { e.preventDefault(); history.back(); } });
@@ -598,8 +675,11 @@ tr.hl td{background:#fff7d6; font-weight:700}
         if (!t || !t.contenido_actividad || t.contenido_actividad.estrategia !== "liquidacion_laboral") throw new Error("No se encontró este trabajo de liquidación.");
         S.trabajo = t; S.asignado = true;
         const C = t.contenido_actividad;
-        S.caso = C.liq_caso || liqCasoAleatorio();
-        S.partesEval = Array.isArray(C.liq_partes) && C.liq_partes.length ? C.liq_partes : DERECHOS.slice();
+        S.practica = null; S.respTodas = {}; S.revTodas = {};
+        S.provisiones = C.liq_provisiones !== false;
+        if (C.liq_practica && Array.isArray(C.liq_practica.empleados) && C.liq_practica.empleados.length) { S.practica = { ...C.liq_practica, id: "t" + t.id, origen: "trabajo" }; elegirEmpleado(0); }
+        else { S.caso = C.liq_caso || liqCasoAleatorio(); S.resp = {}; S.revisado = {}; }
+        S.partesEval = Array.isArray(C.liq_partes) && C.liq_partes.length ? C.liq_partes : EVALUABLES.slice();
         $("#sub").textContent = t.titulo;
         if (params.get("docente") === "1") {
           if (!ES_DOCENTE) { $("#vista").innerHTML = `<section class="card"><h2>Solo para el docente</h2><p>Iniciá sesión como docente en la plataforma y abrí el trabajo desde ahí.</p></section>`; return; }
@@ -607,8 +687,11 @@ tr.hl td{background:#fff7d6; font-weight:700}
         } else if (EST_ID && !ES_DOCENTE) {
           const { data: e } = await sb.from("actividades_estudiante").select("*").eq("trabajo_id", t.id).eq("estudiante_id", EST_ID).maybeSingle();
           const L = e && e.datos_prueba && e.datos_prueba.liquidacion;
-          if (L) { S.resp = L.respuestas || {}; S.revisado = L.revisado || {}; }
-          if (e && e.completado && e.puntaje != null) { S.bloqueado = true; S.entrega = e; S.partesEval.forEach(k => { S.revisado[k] = true; }); }
+          if (L) {
+            if (S.practica) { S.respTodas = L.respTodas || {}; S.revTodas = L.revTodas || {}; elegirEmpleado(0); }
+            else { S.resp = L.respuestas || {}; S.revisado = L.revisado || {}; }
+          }
+          if (e && e.completado && e.puntaje != null) { S.bloqueado = true; S.entrega = e; S.partesEval.forEach(k => { S.revisado[k] = true; }); if (S.practica) { S.practica.empleados.forEach((_, i) => { S.revTodas[i] = S.revTodas[i] || {}; S.partesEval.forEach(k => { S.revTodas[i][k] = true; }); }); S.revTodas.empresa = true; elegirEmpleado(0); } }
         } else if (ES_DOCENTE) { S.asignado = false; S.modo = "practica"; } // el docente prueba sin guardar
       } catch (e) { $("#vista").innerHTML = `<section class="card"><h2>No se pudo abrir</h2><p>${esc(e.message || e)}</p></section>`; return; }
     }

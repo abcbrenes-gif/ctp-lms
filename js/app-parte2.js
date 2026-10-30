@@ -3012,7 +3012,8 @@ async function renderSubtema(id, soloLectura) {
             return x;
           });
           if (presetElegido.liquidacion) {
-            resultado.contenido.liq_partes = ["preaviso", "cesantia", "vacaciones", "aguinaldo"];
+            resultado.contenido.liq_partes = ["preaviso", "cesantia", "vacaciones", "aguinaldo", "asiento"];
+            resultado.contenido.liq_instrumento = { componente: "Trabajo cotidiano", tipo: "Escala de desempeño", subarea: "", unidad: titulo, resultado: "", indicador: "" };
           } else if (presetElegido.memoria) {
             resultado.contenido.memoria_instrumento = { ...MEMORIA_INSTRUMENTO_BASE, unidad: titulo };
             resultado.contenido.memoria_cartas = [];
@@ -5619,6 +5620,64 @@ function ligarBloqueMemoria(panel, trabajo, entregaPorEstudiante, recargar) {
   });
 }
 
+// Liquidación laboral: avance y nota de cada estudiante por parte.
+const LIQ_PARTES_NOMBRE = { preaviso: "Preaviso", cesantia: "Cesantía", vacaciones: "Vacaciones", aguinaldo: "Aguinaldo", asiento: "Asiento" };
+function pintarBloqueLiquidacion(trabajo, ordenados, nombrePorId, entregaPorEstudiante) {
+  const c = trabajo.contenido_actividad || {};
+  const partes = Array.isArray(c.liq_partes) && c.liq_partes.length ? c.liq_partes : Object.keys(LIQ_PARTES_NOMBRE);
+  const nEmp = c.liq_practica && Array.isArray(c.liq_practica.empleados) ? c.liq_practica.empleados.length : (c.liq_caso ? 1 : 0);
+  let sinEntregar = 0;
+  const pctCelda = v => v == null ? "—" : `<span style="font-weight:600; color:${v >= 85 ? "var(--success-text)" : v >= 60 ? "#9a6700" : v >= 35 ? "#b45309" : "var(--brick)"}">${Math.round(v)} %</span>`;
+  const filas = ordenados.map(id => {
+    const e = entregaPorEstudiante[id];
+    const L = e && e.datos_prueba && e.datos_prueba.liquidacion;
+    const entregado = e && e.completado && e.puntaje != null;
+    const met = L && L.metricas;
+    if (!entregado && met) sinEntregar++;
+    const estado = entregado ? (L && L.calificado_por_docente ? "🏁 Calificado sin entregar" : "✅ Entregó") : met ? "⏳ Trabajando (sin entregar)" : "— No ha empezado";
+    return `<tr><td>${escAC(nombrePorId[id] || id)}</td><td style="font-size:0.78rem;">${estado}</td>
+      ${partes.map(k => `<td style="text-align:center;">${pctCelda(met ? met["liq_" + k + "_pct"] : null)}</td>`).join("")}
+      <td style="text-align:center; font-weight:700;">${entregado ? e.puntaje + "/3" : "—"}</td>
+      <td>${!entregado && met ? `<button class="btn small" type="button" data-liq-calificar="${escAC(id)}">Poner nota con lo que lleva</button>` : ""}</td></tr>`;
+  }).join("");
+  return `<div style="background:var(--surface-soft); border:1px solid var(--paper-line); border-radius:10px; padding:0.8rem; margin-bottom:0.8rem;">
+    <div class="row" style="align-items:center; justify-content:space-between; gap:0.5rem; margin-bottom:0.5rem;">
+      <strong>📑 Liquidación laboral <span style="font-weight:400; color:var(--text-muted); font-size:0.8rem;">· ${nEmp ? nEmp + " empleado" + (nEmp === 1 ? "" : "s") : "sin caso todavía"} · se evalúa: ${partes.map(k => LIQ_PARTES_NOMBRE[k]).join(", ")}</span></strong>
+      <a class="btn small" href="liquidaciones.html?trabajo=${trabajo.id}&docente=1">📑 Caso y evaluación</a>
+    </div>
+    <p style="font-size:0.78rem; color:var(--text-muted); margin:0 0 0.5rem;">El % es la cantidad de pasos correctos de cada parte (sumando a todos los empleados del caso). La nota se guarda sola cuando el estudiante entrega: 85 % o más = 3 · 60–84 % = 2 · 35–59 % = 1 por indicador.</p>
+    ${sinEntregar ? `<div class="row" style="gap:0.5rem; align-items:center; margin-bottom:0.5rem;"><button class="btn small" type="button" data-liq-calificar-todos>📥 Poner nota con lo que llevan a los ${sinEntregar} que no entregaron</button><span style="font-size:0.78rem; color:var(--text-muted);">Los pasos en blanco cuentan como incorrectos.</span></div>` : ""}
+    <span data-liq-estado style="font-size:0.8rem; color:var(--text-muted);"></span>
+    <div style="overflow-x:auto;"><table class="grades" style="font-size:0.82rem;"><thead><tr><th>Estudiante</th><th>Estado</th>${partes.map(k => `<th>${LIQ_PARTES_NOMBRE[k]}</th>`).join("")}<th>Nota</th><th></th></tr></thead><tbody>${filas}</tbody></table></div>
+  </div>`;
+}
+function ligarBloqueLiquidacion(panel, trabajo, entregaPorEstudiante, recargar) {
+  const criterios = (trabajo.contenido_actividad && trabajo.contenido_actividad.criterios) || [];
+  const estado = t => { const e = panel.querySelector("[data-liq-estado]"); if (e) e.textContent = t; };
+  const calificarUno = async id => {
+    const e = entregaPorEstudiante[id];
+    const L = (e && e.datos_prueba && e.datos_prueba.liquidacion) || {};
+    if (!L.metricas) return false;
+    const nota = memoriaNotaDesdeMetricas(criterios, L.metricas, []);
+    const { error } = await guardarNotaManualActividad(trabajo, id, nota.puntaje, { respuestas: nota.puntos, porcentaje: nota.porcentaje, datos_prueba: { ...(e.datos_prueba || {}), liquidacion: { ...L, en_curso: false, calificado_por_docente: true, entregado_en: new Date().toISOString() } } });
+    if (error) throw new Error(error);
+    return true;
+  };
+  panel.querySelectorAll("[data-liq-calificar]").forEach(b => b.addEventListener("click", async () => {
+    b.disabled = true; estado("Guardando nota…");
+    try { await calificarUno(b.dataset.liqCalificar); recargar(); } catch (err) { b.disabled = false; estado("No se pudo guardar: " + (err.message || err)); }
+  }));
+  const todos = panel.querySelector("[data-liq-calificar-todos]");
+  if (todos) todos.addEventListener("click", async () => {
+    if (!confirm("¿Poner la nota con lo que llevan a todos los que no entregaron? Los pasos en blanco cuentan como incorrectos.")) return;
+    todos.disabled = true;
+    const ids = [...panel.querySelectorAll("[data-liq-calificar]")].map(b => b.dataset.liqCalificar);
+    let n = 0;
+    for (const id of ids) { estado(`Guardando notas… ${++n}/${ids.length}`); try { await calificarUno(id); } catch (err) { estado("Error con un estudiante: " + (err.message || err)); } }
+    recargar();
+  });
+}
+
 // Botón "🧠 Jugar" en los trabajos de Memoria Contable que ve el estudiante
 // (y "📑 Resolver" en los de liquidación laboral).
 function memoriaInyectarBotones(holder, trabajos) {
@@ -5639,7 +5698,7 @@ function memoriaInyectarBotones(holder, trabajos) {
         b.className = "btn secondary small"; b.href = `liquidaciones.html?trabajo=${t.id}&docente=1`;
         b.style.cssText = "margin-top:0.3rem; align-self:flex-start;"; b.textContent = "📑 Caso de liquidación (docente)";
         destino.appendChild(b);
-        if (!(t.contenido_actividad || {}).liq_caso) { const av = document.createElement("div"); av.style.cssText = "font-size:0.78rem; margin-top:0.2rem; color:var(--brick);"; av.textContent = "⚠️ Todavía no tiene caso: póngalo en «Caso de liquidación» antes de aplicarlo."; destino.appendChild(av); }
+        if (!(t.contenido_actividad || {}).liq_caso && !(t.contenido_actividad || {}).liq_practica) { const av = document.createElement("div"); av.style.cssText = "font-size:0.78rem; margin-top:0.2rem; color:var(--brick);"; av.textContent = "⚠️ Todavía no tiene caso: póngalo en «Caso de liquidación» antes de aplicarlo."; destino.appendChild(av); }
       }
     });
     (trabajos || []).filter(t => t.contenido_actividad && t.contenido_actividad.estrategia === "juego_memoria").forEach(t => {
@@ -5721,9 +5780,11 @@ async function pintarPanelCalificarRubrica(panel, trabajo, materiaId) {
 
   const esTiradera = trabajo.contenido_actividad && trabajo.contenido_actividad.estrategia === "juego_tiradera";
   const esMemoria = trabajo.contenido_actividad && trabajo.contenido_actividad.estrategia === "juego_memoria";
+  const esLiquidacion = trabajo.contenido_actividad && trabajo.contenido_actividad.estrategia === "liquidacion_laboral";
   panel.innerHTML = `
     ${esTiradera ? `<div data-tiradera-bloque style="margin-bottom:0.8rem;"></div>` : ""}
     ${esMemoria ? pintarBloqueMemoria(trabajo, ordenados, nombrePorId, entregaPorEstudiante) : ""}
+    ${esLiquidacion ? pintarBloqueLiquidacion(trabajo, ordenados, nombrePorId, entregaPorEstudiante) : ""}
     <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">Ponele puntos a cada criterio por estudiante (podés dejar algunos sin calificar y volver después). La nota 0-3 se calcula sola según el % del total de puntos.</p>
     <div>${ordenados.map(filaEstudiante).join("")}</div>`;
   if (esTiradera) {
@@ -5731,6 +5792,7 @@ async function pintarPanelCalificarRubrica(panel, trabajo, materiaId) {
       () => pintarPanelCalificarRubrica(panel, trabajo, materiaId));
   }
   if (esMemoria) ligarBloqueMemoria(panel, trabajo, entregaPorEstudiante, () => pintarPanelCalificarRubrica(panel, trabajo, materiaId));
+  if (esLiquidacion) ligarBloqueLiquidacion(panel, trabajo, entregaPorEstudiante, () => pintarPanelCalificarRubrica(panel, trabajo, materiaId));
 
   panel.querySelectorAll("[data-guardar-rubrica]").forEach(btn => {
     btn.addEventListener("click", async () => {

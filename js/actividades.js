@@ -64,6 +64,7 @@ const TIRADERA_NIVELES_AUTO = {
   liq_preaviso_pct: { avanzado: "Calcula correctamente el 85 % o más de los pasos del preaviso.", intermedio: "Calcula correctamente entre el 60 % y el 84 % de los pasos del preaviso.", inicial: "Calcula correctamente entre el 35 % y el 59 % de los pasos del preaviso." },
   liq_cesantia_pct: { avanzado: "Calcula correctamente el 85 % o más de los pasos de la cesantía.", intermedio: "Calcula correctamente entre el 60 % y el 84 % de los pasos de la cesantía.", inicial: "Calcula correctamente entre el 35 % y el 59 % de los pasos de la cesantía." },
   liq_vacaciones_pct: { avanzado: "Calcula correctamente el 85 % o más de los pasos de las vacaciones.", intermedio: "Calcula correctamente entre el 60 % y el 84 % de los pasos de las vacaciones.", inicial: "Calcula correctamente entre el 35 % y el 59 % de los pasos de las vacaciones." },
+  liq_asiento_pct: { avanzado: "Registra correctamente el 85 % o más de las líneas del asiento de la liquidación.", intermedio: "Registra correctamente entre el 60 % y el 84 % de las líneas del asiento.", inicial: "Registra correctamente entre el 35 % y el 59 % de las líneas del asiento." },
   liq_aguinaldo_pct: { avanzado: "Calcula correctamente el 85 % o más de los pasos del aguinaldo.", intermedio: "Calcula correctamente entre el 60 % y el 84 % de los pasos del aguinaldo.", inicial: "Calcula correctamente entre el 35 % y el 59 % de los pasos del aguinaldo." },
   memoria_rapidez_pct: { avanzado: "Resuelve cada carta en 12 segundos o menos, en promedio.", intermedio: "Resuelve cada carta en 13 a 20 segundos, en promedio.", inicial: "Resuelve cada carta en 21 a 30 segundos, en promedio." }
 };
@@ -138,12 +139,13 @@ const ESTRATEGIAS_EVALUACION = {
   // de pasos correctos de cada parte (85 % o más = 3, 60–84 % = 2, 35–59 % = 1).
   liquidacion_laboral: {
     tipo: "rubrica_directa", grupo: "Simuladores", icono: "📑", etiqueta: "Liquidación laboral (preaviso, cesantía, vacaciones, aguinaldo)", liquidacion: true,
-    instrucciones: "Caso de liquidación laboral (trabajo cotidiano). El estudiante calcula, paso a paso, el preaviso, la cesantía, las vacaciones y el aguinaldo según el Código de Trabajo y la Ley 2412. Cada parte se califica sola con el porcentaje de pasos correctos: 85 % o más = Avanzado (3), 60–84 % = Intermedio (2), 35–59 % = Inicial (1), menos de 35 % = 0.",
+    instrucciones: "Caso de liquidación laboral (trabajo cotidiano). El estudiante calcula, paso a paso, el preaviso, la cesantía, las vacaciones y el aguinaldo según el Código de Trabajo y la Ley 2412, y registra el asiento contable. Cada parte se califica sola con el porcentaje de pasos correctos: 85 % o más = Avanzado (3), 60–84 % = Intermedio (2), 35–59 % = Inicial (1), menos de 35 % = 0.",
     criterios: [
       { nombre: "Calcula el preaviso según el tiempo laborado y el motivo de salida (Código de Trabajo, art. 28).", puntos_max: 3, auto: "liq_preaviso_pct" },
       { nombre: "Calcula la cesantía con la tabla del art. 29 y el salario promedio de los últimos seis meses.", puntos_max: 3, auto: "liq_cesantia_pct" },
       { nombre: "Calcula las vacaciones proporcionales pendientes de disfrutar (arts. 153 y 157).", puntos_max: 3, auto: "liq_vacaciones_pct" },
-      { nombre: "Calcula el aguinaldo proporcional con los salarios devengados desde el 1 de diciembre (Ley 2412).", puntos_max: 3, auto: "liq_aguinaldo_pct" }
+      { nombre: "Calcula el aguinaldo proporcional con los salarios devengados desde el 1 de diciembre (Ley 2412).", puntos_max: 3, auto: "liq_aguinaldo_pct" },
+      { nombre: "Registra el asiento contable de la liquidación con las cuentas de provisiones, gastos, retenciones y bancos, con débitos y créditos balanceados.", puntos_max: 3, auto: "liq_asiento_pct" }
     ],
     demo: { escenario: "Liquidación de una persona despedida con responsabilidad patronal tras 2 años y 8 meses.", puntajes: [3, 2, 3, 3] }
   },

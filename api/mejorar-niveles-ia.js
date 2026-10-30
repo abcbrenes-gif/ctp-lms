@@ -18,6 +18,7 @@ const UMBRALES = {
   liq_preaviso_pct: "85 % o más (Avanzado), 60–84 % (Intermedio), 35–59 % (Inicial) de los pasos del preaviso correctos",
   liq_cesantia_pct: "85 % o más (Avanzado), 60–84 % (Intermedio), 35–59 % (Inicial) de los pasos de la cesantía correctos",
   liq_vacaciones_pct: "85 % o más (Avanzado), 60–84 % (Intermedio), 35–59 % (Inicial) de los pasos de las vacaciones correctos",
+  liq_asiento_pct: "85 % o más (Avanzado), 60–84 % (Intermedio), 35–59 % (Inicial) de las líneas del asiento correctas",
   liq_aguinaldo_pct: "85 % o más (Avanzado), 60–84 % (Intermedio), 35–59 % (Inicial) de los pasos del aguinaldo correctos",
   memoria_dominio_pct: "85 % o más (Avanzado), 60–84 % (Intermedio), 35–59 % (Inicial) de los conceptos escritos bien al primer intento",
   memoria_precision_pct: "85 % o más (Avanzado), 60–84 % (Intermedio), 35–59 % (Inicial) de respuestas correctas",
