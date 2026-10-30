@@ -1038,6 +1038,18 @@ function copiaLimpiaPractica(c,existentes){
   if(n.payroll){n.payroll.runs=[];n.payroll.evals=[];delete n.payroll.evalM;delete n.payroll.evalA}
   return n;
 }
+// Pone a las copias de los estudiantes el mismo tipo (categoría) que la empresa del profesor.
+async function igualarTipoEstudiantes(nombre,cat){
+  const nom=String(nombre||"").trim().toLowerCase();let n=0;
+  const lista=await APP.store.listTrabajosEstudiantes();
+  for(const w of lista){
+    if(!w.companies.some(c=>nomPractica(c)===nom&&catDe(c)!==cat))continue;
+    await APP.store.updateEmpresaEstudiante_todas(w.id,c=>{if(nomPractica(c)===nom)c.categoria=cat});n++;
+  }
+  return n;
+}
+// Tipo que tiene esta práctica en la cuenta del profesor (si lo tiene y es distinto al del grupo).
+function tipoDelProfe(g){const p=(APP.companies||[]).find(c=>nomPractica(c)===nomPractica(g.rows[0]&&g.rows[0].c));return p&&p.categoria?catDe(p):null}
 function viewPorEmpresa(){
   const d=APP.empData;
   if(!d)return '<div class="loading">Cargando empresas de los estudiantes…</div>';
@@ -1058,6 +1070,7 @@ function viewPorEmpresa(){
      const entregadas=g.rows.filter(r=>r.c.entregado).length;
      return `<details class="panel"${APP.revOpen&&APP.revOpen[g.key]?" open":""}><summary style="cursor:pointer;font-weight:700">${chipCat(g.cat)} ${esc(g.name)} <small class="muted" style="font-weight:400">· ${g.rows.length} estudiante(s)${CATS[g.cat].una?` · ${entregadas} entregaron`:""}</small></summary>
       <div class="row" style="margin-top:8px"><button class="btn sm ${APP.revPrac&&APP.revPrac[g.key]?"primary":"pop"}" data-act="toggleRevPractica" data-key="${esc(g.key)}">📊 Evaluación y revisión de ${CATS[g.cat].practica?"esta práctica":"este trabajo"}</button></div>${APP.revPrac&&APP.revPrac[g.key]?revisionDePractica(g):""}
+      ${(()=>{const t=tipoDelProfe(g);return t&&t!==g.cat?`<div class="row" style="margin-top:8px;align-items:center"><span class="chip tG" style="font-size:.78rem">⚠️ En su cuenta es ${CATS[t].icon} ${CATS[t].corto}, pero ${g.rows.length} estudiante(s) la tienen como ${CATS[g.cat].icon} ${CATS[g.cat].corto}</span><button class="btn sm pop" data-act="igualarTipo" data-key="${esc(g.key)}">🔁 Igualar el tipo al de mi cuenta</button></div>`:""})()}
       ${(()=>{const f=faltantesDeGrupo(g);return f.length?`<div class="row" style="margin-top:8px;align-items:center"><span class="chip tG" style="font-size:.78rem">⚠️ No la tienen (${f.length}): ${f.map(w=>esc(w.nombre)).join(", ")}</span><button class="btn sm pop" data-act="enviarFaltantes" data-key="${esc(g.key)}">📤 Enviarla a ${f.length===1?"ese estudiante":"esos "+f.length+" estudiantes"}</button></div>`:""})()}
       <div class="row" style="margin-top:8px"><button class="btn sm danger" data-act="delPracticaTodos" data-key="${esc(g.key)}">Eliminar ${CATS[g.cat].practica?"esta práctica":"este trabajo"} de todos los estudiantes</button></div>
       <div class="tbl" style="margin-top:10px"><table><thead><tr><th>Estudiante</th><th>Estado</th><th class="r">Asientos</th><th>Machote de planilla</th><th>Asiento de planilla</th><th>Evaluación</th>${CATS[g.cat]?"<th>Eval. machote</th><th>Eval. asiento</th>":""}<th></th></tr></thead><tbody>
@@ -3016,6 +3029,11 @@ document.addEventListener("click",async e=>{
   if(a==="revTab"){APP.revTab=APP.revTab||{};APP.revTab[b.dataset.key]=b.dataset.t;if(b.dataset.t==="ind"&&!APP.indData){render();cargarIndicadoresLms().then(()=>render()).catch(()=>{APP.indData={materias:[],indicadores:[]};render()});return}APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
   if(a==="toggleRevPractica"){APP.revPrac=APP.revPrac||{};APP.revPrac[b.dataset.key]=!APP.revPrac[b.dataset.key];APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
   if(a==="toggleRevGeneral"){APP.revGeneral=!APP.revGeneral;render();return}
+  if(a==="igualarTipo"){(async()=>{const key=b.dataset.key;let row=null;
+    for(const w of (APP.empData||[])){const c=w.companies.find(c=>claveGrupo(c)===key);if(c){row=c;break}}
+    if(!row)return;const g={rows:[{c:row}]},t=tipoDelProfe(g);if(!t)return;
+    b.disabled=true;try{const n=await igualarTipoEstudiantes(row.name,t);toast(`Tipo igualado en ${n} estudiante(s) ✓`)}catch(e){toast("No se pudo igualar el tipo")}
+    APP.revOpen=APP.revOpen||{};APP.revOpen[claveGrupo({name:row.name,categoria:t})]=true;await loadEmpData()})();return}
   if(a==="enviarFaltantes"){(async()=>{const key=b.dataset.key;
     const by=[];for(const w of (APP.empData||[]))for(const c of w.companies)if(claveGrupo(c)===key)by.push({w,c});
     const g={key,rows:by},falt=faltantesDeGrupo(g);if(!falt.length)return;
@@ -3119,7 +3137,10 @@ document.addEventListener("submit",async e=>{
     if(APP.companies.some(x=>x.code===code&&x.id!==APP.editCo)){toast("Ya tienes una empresa con el código "+code);return}
     if(APP.editCo){const x=APP.companies.find(y=>y.id===APP.editCo);
       if(tareaBloqueada(x)){toast("Esta tarea ya fue entregada y no se puede editar");APP.editCo=null;render();return}
-      Object.assign(x,{code,name,cedula:val("coCed").trim(),currency:val("coCur"),period:+val("coPer")||x.period,categoria:normCat(val("coCat"))});touch(x);APP.editCo=null;render();toast("Datos actualizados");return}
+      const catAntes=x.categoria,catNueva=(!isTeacher()&&esAsignada(x))?x.categoria:normCat(val("coCat")); // el estudiante no cambia el tipo de lo que asignó el profe
+      Object.assign(x,{code,name,cedula:val("coCed").trim(),currency:val("coCur"),period:+val("coPer")||x.period,categoria:catNueva});touch(x);APP.editCo=null;render();toast("Datos actualizados");
+      if(isTeacher()&&catAntes!==catNueva)igualarTipoEstudiantes(name,catNueva).then(n=>{if(n)toast(`Tipo actualizado también en ${n} estudiante(s)`)}).catch(()=>{});
+      return}
     const n=newCompany({name,code,cedula:val("coCed").trim(),currency:val("coCur"),period:val("coPer")||2026,base:document.getElementById("coBase").checked,sample:document.getElementById("coSample").checked,categoria:val("coCat")});
     APP.companies.push(n);APP.activeId=n.id;APP.view="catalogo";touch(n);resetDraft();render();toast(`Empresa ${code} creada`);
   }
