@@ -1024,11 +1024,12 @@ function revisionDePractica(g){
    </tbody></table></div>`:""}
    </div>`;
 }
-// Estudiantes de las mismas secciones que no tienen esta práctica / tarea.
+const nomPractica=c=>String((c&&c.name)||"").trim().toLowerCase();
+// Estudiantes de las mismas secciones que no tienen esta práctica / tarea (con ningún tipo).
 function faltantesDeGrupo(g){
   if(!g.rows.some(r=>esAsignada(r.c)))return [];
-  const secs=new Set(g.rows.map(r=>r.w.seccion).filter(Boolean)),con=new Set(g.rows.map(r=>r.w.id));
-  return (APP.empData||[]).filter(w=>secs.has(w.seccion)&&!con.has(w.id)).sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  const nom=nomPractica(g.rows[0].c),secs=new Set(g.rows.map(r=>r.w.seccion).filter(Boolean));
+  return (APP.empData||[]).filter(w=>secs.has(w.seccion)&&!w.companies.some(c=>nomPractica(c)===nom)).sort((a,b)=>a.nombre.localeCompare(b.nombre));
 }
 // Copia limpia (sin el avance de nadie) de una práctica asignada.
 function copiaLimpiaPractica(c,existentes){
@@ -3021,7 +3022,7 @@ document.addEventListener("click",async e=>{
     const molde=(by.find(r=>!(r.c.entries||[]).length&&!r.c.entregado)||by[0]).c;
     b.disabled=true;let ok=0,fail=0;
     for(const w of falt){try{const store=supabaseStudentStore(w.id);const cs=await store.loadWork();
-      if(cs.some(x=>claveGrupo(x)===key)){ok++;continue}
+      if(cs.some(x=>nomPractica(x)===nomPractica(molde))){ok++;continue}
       cs.push(copiaLimpiaPractica(molde,cs));await store.saveWork(null,null,cs);ok++}catch(e){fail++}}
     toast(fail?`Enviada a ${ok}; ${fail} con error`:`Enviada a ${ok} estudiante(s) ✓`);
     APP.revOpen=APP.revOpen||{};APP.revOpen[key]=true;await loadEmpData()})();return}
