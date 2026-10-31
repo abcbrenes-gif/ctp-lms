@@ -917,3 +917,4 @@ table.grades td.num.low { color: var(--danger-text); font-weight: 700; }
   .menu-est .acceso-btn { flex-basis: auto; }
   .menu-est .tab-btn { width: calc(50% - 0.4rem); }
 }
+.tab-btn.tab-enlace { text-decoration: none; }
