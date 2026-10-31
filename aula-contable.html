@@ -603,6 +603,15 @@ function ventanaEstado(c){
   return {estado:"abierta",msg:"Práctica abierta"+(v.fin?" hasta el "+f(v.fin)+".":".")};
 }
 const ventanaBloqueada=c=>{const e=ventanaEstado(c);return !!e&&e.estado!=="abierta"};
+// Cierre del trabajo (horario con terminación ya vencida), sin importar quién lo mire.
+const finVentana=c=>{const v=c&&c.evalCfg&&c.evalCfg.ventana;return v&&v.fin?new Date(v.fin).getTime():null};
+const yaCerro=c=>{const f=finVentana(c);return !!f&&Date.now()>f};
+const trabajoHecho=c=>{const p=(c&&c.payroll)||{};return !!((c.entries||[]).length||(p.runs||[]).length||(p.evals||[]).length||(p.sheet&&Object.values(p.sheet).some(x=>Object.values(x||{}).some(v=>String(v??"").trim()!==""))))};
+// «No realizó el trabajo en el tiempo asignado»: cerró y no entregó (tareas, evaluativas, en casa) o no trabajó nada (prácticas).
+function noRealizado(c){if(!c||!yaCerro(c))return null;if(unaEntrega(c)){if(c.entregado)return null;return trabajoHecho(c)?"avance":"nada"}return trabajoHecho(c)?null:"nada"}
+const leyendaNoRealizado=c=>{const k=noRealizado(c);return k==="nada"?"No realizó el trabajo en el tiempo asignado":k==="avance"?"No entregó el trabajo en el tiempo asignado (quedó con avance)":""};
+// El solucionario lo ve el estudiante cuando está publicado y su trabajo ya cerró (o no tiene horario).
+const veSolucionario=c=>!!(c&&c.evalCfg&&c.evalCfg.solucion&&c.evalCfg.solucion.on)&&(!finVentana(c)||yaCerro(c));
 const tareaBloqueada=c=>!isTeacher()&&!!(c&&unaEntrega(c)&&c.entregado);
 
 /* Guardado agrupado: una escritura a la vez */
@@ -706,6 +715,7 @@ function render(){
   let html=pv;
   const vEst=ventanaEstado(co());
   if(vEst)html+=`<div class="banner" style="${vEst.estado==="abierta"?"":"background:var(--bad,#b3261e);color:#fff"}"><span>⏰ ${esc(vEst.msg)}</span></div>`;
+  if(!isTeacher()&&co()&&leyendaNoRealizado(co()))html+=`<div class="banner" style="background:var(--bad,#b3261e);color:#fff"><span>❌ <b>${esc(leyendaNoRealizado(co()))}.</b>${veSolucionario(co())?" Abajo, en Planillas, está el solucionario para que lo revisés.":""}</span></div>`;
   if(APP.demo)html+=`<div class="banner"><span>Modo demostración: practica libremente, los cambios no se guardan.</span><button class="btn sm" data-act="logout">Salir de la demostración</button></div>`;
   if(APP.viewing)html+=`<div class="banner"><span>Revisando la entrega de ${esc(APP.viewing.nombre)} · ${esc(fmtDate(APP.viewing.fecha))} (solo lectura)</span><button class="btn sm" data-act="stopViewing">Volver a las entregas</button></div>`;
   if(!isUnlocked(APP.view))html+=viewLocked(APP.view);
@@ -1038,7 +1048,7 @@ function faltantesDeGrupo(g){
 }
 // Copia limpia (sin el avance de nadie) de una práctica asignada.
 function copiaLimpiaPractica(c,existentes){
-  const n=clone(c);n.id=uid();n.code=nextCodeFor(existentes);n.entries=[];n.entregado=false;n.asignada=true;
+  const n=clone(c);n.id=uid();n.code=nextCodeFor(existentes);n.entries=[];n.entregado=false;n.asignada=true;n.asignadaEl=new Date().toISOString();
   delete n.entregadoFecha;delete n.resumenInforme;
   if(n.payroll){n.payroll.runs=[];n.payroll.evals=[];delete n.payroll.evalM;delete n.payroll.evalA}
   return n;
@@ -1056,6 +1066,60 @@ async function igualarTipoEstudiantes(nombre,cat){
 // Tipo que tiene esta práctica en la cuenta del profesor (si lo tiene y es distinto al del grupo).
 function tipoDelProfe(g){const p=(APP.companies||[]).find(c=>nomPractica(c)===nomPractica(g.rows[0]&&g.rows[0].c));return p&&p.categoria?catDe(p):null}
 document.addEventListener("toggle",e=>{const d=e.target;if(!d||!d.dataset||!d.dataset.gkey)return;APP.revOpen=APP.revOpen||{};APP.revOpen[d.dataset.gkey]=d.open},true);
+// ───── Cierre de trabajos: cierra (horario terminado) y publica el solucionario de
+// varios trabajos a la vez, con prórroga para algunos estudiantes.
+// Fecha en que se le asignó la copia: asignadaEl, o la marca de tiempo del id (uid empieza con Date.now() en base 36).
+const fechaAsignada=c=>{if(c&&c.asignadaEl)return new Date(c.asignadaEl);const t=parseInt(String(c&&c.id||"").slice(0,8),36);return t>1.6e12&&t<4e12?new Date(t):null};
+const diaLocal=d=>{const z=n=>String(n).padStart(2,"0");return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`};
+const isoLocalInput=d=>{const z=n=>String(n).padStart(2,"0");return `${diaLocal(d)}T${z(d.getHours())}:${z(d.getMinutes())}`};
+function cierreGrupos(){
+  const by={};for(const w of (APP.empData||[]))for(const c of w.companies){const n=nomPractica(c);(by[n]=by[n]||{nom:n,name:String(c.name||"").trim(),cats:new Set(),rows:[]}).rows.push({w,c});by[n].cats.add(catDe(c))}
+  return Object.values(by).filter(g=>g.rows.some(r=>esAsignada(r.c))).sort((a,b)=>a.name.localeCompare(b.name));
+}
+function viewCierre(){
+  const G=cierreGrupos(),ayer=diaLocal(new Date(Date.now()-864e5));
+  const st=APP.cierre=APP.cierre||{};
+  if(!st.init){st.init=true;st.fecha=isoLocalInput(new Date());st.dias=2;st.sel={};st.sol={};st.exc={};
+    for(const g of G){const t2=/^tarea\s*2$/.test(g.nom);st.sel[g.nom]=!t2&&!g.rows.every(r=>yaCerro(r.c));st.sol[g.nom]=!t2;
+      for(const r of g.rows){const f=fechaAsignada(r.c);if(f&&diaLocal(f)===ayer)st.exc[r.w.id+"|"+g.nom]=true}}}
+  const excs=G.flatMap(g=>g.rows.filter(r=>st.exc[r.w.id+"|"+g.nom]).map(r=>({g,r})));
+  return `<div class="panel stack" style="margin:-4px 0 14px;border:2px solid var(--pop,#6d5dfc)">
+    <div class="row" style="justify-content:space-between;align-items:center"><h3 style="margin:0">🏁 Cerrar trabajos y dar solución</h3><button class="btn sm ghost" data-act="cierreToggle">Cerrar este panel</button></div>
+    <p class="muted" style="margin:0;font-size:.88rem">Al aplicar, cada trabajo marcado queda <b>cerrado</b> (el estudiante lo ve pero ya no puede guardar ni entregar) y, si marca «Dar solución», cada estudiante ve el <b>solucionario</b> apenas se le cierre. A quien no lo hizo le aparece <b>«No realizó el trabajo en el tiempo asignado»</b>. Los estudiantes con prórroga siguen trabajando y ven la solución hasta que se les cierre.</p>
+    <div class="row" style="gap:12px;align-items:flex-end;flex-wrap:wrap"><div class="field" style="flex:0 1 230px;margin:0"><label>Cerrar el</label><input type="datetime-local" id="ciFecha" value="${esc(st.fecha)}"></div>
+      <div class="field" style="flex:0 1 160px;margin:0"><label>Prórroga (días)</label><input type="number" id="ciDias" min="1" max="15" value="${esc(st.dias)}"></div></div>
+    <div class="tbl"><table><thead><tr><th>Trabajo</th><th>Tipo</th><th class="r">Estudiantes</th><th class="r">Entregados / con trabajo</th><th>Cerrar</th><th>Dar solución</th></tr></thead><tbody>
+    ${G.map(g=>{const ent=g.rows.filter(r=>r.c.entregado).length,con=g.rows.filter(r=>trabajoHecho(r.c)).length,cer=g.rows.filter(r=>yaCerro(r.c)).length;
+      return `<tr><td><b>${esc(g.name)}</b>${cer?`<br><small class="muted">🔒 ya cerrado para ${cer}</small>`:""}</td><td>${[...g.cats].map(chipCat).join(" ")}</td><td class="r num">${g.rows.length}</td><td class="r num">${ent} / ${con}</td>
+        <td><input type="checkbox" data-ci-sel="${esc(g.nom)}" ${st.sel[g.nom]?"checked":""}></td><td><input type="checkbox" data-ci-sol="${esc(g.nom)}" ${st.sol[g.nom]?"checked":""}></td></tr>`}).join("")}</tbody></table></div>
+    <div><b>⏳ Con prórroga de ${esc(st.dias)} día(s)</b> <small class="muted">— marcados solos: a quienes se les asignó el trabajo ayer (${esc(ayer)}). Puede agregar o quitar.</small>
+      <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px">${excs.length?excs.map(({g,r})=>`<span class="chip tG" style="font-size:.78rem">${esc(r.w.nombre)} · ${esc(g.name)} <button class="btn sm ghost" style="padding:0 4px" data-act="ciExcQuitar" data-k="${esc(r.w.id+"|"+g.nom)}" title="Quitar prórroga">✕</button></span>`).join(""):'<small class="muted">Nadie.</small>'}</div>
+      <div class="row" style="gap:6px;align-items:flex-end;flex-wrap:wrap;margin-top:6px"><div class="field" style="flex:0 1 260px;margin:0"><label>Agregar estudiante</label><select id="ciExcEst"><option value="">Escoja…</option>${[...new Map((APP.empData||[]).map(w=>[w.id,w])).values()].sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(w=>`<option value="${esc(w.id)}">${esc(w.nombre)} (${esc(w.seccion||"")})</option>`).join("")}</select></div>
+        <div class="field" style="flex:0 1 260px;margin:0"><label>En el trabajo</label><select id="ciExcTra"><option value="*">Todos los trabajos marcados</option>${G.map(g=>`<option value="${esc(g.nom)}">${esc(g.name)}</option>`).join("")}</select></div>
+        <button class="btn sm" data-act="ciExcAgregar">＋ Agregar prórroga</button></div></div>
+    <div class="row" style="align-items:center;gap:10px"><button class="btn primary" data-act="ciAplicar">🏁 Aplicar cierre</button><span class="muted" id="ciEstado"></span></div>
+  </div>`;
+}
+async function aplicarCierre(btn){
+  const st=APP.cierre,G=cierreGrupos(),cierre=new Date(st.fecha),dias=Math.max(1,Math.min(15,+st.dias||2));
+  if(isNaN(cierre))return toast("Revise la fecha de cierre");
+  const prorroga=new Date(cierre.getTime()+dias*864e5);
+  const tareas=[];for(const g of G){if(!st.sel[g.nom])continue;for(const r of g.rows)tareas.push({g,r,exc:!!st.exc[r.w.id+"|"+g.nom]})}
+  // «Dar solución» sin «Cerrar»: se publica el solucionario y el trabajo sigue como esté.
+  const soloSol=[];for(const g of G){if(st.sel[g.nom]||!st.sol[g.nom])continue;if(g.rows.some(r=>!(r.c.evalCfg&&r.c.evalCfg.solucion&&r.c.evalCfg.solucion.on)))for(const r of g.rows)soloSol.push({g,r})}
+  if(!tareas.length&&!soloSol.length)return toast("No marcó ningún trabajo");
+  const nExc=tareas.filter(t=>t.exc).length;
+  if(!confirm(`${soloSol.length?`Se publica el solucionario (sin cerrar) de ${new Set(soloSol.map(t=>t.g.nom)).size} trabajo(s). `:""}Se van a cerrar ${G.filter(g=>st.sel[g.nom]).length} trabajo(s) para ${tareas.length-nExc} copia(s) de estudiantes el ${cierre.toLocaleString("es-CR")}${nExc?`, y ${nExc} quedan abiertas hasta el ${prorroga.toLocaleString("es-CR")}`:""}. ¿Continuar?`))return;
+  btn.disabled=true;let ok=0,fail=0;const est=document.getElementById("ciEstado");
+  for(const t of tareas){
+    try{await APP.store.updateEmpresaEstudiante(t.r.w.id,t.r.c.id,x=>{const cfg=evCfg(x);cfg.ventana={inicio:(cfg.ventana&&cfg.ventana.inicio)||null,fin:(t.exc?prorroga:cierre).toISOString()};if(st.sol[t.g.nom])cfg.solucion.on=true;cfg.cierre={fecha:(t.exc?prorroga:cierre).toISOString(),prorroga:t.exc}});ok++}
+    catch(e){fail++}
+    if(est)est.textContent=`Aplicando… ${ok+fail}/${tareas.length+soloSol.length}`;
+  }
+  for(const t of soloSol){try{await APP.store.updateEmpresaEstudiante(t.r.w.id,t.r.c.id,x=>{evCfg(x).solucion.on=true});ok++}catch(e){fail++}if(est)est.textContent=`Aplicando… ${ok+fail}/${tareas.length+soloSol.length}`}
+  toast(fail?`Cierre aplicado a ${ok}; ${fail} con error`:`Cierre aplicado a ${ok} copia(s) ✓`);
+  APP.cierre=null;APP.cierreAbierto=false;await loadEmpData();
+}
 // Detalle de cada contador de «Entregas recibidas»: quién entregó, quién falta, etc.
 function detallePill(k){
   const d=APP.empData||[],qs=APP.pillSec||"";const L=d.filter(w=>!qs||w.seccion===qs).sort((a,b)=>(a.seccion||"").localeCompare(b.seccion||"")||a.nombre.localeCompare(b.nombre));
@@ -1068,7 +1132,7 @@ function detallePill(k){
   const nom=w=>`<b>${esc(w.nombre)}</b> <small class="muted">${esc(w.seccion||"")}</small>`;
   if(k==="entregados"){const rows=[];for(const w of L)for(const c of w.companies)if(unaEntrega(c)&&c.entregado)rows.push(`<tr><td>${nom(w)}</td><td>${chipCat(catDe(c))} ${esc(c.name)}</td><td>${fecha(c.entregadoFecha)}</td></tr>`);
     return caja("✅ Trabajos entregados",["Estudiante","Trabajo","Entregado el"],rows)}
-  if(k==="pendientes"){const rows=[];for(const w of L)for(const c of w.companies)if(unaEntrega(c)&&!c.entregado){const t=trabajo(c);rows.push(`<tr><td>${nom(w)}</td><td>${chipCat(catDe(c))} ${esc(c.name)}</td><td>${t?'<span class="chip tG" style="font-size:.7rem">En proceso</span>':'<span class="chip" style="font-size:.7rem">⏳ Sin empezar</span>'}</td><td>${fecha(w.actualizado)}</td></tr>`)}
+  if(k==="pendientes"){const rows=[];for(const w of L)for(const c of w.companies)if(unaEntrega(c)&&!c.entregado){const t=trabajo(c);rows.push(`<tr><td>${nom(w)}</td><td>${chipCat(catDe(c))} ${esc(c.name)}</td><td>${leyendaNoRealizado(c)?`<span class="chip" style="font-size:.7rem;background:var(--badbg);color:var(--bad)">❌ ${esc(leyendaNoRealizado(c))}</span>`:t?'<span class="chip tG" style="font-size:.7rem">En proceso</span>':'<span class="chip" style="font-size:.7rem">⏳ Sin empezar</span>'}</td><td>${fecha(w.actualizado)}</td></tr>`)}
     return caja("⏳ Trabajos pendientes de entregar",["Estudiante","Trabajo","Avance","Último guardado del estudiante"],rows)}
   if(k==="practicas"){const by={};for(const w of L)for(const c of w.companies)if(!unaEntrega(c)){const n=String(c.name||"").trim();const g=by[n.toLowerCase()]=by[n.toLowerCase()]||{n,tot:0,con:[],sin:[]};g.tot++;(trabajo(c)?g.con:g.sin).push(w.nombre)}
     const rows=Object.values(by).sort((a,b)=>a.n.localeCompare(b.n)).map(g=>`<tr><td><b>${esc(g.n)}</b></td><td class="num">${g.tot}</td><td class="num">${g.con.length}</td><td><small class="muted">${g.sin.length?esc(g.sin.join(", ")):"—"}</small></td></tr>`);
@@ -1106,7 +1170,7 @@ function viewPorEmpresa(){
       <div class="row" style="margin-top:8px"><button class="btn sm danger" data-act="delPracticaTodos" data-key="${esc(g.key)}">Eliminar ${CATS[g.cat].practica?"esta práctica":"este trabajo"} de todos los estudiantes</button></div>
       <div class="tbl" style="margin-top:10px"><table><thead><tr><th>Estudiante</th><th>Estado</th><th class="r">Asientos</th><th>Machote de planilla</th><th>Asiento de planilla</th><th>Evaluación</th>${CATS[g.cat]?"<th>Eval. machote</th><th>Eval. asiento</th>":""}<th></th></tr></thead><tbody>
       ${rows.map(({w,c})=>{let R;try{R=plResumen([c])}catch(e){R=null}
-        const est=c.entregado?`<span class="chip tC" style="font-size:.7rem">✓ Entregada</span><br><small class="muted">${esc(fmtDate(c.entregadoFecha))}</small>`:(CATS[g.cat].una?'<span class="chip tG" style="font-size:.7rem">En proceso</span>':'<small class="muted">Práctica</small>');
+        const est=c.entregado?`<span class="chip tC" style="font-size:.7rem">✓ Entregada</span><br><small class="muted">${esc(fmtDate(c.entregadoFecha))}</small>`:leyendaNoRealizado(c)?`<span class="chip" style="font-size:.7rem;background:var(--badbg);color:var(--bad)">❌ ${esc(leyendaNoRealizado(c))}</span>`:(CATS[g.cat].una?'<span class="chip tG" style="font-size:.7rem">En proceso</span>':'<small class="muted">Práctica</small>')+(finVentana(c)&&!yaCerro(c)?`<br><small class="muted">⏰ Cierra el ${esc(fmtDate(new Date(finVentana(c)).toISOString()))}</small>`:"");
         return `<tr><td><b>${esc(w.nombre)}</b><br><span class="code">${esc(w.id)}</span>${w.seccion?` <small class="muted">${esc(w.seccion)}</small>`:""}</td><td>${est}</td><td class="r num">${(c.entries||[]).length}</td>
          <td>${R&&R.casTot?bar(R.casOk,R.casTot):'<small class="muted">Sin empezar</small>'}</td>
          <td>${R&&R.asPlIntentos?`${R.asPlOk?'<span class="chip tI">Resuelto</span>':'<span class="chip tG">Pendiente</span>'}<br><small class="muted">${R.asPlIntentos} intento(s)</small>`:'<small class="muted">Sin empezar</small>'}</td>
@@ -1124,10 +1188,10 @@ function viewEntregas(){
   const shown=l?l.filter(e=>!q||(e.nombre+" "+e.usuario).toLowerCase().includes(q)):[];
   return `<div class="head"><div><div class="eyebrow">Panel del profesor</div><h2>Entregas recibidas</h2>
      <p>El trabajo de cada estudiante en Aula de Conta, en vivo: revíselo por empresa o por estudiante.</p></div>
-     <button class="btn ghost" data-act="reloadEntregas">↻ Actualizar</button></div>
+     <div class="row" style="gap:8px"><button class="btn pop" data-act="cierreToggle">🏁 Cerrar trabajos y dar solución</button><button class="btn ghost" data-act="reloadEntregas">↻ Actualizar</button></div></div>
    ${(()=>{const d=APP.empData;if(!d)return "";let t=0,e=0,pr=0;for(const w of d)for(const c of w.companies){if(unaEntrega(c)){t++;if(c.entregado)e++}else pr++}
      const pb=(k,cls,html)=>`<button type="button" class="pill ${cls} pillbtn ${APP.pillVer===k?"on":""}" data-act="pillVer" data-k="${k}" aria-expanded="${APP.pillVer===k}">${html} <span class="muted" style="font-weight:400">${APP.pillVer===k?"▴":"▾"}</span></button>`;
-     return `<div class="pills">${pb("entregados","ok",`✅ <b>${e}/${t}</b> trabajos entregados`)}${pb("pendientes","warn",`⏳ <b>${t-e}</b> pendientes`)}${pb("practicas","info",`🔄 <b>${pr}</b> prácticas`)}${pb("estudiantes","",`🎓 <b>${d.length}</b> estudiantes`)}${pb("codigo","",`📥 <b>${(APP.entregas||[]).length}</b> entregas por código`)}</div>${APP.pillVer?detallePill(APP.pillVer):""}`})()}
+     return `<div class="pills">${pb("entregados","ok",`✅ <b>${e}/${t}</b> trabajos entregados`)}${pb("pendientes","warn",`⏳ <b>${t-e}</b> pendientes`)}${pb("practicas","info",`🔄 <b>${pr}</b> prácticas`)}${pb("estudiantes","",`🎓 <b>${d.length}</b> estudiantes`)}${pb("codigo","",`📥 <b>${(APP.entregas||[]).length}</b> entregas por código`)}</div>${APP.pillVer?detallePill(APP.pillVer):""}${APP.cierreAbierto?viewCierre():""}`})()}
    <div class="stack">
     <details class="panel"${APP.modulosOpen!==false?" open":""} id="modulosBox"><summary style="cursor:pointer;font-weight:800;font-family:var(--f-display);font-size:1.05rem">🔓 Módulos habilitados</summary>
      <p class="muted" style="margin:8px 0 12px">Activa o desactiva cada módulo para todos los estudiantes a la vez. Empresas y Catálogo están disponibles siempre.</p>
@@ -1153,7 +1217,7 @@ VIEWS.empresas=()=>{
   const cards=sortCos(APP.companies).map(c=>{const bloq=tareaBloqueada(c);return `<article class="co ${co()&&c.id===co().id?"on":""}">
     <div><div class="row" style="gap:6px;align-items:center;flex-wrap:wrap"><span class="code">${esc(c.code||"Sin código")}</span><span class="eyebrow">Periodo ${c.period}</span>
       ${chipCat(c.categoria)}
-      ${c.entregado?'<span class="chip tC" style="font-size:.7rem">✓ Entregada</span>':""}</div>
+      ${c.entregado?'<span class="chip tC" style="font-size:.7rem">✓ Entregada</span>':""}${leyendaNoRealizado(c)?`<span class="chip" style="font-size:.7rem;background:var(--badbg);color:var(--bad)">❌ ${esc(leyendaNoRealizado(c))}</span>`:yaCerro(c)?'<span class="chip" style="font-size:.7rem">🔒 Cerrada</span>':finVentana(c)?`<span class="chip tG" style="font-size:.7rem">⏰ Cierra el ${esc(fmtDate(new Date(finVentana(c)).toISOString()))}</span>`:""}</div>
       <h3 style="margin-top:6px">${esc(c.name)}</h3><div class="muted" style="font-size:.85rem">Céd. jurídica ${esc(c.cedula||"—")}</div></div>
     <div class="stats"><span><b>${c.accounts.length}</b>cuentas</span><span><b>${c.entries.length}</b>asientos</span><span><b>${esc(c.currency)}</b>moneda</span></div>
     ${c.pdfInstrucciones?`<div><a class="btn sm secondary" href="${c.pdfInstrucciones}" target="_blank" rel="noopener">📄 Instrucciones (PDF)</a></div>`:""}
@@ -1590,7 +1654,7 @@ async function crearPracticaParaClase({nombreEmpresa,cantidad,seccion,nivel:nive
   const anio=new Date().getFullYear();
   const armarEmpresa=(code,pdfUrl)=>({
     id:uid(),code,name:nombreEmpresa,cedula:"",currency:"₡",period:anio,categoria:normCat(categoria),entregado:false,
-    nivelPractica:nivel,pdfInstrucciones:pdfUrl||null,asignada:true,
+    nivelPractica:nivel,pdfInstrucciones:pdfUrl||null,asignada:true,asignadaEl:new Date().toISOString(),
     accounts:BASE.map(a=>({...a})),entries:[],
     payroll:{params:clone(PL_DEFAULT),employees:colaboradoresBase.map(e=>({...e,id:uid()})),runs:[],evals:[]}
   });
@@ -2426,7 +2490,7 @@ function plViewPractica(c,p){
   return `<div class="stack">
    ${!isTeacher()&&!APP.demo&&p.employees.length?plSheetFormHTML(c,p):""}
    ${!isTeacher()&&!APP.demo&&c.evalCfg&&c.evalCfg.pdf&&c.evalCfg.pdf.on?`<div class="panel row" style="align-items:center;gap:10px"><b>📄 Resultados de tu práctica</b>${p.pdfResultados&&p.pdfResultados.url?`<a class="btn sm primary" href="${esc(p.pdfResultados.url)}" target="_blank" rel="noopener">Descargar mi PDF</a><small class="muted">Guardado el ${esc(fmtDate(p.pdfResultados.fecha))}</small>`:'<small class="muted">Se genera cuando guardás la planilla.</small>'}</div>`:""}
-   ${!isTeacher()&&!APP.demo&&c.evalCfg&&c.evalCfg.solucion&&c.evalCfg.solucion.on?`<div class="panel stack"><h3>✅ Solucionario y cálculos</h3>${solucionarioHTML(c,true)}</div>`:""}
+   ${!isTeacher()&&!APP.demo&&veSolucionario(c)?`<div class="panel stack"><h3>✅ Solucionario y cálculos</h3>${solucionarioHTML(c,true)}</div>`:""}
    <div class="row" style="align-items:center"><div class="tabs" style="margin:0">
      ${isTeacher()||APP.demo?`<button class="tab ${!ev?"on":""}" data-pact="mode" data-m="practica">Modo práctica</button>`:""}
      <button class="tab ${ev?"on":""}" data-pact="mode" data-m="evaluacion">Modo evaluación · una oportunidad</button></div>
@@ -3084,6 +3148,11 @@ document.addEventListener("click",async e=>{
   if(a==="revTab"){APP.revTab=APP.revTab||{};APP.revTab[b.dataset.key]=b.dataset.t;if(b.dataset.t==="ind"&&!APP.indData){render();cargarIndicadoresLms().then(()=>render()).catch(()=>{APP.indData={materias:[],indicadores:[]};render()});return}APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
   if(a==="toggleRevPractica"){APP.revPrac=APP.revPrac||{};APP.revPrac[b.dataset.key]=!APP.revPrac[b.dataset.key];APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
   if(a==="toggleRevGeneral"){APP.revGeneral=!APP.revGeneral;render();return}
+  if(a==="cierreToggle"){APP.cierreAbierto=!APP.cierreAbierto;if(!APP.cierreAbierto)APP.cierre=null;render();return}
+  if(a==="ciExcQuitar"){delete APP.cierre.exc[b.dataset.k];render();return}
+  if(a==="ciExcAgregar"){const e=val("ciExcEst"),t=val("ciExcTra");if(!e)return toast("Escoja un estudiante");
+    for(const g of cierreGrupos()){if(t!=="*"&&g.nom!==t)continue;if(t==="*"&&!APP.cierre.sel[g.nom])continue;if(g.rows.some(r=>r.w.id===e))APP.cierre.exc[e+"|"+g.nom]=true}render();return}
+  if(a==="ciAplicar"){aplicarCierre(b);return}
   if(a==="pillVer"){APP.pillVer=APP.pillVer===b.dataset.k?null:b.dataset.k;if(APP.pillVer==="codigo"&&!APP.entregas&&typeof loadEntregas==="function")loadEntregas();render();return}
   if(a==="verComparacion"){const k=b.dataset.est+"|"+b.dataset.co;APP.cmpVer=APP.cmpVer===k?null:k;
     APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true; // que la práctica siga abierta al volver a dibujar
@@ -3145,6 +3214,10 @@ document.addEventListener("input",e=>{
 document.addEventListener("change",e=>{
   if(e.target.id==="empSec"){APP.empSec=e.target.value;render();return}
   if(e.target.id==="pillSec"){APP.pillSec=e.target.value;render();return}
+  if(e.target.id==="ciFecha"&&APP.cierre){APP.cierre.fecha=e.target.value;return}
+  if(e.target.id==="ciDias"&&APP.cierre){APP.cierre.dias=+e.target.value||2;render();return}
+  if(e.target.dataset&&e.target.dataset.ciSel!==undefined&&APP.cierre){APP.cierre.sel[e.target.dataset.ciSel]=e.target.checked;return}
+  if(e.target.dataset&&e.target.dataset.ciSol!==undefined&&APP.cierre){APP.cierre.sol[e.target.dataset.ciSol]=e.target.checked;return}
   if(e.target.id==="coPick"){APP.activeId=e.target.value;APP.editAcc=null;resetDraft();if(["entregas","entregar"].includes(APP.view))APP.view="diario";render();toast("Trabajando en: "+co().name)}
   if(e.target.id==="mayorF"){APP.mayorF=e.target.value;render()}
   if(e.target.id==="aType"){const t=e.target.value;document.getElementById("aCls").innerHTML=Object.entries(CLS[t]).map(([k,v])=>`<option value="${k}">${v}</option>`).join("")}
