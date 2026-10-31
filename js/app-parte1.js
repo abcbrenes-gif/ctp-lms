@@ -35,6 +35,7 @@ async function render() {
   const subtemaMatch = hash.match(/^#\/subtema\/(.+)$/);
   const demoEstrategiaMatch = hash.match(/^#\/estrategias\/demo\/(.+)$/);
 
+  if (session.role === "estudiante" && typeof bitacoraRegistrar === "function") bitacoraRegistrar("plataforma"); // sesión ya abierta (otra pestaña o regreso)
   if (session.role === "estudiante" || previewEstudianteId) {
     // El estudiante (o el profesor en "Ver como estudiante") solo ve su propio
     // perfil, salvo apartado, subtema o curso interactivo (todos solo lectura/jugable),
@@ -67,6 +68,7 @@ async function render() {
   if (hash === "#/asistencia/resumen") return renderResumenAsistencia();
   if (hash === "#/asistencia/informe") return renderInformeAsistenciaSeccion();
   if (hash === "#/periodos") return renderPeriodos();
+  if (hash === "#/bitacora") return renderBitacora();
   const progUnidadMatch = hash.match(/^#\/programa\/(.+)$/);
   if (progUnidadMatch) return renderProgramaUnidad(decodeURIComponent(progUnidadMatch[1]));
   if (apartadoMatch) return renderApartado(decodeURIComponent(apartadoMatch[1]), false);
@@ -145,6 +147,7 @@ function renderLogin() {
           <label for="pin-est">PIN</label>
           <input id="pin-est" type="password" inputmode="numeric" maxlength="4" placeholder="••••" required />
           <button class="btn" type="submit" style="width:100%">Entrar</button>
+          <p style="font-size:0.78rem; color:var(--text-muted); margin:0.6rem 0 0; text-align:center;">🔒 Al entrar, tu ingreso queda registrado (fecha, hora y dispositivo) en una bitácora que ve tu profe.</p>
         </form>`;
     } else {
       wrap.innerHTML = `
@@ -180,6 +183,7 @@ function renderLogin() {
       }
       session = { role: "estudiante", id: data.id, nombre: `${data.nombre} ${data.apellido1}`, seccion: data.seccion };
       saveSession(session);
+      if (typeof bitacoraRegistrar === "function") bitacoraRegistrar("plataforma", true);
       location.hash = "#/";
       render();
     } else {
@@ -264,6 +268,7 @@ async function renderHome() {
     { href: "#/evaluaciones", icono: "📊", titulo: "Rúbrica y Evaluaciones", sub: "Categorías e indicadores de nota", cta: "Ver rúbrica →" },
     { href: "#/estrategias", icono: "🧪", titulo: "Estrategias de evaluación", sub: `Catálogo de ${Object.keys(ESTRATEGIAS_EVALUACION).length} estrategias para trabajos asignados`, cta: "Ver catálogo →" },
     { href: "#/mediacion", icono: "🎓", titulo: "Estrategias de mediación", sub: `Catálogo de ${Object.keys(ESTRATEGIAS_MEDIACION).length} formas de dar la clase, con pasos y guía en vivo`, cta: "Ver catálogo →" },
+    { href: "#/bitacora", icono: "🕓", titulo: "Bitácora de ingresos", sub: "Quién entró a la plataforma, cuándo, a qué módulo y desde qué dispositivo", cta: "Ver bitácora →" },
     { href: AULA_CONTABLE_URL, icono: "🧮", titulo: "Aula de Conta", sub: "Simulador del ciclo contable (NIC/NIIF)", cta: "Abrir aula →" },
     { href: "liquidaciones.html", icono: "📑", titulo: "Liquidaciones laborales", sub: "Preaviso, cesantía, vacaciones y aguinaldo: calculadora paso a paso y práctica", cta: "Abrir →" },
     { href: SIMULADOR_B2B_URL, icono: "🏆", titulo: "ContaRed", sub: "Simulador B2B de firmas contables (gamificado)", cta: "Abrir ContaRed →" },
@@ -2264,6 +2269,7 @@ async function renderPerfil(id, isSelf) {
 
       ${isSelf ? `<div id="pizarra-rapida-banner"></div>` : ""}
 
+      <div id="bitacora-panel" style="margin-bottom:1rem;"></div>
       <div id="logros-panel" style="margin-bottom:1.3rem;"></div>
 
       ${isSelf ? `<div style="margin-bottom:0.8rem;"><a href="#/estrategias" class="btn secondary small">🧪 Cómo se evalúa cada tipo de trabajo</a></div>` : ""}
@@ -2285,6 +2291,7 @@ async function renderPerfil(id, isSelf) {
     </div>`;
   bindTopbar();
 
+  pintarBitacoraPerfil(s, isSelf);
   const verComoBtn = document.getElementById("ver-como-estudiante");
   if (verComoBtn) verComoBtn.addEventListener("click", () => { previewEstudianteId = s.id; renderPerfil(s.id, true); });
   const reporteBtn = document.getElementById("generar-reporte-oficial-btn");
@@ -2543,4 +2550,67 @@ function resizeImageToDataUrl(file, maxSize, callback) {
     img.src = ev.target.result;
   };
   reader.readAsDataURL(file);
+}
+
+
+// ───── Bitácora de ingresos ─────
+// En el perfil: el estudiante ve el aviso y sus últimos ingresos; el docente, los del estudiante.
+async function pintarBitacoraPerfil(s, isSelf) {
+  const el = document.getElementById("bitacora-panel");
+  if (!el || typeof bitacoraDe !== "function") return;
+  const { filas, sinTabla } = await bitacoraDe(s.id, 10);
+  if (sinTabla) { el.innerHTML = isSelf ? `<p style="font-size:0.8rem; color:var(--text-muted); margin:0;">${BITACORA_AVISO}</p>` : ""; return; }
+  const lista = filas.map(f => `<li><strong>${bitacoraFecha(f.fecha)}</strong> <span style="color:var(--text-muted)">(${bitacoraHace(f.fecha)})</span> · ${BITACORA_MODULOS[f.modulo] || f.modulo}${f.dispositivo ? ` · <span style="color:var(--text-muted)">${f.dispositivo}</span>` : ""}</li>`).join("");
+  el.innerHTML = `<details class="whatsapp-panel" style="border-left:4px solid var(--ochre);">
+    <summary style="cursor:pointer;"><strong>🕓 ${isSelf ? "Tus ingresos" : "Ingresos del estudiante"}</strong> <span style="font-size:0.82rem; color:var(--text-muted);">· ${filas.length ? "último: " + bitacoraFecha(filas[0].fecha) + " (" + bitacoraHace(filas[0].fecha) + ")" : "sin ingresos registrados"}</span></summary>
+    ${isSelf ? `<p style="font-size:0.82rem; color:var(--text-muted); margin:0.4rem 0;">${BITACORA_AVISO}</p>` : ""}
+    ${filas.length ? `<ul style="font-size:0.84rem; margin:0.4rem 0 0; padding-left:1.1rem;">${lista}</ul>` : ""}
+  </details>`;
+}
+
+async function renderBitacora() {
+  const rango = sessionStorage.getItem("bitacora_rango") || "7", secSel = sessionStorage.getItem("bitacora_sec") || "";
+  app.innerHTML = `${topbar()}<div class="wrap"><a href="#/" class="btn secondary small" style="margin-bottom:1rem; display:inline-block;">&larr; Inicio</a>
+    <h1 style="margin:0 0 0.3rem;">🕓 Bitácora de ingresos</h1>
+    <p style="color:var(--text-muted); margin:0 0 1rem;">Cada vez que un estudiante entra a la plataforma, a Aula de Conta, a Liquidaciones o a Memoria Contable queda una línea con la fecha, la hora y el dispositivo. Los estudiantes ven el aviso al entrar y su propia lista en su perfil.</p>
+    <div style="display:flex; gap:0.6rem; flex-wrap:wrap; align-items:flex-end; margin-bottom:1rem;">
+      <label style="display:flex; flex-direction:column; font-size:0.8rem;">Período<select id="bit-rango">${[["1", "Hoy"], ["7", "Últimos 7 días"], ["30", "Últimos 30 días"], ["120", "Todo el período (120 días)"]].map(([v, t]) => `<option value="${v}" ${v === rango ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+      <label style="display:flex; flex-direction:column; font-size:0.8rem;">Sección<select id="bit-sec"><option value="">Todas</option></select></label>
+    </div>
+    <div id="bit-cuerpo">Cargando…</div></div>`;
+  bindTopbar();
+  const desde = new Date(); if (rango === "1") desde.setHours(0, 0, 0, 0); else desde.setDate(desde.getDate() - Number(rango));
+  const [{ data: est }, res] = await Promise.all([
+    sb.from("estudiantes").select("id, nombre, apellido1, apellido2, seccion"),
+    bitacoraDesde(desde.toISOString())]);
+  const secs = [...new Set((est || []).map(e => e.seccion).filter(Boolean))].sort();
+  const selSec = document.getElementById("bit-sec");
+  selSec.innerHTML = `<option value="">Todas</option>` + secs.map(x => `<option ${x === secSel ? "selected" : ""}>${x}</option>`).join("");
+  document.getElementById("bit-rango").addEventListener("change", e => { sessionStorage.setItem("bitacora_rango", e.target.value); renderBitacora(); });
+  selSec.addEventListener("change", e => { sessionStorage.setItem("bitacora_sec", e.target.value); renderBitacora(); });
+  const cuerpo = document.getElementById("bit-cuerpo");
+  if (res.sinTabla) {
+    cuerpo.innerHTML = `<div class="whatsapp-panel" style="border-left:4px solid var(--brick);"><strong>Falta crear la tabla de la bitácora (se hace una sola vez).</strong>
+      <p style="font-size:0.85rem;">En Supabase abra <b>SQL Editor</b> → <b>New query</b>, pegue esto y toque <b>Run</b>. Desde ese momento se empiezan a registrar los ingresos.</p>
+      <pre style="white-space:pre-wrap; font-size:0.78rem; background:var(--surface-soft); padding:0.6rem; border-radius:8px;">${BITACORA_SQL.replace(/</g, "&lt;")}</pre>
+      <button class="btn small" id="bit-copiar">📋 Copiar el SQL</button></div>`;
+    document.getElementById("bit-copiar").addEventListener("click", () => navigator.clipboard.writeText(BITACORA_SQL).then(() => { document.getElementById("bit-copiar").textContent = "✓ Copiado"; }));
+    return;
+  }
+  if (res.error) { cuerpo.innerHTML = `<p>No se pudo leer la bitácora: ${res.error.message}</p>`; return; }
+  const porEst = {}; res.filas.forEach(f => { (porEst[f.estudiante_id] = porEst[f.estudiante_id] || []).push(f); });
+  const lista = (est || []).filter(e => !secSel || e.seccion === secSel).map(e => ({ e, f: porEst[e.id] || [] }))
+    .sort((a, b) => (a.e.seccion || "").localeCompare(b.e.seccion || "") || `${a.e.apellido1} ${a.e.apellido2}`.localeCompare(`${b.e.apellido1} ${b.e.apellido2}`));
+  const sinEntrar = lista.filter(x => !x.f.length).length;
+  const mods = Object.keys(BITACORA_MODULOS);
+  cuerpo.innerHTML = `<p style="font-size:0.9rem;"><strong>${lista.length - sinEntrar}</strong> de ${lista.length} estudiantes entraron en este período · <strong style="color:var(--brick)">${sinEntrar}</strong> no han entrado · ${res.filas.length} ingresos en total.</p>
+    <div style="overflow-x:auto;"><table class="grades" style="font-size:0.84rem;"><thead><tr><th>Estudiante</th><th>Sección</th><th>Último ingreso</th><th>Ingresos</th>${mods.map(m => `<th>${BITACORA_MODULOS[m]}</th>`).join("")}<th>Dispositivo</th><th></th></tr></thead><tbody>
+    ${lista.map(({ e, f }) => `<tr style="${f.length ? "" : "background:rgba(194,58,58,0.07);"}"><td><a href="#/perfil/${encodeURIComponent(e.id)}">${e.apellido1} ${e.apellido2 || ""}, ${e.nombre}</a></td><td>${e.seccion || ""}</td>
+      <td>${f.length ? `${bitacoraFecha(f[0].fecha)}<br><small style="color:var(--text-muted)">${bitacoraHace(f[0].fecha)}</small>` : `<strong style="color:var(--brick)">No ha entrado</strong>`}</td><td style="text-align:center;">${f.length}</td>
+      ${mods.map(m => `<td style="text-align:center;">${f.filter(x => x.modulo === m).length || ""}</td>`).join("")}
+      <td style="font-size:0.78rem; color:var(--text-muted);">${f.length ? (f[0].dispositivo || "") : ""}</td>
+      <td>${f.length ? `<button class="btn secondary small" data-bit-ver="${e.id}">Ver detalle</button>` : ""}</td></tr>
+      <tr data-bit-det="${e.id}" style="display:none;"><td colspan="${6 + mods.length}"><ul style="margin:0; padding-left:1.1rem;">${f.map(x => `<li>${bitacoraFecha(x.fecha)} · ${BITACORA_MODULOS[x.modulo] || x.modulo}${x.dispositivo ? " · " + x.dispositivo : ""}</li>`).join("")}</ul></td></tr>`).join("")}
+    </tbody></table></div>`;
+  cuerpo.querySelectorAll("[data-bit-ver]").forEach(b => b.addEventListener("click", () => { const r = cuerpo.querySelector(`[data-bit-det="${b.dataset.bitVer}"]`); r.style.display = r.style.display === "none" ? "" : "none"; }));
 }
