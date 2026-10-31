@@ -2320,7 +2320,7 @@ async function renderPerfil(id, isSelf) {
   const salirPreviewBtn = document.getElementById("salir-vista-previa");
   if (salirPreviewBtn) salirPreviewBtn.addEventListener("click", () => { previewEstudianteId = null; renderPerfil(s.id, false); });
 
-  document.querySelectorAll(".tab-btn").forEach(btn => {
+  document.querySelectorAll(".tab-btn[data-tab]").forEach(btn => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
@@ -2665,7 +2665,12 @@ function gruposMenuEstudiante(s) {
   return [
     { k: "notas", ic: "📝", t: "Mis notas", sub: "Notas, tareas, rúbrica y asistencia", items: [["notas", "📝", "Notas y Tareas"], ["rubrica", "📊", "Rúbrica"], ["asistencia", "🗓️", "Asistencia"]] },
     { k: "materias", ic: "📚", t: "Mis materias", sub: "Temas, trabajos y material de clase", items: [["materias-est", "📚", "Materias"], ...(esSeccion113(s.seccion) ? [["infografias", "🖼️", "Mis infografías"]] : [])] },
-    { k: "juegos", ic: "🎮", t: "Juegos y simuladores", sub: "Aula de Conta y más", items: [["aula-informe", "🧮", "Aula de Conta"]] }
+    { k: "juegos", ic: "🎮", t: "Juegos y simuladores", sub: "Aula de Conta, ContaRed, Liquidaciones y La Tiradera", items: [
+      ["link:" + AULA_CONTABLE_URL + "?como_estudiante=" + encodeURIComponent(s.id), "🧮", "Aula de Conta"],
+      ["link:" + SIMULADOR_B2B_URL, "🏆", "ContaRed"],
+      ["link:liquidaciones.html", "📑", "Liquidaciones"],
+      ["link:tiradera.html?nombre=" + encodeURIComponent(`${s.nombre || ""} ${s.apellido1 || ""} ${s.apellido2 || ""}`.replace(/\s+/g, " ").trim()) + "&est=" + encodeURIComponent(s.id), "⚡", "La Tiradera"],
+      ["aula-informe", "📈", "Informe de Aula de Conta"]] }
   ];
 }
 function menuEstudianteHTML(s, activeTab) {
@@ -2674,7 +2679,7 @@ function menuEstudianteHTML(s, activeTab) {
   const abierto = (G.find(g => g.items.some(i => i[0] === act)) || G[0]).k;
   return `<div class="accesos-grupos menu-est">${G.map(g => `<div class="acceso-fila ${g.k === abierto ? "abierta" : ""}" data-grupo-fila="${g.k}">
       <button type="button" class="acceso-btn" data-egrupo="${g.k}" aria-expanded="${g.k === abierto}"><span class="acceso-ic">${g.ic}</span><span class="acceso-tx"><b>${g.t}</b><small>${g.sub}</small></span><span class="acceso-flecha">${g.k === abierto ? "◀" : "▶"}</span></button>
-      <div class="acceso-tira menu-est-sub" ${g.k === abierto ? "" : "hidden"}>${g.items.map(([tab, ic, t]) => `<button class="tab-btn ${tab === act ? "active" : ""}" data-tab="${tab}"><span class="tab-icon">${ic}</span><span class="tab-label">${t}</span></button>`).join("")}</div>
+      <div class="acceso-tira menu-est-sub" ${g.k === abierto ? "" : "hidden"}>${g.items.map(([tab, ic, t]) => tab.startsWith("link:") ? `<a class="tab-btn tab-enlace" href="${tab.slice(5)}"><span class="tab-icon">${ic}</span><span class="tab-label">${t}</span></a>` : `<button class="tab-btn ${tab === act ? "active" : ""}" data-tab="${tab}"><span class="tab-icon">${ic}</span><span class="tab-label">${t}</span></button>`).join("")}</div>
     </div>`).join("")}</div>`;
 }
 function ligarMenuEstudiante() {
@@ -2686,6 +2691,6 @@ function ligarMenuEstudiante() {
       const bt = f.querySelector(".acceso-btn"); bt.setAttribute("aria-expanded", on); bt.querySelector(".acceso-flecha").textContent = on ? "◀" : "▶";
     });
     // Al abrir un grupo se muestra su primera opción.
-    if (abrir) { const t = fila.querySelector(".tab-btn"); if (t && !fila.querySelector(".tab-btn.active")) t.click(); }
+    if (abrir) { const t = fila.querySelector(".tab-btn[data-tab]"); if (t && !fila.querySelector(".tab-btn.active")) t.click(); }
   }));
 }

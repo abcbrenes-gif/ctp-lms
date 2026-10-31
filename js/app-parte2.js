@@ -1602,57 +1602,7 @@ async function renderMateriasEstudiante(el, s) {
   const { data: asignadas } = await sb.from("estudiante_materias").select("materia_id, materias(id, nombre)").eq("estudiante_id", s.id);
   const materiasAsignadas = (asignadas || []).map(a => a.materias).filter(Boolean);
 
-  const accesoAulaConta = `
-    <div class="section-grid" style="margin-bottom:1.4rem; max-width:860px;">
-      <a class="section-tile flip-card" href="${AULA_CONTABLE_URL}?como_estudiante=${encodeURIComponent(s.id)}" style="height:180px;">
-        <div class="flip-card-inner">
-          <div class="flip-card-front">
-            <div class="num" style="font-size:1.7rem;">🧮 Aula de Conta</div>
-            <div class="count" style="font-size:0.95rem;">Simulador del ciclo contable (NIC/NIIF)</div>
-          </div>
-          <div class="flip-card-back">
-            <div class="flip-cta" style="font-size:1.3rem;">Abrir aula →</div>
-            <div class="flip-sub" style="font-size:0.9rem;">Aula de Conta</div>
-          </div>
-        </div>
-      </a>
-      <a class="section-tile flip-card" href="${SIMULADOR_B2B_URL}" style="height:180px;">
-        <div class="flip-card-inner">
-          <div class="flip-card-front">
-            <div class="num" style="font-size:1.7rem;">🏆 ContaRed</div>
-            <div class="count" style="font-size:0.95rem;">Simulador B2B: fundá tu firma y competí</div>
-          </div>
-          <div class="flip-card-back">
-            <div class="flip-cta" style="font-size:1.3rem;">Abrir ContaRed →</div>
-            <div class="flip-sub" style="font-size:0.9rem;">ContaRed</div>
-          </div>
-        </div>
-      </a>
-      <a class="section-tile flip-card" href="liquidaciones.html" style="height:180px;">
-        <div class="flip-card-inner">
-          <div class="flip-card-front">
-            <div class="num" style="font-size:1.6rem;">📑 Liquidaciones</div>
-            <div class="count" style="font-size:0.95rem;">Preaviso, cesantía, vacaciones y aguinaldo paso a paso</div>
-          </div>
-          <div class="flip-card-back">
-            <div class="flip-cta" style="font-size:1.3rem;">Practicar →</div>
-            <div class="flip-sub" style="font-size:0.9rem;">Liquidaciones laborales</div>
-          </div>
-        </div>
-      </a>
-      <a class="section-tile flip-card" href="tiradera.html?nombre=${encodeURIComponent(`${s.nombre || ""} ${s.apellido1 || ""} ${s.apellido2 || ""}`.replace(/\s+/g, " ").trim())}&est=${encodeURIComponent(s.id)}" style="height:180px;">
-        <div class="flip-card-inner">
-          <div class="flip-card-front">
-            <div class="num" style="font-size:1.7rem;">⚡ La Tiradera</div>
-            <div class="count" style="font-size:0.95rem;">Entrá con el PIN que da el profe y competí por el podio</div>
-          </div>
-          <div class="flip-card-back">
-            <div class="flip-cta" style="font-size:1.3rem;">Jugar →</div>
-            <div class="flip-sub" style="font-size:0.9rem;">La Tiradera</div>
-          </div>
-        </div>
-      </a>
-    </div>`;
+  const accesoAulaConta = ""; // Aula de Conta, ContaRed, Liquidaciones y La Tiradera están en «Juegos y simuladores»
 
   if (materiasAsignadas.length === 0) {
     el.innerHTML = `${accesoAulaConta}<p class="empty">Todavía no tienes materias asignadas.</p>`;
