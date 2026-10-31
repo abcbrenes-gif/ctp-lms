@@ -360,6 +360,11 @@ a { color: inherit; }
   transition: box-shadow 0.25s ease;
 }
 .flip-card:hover .flip-card-front { box-shadow: var(--glow-primary); }
+/* Que el texto de los accesos no se salga de la tarjeta en tabletas o con letra grande */
+.flip-card { height: 178px; }
+.flip-card-front { overflow: hidden; }
+.flip-card-front .num { line-height: 1.15; }
+.flip-card-front .count { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .flip-card-back {
   background: var(--hero-gradient);
   color: var(--white);
@@ -857,7 +862,8 @@ table.grades td.num.low { color: var(--danger-text); font-weight: 700; }
   .hero-banner { padding: 2.2rem 1.2rem 4rem; }
   .login-card { margin: -2.8rem 1rem 2.5rem; padding: 1.7rem 1.4rem; }
   .section-grid { grid-template-columns: 1fr 1fr; gap: 0.8rem; }
-  .flip-card { height: 128px; }
+  .flip-card { height: 150px; }
+  .flip-card-front .count { -webkit-line-clamp: 2; }
   .tema-header, .tema-section { padding: 1.1rem 1.2rem; }
   .profile-head { padding: 1rem 1.1rem; }
   table.grades { display: block; overflow-x: auto; white-space: nowrap; }
