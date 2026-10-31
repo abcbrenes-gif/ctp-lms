@@ -74,8 +74,11 @@ async function abrirInformeSeccionAulaConta(sec, students, destino) {
 
 async function renderTabContent(s, tab, isSelf) {
   const el = document.getElementById("tab-content");
+  NOTAS_MODO = isSelf ? "sin-tc" : null; // el estudiante ve Trabajo cotidiano en su propio apartado
   if (tab === "programa") return renderProgramaEstudiante(el, s);
   if (tab === "rubrica") return renderRubricaEstudiante(el, s, isSelf);
+  if (tab === "tc") return renderTrabajoCotidianoEstudiante(el, s, isSelf);
+
   if (tab === "asistencia") return renderAsistenciaEstudiante(el, s);
   if (tab === "avisos") return renderAvisosEstudiante(el, s);
   if (tab === "materias-est") return renderMateriasEstudiante(el, s);
@@ -702,6 +705,19 @@ async function descargarPdfComprobacion(d, nombreEst) {
   doc.save(nombreArchivoPdf("Comprobacion_proyecto", nombreEst));
 }
 
+// Qué categorías muestra renderNotasInterno (lo fija la pestaña que lo llama).
+let NOTAS_MODO = null;
+// Apartado del estudiante solo para Trabajo cotidiano: insignias, avance y sus indicadores.
+async function renderTrabajoCotidianoEstudiante(el, s, isSelf) {
+  el.innerHTML = `<h2 style="margin:0 0 0.4rem;">📋 Trabajo cotidiano</h2>
+    <p style="font-size:0.85rem; color:var(--text-muted); margin:0 0 0.8rem;">Tus insignias, tu avance y los indicadores de trabajo cotidiano de cada materia, con sus trabajos.</p>
+    <div id="logros-panel" style="margin-bottom:1.3rem;"></div>
+    <div id="tc-notas">Cargando…</div>`;
+  pintarPanelLogros(s.id);
+  NOTAS_MODO = "tc";
+  try { await renderNotasInterno(document.getElementById("tc-notas"), s, isSelf, "Trabajo cotidiano"); }
+  catch (err) { document.getElementById("tc-notas").innerHTML = `<p class="no-phone-note">No se pudo cargar: ${err.message || err}</p>`; }
+}
 async function renderNotas(el, s, isSelf) {
   el.innerHTML = "Cargando…";
   try {
@@ -768,7 +784,11 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
   }));
 
   const materiaOptions = materiasAsignadas.map(m => `<option value="${m.id}">${m.nombre}</option>`).join("");
-  const categoriasNoAsistencia = (categorias || []).filter(c => c.nombre.trim().toLowerCase() !== "asistencia");
+  const esTC = c => c.nombre.trim().toLowerCase() === "trabajo cotidiano";
+  // «tc»: solo Trabajo cotidiano (su apartado); «sin-tc»: el resto (Notas y Tareas del estudiante).
+  const categoriasNoAsistencia = (categorias || []).filter(c => c.nombre.trim().toLowerCase() !== "asistencia")
+    .filter(c => NOTAS_MODO === "tc" ? esTC(c) : NOTAS_MODO === "sin-tc" ? !esTC(c) : true);
+  if (categoriaActiva && !categoriasNoAsistencia.some(c => c.nombre === categoriaActiva)) categoriaActiva = null;
 
   // Agrupa las notas por categoría, con una barra de navegación igual a la de Tareas.
   const activa = categoriaActiva || categoriasNoAsistencia[0]?.nombre || null;

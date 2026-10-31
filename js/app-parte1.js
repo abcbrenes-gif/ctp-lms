@@ -2254,7 +2254,7 @@ async function renderPerfil(id, isSelf) {
   const previewing = isSelf && session.role === "docente"; // el profesor viendo "como lo vería el estudiante"
   if (isSelf && session.role === "estudiante" && session.id !== s.id) { location.hash = "#/login"; return; } // seguridad extra
 
-  const activeTab = (location.hash.split("?tab=")[1]) || "notas";
+  const activeTab = (location.hash.split("?tab=")[1]) || (isSelf ? "tc" : "notas");
 
   app.innerHTML = `
     ${topbar()}
@@ -2288,10 +2288,10 @@ async function renderPerfil(id, isSelf) {
       </div>
       ${!isSelf ? `<div id="reporte-oficial-selector" style="display:none; margin-bottom:1.2rem;"></div>` : ""}
 
-      ${isSelf ? `<div id="pizarra-rapida-banner"></div>` : ""}
+
 
       <div id="bitacora-panel" style="margin-bottom:1rem;"></div>
-      <div id="logros-panel" style="margin-bottom:1.3rem;"></div>
+      ${isSelf ? "" : `<div id="logros-panel" style="margin-bottom:1.3rem;"></div>`}
 
       ${isSelf ? `<div style="margin-bottom:0.8rem;"><a href="#/estrategias" class="btn secondary small">🧪 Cómo se evalúa cada tipo de trabajo</a></div>` : ""}
       ${isSelf ? menuEstudianteHTML(s, activeTab) : `<div class="tabs">
@@ -2328,8 +2328,7 @@ async function renderPerfil(id, isSelf) {
     });
   });
 
-  pintarPanelLogros(s.id);
-  if (isSelf) pintarBannerPizarraRapida(s, previewing);
+  if (!isSelf) pintarPanelLogros(s.id); // el estudiante lo ve en «Trabajo cotidiano»
 
   if (!isSelf) {
     const photoInput = document.getElementById("photo-input");
@@ -2663,7 +2662,7 @@ async function actividadGuardadaDesde(desdeISO) {
 // (Mismo estilo que los Accesos rápidos del docente. Los grupos se pueden reorganizar aquí.)
 function gruposMenuEstudiante(s) {
   return [
-    { k: "notas", ic: "📝", t: "Mis notas", sub: "Notas, tareas, rúbrica y asistencia", items: [["notas", "📝", "Notas y Tareas"], ["rubrica", "📊", "Rúbrica"], ["asistencia", "🗓️", "Asistencia"]] },
+    { k: "notas", ic: "📝", t: "Mis notas", sub: "Trabajo cotidiano, notas, tareas, rúbrica y asistencia", items: [["tc", "📋", "Trabajo cotidiano"], ["notas", "📝", "Notas y Tareas"], ["rubrica", "📊", "Rúbrica"], ["asistencia", "🗓️", "Asistencia"]] },
     { k: "materias", ic: "📚", t: "Mis materias", sub: "Temas, trabajos y material de clase", items: [["materias-est", "📚", "Materias"], ...(esSeccion113(s.seccion) ? [["infografias", "🖼️", "Mis infografías"]] : [])] },
     { k: "juegos", ic: "🎮", t: "Juegos y simuladores", sub: "Aula de Conta, ContaRed, Liquidaciones y La Tiradera", items: [
       ["link:" + AULA_CONTABLE_URL + "?como_estudiante=" + encodeURIComponent(s.id), "🧮", "Aula de Conta"],
