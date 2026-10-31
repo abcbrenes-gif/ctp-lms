@@ -893,12 +893,14 @@ table.grades td.num.low { color: var(--danger-text); font-weight: 700; }
 .acceso-tx b { font-family: var(--serif); font-size: 1.15rem; }
 .acceso-tx small { color: var(--text-muted); font-size: 0.78rem; margin-top: 0.15rem; }
 .acceso-flecha { font-size: 0.9rem; opacity: .8; }
-.acceso-tira { flex: 1; min-width: 0; display: flex; gap: 0.8rem; overflow-x: auto; padding: 2px 2px 8px; scroll-snap-type: x proximity; animation: tira-abrir .35s ease; }
+/* Las tarjetas ocupan todo el ancho que queda y bajan a otra fila: sin barra para correr. */
+.acceso-tira { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.8rem; padding: 2px; animation: tira-abrir .35s ease; }
 .acceso-tira[hidden] { display: none; }
-.acceso-tira .flip-card { flex: 0 0 230px; scroll-snap-align: start; }
+.acceso-tira .flip-card { min-width: 0; }
 @keyframes tira-abrir { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
 @media (max-width: 760px) {
   .acceso-fila { flex-direction: column; }
   .acceso-btn { flex-basis: auto; min-height: 72px; }
-  .acceso-tira .flip-card { flex-basis: 78%; }
+  .acceso-tira { grid-template-columns: 1fr 1fr; }
 }
+@media (max-width: 420px) { .acceso-tira { grid-template-columns: 1fr; } }
