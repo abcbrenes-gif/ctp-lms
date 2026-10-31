@@ -269,8 +269,8 @@ async function renderHome() {
     { grupo: "estrategias", href: "#/estrategias", icono: "🧪", titulo: "Estrategias de evaluación", sub: `Catálogo de ${Object.keys(ESTRATEGIAS_EVALUACION).length} estrategias para trabajos asignados`, cta: "Ver catálogo →" },
     { grupo: "estrategias", href: "#/mediacion", icono: "🎓", titulo: "Estrategias de mediación", sub: `Catálogo de ${Object.keys(ESTRATEGIAS_MEDIACION).length} formas de dar la clase, con pasos y guía en vivo`, cta: "Ver catálogo →" },
     { grupo: "estrategias", href: "#/bitacora", icono: "🕓", titulo: "Bitácora de ingresos", sub: "Quién entró a la plataforma, cuándo, a qué módulo y desde qué dispositivo", cta: "Ver bitácora →" },
-    { grupo: "material", href: AULA_CONTABLE_URL, icono: "🧮", titulo: "Aula de Conta", sub: "Simulador del ciclo contable (NIC/NIIF)", cta: "Abrir aula →" },
-    { grupo: "material", href: "liquidaciones.html", icono: "📑", titulo: "Liquidaciones laborales", sub: "Preaviso, cesantía, vacaciones y aguinaldo: calculadora paso a paso y práctica", cta: "Abrir →" },
+    { grupo: "juegos", href: AULA_CONTABLE_URL, icono: "🧮", titulo: "Aula de Conta", sub: "Simulador del ciclo contable (NIC/NIIF)", cta: "Abrir aula →" },
+    { grupo: "juegos", href: "liquidaciones.html", icono: "📑", titulo: "Liquidaciones laborales", sub: "Preaviso, cesantía, vacaciones y aguinaldo: calculadora paso a paso y práctica", cta: "Abrir →" },
     { grupo: "juegos", href: SIMULADOR_B2B_URL, icono: "🏆", titulo: "ContaRed", sub: "Simulador B2B de firmas contables (gamificado)", cta: "Abrir ContaRed →" },
     { grupo: "juegos", href: "tiradera.html", icono: "⚡", titulo: "La Tiradera", sub: "Retos en vivo para la clase: selección, falso/verdadero, sopa de letras y crucigrama, con podio", cta: "Lanzar retos →" },
     { grupo: "juegos", href: "tiradera.html?historial=1", icono: "📚", titulo: "Resultados de La Tiradera", sub: "Partidas anteriores: puntos ganados y perdidos de cada estudiante, descarga en Excel", cta: "Ver resultados →" },
@@ -290,7 +290,7 @@ async function renderHome() {
       </div>
     </a>`;
   // Tres botones en vertical; al tocar uno se abren sus accesos en horizontal.
-  const GRUPOS_ACCESO = [["estrategias", "🧪", "Estrategias", "Evaluación, mediación, rúbrica y bitácora"], ["juegos", "🎮", "Juegos de clase", "La Tiradera, Planilla Opoly y ContaRed"], ["material", "📚", "Material de clase", "Materias, programa, Aula de Conta y Liquidaciones"]];
+  const GRUPOS_ACCESO = [["estrategias", "🧪", "Estrategias", "Evaluación, mediación, rúbrica y bitácora"], ["juegos", "🎮", "Juegos de clase", "Aula de Conta, Liquidaciones, La Tiradera, Planilla Opoly y ContaRed"], ["material", "📚", "Material de clase", "Materias y programa"]];
   let grupoAbierto = null; try { grupoAbierto = localStorage.getItem("accesos_grupo"); } catch (e) {}
   const accesosHTML = `<div class="accesos-grupos">${GRUPOS_ACCESO.map(([k, ic, t, sub]) => {
     const lista = accesos.filter(a => a.grupo === k), abierto = grupoAbierto === k;
