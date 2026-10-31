@@ -878,3 +878,27 @@ table.grades td.num.low { color: var(--danger-text); font-weight: 700; }
   .login-card .btn { width: 100%; text-align: center; }
   .topbar .brand { font-size: 1.02rem; }
 }
+
+/* ===== Accesos rápidos: 3 botones en vertical; cada uno abre sus tarjetas en horizontal ===== */
+.accesos-grupos { display: flex; flex-direction: column; gap: 0.8rem; }
+.acceso-fila { display: flex; align-items: stretch; gap: 0.8rem; min-width: 0; }
+.acceso-btn { flex: 0 0 260px; display: flex; align-items: center; gap: 0.8rem; text-align: left; cursor: pointer;
+  padding: 1rem 1.1rem; border-radius: var(--radius); border: 1px solid var(--glass-border); background: var(--surface);
+  box-shadow: var(--shadow-sm); color: var(--ink); font: inherit; min-height: 88px; transition: box-shadow .2s ease, transform .2s ease; }
+.acceso-btn:hover { box-shadow: var(--glow-primary); transform: translateY(-2px); }
+.acceso-fila.abierta .acceso-btn { background: var(--hero-gradient); color: var(--white); border-color: transparent; }
+.acceso-fila.abierta .acceso-btn small { color: rgba(255,255,255,.85); }
+.acceso-ic { font-size: 1.8rem; line-height: 1; }
+.acceso-tx { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.acceso-tx b { font-family: var(--serif); font-size: 1.15rem; }
+.acceso-tx small { color: var(--text-muted); font-size: 0.78rem; margin-top: 0.15rem; }
+.acceso-flecha { font-size: 0.9rem; opacity: .8; }
+.acceso-tira { flex: 1; min-width: 0; display: flex; gap: 0.8rem; overflow-x: auto; padding: 2px 2px 8px; scroll-snap-type: x proximity; animation: tira-abrir .35s ease; }
+.acceso-tira[hidden] { display: none; }
+.acceso-tira .flip-card { flex: 0 0 230px; scroll-snap-align: start; }
+@keyframes tira-abrir { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+@media (max-width: 760px) {
+  .acceso-fila { flex-direction: column; }
+  .acceso-btn { flex-basis: auto; min-height: 72px; }
+  .acceso-tira .flip-card { flex-basis: 78%; }
+}

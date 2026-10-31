@@ -263,19 +263,20 @@ async function renderHome() {
     </a>`).join("");
 
   const accesos = [
-    { href: "#/materias", icono: "📚", titulo: "Materias", sub: "Temas, apartados y publicaciones", cta: "Ver materias →" },
-    { href: "#/programa", icono: "🗂️", titulo: "Programa", sub: "Unidades y resultados de aprendizaje", cta: "Ver programa →" },
-    { href: "#/evaluaciones", icono: "📊", titulo: "Rúbrica y Evaluaciones", sub: "Categorías e indicadores de nota", cta: "Ver rúbrica →" },
-    { href: "#/estrategias", icono: "🧪", titulo: "Estrategias de evaluación", sub: `Catálogo de ${Object.keys(ESTRATEGIAS_EVALUACION).length} estrategias para trabajos asignados`, cta: "Ver catálogo →" },
-    { href: "#/mediacion", icono: "🎓", titulo: "Estrategias de mediación", sub: `Catálogo de ${Object.keys(ESTRATEGIAS_MEDIACION).length} formas de dar la clase, con pasos y guía en vivo`, cta: "Ver catálogo →" },
-    { href: "#/bitacora", icono: "🕓", titulo: "Bitácora de ingresos", sub: "Quién entró a la plataforma, cuándo, a qué módulo y desde qué dispositivo", cta: "Ver bitácora →" },
-    { href: AULA_CONTABLE_URL, icono: "🧮", titulo: "Aula de Conta", sub: "Simulador del ciclo contable (NIC/NIIF)", cta: "Abrir aula →" },
-    { href: "liquidaciones.html", icono: "📑", titulo: "Liquidaciones laborales", sub: "Preaviso, cesantía, vacaciones y aguinaldo: calculadora paso a paso y práctica", cta: "Abrir →" },
-    { href: SIMULADOR_B2B_URL, icono: "🏆", titulo: "ContaRed", sub: "Simulador B2B de firmas contables (gamificado)", cta: "Abrir ContaRed →" },
-    { href: "tiradera.html", icono: "⚡", titulo: "La Tiradera", sub: "Retos en vivo para la clase: selección, falso/verdadero, sopa de letras y crucigrama, con podio", cta: "Lanzar retos →" },
-    { href: "tiradera.html?historial=1", icono: "📚", titulo: "Resultados de La Tiradera", sub: "Partidas anteriores: puntos ganados y perdidos de cada estudiante, descarga en Excel", cta: "Ver resultados →" },
-    { href: "planilla-opoly.html", icono: "🎲", titulo: "Planilla Opoly", sub: "Juego 3D tipo Monopoly para 2–4 jugadores: compra empresas resolviendo problemas de planilla", cta: "Jugar →" }
-  ].map(a => `
+    { grupo: "material", href: "#/materias", icono: "📚", titulo: "Materias", sub: "Temas, apartados y publicaciones", cta: "Ver materias →" },
+    { grupo: "material", href: "#/programa", icono: "🗂️", titulo: "Programa", sub: "Unidades y resultados de aprendizaje", cta: "Ver programa →" },
+    { grupo: "estrategias", href: "#/evaluaciones", icono: "📊", titulo: "Rúbrica y Evaluaciones", sub: "Categorías e indicadores de nota", cta: "Ver rúbrica →" },
+    { grupo: "estrategias", href: "#/estrategias", icono: "🧪", titulo: "Estrategias de evaluación", sub: `Catálogo de ${Object.keys(ESTRATEGIAS_EVALUACION).length} estrategias para trabajos asignados`, cta: "Ver catálogo →" },
+    { grupo: "estrategias", href: "#/mediacion", icono: "🎓", titulo: "Estrategias de mediación", sub: `Catálogo de ${Object.keys(ESTRATEGIAS_MEDIACION).length} formas de dar la clase, con pasos y guía en vivo`, cta: "Ver catálogo →" },
+    { grupo: "estrategias", href: "#/bitacora", icono: "🕓", titulo: "Bitácora de ingresos", sub: "Quién entró a la plataforma, cuándo, a qué módulo y desde qué dispositivo", cta: "Ver bitácora →" },
+    { grupo: "material", href: AULA_CONTABLE_URL, icono: "🧮", titulo: "Aula de Conta", sub: "Simulador del ciclo contable (NIC/NIIF)", cta: "Abrir aula →" },
+    { grupo: "material", href: "liquidaciones.html", icono: "📑", titulo: "Liquidaciones laborales", sub: "Preaviso, cesantía, vacaciones y aguinaldo: calculadora paso a paso y práctica", cta: "Abrir →" },
+    { grupo: "juegos", href: SIMULADOR_B2B_URL, icono: "🏆", titulo: "ContaRed", sub: "Simulador B2B de firmas contables (gamificado)", cta: "Abrir ContaRed →" },
+    { grupo: "juegos", href: "tiradera.html", icono: "⚡", titulo: "La Tiradera", sub: "Retos en vivo para la clase: selección, falso/verdadero, sopa de letras y crucigrama, con podio", cta: "Lanzar retos →" },
+    { grupo: "juegos", href: "tiradera.html?historial=1", icono: "📚", titulo: "Resultados de La Tiradera", sub: "Partidas anteriores: puntos ganados y perdidos de cada estudiante, descarga en Excel", cta: "Ver resultados →" },
+    { grupo: "juegos", href: "planilla-opoly.html", icono: "🎲", titulo: "Planilla Opoly", sub: "Juego 3D tipo Monopoly para 2–4 jugadores: compra empresas resolviendo problemas de planilla", cta: "Jugar →" }
+  ];
+  const tarjetaAcceso = a => `
     <a class="section-tile flip-card" href="${a.href}" ${a.externo ? 'target="_blank" rel="noopener"' : ""}>
       <div class="flip-card-inner">
         <div class="flip-card-front">
@@ -287,7 +288,17 @@ async function renderHome() {
           <div class="flip-sub">${a.titulo}</div>
         </div>
       </div>
-    </a>`).join("");
+    </a>`;
+  // Tres botones en vertical; al tocar uno se abren sus accesos en horizontal.
+  const GRUPOS_ACCESO = [["estrategias", "🧪", "Estrategias", "Evaluación, mediación, rúbrica y bitácora"], ["juegos", "🎮", "Juegos de clase", "La Tiradera, Planilla Opoly y ContaRed"], ["material", "📚", "Material de clase", "Materias, programa, Aula de Conta y Liquidaciones"]];
+  let grupoAbierto = null; try { grupoAbierto = localStorage.getItem("accesos_grupo"); } catch (e) {}
+  const accesosHTML = `<div class="accesos-grupos">${GRUPOS_ACCESO.map(([k, ic, t, sub]) => {
+    const lista = accesos.filter(a => a.grupo === k), abierto = grupoAbierto === k;
+    return `<div class="acceso-fila ${abierto ? "abierta" : ""}" data-grupo-fila="${k}">
+      <button type="button" class="acceso-btn" data-grupo="${k}" aria-expanded="${abierto}"><span class="acceso-ic">${ic}</span><span class="acceso-tx"><b>${t}</b><small>${sub}</small></span><span class="acceso-flecha">${abierto ? "◀" : "▶"}</span></button>
+      <div class="acceso-tira" ${abierto ? "" : "hidden"}>${lista.map(tarjetaAcceso).join("")}</div>
+    </div>`;
+  }).join("")}</div>`;
 
   app.innerHTML = `
     ${topbar()}
@@ -296,7 +307,7 @@ async function renderHome() {
       <div class="section-grid">${tiles || '<p class="empty">No hay secciones todavía.</p>'}</div>
 
       <h2 style="margin-top:2.2rem;">Accesos rápidos</h2>
-      <div class="section-grid">${accesos}</div>
+      ${accesosHTML}
 
       <h2 style="margin-top:2.2rem;">📥 Entregas recientes de pruebas</h2>
       <p style="font-size:0.82rem; color:var(--text-muted); margin-top:-0.4rem; margin-bottom:0.4rem;">Apenas un estudiante termina una prueba, aparece aquí para que sepa que ya le llegaron las respuestas.</p>
@@ -305,6 +316,16 @@ async function renderHome() {
       <p class="footer-note">Datos guardados en la base de datos — visibles desde cualquier dispositivo.</p>
     </div>`;
   bindTopbar();
+  document.querySelectorAll("[data-grupo]").forEach(b => b.addEventListener("click", () => {
+    const k = b.dataset.grupo, abrir = !b.closest(".acceso-fila").classList.contains("abierta");
+    document.querySelectorAll(".acceso-fila").forEach(f => {
+      const on = abrir && f.dataset.grupoFila === k;
+      f.classList.toggle("abierta", on); f.querySelector(".acceso-tira").hidden = !on;
+      const bt = f.querySelector(".acceso-btn"); bt.setAttribute("aria-expanded", on); bt.querySelector(".acceso-flecha").textContent = on ? "◀" : "▶";
+    });
+    try { if (abrir) localStorage.setItem("accesos_grupo", k); else localStorage.removeItem("accesos_grupo"); } catch (e) {}
+    if (abrir) { const t = b.closest(".acceso-fila").querySelector(".acceso-tira"); t.scrollLeft = 0; }
+  }));
 }
 
 // ---------- Catálogo de estrategias de evaluación (referencia) ----------
