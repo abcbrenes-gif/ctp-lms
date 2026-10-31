@@ -2294,25 +2294,25 @@ async function renderPerfil(id, isSelf) {
       <div id="logros-panel" style="margin-bottom:1.3rem;"></div>
 
       ${isSelf ? `<div style="margin-bottom:0.8rem;"><a href="#/estrategias" class="btn secondary small">🧪 Cómo se evalúa cada tipo de trabajo</a></div>` : ""}
-      <div class="tabs">
+      ${isSelf ? menuEstudianteHTML(s, activeTab) : `<div class="tabs">
         <button class="tab-btn ${(activeTab === "notas" || activeTab === "tareas") ? "active" : ""}" data-tab="notas"><span class="tab-icon">📝</span><span class="tab-label">Notas y Tareas</span></button>
         <button class="tab-btn ${activeTab === "rubrica" ? "active" : ""}" data-tab="rubrica"><span class="tab-icon">📊</span><span class="tab-label">Rúbrica</span></button>
         <button class="tab-btn ${activeTab === "asistencia" ? "active" : ""}" data-tab="asistencia"><span class="tab-icon">🗓️</span><span class="tab-label">Asistencia</span></button>
         <button class="tab-btn ${activeTab === "materias-est" ? "active" : ""}" data-tab="materias-est"><span class="tab-icon">📚</span><span class="tab-label">Materias</span></button>
-        ${esSeccion113(s.seccion) ? `<button class="tab-btn ${activeTab === "infografias" ? "active" : ""}" data-tab="infografias"><span class="tab-icon">🖼️</span><span class="tab-label">${isSelf ? "Mis infografías" : "Infografías"}</span></button>` : ""}
-        ${isSelf ? `<button class="tab-btn ${activeTab === "aula-informe" ? "active" : ""}" data-tab="aula-informe"><span class="tab-icon">🧮</span><span class="tab-label">Aula de Conta</span></button>` : ""}
-        ${!isSelf ? `<button class="tab-btn ${activeTab === "whatsapp" ? "active" : ""}" data-tab="whatsapp"><span class="tab-icon">💬</span><span class="tab-label">WhatsApp</span></button>
+        ${esSeccion113(s.seccion) ? `<button class="tab-btn ${activeTab === "infografias" ? "active" : ""}" data-tab="infografias"><span class="tab-icon">🖼️</span><span class="tab-label">Infografías</span></button>` : ""}
+        <button class="tab-btn ${activeTab === "whatsapp" ? "active" : ""}" data-tab="whatsapp"><span class="tab-icon">💬</span><span class="tab-label">WhatsApp</span></button>
         <button class="tab-btn ${activeTab === "acceso" ? "active" : ""}" data-tab="acceso"><span class="tab-icon">🔑</span><span class="tab-label">Materias</span></button>
         <button class="tab-btn ${activeTab === "pin" ? "active" : ""}" data-tab="pin"><span class="tab-icon">🔐</span><span class="tab-label">PIN de acceso</span></button>
         <button class="tab-btn ${activeTab === "clave-prueba" ? "active" : ""}" data-tab="clave-prueba"><span class="tab-icon">🎫</span><span class="tab-label">Clave de prueba</span></button>
-        <button class="tab-btn ${activeTab === "aula-conta" ? "active" : ""}" data-tab="aula-conta"><span class="tab-icon">🧮</span><span class="tab-label">Aula de Conta</span></button>` : ""}
-      </div>
+        <button class="tab-btn ${activeTab === "aula-conta" ? "active" : ""}" data-tab="aula-conta"><span class="tab-icon">🧮</span><span class="tab-label">Aula de Conta</span></button>
+      </div>`}
 
       <div id="tab-content">Cargando…</div>
     </div>`;
   bindTopbar();
 
   pintarBitacoraPerfil(s, isSelf);
+  ligarMenuEstudiante();
   const verComoBtn = document.getElementById("ver-como-estudiante");
   if (verComoBtn) verComoBtn.addEventListener("click", () => { previewEstudianteId = s.id; renderPerfil(s.id, true); });
   const reporteBtn = document.getElementById("generar-reporte-oficial-btn");
@@ -2657,4 +2657,35 @@ async function actividadGuardadaDesde(desdeISO) {
   } catch (e) { /* si alguna tabla no responde, se muestra lo que haya */ }
   Object.values(out).forEach(l => l.sort((a, b) => String(b.fecha).localeCompare(String(a.fecha))));
   return out;
+}
+
+// ───── Menú del estudiante: botones en vertical que abren sus opciones en horizontal ─────
+// (Mismo estilo que los Accesos rápidos del docente. Los grupos se pueden reorganizar aquí.)
+function gruposMenuEstudiante(s) {
+  return [
+    { k: "notas", ic: "📝", t: "Mis notas", sub: "Notas, tareas, rúbrica y asistencia", items: [["notas", "📝", "Notas y Tareas"], ["rubrica", "📊", "Rúbrica"], ["asistencia", "🗓️", "Asistencia"]] },
+    { k: "materias", ic: "📚", t: "Mis materias", sub: "Temas, trabajos y material de clase", items: [["materias-est", "📚", "Materias"], ...(esSeccion113(s.seccion) ? [["infografias", "🖼️", "Mis infografías"]] : [])] },
+    { k: "juegos", ic: "🎮", t: "Juegos y simuladores", sub: "Aula de Conta y más", items: [["aula-informe", "🧮", "Aula de Conta"]] }
+  ];
+}
+function menuEstudianteHTML(s, activeTab) {
+  const act = activeTab === "tareas" ? "notas" : activeTab;
+  const G = gruposMenuEstudiante(s);
+  const abierto = (G.find(g => g.items.some(i => i[0] === act)) || G[0]).k;
+  return `<div class="accesos-grupos menu-est">${G.map(g => `<div class="acceso-fila ${g.k === abierto ? "abierta" : ""}" data-grupo-fila="${g.k}">
+      <button type="button" class="acceso-btn" data-egrupo="${g.k}" aria-expanded="${g.k === abierto}"><span class="acceso-ic">${g.ic}</span><span class="acceso-tx"><b>${g.t}</b><small>${g.sub}</small></span><span class="acceso-flecha">${g.k === abierto ? "◀" : "▶"}</span></button>
+      <div class="acceso-tira menu-est-sub" ${g.k === abierto ? "" : "hidden"}>${g.items.map(([tab, ic, t]) => `<button class="tab-btn ${tab === act ? "active" : ""}" data-tab="${tab}"><span class="tab-icon">${ic}</span><span class="tab-label">${t}</span></button>`).join("")}</div>
+    </div>`).join("")}</div>`;
+}
+function ligarMenuEstudiante() {
+  document.querySelectorAll("[data-egrupo]").forEach(b => b.addEventListener("click", () => {
+    const fila = b.closest(".acceso-fila"), abrir = !fila.classList.contains("abierta");
+    document.querySelectorAll(".menu-est .acceso-fila").forEach(f => {
+      const on = abrir && f === fila;
+      f.classList.toggle("abierta", on); f.querySelector(".acceso-tira").hidden = !on;
+      const bt = f.querySelector(".acceso-btn"); bt.setAttribute("aria-expanded", on); bt.querySelector(".acceso-flecha").textContent = on ? "◀" : "▶";
+    });
+    // Al abrir un grupo se muestra su primera opción.
+    if (abrir) { const t = fila.querySelector(".tab-btn"); if (t && !fila.querySelector(".tab-btn.active")) t.click(); }
+  }));
 }

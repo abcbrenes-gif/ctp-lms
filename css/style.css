@@ -904,3 +904,16 @@ table.grades td.num.low { color: var(--danger-text); font-weight: 700; }
   .acceso-tira { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 420px) { .acceso-tira { grid-template-columns: 1fr; } }
+
+/* Menú del estudiante (mismo estilo que los Accesos rápidos): las opciones del grupo abierto, en horizontal */
+.menu-est { margin-bottom: 1.2rem; }
+.menu-est .menu-est-sub { display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: stretch; }
+.menu-est .menu-est-sub[hidden] { display: none; }
+.menu-est .menu-est-sub .tab-btn { margin: 0; }
+.menu-est .tab-btn { width: 8.2rem; height: 6.6rem; }
+.menu-est .tab-btn .tab-label { font-size: 0.8rem; max-height: 2rem; opacity: 1; margin-top: 0.35rem; white-space: normal; }
+.menu-est .acceso-btn { flex-basis: 250px; }
+@media (max-width: 760px) {
+  .menu-est .acceso-btn { flex-basis: auto; }
+  .menu-est .tab-btn { width: calc(50% - 0.4rem); }
+}
