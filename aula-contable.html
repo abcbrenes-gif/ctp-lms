@@ -1214,6 +1214,19 @@ function viewEntregas(){
 
 /* ============ Vistas del ciclo ============ */
 const VIEWS={};
+// Vista «Trabajo vs. solución» de una empresa (se abre con ?comparar=<id de la empresa>,
+// desde el informe de Aula de Conta de la plataforma).
+VIEWS.comparacion=()=>{
+  const c=co();if(!c)return '<div class="empty"><h3>No se encontró ese trabajo</h3></div>';
+  const ok=veComparacion(c),hayPlanilla=c.payroll&&(c.payroll.employees||[]).length,verSol=isTeacher()||APP.comoEstudiante||veSolucionario(c);
+  const ley=leyendaNoRealizado(c);
+  return `<div class="head"><div><div class="eyebrow">Trabajo vs. solución</div><h2>${esc(c.name)}</h2>
+      <p>${chipCat(c.categoria)} ${c.entregado?'<span class="chip tC" style="font-size:.7rem">✓ Entregada</span>':""} ${ley?`<span class="chip" style="font-size:.7rem;background:var(--badbg);color:var(--bad)">❌ ${esc(ley)}</span>`:""}</p></div>
+      <div class="row" style="gap:8px"><a class="btn ghost" href="./index.html" data-volver-informe>← Volver al informe</a><button class="btn" data-go="planillas">Abrir la planilla</button></div></div>
+    ${!ok?`<div class="empty"><h3>Todavía no disponible</h3><p>La comparación con la solución se muestra cuando entregás el trabajo o cuando se cierra su horario.</p></div>`:
+      `<div class="panel stack"><h3>📋 Lo que trabajó, comparado con la solución</h3><p class="muted" style="margin:0;font-size:.88rem">En verde lo que está bien; en rojo lo que no, con el monto correcto.</p>${comparacionHTML(c)}</div>
+      ${hayPlanilla&&verSol?`<details class="panel"${trabajoHecho(c)?"":" open"}><summary style="cursor:pointer;font-weight:800">✅ Solucionario completo (cálculos de cada colaborador)</summary>${solucionarioHTML(c,true)}</details>`:""}`}`;
+};
 VIEWS.empresas=()=>{
   const ed=APP.editCo?APP.companies.find(c=>c.id===APP.editCo):null;
   const cards=sortCos(APP.companies).map(c=>{const bloq=tareaBloqueada(c);return `<article class="co ${co()&&c.id===co().id?"on":""}">
@@ -2295,7 +2308,7 @@ function comparacionHTML(c){
 }
 // El estudiante ve la comparación en las prácticas generales (que se repiten) siempre; en las
 // tareas, evaluativas y trabajos en casa, cuando ya entregó o guardó su entrega.
-const veComparacion=c=>isTeacher()||!!APP.demo||!!(c&&(c.entregado||(c.payroll&&c.payroll.ultimaEntrega)||!CATS[catDe(c)].una));
+const veComparacion=c=>isTeacher()||!!APP.comoEstudiante||!!APP.demo||!!(c&&(c.entregado||(c.payroll&&c.payroll.ultimaEntrega)||!CATS[catDe(c)].una));
 function plEvaluarTrabajo(p){
   const st=plSheetStatus(p);
   const runs=(p.runs||[]).filter(r=>r.entryId);
@@ -3336,7 +3349,14 @@ async function boot(){
   APP.store=supabaseStudentStore(session.id);
   await enter({usuario:session.id,nombre:session.nombre||"Estudiante",rol:"estudiante"});
 }
-boot();
+boot().then(()=>{
+  // ?comparar=<id>: abre directo la comparación de ese trabajo con la solución.
+  const id=new URLSearchParams(location.search).get("comparar");
+  if(!id||!APP.me)return;
+  if(!(APP.companies||[]).some(c=>c.id===id)){toast("No se encontró ese trabajo en esta cuenta");return}
+  APP.activeId=id;APP.view="comparacion";render();
+}).catch(()=>{});
+document.addEventListener("click",e=>{const a=e.target.closest&&e.target.closest("[data-volver-informe]");if(a&&document.referrer&&document.referrer.startsWith(location.origin)&&history.length>1){e.preventDefault();history.back()}});
 
 document.addEventListener("input",e=>{const t=e.target;if(!t||!t.dataset||!t.dataset.bd)return;const box=t.closest("[data-borrador]");if(!box)return;const bd=(APP.indBorr||{})[box.dataset.borrador];if(!bd)return;const [i,f,p]=t.dataset.bd.split("|");const x=bd[+i];if(!x)return;
   if(f==="desc")x.descripcion=t.value;else{let c=x.criterios.find(y=>y.puntaje===+p);if(!c){c={puntaje:+p,nivel:"",descripcion:""};x.criterios.push(c)}if(f==="nivel")c.nivel=t.value;else c.descripcion=t.value}});

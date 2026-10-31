@@ -24,10 +24,13 @@ function estadoTrabajoAC(c) {
   else { txt = una ? (hizo ? "En proceso" : "Sin empezar") : "Abierta"; color = "var(--text-muted)"; }
   return { tipo: TIPOS_AC[cat][0], cerrado, txt, color };
 }
-function filasInformeAulaConta(companies) {
+function filasInformeAulaConta(companies, estudianteId) {
   return (companies || []).map(c => {
     const r = c.resumenInforme || null, e = estadoTrabajoAC(c);
-    return { nombre: c.name || "(sin nombre)", tipo: e.tipo, r, estado: e };
+    // Enlace a «Trabajo vs. solución» en Aula de Conta (el docente entra a la cuenta del estudiante).
+    const docente = typeof session !== "undefined" && session && session.role === "docente";
+    const link = c.id ? `${AULA_CONTABLE_URL}?comparar=${encodeURIComponent(c.id)}${docente && estudianteId ? "&como_estudiante=" + encodeURIComponent(estudianteId) : ""}` : null;
+    return { nombre: c.name || "(sin nombre)", tipo: e.tipo, r, estado: e, link };
   });
 }
 const pctAC = v => v == null ? "—" : v + " %";
@@ -37,11 +40,11 @@ function tablaInformeAulaConta(filas) {
   const notas = filas.map(f => f.r && f.r.nota).filter(n => n != null);
   const prom = notas.length ? Math.round(notas.reduce((t, n) => t + n, 0) / notas.length) : null;
   return `<div style="overflow-x:auto;"><table class="tabla" style="width:100%; border-collapse:collapse; font-size:0.88rem;">
-    <thead><tr style="text-align:left;"><th>Trabajo</th><th>Tipo</th><th>Estado</th><th>Machote</th><th>Asiento planilla</th><th>Evaluación</th><th>Eval. machote</th><th>Eval. asiento</th><th>Nota</th><th>Actualizado</th></tr></thead>
+    <thead><tr style="text-align:left;"><th>Trabajo</th><th>Tipo</th><th>Estado</th><th>Machote</th><th>Asiento planilla</th><th>Evaluación</th><th>Eval. machote</th><th>Eval. asiento</th><th>Nota</th><th>Trabajo y solución</th><th>Actualizado</th></tr></thead>
     <tbody>${filas.map(f => { const r = f.r; return `<tr style="border-top:1px solid var(--border,#ddd);"><td><b>${escAC(f.nombre)}</b></td><td>${f.tipo}</td><td style="font-size:0.8rem; color:${f.estado ? f.estado.color : "inherit"}">${f.estado ? escAC(f.estado.txt) : ""}</td>
-      ${r ? `<td>${pctAC(r.machote)}</td><td>${r.asiento == null ? "—" : r.asiento === 100 ? "✓ Resuelto" : (f.estado && f.estado.cerrado ? "✗ No lo resolvió" : "Pendiente")}</td><td>${pctAC(r.evaluacion)}</td><td>${pctAC(r.evalMachote)}</td><td>${pctAC(r.evalAsiento)}</td><td><b style="color:${notaColorAC(r.nota)}">${pctAC(r.nota)}</b></td><td>${r.fecha ? new Date(r.fecha).toLocaleString("es-CR", { dateStyle: "medium", timeStyle: "short" }) : "—"}</td>`
-        : `<td colspan="7" style="color:var(--text-muted);">${f.estado && f.estado.cerrado ? "No trabajó en esta empresa." : "Sin informe todavía"} (se genera cuando el estudiante trabaja o el profesor pulsa "Actualizar informe" en Aula de Conta)</td>`}</tr>`; }).join("")}</tbody>
-    <tfoot><tr style="border-top:2px solid var(--border,#999);"><td colspan="8"><b>Promedio de notas de Aula de Conta</b></td><td colspan="2"><b style="color:${notaColorAC(prom)}">${pctAC(prom)}</b></td></tr></tfoot></table></div>
+      ${r ? `<td>${pctAC(r.machote)}</td><td>${r.asiento == null ? "—" : r.asiento === 100 ? "✓ Resuelto" : (f.estado && f.estado.cerrado ? "✗ No lo resolvió" : "Pendiente")}</td><td>${pctAC(r.evaluacion)}</td><td>${pctAC(r.evalMachote)}</td><td>${pctAC(r.evalAsiento)}</td><td><b style="color:${notaColorAC(r.nota)}">${pctAC(r.nota)}</b></td><td>${f.link ? `<a class="btn small" href="${f.link}" style="white-space:nowrap;">📋 Ver</a>` : ""}</td><td>${r.fecha ? new Date(r.fecha).toLocaleString("es-CR", { dateStyle: "medium", timeStyle: "short" }) : "—"}</td>`
+        : `<td colspan="6" style="color:var(--text-muted);">${f.estado && f.estado.cerrado ? "No trabajó en esta empresa." : "Sin informe todavía"} (se genera cuando el estudiante trabaja o el profesor pulsa "Actualizar informe" en Aula de Conta)</td><td>${f.link ? `<a class="btn small" href="${f.link}" style="white-space:nowrap;">📋 Ver</a>` : ""}</td><td>—</td>`}</tr>`; }).join("")}</tbody>
+    <tfoot><tr style="border-top:2px solid var(--border,#999);"><td colspan="8"><b>Promedio de notas de Aula de Conta</b></td><td colspan="3"><b style="color:${notaColorAC(prom)}">${pctAC(prom)}</b></td></tr></tfoot></table></div>
     <p style="font-size:0.78rem; color:var(--text-muted); margin-top:0.5rem;">La nota es el promedio de lo que el estudiante tiene: machote, asiento de planilla, evaluación y las evaluaciones habilitadas por el profesor. Se actualiza sola cada vez que trabaja.</p>`;
 }
 async function renderInformeAulaConta(el, s, isSelf, extraHtml) {
@@ -49,7 +52,7 @@ async function renderInformeAulaConta(el, s, isSelf, extraHtml) {
   const box = document.getElementById("informe-ac");
   try {
     const rows = await cargarTrabajosAulaConta([s.id]);
-    box.innerHTML = tablaInformeAulaConta(filasInformeAulaConta(rows[0] && rows[0].companies));
+    box.innerHTML = tablaInformeAulaConta(filasInformeAulaConta(rows[0] && rows[0].companies, s.id));
   } catch (e) { box.innerHTML = `<p class="empty">No se pudo cargar el informe: ${escAC(e && e.message || e)}</p>`; }
 }
 async function abrirInformeSeccionAulaConta(sec, students, destino) {
@@ -59,7 +62,7 @@ async function abrirInformeSeccionAulaConta(sec, students, destino) {
     const rows = await cargarTrabajosAulaConta(ids);
     const por = {}; rows.forEach(r => { por[r.estudiante_id] = r; });
     const lista = (students || []).map(st => {
-      const filas = filasInformeAulaConta((por[st.id] || {}).companies);
+      const filas = filasInformeAulaConta((por[st.id] || {}).companies, st.id);
       const notas = filas.map(f => f.r && f.r.nota).filter(n => n != null);
       const prom = notas.length ? Math.round(notas.reduce((t, n) => t + n, 0) / notas.length) : null;
       return { st, filas, prom, n: filas.length };
