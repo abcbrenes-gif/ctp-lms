@@ -1150,7 +1150,9 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
     </form>
     ${(categorias || []).length === 0 ? `<p class="no-phone-note">No hay categorías de rúbrica creadas. Ve a "Rúbrica y Evaluaciones" en el menú para crearlas.</p>` : ""}` : ""}`;
 
-  if (isSelf) {
+  // «Mi proyecto» (retroalimentación y comprobación) va solo en el apartado de Proyectos.
+  if (!isSelf || !/proyecto/i.test(activa || "")) { const h = el.querySelector("#proyecto-retro-holder"); if (h) h.remove(); }
+  else {
     const holderRetro = el.querySelector("#proyecto-retro-holder");
     if (holderRetro) pintarRetroProyectoEstudiante(holderRetro, s, materiasAsignadas).catch(err => console.error("Retroalimentación del proyecto:", err));
   }
