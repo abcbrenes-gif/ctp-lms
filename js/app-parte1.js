@@ -2580,9 +2580,10 @@ async function renderBitacora() {
     <div id="bit-cuerpo">Cargando…</div></div>`;
   bindTopbar();
   const desde = new Date(); if (rango === "1") desde.setHours(0, 0, 0, 0); else desde.setDate(desde.getDate() - Number(rango));
-  const [{ data: est }, res] = await Promise.all([
+  const [{ data: est }, res, act] = await Promise.all([
     sb.from("estudiantes").select("id, nombre, apellido1, apellido2, seccion"),
-    bitacoraDesde(desde.toISOString())]);
+    bitacoraDesde(desde.toISOString()),
+    actividadGuardadaDesde(desde.toISOString())]);
   const secs = [...new Set((est || []).map(e => e.seccion).filter(Boolean))].sort();
   const selSec = document.getElementById("bit-sec");
   selSec.innerHTML = `<option value="">Todas</option>` + secs.map(x => `<option ${x === secSel ? "selected" : ""}>${x}</option>`).join("");
@@ -2601,16 +2602,38 @@ async function renderBitacora() {
   const porEst = {}; res.filas.forEach(f => { (porEst[f.estudiante_id] = porEst[f.estudiante_id] || []).push(f); });
   const lista = (est || []).filter(e => !secSel || e.seccion === secSel).map(e => ({ e, f: porEst[e.id] || [] }))
     .sort((a, b) => (a.e.seccion || "").localeCompare(b.e.seccion || "") || `${a.e.apellido1} ${a.e.apellido2}`.localeCompare(`${b.e.apellido1} ${b.e.apellido2}`));
-  const sinEntrar = lista.filter(x => !x.f.length).length;
+  const sinEntrar = lista.filter(x => !x.f.length && !(act[x.e.id] || []).length).length;
   const mods = Object.keys(BITACORA_MODULOS);
-  cuerpo.innerHTML = `<p style="font-size:0.9rem;"><strong>${lista.length - sinEntrar}</strong> de ${lista.length} estudiantes entraron en este período · <strong style="color:var(--brick)">${sinEntrar}</strong> no han entrado · ${res.filas.length} ingresos en total.</p>
-    <div style="overflow-x:auto;"><table class="grades" style="font-size:0.84rem;"><thead><tr><th>Estudiante</th><th>Sección</th><th>Último ingreso</th><th>Ingresos</th>${mods.map(m => `<th>${BITACORA_MODULOS[m]}</th>`).join("")}<th>Dispositivo</th><th></th></tr></thead><tbody>
-    ${lista.map(({ e, f }) => `<tr style="${f.length ? "" : "background:rgba(194,58,58,0.07);"}"><td><a href="#/perfil/${encodeURIComponent(e.id)}">${e.apellido1} ${e.apellido2 || ""}, ${e.nombre}</a></td><td>${e.seccion || ""}</td>
-      <td>${f.length ? `${bitacoraFecha(f[0].fecha)}<br><small style="color:var(--text-muted)">${bitacoraHace(f[0].fecha)}</small>` : `<strong style="color:var(--brick)">No ha entrado</strong>`}</td><td style="text-align:center;">${f.length}</td>
+  const otra = id => { const a = act[id] || []; if (!a.length) return `<small style="color:var(--text-muted)">—</small>`; return `${bitacoraFecha(a[0].fecha)}<br><small style="color:var(--text-muted)">${a[0].fuente}${a.length > 1 ? ` · ${a.length} registros` : ""}</small>`; };
+  cuerpo.innerHTML = `<p style="font-size:0.9rem;"><strong>${lista.length - sinEntrar}</strong> de ${lista.length} estudiantes tuvieron actividad en este período · <strong style="color:var(--brick)">${sinEntrar}</strong> sin ninguna actividad · ${res.filas.length} ingresos en la bitácora.</p>
+    <p style="font-size:0.8rem; color:var(--text-muted); margin-top:-0.4rem;">La <b>bitácora</b> registra cada entrada desde que se creó la tabla (31 de octubre). <b>«Trabajo guardado»</b> sale de lo que el estudiante guardó en los trabajos de la plataforma y en Aula de Conta, así que también muestra actividad de antes de la bitácora (de Aula de Conta solo se conoce el último guardado).</p>
+    <div style="overflow-x:auto;"><table class="grades" style="font-size:0.84rem;"><thead><tr><th>Estudiante</th><th>Sección</th><th>Último ingreso (bitácora)</th><th>Ingresos</th><th>Último trabajo guardado</th>${mods.map(m => `<th>${BITACORA_MODULOS[m]}</th>`).join("")}<th>Dispositivo</th><th></th></tr></thead><tbody>
+    ${lista.map(({ e, f }) => `<tr style="${f.length || (act[e.id] || []).length ? "" : "background:rgba(194,58,58,0.07);"}"><td><a href="#/perfil/${encodeURIComponent(e.id)}">${e.apellido1} ${e.apellido2 || ""}, ${e.nombre}</a></td><td>${e.seccion || ""}</td>
+      <td>${f.length ? `${bitacoraFecha(f[0].fecha)}<br><small style="color:var(--text-muted)">${bitacoraHace(f[0].fecha)}</small>` : `<span style="color:var(--brick)">Sin ingresos registrados</span>`}</td><td style="text-align:center;">${f.length}</td><td>${otra(e.id)}</td>
       ${mods.map(m => `<td style="text-align:center;">${f.filter(x => x.modulo === m).length || ""}</td>`).join("")}
       <td style="font-size:0.78rem; color:var(--text-muted);">${f.length ? (f[0].dispositivo || "") : ""}</td>
-      <td>${f.length ? `<button class="btn secondary small" data-bit-ver="${e.id}">Ver detalle</button>` : ""}</td></tr>
-      <tr data-bit-det="${e.id}" style="display:none;"><td colspan="${6 + mods.length}"><ul style="margin:0; padding-left:1.1rem;">${f.map(x => `<li>${bitacoraFecha(x.fecha)} · ${BITACORA_MODULOS[x.modulo] || x.modulo}${x.dispositivo ? " · " + x.dispositivo : ""}</li>`).join("")}</ul></td></tr>`).join("")}
+      <td>${f.length || (act[e.id] || []).length ? `<button class="btn secondary small" data-bit-ver="${e.id}">Ver detalle</button>` : ""}</td></tr>
+      <tr data-bit-det="${e.id}" style="display:none;"><td colspan="${7 + mods.length}"><ul style="margin:0; padding-left:1.1rem;">${[...f.map(x => ({ fecha: x.fecha, t: `🔒 Ingreso · ${BITACORA_MODULOS[x.modulo] || x.modulo}${x.dispositivo ? " · " + x.dispositivo : ""}` })), ...(act[e.id] || []).map(x => ({ fecha: x.fecha, t: `💾 ${x.fuente}` }))].sort((a, b) => String(b.fecha).localeCompare(String(a.fecha))).map(x => `<li>${bitacoraFecha(x.fecha)} · ${x.t}</li>`).join("")}</ul></td></tr>`).join("")}
     </tbody></table></div>`;
   cuerpo.querySelectorAll("[data-bit-ver]").forEach(b => b.addEventListener("click", () => { const r = cuerpo.querySelector(`[data-bit-det="${b.dataset.bitVer}"]`); r.style.display = r.style.display === "none" ? "" : "none"; }));
+}
+
+// Actividad que ya estaba guardada en otras tablas (sirve para fechas de antes de la bitácora).
+async function actividadGuardadaDesde(desdeISO) {
+  const out = {}, add = (id, fecha, fuente) => { if (!id || !fecha || fecha < desdeISO) return; (out[id] = out[id] || []).push({ fecha, fuente }); };
+  const nombresTrab = {};
+  try {
+    const [ae, ac, ent] = await Promise.all([
+      traerTodasLasFilas(() => sb.from("actividades_estudiante").select("estudiante_id, trabajo_id, actualizado_en, creado_en").gte("actualizado_en", desdeISO).order("id")),
+      sb.from("aula_conta_trabajos_estudiante").select("estudiante_id, actualizado_en").gte("actualizado_en", desdeISO),
+      sb.from("aula_conta_entregas").select("usuario, fecha").gte("fecha", desdeISO)]);
+    const filasAe = Array.isArray(ae) ? ae : (ae && ae.data) || [];
+    const ids = [...new Set(filasAe.map(x => x.trabajo_id))];
+    if (ids.length) { const { data: t } = await sb.from("trabajos_cotidianos").select("id, titulo").in("id", ids); (t || []).forEach(x => { nombresTrab[x.id] = x.titulo; }); }
+    filasAe.forEach(x => add(x.estudiante_id, x.actualizado_en || x.creado_en, `Trabajo en la plataforma: ${nombresTrab[x.trabajo_id] || "trabajo " + x.trabajo_id}`));
+    ((ac && ac.data) || []).forEach(x => add(x.estudiante_id, x.actualizado_en, "Guardó en Aula de Conta (último guardado)"));
+    ((ent && ent.data) || []).forEach(x => add(x.usuario, x.fecha, "Entrega en Aula de Conta"));
+  } catch (e) { /* si alguna tabla no responde, se muestra lo que haya */ }
+  Object.values(out).forEach(l => l.sort((a, b) => String(b.fecha).localeCompare(String(a.fecha))));
+  return out;
 }
