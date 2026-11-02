@@ -2849,14 +2849,32 @@ function plDraftRun(p){
 }
 const plDraftMode=p=>!p.runs.length||APP.plNewDraft;
 const plCurRun=p=>plDraftMode(p)?plDraftRun(p):plRunSel(p);
+// Cálculo matemático de cada cuenta del asiento de la planilla, colaborador por colaborador
+// (mismas reglas que plEntryLines).
+function plAsientoDetalle(run){
+  const D={},pc=v=>String(v).replace(".",",")+" %",add=(code,t)=>{(D[code]=D[code]||[]).push(t)};
+  for(const r of run.res){const k=r.calc,n=esc((r.emp&&r.emp.nombre)||"");
+    add("6101",`${n}: salario bruto ${money(k.bruto)}`);
+    if(k.totPat){const tp=r2(k.patronal.reduce((t,x)=>t+x.pct,0));if(!D["6102"])add("6102",`<span class="muted">Cargas patronales: ${k.patronal.map(x=>`${esc(x.nombre.split("·")[0].trim())} ${pc(x.pct)}`).join(" + ")} = ${pc(tp)}</span>`);add("6102",`${n}: ${money(k.bruto)} × ${pc(tp)} = ${money(k.totPat)}`)}
+    for(const x of k.prov){add(x.gasto,`${n}: ${money(k.bruto)} × ${pc(x.pct)} = ${money(x.monto)}`);add(x.pasivo,`${n}: ${money(k.bruto)} × ${pc(x.pct)} = ${money(x.monto)}`)}
+    for(const x of k.obrero)add(x.cuenta,`${n} (${esc(x.nombre.split("·")[0].trim())}): ${money(k.bruto)} × ${pc(x.pct)} = ${money(x.monto)}`);
+    for(const x of k.patronal)add(x.cuenta,`${n} (${esc(x.nombre.split("·")[0].trim())}, patronal): ${money(k.bruto)} × ${pc(x.pct)} = ${money(x.monto)}`);
+    if(k.renta)add("2110",`${n}: renta ${money(k.renta)}${k.credAplic>0?` (${money(k.rentaBruta)} − créditos ${money(k.credAplic)})`:""}`);
+    for(const x of (k.rebajos||[]))add(x.cuenta,`${n} (${esc(x.nombre)}): ${x.modo==="pct"?`${money(k.bruto)} × ${pc(x.valor)} = `:""}${money(x.monto)}`);
+    add(run.pago||"1102",`${n}: neto ${money(k.bruto)} − ${money(k.totObr)} − ${money(k.renta)}${k.totReb?` − ${money(k.totReb)}`:""} = ${money(k.neto)}`);
+  }
+  return D;
+}
 function plResolvedAsiento(c,run,entry){
   const lines=plEntryLines(run),name=code=>acc(code)?.name||PL_ACCOUNTS.find(a=>a.code===code)?.name||"Cuenta "+code;
   const D=r2(lines.reduce((s,l)=>s+l.d,0)),C=r2(lines.reduce((s,l)=>s+l.c,0));
   return `<div class="panel stack"><div><div class="eyebrow">${entry?"Asiento registrado":"Vista resuelta"}</div><h3>Asiento de la planilla de ${esc(plRunLabel(run))}</h3>
     <p class="muted" style="margin:4px 0 0">Los gastos van al Debe. Lo que la empresa debe a la CCSS, al Banco Popular, a Hacienda y a sus colaboradores va al Haber.</p></div>
+   <div class="row" style="align-items:center"><button class="btn sm ${APP.asiCalc?"primary":"pop"}" data-act="asiCalc">🧮 ${APP.asiCalc?"Ocultar los cálculos":"Ver los cálculos matemáticos de cada cuenta"}</button></div>
    <div class="tbl"><table><thead><tr><th>Cuenta</th><th>¿Por qué?</th><th class="r">Debe</th><th class="r">Haber</th></tr></thead><tbody>
-    ${lines.map(l=>`<tr><td class="${l.c?"indent":""}"><span class="num">${esc(l.code)}</span> · ${esc(name(l.code))}</td><td class="muted" style="font-size:.85rem">${esc(PL_WHY[l.code]||(l.d?"Gasto de la planilla":"Obligación de la planilla"))}</td>
-      <td class="r num dcol">${l.d?money(l.d,false):""}</td><td class="r num hcol">${l.c?money(l.c,false):""}</td></tr>`).join("")}
+    ${(()=>{const DET=APP.asiCalc?plAsientoDetalle(run):null;return lines.map(l=>`<tr><td class="${l.c?"indent":""}"><span class="num">${esc(l.code)}</span> · ${esc(name(l.code))}</td><td class="muted" style="font-size:.85rem">${esc(PL_WHY[l.code]||(l.d?"Gasto de la planilla":"Obligación de la planilla"))}</td>
+      <td class="r num dcol">${l.d?money(l.d,false):""}</td><td class="r num hcol">${l.c?money(l.c,false):""}</td></tr>
+      ${DET&&DET[l.code]?`<tr><td colspan="4" style="background:var(--surface2);font-size:.84rem;padding-left:1.4rem">${DET[l.code].map(t=>`<div>${t}</div>`).join("")}${DET[l.code].length>1?`<div style="margin-top:4px"><b>Suma: ${money(l.d||l.c)}</b>${(l.d&&l.c)===0?"":""}</div>`:""}</td></tr>`:""}`).join("")})()}
     <tr class="entry-desc"><td colspan="4">p/r Registro de la planilla de ${esc(plRunLabel(run))} · ${run.res.length} colaborador(es)</td></tr>
     <tr class="tot"><td colspan="2">Sumas iguales</td><td class="r num dcol">${money(D)}</td><td class="r num hcol">${money(C)}</td></tr></tbody></table></div>
    <div class="status ${D===C?"ok":"bad"}"><span class="dot"></span>${D===C?"Partida doble correcta: Debe = Haber":"El asiento no cuadra"}</div>
@@ -3228,6 +3246,7 @@ document.addEventListener("click",async e=>{
   if(a==="ciExcAgregar"){const e=val("ciExcEst"),t=val("ciExcTra");if(!e)return toast("Escoja un estudiante");
     for(const g of cierreGrupos()){if(t!=="*"&&g.nom!==t)continue;if(t==="*"&&!APP.cierre.sel[g.nom])continue;if(g.rows.some(r=>r.w.id===e))APP.cierre.exc[e+"|"+g.nom]=true}render();return}
   if(a==="ciAplicar"){aplicarCierre(b);return}
+  if(a==="asiCalc"){APP.asiCalc=!APP.asiCalc;render();return}
   if(a==="kpiVer"){APP.kpiVer=APP.kpiVer===b.dataset.k?null:b.dataset.k;render();return}
   if(a==="pillVer"&&b.dataset.k==="estudiantes"&&APP.bitUlt===undefined&&typeof bitacoraDesde==="function"){APP.bitUlt=undefined;bitacoraDesde(new Date(Date.now()-120*864e5).toISOString()).then(r=>{if(r.error){APP.bitUlt=null}else{const m={};for(const f of r.filas)if(!m[f.estudiante_id])m[f.estudiante_id]=f;APP.bitUlt=m}render()})}
   if(a==="pillVer"){APP.pillVer=APP.pillVer===b.dataset.k?null:b.dataset.k;if(APP.pillVer==="codigo"&&!APP.entregas&&typeof loadEntregas==="function")loadEntregas();render();return}
