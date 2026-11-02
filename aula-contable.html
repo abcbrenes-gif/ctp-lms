@@ -2083,10 +2083,9 @@ const PL_TAB_EVAL=["evaluaciones","📝 Evaluaciones"];
 function evCfg(c){c.evalCfg??={};c.evalCfg.machote??={on:false};c.evalCfg.asiento??={on:false};c.evalCfg.solucion??={on:false};c.evalCfg.pdf??={on:false};return c.evalCfg}
 function evRunAsiento(c,p){
   const P=p.params;
-  const tp=P.pagos.find(x=>p.employees.some(e=>(e.tipoPago||"mensual")===x.id))||P.pagos[0]||{id:"mensual",nombre:"Mensual",divisor:1};
-  const div=+tp.divisor||1;
-  const run={id:"eval",periodo:`${c.period}-01`,tipo:tp.id,tipoNombre:tp.nombre,div,nPago:div>1?1:null,pago:"1102"};
-  run.res=p.employees.filter(e=>(e.tipoPago||"mensual")===tp.id).map(e=>({emp:clone(e),calc:plCalc(e,P)}));
+  // Asiento de toda la planilla: la sumatoria de todos los colaboradores.
+  const run={id:"eval",periodo:`${c.period}-01`,tipo:"todos",tipoNombre:PL_TODOS.nombre,div:1,nPago:null,pago:"1102"};
+  run.res=p.employees.map(e=>({emp:clone(e),calc:plCalc(e,P)}));
   return run;
 }
 // El profesor puede "habilitar de nuevo": deja una marca (reset) y el estudiante borra su intento al verla.
@@ -2734,7 +2733,7 @@ function plViewPlanilla(c,p){
      <p class="muted" style="margin:0">${M?"Se habilita cuando tu machote de planilla esté correcto. Después harás el asiento de diario tú mismo.":"Se guarda una copia de los cálculos del mes para el asiento y las colillas."}</p>
      <div class="row">
       <div class="field"><label for="plPer">Mes de la planilla</label><input id="plPer" type="month" required value="${nextPer}"></div>
-      <div class="field"><label for="plTipo">Tipo de planilla</label><select id="plTipo">${P.pagos.map(x=>`<option value="${esc(x.id)}">${esc(x.nombre)}</option>`).join("")}</select></div>
+      <div class="field"><label for="plTipo">Tipo de planilla</label><select id="plTipo">${plTiposPlanilla(P).map(x=>`<option value="${esc(x.id)}">${esc(x.nombre)}</option>`).join("")}</select></div>
       <div class="field"><label for="plN">Pago del mes</label><select id="plN">${[1,2,3,4,5].slice(0,Math.max(2,...P.pagos.map(x=>Math.ceil(+x.divisor||1)))).map(n=>`<option value="${n}">${n}.° pago (quincenal: ${n===1?"1.ª quincena":n===2?"2.ª quincena":"—"})</option>`).join("")}</select></div>
       <div class="field"><label for="plPago">Salarios netos</label><select id="plPago"><option value="1102">Se pagan por Bancos</option><option value="2104">Quedan por pagar</option></select></div>
      </div>
@@ -2806,11 +2805,16 @@ function plMachoteAsiento(c,p,run){
   </form>`;
 }
 function plNextPer(c,p){const last=p.runs.map(r=>r.periodo).sort().pop();if(!last)return `${c.period}-01`;let [y,m]=last.split("-").map(Number);m++;if(m>12){m=1;y++}return `${y}-${String(m).padStart(2,"0")}`}
+// «Todos los colaboradores»: un solo asiento con la sumatoria de toda la planilla
+// (los montos de cada uno salen igual que en su fila del machote).
+const PL_TODOS={id:"todos",nombre:"Todos los colaboradores",divisor:1};
+const plTiposPlanilla=P=>[PL_TODOS,...(P.pagos||[])];
 function plDraftRun(p){
-  const c=co();p.draft??={id:"draft",periodo:plNextPer(c,p),tipo:"mensual",nPago:null,pago:"1102",mach:{},intentos:0};
-  const d=p.draft,tp=p.params.pagos.find(x=>x.id===d.tipo)||p.params.pagos[0]||{id:"mensual",nombre:"Mensual",divisor:1};
+  const c=co();p.draft??={id:"draft",periodo:plNextPer(c,p),tipo:"todos",nPago:null,pago:"1102",mach:{},intentos:0};
+  const d=p.draft;if(!d.tipoElegido)d.tipo="todos"; // por defecto, la planilla de todos los colaboradores
+  const tp=plTiposPlanilla(p.params).find(x=>x.id===d.tipo)||PL_TODOS;
   d.tipo=tp.id;d.tipoNombre=tp.nombre;d.div=+tp.divisor||1;d.nPago=d.div>1?Math.min(d.nPago||1,Math.ceil(d.div)):null;
-  d.res=p.employees.filter(e=>(e.tipoPago||"mensual")===d.tipo).map(e=>({emp:clone(e),calc:plCalc(e,p.params)}));
+  d.res=p.employees.filter(e=>d.tipo==="todos"||(e.tipoPago||"mensual")===d.tipo).map(e=>({emp:clone(e),calc:plCalc(e,p.params)}));
   return d;
 }
 const plDraftMode=p=>!p.runs.length||APP.plNewDraft;
@@ -2839,7 +2843,7 @@ function plViewAsiento(c,p){
     const sel=`<div class="panel stack"><div class="row" style="align-items:center"><div style="margin-right:auto"><div class="eyebrow">Nuevo asiento de planilla</div><h3>Elige la planilla que vas a contabilizar</h3></div>${p.runs.length?'<button class="btn sm ghost" data-pact="closeDraft">Ver planillas ya registradas</button>':""}</div>
       <div class="row">
        <div class="field"><label for="pdPer">Mes</label><input id="pdPer" type="month" value="${esc(d.periodo)}"></div>
-       <div class="field"><label for="pdTipo">Tipo de planilla</label><select id="pdTipo">${P.pagos.map(x=>`<option value="${esc(x.id)}" ${x.id===d.tipo?"selected":""}>${esc(x.nombre)}</option>`).join("")}</select></div>
+       <div class="field"><label for="pdTipo">Tipo de planilla</label><select id="pdTipo">${plTiposPlanilla(P).map(x=>`<option value="${esc(x.id)}" ${x.id===d.tipo?"selected":""}>${esc(x.nombre)}</option>`).join("")}</select></div>
        ${d.div>1?`<div class="field"><label for="pdN">Pago del mes</label><select id="pdN">${Array.from({length:Math.ceil(d.div)},(_,i)=>i+1).map(n=>`<option value="${n}" ${n===d.nPago?"selected":""}>${d.div===2?n+".ª quincena":n+".° pago"}</option>`).join("")}</select></div>`:""}
        <div class="field"><label for="pdPago">Salarios netos</label><select id="pdPago"><option value="1102" ${d.pago==="1102"?"selected":""}>Se pagan por Bancos</option><option value="2104" ${d.pago==="2104"?"selected":""}>Quedan por pagar</option></select></div>
       </div>
@@ -2966,7 +2970,7 @@ document.addEventListener("input",e=>{if(e.target.dataset.q){APP.plAns[e.target.
 document.addEventListener("change",e=>{if(e.target.id==="plRunSel"){APP.plRun=e.target.value;render();return}
   const map={pdPer:"periodo",pdTipo:"tipo",pdN:"nPago",pdPago:"pago"}[e.target.id];if(!map)return;
   const c=co();if(!c||APP.readOnly)return;const p=ensurePayroll(c),d=plDraftRun(p);
-  d[map]=map==="nPago"?+e.target.value:e.target.value;if(map==="tipo")d.nPago=1;APP.plEntryChk=null;APP.plShowSol=false;touch(c);render();});
+  d[map]=map==="nPago"?+e.target.value:e.target.value;if(map==="tipo"){d.nPago=1;d.tipoElegido=true}APP.plEntryChk=null;APP.plShowSol=false;touch(c);render();});
 document.addEventListener("submit",e=>{
   const id=e.target.id;if(!id||!id.startsWith("pl"))return;e.preventDefault();
   const c=co();if(!c)return;const p=ensurePayroll(c);
@@ -3007,9 +3011,9 @@ document.addEventListener("submit",e=>{
   if(id==="plProc"){
     const per=document.getElementById("plPer").value;if(!/^\d{4}-\d{2}$/.test(per)){toast("Elige el mes de la planilla");return}
     if(plMachote()&&puedeVerRespuestas()&&!plSheetStatus(p).all){toast("Primero completa y revisa tu machote de planilla: todas las casillas deben estar correctas.");return}
-    const tipo=document.getElementById("plTipo").value,tp=p.params.pagos.find(x=>x.id===tipo)||{id:"mensual",nombre:"Mensual",divisor:1},div=+tp.divisor||1;
+    const tipo=document.getElementById("plTipo").value,tp=plTiposPlanilla(p.params).find(x=>x.id===tipo)||PL_TODOS,div=+tp.divisor||1;
     const nPago=div>1?Math.min(+document.getElementById("plN").value||1,Math.ceil(div)):null;
-    const emps=p.employees.filter(e=>(e.tipoPago||"mensual")===tipo);
+    const emps=p.employees.filter(e=>tipo==="todos"||(e.tipoPago||"mensual")===tipo);
     if(!emps.length){toast(`No hay colaboradores con pago ${String(tp.nombre).toLowerCase()}.`);return}
     const run={id:uid(),periodo:per,tipo,tipoNombre:tp.nombre,div,nPago,fecha:new Date().toISOString(),pago:document.getElementById("plPago").value,
       res:emps.map(e=>({emp:clone(e),calc:plCalc(e,p.params)})),entryId:null};
