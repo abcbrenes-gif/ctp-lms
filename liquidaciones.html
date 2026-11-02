@@ -231,7 +231,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
     } else if (S.asignado) {
       a.innerHTML = `${tipoTrabajo() === "diaria" ? "" : `<button class="btn" type="button" id="verEval">📋 Evaluación</button>`}${S.bloqueado ? "" : `<button class="btn ok" type="button" id="entregar">📤 Entregar al profe</button>`}<a class="btn" href="${S.verEst ? "liquidaciones.html" : "liquidaciones.html"}" data-volver>← Actividades</a>`;
     } else {
-      a.innerHTML = `${botonBloqueo()}${bloqueadoParaMi() ? "" : `<span class="seg" role="group" aria-label="Forma de trabajar"><button type="button" data-modo="calc" class="${S.modo === "calc" ? "on" : ""}">🧮 Calculadora</button><button type="button" data-modo="practica" class="${S.modo === "practica" ? "on" : ""}">✍️ Lo calculo yo</button></span>`}
+      a.innerHTML = `${botonBloqueo()}${!ES_DOCENTE ? "" : `<span class="seg" role="group" aria-label="Forma de trabajar"><button type="button" data-modo="calc" class="${S.modo === "calc" ? "on" : ""}">🧮 Calculadora</button><button type="button" data-modo="practica" class="${S.modo === "practica" ? "on" : ""}">✍️ Lo calculo yo</button></span>`}
         ${ES_DOCENTE ? `<button class="btn primary" type="button" id="practicaIA">🤖 Práctica con IA</button>` : ""}
         ${PUBLICADAS.length ? `<select class="btn" id="publicadas" aria-label="Prácticas del profe"><option value="">📚 Prácticas del profe (${PUBLICADAS.length})</option>${PUBLICADAS.map((x, i) => `<option value="${i}" ${S.practica && S.practica.id === x.id ? "selected" : ""}>${esc(x.titulo || x.empresa)} · ${x.empleados.length} empleado(s)</option>`).join("")}</select>` : ""}
         <button class="btn" type="button" id="aleatorio">🎲 Caso de práctica</button><button class="btn" type="button" id="vacio">＋ Caso propio</button><a class="btn" href="index.html" data-volver>← Plataforma</a>`;
@@ -734,7 +734,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
 
   function pintarTodo() {
     if (S.asignado && !S.docente) S.modo = "practica";
-    if (bloqueadoParaMi()) S.modo = "practica";
+    if (bloqueadoParaMi() || !ES_DOCENTE) S.modo = "practica"; // los estudiantes no tienen la calculadora
     if (S.docente) S.modo = "calc";
     pintarHub(); pintarAcciones(); pintarBanner(); pintarEmpleados(); pintarTabs();
     const v = $("#vista");
