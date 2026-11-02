@@ -2664,11 +2664,12 @@ function gruposMenuEstudiante(s) {
   return [
     { k: "notas", ic: "📝", t: "Mis notas", sub: "Trabajo cotidiano, notas, tareas, rúbrica y asistencia", items: [["tc", "📋", "Trabajo cotidiano"], ["notas", "📝", "Notas y Tareas"], ["rubrica", "📊", "Rúbrica"], ["asistencia", "🗓️", "Asistencia"]] },
     { k: "materias", ic: "📚", t: "Mis materias", sub: "Temas, trabajos y material de clase", items: [["materias-est", "📚", "Materias"], ...(esSeccion113(s.seccion) ? [["infografias", "🖼️", "Mis infografías"]] : [])] },
-    { k: "juegos", ic: "🎮", t: "Juegos y simuladores", sub: "Aula de Conta, ContaRed, Liquidaciones y La Tiradera", items: [
+    { k: "juegos", ic: "🎮", t: "Juegos y simuladores", sub: "Aula de Conta, ContaRed, Liquidaciones, La Tiradera y Planilla Opoly", items: [
       ["link:" + AULA_CONTABLE_URL + "?como_estudiante=" + encodeURIComponent(s.id), "🧮", "Aula de Conta"],
       ["link:" + SIMULADOR_B2B_URL, "🏆", "ContaRed"],
       ["link:liquidaciones.html", "📑", "Liquidaciones"],
       ["link:tiradera.html?nombre=" + encodeURIComponent(`${s.nombre || ""} ${s.apellido1 || ""} ${s.apellido2 || ""}`.replace(/\s+/g, " ").trim()) + "&est=" + encodeURIComponent(s.id), "⚡", "La Tiradera"],
+      ["link:planilla-opoly.html", "🎲", "Planilla Opoly"],
       ["aula-informe", "📈", "Informe de Aula de Conta"],
       ["ac-material", "📂", "Material entregado"]] }
   ];
