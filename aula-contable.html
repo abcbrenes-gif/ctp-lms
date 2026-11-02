@@ -403,6 +403,8 @@ tr.hl td{background:rgba(99,102,241,.18);font-weight:700}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/config.js?v=20261018d"></script>
 <script src="js/bitacora.js?v=20261031a"></script>
+<script src="js/hoja-calculo.js?v=20261102a"></script>
+<script src="js/hoja-ui.js?v=20261102a"></script>
 <script>document.addEventListener("DOMContentLoaded",()=>{try{bitacoraRegistrar("aula_conta")}catch(e){}});</script>
 <script>
 
@@ -2127,7 +2129,7 @@ function evMachoteHTML(c,p){
   return `<form class="panel stack" id="evMForm"><div><div class="eyebrow">Evaluación · ${esc(c.name)}</div><h3>Evaluación del machote de planilla</h3>
     <p class="muted" style="margin:4px 0 0"><b>Una sola oportunidad.</b> No hay pistas ni revisión previa. Calcula cada monto con los parámetros legales y escríbelo con dos decimales (se acepta ₡1 de diferencia por redondeo). Al terminar toca <b>Entregar evaluación</b>.</p></div>
     <div class="tbl"><table class="sheet"><thead><tr><th>Colaborador y datos del mes</th>${F.map(([,l])=>`<th class="r">${esc(l)}</th>`).join("")}</tr></thead><tbody>
-    ${rows.map(({e,k})=>`<tr><td style="min-width:220px"><b>${esc(e.nombre)}</b><br><small class="muted">${esc(plDatos(e,P))}</small></td>
+    ${rows.map(({e,k})=>`<tr><td style="min-width:220px"><b>${esc(e.nombre)}</b><br><small class="muted">${esc(plDatos(e,P))}</small><br><button type="button" class="btn sm ghost" style="margin-top:4px" data-act="hojaEmp" data-id="${e.id}" title="Abrir una hoja de cálculo para este colaborador">🧮 Hoja de cálculo</button></td>
       ${F.map(([q,l])=>`<td class="r"><input data-evm="${e.id}|${q}" inputmode="decimal" placeholder="0,00" value="${esc(((p.evalM.resp[e.id]||{})[q])??"")}" aria-label="${esc(l)} de ${esc(e.nombre)}"></td>`).join("")}</tr>`).join("")}
     </tbody></table></div>
     <div class="row"><button class="btn primary" type="submit">Entregar evaluación</button></div></form>`;
@@ -2660,7 +2662,7 @@ function plSheetFormHTML(c,p){
       <div><div class="eyebrow">Machote de planilla · ${esc(c.name)}</div><h3>Completa la planilla del mes</h3>
       <p class="muted" style="margin:4px 0 0">Calcula cada monto con los parámetros legales y escríbelo en su casilla. Usa dos decimales. Se acepta una diferencia de ₡1 por redondeo.</p></div>
       <div class="tbl"><table class="sheet"><thead><tr><th>Colaborador y datos del mes</th>${F.map(([,l])=>`<th class="r">${esc(l)}</th>`).join("")}${showProc?"<th></th>":""}</tr></thead><tbody>
-      ${rows.map(({e,k})=>`<tr><td style="min-width:220px"><b>${esc(e.nombre)}</b><br><small class="muted">${esc(plDatos(e,P))}</small></td>
+      ${rows.map(({e,k})=>`<tr><td style="min-width:220px"><b>${esc(e.nombre)}</b><br><small class="muted">${esc(plDatos(e,P))}</small><br><button type="button" class="btn sm ghost" style="margin-top:4px" data-act="hojaEmp" data-id="${e.id}" title="Abrir una hoja de cálculo para este colaborador">🧮 Hoja de cálculo</button></td>
         ${F.map(([q,l])=>{const x=st.cells[e.id][q];return `<td class="r ${chk&&puedeVerRespuestas()?(x.ok?"cell-ok":"cell-bad"):""}"><input data-sh="${e.id}|${q}" inputmode="decimal" placeholder="0,00" value="${esc((p.sheet[e.id]||{})[q]??"")}" aria-label="${esc(l)} de ${esc(e.nombre)}"></td>`}).join("")}
         ${showProc?`<td><button type="button" class="btn sm ${APP.plShow===e.id?"primary":"ghost"}" data-pact="show" data-id="${e.id}">${APP.plShow===e.id?"Ocultar":"Procedimiento"}</button></td>`:""}</tr>
         ${showProc&&APP.plShow===e.id?`<tr><td colspan="${F.length+2}" style="background:var(--surface2)">${plProcedure(k,e)}</td></tr>`:""}`).join("")}
@@ -2717,7 +2719,7 @@ function plViewPlanilla(c,p){
    ${APP.kpiVer?kpiCalculoHTML(APP.kpiVer,rows):""}
    ${APP.readOnly&&p.sheetIntentos?`<div class="status ok"><span class="dot"></span>El estudiante revisó su machote de planilla ${p.sheetIntentos} vez/veces.</div>`:""}
    <div class="tbl"><table><thead><tr><th>Colaborador</th><th class="r">Salario base</th><th class="r">Extras y comisiones</th><th class="r">Rebajos</th><th class="r">Bruto</th><th class="r">Cuotas obreras</th><th class="r">Renta</th><th class="r">Neto</th><th></th></tr></thead><tbody>
-   ${rows.map(({e,k})=>`<tr><td><b>${esc(e.nombre)}</b><br><small class="muted">${esc(e.puesto||"")} · ${esc(e.cedula||"")}</small></td>
+   ${rows.map(({e,k})=>`<tr><td><b>${esc(e.nombre)}</b><br><small class="muted">${esc(e.puesto||"")} · ${esc(e.cedula||"")}</small><br><button type="button" class="btn sm ghost" style="margin-top:4px" data-act="hojaEmp" data-id="${e.id}">🧮 Hoja de cálculo</button></td>
      <td class="r num">${money(k.base,false)}</td><td class="r num">${money(k.extra+k.comis,false)}</td><td class="r num">${k.ausen+k.tarde?money(-(k.ausen+k.tarde),false):"—"}</td>
      <td class="r num"><b>${money(k.bruto,false)}</b></td><td class="r num hcol">${money(k.totObr,false)}</td><td class="r num hcol">${money(k.renta,false)}</td><td class="r num"><b>${money(k.neto,false)}</b></td>
      <td>${puedeVerRespuestas()?`<button class="btn sm ${APP.plShow===e.id?"primary":"ghost"}" data-pact="show" data-id="${e.id}">${APP.plShow===e.id?"Ocultar":"Ver cálculo"}</button>`:""}</td></tr>
@@ -2851,6 +2853,20 @@ function plDraftRun(p){
 }
 const plDraftMode=p=>!p.runs.length||APP.plNewDraft;
 const plCurRun=p=>plDraftMode(p)?plDraftRun(p):plRunSel(p);
+// Hoja de cálculo por colaborador (ventana flotante que se minimiza y maximiza).
+// Se guarda en la empresa: payroll.hojas[idColaborador].
+function abrirHojaColaborador(empId){
+  const cid=APP.activeId,cc=()=>APP.companies.find(x=>x.id===cid),c0=cc();if(!c0||typeof hojaVentana!=="function")return;
+  const e0=(c0.payroll&&c0.payroll.employees||[]).find(x=>x.id===empId);if(!e0)return;
+  const obtener=()=>{const c=cc();if(!c||!c.payroll)return null;c.payroll.hojas??={};return c.payroll.hojas[empId]??={}};
+  const datos=()=>{const c=cc(),e=(c.payroll.employees||[]).find(x=>x.id===empId),P=c.payroll.params;if(!e)return;const h=obtener();
+    const jor=(P.jornadas||[]).find(j=>j.id===(e.jornada||"diurna"))||{nombre:"Diurna",horas:8},pg=(P.pagos||[]).find(x=>x.id===(e.tipoPago||"mensual"))||{nombre:"Mensual",divisor:1};
+    const filas=[["Dato","Valor"],["Salario base mensual",e.base],["Tipo de pago",pg.nombre],["Pagos en el mes",pg.divisor],["Jornada",jor.nombre],["Horas de la jornada",jor.horas],["Días del mes",P.jornada.dias],["Horas extra",+e.horasExtra||0],["Comisiones",+e.comisiones||0],["Días de ausencia",+e.diasAusencia||0],["Horas de llegada tardía",+e.horasTarde||0],["Hijos",+e.hijos||0],["Cónyuge (1 = sí)",e.conyuge?1:0]];
+    filas.forEach((f,i)=>{if(!h["A"+(i+1)])h["A"+(i+1)]=String(f[0]);if(!h["B"+(i+1)])h["B"+(i+1)]=String(f[1])});touch(c)};
+  hojaVentana({id:cid+"|"+empId,titulo:`Hoja de cálculo · ${e0.nombre}`,obtener,guardar:()=>{const c=cc();if(c)touch(c)},soloLectura:!!APP.readOnly||ventanaBloqueada(c0),
+    nota:"Funciona como Excel: escribí = (o +), hacé clic en las celdas y tocá Enter. Ej.: =B2/30, =SUMA(B5:B9). Se guarda sola en esta empresa.",
+    herramientas:[["📋 Poner los datos del colaborador",datos],["🧹 Borrar la hoja",()=>{if(!confirm("¿Borrar toda la hoja de este colaborador?"))return;const c=cc();c.payroll.hojas[empId]={};touch(c)}]]});
+}
 // Cálculo matemático de cada cuenta del asiento de la planilla, colaborador por colaborador
 // (mismas reglas que plEntryLines).
 // Los cálculos matemáticos los ve el profesor siempre; el estudiante, solo si el profe los habilitó en esa práctica.
@@ -3261,6 +3277,7 @@ document.addEventListener("click",async e=>{
   if(a==="ciExcAgregar"){const e=val("ciExcEst"),t=val("ciExcTra");if(!e)return toast("Escoja un estudiante");
     for(const g of cierreGrupos()){if(t!=="*"&&g.nom!==t)continue;if(t==="*"&&!APP.cierre.sel[g.nom])continue;if(g.rows.some(r=>r.w.id===e))APP.cierre.exc[e+"|"+g.nom]=true}render();return}
   if(a==="ciAplicar"){aplicarCierre(b);return}
+  if(a==="hojaEmp"){abrirHojaColaborador(b.dataset.id);return}
   if(a==="asiCalc"){APP.asiCalc=!APP.asiCalc;render();return}
   if(a==="kpiVer"){APP.kpiVer=APP.kpiVer===b.dataset.k?null:b.dataset.k;render();return}
   if(a==="pillVer"&&b.dataset.k==="estudiantes"&&APP.bitUlt===undefined&&typeof bitacoraDesde==="function"){APP.bitUlt=undefined;bitacoraDesde(new Date(Date.now()-120*864e5).toISOString()).then(r=>{if(r.error){APP.bitUlt=null}else{const m={};for(const f of r.filas)if(!m[f.estudiante_id])m[f.estudiante_id]=f;APP.bitUlt=m}render()})}
