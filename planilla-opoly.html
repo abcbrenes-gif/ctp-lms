@@ -117,7 +117,7 @@ header.top b{font-size:1.05rem}
 <div id="entry" class="screen">
  <div class="hero">
   <h1>🎲 Planilla Opoly</h1>
-  <p>Juego tipo Monopoly para 2 a 4 jugadores: compra empresas resolviendo sus problemas de planilla (CCSS, aguinaldo, vacaciones, horas extra, cesantía).</p>
+  <p>Juego tipo Monopoly para 2 a 8 jugadores: compra empresas resolviendo sus problemas de planilla (CCSS, aguinaldo, vacaciones, horas extra, cesantía).</p>
   <label>Tu nombre</label><input id="nm" maxlength="24" placeholder="Nombre">
   <div class="row"><button id="bCrear" style="flex:1">Crear sala</button><button id="bDemo" class="sec" style="flex:1" title="Juega solo contra 2 jugadores automáticos">▶ Modo demo</button></div>
   <label>o únete con el código de tu compañero</label>
@@ -157,8 +157,8 @@ const fmt=n=>"₡ "+String(R(n)).replace(/\B(?=(\d{3})+(?!\d))/g," ");
 const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
 const pick=a=>a[Math.floor(Math.random()*a.length)];
 const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=rnd(0,i);[a[i],a[j]]=[a[j],a[i]]}return a};
-const COLORS=["#f43f5e","#38bdf8","#facc15","#34d399"];
-const MAXP=4,START=300000,PASS=50000,FINE=20000,BONUS=15000,CCSS_TAX=25000;
+const COLORS=["#f43f5e","#38bdf8","#facc15","#34d399","#a78bfa","#fb923c","#f472b6","#2dd4bf"];
+const MAXP=8,START=300000,PASS=50000,FINE=20000,BONUS=15000,CCSS_TAX=25000;
 const T_ROLL=45000,T_Q=60000,T_BUY=25000;
 
 /* ===================== Tablero ===================== */
@@ -390,7 +390,7 @@ function buildBoard(){
  b.innerHTML=h;V.built=true;fitBoard()}
 function fitBoard(){const st=$("stage");if(!st)return;const w=st.clientWidth,hh=st.clientHeight;V.k=Math.max(.3,Math.min(2,Math.min(w/(CELL*7*1.2),hh/(CELL*7*Math.sin(V.rx*Math.PI/180)+170))*(V.zoom||1)));$("board").style.setProperty("--k",V.k)}
 function setView(){const s=$("board").style;s.setProperty("--rx",V.rx+"deg");s.setProperty("--rz",V.rz+"deg");document.documentElement.style.setProperty("--rx",V.rx+"deg");document.documentElement.style.setProperty("--rz",V.rz+"deg");fitBoard()}
-const posXY=(i,slot)=>{const [x,y]=xy(i);const off=[[-20,-16],[20,-16],[-20,18],[20,18]][slot%4];return [x*CELL+CELL/2+off[0],y*CELL+CELL/2+8+off[1]]};
+const posXY=(i,slot)=>{const [x,y]=xy(i);const off=[[-24,-18],[24,-18],[-24,20],[24,20],[0,-26],[0,26],[-34,1],[34,1]][slot%8];return [x*CELL+CELL/2+off[0],y*CELL+CELL/2+8+off[1]]};
 function ensurePawns(){
  G.players.forEach((p,idx)=>{let el=$("pw"+idx);if(!el){el=document.createElement("div");el.className="pawn";el.id="pw"+idx;el.style.setProperty("--pc",p.color);el.innerHTML='<div class="sh"></div><div class="body"><div class="trunk"></div><div class="head"></div></div>';$("board").appendChild(el);V.pos[p.id]=p.pos;const [x,y]=posXY(p.pos,idx);el.style.left=x+"px";el.style.top=y+"px"}})}
 V.tgt={};V.run={};
@@ -441,7 +441,7 @@ function render(){
  const evH=G.event?`<div class="ev ${G.event.kind}">${esc(G.event.text)}${G.event.explain?`<small>📖 ${esc(G.event.explain)}</small>`:""}</div>`:"";
  if(G.phase==="lobby"){
   const host=G.hostId===ME.pid;
-  h=`<b>Sala de espera</b><p style="color:var(--mut);margin:6px 0">Comparte este código con tus compañeros (2 a 4 jugadores):</p><div class="big">${G.code}</div>
+  h=`<b>Sala de espera</b><p style="color:var(--mut);margin:6px 0">Comparte este código con tus compañeros (2 a 8 jugadores):</p><div class="big">${G.code}</div>
    <p style="color:var(--mut)">Jugadores: ${G.players.length} / ${MAXP}</p>
    ${host?`<label style="font-size:.75rem;color:var(--mut)">RONDAS</label><select id="rondas"><option value="8">Partida corta (8)</option><option value="12" selected>Partida normal (12)</option><option value="16">Partida larga (16)</option></select><button id="bStart" style="width:100%;margin-top:10px" ${G.players.length<2?"disabled":""}>${G.players.length<2?"Esperando jugadores…":"Iniciar juego"}</button>`:`<p>Esperando a que el anfitrión inicie…</p>`}`;
  }else if(G.phase==="end"){
