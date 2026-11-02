@@ -123,6 +123,16 @@ tr.hl td{background:#fff7d6; font-weight:700}
 .act td{vertical-align:middle}
 .act .acc{display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end}
 .btn.sm{padding:5px 9px; font-size:.8rem}
+.hubmenu{display:flex; gap:8px; flex-wrap:wrap; margin:6px 0 0}
+.hubbtn{border:1px solid var(--line); background:var(--soft); border-radius:12px; padding:9px 14px; cursor:pointer; font-weight:700; font-size:.92rem; display:inline-flex; align-items:center; gap:8px}
+.hubbtn:hover{border-color:var(--brand)}
+.hubbtn.on{background:var(--brand); border-color:var(--brand); color:#fff}
+.hubbtn.on .pill{background:#ffffff33; color:#fff; border-color:transparent}
+.hubbtn .flecha{font-size:.8rem; opacity:.8}
+.hubdesp{margin-top:10px; border:1px solid var(--line); border-radius:12px; padding:12px; background:var(--panel); animation:hubdesp .2s ease}
+.hubdesp .hubg{border-top:0; margin-top:0; padding-top:0}
+@keyframes hubdesp{from{opacity:0; transform:translateY(-6px)} to{opacity:1; transform:none}}
+@media (max-width:760px){ .hubmenu{display:grid; grid-template-columns:minmax(0,1fr)} .hubbtn{justify-content:space-between} }
 .calc{font-size:.78rem; color:var(--muted); font-family:var(--mono)}
 </style>
 </head>
@@ -880,7 +890,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
     tarea: { et: "🏠 Tareas", corto: "Tarea", desc: "cuentan en el rubro de Tareas, con fecha de entrega", cat: "Tareas", comp: "Tareas" }
   };
   const tipoTrabajo = () => (S.trabajo && S.trabajo.contenido_actividad && S.trabajo.contenido_actividad.liq_tipo) || "evaluativa";
-  const HUB = { acts: [], materias: [], misMaterias: [], mias: {}, listo: false };
+  const HUB = { acts: [], materias: [], misMaterias: [], mias: {}, listo: false, abierto: (() => { try { const v = localStorage.getItem("liq_hub_abierto"); return v === null ? "diaria" : (v || null); } catch (e) { return "diaria"; } })() };
   const hoyISO = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
   async function cargarHub() {
     if (!sesion) return;
@@ -929,7 +939,10 @@ tr.hl td{background:#fff7d6; font-weight:700}
     };
     h.innerHTML = `<section class="card"><h2>📚 Actividades de liquidaciones</h2>
       <p class="muted" style="margin:0 0 6px; font-size:.86rem">${doc ? "Cree aquí las prácticas y tareas, arme el caso de cada una, ábrala para los estudiantes y revise lo que hizo cada quien en <b>📥 Entregas</b>." : "Estas son las prácticas y tareas que te dejó el profe. Más abajo podés practicar libremente con la calculadora."}</p>
-      ${["diaria", "evaluativa", "tarea"].map(grupo).join("")}</section>`;
+      <div class="hubmenu" role="tablist">${["diaria", "evaluativa", "tarea"].map(k => { const n = acts.filter(t => t._tipo === k).length, on = HUB.abierto === k;
+        return `<button type="button" class="hubbtn ${on ? "on" : ""}" data-hubk="${k}" aria-expanded="${on}">${TIPOS_ACT[k].et} <span class="pill">${n}</span> <span class="flecha">${on ? "▴" : "▾"}</span></button>`; }).join("")}</div>
+      ${HUB.abierto ? `<div class="hubdesp">${grupo(HUB.abierto)}</div>` : ""}</section>`;
+    h.querySelectorAll("[data-hubk]").forEach(b => b.addEventListener("click", () => { HUB.abierto = HUB.abierto === b.dataset.hubk ? null : b.dataset.hubk; try { localStorage.setItem("liq_hub_abierto", HUB.abierto || ""); } catch (e) {} pintarHub(); }));
     h.querySelectorAll("[data-nueva]").forEach(b => b.addEventListener("click", () => nuevaActividad(b.dataset.nueva)));
     h.querySelectorAll("[data-entregas]").forEach(b => b.addEventListener("click", () => verEntregas(HUB.acts.find(t => t.id === Number(b.dataset.entregas)))));
     h.querySelectorAll("[data-hab]").forEach(b => b.addEventListener("click", async () => {
