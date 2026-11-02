@@ -1171,13 +1171,14 @@ function viewPorEmpresa(){
      const entregadas=g.rows.filter(r=>r.c.entregado).length;
      return `<details class="panel" data-gkey="${esc(g.key)}"${APP.revOpen&&APP.revOpen[g.key]?" open":""}><summary style="cursor:pointer;font-weight:700">${chipCat(g.cat)} ${esc(g.name)} <small class="muted" style="font-weight:400">· ${g.rows.length} estudiante(s)${CATS[g.cat].una?` · ${entregadas} entregaron`:""}</small></summary>
       <div class="row" style="margin-top:8px"><button class="btn sm ${APP.revPrac&&APP.revPrac[g.key]?"primary":"pop"}" data-act="toggleRevPractica" data-key="${esc(g.key)}">📊 Evaluación y revisión de ${CATS[g.cat].practica?"esta práctica":"este trabajo"}</button></div>${APP.revPrac&&APP.revPrac[g.key]?revisionDePractica(g):""}
+      ${(()=>{const fin=g.rows.filter(r=>unaEntrega(r.c)&&noRealizado(r.c)==="avance");return fin.length?`<div class="row" style="margin-top:8px;align-items:center"><span class="chip" style="font-size:.78rem;background:var(--badbg);color:var(--bad)">❌ ${fin.length} no entregaron a tiempo pero tienen avance</span><button class="btn sm pop" data-act="finalizarTodos" data-key="${esc(g.key)}">✅ Finalizarlos y marcarlos como entregados</button></div>`:""})()}
       ${(()=>{const cand=g.rows.filter(r=>r.c.payroll&&(r.c.payroll.employees||[]).length&&!r.c.entregado&&!plV2(r.c.payroll));return cand.length?`<div class="row" style="margin-top:8px;align-items:center"><span class="chip tG" style="font-size:.78rem">🧾 ${cand.length} estudiante(s) tienen el machote de antes (empieza en el salario bruto)</span><button class="btn sm pop" data-act="machoteNuevo" data-key="${esc(g.key)}">🆕 Pasar al machote nuevo (salario base, extras y comisiones, rebajos)</button></div>`:""})()}
       ${(()=>{const t=tipoDelProfe(g);return t&&t!==g.cat?`<div class="row" style="margin-top:8px;align-items:center"><span class="chip tG" style="font-size:.78rem">⚠️ En su cuenta es ${CATS[t].icon} ${CATS[t].corto}, pero ${g.rows.length} estudiante(s) la tienen como ${CATS[g.cat].icon} ${CATS[g.cat].corto}</span><button class="btn sm pop" data-act="igualarTipo" data-key="${esc(g.key)}">🔁 Igualar el tipo al de mi cuenta</button></div>`:""})()}
       ${(()=>{const f=faltantesDeGrupo(g);return f.length?`<div class="row" style="margin-top:8px;align-items:center"><span class="chip tG" style="font-size:.78rem">⚠️ No la tienen (${f.length}): ${f.map(w=>esc(w.nombre)).join(", ")}</span><button class="btn sm pop" data-act="enviarFaltantes" data-key="${esc(g.key)}">📤 Enviarla a ${f.length===1?"ese estudiante":"esos "+f.length+" estudiantes"}</button></div>`:""})()}
       <div class="row" style="margin-top:8px"><button class="btn sm danger" data-act="delPracticaTodos" data-key="${esc(g.key)}">Eliminar ${CATS[g.cat].practica?"esta práctica":"este trabajo"} de todos los estudiantes</button></div>
       <div class="tbl" style="margin-top:10px"><table><thead><tr><th>Estudiante</th><th>Estado</th><th class="r">Asientos</th><th>Machote de planilla</th><th>Asiento de planilla</th><th>Evaluación</th>${CATS[g.cat]?"<th>Eval. machote</th><th>Eval. asiento</th>":""}<th></th></tr></thead><tbody>
       ${rows.map(({w,c})=>{let R;try{R=plResumen([c])}catch(e){R=null}
-        const est=c.entregado?`<span class="chip tC" style="font-size:.7rem">✓ Entregada</span><br><small class="muted">${esc(fmtDate(c.entregadoFecha))}</small>`:leyendaNoRealizado(c)?`<span class="chip" style="font-size:.7rem;background:var(--badbg);color:var(--bad)">❌ ${esc(leyendaNoRealizado(c))}</span>`:(CATS[g.cat].una?'<span class="chip tG" style="font-size:.7rem">En proceso</span>':'<small class="muted">Práctica</small>')+(finVentana(c)&&!yaCerro(c)?`<br><small class="muted">⏰ Cierra el ${esc(fmtDate(new Date(finVentana(c)).toISOString()))}</small>`:"");
+        const est=c.entregado?`<span class="chip tC" style="font-size:.7rem">✓ Entregada</span><br><small class="muted">${esc(fmtDate(c.entregadoFecha))}${c.entregadoPorProfe?" · finalizada por el profe":""}</small>`:leyendaNoRealizado(c)?`<span class="chip" style="font-size:.7rem;background:var(--badbg);color:var(--bad)">❌ ${esc(leyendaNoRealizado(c))}</span>${noRealizado(c)==="avance"&&unaEntrega(c)?`<br><button class="btn sm pop" style="margin-top:4px" data-act="finalizarEntrega" data-est="${esc(w.id)}" data-co="${esc(c.id)}" title="Se guarda como entregado con lo que lleva">✅ Finalizar y marcar entregado</button>`:""}`:(CATS[g.cat].una?'<span class="chip tG" style="font-size:.7rem">En proceso</span>':'<small class="muted">Práctica</small>')+(finVentana(c)&&!yaCerro(c)?`<br><small class="muted">⏰ Cierra el ${esc(fmtDate(new Date(finVentana(c)).toISOString()))}</small>`:"");
         return `<tr><td><b>${esc(w.nombre)}</b><br><span class="code">${esc(w.id)}</span>${w.seccion?` <small class="muted">${esc(w.seccion)}</small>`:""}</td><td>${est}</td><td class="r num">${(c.entries||[]).length}</td>
          <td>${R&&R.casTot?bar(R.casOk,R.casTot):'<small class="muted">Sin empezar</small>'}</td>
          <td>${R&&R.asPlIntentos?`${R.asPlOk?'<span class="chip tI">Resuelto</span>':'<span class="chip tG">Pendiente</span>'}<br><small class="muted">${R.asPlIntentos} intento(s)</small>`:'<small class="muted">Sin empezar</small>'}</td>
@@ -2106,7 +2107,7 @@ async function evRefrescarCfg(){
     // se agregan para que el guardado no las borre.
     const borradas=APP.borradasLocal||new Set();
     for(const f of fresh){if(!APP.companies.some(c=>c.id===f.id)&&!borradas.has(f.id))APP.companies.push(f)}
-    for(const c of APP.companies){const f0=fresh.find(x=>x.id===c.id);if(f0&&f0.payroll&&c.payroll){if(f0.payroll.sheetV2===true)c.payroll.sheetV2=true;if(f0.payroll.evalMV2===true&&!(c.payroll.evalM&&c.payroll.evalM.resultado))c.payroll.evalMV2=true}}
+    for(const c of APP.companies){const f0=fresh.find(x=>x.id===c.id);if(f0&&f0.entregado&&!c.entregado){c.entregado=true;c.entregadoFecha=f0.entregadoFecha;c.entregadoPorProfe=!!f0.entregadoPorProfe}if(f0&&f0.payroll&&c.payroll){if(f0.payroll.sheetV2===true)c.payroll.sheetV2=true;if(f0.payroll.evalMV2===true&&!(c.payroll.evalM&&c.payroll.evalM.resultado))c.payroll.evalMV2=true}}
     for(const c of APP.companies){const f=fresh.find(x=>x.id===c.id);if(f&&f.categoria&&!c.entregado)c.categoria=f.categoria;if(f&&f.evalCfg){c.evalCfg=f.evalCfg;if(c.payroll)evAplicarReset(c,c.payroll)}}
   }catch(e){}
 }
@@ -3285,6 +3286,17 @@ document.addEventListener("click",async e=>{
   if(a==="verComparacion"){const k=b.dataset.est+"|"+b.dataset.co;APP.cmpVer=APP.cmpVer===k?null:k;
     APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true; // que la práctica siga abierta al volver a dibujar
     render();if(APP.cmpVer){const f=document.getElementById("cmpFila");if(f)f.scrollIntoView({behavior:"smooth",block:"nearest"})}return}
+  if(a==="finalizarEntrega"||a==="finalizarTodos"){(async()=>{
+    let lista=[];
+    if(a==="finalizarEntrega")lista=[{est:b.dataset.est,co:b.dataset.co}];
+    else for(const w of (APP.empData||[]))for(const c of w.companies)if(claveGrupo(c)===b.dataset.key&&unaEntrega(c)&&noRealizado(c)==="avance")lista.push({est:w.id,co:c.id});
+    if(!lista.length)return;
+    if(a==="finalizarTodos"&&!confirm(`Se marcan como entregados ${lista.length} trabajo(s) con lo que cada estudiante lleva. ¿Continuar?`))return;
+    b.disabled=true;let ok=0,fail=0;const ahora=new Date().toISOString();
+    for(const x of lista){try{await APP.store.updateEmpresaEstudiante(x.est,x.co,c=>{c.entregado=true;c.entregadoFecha=ahora;c.entregadoPorProfe=true;try{c.resumenInforme=resumenInforme(c)}catch(e){}});ok++}catch(e){fail++}}
+    toast(fail?`Finalizados ${ok}; ${fail} con error`:`${ok} trabajo(s) finalizado(s) y marcado(s) como entregado(s) ✓`);
+    const key=b.dataset.key||(()=>{for(const w of (APP.empData||[]))for(const c of w.companies)if(c.id===b.dataset.co)return claveGrupo(c)})();
+    APP.revOpen=APP.revOpen||{};if(key)APP.revOpen[key]=true;await loadEmpData()})();return}
   if(a==="machoteNuevo"){(async()=>{const key=b.dataset.key;const rows=[];for(const w of (APP.empData||[]))for(const c of w.companies)if(claveGrupo(c)===key&&c.payroll&&(c.payroll.employees||[]).length&&!c.entregado&&!plV2(c.payroll))rows.push({w,c});
     if(!rows.length)return;if(!confirm(`Se pasa al machote nuevo a ${rows.length} estudiante(s). Lo que ya escribieron se conserva; solo se agregan las columnas de salario base, extras y comisiones y rebajos, que tendrán que llenar. ¿Continuar?`))return;
     b.disabled=true;let ok=0,fail=0;
