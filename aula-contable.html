@@ -358,6 +358,7 @@ body.ro .edit-only{display:none!important}
 .ptable td{padding:6px 8px}
 .sheet input{width:120px;text-align:right;font-family:var(--f-num);padding:6px 8px}
 .sheet td{vertical-align:top}
+.kpibtn{font:inherit;text-align:left;width:100%;cursor:pointer;color:inherit}.kpibtn:hover{transform:translateY(-2px);box-shadow:var(--shadow-md,0 4px 14px #0002)}.kpibtn.on{outline:2px solid var(--pop,#6d5dfc);outline-offset:1px}
 table.cmp td,table.cmp th{white-space:nowrap}
 table.cmp small{display:block}
 table.cmp td.cell-ok,table.cmp tr.cell-ok td{background:var(--okbg)}
@@ -2669,11 +2670,39 @@ function plSheetFormHTML(c,p){
     </form>`;
   return sheet;
 }
+// Forma de cálculo de cada total de la planilla (vista resuelta del profesor).
+function kpiCalculoHTML(k,rows){
+  const m=v=>money(v),pc=v=>String(v).replace(".",",")+" %",tot=f=>r2(rows.reduce((s,r)=>s+f(r.k),0));
+  const T={bruto:"Salarios brutos",obr:"Deducciones obreras",renta:"Renta retenida",neto:"Neto a pagar",pat:"Cargas patronales",prov:"Provisiones",costo:"Costo total del patrono"}[k];
+  const nota={bruto:"Salario bruto = salario base del pago + horas extra (horas × valor de la hora × 1,5) + comisiones − rebajos por ausencias (días × valor del día) − llegadas tardías (horas × valor de la hora). Valor del día = salario mensual ÷ 30; valor de la hora = valor del día ÷ horas de la jornada.",
+    obr:"Cada cuota obrera = salario bruto × su porcentaje (CCSS: SEM e IVM; Banco Popular).",
+    renta:"Impuesto al salario: se aplica cada porcentaje solo a la parte del bruto que cae en su tramo; luego se restan los créditos por hijos y cónyuge.",
+    neto:"Neto = salario bruto − cuotas obreras − renta − otros rebajos (asociación, ahorro, etc.).",
+    pat:"Cada carga patronal = salario bruto × su porcentaje. Las paga el patrono, no se rebajan al trabajador.",
+    prov:"Cada provisión = salario bruto × su porcentaje (aguinaldo 8,33 %, vacaciones, cesantía…). Es un gasto del patrono que se reserva.",
+    costo:"Costo total = salario bruto + cargas patronales + provisiones."}[k];
+  const det=r=>{const x=r.k;
+    if(k==="bruto")return `${m(x.base)}${x.div>1?` <small class="muted">(${m(x.base0)} ÷ ${x.div})</small>`:""}${x.extra?` + ${m(x.extra)} <small class="muted">(${x.he} h × ${m(x.vHora)} × 1,5)</small>`:""}${x.comis?` + ${m(x.comis)} <small class="muted">(comisiones)</small>`:""}${x.ausen?` − ${m(x.ausen)} <small class="muted">(${x.dias} día(s) × ${m(x.vDia)})</small>`:""}${x.tarde?` − ${m(x.tarde)} <small class="muted">(${x.ht} h × ${m(x.vHora)})</small>`:""}`;
+    if(k==="obr")return x.obrero.map(o=>`${esc(o.nombre.split("·")[0].trim())}: ${m(x.bruto)} × ${pc(o.pct)} = ${m(o.monto)}`).join("<br>");
+    if(k==="renta"){const tr=(x.tramos||[]).filter(t=>t.imp>0).map(t=>`${m(t.base)} × ${pc(t.pct)} = ${m(t.imp)}`);return (tr.length?tr.join("<br>"):"Exento (el bruto no llega al primer tramo con impuesto)")+(x.credAplic>0?`<br>− créditos (hijos/cónyuge): ${m(x.credAplic)}`:"")}
+    if(k==="neto")return `${m(x.bruto)} − ${m(x.totObr)} (cuotas) − ${m(x.renta)} (renta)${x.totReb?` − ${m(x.totReb)} (otros rebajos)`:""}`;
+    if(k==="pat")return x.patronal.map(o=>`${esc(o.nombre.split("·")[0].trim())}: ${m(x.bruto)} × ${pc(o.pct)} = ${m(o.monto)}`).join("<br>");
+    if(k==="prov")return x.prov.map(o=>`${esc(o.nombre)}: ${m(x.bruto)} × ${pc(o.pct)} = ${m(o.monto)}`).join("<br>");
+    return `${m(x.bruto)} + ${m(x.totPat)} (cargas) + ${m(x.totProv)} (provisiones)`;};
+  const val=r=>({bruto:r.k.bruto,obr:r.k.totObr,renta:r.k.renta,neto:r.k.neto,pat:r.k.totPat,prov:r.k.totProv,costo:r.k.costo})[k];
+  return `<div class="panel stack" style="margin:10px 0"><div class="row" style="justify-content:space-between;align-items:center"><h3 style="margin:0">🧮 Cómo se calcula: ${T}</h3><button class="btn sm ghost" data-act="kpiVer" data-k="${k}">Cerrar</button></div>
+    <p class="muted" style="margin:0;font-size:.88rem">${nota}</p>
+    <div class="tbl"><table><thead><tr><th>Colaborador</th><th>Cálculo</th><th class="r">Monto</th></tr></thead><tbody>
+    ${rows.map(r=>`<tr><td><b>${esc(r.e.nombre)}</b><br><small class="muted">${esc(r.k.pago.nombre)} · jornada ${esc(String(r.k.jor.nombre).toLowerCase())}</small></td><td style="font-size:.86rem">${det(r)}</td><td class="r num"><b>${m(val(r))}</b></td></tr>`).join("")}
+    <tr class="tot"><td>Total</td><td><small class="muted">Suma de todos los colaboradores</small></td><td class="r num"><b>${m(tot(x=>val({k:x})))}</b></td></tr></tbody></table></div></div>`;
+}
 function plViewPlanilla(c,p){
   const P=p.params,ed=APP.plEditEmp?p.employees.find(x=>x.id===APP.plEditEmp):null,M=plMachote();
   const rows=p.employees.map(e=>({e,k:plCalc(e,P)}));
   const S=f=>r2(rows.reduce((s,r)=>s+f(r.k),0));
-  const kp=(l,v,hl)=>`<div class="kpi ${hl?"hl":""}"><small>${l}</small><b>${money(v)}</b></div>`;
+  // Cada total es un botón: al tocarlo se muestra cómo se calcula, colaborador por colaborador.
+  const KPK={"Salarios brutos":"bruto","Deducciones obreras":"obr","Renta retenida":"renta","Neto a pagar":"neto","Cargas patronales":"pat","Provisiones":"prov","Costo total del patrono":"costo"};
+  const kp=(l,v,hl)=>{const k=KPK[l];return `<button type="button" class="kpi kpibtn ${hl?"hl":""} ${APP.kpiVer===k?"on":""}" data-act="kpiVer" data-k="${k}" title="Ver cómo se calcula"><small>${l} <span class="muted">${APP.kpiVer===k?"▴":"▾"}</span></small><b>${money(v)}</b></button>`};
   const nextPer=(()=>{const last=p.runs.map(r=>r.periodo).sort().pop();if(!last)return `${c.period}-01`;let [y,m]=last.split("-").map(Number);m++;if(m>12){m=1;y++}return `${y}-${String(m).padStart(2,"0")}`})();
   const v=(id,val)=>`value="${esc(val??"")}"`;
   const st=M&&rows.length?plSheetStatus(p):null,chk=APP.plSheetChk,showProc=puedeVerRespuestas()&&chk&&(p.sheetIntentos||0)>=2;
@@ -2683,6 +2712,7 @@ function plViewPlanilla(c,p){
     sheet=plSheetFormHTML(c,p);
   } else {
     sheet=`<div class="kpis">${kp("Salarios brutos",S(k=>k.bruto))}${kp("Deducciones obreras",S(k=>k.totObr))}${kp("Renta retenida",S(k=>k.renta))}${kp("Neto a pagar",S(k=>k.neto),true)}${kp("Cargas patronales",S(k=>k.totPat))}${kp("Provisiones",S(k=>k.totProv))}${kp("Costo total del patrono",S(k=>k.costo))}</div>
+   ${APP.kpiVer?kpiCalculoHTML(APP.kpiVer,rows):""}
    ${APP.readOnly&&p.sheetIntentos?`<div class="status ok"><span class="dot"></span>El estudiante revisó su machote de planilla ${p.sheetIntentos} vez/veces.</div>`:""}
    <div class="tbl"><table><thead><tr><th>Colaborador</th><th class="r">Salario base</th><th class="r">Extras y comisiones</th><th class="r">Rebajos</th><th class="r">Bruto</th><th class="r">Cuotas obreras</th><th class="r">Renta</th><th class="r">Neto</th><th></th></tr></thead><tbody>
    ${rows.map(({e,k})=>`<tr><td><b>${esc(e.nombre)}</b><br><small class="muted">${esc(e.puesto||"")} · ${esc(e.cedula||"")}</small></td>
@@ -3198,6 +3228,7 @@ document.addEventListener("click",async e=>{
   if(a==="ciExcAgregar"){const e=val("ciExcEst"),t=val("ciExcTra");if(!e)return toast("Escoja un estudiante");
     for(const g of cierreGrupos()){if(t!=="*"&&g.nom!==t)continue;if(t==="*"&&!APP.cierre.sel[g.nom])continue;if(g.rows.some(r=>r.w.id===e))APP.cierre.exc[e+"|"+g.nom]=true}render();return}
   if(a==="ciAplicar"){aplicarCierre(b);return}
+  if(a==="kpiVer"){APP.kpiVer=APP.kpiVer===b.dataset.k?null:b.dataset.k;render();return}
   if(a==="pillVer"&&b.dataset.k==="estudiantes"&&APP.bitUlt===undefined&&typeof bitacoraDesde==="function"){APP.bitUlt=undefined;bitacoraDesde(new Date(Date.now()-120*864e5).toISOString()).then(r=>{if(r.error){APP.bitUlt=null}else{const m={};for(const f of r.filas)if(!m[f.estudiante_id])m[f.estudiante_id]=f;APP.bitUlt=m}render()})}
   if(a==="pillVer"){APP.pillVer=APP.pillVer===b.dataset.k?null:b.dataset.k;if(APP.pillVer==="codigo"&&!APP.entregas&&typeof loadEntregas==="function")loadEntregas();render();return}
   if(a==="verComparacion"){const k=b.dataset.est+"|"+b.dataset.co;APP.cmpVer=APP.cmpVer===k?null:k;
