@@ -2669,7 +2669,8 @@ function gruposMenuEstudiante(s) {
       ["link:" + SIMULADOR_B2B_URL, "🏆", "ContaRed"],
       ["link:liquidaciones.html", "📑", "Liquidaciones"],
       ["link:tiradera.html?nombre=" + encodeURIComponent(`${s.nombre || ""} ${s.apellido1 || ""} ${s.apellido2 || ""}`.replace(/\s+/g, " ").trim()) + "&est=" + encodeURIComponent(s.id), "⚡", "La Tiradera"],
-      ["aula-informe", "📈", "Informe de Aula de Conta"]] }
+      ["aula-informe", "📈", "Informe de Aula de Conta"],
+      ["ac-material", "📂", "Material entregado"]] }
   ];
 }
 function menuEstudianteHTML(s, activeTab) {

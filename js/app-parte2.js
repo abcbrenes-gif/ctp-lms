@@ -47,6 +47,31 @@ function tablaInformeAulaConta(filas) {
     <tfoot><tr style="border-top:2px solid var(--border,#999);"><td colspan="8"><b>Promedio de notas de Aula de Conta</b></td><td colspan="3"><b style="color:${notaColorAC(prom)}">${pctAC(prom)}</b></td></tr></tfoot></table></div>
     <p style="font-size:0.78rem; color:var(--text-muted); margin-top:0.5rem;">La nota es el promedio de lo que el estudiante tiene: machote, asiento de planilla, evaluación y las evaluaciones habilitadas por el profesor. Se actualiza sola cada vez que trabaja.</p>`;
 }
+// «Material entregado» de Aula de Conta: por cada trabajo, si lo entregó, el PDF de
+// resultados de su planilla (el estudiante lo ve cuando el profe habilitó la descarga)
+// y el enlace a su trabajo comparado con la solución.
+async function renderMaterialEntregadoAC(el, s, isSelf) {
+  el.innerHTML = `<h3 style="font-family:var(--serif);">📂 Material entregado${isSelf ? "" : " — " + escAC(s.nombre)}</h3><div id="material-ac">Cargando…</div>`;
+  const box = document.getElementById("material-ac");
+  try {
+    const rows = await cargarTrabajosAulaConta([s.id]);
+    const cs = ((rows[0] && rows[0].companies) || []).slice().sort((a, b) => String(b.entregadoFecha || (b.payroll && b.payroll.pdfResultados && b.payroll.pdfResultados.fecha) || "").localeCompare(String(a.entregadoFecha || (a.payroll && a.payroll.pdfResultados && a.payroll.pdfResultados.fecha) || "")));
+    const docente = typeof session !== "undefined" && session && session.role === "docente";
+    const fecha = v => v ? new Date(v).toLocaleString("es-CR", { dateStyle: "medium", timeStyle: "short" }) : "";
+    const filas = cs.map(c => {
+      const e = estadoTrabajoAC(c), pdf = c.payroll && c.payroll.pdfResultados, puedePdf = !isSelf || docente || !!(c.evalCfg && c.evalCfg.pdf && c.evalCfg.pdf.on);
+      const link = `${AULA_CONTABLE_URL}?comparar=${encodeURIComponent(c.id)}${docente ? "&como_estudiante=" + encodeURIComponent(s.id) : ""}`;
+      return `<tr style="border-top:1px solid var(--border,#ddd);"><td><b>${escAC(c.name || "(sin nombre)")}</b><br><small style="color:var(--text-muted)">${e.tipo}</small></td>
+        <td style="font-size:0.82rem; color:${e.color}">${escAC(e.txt)}${c.entregado && c.entregadoFecha ? `<br><small style="color:var(--text-muted)">${fecha(c.entregadoFecha)}</small>` : ""}</td>
+        <td>${pdf && pdf.url ? (puedePdf ? `<a class="btn small" href="${escAC(pdf.url)}" target="_blank" rel="noopener">📄 Abrir PDF</a><br><small style="color:var(--text-muted)">Guardado el ${fecha(pdf.fecha)}${pdf.total ? ` · ${pdf.ok}/${pdf.total} casillas` : ""}</small>` : `<small style="color:var(--text-muted)">🔒 Disponible cuando el profe habilite la descarga</small>`) : `<small style="color:var(--text-muted)">Sin PDF (no guardó la planilla)</small>`}</td>
+        <td><a class="btn secondary small" href="${link}">📋 Trabajo y solución</a></td></tr>`;
+    }).join("");
+    const entregados = cs.filter(c => c.entregado).length, conPdf = cs.filter(c => c.payroll && c.payroll.pdfResultados && c.payroll.pdfResultados.url).length;
+    box.innerHTML = cs.length ? `<p style="font-size:0.85rem; color:var(--text-muted); margin:0 0 0.6rem;">${entregados} trabajo(s) entregado(s) · ${conPdf} PDF de resultados guardado(s). ${isSelf && !docente ? "Tocá «Trabajo y solución» para ver tu trabajo comparado con la solución." : ""}</p>
+      <div style="overflow-x:auto;"><table class="tabla" style="width:100%; border-collapse:collapse; font-size:0.88rem;"><thead><tr style="text-align:left;"><th>Trabajo</th><th>Estado</th><th>PDF de resultados</th><th></th></tr></thead><tbody>${filas}</tbody></table></div>`
+      : `<p class="empty">Todavía no hay trabajos en Aula de Conta.</p>`;
+  } catch (e) { box.innerHTML = `<p class="empty">No se pudo cargar: ${escAC(e && e.message || e)}</p>`; }
+}
 async function renderInformeAulaConta(el, s, isSelf, extraHtml) {
   el.innerHTML = `<h3 style="font-family:var(--serif);">🧮 Informe de Aula de Conta${isSelf ? "" : " — " + escAC(s.nombre)}</h3><div id="informe-ac">Cargando…</div>${extraHtml || ""}`;
   const box = document.getElementById("informe-ac");
@@ -107,7 +132,8 @@ async function renderTabContent(s, tab, isSelf) {
   if (tab === "pin" && !isSelf) return renderPin(el, s);
   if (tab === "clave-prueba" && !isSelf) return renderClavePrueba(el, s);
   if (tab === "aula-informe" && isSelf) return renderInformeAulaConta(el, s, true);
-  if (tab === "aula-conta" && !isSelf) { renderAulaContaCredenciales(el, s); const d = document.createElement("div"); d.id = "informe-ac-docente"; el.prepend(d); return renderInformeAulaConta(d, s, false); }
+  if (tab === "ac-material") return renderMaterialEntregadoAC(el, s, isSelf);
+  if (tab === "aula-conta" && !isSelf) { renderAulaContaCredenciales(el, s); const d = document.createElement("div"); d.id = "informe-ac-docente"; el.prepend(d); const m = document.createElement("div"); m.style.marginTop = "1.4rem"; d.after(m); renderMaterialEntregadoAC(m, s, false); return renderInformeAulaConta(d, s, false); }
   if (tab === "infografias" && esSeccion113(s.seccion)) return renderInfografiasEstudiante(el, s, isSelf);
   return renderNotas(el, s, isSelf);
 }

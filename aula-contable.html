@@ -711,7 +711,7 @@ function render(){
   renderChrome();
   const main=document.getElementById("main");
   const pv=APP.comoEstudiante?`<div class="banner"><span>👀 Estás dentro de la cuenta de ${esc(APP.me.nombre)} (modo profesor) — lo que agregues o cambies se guarda en la cuenta real del estudiante.</span><button class="btn sm" data-act="volverPerfilEstudiante">Volver al perfil</button></div>
-   <div class="panel" style="margin:8px 0"><b>📄 PDF de resultados de ${esc(APP.me.nombre)}</b>${(()=>{const l=(APP.companies||[]).filter(x=>x.payroll&&x.payroll.pdfResultados&&x.payroll.pdfResultados.url);return l.length?l.map(x=>`<div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span>${esc(x.name)}</span><a class="btn sm primary" href="${esc(x.payroll.pdfResultados.url)}" target="_blank" rel="noopener">📄 Abrir PDF</a><small class="muted">Guardado el ${esc(fmtDate(x.payroll.pdfResultados.fecha))} · ${x.payroll.pdfResultados.ok}/${x.payroll.pdfResultados.total} casillas</small></div>`).join(""):'<div class="muted" style="margin-top:6px">Este estudiante todavía no ha guardado ninguna planilla, por eso no hay PDF.</div>'})()}</div>`:"";
+   ${materialEntregadoHTML()}`:"";
   if(!APP.me){main.innerHTML='<div class="empty"><h3>No hay sesión</h3><p>Volvé a <a href="./index.html">ctp-lms</a> y entrá primero ahí.</p></div>';return}
   APP.readOnly=!!APP.viewing||(APP.view!=="empresas"&&APP.view!=="entregar"&&tareaBloqueada(co()));
   let html=pv;
@@ -1214,6 +1214,20 @@ function viewEntregas(){
 
 /* ============ Vistas del ciclo ============ */
 const VIEWS={};
+// «📂 Material entregado»: cada trabajo con su estado, el PDF de resultados (el estudiante
+// lo ve cuando el profe habilitó la descarga) y su trabajo comparado con la solución.
+function materialEntregadoHTML(){
+  if(!APP.me)return "";
+  const prof=isTeacher()||APP.comoEstudiante;
+  const cs=sortCos(APP.companies||[]).filter(c=>esAsignada(c)||c.entregado||(c.payroll&&c.payroll.pdfResultados));
+  const fila=c=>{const pdf=c.payroll&&c.payroll.pdfResultados,ley=leyendaNoRealizado(c),verPdf=prof||(c.evalCfg&&c.evalCfg.pdf&&c.evalCfg.pdf.on);
+    const est=c.entregado?`<span class="chip tC" style="font-size:.7rem">✓ Entregada${c.entregadoFecha?" · "+esc(fmtDate(c.entregadoFecha)):""}</span>`:ley?`<span class="chip" style="font-size:.7rem;background:var(--badbg);color:var(--bad)">❌ ${esc(ley)}</span>`:yaCerro(c)?'<span class="chip" style="font-size:.7rem">🔒 Cerrada</span>':'<span class="chip tG" style="font-size:.7rem">En proceso</span>';
+    return `<tr><td><b>${esc(c.name)}</b><br>${chipCat(c.categoria)}</td><td>${est}</td>
+      <td>${pdf&&pdf.url?(verPdf?`<a class="btn sm primary" href="${esc(pdf.url)}" target="_blank" rel="noopener">📄 Abrir PDF</a><br><small class="muted">Guardado el ${esc(fmtDate(pdf.fecha))}${pdf.total?` · ${pdf.ok}/${pdf.total} casillas`:""}</small>`:'<small class="muted">🔒 Disponible cuando el profe habilite la descarga</small>'):'<small class="muted">Sin PDF (no guardó la planilla)</small>'}</td>
+      <td><button class="btn sm" data-act="abrirComparacion" data-id="${esc(c.id)}">📋 Trabajo y solución</button></td></tr>`};
+  return `<details class="panel" style="margin:8px 0"${APP.comoEstudiante?" open":""}><summary style="cursor:pointer;font-weight:800">📂 Material entregado${prof?" de "+esc(APP.me.nombre):""} <small class="muted" style="font-weight:400">· ${cs.filter(c=>c.entregado).length} entregado(s) · ${cs.filter(c=>c.payroll&&c.payroll.pdfResultados&&c.payroll.pdfResultados.url).length} PDF</small></summary>
+    ${cs.length?`<div class="tbl" style="margin-top:8px"><table><thead><tr><th>Trabajo</th><th>Estado</th><th>PDF de resultados</th><th></th></tr></thead><tbody>${cs.map(fila).join("")}</tbody></table></div>`:'<p class="muted" style="margin:8px 0 0">Todavía no hay trabajos asignados ni entregados.</p>'}</details>`;
+}
 // Vista «Trabajo vs. solución» de una empresa (se abre con ?comparar=<id de la empresa>,
 // desde el informe de Aula de Conta de la plataforma).
 VIEWS.comparacion=()=>{
@@ -1243,7 +1257,7 @@ VIEWS.empresas=()=>{
       ${isTeacher()?`<label class="btn sm ghost edit-only" style="cursor:pointer;">📎 Adjuntar PDF<input type="file" accept="application/pdf" data-adjuntar-pdf="${c.id}" style="display:none"></label>`:""}
       <button class="btn sm danger edit-only" data-act="delCo" data-id="${c.id}">Eliminar</button>`}</div>
   </article>`}).join("");
-  return `<div class="head"><div><div class="eyebrow">Paso 0</div><h2>${APP.viewing?"Empresas entregadas":"Mis empresas"}</h2>
+  return `${!isTeacher()&&!APP.comoEstudiante&&!APP.viewing&&!APP.demo?materialEntregadoHTML():""}<div class="head"><div><div class="eyebrow">Paso 0</div><h2>${APP.viewing?"Empresas entregadas":"Mis empresas"}</h2>
     <p>Crea todas las empresas que necesites. Cada una lleva un código propio y tiene su catálogo, asientos y estados financieros.</p></div></div>
   <div class="stack">
    ${APP.companies.length?`<div class="cards">${cards}</div>`:`<div class="empty"><h3>Aún no tienes empresas</h3><p>Crea la primera con el formulario. Si quieres practicar, marca “Incluir asientos de ejemplo”.</p></div>`}
@@ -3163,6 +3177,7 @@ document.addEventListener("click",async e=>{
   if(a==="revTab"){APP.revTab=APP.revTab||{};APP.revTab[b.dataset.key]=b.dataset.t;if(b.dataset.t==="ind"&&!APP.indData){render();cargarIndicadoresLms().then(()=>render()).catch(()=>{APP.indData={materias:[],indicadores:[]};render()});return}APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
   if(a==="toggleRevPractica"){APP.revPrac=APP.revPrac||{};APP.revPrac[b.dataset.key]=!APP.revPrac[b.dataset.key];APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
   if(a==="toggleRevGeneral"){APP.revGeneral=!APP.revGeneral;render();return}
+  if(a==="abrirComparacion"){APP.activeId=b.dataset.id;APP.view="comparacion";render();window.scrollTo(0,0);return}
   if(a==="cierreToggle"){APP.cierreAbierto=!APP.cierreAbierto;if(!APP.cierreAbierto)APP.cierre=null;render();return}
   if(a==="ciExcQuitar"){delete APP.cierre.exc[b.dataset.k];render();return}
   if(a==="ciExcAgregar"){const e=val("ciExcEst"),t=val("ciExcTra");if(!e)return toast("Escoja un estudiante");
