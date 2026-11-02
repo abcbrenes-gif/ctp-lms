@@ -479,6 +479,7 @@ const CRITERIOS_BASE = [
 const nivelesDe = c => ({ ...(c.auto ? NIVELES_AUTO[c.auto] : NIVELES_MANUAL), ...(c.niveles || {}) });
 const INSTRUMENTO_BASE = { componente: "Trabajo cotidiano", tipo: "Escala de desempeño", subarea: "", unidad: "", resultado: "", indicador: "" };
 const etiquetaGrupo = k => (GRUPOS[k] ? GRUPOS[k].emoji + " " + GRUPOS[k].nombre : "Sin grupo");
+const CUPO_MAX = 20; // La Tiradera admite como máximo 20 participantes por partida
 const S = {
   rol: null,           // "host" | "player"
   pin: null,
@@ -486,7 +487,7 @@ const S = {
   yo: store.sget("tiradera_yo", null), // {id, nombre, apodo, est, grupo} del participante
   // ---- solo host ----
   retos: store.get("tiradera_retos", null),
-  cfg: Object.assign({ modalidad: "individual", grupos: 4, asignacion: "libre", maximo: 0, porGrupo: 0, propuestas: false }, store.get("tiradera_cfg", {})),
+  cfg: (c => { c.maximo = Math.min(CUPO_MAX, +c.maximo || CUPO_MAX); return c; })(Object.assign({ modalidad: "individual", grupos: 4, asignacion: "libre", maximo: 20, porGrupo: 0, propuestas: false }, store.get("tiradera_cfg", {}))), // cupo máximo de 20
   propuestas: [],      // preguntas que proponen los estudiantes {pid, autorId, autorApodo, autorNombre, tipo, pregunta, opciones, correcta, estado}
   instrumento: Object.assign({}, INSTRUMENTO_BASE, store.get("tiradera_instrumento", {})),
   criterios: (() => {
@@ -638,7 +639,7 @@ function vistaConfig() {
         <div class="field cfg-grupal"><label for="cfgGrupos">Cantidad de grupos</label><select id="cfgGrupos">${Array.from({ length: 17 }, (_, i) => i + 2).map(n => `<option ${+S.cfg.grupos === n ? "selected" : ""}>${n}</option>`).join("")}</select></div>
         <div class="field cfg-grupal"><label for="cfgAsig">¿Cómo se forman?</label><select id="cfgAsig"><option value="libre" ${S.cfg.asignacion === "libre" ? "selected" : ""}>Cada estudiante elige su grupo</option><option value="azar" ${S.cfg.asignacion === "azar" ? "selected" : ""}>Al azar (grupos parejos)</option></select></div>
         <div class="field cfg-grupal"><label for="cfgPorGrupo">Máximo de estudiantes por grupo</label><select id="cfgPorGrupo"><option value="0" ${!+S.cfg.porGrupo ? "selected" : ""}>Sin límite</option>${Array.from({ length: 18 }, (_, i) => i + 1).map(n => `<option value="${n}" ${+S.cfg.porGrupo === n ? "selected" : ""}>${n}</option>`).join("")}</select></div>
-        <div class="field"><label for="cfgMax">Máximo de participantes</label><input id="cfgMax" type="number" min="0" max="200" value="${+S.cfg.maximo || 0}"><small class="muted">0 = sin límite</small></div>
+        <div class="field"><label for="cfgMax">Máximo de participantes</label><input id="cfgMax" type="number" min="1" max="${CUPO_MAX}" value="${+S.cfg.maximo || CUPO_MAX}"><small class="muted">Máximo ${CUPO_MAX} participantes</small></div>
       </div>
       <label style="display:flex;gap:8px;align-items:center;font-weight:800;margin:4px 0 10px"><input type="checkbox" id="cfgProp" ${S.cfg.propuestas ? "checked" : ""} style="width:20px;height:20px"> ✍️ Los estudiantes pueden proponer preguntas (selección única y falso/verdadero) desde su celular, y yo las apruebo</label>
       <p class="muted cfg-grupal" style="font-size:.85rem;margin:0">En grupos, cada estudiante juega desde su dispositivo y el puntaje del grupo es el promedio de sus integrantes. El registro sigue siendo individual.</p>
@@ -649,7 +650,7 @@ function vistaConfig() {
     <div class="center" style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn ghost" id="btnVolver">← Volver al inicio</button><button class="btn ghost" id="btnHist2">📚 Partidas anteriores</button></div>`);
   $("#btnHist2").onclick = vistaHistorial;
   const syncCfg = () => {
-    S.cfg = { modalidad: $("#cfgModo").value, grupos: +$("#cfgGrupos").value, asignacion: $("#cfgAsig").value, maximo: Math.max(0, +$("#cfgMax").value || 0), porGrupo: Math.max(0, Math.min(18, +$("#cfgPorGrupo").value || 0)), propuestas: $("#cfgProp").checked };
+    S.cfg = { modalidad: $("#cfgModo").value, grupos: +$("#cfgGrupos").value, asignacion: $("#cfgAsig").value, maximo: Math.max(1, Math.min(CUPO_MAX, +$("#cfgMax").value || CUPO_MAX)), porGrupo: Math.max(0, Math.min(18, +$("#cfgPorGrupo").value || 0)), propuestas: $("#cfgProp").checked };
     guardarCfg();
     $$(".cfg-grupal").forEach(el => el.style.display = S.cfg.modalidad === "grupal" ? "" : "none");
   };
@@ -959,7 +960,7 @@ function hostEvento(ev, data) {
     if (S.fase === "final") return;
     let j = S.jugadores[data.id];
     if (!j) {
-      const max = Number(S.cfg.maximo) || 0;
+      const max = Math.min(CUPO_MAX, Number(S.cfg.maximo) || CUPO_MAX);
       const reales = Object.values(S.jugadores).filter(x => !x.bot).length;
       if (max && reales >= max) { S.canal.enviar("kick", { id: data.id, motivo: "llena", max }); return; }
       j = S.jugadores[data.id] = nuevoJugador(data.id);
