@@ -801,7 +801,7 @@ function plResumen(cs,unl){
   for(const c of cs){R.asientos+=(c.entries||[]).length;const p=c.payroll;if(!p)continue;
     try{const P=p.params;R.colab+=(p.employees||[]).length;
       if(p.sheet&&p.employees?.length){const wr=p.employees.some(e=>plCalc(e,P).totReb>0);
-        for(const e of p.employees){const k=plCalc(e,P),ans=p.sheet[e.id]||{};for(const [q] of plSheetFields(k,wr)){R.casTot++;const v=parseNum(ans[q]);if(!isNaN(v)&&near(v,plSol(k,q)))R.casOk++}}}
+        for(const e of p.employees){const k=plCalc(e,P),ans=p.sheet[e.id]||{};for(const [q] of plSheetFields(k,wr,plV2(p))){R.casTot++;const v=parseNum(ans[q]);if(plOk(k,q,v))R.casOk++}}}
       for(const r of [...(p.runs||[]),...(p.draft?[p.draft]:[])]){if(r.entryId)R.planillas++;R.asPlIntentos+=r.intentos||0;if(r.machoteOk)R.asPlOk++;if(r.vioSolucion)R.solucion++}
       for(const ev of p.evals||[]){if(ev.modo==="evaluacion"){R.evals++;const pc=Math.round(100*ev.puntaje/ev.total);R.evalBest=Math.max(R.evalBest??0,pc)}else R.practicas++}
     }catch(err){}}
@@ -883,7 +883,7 @@ async function generarPdfResultadosEstudiante(c,p,info){
   doc.setFont("helvetica","bold");doc.setFontSize(10.5);doc.text("Detalle del machote: respuesta del estudiante vs. solución",M,y);y+=6;
   const body=[];const wr=plWithReb(p);
   for(const e of p.employees){const k=plCalc(e,P),ans=p.sheet[e.id]||{};
-    for(const [q,lab] of plSheetFields(k,wr)){const raw=ans[q],v=parseNum(raw),sol=plSol(k,q),good=!isNaN(v)&&near(v,sol);
+    for(const [q,lab] of plSheetFields(k,wr,plV2(p))){const raw=ans[q],v=parseNum(raw),sol=plSol(k,q),good=plOk(k,q,v);
       body.push([e.nombre,lab,String(raw??"").trim()===""?"(vacío)":String(raw),NF.format(sol),good?"SI":"NO"])}}
   doc.autoTable({startY:y+4,margin:{left:M,right:M},styles:{fontSize:8,cellPadding:3},headStyles:{fillColor:[16,40,44],textColor:255},
     head:[["Colaborador","Concepto","Respuesta","Solución","¿Correcto?"]],body,
@@ -913,7 +913,7 @@ function pdfVerFila(c,est,nombre,cols){if(APP.pdfVer!==(est+"|"+c.id))return "";
 function solucionarioHTML(c,paraEstudiante){
   const p=c.payroll;if(!p||!p.employees||!p.employees.length)return '<p class="muted">Esta práctica no tiene colaboradores.</p>';
   const P=p.params,rows=p.employees.map(e=>({e,k:plCalc(e,P)}));
-  const wr=rows.some(r=>r.k.totReb>0),F=plSheetFields(rows[0].k,wr);
+  const wr=rows.some(r=>r.k.totReb>0),F=plSheetFields(rows[0].k,wr,true);
   const run={res:rows.map(r=>({calc:r.k})),pago:"1102"};let lines=[];try{lines=plEntryLines(run)}catch(err){}
   const nm=code=>{const a=(c.accounts||[]).find(x=>x.code===code);return a?a.name:""};
   return `<div class="stack">
@@ -2119,8 +2119,8 @@ function evMachoteHTML(c,p){
   if(p.evalM&&p.evalM.resultado){const r=p.evalM.resultado;
     return `<div class="panel stack"><h3>Evaluación del machote de planilla</h3><div class="status ok"><span class="dot"></span>Entregada el ${esc(fmtDate(r.fecha))}: ${r.ok} de ${r.total} casillas correctas (${r.pct} %).</div><p class="muted" style="margin:0">Solo tenías una oportunidad. Si tu profesor la habilita de nuevo, vas a poder repetirla.</p><b>Tu detalle</b>${evDetalleHTML(r,false)}</div>`}
   if(!p.employees.length)return `<div class="panel"><p class="muted" style="margin:0">La planilla no tiene colaboradores.</p></div>`;
-  p.evalM??={resp:{}};p.evalM.resp??={};
-  const P=p.params,rows=p.employees.map(e=>({e,k:plCalc(e,P)})),wr=rows.some(r=>r.k.totReb>0),F=plSheetFields(rows[0].k,wr);
+  p.evalM??={resp:{}};p.evalM.resp??={};if(p.evalMV2===undefined)p.evalMV2=plV2M(p);
+  const P=p.params,rows=p.employees.map(e=>({e,k:plCalc(e,P)})),wr=rows.some(r=>r.k.totReb>0),F=plSheetFields(rows[0].k,wr,plV2M(p));
   return `<form class="panel stack" id="evMForm"><div><div class="eyebrow">Evaluación · ${esc(c.name)}</div><h3>Evaluación del machote de planilla</h3>
     <p class="muted" style="margin:4px 0 0"><b>Una sola oportunidad.</b> No hay pistas ni revisión previa. Calcula cada monto con los parámetros legales y escríbelo con dos decimales (se acepta ₡1 de diferencia por redondeo). Al terminar toca <b>Entregar evaluación</b>.</p></div>
     <div class="tbl"><table class="sheet"><thead><tr><th>Colaborador y datos del mes</th>${F.map(([,l])=>`<th class="r">${esc(l)}</th>`).join("")}</tr></thead><tbody>
@@ -2165,7 +2165,7 @@ document.addEventListener("submit",e=>{
   if(id==="evMForm"){
     const P=p.params,wr=p.employees.some(x=>plCalc(x,P).totReb>0);let ok=0,total=0;const detalle=[];
     for(const em of p.employees){const k=plCalc(em,P),ans=(p.evalM&&p.evalM.resp&&p.evalM.resp[em.id])||{};
-      for(const [q,lab] of plSheetFields(k,wr)){total++;const val=parseNum(ans[q]),sol=plSol(k,q),good=!isNaN(val)&&near(val,sol);if(good)ok++;
+      for(const [q,lab] of plSheetFields(k,wr,plV2M(p))){total++;const val=parseNum(ans[q]),sol=plSol(k,q),good=plOk(k,q,val);if(good)ok++;
         detalle.push({quien:em.nombre,campo:lab,dado:String(ans[q]??"").trim(),correcto:r2(sol),ok:good})}}
     p.evalM=p.evalM||{resp:{}};p.evalM.resultado={ok,total,pct:total?Math.round(100*ok/total):0,fecha:new Date().toISOString(),detalle};
   }else{
@@ -2298,7 +2298,7 @@ function comparacionHTML(c){
   const val=v=>{const n=parseNum(v);return String(v??"").trim()===""?'<span class="muted">—</span>':isNaN(n)?esc(v):money(n)};
   let out="";
   // 1) Machote
-  const rows=p.employees.map(e=>({e,k:plCalc(e,P)})),wr=rows.some(r=>r.k.totReb>0),F=plSheetFields(rows[0].k,wr);
+  const rows=p.employees.map(e=>({e,k:plCalc(e,P)})),wr=rows.some(r=>r.k.totReb>0),F=plSheetFields(rows[0].k,wr,plV2(p));
   const tieneMachote=p.sheet&&Object.keys(p.sheet).some(id=>Object.values(p.sheet[id]||{}).some(v=>String(v??"").trim()!==""));
   if(tieneMachote){const st=plSheetStatus(p);
     out+=`<h4 style="margin:6px 0">Machote de planilla · ${st.ok} de ${st.total} casillas correctas</h4>
@@ -2457,7 +2457,7 @@ function plFields(k){
   f.push(["neto","Salario neto"]);
   return f;
 }
-function plSol(k,key){if(key.startsWith("o:"))return k.obrero.find(x=>x.id===key.slice(2))?.monto??0;if(key.startsWith("r:"))return (k.rebajos||[]).find(x=>x.id===key.slice(2))?.monto??0;if(key==="reb")return k.totReb||0;return k[key]}
+function plSol(k,key){if(key==="extcom")return r2((k.extra||0)+(k.comis||0));if(key==="rebaus")return r2((k.ausen||0)+(k.tarde||0));if(key.startsWith("o:"))return k.obrero.find(x=>x.id===key.slice(2))?.monto??0;if(key.startsWith("r:"))return (k.rebajos||[]).find(x=>x.id===key.slice(2))?.monto??0;if(key==="reb")return k.totReb||0;return k[key]}
 function parseNum(s){
   s=String(s??"").replace(/[₡\s]/g,"").replace(/[^\d.,-]/g,"");if(!s)return NaN;
   const lc=s.lastIndexOf(","),ld=s.lastIndexOf(".");
@@ -2468,6 +2468,8 @@ function parseNum(s){
 }
 const near=(a,b,t=1)=>Math.abs(a-b)<=t;
 function plFeedback(key,v,k,P,ans){
+  if(key==="extcom")return k.extra||k.comis?`Sumá el pago de horas extra (horas × valor de la hora × 1,5) y las comisiones del mes.`:"Este colaborador no tiene horas extra ni comisiones: escribí 0.";
+  if(key==="rebaus")return k.ausen||k.tarde?`Sumá el rebajo por ausencias (días × valor del día) y el de llegadas tardías (horas × valor de la hora).`:"Este colaborador no tiene ausencias ni llegadas tardías: escribí 0.";
   const pP=id=>plAct(P.patronal).find(x=>x.id===id),h=k.jor?.horas||8,jn=String(k.jor?.nombre||"diurna").toLowerCase(),d=k.div||1;
   if(key==="base")return `En pago ${String(k.pago.nombre).toLowerCase()} se paga el salario mensual ÷ ${d}.`;
   if(key==="vHora"){if(h!==8&&near(v,r2(k.base0/P.jornada.dias/8)))return `La jornada ${jn} es de ${h} horas diarias, no de 8. Divide entre ${h}.`;
@@ -2626,12 +2628,18 @@ const plCanToggle=()=>isTeacher()||APP.demo;
 const plMachote=()=>!APP.readOnly&&(!plCanToggle()||APP.plVista!=="resuelto");
 Object.assign(APP,{plVista:"machote",plSheetChk:false,plEntryChk:null,plShowSol:false});
 function plVistaToggle(){return plCanToggle()&&!APP.readOnly?`<div class="tabs" style="margin:0 0 14px"><button class="tab ${plMachote()?"on":""}" data-pact="vista" data-v="machote">Vista del estudiante · machotes</button><button class="tab ${!plMachote()?"on":""}" data-pact="vista" data-v="resuelto">Vista resuelta (profesor)</button></div>`:""}
-function plSheetFields(k,withReb){return [["bruto","Salario bruto"],...k.obrero.map(x=>["o:"+x.id,x.nombre.split("·")[0].trim()+" "+pct(x.pct)]),["renta","Renta"],...(withReb?[["reb","Otros rebajos"]]:[]),["neto","Salario neto"]]}
+// Machote nuevo (v2): antes del bruto, el estudiante calcula salario base, extras y comisiones y rebajos.
+// Los machotes que ya tenían respuestas siguen con las columnas de antes (no se les cambia la nota).
+const plTieneResp=o=>!!o&&Object.values(o).some(x=>Object.values(x||{}).some(v=>String(v??"").trim()!==""));
+const plV2=p=>!!p&&(p.sheetV2===true||(p.sheetV2===undefined&&!plTieneResp(p.sheet)));
+const plV2M=p=>!!p&&(p.evalMV2===true||(p.evalMV2===undefined&&!plTieneResp(p.evalM&&p.evalM.resp)));
+const plOk=(k,q,v)=>!isNaN(v)&&near(q==="rebaus"?Math.abs(v):v,plSol(k,q));
+function plSheetFields(k,withReb,v2){return [...(v2?[["base","Salario base"],["extcom","Extras y comisiones"],["rebaus","Rebajos (ausencias y tardías)"]]:[]),["bruto","Salario bruto"],...k.obrero.map(x=>["o:"+x.id,x.nombre.split("·")[0].trim()+" "+pct(x.pct)]),["renta","Renta"],...(withReb?[["reb","Otros rebajos"]]:[]),["neto","Salario neto"]]}
 const plWithReb=(p)=>p.employees.some(e=>plCalc(e,p.params).totReb>0);
 function plSheetStatus(p){
   const P=p.params;p.sheet??={};let ok=0,total=0;const cells={};
   const wr=plWithReb(p);for(const e of p.employees){const k=plCalc(e,P),ans=p.sheet[e.id]||{};cells[e.id]={};
-    for(const [q] of plSheetFields(k,wr)){total++;const raw=ans[q],v=parseNum(raw),good=!isNaN(v)&&near(v,plSol(k,q));if(good)ok++;
+    for(const [q] of plSheetFields(k,wr,plV2(p))){total++;const raw=ans[q],v=parseNum(raw),good=plOk(k,q,v);if(good)ok++;
       cells[e.id][q]={ok:good,filled:String(raw??"").trim()!=="",msg:good?"":(isNaN(v)?"Falta este monto.":plFeedback(q,v,k,P,ans))}}}
   return {cells,ok,total,all:total>0&&ok===total};
 }
@@ -2642,7 +2650,8 @@ function plSheetFormHTML(c,p){
   if(!rows.length)return "";
   const st=plSheetStatus(p),chk=APP.plSheetChk,showProc=puedeVerRespuestas()&&chk&&(p.sheetIntentos||0)>=2;
   let sheet="";
-    const F=plSheetFields(rows[0].k,rows.some(r=>r.k.totReb>0));
+    if(p.sheetV2===undefined&&!APP.readOnly&&!isTeacher())p.sheetV2=plV2(p); // queda fijo desde que el estudiante ve el machote
+    const F=plSheetFields(rows[0].k,rows.some(r=>r.k.totReb>0),plV2(p));
     const bad=[];for(const {e} of rows)for(const [q,l] of F){const x=st.cells[e.id][q];if(chk&&!x.ok&&puedeVerRespuestas())bad.push(`<li><b>${esc(e.nombre)}</b> · ${esc(l)}: ${esc(x.msg)}</li>`)}
     sheet=`<form class="panel stack" id="plSheet">
       <div><div class="eyebrow">Machote de planilla · ${esc(c.name)}</div><h3>Completa la planilla del mes</h3>
