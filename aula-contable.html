@@ -1167,6 +1167,7 @@ function viewPorEmpresa(){
      const entregadas=g.rows.filter(r=>r.c.entregado).length;
      return `<details class="panel" data-gkey="${esc(g.key)}"${APP.revOpen&&APP.revOpen[g.key]?" open":""}><summary style="cursor:pointer;font-weight:700">${chipCat(g.cat)} ${esc(g.name)} <small class="muted" style="font-weight:400">· ${g.rows.length} estudiante(s)${CATS[g.cat].una?` · ${entregadas} entregaron`:""}</small></summary>
       <div class="row" style="margin-top:8px"><button class="btn sm ${APP.revPrac&&APP.revPrac[g.key]?"primary":"pop"}" data-act="toggleRevPractica" data-key="${esc(g.key)}">📊 Evaluación y revisión de ${CATS[g.cat].practica?"esta práctica":"este trabajo"}</button></div>${APP.revPrac&&APP.revPrac[g.key]?revisionDePractica(g):""}
+      ${(()=>{const cand=g.rows.filter(r=>r.c.payroll&&(r.c.payroll.employees||[]).length&&!r.c.entregado&&!plV2(r.c.payroll));return cand.length?`<div class="row" style="margin-top:8px;align-items:center"><span class="chip tG" style="font-size:.78rem">🧾 ${cand.length} estudiante(s) tienen el machote de antes (empieza en el salario bruto)</span><button class="btn sm pop" data-act="machoteNuevo" data-key="${esc(g.key)}">🆕 Pasar al machote nuevo (salario base, extras y comisiones, rebajos)</button></div>`:""})()}
       ${(()=>{const t=tipoDelProfe(g);return t&&t!==g.cat?`<div class="row" style="margin-top:8px;align-items:center"><span class="chip tG" style="font-size:.78rem">⚠️ En su cuenta es ${CATS[t].icon} ${CATS[t].corto}, pero ${g.rows.length} estudiante(s) la tienen como ${CATS[g.cat].icon} ${CATS[g.cat].corto}</span><button class="btn sm pop" data-act="igualarTipo" data-key="${esc(g.key)}">🔁 Igualar el tipo al de mi cuenta</button></div>`:""})()}
       ${(()=>{const f=faltantesDeGrupo(g);return f.length?`<div class="row" style="margin-top:8px;align-items:center"><span class="chip tG" style="font-size:.78rem">⚠️ No la tienen (${f.length}): ${f.map(w=>esc(w.nombre)).join(", ")}</span><button class="btn sm pop" data-act="enviarFaltantes" data-key="${esc(g.key)}">📤 Enviarla a ${f.length===1?"ese estudiante":"esos "+f.length+" estudiantes"}</button></div>`:""})()}
       <div class="row" style="margin-top:8px"><button class="btn sm danger" data-act="delPracticaTodos" data-key="${esc(g.key)}">Eliminar ${CATS[g.cat].practica?"esta práctica":"este trabajo"} de todos los estudiantes</button></div>
@@ -2102,6 +2103,7 @@ async function evRefrescarCfg(){
     // se agregan para que el guardado no las borre.
     const borradas=APP.borradasLocal||new Set();
     for(const f of fresh){if(!APP.companies.some(c=>c.id===f.id)&&!borradas.has(f.id))APP.companies.push(f)}
+    for(const c of APP.companies){const f0=fresh.find(x=>x.id===c.id);if(f0&&f0.payroll&&c.payroll){if(f0.payroll.sheetV2===true)c.payroll.sheetV2=true;if(f0.payroll.evalMV2===true&&!(c.payroll.evalM&&c.payroll.evalM.resultado))c.payroll.evalMV2=true}}
     for(const c of APP.companies){const f=fresh.find(x=>x.id===c.id);if(f&&f.categoria&&!c.entregado)c.categoria=f.categoria;if(f&&f.evalCfg){c.evalCfg=f.evalCfg;if(c.payroll)evAplicarReset(c,c.payroll)}}
   }catch(e){}
 }
@@ -3197,6 +3199,11 @@ document.addEventListener("click",async e=>{
   if(a==="verComparacion"){const k=b.dataset.est+"|"+b.dataset.co;APP.cmpVer=APP.cmpVer===k?null:k;
     APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true; // que la práctica siga abierta al volver a dibujar
     render();if(APP.cmpVer){const f=document.getElementById("cmpFila");if(f)f.scrollIntoView({behavior:"smooth",block:"nearest"})}return}
+  if(a==="machoteNuevo"){(async()=>{const key=b.dataset.key;const rows=[];for(const w of (APP.empData||[]))for(const c of w.companies)if(claveGrupo(c)===key&&c.payroll&&(c.payroll.employees||[]).length&&!c.entregado&&!plV2(c.payroll))rows.push({w,c});
+    if(!rows.length)return;if(!confirm(`Se pasa al machote nuevo a ${rows.length} estudiante(s). Lo que ya escribieron se conserva; solo se agregan las columnas de salario base, extras y comisiones y rebajos, que tendrán que llenar. ¿Continuar?`))return;
+    b.disabled=true;let ok=0,fail=0;
+    for(const {w,c} of rows){try{await APP.store.updateEmpresaEstudiante(w.id,c.id,x=>{x.payroll=x.payroll||{};x.payroll.sheetV2=true;if(!(x.payroll.evalM&&x.payroll.evalM.resultado))x.payroll.evalMV2=true});ok++}catch(e){fail++}}
+    toast(fail?`Machote nuevo para ${ok}; ${fail} con error`:`Machote nuevo para ${ok} estudiante(s) ✓`);APP.revOpen=APP.revOpen||{};APP.revOpen[key]=true;await loadEmpData()})();return}
   if(a==="igualarTipo"){(async()=>{const key=b.dataset.key;let row=null;
     for(const w of (APP.empData||[])){const c=w.companies.find(c=>claveGrupo(c)===key);if(c){row=c;break}}
     if(!row)return;const g={rows:[{c:row}]},t=tipoDelProfe(g);if(!t)return;
