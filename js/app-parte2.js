@@ -7858,6 +7858,10 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
     </div>` : ""}
     <div id="calificar-todos-holder"></div>
     ${catNombre === "Proyectos" && (indicadores || []).length > 0 ? `<div id="proyecto-integral-holder" style="margin-top:0.8rem;"></div>` : ""}
+    ${(indicadores || []).length > 0 ? `<nav class="ind-navbar" role="tablist" aria-label="Indicadores de ${catNombre}">
+      ${(indicadores || []).map(ind => `<button type="button" role="tab" class="ind-navlink" data-ind-tab="${ind.id}" title="${quitarHtmlResultado(ind.descripcion || "").replace(/"/g, "&quot;")}"><b>${ind.letra}</b><span>${quitarHtmlResultado(ind.descripcion || "").slice(0, 38)}${quitarHtmlResultado(ind.descripcion || "").length > 38 ? "…" : ""}</span></button>`).join("")}
+      <button type="button" role="tab" class="ind-navlink ind-navlink-todos" data-ind-tab="todos"><b>☰</b><span>Ver todos</span></button>
+    </nav>` : ""}
     <div class="roster" id="lista-indicadores-holder" style="margin-top:0.8rem;">
       ${(indicadores || []).map(ind => {
         const tieneCriterios = (ind.criterios_indicador || []).length > 0;
@@ -7868,7 +7872,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
         // desempeño, así que ese bloque no aplica a este tipo de indicador.
         const esPruebaAuto = trabajoPorIndicador[ind.id] && trabajoPorIndicador[ind.id].tipo_actividad === "prueba" && catNombre !== "Proyectos";
         return `
-        <div class="roster-row" style="flex-direction:column; align-items:stretch; gap:0.4rem;">
+        <div class="roster-row ind-card" data-ind-card="${ind.id}" style="flex-direction:column; align-items:stretch; gap:0.4rem;">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.6rem;">
             <span class="name">
               <strong>${ind.letra}:</strong> <span class="ind-descripcion-text">${ind.descripcion}</span>
@@ -7956,6 +7960,24 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
   holder.querySelectorAll("[data-cat-ind]").forEach(btn => {
     btn.addEventListener("click", () => cargarIndicadoresDeMateria(materiaId, btn.dataset.catInd));
   });
+  // Menú horizontal de indicadores: se ve uno a la vez, con sus herramientas
+  // en el menú vertical de la izquierda. «Ver todos» los muestra en lista.
+  (() => {
+    const tabs = [...holder.querySelectorAll("[data-ind-tab]")];
+    if (!tabs.length) return;
+    const clave = `indSel_${materiaId}_${catNombre}`;
+    const mostrar = id => {
+      const lista = holder.querySelector("#lista-indicadores-holder");
+      if (lista) lista.classList.toggle("ind-todos", id === "todos");
+      holder.querySelectorAll("[data-ind-card]").forEach(c => { c.hidden = id !== "todos" && c.dataset.indCard !== String(id); });
+      tabs.forEach(t => { const on = t.dataset.indTab === String(id); t.classList.toggle("active", on); t.setAttribute("aria-selected", on ? "true" : "false"); });
+      try { sessionStorage.setItem(clave, String(id)); } catch (e) {}
+    };
+    let sel = null; try { sel = sessionStorage.getItem(clave); } catch (e) {}
+    if (!sel || !tabs.some(t => t.dataset.indTab === sel)) sel = tabs[0].dataset.indTab;
+    tabs.forEach(t => t.addEventListener("click", () => { mostrar(t.dataset.indTab); t.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" }); }));
+    mostrar(sel);
+  })();
   const calificarBtn = document.getElementById("calificar-todos-btn");
   if (calificarBtn) calificarBtn.addEventListener("click", () => cargarCalificarTodos(materiaId, catNombre, indicadores || []));
 
