@@ -170,6 +170,10 @@ dialog::backdrop{background:rgba(20,26,60,.45);backdrop-filter:blur(3px)}
 .acard small{display:block;color:var(--mut);font-weight:800}.acard b{display:block;margin:2px 0 6px}
 .acard .aic{font-size:1.8rem}.acard.hecho{border-color:#86efac}
 #dlg{width:min(980px,96vw)}
+table.tir-ins{width:100%;border-collapse:collapse;font-size:.84rem;margin-bottom:8px}table.tir-ins th,table.tir-ins td{border:1px solid var(--line);padding:7px;vertical-align:top;text-align:left}table.tir-ins thead th{background:var(--blue-s)}
+.panel.ins h2{font-size:1.2rem}.panel.ins{overflow-x:auto}
+.egrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}
+.ef{display:flex;flex-direction:column;gap:3px;font-size:.82rem;font-weight:800;color:var(--mut);margin-top:6px}.ef input,.ef textarea{font:inherit;font-weight:600;color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:7px 9px}
 #confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:200}
 html,body{overflow-x:hidden}
 .toast{max-width:90vw;text-align:center;position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(120px);background:var(--ink);color:#fff;padding:12px 18px;border-radius:14px;font-weight:800;z-index:150;transition:transform .35s}
@@ -668,7 +672,7 @@ function hubHTML(){
       :mi&&mi.completado?`<span class="tag" style="background:var(--green-s);color:var(--green)">✅ ${C.seg_tipo==="evaluativa"?`Entregado${mi.puntaje!=null?" · nota "+mi.puntaje+"/3":""}`:"Completada"}</span>`:hechos?`<span class="tag" style="background:var(--amber-s);color:var(--amber)">⏳ ${hechos}/${n} asientos</span>`:'<span class="tag">🆕 Pendiente</span>';
     return `<div class="actrow"><div style="flex:1;min-width:200px"><b>${esc(t.titulo)}</b><div style="color:var(--mut);font-size:.82rem">${n} asientos${DOC?" · "+esc(nomMat(C.materia_id)):""}${C.seg_desc?" · "+esc(C.seg_desc):""}</div></div>${est}
       <div class="actbtns"><button ${DOC?'class="sec"':""} onclick="irA('#/a/${t.id}')">${DOC?"👁️ Ver y probar":mi&&mi.completado?"👁️ Ver":hechos?"▶ Seguir":"▶ Empezar"}</button>
-      ${DOC?`<button class="${t.habilitado===false?"ok":"sec"}" data-hab="${t.id}">${t.habilitado===false?"▶ Abrir":"⏸️ Cerrar"}</button><button class="sec" data-ent="${t.id}">📥 Entregas</button>`:""}</div></div>`};
+      ${DOC&&C.seg_tipo==="evaluativa"?`<button class="sec" data-insv="${t.id}">📋 Evaluación</button>`:""}${DOC?`<button class="${t.habilitado===false?"ok":"sec"}" data-hab="${t.id}">${t.habilitado===false?"▶ Abrir":"⏸️ Cerrar"}</button><button class="sec" data-ent="${t.id}">📥 Entregas</button>`:""}</div></div>`};
   const grupo=k=>{const G=L.filter(t=>((t.contenido_actividad||{}).seg_tipo||"evaluativa")===k);if(!DOC&&!G.length)return "";
     return `<div style="margin-top:10px"><h4 style="margin:0 0 6px">${TIPO_ACT[k].et} <span style="text-transform:none;letter-spacing:0;font-weight:600">· ${TIPO_ACT[k].desc}</span></h4>${G.map(fila).join("")||'<p style="color:var(--mut);margin:0">Todavía no hay.</p>'}</div>`};
   return `<section class="panel" style="margin-bottom:18px;border-color:#c7d2fe"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h3 style="margin:0;margin-right:auto">📚 Actividades del profe</h3>
@@ -681,6 +685,7 @@ function activarHub(){
     const {error}=await sb.from("trabajos_cotidianos").update({habilitado:t.habilitado===false}).eq("id",t.id);
     if(error){alert("No se pudo cambiar: "+error.message);b.disabled=false;return}t.habilitado=t.habilitado===false;toast(t.habilitado===false?"⏸️ Cerrada":"🟢 Abierta para los estudiantes");render()});
   document.querySelectorAll("[data-ent]").forEach(b=>b.onclick=()=>verEntregas(ACT.lista.find(x=>x.id===+b.dataset.ent)));
+  document.querySelectorAll("[data-insv]").forEach(b=>b.onclick=()=>verInstrumento(ACT.lista.find(x=>x.id===+b.dataset.insv)));
   const cp=$("#crearPaq");if(cp)cp.onclick=()=>crearPaquete(cp);
 }
 async function crearIndicadorSeg(materiaId,descripcion,fecha){
@@ -726,6 +731,12 @@ async function pintarActividad(id,idx,estVer){
   else if(DOC){prog=ACT.prueba&&ACT.prueba.id===act.id?ACT.prueba.prog:(ACT.prueba={id:act.id,prog:{reg:{}}}).prog}
   if(!DOC&&act.habilitado===false&&!(mi&&mi.completado)){$("#app").innerHTML=`<div class="panel"><h3>${esc(act.titulo)}</h3><p>Esta actividad todavía no está abierta (o ya se cerró). Consulta con tu profe.</p><button onclick="irA('#/')">← Mapa</button></div>`;return}
   const entregado=!!(mi&&mi.completado&&modo==="evaluativa");
+  if(modo==="evaluativa"&&EST_ID&&!entregado&&!prog.vio_instrumento){
+    $("#app").innerHTML=`<div class="mhead"><button class="sec" onclick="irA('#/')">← Mapa</button><h2>📋 Antes de empezar: así te vamos a evaluar</h2></div>
+      <div class="panel ins">${instrumentoHTML(act)}</div>
+      <div class="actions"><button class="ok" id="insOk">✅ Leí la evaluación, empezar el trabajo</button></div>`;
+    $("#insOk").onclick=async()=>{$("#insOk").disabled=true;prog.vio_instrumento=new Date().toISOString();await guardarProg(act,prog);pintarActividad(id,idx)};
+    return}
   const base=estVer?`#/a/${act.id}/e/${encodeURIComponent(estVer)}`:`#/a/${act.id}`;
   if(idx!=null&&M[idx]){
     const r=prog.reg[idx];
@@ -745,7 +756,7 @@ async function pintarActividad(id,idx,estVer){
     if(r&&r.eval&&(estVer||entregado)){const pc=Math.round(100*r.eval.montos/r.eval.E);chip+=` <span class="tag" style="background:${pc>=85?"var(--green-s)":pc>=60?"var(--amber-s)":"var(--red-s)"};color:${pc>=85?"var(--green)":pc>=60?"var(--amber)":"var(--red)"}">${pc} %</span>`}
     return `<button class="acard ${ok?"hecho":""}" onclick="irA('${base}/${i}')"><span class="aic">${m.ic}</span><span style="flex:1;text-align:left"><small>Asiento ${i+1}</small><b>${esc(m.t)}</b>${chip}</span></button>`};
   const p=Math.round(100*hechos/M.length);
-  $("#app").innerHTML=`<div class="mhead"><button class="sec" onclick="irA('#/')">← Mapa</button><h2>${modo==="evaluativa"?"📝":"🟢"} ${esc(act.titulo)}</h2><span class="tag">${TIPO_ACT[modo].corto}${act.indicador_id?" · con indicador":" · sin nota"}</span>${DOC?(act.habilitado===false?'<span class="tag">⏸️ Cerrada</span>':'<span class="tag" style="background:var(--green-s);color:var(--green)">🟢 Abierta</span>'):""}</div>
+  $("#app").innerHTML=`<div class="mhead"><button class="sec" onclick="irA('#/')">← Mapa</button><h2>${modo==="evaluativa"?"📝":"🟢"} ${esc(act.titulo)}</h2><span class="tag">${TIPO_ACT[modo].corto}${act.indicador_id?" · con indicador":" · sin nota"}</span>${DOC?(act.habilitado===false?'<span class="tag">⏸️ Cerrada</span>':'<span class="tag" style="background:var(--green-s);color:var(--green)">🟢 Abierta</span>'):""}${modo==="evaluativa"?'<button class="pur" id="verIns">📋 Evaluación (formato MEP)</button>':""}</div>
     ${estVer?`<div class="fb tip">👁️ Está viendo el trabajo de <b>${esc(ACT.nombres&&ACT.nombres[estVer]||estVer)}</b>. En cada asiento, verde = línea correcta y rojo = incorrecta.</div>`:DOC?`<div class="fb tip">🧪 Vista del profe: puede resolverla para probarla; no se guarda nada.</div>`:""}
     <div class="panel" style="margin-top:12px"><p style="margin:0 0 8px">${esc(C.seg_desc||"")}</p>
       ${modo==="evaluativa"?'<p style="margin:0 0 8px;color:var(--mut);font-size:.9rem"><b>Reglas:</b> cada asiento se registra <b>una sola vez</b>, sin pistas. Cuando termines, toca <b>📤 Entregar</b>: la nota se calcula sola con el % de cuentas, lados (Debe/Haber) y montos correctos (85 % o más = 3 · 60–84 % = 2 · 35–59 % = 1).</p>':'<p style="margin:0 0 8px;color:var(--mut);font-size:.9rem"><b>Práctica sin nota:</b> tienes pistas e intentos libres. Sella todos los asientos para completarla.</p>'}
@@ -753,15 +764,48 @@ async function pintarActividad(id,idx,estVer){
     <div class="agrid">${M.map(card).join("")}</div>
     ${met?`<div class="panel" style="margin-top:12px"><h4>Resultado</h4><div class="rule">${SEG_CRIT.map(c=>`<div><b style="font-size:1.3rem">${Math.round(met[c.auto])} %</b><br><small>${esc(c.nombre)}</small></div>`).join("")}</div>${mi&&mi.completado?`<p style="font-weight:900;font-size:1.1rem;margin:6px 0 0">Nota del indicador: ${mi.puntaje!=null?mi.puntaje+" / 3":"—"} ${mi.porcentaje!=null?`(${Math.round(mi.porcentaje)} %)`:""}</p>`:""}</div>`:""}
     <div class="actions">${modo==="evaluativa"&&EST_ID&&!entregado?`<button class="ok" id="entregar">📤 Entregar trabajo</button>`:""}${modo==="diaria"&&mi&&mi.completado?'<span class="tag" style="background:var(--green-s);color:var(--green)">🏆 Práctica completada</span>':""}</div>`;
+  const vi=$("#verIns");if(vi)vi.onclick=()=>verInstrumento(act);
   const eb=$("#entregar");if(eb)eb.onclick=async()=>{
     const falt=M.length-hechos;
     if(!confirm(`${falt?`Te faltan ${falt} asiento(s) por registrar: cuentan como incorrectos.\n\n`:""}¿Entregar el trabajo? Ya no podrás cambiarlo.`))return;
-    eb.disabled=true;const met2=metricasDe(act,prog),nota=memoriaNotaDesdeMetricas(C.criterios&&C.criterios.length?C.criterios:SEG_CRIT,met2,[]);
+    eb.disabled=true;const met2=metricasDe(act,prog),nota=memoriaNotaDesdeMetricas(critDe(act),met2,[]);
     prog.metricas=met2;prog.entregado_en=new Date().toISOString();
     const {error}=await guardarNotaManualActividad(act,EST_ID,nota.puntaje,{respuestas:nota.puntos,porcentaje:nota.porcentaje,datos_prueba:{seguros:prog}});
     if(error){eb.disabled=false;alert("No se pudo entregar: "+error);return}
     ACT.mias[act.id]={completado:true,puntaje:nota.puntaje,porcentaje:nota.porcentaje};confeti();sonar("ok");pintarActividad(id)};
 }
+// ═══ Evaluación en formato MEP (escala de desempeño) ═══
+const INS_BASE={componente:"Trabajo cotidiano",tipo:"Escala de desempeño",subarea:"Gestión tributaria",unidad:"Seguros",resultado:"Resolver casos de seguros, aplicando los fundamentos operativos, técnicos y financieros, según la normativa vigente.",indicador:""};
+const critDe=act=>{const C=act.contenido_actividad||{};return (C.criterios&&C.criterios.length?C.criterios:SEG_CRIT)};
+const insDe=act=>{const C=act.contenido_actividad||{};return {...INS_BASE,indicador:C.seg_desc||"",...(C.seg_instrumento||{})}};
+function instrumentoHTML(act){
+  const M=misionesDe(act),lineas=M.reduce((t,m)=>t+m.lineas.length,0);
+  const html=typeof tiraderaInstrumentoHTML==="function"?tiraderaInstrumentoHTML(act.titulo,critDe(act),insDe(act)):"";
+  return html.replace(/Se califica con el registro del juego\./g,"Se califica solo con los asientos registrados.").replace(/Los puntos del juego no son la nota\./,"").replace(/Los indicadores automáticos usan el registro de la partida/,"Cada criterio se calcula con el % de líneas correctas")
+    +`<div class="fb tip" style="margin-top:12px"><div><b>¿Cómo se calcula?</b> El trabajo tiene ${M.length} asientos con ${lineas} líneas en total. En cada línea se revisa si escogiste la cuenta correcta (criterio 1), si la pusiste en el Debe o en el Haber correcto (criterio 2) y si el monto es exacto (criterio 3). Las cuentas que no van restan, y los asientos que no registres cuentan como incorrectos. Cada asiento se registra <b>una sola vez</b> y sin pistas.</div></div>`}
+function verInstrumento(act){const d=$("#dlg");$("#dlgTit").textContent="📋 Evaluación · formato MEP";
+  $("#dlgBody").innerHTML=`<div id="insImp">${instrumentoHTML(act)}</div><div class="actions"><button class="sec" id="insPrint">🖨️ Imprimir o guardar PDF</button>${DOC?'<button class="pur" id="insEdit">✏️ Editar la evaluación</button>':""}</div>`;
+  if(!d.open)d.showModal();
+  $("#insPrint").onclick=()=>{const w=open("","_blank");w.document.write(`<html><head><title>${esc(act.titulo)}</title><style>body{font-family:Arial,sans-serif;padding:20px}table{border-collapse:collapse;width:100%;font-size:12px}th,td{border:1px solid #999;padding:6px;vertical-align:top}.fb{margin-top:12px;font-size:12px}</style></head><body>${$("#insImp").innerHTML}</body></html>`);w.document.close();w.focus();w.print()};
+  const e=$("#insEdit");if(e)e.onclick=()=>editarInstrumento(act)}
+function editarInstrumento(act){const I=insDe(act),K=critDe(act);
+  const campo=(k,l,area)=>`<label class="ef"><span>${l}</span>${area?`<textarea data-ins="${k}" rows="2">${esc(I[k])}</textarea>`:`<input data-ins="${k}" value="${esc(I[k])}">`}</label>`;
+  $("#dlgTit").textContent="✏️ Editar la evaluación · "+act.titulo;
+  $("#dlgBody").innerHTML=`<p style="margin:0 0 8px;color:var(--mut)">Copie el resultado de aprendizaje y el indicador de logro del programa. Los estudiantes ven esta evaluación antes de empezar el trabajo.</p>
+    <div class="egrid">${campo("componente","Componente")}${campo("tipo","Tipo de instrumento")}${campo("subarea","Subárea")}${campo("unidad","Unidad de estudio / tema")}</div>${campo("resultado","Resultado de aprendizaje",1)}${campo("indicador","Indicador de logro",1)}
+    ${K.map((c,i)=>{const nv=typeof tiraderaNivelesDe==="function"?tiraderaNivelesDe(c):(c.niveles||{});return `<div class="panel" style="margin-top:10px;padding:10px"><label class="ef"><span>Criterio ${i+1}</span><textarea rows="2" data-cr="${i}|nombre">${esc(c.nombre)}</textarea></label>
+      <div class="egrid">${[["avanzado","Avanzado (3)"],["intermedio","Intermedio (2)"],["inicial","Inicial (1)"]].map(([k,l])=>`<label class="ef"><span>${l}</span><textarea rows="2" data-cr="${i}|${k}">${esc(nv[k]||"")}</textarea></label>`).join("")}</div></div>`}).join("")}
+    <div class="actions"><button class="ok" id="insGuardar">💾 Guardar</button><button class="sec" id="insVolver">Cancelar</button><span id="insEst" style="color:var(--mut)"></span></div>`;
+  $("#insVolver").onclick=()=>verInstrumento(act);
+  $("#insGuardar").onclick=async()=>{const ni={...I};document.querySelectorAll("[data-ins]").forEach(x=>ni[x.dataset.ins]=x.value.trim());
+    const nk=K.map(c=>({...c,niveles:{...(typeof tiraderaNivelesDe==="function"?tiraderaNivelesDe(c):(c.niveles||{}))}}));
+    document.querySelectorAll("[data-cr]").forEach(x=>{const [i,k]=x.dataset.cr.split("|");if(k==="nombre")nk[+i].nombre=x.value.trim();else nk[+i].niveles[k]=x.value.trim()});
+    $("#insGuardar").disabled=true;$("#insEst").textContent="Guardando…";
+    const {data:a}=await sb.from("trabajos_cotidianos").select("contenido_actividad").eq("id",act.id).maybeSingle();
+    const C={...((a&&a.contenido_actividad)||act.contenido_actividad),seg_instrumento:ni,criterios:nk};
+    const {error}=await sb.from("trabajos_cotidianos").update({contenido_actividad:C}).eq("id",act.id);
+    if(error){$("#insEst").textContent="No se pudo: "+error.message;$("#insGuardar").disabled=false;return}
+    act.contenido_actividad=C;toast("✓ Evaluación guardada");verInstrumento(act)}}
 async function verEntregas(t){
   const d=$("#dlg"),C=t.contenido_actividad||{},modo=C.seg_tipo||"evaluativa",M=misionesDe(t);
   $("#dlgTit").textContent="📥 Entregas · "+t.titulo;$("#dlgBody").innerHTML="<p>Cargando…</p>";if(!d.open)d.showModal();
