@@ -275,6 +275,7 @@ async function renderHome() {
     { grupo: "juegos", href: "tiradera.html", icono: "⚡", titulo: "La Tiradera", sub: "Retos en vivo para la clase: selección, falso/verdadero, sopa de letras y crucigrama, con podio", cta: "Lanzar retos →" },
     { grupo: "juegos", href: "tiradera.html?historial=1", icono: "📚", titulo: "Resultados de La Tiradera", sub: "Partidas anteriores: puntos ganados y perdidos de cada estudiante, descarga en Excel", cta: "Ver resultados →" },
     { grupo: "juegos", href: "planilla-opoly.html", icono: "🎲", titulo: "Planilla Opoly", sub: "Juego 3D tipo Monopoly para 2–8 jugadores: compra empresas resolviendo problemas de planilla", cta: "Jugar →" },
+    { grupo: "juegos", href: "laboral.html", icono: "⚖️", titulo: "Ruta Laboral CR", sub: "Juego con narrador y música: preaviso, cesantía, vacaciones y aguinaldo en 5 misiones con XP y medallas", cta: "Jugar →" },
     { grupo: "juegos", href: "seguros.html", icono: "🛡️", titulo: "Misión Seguros", sub: "Contabilidad de seguros (SUGESE): 5 niveles para armar asientos arrastrando cuentas, con XP y rachas", cta: "Jugar →" }
   ];
   const tarjetaAcceso = a => `
@@ -2665,13 +2666,14 @@ function gruposMenuEstudiante(s) {
   return [
     { k: "notas", ic: "📝", t: "Mis notas", sub: "Trabajo cotidiano, notas, tareas, rúbrica y asistencia", items: [["tc", "📋", "Trabajo cotidiano"], ["notas", "📝", "Notas y Tareas"], ["rubrica", "📊", "Rúbrica"], ["asistencia", "🗓️", "Asistencia"]] },
     { k: "materias", ic: "📚", t: "Mis materias", sub: "Temas, trabajos y material de clase", items: [["materias-est", "📚", "Materias"], ...(esSeccion113(s.seccion) ? [["infografias", "🖼️", "Mis infografías"]] : [])] },
-    { k: "juegos", ic: "🎮", t: "Juegos y simuladores", sub: "Aula de Conta, ContaRed, Liquidaciones, La Tiradera, Planilla Opoly y Misión Seguros", items: [
+    { k: "juegos", ic: "🎮", t: "Juegos y simuladores", sub: "Aula de Conta, ContaRed, Liquidaciones, La Tiradera, Planilla Opoly, Misión Seguros y Ruta Laboral CR", items: [
       ["link:" + AULA_CONTABLE_URL + "?como_estudiante=" + encodeURIComponent(s.id), "🧮", "Aula de Conta"],
       ["link:" + SIMULADOR_B2B_URL, "🏆", "ContaRed"],
       ["link:liquidaciones.html", "📑", "Liquidaciones"],
       ["link:tiradera.html?nombre=" + encodeURIComponent(`${s.nombre || ""} ${s.apellido1 || ""} ${s.apellido2 || ""}`.replace(/\s+/g, " ").trim()) + "&est=" + encodeURIComponent(s.id), "⚡", "La Tiradera"],
       ["link:planilla-opoly.html", "🎲", "Planilla Opoly"],
       ["link:seguros.html", "🛡️", "Misión Seguros"],
+      ["link:laboral.html", "⚖️", "Ruta Laboral CR"],
       ["aula-informe", "📈", "Informe de Aula de Conta"],
       ["ac-material", "📂", "Material entregado"]] }
   ];

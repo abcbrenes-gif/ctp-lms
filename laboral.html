@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ruta Laboral CR · Juego de derechos laborales</title>
+<style>
+:root{
+  --bg:#0d0f1f;--bg2:#14173a;--card:#1a1e44;--card2:#20255a;--line:rgba(255,255,255,.09);
+  --tx:#eef0ff;--mut:#a3a9d6;--pink:#ff8fd8;--cyan:#7af0ff;--lila:#b9a2ff;--mint:#7dffc4;--amber:#ffd27a;--red:#ff7a8f;
+  --sh1:8px 8px 22px rgba(0,0,0,.45),-6px -6px 18px rgba(120,110,255,.06);--r:22px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--tx);font:16px/1.5 "Segoe UI",system-ui,Roboto,"Helvetica Neue",sans-serif;overflow-x:hidden}
+body:before{content:"";position:fixed;inset:-20%;z-index:-1;background:radial-gradient(600px 400px at 15% 10%,rgba(255,143,216,.18),transparent 70%),radial-gradient(700px 500px at 85% 20%,rgba(122,240,255,.14),transparent 70%),radial-gradient(600px 500px at 50% 100%,rgba(185,162,255,.16),transparent 70%);animation:flota 18s ease-in-out infinite alternate}
+@keyframes flota{to{transform:translate(2%,-3%) rotate(3deg)}}
+button{font:inherit;cursor:pointer;border:0;border-radius:16px;padding:12px 18px;font-weight:800;color:#120f2a;background:linear-gradient(135deg,var(--cyan),var(--lila));box-shadow:0 6px 18px rgba(122,240,255,.25);transition:transform .15s,box-shadow .15s,filter .15s}
+button:hover{transform:translateY(-2px);filter:brightness(1.05)}
+button:active{transform:translateY(1px)}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(--pink);outline-offset:3px}
+button:disabled{opacity:.4;cursor:not-allowed;transform:none}
+button.sec{background:var(--card2);color:var(--tx);box-shadow:var(--sh1);border:1px solid var(--line)}
+button.pink{background:linear-gradient(135deg,var(--pink),var(--lila))}
+button.ok{background:linear-gradient(135deg,var(--mint),var(--cyan))}
+.wrap{max-width:1100px;margin:0 auto;padding:16px}
+.hidden{display:none!important}
+/* barra superior */
+.top{position:sticky;top:0;z-index:30;background:rgba(13,15,31,.75);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 16px}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto;font-weight:900;letter-spacing:.02em}
+.logo{width:40px;height:40px;border-radius:14px;display:grid;place-items:center;font-size:1.3rem;background:linear-gradient(135deg,var(--pink),var(--cyan));box-shadow:0 0 18px rgba(255,143,216,.4)}
+.brand small{display:block;font-weight:600;color:var(--mut);font-size:.72rem}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-weight:800;box-shadow:var(--sh1)}
+.xpbar{width:120px;height:9px;border-radius:9px;background:rgba(255,255,255,.08);overflow:hidden}
+.xpbar>span{display:block;height:100%;background:linear-gradient(90deg,var(--pink),var(--cyan));transition:width .6s}
+.ib{padding:8px 11px;border-radius:12px;font-size:1.05rem}
+.ib[aria-pressed="false"]{opacity:.55}
+/* tarjetas */
+.card{background:linear-gradient(160deg,rgba(32,37,90,.9),rgba(22,25,60,.9));border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh1);padding:20px}
+h1{font-size:clamp(1.6rem,4vw,2.4rem);margin:8px 0 4px;background:linear-gradient(90deg,var(--pink),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--mut);margin:0 0 18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+.mis{position:relative;overflow:hidden;display:flex;flex-direction:column;gap:10px;transition:transform .2s}
+.mis:hover:not(.lock){transform:translateY(-4px)}
+.mis .ic{width:58px;height:58px;border-radius:18px;display:grid;place-items:center;font-size:1.8rem;background:rgba(255,255,255,.06);box-shadow:inset 3px 3px 8px rgba(0,0,0,.35),inset -3px -3px 8px rgba(255,255,255,.05)}
+.mis h3{margin:0;font-size:1.08rem}.mis p{margin:0;color:var(--mut);font-size:.9rem}
+.mis.lock{opacity:.5}.mis.done{border-color:rgba(125,255,196,.45)}
+.prog{height:10px;border-radius:10px;background:rgba(255,255,255,.07);overflow:hidden}
+.prog>span{display:block;height:100%;background:linear-gradient(90deg,var(--mint),var(--cyan));transition:width .6s}
+.medals{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.medal{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:14px;background:var(--card);border:1px solid var(--line);font-weight:700;font-size:.88rem}
+.medal.off{opacity:.35;filter:grayscale(1)}
+.medal b{font-size:1.3rem}
+/* escena */
+.scene{display:grid;grid-template-columns:200px minmax(0,1fr);gap:18px;align-items:start}
+@media(max-width:760px){.scene{grid-template-columns:1fr}}
+.avatar{text-align:center}
+.avatar .face{width:150px;height:150px;margin:0 auto;border-radius:40px;display:grid;place-items:center;font-size:5rem;background:linear-gradient(145deg,#262c6b,#171a45);box-shadow:var(--sh1),0 0 30px rgba(185,162,255,.25);animation:respira 4s ease-in-out infinite}
+@media(max-width:760px){.avatar{display:flex;align-items:center;gap:12px;text-align:left}.avatar .face{width:72px;height:72px;font-size:2.4rem;border-radius:22px;margin:0}}
+@keyframes respira{50%{transform:translateY(-4px)}}
+.avatar b{display:block;margin-top:10px}.avatar small{color:var(--mut)}
+.bubble{position:relative}
+.stepbar{display:flex;gap:6px;margin-bottom:12px}.stepbar i{flex:1;height:6px;border-radius:6px;background:rgba(255,255,255,.08)}.stepbar i.on{background:linear-gradient(90deg,var(--pink),var(--cyan))}
+.kicker{font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;color:var(--cyan);font-weight:900}
+.txt{font-size:1.08rem;margin:6px 0 14px}
+.txt b{color:var(--amber)}
+.datos{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
+.datos span{background:rgba(122,240,255,.09);border:1px solid rgba(122,240,255,.25);color:var(--cyan);padding:5px 10px;border-radius:10px;font-weight:700;font-size:.9rem}
+.tabla{width:100%;border-collapse:collapse;margin:0 0 14px;font-size:.92rem}
+.tabla td,.tabla th{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left}.tabla td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.opts{display:grid;gap:10px}
+.opt{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--card);color:var(--tx);border:1px solid var(--line);box-shadow:var(--sh1);padding:14px 16px;font-weight:700}
+.opt .l{flex:0 0 32px;height:32px;border-radius:10px;display:grid;place-items:center;background:rgba(255,255,255,.07);font-weight:900}
+.opt.good{border-color:var(--mint);background:rgba(125,255,196,.12)}
+.opt.bad{border-color:var(--red);background:rgba(255,122,143,.12);animation:tiembla .35s}
+@keyframes tiembla{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.numrow{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.numrow input{flex:1 1 220px;font:inherit;font-size:1.2rem;font-weight:800;color:var(--tx);background:#0f1230;border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:inset 3px 3px 8px rgba(0,0,0,.4)}
+.numrow .u{color:var(--mut);font-weight:700}
+.fb{margin-top:14px;border-radius:16px;padding:12px 14px;font-weight:600;animation:entra .3s}
+@keyframes entra{from{opacity:0;transform:translateY(6px)}}
+.fb.ok{background:rgba(125,255,196,.1);border:1px solid rgba(125,255,196,.4)}
+.fb.bad{background:rgba(255,122,143,.1);border:1px solid rgba(255,122,143,.4)}
+.fb.tip{background:rgba(255,210,122,.1);border:1px solid rgba(255,210,122,.4)}
+.fb small{display:block;color:var(--mut);margin-top:4px}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;align-items:center}
+.law{display:inline-block;font-size:.75rem;font-weight:800;color:var(--lila);border:1px solid rgba(185,162,255,.4);border-radius:8px;padding:2px 8px;margin-top:6px}
+/* final de misión */
+.win{text-align:center;padding:30px 20px}
+.win .big{font-size:4.5rem;animation:pop .7s}
+@keyframes pop{0%{transform:scale(.3);opacity:0}70%{transform:scale(1.15)}}
+.toast{position:fixed;left:50%;top:76px;transform:translate(-50%,-140px);z-index:60;background:linear-gradient(135deg,var(--pink),var(--lila));color:#160f2d;font-weight:900;padding:12px 18px;border-radius:16px;box-shadow:0 10px 30px rgba(255,143,216,.4);transition:transform .4s;max-width:92vw;text-align:center}
+.toast.on{transform:translate(-50%,0)}
+.toast:empty{display:none}
+#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:50}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+dialog{border:0;border-radius:22px;padding:0;width:min(760px,94vw);max-height:86vh;background:var(--bg2);color:var(--tx);box-shadow:0 30px 80px rgba(0,0,0,.6)}
+dialog::backdrop{background:rgba(5,6,20,.6);backdrop-filter:blur(4px)}
+.dh{display:flex;align-items:center;padding:14px 18px;background:linear-gradient(135deg,rgba(255,143,216,.25),rgba(122,240,255,.2))}.dh h3{margin:0;margin-right:auto}
+.db{padding:16px 18px;overflow:auto;max-height:calc(86vh - 70px)}
+.db h4{color:var(--cyan);margin:14px 0 4px}.db ul{margin:4px 0;padding-left:20px}.db li{margin:3px 0}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<canvas id="fx"></canvas>
+<div class="top"><div class="wrap">
+  <div class="brand"><div class="logo">⚖️</div><div>Ruta Laboral CR<small>Preaviso · Cesantía · Vacaciones · Aguinaldo</small></div></div>
+  <div class="chip" title="Puntos de experiencia">⭐ <span id="xp">0 XP</span><div class="xpbar"><span id="xpb" style="width:0"></span></div></div>
+  <div class="chip" title="Medallas">🏅 <span id="med">0</span></div>
+  <button class="sec ib" id="bMus" aria-pressed="false" title="Música de fondo">🎵</button>
+  <button class="sec ib" id="bSfx" aria-pressed="true" title="Efectos de sonido">🔔</button>
+  <button class="sec ib" id="bVoz" aria-pressed="true" title="Narrador (lee en voz alta)">🗣️</button>
+  <button class="sec ib" id="bGuia" title="Guía rápida de la ley">📘</button>
+</div></div>
+<main class="wrap" id="app"></main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="sr" id="live" aria-live="assertive"></div>
+<dialog id="guia" aria-labelledby="gt"><div class="dh"><h3 id="gt">📘 Guía rápida (MTSS)</h3><button class="sec" onclick="document.getElementById('guia').close()">Cerrar ✕</button></div><div class="db" id="guiaB"></div></dialog>
+
+<script>
+"use strict";
+// ═══════════════════════════════════════════════════════════════════════
+// Contenido: Código de Trabajo de Costa Rica (arts. 28, 29, 153 y ss.),
+// Ley 2412 (aguinaldo) y las publicaciones del MTSS: «Preaviso y cesantía»,
+// «Aguinaldo: preguntas frecuentes», «Manual básico de aplicación del derecho
+// laboral», el compendio de dudas y los criterios DAJ-AE-083-09 y
+// DAJ-AER-OFP-758-2023.
+// ═══════════════════════════════════════════════════════════════════════
+const C=n=>"₡"+Number(n).toLocaleString("es-CR",{minimumFractionDigits:Number.isInteger(n)?0:2,maximumFractionDigits:2});
+const MISIONES=[
+{id:"aguinaldo",ic:"🎁",t:"El Aguinaldo de Sofía",d:"El salario adicional de diciembre: quién lo recibe, cómo se calcula y qué se le puede rebajar.",medalla:["🎁","Maestro del Aguinaldo"],
+ pj:{n:"Sofía",r:"Vendedora en una tienda",f:"👩🏽‍💼"},
+ pasos:[
+  {k:"intro",txt:"¡Hola! Soy Sofía. Trabajo en una tienda de zapatos desde hace dos años. Ya viene diciembre y quiero saber <b>cuánto me toca de aguinaldo</b>. ¿Me ayudas?"},
+  {k:"mc",txt:"Primero lo básico: ¿qué es el aguinaldo?",o:["Un regalo voluntario del patrono","Un salario adicional que todo patrono debe pagar","Un bono solo para quienes tienen más de un año","Un pago que sustituye las vacaciones"],r:1,ex:"Es un «salario adicional» obligatorio que toda persona empleadora debe pagar, sin importar la actividad.",ley:"Ley 2412"},
+  {k:"mc",txt:"¿Hasta cuándo tiene plazo mi patrono para pagármelo?",o:["Hasta el 31 de diciembre","Dentro de los primeros 20 días de diciembre","En la segunda quincena de noviembre","Cuando el patrono decida"],r:1,ex:"Debe pagarse dentro de los primeros veinte días de diciembre de cada año.",ley:"Ley 2412"},
+  {k:"mc",txt:"¿Qué período de salarios se suma para calcularlo?",o:["Del 1 de enero al 31 de diciembre","Del 1 de diciembre del año anterior al 30 de noviembre","Solo los últimos 6 meses","Solo el salario de noviembre"],r:1,ex:"Se suman los salarios ordinarios y extraordinarios del 1 de diciembre del año anterior al 30 de noviembre, y se divide entre 12.",ley:"Ley 2412"},
+  {k:"mc",txt:"En julio hice horas extra por ₡45 000. ¿Se toman en cuenta?",o:["No, solo cuenta el salario base","Sí: entran los salarios ordinarios y extraordinarios","Solo si son más de 10 horas","Solo la mitad"],r:1,ex:"Se incluyen las horas ordinarias, las extraordinarias y cualquier otro pago salarial del período, también el salario en especie.",ley:"Ley 2412"},
+  {k:"num",txt:"Estos fueron mis salarios del período. ¿Cuánto suman en total?",tabla:[["Diciembre a marzo (₡360 000 × 4)",1440000],["Abril a noviembre (₡380 000 × 8)",3040000],["Horas extra de julio",45000]],ok:4525000,ayuda:"Suma las tres filas: 1 440 000 + 3 040 000 + 45 000."},
+  {k:"num",txt:"Ahora sí: ¿cuánto es mi <b>aguinaldo</b>?",datos:["Total del período: ₡4 525 000"],ok:4525000/12,ayuda:"Aguinaldo = total de salarios del período ÷ 12.",sol:"4 525 000 ÷ 12 = ₡377 083,33"},
+  {k:"mc",txt:"Mi jefe dice que me va a rebajar la CCSS del aguinaldo. ¿Puede?",o:["Sí, como a cualquier salario","No: solo se le puede rebajar la pensión alimentaria","Sí, pero solo el Banco Popular","Solo si yo firmo"],r:1,ex:"Al aguinaldo solo se le puede rebajar la pensión alimentaria. No se le aplica ninguna otra rebaja, ni cargas sociales.",ley:"Ley 2412"},
+  {k:"num",txt:"Mi compañero Marco entró el 1 de junio y gana ₡300 000 al mes. ¿Cuánto aguinaldo proporcional le toca al 30 de noviembre?",datos:["Junio a noviembre: 6 meses","₡300 000 por mes"],ok:150000,ayuda:"Suma lo que ganó en los meses que trabajó y divide entre 12 (no entre 6).",sol:"(₡300 000 × 6) ÷ 12 = ₡150 000"},
+  {k:"tf",txt:"Verdadero o falso: si el contrato termina antes de diciembre, la persona pierde el derecho al aguinaldo.",r:false,ex:"Falso. Se le paga un doceavo de lo que ganó en los meses trabajados. El derecho se puede reclamar hasta un año después de terminado el contrato.",ley:"Ley 2412"}
+ ]},
+{id:"vacaciones",ic:"🏖️",t:"Las Vacaciones de Daniel",d:"Cuántos días tocan, cómo se pagan según la forma de pago y cuándo se pueden compensar.",medalla:["🏖️","Guardián de las Vacaciones"],
+ pj:{n:"Daniel",r:"Técnico en una empresa de cómputo",f:"👨🏻‍🔧"},
+ pasos:[
+  {k:"intro",txt:"¡Qué tal! Soy Daniel. Cumplí un año en la empresa y quiero irme a la playa. Pero no tengo claro <b>cuántos días me tocan ni cuánto me pagan</b>."},
+  {k:"mc",txt:"¿Cada cuánto tiempo de trabajo continuo se gana el derecho a vacaciones?",o:["Cada 12 meses exactos","Cada 50 semanas de labores continuas","Cada 6 meses","Cada 100 días"],r:1,ex:"El mínimo son dos semanas por cada cincuenta semanas de labores continuas con el mismo patrono.",ley:"Código de Trabajo, art. 153"},
+  {k:"mc",txt:"A mí me pagan por mes. ¿Cuántos días de vacaciones me corresponden?",o:["12 días","14 días","15 días","10 días"],r:1,ex:"Con pago mensual o quincenal son 14 días, porque el pago incluye los dos días de descanso semanal. Con pago semanal son 12.",ley:"MTSS · Vacaciones"},
+  {k:"num",txt:"Mi salario promedio de las últimas 50 semanas es ₡420 000 por mes. ¿Cuánto es mi <b>salario diario</b>?",datos:["Promedio mensual: ₡420 000","Pago mensual: se divide entre 30"],ok:14000,ayuda:"Salario diario = salario mensual ÷ 30."},
+  {k:"num",txt:"¿Cuánto me deben pagar por mis 14 días de vacaciones?",datos:["Salario diario: ₡14 000","Días: 14"],ok:196000,ayuda:"Pago = salario diario × 14.",sol:"₡14 000 × 14 = ₡196 000"},
+  {k:"num",txt:"Mi prima Valeria trabaja en una fábrica y le pagan por semana ₡72 000. ¿Cuánto le pagan por sus 12 días de vacaciones?",datos:["Pago semanal (no es comercio)","Salario semanal ÷ 6 × 12"],ok:144000,ayuda:"Con pago semanal no se paga el día de descanso: salario semanal ÷ 6 × 12.",sol:"₡72 000 ÷ 6 = ₡12 000 · × 12 = ₡144 000"},
+  {k:"mc",txt:"¿Quién escoge la fecha en que disfruto las vacaciones?",o:["Yo, cuando quiera","El patrono, dentro de las 15 semanas siguientes a cumplir las 50","El Ministerio de Trabajo","Se rifan entre los compañeros"],r:1,ex:"El patrono señala la época, dentro de las quince semanas posteriores a cumplir las cincuenta semanas, sin afectar la buena marcha de la empresa.",ley:"Código de Trabajo, art. 155"},
+  {k:"tf",txt:"Verdadero o falso: el patrono puede pagarme las vacaciones en dinero cuando yo quiera, en vez de darme el descanso.",r:false,ex:"Falso. Las vacaciones son incompensables, salvo al terminar la relación laboral, en trabajos ocasionales o a destajo, o en el caso especial del exceso de dos semanas sin superar tres períodos acumulados.",ley:"Código de Trabajo, art. 156"},
+  {k:"num",txt:"Un compañero renunció a los 7 meses, sin haber cumplido las 50 semanas. Su salario diario es ₡12 500. ¿Cuánto le pagan de vacaciones proporcionales?",datos:["1 día por cada mes trabajado","7 meses · ₡12 500 diarios"],ok:87500,ayuda:"Si termina antes de las 50 semanas, le toca como mínimo 1 día por cada mes trabajado.",sol:"7 días × ₡12 500 = ₡87 500"},
+  {k:"mc",txt:"¿En cuántas partes se pueden dividir las vacaciones como máximo?",o:["En las que yo quiera","En dos, si lo acuerdan y la labor es especial","En cuatro","No se pueden dividir nunca"],r:1,ex:"Se disfrutan sin interrupción; por excepción se pueden dividir en dos fracciones como máximo, si lo acuerdan patrono y trabajador.",ley:"MTSS · Vacaciones"}
+ ]},
+{id:"preaviso",ic:"📢",t:"El Preaviso de Andrés",d:"Quién debe avisar, cuánto tiempo según la antigüedad y cómo se calcula si se paga en dinero.",medalla:["📢","Experto en Preaviso"],
+ pj:{n:"Andrés",r:"Bodeguero en una distribuidora",f:"👨🏾"},
+ pasos:[
+  {k:"intro",txt:"Hola, soy Andrés. Trabajé <b>2 años y 3 meses</b> en una distribuidora, con contrato por tiempo indefinido. Hoy mi jefe me dijo que me despide <b>sin justa causa</b>, y que me vaya hoy mismo. ¿Qué es eso del preaviso?"},
+  {k:"mc",txt:"¿Qué es el preaviso?",o:["Una multa por despedir","Un aviso previo de quien termina la relación sin justa causa","El pago de las vacaciones","Una carta de recomendación"],r:1,ex:"Es el aviso previo que da la persona trabajadora cuando renuncia, o la persona empleadora cuando despide sin justa causa. Solo aplica en contratos por tiempo indefinido.",ley:"Código de Trabajo, art. 28"},
+  {k:"mc",txt:"Con 2 años y 3 meses, ¿cuánto preaviso me tenían que dar?",o:["1 semana","15 días","1 mes","No hay preaviso"],r:2,ex:"Menos de 3 meses: no hay (período de prueba) · de 3 a 6 meses: 1 semana · de 6 meses a 1 año: 15 días · después de 1 año: 1 mes.",ley:"Código de Trabajo, art. 28"},
+  {k:"mc",txt:"Mi jefe no me dio el preaviso en tiempo. ¿Qué pasa entonces?",o:["Lo pierdo","Me lo debe pagar en dinero","Tengo que trabajar un mes gratis","Se suma a las vacaciones"],r:1,ex:"El preaviso debe darse en tiempo. Si no se da, quien despide con responsabilidad patronal debe pagar ese tiempo en dinero.",ley:"MTSS · Preaviso y cesantía"},
+  {k:"num",txt:"Para calcularlo se usa el promedio de los últimos 6 meses. Estos fueron mis salarios: ¿cuál es mi <b>salario promedio mensual</b>?",tabla:[["Septiembre",450000],["Octubre",450000],["Noviembre",450000],["Diciembre",480000],["Enero",480000],["Febrero",510000]],ok:470000,ayuda:"Suma los 6 salarios y divide entre 6.",sol:"₡2 820 000 ÷ 6 = ₡470 000"},
+  {k:"num",txt:"Me pagaban por mes. ¿Cuánto es mi <b>salario diario</b>? (redondea a dos decimales)",datos:["Promedio: ₡470 000","Pago mensual: ÷ 30"],ok:470000/30,ayuda:"Salario diario = promedio mensual ÷ 30.",sol:"₡470 000 ÷ 30 = ₡15 666,67"},
+  {k:"num",txt:"¿Cuánto me deben pagar de <b>preaviso</b>? (1 mes = 30 días)",datos:["Salario diario: ₡15 666,67","Preaviso: 30 días"],ok:470000,tol:15,ayuda:"Preaviso = salario diario × 30 días.",sol:"₡15 666,67 × 30 = ₡470 000"},
+  {k:"mc",txt:"Si yo hubiera renunciado sin dar el preaviso, ¿qué podría hacer el patrono?",o:["Rebajarlo de mis prestaciones","Reclamarlo en vía judicial dentro de los 30 días siguientes","Quitarme el aguinaldo","Nada, solo los patronos dan preaviso"],r:1,ex:"El patrono no puede rebajar el preaviso de las prestaciones; solo puede reclamarlo en vía judicial durante los 30 días siguientes al término de la relación.",ley:"MTSS · Preaviso y cesantía"},
+  {k:"tf",txt:"Verdadero o falso: durante el preaviso tengo derecho a un día libre pagado por semana para buscar trabajo.",r:true,ex:"Verdadero. Es el día de asueto: un día por semana con goce de salario, de común acuerdo con el patrono. Si no lo dan, se puede cobrar al terminar.",ley:"Código de Trabajo, art. 28"}
+ ]},
+{id:"cesantia",ic:"🛟",t:"La Cesantía de Andrés",d:"Cuándo se paga, cuántos días según la antigüedad y el tope de 8 años.",medalla:["🛟","Sabio de la Cesantía"],
+ pj:{n:"Andrés",r:"Bodeguero en una distribuidora",f:"👨🏾"},
+ pasos:[
+  {k:"intro",txt:"Ya entendí el preaviso. Pero un amigo me dijo que además me toca <b>cesantía</b>. ¿Eso qué es y cuánto es?"},
+  {k:"mc",txt:"¿Qué es el auxilio de cesantía?",o:["Un préstamo del patrono","Una indemnización cuando la relación termina con responsabilidad patronal","El pago del aguinaldo","Un ahorro voluntario"],r:1,ex:"Es una indemnización para que la persona despedida tenga un monto mínimo mientras encuentra otro trabajo, parecido a un seguro de desempleo.",ley:"Código de Trabajo, art. 29"},
+  {k:"mc",txt:"¿En cuál caso NO se paga cesantía?",o:["Despido sin justa causa","Renuncia voluntaria de la persona trabajadora","Despido con responsabilidad patronal","Cierre del negocio por causa ajena al trabajador"],r:1,ex:"La cesantía se paga cuando el contrato por tiempo indefinido termina con responsabilidad patronal (despido injustificado u otra causa ajena a la voluntad del trabajador). En una renuncia común no se paga.",ley:"Código de Trabajo, art. 29"},
+  {k:"mc",txt:"Si alguien trabajó 5 meses y lo despiden sin justa causa, ¿cuántos días de cesantía le tocan?",o:["7 días","14 días","19,5 días","No le toca"],r:0,ex:"De 3 a 6 meses: 7 días · de 6 meses a 1 año: 14 días · más de 1 año: según la tabla del art. 29.",ley:"Código de Trabajo, art. 29"},
+  {k:"mc",txt:"Yo trabajé 2 años y 3 meses. Según la tabla, ¿cuántos días por año me tocan?",o:["19,5 días por año","20 días por año","22 días por año","30 días por año"],r:1,ex:"La tabla da 20 días por año laborado cuando la antigüedad es de 2 años. La fracción de 3 meses no cuenta, porque no es superior a seis meses.",ley:"Código de Trabajo, art. 29"},
+  {k:"num",txt:"Entonces, ¿cuántos <b>días de cesantía</b> me corresponden en total?",datos:["Años completos: 2","20 días por año","Fracción de 3 meses: no cuenta"],ok:40,u:"días",ayuda:"Días = días por año × años contados.",sol:"20 × 2 = 40 días"},
+  {k:"num",txt:"Con mi salario diario de ₡15 666,67, ¿cuánto es mi <b>cesantía</b>?",datos:["40 días","Salario diario: ₡15 666,67"],ok:470000/30*40,tol:15,ayuda:"Cesantía = días de cesantía × salario diario.",sol:"40 × ₡15 666,67 = ₡626 666,67"},
+  {k:"mc",txt:"¿Cuántos años como máximo se pueden indemnizar con cesantía?",o:["5 años","8 años","12 años","Todos los años trabajados"],r:1,ex:"En ningún caso se indemnizan más de los últimos ocho años de relación laboral.",ley:"Código de Trabajo, art. 29"},
+  {k:"tf",txt:"Verdadero o falso: a la cesantía se le rebajan las cargas sociales de la CCSS.",r:false,ex:"Falso. Al pago de la cesantía no se le aplica ningún tipo de deducción por cargas sociales.",ley:"MTSS · Preaviso y cesantía"}
+ ]},
+{id:"liquidacion",ic:"🧾",t:"La Gran Liquidación",d:"Junta todo: ayuda a Andrés a armar su liquidación completa y decide qué le toca en cada caso.",medalla:["🧾","Liquidador Pro"],
+ pj:{n:"Licda. Rojas",r:"Asesora laboral",f:"👩🏻‍⚖️"},
+ pasos:[
+  {k:"intro",txt:"Soy la licenciada Rojas. Andrés vino a la oficina para revisar su liquidación. Ingresó el <b>1 de diciembre de 2023</b> y lo despidieron <b>sin justa causa el 28 de febrero de 2026</b>. Vamos a armarla juntos."},
+  {k:"mc",txt:"Por un despido con responsabilidad patronal, ¿qué derechos le corresponden?",o:["Solo el aguinaldo","Preaviso, cesantía, vacaciones y aguinaldo proporcionales","Solo cesantía","Preaviso y vacaciones"],r:1,ex:"En un despido injustificado de un contrato por tiempo indefinido corresponden preaviso, cesantía y además vacaciones y aguinaldo proporcionales.",ley:"MTSS · Compendio de dudas"},
+  {k:"num",txt:"Aguinaldo proporcional: desde el 1 de diciembre ganó ₡480 000 en diciembre, ₡480 000 en enero y ₡510 000 en febrero. ¿Cuánto le toca?",datos:["Suma desde el 1 de diciembre","Divide entre 12"],ok:1470000/12,ayuda:"(480 000 + 480 000 + 510 000) ÷ 12.",sol:"₡1 470 000 ÷ 12 = ₡122 500"},
+  {k:"num",txt:"Vacaciones: ya disfrutó sus períodos anteriores, pero desde que cumplió el último lleva 3 meses. Su salario diario para vacaciones es ₡15 333,33. ¿Cuánto se le paga?",datos:["1 día por mes: 3 días","₡15 333,33 diarios"],ok:46000,tol:2,ayuda:"Días proporcionales × salario diario.",sol:"3 × ₡15 333,33 = ₡46 000"},
+  {k:"num",txt:"Ahora suma la <b>liquidación total</b> de Andrés.",tabla:[["Preaviso (misión 3)",470000],["Cesantía (misión 4)",626666.67],["Vacaciones proporcionales",46000],["Aguinaldo proporcional",122500]],ok:1265166.67,tol:2,ayuda:"Suma las cuatro partidas.",sol:"₡1 265 166,67"},
+  {k:"mc",txt:"Si Andrés hubiera <b>renunciado</b> en vez de ser despedido, ¿qué le pagarían?",o:["Todo igual","Solo vacaciones y aguinaldo proporcionales","Cesantía y aguinaldo","Nada"],r:1,ex:"Al renunciar no hay cesantía ni preaviso a su favor (es él quien debe dar el preaviso), pero sí recibe las vacaciones y el aguinaldo proporcionales.",ley:"MTSS · Compendio de dudas"},
+  {k:"mc",txt:"Si lo despiden <b>con justa causa</b> (sin responsabilidad patronal), ¿qué le corresponde?",o:["Preaviso y cesantía","Solo aguinaldo y vacaciones proporcionales","Nada","Solo cesantía"],r:1,ex:"Si el despido es sin responsabilidad patronal, solo corresponde el pago de aguinaldo y vacaciones proporcionales.",ley:"MTSS · Compendio de dudas"},
+  {k:"mc",txt:"¿Cuándo debe el patrono pagarle la liquidación?",o:["En los próximos 3 meses","El mismo día en que termina la relación laboral","En diciembre","Cuando tenga dinero"],r:1,ex:"La obligación de la persona empleadora es liquidar las prestaciones el mismo día en que termina la relación laboral. El trabajador tiene un año para reclamar.",ley:"MTSS · Preaviso y cesantía"}
+ ]}
+];
+const MEDALLAS_EXTRA=[["🔥","Racha imparable","5 respuestas correctas seguidas",e=>e.mejorRacha>=5],["💎","Sin errores","Termina una misión sin fallar",e=>Object.values(e.mis).some(m=>m.hecha&&m.fallos===0)],["👑","Leyenda laboral","Completa las 5 misiones",e=>MISIONES.every(m=>e.mis[m.id]&&e.mis[m.id].hecha)]];
+
+// ═══ Estado ═══
+const SES=(()=>{try{return JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")||"null")}catch(e){return null}})();
+const KEY="ruta_laboral_v1_"+((SES&&SES.id)||"invitado");
+let E={xp:0,racha:0,mejorRacha:0,mis:{},voz:true,sfx:true,mus:false};
+try{Object.assign(E,JSON.parse(localStorage.getItem(KEY)||"{}"))}catch(e){}
+const guardar=()=>{try{localStorage.setItem(KEY,JSON.stringify(E))}catch(e){}};
+const XPMAX=MISIONES.reduce((t,m)=>t+m.pasos.filter(p=>p.k!=="intro").length*20+100,0);
+const $=s=>document.querySelector(s);
+const limpio=h=>String(h).replace(/<[^>]+>/g,"").replace(/₡/g," colones ");
+const abierta=i=>i===0||(E.mis[MISIONES[i-1].id]&&E.mis[MISIONES[i-1].id].hecha)||(SES&&SES.role&&SES.role!=="estudiante");
+const medallas=()=>[...MISIONES.map(m=>[m.medalla[0],m.medalla[1],"Completa: "+m.t,e=>e.mis[m.id]&&e.mis[m.id].hecha]),...MEDALLAS_EXTRA].map(([i,n,d,f])=>({i,n,d,on:!!f(E)}));
+function stats(){$("#xp").textContent=E.xp+" XP";$("#xpb").style.width=Math.min(100,100*E.xp/XPMAX)+"%";$("#med").textContent=medallas().filter(m=>m.on).length;
+  [["#bMus","mus"],["#bSfx","sfx"],["#bVoz","voz"]].forEach(([s,k])=>$(s).setAttribute("aria-pressed",String(!!E[k])))}
+function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("on");clearTimeout(toast.k);toast.k=setTimeout(()=>{e.classList.remove("on")},2800)}
+
+// ═══ Audio: música lo-fi y efectos generados en el navegador (sin archivos externos) ═══
+let AC=null,master=null,musGain=null,sfxGain=null,musTimer=null;
+function audio(){if(AC)return AC;AC=new (window.AudioContext||window.webkitAudioContext)();master=AC.createGain();master.gain.value=.9;master.connect(AC.destination);
+  musGain=AC.createGain();musGain.gain.value=0;const lp=AC.createBiquadFilter();lp.type="lowpass";lp.frequency.value=2400;musGain.connect(lp).connect(master);sfxGain=AC.createGain();sfxGain.gain.value=.5;sfxGain.connect(master);return AC}
+const hz=m=>440*Math.pow(2,(m-69)/12);
+function tono(f,t,d,v,tipo,dest,ataque){const o=AC.createOscillator(),g=AC.createGain();o.type=tipo||"sine";o.frequency.value=f;g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v,t+(ataque||.01));g.gain.exponentialRampToValueAtTime(0.0001,t+d);o.connect(g).connect(dest);o.start(t);o.stop(t+d+.05)}
+function ruido(t,d,v,dest,f){const n=AC.createBufferSource(),b=AC.createBuffer(1,AC.sampleRate*d,AC.sampleRate),x=b.getChannelData(0);for(let i=0;i<x.length;i++)x[i]=(Math.random()*2-1)*Math.pow(1-i/x.length,2);n.buffer=b;const bf=AC.createBiquadFilter();bf.type=f?"highpass":"bandpass";bf.frequency.value=f||1800;const g=AC.createGain();g.gain.value=v;n.connect(bf).connect(g).connect(dest);n.start(t)}
+// Acordes de 7.ª suaves (Fmaj7 – Em7 – Dm7 – Cmaj7) a 78 bpm, con bombo, caja y hi-hat suaves.
+const PROG=[[53,57,60,64],[52,55,59,62],[50,53,57,60],[48,52,55,59]],BAJO=[41,40,38,36],MEL=[[72,69,67,64],[71,67,64,62],[69,65,62,60],[67,64,62,59]];
+let paso16=0,proxT=0;
+function programar(){const sp=60/78/4;while(proxT<AC.currentTime+.25){const s=paso16%64,c=Math.floor(s/16)%4,t=proxT;
+  if(s%16===0){PROG[c].forEach((m,i)=>tono(hz(m),t+i*.015,3.1,.035,"triangle",musGain,.08));tono(hz(BAJO[c]),t,1.4,.09,"sine",musGain,.02)}
+  if(s%16===8)tono(hz(BAJO[c]+7),t,.9,.06,"sine",musGain,.02);
+  if(s%4===0&&(s%16===0||s%16===10)){const o=AC.createOscillator(),g=AC.createGain();o.frequency.setValueAtTime(110,t);o.frequency.exponentialRampToValueAtTime(42,t+.18);g.gain.setValueAtTime(.22,t);g.gain.exponentialRampToValueAtTime(.001,t+.25);o.connect(g).connect(musGain);o.start(t);o.stop(t+.3)}
+  if(s%16===4||s%16===12)ruido(t,.18,.06,musGain);
+  if(s%2===0)ruido(t,.04,.025,musGain,7000);
+  if(s%4===2&&Math.random()<.45)tono(hz(MEL[c][(s/4|0)%4]),t,.6,.03,"sine",musGain,.02);
+  paso16++;proxT+=sp}}
+function musica(on){if(on){audio();AC.resume();if(!musTimer){proxT=AC.currentTime+.1;musTimer=setInterval(programar,80)}musGain.gain.setTargetAtTime(.55,AC.currentTime,.5)}
+  else if(AC){musGain.gain.setTargetAtTime(0,AC.currentTime,.3);setTimeout(()=>{if(!E.mus&&musTimer){clearInterval(musTimer);musTimer=null}},1200)}}
+function sfx(tipo){if(!E.sfx)return;try{audio();AC.resume();const t=AC.currentTime;
+  if(tipo==="clic")tono(880,t,.08,.12,"triangle",sfxGain);
+  else if(tipo==="ok")[659,784,988].forEach((f,i)=>tono(f,t+i*.08,.25,.18,"triangle",sfxGain));
+  else if(tipo==="mal"){tono(220,t,.25,.15,"sawtooth",sfxGain);tono(185,t+.12,.3,.12,"sawtooth",sfxGain)}
+  else if(tipo==="nivel")[523,659,784,1047,1319].forEach((f,i)=>tono(f,t+i*.1,.45,.2,"square",sfxGain))}catch(e){}}
+
+// ═══ Narrador: SpeechSynthesis en español latino ═══
+let VOZ=null;
+function elegirVoz(){const vs=(window.speechSynthesis&&speechSynthesis.getVoices())||[];const pref=["es-CR","es-MX","es-419","es-US","es-CO","es-PE","es-AR","es-CL"];
+  VOZ=pref.map(l=>vs.find(v=>v.lang&&v.lang.replace("_","-").toLowerCase()===l.toLowerCase())).find(Boolean)||vs.find(v=>/^es/i.test(v.lang)&&!/es-ES/i.test(v.lang))||vs.find(v=>/^es/i.test(v.lang))||null}
+if(window.speechSynthesis){elegirVoz();speechSynthesis.onvoiceschanged=elegirVoz}
+function hablar(t){if(!E.voz||!window.speechSynthesis)return;try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(limpio(t));u.lang=VOZ?VOZ.lang:"es-MX";if(VOZ)u.voice=VOZ;u.rate=1;u.pitch=1.05;
+  if(E.mus&&musGain){musGain.gain.setTargetAtTime(.22,AC.currentTime,.2);u.onend=()=>{if(E.mus)musGain.gain.setTargetAtTime(.55,AC.currentTime,.6)}}speechSynthesis.speak(u)}catch(e){}}
+function callar(){try{window.speechSynthesis&&speechSynthesis.cancel()}catch(e){}}
+
+// ═══ Confeti ═══
+function confeti(){if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;const c=$("#fx"),x=c.getContext("2d");c.width=innerWidth;c.height=innerHeight;
+  const col=["#ff8fd8","#7af0ff","#b9a2ff","#7dffc4","#ffd27a"],P=Array.from({length:160},()=>({x:innerWidth/2,y:innerHeight*.4,vx:(Math.random()-.5)*16,vy:-Math.random()*15-4,s:Math.random()*7+4,c:col[Math.random()*5|0],a:Math.random()*6}));
+  let k=0;(function f(){x.clearRect(0,0,c.width,c.height);P.forEach(p=>{p.vy+=.38;p.x+=p.vx;p.y+=p.vy;p.a+=.15;x.save();x.translate(p.x,p.y);x.rotate(p.a);x.fillStyle=p.c;x.fillRect(-p.s/2,-p.s/4,p.s,p.s/2);x.restore()});if(++k<140)requestAnimationFrame(f);else x.clearRect(0,0,c.width,c.height)})()}
+
+// ═══ Pantallas ═══
+function irA(h){location.hash=h}
+addEventListener("hashchange",()=>{render();scrollTo({top:0})});
+function render(){callar();const h=location.hash.replace(/^#\/?/,"");
+  if(h.startsWith("m/")){const i=MISIONES.findIndex(m=>m.id===h.slice(2));if(i>=0&&abierta(i))return jugar(i);if(i>=0)toast("🔒 Primero completa la misión anterior")}
+  mapa()}
+function mapa(){
+  const M=medallas(),hechas=MISIONES.filter(m=>E.mis[m.id]&&E.mis[m.id].hecha).length;
+  $("#app").innerHTML=`<h1>Ruta Laboral CR</h1><p class="sub">Ayuda a personas trabajadoras de Costa Rica a defender sus derechos. Completa las misiones, gana XP y desbloquea medallas. · ${hechas}/${MISIONES.length} misiones</p>
+  <div class="grid">${MISIONES.map((m,i)=>{const st=E.mis[m.id]||{},n=m.pasos.length,p=st.hecha?100:Math.round(100*(st.paso||0)/n),ab=abierta(i);
+    return `<section class="card mis ${ab?"":"lock"} ${st.hecha?"done":""}"><div style="display:flex;gap:12px;align-items:center"><div class="ic">${ab?m.ic:"🔒"}</div><div><small style="color:var(--cyan);font-weight:900;letter-spacing:.1em">MISIÓN ${i+1}</small><h3>${m.t}</h3></div></div>
+      <p>${m.d}</p><div class="prog" role="progressbar" aria-valuenow="${p}" aria-valuemin="0" aria-valuemax="100" aria-label="Avance de la misión ${i+1}"><span style="width:${p}%"></span></div>
+      <small style="color:var(--mut);font-weight:700">${st.hecha?"✅ Completada · "+(st.xp||0)+" XP":p?p+" % de avance":"Sin empezar"}</small>
+      ${ab?`<button ${st.hecha?'class="sec"':""} onclick="sfx('clic');irA('#/m/${m.id}')">${st.hecha?"🔁 Repetir":p?"▶ Continuar":"▶ Empezar"}</button>`:`<small style="color:var(--mut)">🔒 Completa la misión ${i} para desbloquearla</small>`}</section>`}).join("")}</div>
+  <section class="card" style="margin-top:18px"><b>🏅 Medallas</b><div class="medals">${M.map(m=>`<div class="medal ${m.on?"":"off"}" title="${m.d}"><b>${m.i}</b>${m.n}</div>`).join("")}</div></section>
+  <p class="sub" style="margin-top:14px;font-size:.85rem">🎵 música · 🔔 efectos · 🗣️ narrador · 📘 guía de la ley. Tu avance se guarda en este dispositivo.</p>`;
+  if(E.voz&&!mapa.dicho){mapa.dicho=1}
+}
+function jugar(mi){
+  const m=MISIONES[mi],st=E.mis[m.id]=E.mis[m.id]||{paso:0,fallos:0,xp:0};
+  if(st.hecha&&st.paso>=m.pasos.length){st.paso=0;st.fallos=0;st.repite=true}
+  guardar();let intentos=0,resuelto=false;
+  const pinta=()=>{
+    const p=m.pasos[st.paso];if(!p)return fin();
+    intentos=0;resuelto=p.k==="intro";
+    $("#app").innerHTML=`<div class="actions" style="margin:0 0 12px"><button class="sec" onclick="irA('#/')">← Mapa</button><span class="chip">${m.ic} Misión ${mi+1}: ${m.t}</span></div>
+    <div class="scene"><div class="avatar"><div class="face" aria-hidden="true">${m.pj.f}</div><div><b>${m.pj.n}</b><small>${m.pj.r}</small></div></div>
+    <div class="card bubble"><div class="stepbar" aria-hidden="true">${m.pasos.map((_,i)=>`<i class="${i<=st.paso?"on":""}"></i>`).join("")}</div>
+      <div class="kicker">${p.k==="intro"?"Historia":p.k==="num"?"Calcula":p.k==="tf"?"Verdadero o falso":"Decide"} · ${st.paso+1}/${m.pasos.length}</div>
+      <p class="txt" id="pTxt">${p.txt}</p>
+      ${p.datos?`<div class="datos">${p.datos.map(d=>`<span>${d}</span>`).join("")}</div>`:""}
+      ${p.tabla?`<table class="tabla">${p.tabla.map(([a,b])=>`<tr><td>${a}</td><td>${C(b)}</td></tr>`).join("")}</table>`:""}
+      <div id="zona">${zona(p)}</div><div id="fb"></div>
+      <div class="actions"><button id="sig" ${p.k==="intro"?"":"disabled"}>${p.k==="intro"?"Continuar ▶":"Siguiente ▶"}</button><button class="sec" id="rep" title="Escuchar de nuevo">🔊 Escuchar</button></div></div></div>`;
+    $("#sig").onclick=()=>{sfx("clic");st.paso++;guardar();pinta()};
+    $("#rep").onclick=()=>hablar(textoPaso(p));
+    activar(p);
+    setTimeout(()=>hablar(textoPaso(p)),250);
+    const f=document.querySelector("#zona button, #zona input");if(f&&p.k!=="intro")f.focus({preventScroll:true});
+  };
+  const textoPaso=p=>p.txt+(p.k==="mc"?" Opciones: "+p.o.map((o,i)=>"ABCD"[i]+", "+o).join(". "):"")+(p.k==="tf"?" ¿Verdadero o falso?":"");
+  const zona=p=>p.k==="mc"?`<div class="opts">${p.o.map((o,i)=>`<button class="opt" data-o="${i}"><span class="l">${"ABCD"[i]}</span>${o}</button>`).join("")}</div>`
+    :p.k==="tf"?`<div class="opts" style="grid-template-columns:1fr 1fr"><button class="opt" data-tf="1"><span class="l">✔</span>Verdadero</button><button class="opt" data-tf="0"><span class="l">✘</span>Falso</button></div>`
+    :p.k==="num"?`<div class="numrow"><input id="num" inputmode="decimal" placeholder="${p.u?"Escribe los "+p.u:"Escribe el monto en colones"}" aria-label="Respuesta"><span class="u">${p.u||"₡"}</span><button id="chk">✅ Comprobar</button></div>`:"";
+  const premio=()=>{const g=intentos===1?20:intentos===2?12:6;E.xp+=g;st.xp=(st.xp||0)+g;E.racha++;E.mejorRacha=Math.max(E.mejorRacha,E.racha);resuelto=true;$("#sig").disabled=false;$("#sig").focus();
+    const antes=medallas().filter(x=>x.on).length;guardar();stats();sfx("ok");if(E.racha>0&&E.racha%5===0)toast(`🔥 ¡Racha de ${E.racha}!`);
+    const ahora=medallas().filter(x=>x.on).length;if(ahora>antes)toast("🏅 ¡Nueva medalla desbloqueada!");return g};
+  const fallo=()=>{E.racha=0;st.fallos++;guardar();stats();sfx("mal")};
+  const fb=(tipo,html,voz)=>{$("#fb").innerHTML=`<div class="fb ${tipo}">${html}</div>`;if(voz)hablar(voz);$("#live").textContent=limpio(html)};
+  const activar=p=>{
+    if(p.k==="mc"||p.k==="tf"){document.querySelectorAll("#zona .opt").forEach(b=>b.onclick=()=>{if(resuelto)return;intentos++;
+      const ok=p.k==="mc"?+b.dataset.o===p.r:(b.dataset.tf==="1")===p.r;
+      if(ok){b.classList.add("good");document.querySelectorAll("#zona .opt").forEach(x=>x.disabled=true);const g=premio();fb("ok",`🎉 ¡Correcto! +${g} XP<small>${p.ex}</small>${p.ley?`<span class="law">📜 ${p.ley}</span>`:""}`,"¡Correcto! "+p.ex)}
+      else{b.classList.add("bad");b.disabled=true;fallo();fb("bad",`😬 No es esa. ¡Inténtalo otra vez!${intentos>=2?`<small>Pista: ${p.ex.split(".")[0]}.</small>`:""}`,"No es esa. Inténtalo otra vez.")}})}
+    if(p.k==="num"){const inp=$("#num"),chk=$("#chk");const leer=v=>{let s=String(v).replace(/[₡\s]/g,"");if(/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s))s=s.replace(/\./g,"").replace(",",".");else if(/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(s))s=s.replace(/,/g,"");else s=s.replace(",",".");return Number(s)};
+      const go=()=>{if(resuelto)return;const v=leer(inp.value);if(!inp.value||!isFinite(v)){fb("tip","✍️ Escribe un número.");return}intentos++;
+        if(Math.abs(v-p.ok)<=(p.tol||1)){inp.disabled=true;chk.disabled=true;const g=premio();fb("ok",`🎉 ¡Exacto! ${p.u?p.ok+" "+p.u:C(Math.round(p.ok*100)/100)} · +${g} XP${p.sol?`<small>${p.sol}</small>`:""}`,"¡Exacto! "+(p.sol||""))}
+        else{fallo();if(intentos>=3){inp.disabled=true;chk.disabled=true;resuelto=true;$("#sig").disabled=false;fb("tip",`💡 La respuesta era <b>${p.u?p.ok+" "+p.u:C(Math.round(p.ok*100)/100)}</b>.<small>${p.ayuda}${p.sol?" · "+p.sol:""}</small>`,"La respuesta era "+(p.u?p.ok+" "+p.u:C(Math.round(p.ok*100)/100)))}
+          else fb("bad",`🤔 Todavía no.<small>Pista: ${p.ayuda}</small>`,"Todavía no. Pista: "+p.ayuda)}};
+      chk.onclick=go;inp.onkeydown=e=>{if(e.key==="Enter")go()}}
+  };
+  const fin=()=>{const prim=!st.hecha;st.hecha=true;if(prim){E.xp+=100;st.xp=(st.xp||0)+100}guardar();stats();sfx("nivel");confeti();
+    const sig=MISIONES[mi+1];
+    $("#app").innerHTML=`<div class="card win"><div class="big">${m.medalla[0]}</div><h1>¡Misión cumplida!</h1>
+      <p class="sub">Desbloqueaste la medalla <b style="color:var(--amber)">${m.medalla[1]}</b>${prim?" · +100 XP de bonificación":""}</p>
+      <p>Errores en esta misión: <b>${st.fallos}</b> ${st.fallos===0?"· 💎 ¡perfecta!":""}</p>
+      <div class="actions" style="justify-content:center">${sig?`<button class="pink" onclick="irA('#/m/${sig.id}')">Siguiente: ${sig.t} ▶</button>`:`<button class="pink" onclick="irA('#/')">👑 Ver mis medallas</button>`}<button class="sec" onclick="irA('#/')">← Mapa</button></div></div>`;
+    hablar(`¡Misión cumplida! Ganaste la medalla ${m.medalla[1]}.`)};
+  pinta();
+}
+
+// ═══ Guía rápida ═══
+$("#guiaB").innerHTML=`<p style="color:var(--mut);margin-top:0">Resumen de las publicaciones del Ministerio de Trabajo y Seguridad Social (MTSS) y del Código de Trabajo.</p>
+<h4>📢 Preaviso (art. 28)</h4><ul><li>Lo da quien termina la relación sin justa causa: la persona trabajadora al renunciar o el patrono al despedir sin justa causa. Solo en contratos por tiempo indefinido.</li><li>Menos de 3 meses: no hay (período de prueba) · 3 a 6 meses: 1 semana · 6 meses a 1 año: 15 días · más de 1 año: 1 mes.</li><li>Debe darse en tiempo; si no, se paga en dinero. Durante el preaviso hay un día libre pagado por semana para buscar trabajo.</li><li>Cálculo: promedio de los últimos 6 meses ÷ 30 (pago mensual) o ÷ 26 (pago semanal, excepto comercio).</li></ul>
+<h4>🛟 Cesantía (art. 29)</h4><ul><li>Se paga cuando el contrato por tiempo indefinido termina con responsabilidad patronal.</li><li>3 a 6 meses: 7 días · 6 meses a 1 año: 14 días · más de 1 año: tabla (año 1: 19,5 · año 2: 20 · año 3: 20,5 · año 4: 21 · año 5: 21,24 · año 6: 21,5 · años 7 a 9: 22 · año 10: 21,5 · año 11: 21 · año 12: 20,5 · año 13 y más: 20 días por año laborado o fracción superior a seis meses).</li><li>Tope: los últimos 8 años. No se le rebajan cargas sociales.</li></ul>
+<h4>🏖️ Vacaciones (art. 153 y ss.)</h4><ul><li>Mínimo 2 semanas por cada 50 semanas continuas: 14 días con pago mensual o quincenal (salario ÷ 30 × 14), 12 con pago semanal (salario semanal ÷ 6 × 12); en comercio con pago semanal, salario semanal ÷ 7 × 14.</li><li>Si la relación termina antes de las 50 semanas: 1 día por cada mes trabajado.</li><li>Las fija el patrono dentro de las 15 semanas siguientes. Son incompensables salvo excepciones de ley.</li></ul>
+<h4>🎁 Aguinaldo (Ley 2412)</h4><ul><li>Salarios ordinarios y extraordinarios del 1 de diciembre al 30 de noviembre ÷ 12. Se paga en los primeros 20 días de diciembre.</li><li>Solo se le rebaja la pensión alimentaria. Si el contrato termina antes, se paga proporcional.</li></ul>
+<h4>🧾 Al terminar la relación</h4><ul><li>Despido con responsabilidad patronal: preaviso, cesantía, vacaciones y aguinaldo proporcionales.</li><li>Renuncia o despido sin responsabilidad patronal: aguinaldo y vacaciones proporcionales.</li><li>Consultas: 800 TRABAJO (800 872 2256) · www.mtss.go.cr</li></ul>`;
+$("#bGuia").onclick=()=>{sfx("clic");$("#guia").showModal()};
+$("#bMus").onclick=()=>{E.mus=!E.mus;guardar();stats();musica(E.mus);toast(E.mus?"🎵 Música activada":"🎵 Música en silencio")};
+$("#bSfx").onclick=()=>{E.sfx=!E.sfx;guardar();stats();sfx("clic")};
+$("#bVoz").onclick=()=>{E.voz=!E.voz;guardar();stats();if(!E.voz)callar();else{if(!window.speechSynthesis)toast("Este navegador no tiene narrador de voz");else hablar("Narrador activado.")}};
+// La música solo puede empezar después de que la persona toca algo (regla de los navegadores).
+document.addEventListener("pointerdown",function una(){if(E.mus)musica(true);document.removeEventListener("pointerdown",una)},{once:true});
+stats();render();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js" onerror="void 0"></script>
+<script src="js/config.js?v=20261030i" onerror="void 0"></script>
+<script src="js/bitacora.js?v=20261103h" onerror="void 0"></script>
+<script>try{if(typeof bitacoraRegistrar==="function")bitacoraRegistrar("laboral")}catch(e){}</script>
+</body>
+</html>
