@@ -6,6 +6,7 @@
 <title>Misión Seguros · CTP Mercedes Norte</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="js/config.js?v=20261030i"></script>
+<script src="js/actividades.js?v=20261103f"></script>
 <script src="js/bitacora.js?v=20261103a"></script>
 <style>
 :root{
@@ -162,6 +163,13 @@ dialog::backdrop{background:rgba(20,26,60,.45);backdrop-filter:blur(3px)}
 .mbody .cd{font-family:ui-monospace,Consolas,monospace;color:var(--blue2);white-space:nowrap}
 .rule{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:10px 0}
 .rule div{border-radius:14px;padding:12px;border:2px solid var(--line)}
+.actrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border:2px solid var(--line);border-radius:14px;margin-bottom:8px;background:#fff}
+.actbtns{display:flex;gap:6px;flex-wrap:wrap}.actbtns button{padding:8px 12px}
+.agrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:12px}
+.acard{display:flex;gap:12px;align-items:center;background:#fff;color:var(--ink);border:2px solid var(--line);box-shadow:0 3px 0 var(--line);padding:12px;font-weight:600}
+.acard small{display:block;color:var(--mut);font-weight:800}.acard b{display:block;margin:2px 0 6px}
+.acard .aic{font-size:1.8rem}.acard.hecho{border-color:#86efac}
+#dlg{width:min(980px,96vw)}
 #confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:200}
 html,body{overflow-x:hidden}
 .toast{max-width:90vw;text-align:center;position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(120px);background:var(--ink);color:#fff;padding:12px 18px;border-radius:14px;font-weight:800;z-index:150;transition:transform .35s}
@@ -173,6 +181,7 @@ html,body{overflow-x:hidden}
 </head>
 <body>
 <canvas id="confetti"></canvas>
+<dialog id="dlg" aria-labelledby="dlgTit"><div class="mh"><h3 id="dlgTit"></h3><button class="sec" onclick="document.getElementById('dlg').close()">Cerrar ✕</button></div><div class="mbody" id="dlgBody"></div></dialog>
 <div class="top"><div class="wrap">
   <div class="brand"><div class="logo">🛡️</div><div>Misión Seguros<div style="font-size:.72rem;color:var(--mut);font-weight:700">Contabilidad de seguros · Plan SUGESE</div></div></div>
   <div class="stat" title="Experiencia acumulada">⭐ <span id="xpTxt">0 XP</span><div class="xpbar" aria-hidden="true"><span id="xpBar" style="width:0"></span></div></div>
@@ -314,7 +323,9 @@ const DIG_COD=["dígito 1","dígitos 2 a 4","dígitos 5 a 7","dígitos 8 a 10","
 // Estado y progreso (se guarda en este navegador, por estudiante)
 // ═══════════════════════════════════════════════════════════════════════
 const SES=(()=>{try{return JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")||"null")}catch(e){return null}})();
-const ES_DOCENTE=!!(SES&&SES.role==="docente")||/[?&]docente=1/.test(location.search);
+const DOC=!!(SES&&SES.role&&SES.role!=="estudiante");
+const EST_ID=SES&&SES.role==="estudiante"?SES.id:null;
+const ES_DOCENTE=DOC||/[?&]docente=1/.test(location.search);
 const KEY="mision_seguros_v1_"+((SES&&SES.id)||"invitado");
 let EST={xp:0,racha:0,mejorRacha:0,hechas:{},sonido:true};
 try{Object.assign(EST,JSON.parse(localStorage.getItem(KEY)||"{}"))}catch(e){}
@@ -406,6 +417,7 @@ function activarArrastre(root,alSoltar){
 function irA(h){location.hash=h}
 function render(){
   const h=location.hash.replace(/^#\/?/,"");
+  if(h.startsWith("a/")){const p=h.split("/"),id=+p[1];if(p[2]==="e")return pintarActividad(id,p[4]!=null?+p[4]:null,decodeURIComponent(p[3]));return pintarActividad(id,p[2]!=null?+p[2]:null)}
   if(h.startsWith("m/")){const m=TODAS.find(x=>x.id===decodeURIComponent(h.slice(2)));if(m){const n=nivelDe(m.id),i=n.misiones.indexOf(m);if(misionAbierta(n,i))return pintarMision(m);toast("🔒 Primero completa la misión anterior")}}
   pintarMapa();
 }
@@ -413,7 +425,7 @@ addEventListener("hashchange",()=>{render();scrollTo({top:0})});
 
 function pintarMapa(){
   const tot=TODAS.filter(m=>EST.hechas[m.id]).length;
-  $("#app").innerHTML=`<h1>🛡️ Tu carrera en la aseguradora</h1>
+  $("#app").innerHTML=hubHTML()+`<h1>🛡️ Tu carrera en la aseguradora</h1>
    <p class="sub">${tot} de ${TODAS.length} misiones completadas · mejor racha 🔥 ${EST.mejorRacha}${ES_DOCENTE?" · <b>Modo docente: todos los niveles abiertos</b>":""}</p>
    <div class="levels">${NIVELES.map(n=>{const h=hechasNivel(n),p=Math.round(100*h/n.misiones.length),ab=nivelAbierto(n),done=h===n.misiones.length;
      return `<section class="lvl ${ab?"":"lock"} ${done?"done":""}" aria-label="Nivel ${n.id}">
@@ -425,12 +437,15 @@ function pintarMapa(){
         return `<button class="mdot ${ok?"done":a?"":"lock"}" ${a?`onclick="irA('#/m/${encodeURIComponent(m.id)}')"`:"disabled"} title="${esc(m.t)}" aria-label="Misión ${esc(m.id)}: ${esc(m.t)}${ok?" (completada)":""}">${ok?"✓":esc(m.id.replace(/^\d-/,""))}</button>`}).join("")}</div>
       ${ab?`<button ${done?'class="sec"':""} onclick="irA('#/m/${encodeURIComponent((n.misiones.find(m=>!EST.hechas[m.id])||n.misiones[0]).id)}')">${done?"🔁 Repasar":h?"▶ Continuar":"▶ Empezar"}</button>`:`<small>🔒 Completa el nivel ${n.id-1} para desbloquearlo</small>`}
      </section>`}).join("")}</div>
-   <p class="sub" style="margin-top:18px">Tu avance se guarda en este dispositivo. ${SES&&SES.id?"":"Entra desde la plataforma para que quede a tu nombre."}</p>`;
+   <p class="sub" style="margin-top:18px">Tu avance del juego libre se guarda en este dispositivo; el de las actividades del profe, en la plataforma. ${SES&&SES.id?"":"Entra desde la plataforma para que quede a tu nombre."}</p>`;
+
+  activarHub();
 }
 
-function cabecera(m){const n=nivelDe(m.id),i=n.misiones.indexOf(m);
-  return `<div class="mhead"><button class="sec" onclick="irA('#/')">← Mapa</button><h2>${m.ic} ${esc(m.t)}</h2><span class="tag">Nivel ${n.id} · Misión ${i+1}/${n.misiones.length}</span>${EST.hechas[m.id]?'<span class="tag" style="background:var(--green-s);color:var(--green)">✓ Completada</span>':""}</div>
-  <div class="story"><div class="ic">${m.ic}</div><div><b>MISIÓN</b><p>${m.historia}</p>${m.datos?`<div class="datos">${m.datos.map(d=>`<span>${esc(d)}</span>`).join("")}</div>`:""}</div></div>`}
+function cabecera(m,ctx){if(ctx)return `<div class="mhead"><button class="sec" onclick="irA('#/a/${ctx.act.id}')">← ${esc(ctx.act.titulo)}</button><h2>${m.ic} ${esc(m.t)}</h2><span class="tag">${ctx.modo==="evaluativa"?"📝 Trabajo cotidiano":"🟢 Práctica"} · Asiento ${ctx.idx+1}/${ctx.total}</span></div>${historiaHTML(m)}`;
+  const n=nivelDe(m.id),i=n.misiones.indexOf(m);
+  return `<div class="mhead"><button class="sec" onclick="irA('#/')">← Mapa</button><h2>${m.ic} ${esc(m.t)}</h2><span class="tag">Nivel ${n.id} · Misión ${i+1}/${n.misiones.length}</span>${EST.hechas[m.id]?'<span class="tag" style="background:var(--green-s);color:var(--green)">✓ Completada</span>':""}</div>${historiaHTML(m)}`}
+function historiaHTML(m){return `<div class="story"><div class="ic">${m.ic}</div><div><b>MISIÓN</b><p>${m.historia}</p>${m.datos?`<div class="datos">${m.datos.map(d=>`<span>${esc(d)}</span>`).join("")}</div>`:""}</div></div>`}
 function siguiente(m){const i=TODAS.indexOf(m),s=TODAS[i+1];return s?`<button class="ok" onclick="irA('#/m/${encodeURIComponent(s.id)}')">Siguiente misión ▶</button>`:`<button class="ok" onclick="irA('#/')">🏆 Ver mi carrera</button>`}
 function pintarMision(m){SEL=null;const f={codigo:misionCodigo,quiz:misionQuiz,clasificar:misionClasificar}[m.tipo];(f||misionAsiento)(m)}
 
@@ -507,8 +522,10 @@ function banco(m){
   let seed=[...m.id].reduce((t,c)=>t*31+c.charCodeAt(0),7);const rnd=()=>((seed=(seed*9301+49297)%233280)/233280);
   return [...ok,...dist].sort(()=>rnd()-.5);
 }
-function misionAsiento(m){
-  const st={lineas:[],intentos:0,pistaVista:false,sellado:false};
+function misionAsiento(m,ctx){
+  const EVAL=ctx&&ctx.modo==="evaluativa";
+  const st={lineas:ctx&&ctx.previo&&ctx.previo.lineas?ctx.previo.lineas.map(l=>({...l,monto:Number(l.monto).toLocaleString("es-CR")})):[],intentos:(ctx&&ctx.previo&&ctx.previo.intentos)||0,pistaVista:false,sellado:!!(ctx&&ctx.previo&&(ctx.previo.sellado||ctx.previo.registrado)),registrado:!!(EVAL&&ctx.previo&&ctx.previo.registrado),soloVer:!!(ctx&&ctx.soloVer)};
+  if(st.soloVer)st.sellado=true;
   const cuentas=banco(m);
   const totales=()=>{const d=st.lineas.filter(l=>l.lado==="D").reduce((t,l)=>t+(num(l.monto)||0),0),h=st.lineas.filter(l=>l.lado==="H").reduce((t,l)=>t+(num(l.monto)||0),0);return {d,h}};
   const pintarTot=()=>{const {d,h}=totales();$("#totD").textContent=fmt(d);$("#totH").textContent=fmt(h);
@@ -519,7 +536,7 @@ function misionAsiento(m){
       <button class="x" data-quitar="${i}" title="Quitar" aria-label="Quitar ${esc(a.nom)}" ${st.sellado?"disabled":""}>✕</button></div>`};
   const pintar=()=>{
     const usados=new Set(st.lineas.map(l=>l.cod));
-    $("#app").innerHTML=cabecera(m)+`<div class="game">
+    $("#app").innerHTML=cabecera(m,ctx)+`<div class="game">
       <div class="panel"><h4>🧱 Banco de cuentas</h4><p style="margin:0 0 8px;color:var(--mut);font-size:.84rem">Arrastra un bloque al <b>Debe</b> o al <b>Haber</b>, o tócalo y luego toca la columna. En el celular desliza los bloques de lado.</p>
         <div class="bank">${cuentas.map(c=>blk(c).replace('class="blk"',`class="blk${usados.has(c)?" used":""}"`)).join("")}</div></div>
       <div style="position:relative"><div class="voucher"><div class="vh"><span>📒 Comprobante de diario · Asiento ${esc(m.id)}</span><span style="font-size:.8rem;color:var(--mut)">Aseguradora · Plan SUGESE</span></div>
@@ -527,23 +544,39 @@ function misionAsiento(m){
           ${st.lineas.map((l,i)=>l.lado===L?lineaHTML(l,i):"").join("")}
           ${st.sellado?"":`<button class="drop" data-drop="${L}" aria-label="Colocar la cuenta seleccionada en el ${nomLado(L)}">＋ Suelta aquí una cuenta</button>`}</div>`).join("")}</div>
         <div class="tot"><div><span>Total Debe</span><span id="totD">₡0</span></div><div><span>Total Haber</span><span id="totH">₡0</span></div></div>
-        <div class="balance" id="bal"></div></div><div class="stamp" id="stamp">SELLADO ✓</div>
-        <div class="actions">${st.sellado?siguiente(m):`<button class="ok" id="val">✅ Validar asiento</button><button class="sec" id="pista">💡 Pista (-10 XP)</button><button class="ghost" id="limpiar">↺ Limpiar</button>`}</div>
+        <div class="balance" id="bal"></div></div><div class="stamp" id="stamp" ${EVAL?'style="border-color:var(--purple);color:var(--purple)"':""}>${EVAL?"REGISTRADO 📌":"SELLADO ✓"}</div>
+        <div class="actions">${st.sellado?(ctx?ctx.siguienteHTML:siguiente(m)):EVAL?`<button class="pur" id="val">📌 Registrar asiento</button><button class="ghost" id="limpiar">↺ Limpiar</button><small style="color:var(--mut);font-weight:700">Trabajo cotidiano: cada asiento se registra una sola vez y sin pistas.</small>`:`<button class="ok" id="val">✅ Validar asiento</button>${ctx&&!ctx.pistas?"":`<button class="sec" id="pista">💡 Pista${ctx?"":" (-10 XP)"}</button>`}<button class="ghost" id="limpiar">↺ Limpiar</button>`}</div>
         <div id="fb">${st.fb||""}</div></div></div>`;
     pintarTot();
     document.querySelectorAll("[data-monto]").forEach(inp=>{inp.oninput=()=>{st.lineas[+inp.dataset.monto].monto=inp.value;pintarTot()};
       inp.onblur=()=>{const v=num(inp.value);if(inp.value&&isFinite(v)){inp.value=v.toLocaleString("es-CR");st.lineas[+inp.dataset.monto].monto=inp.value}}});
     document.querySelectorAll("[data-quitar]").forEach(b=>b.onclick=e=>{e.stopPropagation();st.lineas.splice(+b.dataset.quitar,1);st.fb="";pintar()});
-    if(st.sellado){$("#stamp").classList.add("on");return}
+    if(st.sellado){if(!(ctx&&ctx.marcas)&&(!st.soloVer||st.registrado||(ctx&&ctx.previo&&ctx.previo.sellado)))$("#stamp").classList.add("on");if(ctx&&ctx.marcas)aplicarMarcas();return}
     $("#limpiar").onclick=()=>{st.lineas=[];st.fb="";pintar()};
-    $("#pista").onclick=()=>{if(!st.pistaVista){st.pistaVista=true;EST.xp=Math.max(0,EST.xp-10);guardar();pintarStats()}st.fb=`<div class="fb tip">💡 ${esc(m.tip)}</div>`;$("#fb").innerHTML=st.fb};
-    $("#val").onclick=validar;
+    if($("#pista"))$("#pista").onclick=()=>{if(ctx){st.fb=`<div class="fb tip">💡 ${esc(m.tip)}</div>`;$("#fb").innerHTML=st.fb;return}if(!st.pistaVista){st.pistaVista=true;EST.xp=Math.max(0,EST.xp-10);guardar();pintarStats()}st.fb=`<div class="fb tip">💡 ${esc(m.tip)}</div>`;$("#fb").innerHTML=st.fb};
+    $("#val").onclick=EVAL?registrar:validar;
     document.querySelectorAll(".blk").forEach(b=>b.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();seleccionar(b)}}));
   };
   const colocar=(cod,lado)=>{
     const ya=st.lineas.findIndex(l=>l.cod===cod);
     if(ya>=0){st.lineas[ya].lado=lado}else st.lineas.push({cod,lado,monto:""});
     st.fb="";pintar();const inp=document.querySelector(`[data-monto="${st.lineas.findIndex(l=>l.cod===cod)}"]`);if(inp&&!inp.value)inp.focus();
+  };
+  const aplicarMarcas=()=>{const esperado=m.lineas.map(([cod,lado,monto])=>({cod,lado,monto}));
+    st.lineas.forEach((l,i)=>{const e=esperado.find(x=>x.cod===l.cod);const ok=e&&e.lado===l.lado&&Math.abs(num(l.monto)-e.monto)<=0.5;const el=document.querySelector(`.line[data-i="${i}"]`);el&&el.classList.add(ok?"good":"bad")});
+    const faltan=esperado.filter(e=>!st.lineas.some(l=>l.cod===e.cod));
+    if(faltan.length){$("#fb").innerHTML=`<div class="fb tip">Le faltó registrar: ${faltan.map(e=>`<b>${e.cod}</b> ${esc(CTA[e.cod].nom)} (${nomLado(e.lado)} ${fmt(e.monto)})`).join(" · ")}</div>`}};
+  const registrar=async()=>{
+    if(!st.lineas.length){st.fb=`<div class="fb tip">💡 Primero arrastra las cuentas al comprobante.</div>`;$("#fb").innerHTML=st.fb;return}
+    if(st.lineas.some(l=>!(num(l.monto)>0))){st.fb=`<div class="fb tip">💡 Escribe el monto de cada cuenta del comprobante.</div>`;$("#fb").innerHTML=st.fb;return}
+    const {d,h}=totales();
+    if(!confirm(`¿Registrar este asiento?${d!==h?"\n\n⚠️ Ojo: el Debe ("+fmt(d)+") y el Haber ("+fmt(h)+") no cuadran.":""}\n\nEn el trabajo cotidiano cada asiento se registra una sola vez y ya no se puede cambiar.`))return;
+    const lineas=st.lineas.map(l=>({cod:l.cod,lado:l.lado,monto:String(num(l.monto))}));
+    $("#val").disabled=true;
+    const ok=await ctx.onRegistrar({lineas,eval:evaluarAsiento(m,lineas)});
+    if(!ok){$("#val").disabled=false;return}
+    st.lineas=lineas.map(l=>({...l,monto:Number(l.monto).toLocaleString("es-CR")}));st.sellado=true;st.registrado=true;sonar("tic");
+    st.fb=`<div class="fb ok">📌 Asiento registrado. Tu profe verá el resultado cuando entregues el trabajo.</div>`;pintar();
   };
   const validar=()=>{
     const esperado=m.lineas.map(([cod,lado,monto])=>({cod,lado,monto}));
@@ -560,17 +593,198 @@ function misionAsiento(m){
     faltan.forEach(e=>pistas.push(`Falta una cuenta en el <b>${nomLado(e.lado)}</b>. Pista: busca una cuenta de <b>${clase(e.cod).n}</b> (clase ${e.cod[0]}).`));
     const {d,h}=totales();
     if(d!==h)pistas.push(`La partida doble no cuadra: el Debe suma ${fmt(d)} y el Haber ${fmt(h)}.`);
+    if(!pistas.length&&ctx){st.sellado=true;ctx.onSellar&&ctx.onSellar({intentos:st.intentos,lineas:st.lineas.map(l=>({cod:l.cod,lado:l.lado,monto:String(num(l.monto))}))});EST.racha++;EST.mejorRacha=Math.max(EST.mejorRacha,EST.racha);guardar();pintarStats(true);confeti();sonar("ok");
+      st.fb=`<div class="fb ok">🎉 ¡Asiento sellado! ${st.intentos===1?"¡A la primera! 🌟":""}<br><small>${esc(m.tip)}</small></div>`;pintar();return}
     if(!pistas.length){st.sellado=true;const g=acierto(m.id,st.intentos);
       st.fb=`<div class="fb ok">🎉 ¡Asiento sellado! +${g} XP ${st.intentos===1?"· ¡a la primera! 🌟":""}<br><small>${esc(m.tip)}</small></div>`;pintar();anunciar("Asiento correcto. Ganaste "+g+" XP");return}
-    fallo();
+    fallo();if(ctx&&ctx.onIntento)ctx.onIntento(st.intentos);
     st.fb=`<div class="fb bad">🤔 <div>Revisa esto:<ul>${pistas.slice(0,3).map(p=>`<li>${p}</li>`).join("")}</ul></div></div>`;
     pintar();Object.entries(marca).forEach(([i,c])=>{const el=document.querySelector(`.line[data-i="${i}"]`);el&&el.classList.add(c)});
     anunciar("El asiento tiene errores. Revisa las pistas.");
   };
-  activarArrastre($("#app"),(el,zona)=>{const L=zona.closest("[data-drop]").dataset.drop;if(L==="D"||L==="H")colocar(el.dataset.cta,L)});
+  activarArrastre($("#app"),(el,zona)=>{if(st.sellado)return;const L=zona.closest("[data-drop]").dataset.drop;if(L==="D"||L==="H")colocar(el.dataset.cta,L)});
   pintar();
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════
+// Actividades del profe: prácticas (sin nota) y trabajos cotidianos (con
+// indicador en Rúbrica). Cada una es una fila de trabajos_cotidianos con
+// contenido_actividad.estrategia = "mision_seguros". El profe las abre una por
+// una; lo que hace cada estudiante queda en actividades_estudiante.
+// ═══════════════════════════════════════════════════════════════════════
+const ESTRATEGIA="mision_seguros";
+const SEG_CRIT=[
+ {nombre:"Selecciona del plan de cuentas SUGESE las cuentas que corresponden a cada transacción de seguros.",puntos_max:3,auto:"seg_cuentas_pct"},
+ {nombre:"Ubica cada cuenta en el Debe o en el Haber según su naturaleza y el efecto de la transacción.",puntos_max:3,auto:"seg_naturaleza_pct"},
+ {nombre:"Registra el monto correcto de cada cuenta y mantiene la partida doble (Debe = Haber).",puntos_max:3,auto:"seg_montos_pct"}];
+const PAQUETE=[
+ {tipo:"diaria",titulo:"Práctica 1 · Primas y comisiones",f:1.4,bases:["2.1","2.2","2.3","2.4","2.5"],desc:"Emisión de pólizas, comisión del mediador, cobro de primas y provisión para primas no devengadas."},
+ {tipo:"diaria",titulo:"Práctica 2 · Siniestros de corto plazo",f:1.2,bases:["3.1","3.2","3.3","3.4","3.6","3.7"],desc:"Notificación, ajustes, liquidación y pago de siniestros, y provisión IBNR."},
+ {tipo:"evaluativa",titulo:"Trabajo cotidiano 1 · Primas, comisiones y cierre",f:1.6,bases:["2.1","2.2","2.5","2.6","2.7","2.8"],desc:"Registra los asientos de primas emitidas, comisiones, su periodificación y el cierre contable en una aseguradora, según el plan de cuentas SUGESE."},
+ {tipo:"evaluativa",titulo:"Trabajo cotidiano 2 · Siniestros y seguros de vida",f:1.8,bases:["3.1","3.4","3.5","3.6b","3.9","3.10"],desc:"Registra los asientos del ciclo de un siniestro y de la provisión matemática de seguros de vida, según el plan de cuentas SUGESE."},
+ {tipo:"evaluativa",titulo:"Trabajo cotidiano 3 · Provisiones técnicas y reaseguro",f:1.4,bases:["4.1","4.3","4.8","5.1","5.2","5.3"],desc:"Registra los asientos de provisiones técnicas especiales y de reaseguro cedido y retrocedido, según el plan de cuentas SUGESE."}];
+const TIPO_ACT={diaria:{et:"🟢 Prácticas",corto:"Práctica",desc:"no llevan nota: con pistas e intentos libres"},evaluativa:{et:"📝 Trabajos cotidianos",corto:"Trabajo cotidiano",desc:"llevan nota en la Rúbrica: cada asiento se registra una sola vez, sin pistas"}};
+const fmtTxt=n=>Math.round(n).toLocaleString("en-US").replace(/,/g," ");
+// La misma misión del juego, con todos los montos multiplicados por f (y la historia al día).
+function variante(baseId,f){const b=TODAS.find(x=>x.id===baseId);if(!b)return null;
+  const tx=t=>String(t).replace(/₡(\d{1,3}(?: \d{3})*)/g,(a,n)=>"₡"+fmtTxt(Number(n.replace(/ /g,""))*f));
+  return {...b,historia:tx(b.historia),datos:(b.datos||[]).map(tx),lineas:b.lineas.map(([c,l,mn])=>[c,l,Math.round(mn*f)])}}
+const misionesDe=act=>{const C=act.contenido_actividad||{};return (C.seg_misiones||[]).map(x=>variante(x.base,x.f||1)).filter(Boolean)};
+function evaluarAsiento(m,lineas){
+  const E=m.lineas.map(([cod,lado,monto])=>({cod,lado,monto}));let cta=0,lad=0,mon=0;
+  lineas.forEach(l=>{const e=E.find(x=>x.cod===l.cod);if(!e)return;cta++;if(e.lado===l.lado){lad++;if(Math.abs(Number(l.monto)-e.monto)<=0.5)mon++}});
+  const extra=Math.max(0,lineas.length-cta);
+  const d=lineas.filter(l=>l.lado==="D").reduce((t,l)=>t+Number(l.monto),0),h=lineas.filter(l=>l.lado==="H").reduce((t,l)=>t+Number(l.monto),0);
+  return {E:E.length,cuentas:Math.max(0,cta-extra),naturaleza:lad,montos:Math.max(0,mon-(d!==h&&mon===E.length?1:0)),cuadra:d===h}}
+function metricasDe(act,prog){const M=misionesDe(act);let E=0,c=0,n=0,mo=0;
+  M.forEach((m,i)=>{const r=prog&&prog.reg&&prog.reg[i];E+=m.lineas.length;if(r&&r.eval){c+=r.eval.cuentas;n+=r.eval.naturaleza;mo+=r.eval.montos}});
+  const p=x=>E?Math.round(1000*x/E)/10:0;return {seg_cuentas_pct:p(c),seg_naturaleza_pct:p(n),seg_montos_pct:p(mo)}}
+
+const ACT={lista:null,materias:[],mis:[],mias:{},prog:{},cargando:false};
+async function cargarActs(forzar){
+  if(typeof sb==="undefined"||!SES)return;if(ACT.lista&&!forzar)return;
+  try{
+    const [{data},{data:mats}]=await Promise.all([
+      sb.from("trabajos_cotidianos").select("id,titulo,fecha,habilitado,indicador_id,contenido_actividad").eq("contenido_actividad->>estrategia",ESTRATEGIA).order("id"),
+      sb.from("materias").select("id,nombre,seccion").order("id")]);
+    ACT.lista=data||[];ACT.materias=mats||[];
+    if(EST_ID){
+      const [{data:em},{data:ae}]=await Promise.all([sb.from("estudiante_materias").select("materia_id").eq("estudiante_id",EST_ID),
+        ACT.lista.length?sb.from("actividades_estudiante").select("trabajo_id,completado,puntaje,porcentaje,datos_prueba").eq("estudiante_id",EST_ID).in("trabajo_id",ACT.lista.map(t=>t.id)):{data:[]}]);
+      ACT.mis=(em||[]).map(x=>x.materia_id);ACT.mias={};(ae||[]).forEach(x=>{ACT.mias[x.trabajo_id]=x;ACT.prog[x.trabajo_id]=(x.datos_prueba&&x.datos_prueba.seguros)||{reg:{}}});
+    }
+  }catch(e){ACT.lista=ACT.lista||[]}
+}
+const nomMat=id=>{const m=ACT.materias.find(x=>x.id===Number(id));return m?`${m.nombre.trim()}${m.seccion?" · "+m.seccion:""}`:"Sin materia"};
+const visibles=()=>(ACT.lista||[]).filter(t=>DOC||((t.habilitado!==false||(ACT.mias[t.id]&&ACT.mias[t.id].completado))&&ACT.mis.includes(Number((t.contenido_actividad||{}).materia_id))));
+function hubHTML(){
+  if(!SES)return "";
+  if(!ACT.lista)return `<div class="panel" style="margin-bottom:18px"><h4>📚 Actividades del profe</h4><p style="margin:0;color:var(--mut)">Cargando…</p></div>`;
+  const L=visibles();
+  if(!DOC&&!L.length)return "";
+  const fila=t=>{const C=t.contenido_actividad||{},n=(C.seg_misiones||[]).length,mi=ACT.mias[t.id],pr=ACT.prog[t.id]||{reg:{}},hechos=Object.values(pr.reg||{}).filter(r=>r.sellado||r.registrado).length;
+    const est=DOC?(t.habilitado===false?'<span class="tag" style="background:#eef1f8;color:var(--mut)">⏸️ Cerrada</span>':'<span class="tag" style="background:var(--green-s);color:var(--green)">🟢 Abierta</span>')
+      :mi&&mi.completado?`<span class="tag" style="background:var(--green-s);color:var(--green)">✅ ${C.seg_tipo==="evaluativa"?`Entregado${mi.puntaje!=null?" · nota "+mi.puntaje+"/3":""}`:"Completada"}</span>`:hechos?`<span class="tag" style="background:var(--amber-s);color:var(--amber)">⏳ ${hechos}/${n} asientos</span>`:'<span class="tag">🆕 Pendiente</span>';
+    return `<div class="actrow"><div style="flex:1;min-width:200px"><b>${esc(t.titulo)}</b><div style="color:var(--mut);font-size:.82rem">${n} asientos${DOC?" · "+esc(nomMat(C.materia_id)):""}${C.seg_desc?" · "+esc(C.seg_desc):""}</div></div>${est}
+      <div class="actbtns"><button ${DOC?'class="sec"':""} onclick="irA('#/a/${t.id}')">${DOC?"👁️ Ver y probar":mi&&mi.completado?"👁️ Ver":hechos?"▶ Seguir":"▶ Empezar"}</button>
+      ${DOC?`<button class="${t.habilitado===false?"ok":"sec"}" data-hab="${t.id}">${t.habilitado===false?"▶ Abrir":"⏸️ Cerrar"}</button><button class="sec" data-ent="${t.id}">📥 Entregas</button>`:""}</div></div>`};
+  const grupo=k=>{const G=L.filter(t=>((t.contenido_actividad||{}).seg_tipo||"evaluativa")===k);if(!DOC&&!G.length)return "";
+    return `<div style="margin-top:10px"><h4 style="margin:0 0 6px">${TIPO_ACT[k].et} <span style="text-transform:none;letter-spacing:0;font-weight:600">· ${TIPO_ACT[k].desc}</span></h4>${G.map(fila).join("")||'<p style="color:var(--mut);margin:0">Todavía no hay.</p>'}</div>`};
+  return `<section class="panel" style="margin-bottom:18px;border-color:#c7d2fe"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h3 style="margin:0;margin-right:auto">📚 Actividades del profe</h3>
+    ${DOC&&!(ACT.lista||[]).length?`<button class="pur" id="crearPaq">✨ Crear 2 prácticas y 3 trabajos cotidianos</button>`:""}</div>
+    <p style="margin:4px 0 0;color:var(--mut);font-size:.88rem">${DOC?"Se crean cerradas: ábralas una por una con <b>▶ Abrir</b> cuando quiera liberarlas. Los trabajos cotidianos tienen su indicador en la Rúbrica y la nota se pone sola al entregar.":"Estas son las actividades que tu profe abrió. Las prácticas no llevan nota; los trabajos cotidianos sí."}</p>
+    ${grupo("diaria")}${grupo("evaluativa")}</section>`;
+}
+function activarHub(){
+  document.querySelectorAll("[data-hab]").forEach(b=>b.onclick=async()=>{const t=ACT.lista.find(x=>x.id===+b.dataset.hab);b.disabled=true;
+    const {error}=await sb.from("trabajos_cotidianos").update({habilitado:t.habilitado===false}).eq("id",t.id);
+    if(error){alert("No se pudo cambiar: "+error.message);b.disabled=false;return}t.habilitado=t.habilitado===false;toast(t.habilitado===false?"⏸️ Cerrada":"🟢 Abierta para los estudiantes");render()});
+  document.querySelectorAll("[data-ent]").forEach(b=>b.onclick=()=>verEntregas(ACT.lista.find(x=>x.id===+b.dataset.ent)));
+  const cp=$("#crearPaq");if(cp)cp.onclick=()=>crearPaquete(cp);
+}
+async function crearIndicadorSeg(materiaId,descripcion,fecha){
+  const {data:ex}=await sb.from("indicadores").select("id,letra").eq("materia_id",materiaId).eq("categoria","Trabajo cotidiano");
+  const usadas=new Set((ex||[]).map(e=>String(e.letra||"").trim().toUpperCase()));let i=0,letra="";
+  for(;;){let n=i,l="";do{l=String.fromCharCode(65+(n%26))+l;n=Math.floor(n/26)-1}while(n>=0);if(!usadas.has(l)){letra=l;break}i++}
+  const {data,error}=await sb.from("indicadores").insert({materia_id:materiaId,categoria:"Trabajo cotidiano",letra,descripcion,puntaje_maximo:3,fecha_evaluacion:fecha,orden:(ex||[]).length+1}).select().maybeSingle();
+  if(error||!data)throw new Error(error?error.message:"no se pudo crear el indicador");
+  const niv=[[0,"Sin evidencia","No realiza el trabajo o registra correctamente menos del 35 % de los asientos."],[1,"Inicial","Registra correctamente entre el 35 % y el 59 % de las cuentas, su ubicación en el Debe o el Haber y sus montos."],[2,"Intermedio","Registra correctamente entre el 60 % y el 84 % de las cuentas, su ubicación en el Debe o el Haber y sus montos."],[3,"Avanzado","Registra correctamente el 85 % o más de las cuentas, su ubicación en el Debe o el Haber y sus montos, con la partida doble cuadrada."]];
+  try{await sb.from("criterios_indicador").insert(niv.map(([puntaje,nivel,d])=>({indicador_id:data.id,puntaje,nivel,descripcion:d})))}catch(e){}
+  return data;
+}
+async function crearPaquete(btn,materiaId){
+  materiaId=materiaId||((ACT.materias.find(m=>/tribut/i.test(m.nombre))||{}).id);
+  if(!materiaId){alert("No encontré la materia de Gestión Tributaria.");return}
+  if(btn&&!confirm(`Se van a crear 2 prácticas (sin nota) y 3 trabajos cotidianos en ${nomMat(materiaId)}, todos cerrados. Los trabajos cotidianos crean su indicador en la Rúbrica. ¿Seguir?`))return;
+  if(btn)btn.disabled=true;const hoy=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);const hechos=[];
+  try{for(const P of PAQUETE){
+    const ind=P.tipo==="evaluativa"?await crearIndicadorSeg(materiaId,P.desc,hoy):null;
+    const C={estrategia:ESTRATEGIA,seg_tipo:P.tipo,materia_id:materiaId,seg_desc:P.desc,seg_misiones:P.bases.map(b=>({base:b,f:P.f})),criterios:P.tipo==="evaluativa"?SEG_CRIT.map(c=>({...c,niveles:typeof tiraderaNivelesDe==="function"?tiraderaNivelesDe(c):undefined})):[],
+      seg_instrumento:{componente:P.tipo==="evaluativa"?"Trabajo cotidiano":"Práctica",tipo:"Escala de desempeño",subarea:"Gestión tributaria",unidad:"Seguros",resultado:"Resolver casos de seguros, aplicando los fundamentos operativos, técnicos y financieros, según la normativa vigente.",indicador:P.desc}};
+    const {data,error}=await sb.from("trabajos_cotidianos").insert({titulo:P.titulo,fecha:hoy,tipo_actividad:"rubrica_directa",habilitado:false,indicador_id:ind?ind.id:null,contenido_actividad:C}).select("id").maybeSingle();
+    if(error||!data){if(ind)await sb.from("indicadores").delete().eq("id",ind.id);throw new Error(error?error.message:"sin respuesta")}
+    hechos.push(data.id)}
+  }catch(e){alert("No se pudo crear todo: "+(e.message||e))}
+  await cargarActs(true);render();return hechos;
+}
+async function guardarProg(act,prog,extra){
+  if(!EST_ID)return true;
+  const r=await upsertSinConflicto("actividades_estudiante",{trabajo_id:act.id,estudiante_id:EST_ID},{datos_prueba:{seguros:prog},actualizado_en:new Date().toISOString(),...(extra||{})});
+  if(r&&r.error){alert("No se pudo guardar tu avance: "+r.error.message);return false}return true}
+
+// Vista de una actividad: lista de sus asientos y entrega.
+async function pintarActividad(id,idx,estVer){
+  $("#app").innerHTML='<p class="sub">Cargando actividad…</p>';
+  await cargarActs();
+  let act=(ACT.lista||[]).find(t=>t.id===id);
+  if(!act){const {data}=await sb.from("trabajos_cotidianos").select("*").eq("id",id).maybeSingle();act=data}
+  if(!act||(act.contenido_actividad||{}).estrategia!==ESTRATEGIA){$("#app").innerHTML='<p class="sub">No se encontró la actividad.</p><button onclick="irA(\'#/\')">← Mapa</button>';return}
+  const C=act.contenido_actividad,modo=C.seg_tipo||"evaluativa",M=misionesDe(act);
+  let mi=EST_ID?ACT.mias[act.id]:null,prog=EST_ID?(ACT.prog[act.id]||(ACT.prog[act.id]={reg:{}})):{reg:{}};
+  if(DOC&&estVer){const {data}=await sb.from("actividades_estudiante").select("completado,puntaje,porcentaje,datos_prueba").eq("trabajo_id",act.id).eq("estudiante_id",estVer).maybeSingle();mi=data;prog=(data&&data.datos_prueba&&data.datos_prueba.seguros)||{reg:{}}}
+  else if(DOC){prog=ACT.prueba&&ACT.prueba.id===act.id?ACT.prueba.prog:(ACT.prueba={id:act.id,prog:{reg:{}}}).prog}
+  if(!DOC&&act.habilitado===false&&!(mi&&mi.completado)){$("#app").innerHTML=`<div class="panel"><h3>${esc(act.titulo)}</h3><p>Esta actividad todavía no está abierta (o ya se cerró). Consulta con tu profe.</p><button onclick="irA('#/')">← Mapa</button></div>`;return}
+  const entregado=!!(mi&&mi.completado&&modo==="evaluativa");
+  const base=estVer?`#/a/${act.id}/e/${encodeURIComponent(estVer)}`:`#/a/${act.id}`;
+  if(idx!=null&&M[idx]){
+    const r=prog.reg[idx];
+    const sig=idx+1<M.length?`<button class="ok" onclick="irA('${base}/${idx+1}')">Siguiente asiento ▶</button>`:`<button class="ok" onclick="irA('${base}')">${modo==="evaluativa"&&!entregado&&!estVer?"📤 Ir a entregar":"✅ Volver a la actividad"}</button>`;
+    misionAsiento(M[idx],{act,idx,total:M.length,modo,previo:r,pistas:modo==="diaria",soloVer:!!estVer||entregado,marcas:!!estVer,siguienteHTML:sig,
+      onSellar:async x=>{prog.reg[idx]={sellado:true,intentos:x.intentos,lineas:x.lineas};const todos=M.every((_,i)=>prog.reg[i]&&prog.reg[i].sellado);
+        const prim=M.filter((_,i)=>prog.reg[i]&&prog.reg[i].sellado&&prog.reg[i].intentos===1).length;
+        await guardarProg(act,prog,todos?{completado:true,puntaje:null,porcentaje:Math.round(100*prim/M.length)}:null);
+        if(todos&&EST_ID){ACT.mias[act.id]={...(ACT.mias[act.id]||{}),completado:true,porcentaje:Math.round(100*prim/M.length)};toast("🏆 ¡Práctica completada!")}},
+      onIntento:n=>{prog.reg[idx]={...(prog.reg[idx]||{}),intentos:n}},
+      onRegistrar:async x=>{prog.reg[idx]={registrado:true,lineas:x.lineas,eval:x.eval};return await guardarProg(act,prog)}});
+    return}
+  const hechos=M.filter((_,i)=>prog.reg[i]&&(prog.reg[i].sellado||prog.reg[i].registrado)).length;
+  const met=modo==="evaluativa"&&(entregado||estVer)?(prog.metricas||metricasDe(act,prog)):null;
+  const card=(m,i)=>{const r=prog.reg[i],ok=r&&(r.sellado||r.registrado);
+    let chip=ok?(r.registrado?'<span class="tag">📌 Registrado</span>':`<span class="tag" style="background:var(--green-s);color:var(--green)">✓ Sellado${r.intentos?` · ${r.intentos} intento${r.intentos>1?"s":""}`:""}</span>`):'<span class="tag" style="background:#eef1f8;color:var(--mut)">Pendiente</span>';
+    if(r&&r.eval&&(estVer||entregado)){const pc=Math.round(100*r.eval.montos/r.eval.E);chip+=` <span class="tag" style="background:${pc>=85?"var(--green-s)":pc>=60?"var(--amber-s)":"var(--red-s)"};color:${pc>=85?"var(--green)":pc>=60?"var(--amber)":"var(--red)"}">${pc} %</span>`}
+    return `<button class="acard ${ok?"hecho":""}" onclick="irA('${base}/${i}')"><span class="aic">${m.ic}</span><span style="flex:1;text-align:left"><small>Asiento ${i+1}</small><b>${esc(m.t)}</b>${chip}</span></button>`};
+  const p=Math.round(100*hechos/M.length);
+  $("#app").innerHTML=`<div class="mhead"><button class="sec" onclick="irA('#/')">← Mapa</button><h2>${modo==="evaluativa"?"📝":"🟢"} ${esc(act.titulo)}</h2><span class="tag">${TIPO_ACT[modo].corto}${act.indicador_id?" · con indicador":" · sin nota"}</span>${DOC?(act.habilitado===false?'<span class="tag">⏸️ Cerrada</span>':'<span class="tag" style="background:var(--green-s);color:var(--green)">🟢 Abierta</span>'):""}</div>
+    ${estVer?`<div class="fb tip">👁️ Está viendo el trabajo de <b>${esc(ACT.nombres&&ACT.nombres[estVer]||estVer)}</b>. En cada asiento, verde = línea correcta y rojo = incorrecta.</div>`:DOC?`<div class="fb tip">🧪 Vista del profe: puede resolverla para probarla; no se guarda nada.</div>`:""}
+    <div class="panel" style="margin-top:12px"><p style="margin:0 0 8px">${esc(C.seg_desc||"")}</p>
+      ${modo==="evaluativa"?'<p style="margin:0 0 8px;color:var(--mut);font-size:.9rem"><b>Reglas:</b> cada asiento se registra <b>una sola vez</b>, sin pistas. Cuando termines, toca <b>📤 Entregar</b>: la nota se calcula sola con el % de cuentas, lados (Debe/Haber) y montos correctos (85 % o más = 3 · 60–84 % = 2 · 35–59 % = 1).</p>':'<p style="margin:0 0 8px;color:var(--mut);font-size:.9rem"><b>Práctica sin nota:</b> tienes pistas e intentos libres. Sella todos los asientos para completarla.</p>'}
+      <div class="prog"><span style="width:${p}%"></span></div><small style="color:var(--mut);font-weight:700">${hechos}/${M.length} asientos ${modo==="evaluativa"?"registrados":"sellados"}</small></div>
+    <div class="agrid">${M.map(card).join("")}</div>
+    ${met?`<div class="panel" style="margin-top:12px"><h4>Resultado</h4><div class="rule">${SEG_CRIT.map(c=>`<div><b style="font-size:1.3rem">${Math.round(met[c.auto])} %</b><br><small>${esc(c.nombre)}</small></div>`).join("")}</div>${mi&&mi.completado?`<p style="font-weight:900;font-size:1.1rem;margin:6px 0 0">Nota del indicador: ${mi.puntaje!=null?mi.puntaje+" / 3":"—"} ${mi.porcentaje!=null?`(${Math.round(mi.porcentaje)} %)`:""}</p>`:""}</div>`:""}
+    <div class="actions">${modo==="evaluativa"&&EST_ID&&!entregado?`<button class="ok" id="entregar">📤 Entregar trabajo</button>`:""}${modo==="diaria"&&mi&&mi.completado?'<span class="tag" style="background:var(--green-s);color:var(--green)">🏆 Práctica completada</span>':""}</div>`;
+  const eb=$("#entregar");if(eb)eb.onclick=async()=>{
+    const falt=M.length-hechos;
+    if(!confirm(`${falt?`Te faltan ${falt} asiento(s) por registrar: cuentan como incorrectos.\n\n`:""}¿Entregar el trabajo? Ya no podrás cambiarlo.`))return;
+    eb.disabled=true;const met2=metricasDe(act,prog),nota=memoriaNotaDesdeMetricas(C.criterios&&C.criterios.length?C.criterios:SEG_CRIT,met2,[]);
+    prog.metricas=met2;prog.entregado_en=new Date().toISOString();
+    const {error}=await guardarNotaManualActividad(act,EST_ID,nota.puntaje,{respuestas:nota.puntos,porcentaje:nota.porcentaje,datos_prueba:{seguros:prog}});
+    if(error){eb.disabled=false;alert("No se pudo entregar: "+error);return}
+    ACT.mias[act.id]={completado:true,puntaje:nota.puntaje,porcentaje:nota.porcentaje};confeti();sonar("ok");pintarActividad(id)};
+}
+async function verEntregas(t){
+  const d=$("#dlg"),C=t.contenido_actividad||{},modo=C.seg_tipo||"evaluativa",M=misionesDe(t);
+  $("#dlgTit").textContent="📥 Entregas · "+t.titulo;$("#dlgBody").innerHTML="<p>Cargando…</p>";if(!d.open)d.showModal();
+  const [{data:em},{data:ae}]=await Promise.all([sb.from("estudiante_materias").select("estudiante_id").eq("materia_id",C.materia_id),sb.from("actividades_estudiante").select("estudiante_id,completado,puntaje,porcentaje,datos_prueba").eq("trabajo_id",t.id)]);
+  const ids=(em||[]).map(x=>x.estudiante_id);const {data:es}=ids.length?await sb.from("estudiantes").select("id,nombre,apellido1,apellido2").in("id",ids):{data:[]};
+  const por={};(ae||[]).forEach(x=>{por[x.estudiante_id]=x});ACT.nombres=ACT.nombres||{};
+  const lista=(es||[]).map(e=>({id:e.id,nombre:[e.apellido1,e.apellido2,e.nombre].filter(Boolean).join(" ")})).sort((a,b)=>a.nombre.localeCompare(b.nombre,"es"));
+  lista.forEach(e=>ACT.nombres[e.id]=e.nombre);
+  const pc=v=>v==null?"—":`<b style="color:${v>=85?"var(--green)":v>=60?"var(--amber)":"var(--red)"}">${Math.round(v)} %</b>`;let ent=0,trab=0;
+  const filas=lista.map(e=>{const a=por[e.id],pr=(a&&a.datos_prueba&&a.datos_prueba.seguros)||{reg:{}},h=M.filter((_,i)=>pr.reg[i]&&(pr.reg[i].sellado||pr.reg[i].registrado)).length,ok=a&&a.completado;
+    if(ok)ent++;else if(h)trab++;const met=modo==="evaluativa"&&(ok||h)?(pr.metricas||metricasDe(t,pr)):null;
+    const estado=ok?`✅ ${modo==="evaluativa"?(pr.calificado_por_docente?"Calificado sin entregar":"Entregó"):"Completó"}`:h?`⏳ ${h}/${M.length}`:"— Sin empezar";
+    return `<tr><td>${esc(e.nombre)}</td><td>${estado}</td>${modo==="evaluativa"?SEG_CRIT.map(c=>`<td>${met?pc(met[c.auto]):"—"}</td>`).join("")+`<td><b>${ok&&a.puntaje!=null?a.puntaje+"/3":"—"}</b></td>`:`<td>${h}/${M.length}</td><td>${ok&&a.porcentaje!=null?Math.round(a.porcentaje)+" % a la primera":"—"}</td>`}
+      <td>${h||ok?`<button class="sec" style="padding:5px 9px" data-verest="${esc(e.id)}">👁️ Ver</button>`:""}${modo==="evaluativa"&&!ok&&h?` <button class="sec" style="padding:5px 9px" data-nota="${esc(e.id)}">Poner nota con lo que lleva</button>`:""}</td></tr>`}).join("");
+  $("#dlgBody").innerHTML=`<p style="margin:0 0 8px;color:var(--mut)">${TIPO_ACT[modo].corto} · ${esc(nomMat(C.materia_id))} · ${ent} de ${lista.length} ${modo==="evaluativa"?"entregaron":"completaron"}${trab?` · ${trab} trabajando`:""}.${modo==="evaluativa"?" Nota: 85 % o más = 3 · 60–84 % = 2 · 35–59 % = 1 en cada criterio.":""}</p>
+    <div style="overflow:auto"><table><thead><tr><th>Estudiante</th><th>Estado</th>${modo==="evaluativa"?"<th>Cuentas</th><th>Debe/Haber</th><th>Montos</th><th>Nota</th>":"<th>Asientos</th><th>Resultado</th>"}<th></th></tr></thead><tbody>${filas||'<tr><td colspan="7">No hay estudiantes en esta materia.</td></tr>'}</tbody></table></div><p id="entEst" style="color:var(--mut)"></p>`;
+  d.querySelectorAll("[data-verest]").forEach(b=>b.onclick=()=>{d.close();irA(`#/a/${t.id}/e/${encodeURIComponent(b.dataset.verest)}`)});
+  d.querySelectorAll("[data-nota]").forEach(b=>b.onclick=async()=>{const a=por[b.dataset.nota],pr=(a.datos_prueba&&a.datos_prueba.seguros)||{reg:{}};
+    if(!confirm("¿Poner la nota con lo que lleva? Los asientos sin registrar cuentan como incorrectos."))return;b.disabled=true;
+    const met=metricasDe(t,pr),nota=memoriaNotaDesdeMetricas(C.criterios&&C.criterios.length?C.criterios:SEG_CRIT,met,[]);
+    const {error}=await guardarNotaManualActividad(t,b.dataset.nota,nota.puntaje,{respuestas:nota.puntos,porcentaje:nota.porcentaje,datos_prueba:{seguros:{...pr,metricas:met,calificado_por_docente:true,entregado_en:new Date().toISOString()}}});
+    if(error){$("#entEst").textContent="No se pudo: "+error;b.disabled=false;return}verEntregas(t)});
+}
 // ═══ Manual de pistas ═══
 const MAN={
   plan:()=>`<input id="buscaPlan" placeholder="🔎 Buscar por código o nombre…" style="width:100%;font:inherit;padding:10px 12px;border:2px solid var(--line);border-radius:12px;margin-bottom:10px">
@@ -599,6 +813,7 @@ $("#manual").addEventListener("click",e=>{if(e.target===$("#manual"))$("#manual"
 $("#btnSonido").onclick=()=>{EST.sonido=!EST.sonido;guardar();pintarStats()};
 
 pintarStats();render();
+cargarActs().then(()=>{if(!location.hash||location.hash==="#/"||location.hash==="#")render()});
 try{bitacoraRegistrar("seguros")}catch(e){}
 </script>
 </body>

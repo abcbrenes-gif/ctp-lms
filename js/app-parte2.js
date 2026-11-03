@@ -5765,7 +5765,7 @@ async function pintarPanelCalificarRubrica(panel, trabajo, materiaId) {
   const entregaPorEstudiante = {};
   (entregas || []).forEach(e => { entregaPorEstudiante[e.estudiante_id] = e; });
 
-  const esTiraderaTrabajo = trabajo.contenido_actividad && ["juego_tiradera", "juego_memoria", "liquidacion_laboral"].includes(trabajo.contenido_actividad.estrategia);
+  const esTiraderaTrabajo = trabajo.contenido_actividad && ["juego_tiradera", "juego_memoria", "liquidacion_laboral", "mision_seguros"].includes(trabajo.contenido_actividad.estrategia);
   // En La Tiradera, los indicadores "a mano" se califican por nivel de desempeño (formato MEP).
   const campoCriterio = (estId, c, i, valor) => {
     if (esTiraderaTrabajo && !c.auto) {
@@ -10198,7 +10198,7 @@ const DOC_DEF_EXT_OK = /\.(pdf|docx?|xlsx?|pptx?|txt|csv|odt|ods|odp|jpe?g|png|w
 async function agregarDocumentoDefinitivo(holder, trabajos, estudianteId, prefijo) {
   prefijo = prefijo || "";
   // Los juegos (Memoria Contable, La Tiradera) no llevan documento para adjuntar.
-  trabajos = (trabajos || []).filter(t => !(t.contenido_actividad && ["juego_memoria", "juego_tiradera", "liquidacion_laboral"].includes(t.contenido_actividad.estrategia)));
+  trabajos = (trabajos || []).filter(t => !(t.contenido_actividad && ["juego_memoria", "juego_tiradera", "liquidacion_laboral", "mision_seguros"].includes(t.contenido_actividad.estrategia)));
   if (!trabajos.length) return;
   if (!session) { const d = document.createElement("div"); d.textContent = "⚠️ Sin sesión para adjuntar documento."; holder && holder.appendChild(d); return; }
   try {
