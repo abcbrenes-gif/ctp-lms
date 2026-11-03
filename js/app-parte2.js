@@ -33,6 +33,8 @@ function filasInformeAulaConta(companies, estudianteId) {
     return { nombre: c.name || "(sin nombre)", tipo: e.tipo, r, estado: e, link };
   });
 }
+// Parte que el profe no evalúa en esa práctica (Aula de Conta → «Qué cuenta para la nota»).
+const noEvalAC = (r, k) => r && r.evalua && r.evalua[k] === false ? `<small style="color:var(--text-muted)">No se evalúa</small>` : "";
 const pctAC = v => v == null ? "—" : v + " %";
 function notaColorAC(n) { return n == null ? "var(--text-muted)" : n >= 70 ? "var(--ledger-green)" : "#b3261e"; }
 function tablaInformeAulaConta(filas) {
@@ -42,7 +44,7 @@ function tablaInformeAulaConta(filas) {
   return `<div style="overflow-x:auto;"><table class="tabla" style="width:100%; border-collapse:collapse; font-size:0.88rem;">
     <thead><tr style="text-align:left;"><th>Trabajo</th><th>Tipo</th><th>Estado</th><th>Machote</th><th>Asiento planilla</th><th>Evaluación</th><th>Eval. machote</th><th>Eval. asiento</th><th>Nota</th><th>Trabajo y solución</th><th>Actualizado</th></tr></thead>
     <tbody>${filas.map(f => { const r = f.r; return `<tr style="border-top:1px solid var(--border,#ddd);"><td><b>${escAC(f.nombre)}</b></td><td>${f.tipo}</td><td style="font-size:0.8rem; color:${f.estado ? f.estado.color : "inherit"}">${f.estado ? escAC(f.estado.txt) : ""}</td>
-      ${r ? `<td>${pctAC(r.machote)}</td><td>${r.asiento == null ? "—" : r.asiento === 100 ? "✓ Resuelto" : (f.estado && f.estado.cerrado ? "✗ No lo resolvió" : "Pendiente")}</td><td>${pctAC(r.evaluacion)}</td><td>${pctAC(r.evalMachote)}</td><td>${pctAC(r.evalAsiento)}</td><td><b style="color:${notaColorAC(r.nota)}">${pctAC(r.nota)}</b></td><td>${f.link ? `<a class="btn small" href="${f.link}" style="white-space:nowrap;">📋 Ver</a>` : ""}</td><td>${r.fecha ? new Date(r.fecha).toLocaleString("es-CR", { dateStyle: "medium", timeStyle: "short" }) : "—"}</td>`
+      ${r ? `<td>${noEvalAC(r, "machote") || pctAC(r.machote)}</td><td>${noEvalAC(r, "asiento") || (r.asiento == null ? "—" : r.asiento === 100 ? "✓ Resuelto" : (f.estado && f.estado.cerrado ? "✗ No lo resolvió" : "Pendiente"))}</td><td>${noEvalAC(r, "evaluacion") || pctAC(r.evaluacion)}</td><td>${noEvalAC(r, "evalMachote") || pctAC(r.evalMachote)}</td><td>${noEvalAC(r, "evalAsiento") || pctAC(r.evalAsiento)}</td><td><b style="color:${notaColorAC(r.nota)}">${pctAC(r.nota)}</b></td><td>${f.link ? `<a class="btn small" href="${f.link}" style="white-space:nowrap;">📋 Ver</a>` : ""}</td><td>${r.fecha ? new Date(r.fecha).toLocaleString("es-CR", { dateStyle: "medium", timeStyle: "short" }) : "—"}</td>`
         : `<td colspan="6" style="color:var(--text-muted);">${f.estado && f.estado.cerrado ? "No trabajó en esta empresa." : "Sin informe todavía"} (se genera cuando el estudiante trabaja o el profesor pulsa "Actualizar informe" en Aula de Conta)</td><td>${f.link ? `<a class="btn small" href="${f.link}" style="white-space:nowrap;">📋 Ver</a>` : ""}</td><td>—</td>`}</tr>`; }).join("")}</tbody>
     <tfoot><tr style="border-top:2px solid var(--border,#999);"><td colspan="8"><b>Promedio de notas de Aula de Conta</b></td><td colspan="3"><b style="color:${notaColorAC(prom)}">${pctAC(prom)}</b></td></tr></tfoot></table></div>
     <p style="font-size:0.78rem; color:var(--text-muted); margin-top:0.5rem;">La nota es el promedio de lo que el estudiante tiene: machote, asiento de planilla, evaluación y las evaluaciones habilitadas por el profesor. Se actualiza sola cada vez que trabaja.</p>`;
