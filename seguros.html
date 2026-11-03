@@ -333,7 +333,7 @@ const ES_DOCENTE=DOC||/[?&]docente=1/.test(location.search);
 const KEY="mision_seguros_v1_"+((SES&&SES.id)||"invitado");
 let EST={xp:0,racha:0,mejorRacha:0,hechas:{},sonido:true};
 try{Object.assign(EST,JSON.parse(localStorage.getItem(KEY)||"{}"))}catch(e){}
-const guardar=()=>{try{localStorage.setItem(KEY,JSON.stringify(EST))}catch(e){}};
+const guardar=()=>{try{localStorage.setItem(KEY,JSON.stringify(EST))}catch(e){}try{subirAvance()}catch(e){}};
 const TODAS=NIVELES.flatMap(n=>n.misiones);
 const XP_MAX=TODAS.length*100;
 const nivelDe=mid=>NIVELES.find(n=>n.misiones.some(m=>m.id===mid));
@@ -646,6 +646,57 @@ function metricasDe(act,prog){const M=misionesDe(act);let E=0,c=0,n=0,mo=0;
   const p=x=>E?Math.round(1000*x/E)/10:0;return {seg_cuentas_pct:p(c),seg_naturaleza_pct:p(n),seg_montos_pct:p(mo)}}
 
 const ACT={lista:null,materias:[],mis:[],mias:{},prog:{},cargando:false};
+
+// ═══ Avance del juego libre en la plataforma ═══
+// Cada estudiante guarda su avance (misiones, XP, racha) en una fila de
+// actividades_estudiante ligada a un trabajo de registro oculto, para que el
+// profe vea por cuál nivel va cada quien y el avance siga en otro dispositivo.
+const REG_ESTR="mision_seguros_registro";let REG_ID=null,tSubir=null;
+async function idRegistro(crear){if(REG_ID||typeof sb==="undefined")return REG_ID;
+  const {data}=await sb.from("trabajos_cotidianos").select("id").eq("contenido_actividad->>estrategia",REG_ESTR).limit(1);
+  if(data&&data[0])return REG_ID=data[0].id;
+  if(!crear)return null;
+  const r=await sb.from("trabajos_cotidianos").insert({titulo:"Misión Seguros · avance del juego libre (registro, no borrar)",tipo_actividad:"rubrica_directa",habilitado:false,contenido_actividad:{estrategia:REG_ESTR}}).select("id").maybeSingle();
+  return REG_ID=r.data&&r.data.id}
+const resumenJuego=()=>({hechas:Object.keys(EST.hechas),xp:EST.xp,mejorRacha:EST.mejorRacha,actualizado:new Date().toISOString()});
+function subirAvance(){if(!EST_ID||typeof sb==="undefined")return;clearTimeout(tSubir);tSubir=setTimeout(async()=>{try{const id=await idRegistro(false);if(!id)return;
+  const n=Object.keys(EST.hechas).filter(k=>TODAS.some(m=>m.id===k)).length;
+  await upsertSinConflicto("actividades_estudiante",{trabajo_id:id,estudiante_id:EST_ID},{datos_prueba:{juego:resumenJuego()},porcentaje:Math.round(100*n/TODAS.length),actualizado_en:new Date().toISOString()})}catch(e){}},1500)}
+async function sincronizarAvance(){if(!EST_ID||typeof sb==="undefined")return;try{const id=await idRegistro(false);if(!id)return;
+  const {data}=await sb.from("actividades_estudiante").select("datos_prueba").eq("trabajo_id",id).eq("estudiante_id",EST_ID).maybeSingle();
+  const J=data&&data.datos_prueba&&data.datos_prueba.juego;let cambio=false;
+  if(J){(J.hechas||[]).forEach(k=>{if(!EST.hechas[k]){EST.hechas[k]={xp:0,intentos:0,fecha:J.actualizado};cambio=true}});
+    if((J.xp||0)>EST.xp){EST.xp=J.xp;cambio=true}if((J.mejorRacha||0)>EST.mejorRacha){EST.mejorRacha=J.mejorRacha;cambio=true}}
+  try{localStorage.setItem(KEY,JSON.stringify(EST))}catch(e){}
+  if(cambio){pintarStats();if(!location.hash||location.hash==="#/"||location.hash==="#")render()}
+  subirAvance()}catch(e){}}
+const nivelActual=hechas=>{const H=new Set(hechas);for(const n of NIVELES){if(!n.misiones.every(m=>H.has(m.id)))return n}return null};
+async function verAvanceEstudiantes(){
+  const d=$("#dlg");$("#dlgTit").textContent="👥 Avance de los estudiantes en el juego";$("#dlgBody").innerHTML="<p>Cargando…</p>";if(!d.open)d.showModal();
+  const id=await idRegistro(true);
+  const mats=ACT.materias.length?ACT.materias:((await sb.from("materias").select("id,nombre,seccion").order("id")).data||[]);
+  const sel=+(verAvanceEstudiantes.mat||(mats.find(m=>/tribut/i.test(m.nombre))||mats[0]||{}).id);
+  const [{data:em},{data:ae},{data:bi}]=await Promise.all([sb.from("estudiante_materias").select("estudiante_id").eq("materia_id",sel),
+    id?sb.from("actividades_estudiante").select("estudiante_id,datos_prueba,actualizado_en").eq("trabajo_id",id):{data:[]},
+    sb.from("bitacora_ingresos").select("estudiante_id,fecha").eq("modulo","seguros").order("fecha",{ascending:false}).limit(2000)]);
+  const ids=(em||[]).map(x=>x.estudiante_id),{data:es}=ids.length?await sb.from("estudiantes").select("id,nombre,apellido1,apellido2").in("id",ids):{data:[]};
+  const por={};(ae||[]).forEach(x=>por[x.estudiante_id]=x);const ult={};(bi||[]).forEach(b=>{if(!ult[b.estudiante_id])ult[b.estudiante_id]=b.fecha});
+  const fch=f=>f?new Date(f).toLocaleString("es-CR",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"}):"—";
+  const filas=(es||[]).map(e=>{const J=(por[e.id]&&por[e.id].datos_prueba&&por[e.id].datos_prueba.juego)||null,H=J?J.hechas.filter(k=>TODAS.some(m=>m.id===k)):[],n=nivelActual(H);
+    return {e,nombre:[e.apellido1,e.apellido2,e.nombre].filter(Boolean).join(" "),J,H,n,niv:n?n.id:6}}).sort((a,b)=>a.nombre.localeCompare(b.nombre,"es"));
+  const celdaNivel=f=>!f.J?(ult[f.e.id]?'<span class="tag" style="background:var(--amber-s);color:var(--amber)">Entró, sin avance guardado</span>':'<span class="tag" style="background:#eef1f8;color:var(--mut)">No ha entrado</span>')
+    :f.n?`<b>Nivel ${f.n.id}</b> · ${esc(f.n.t)}`:'<span class="tag" style="background:var(--green-s);color:var(--green)">🏆 Terminó los 5 niveles</span>';
+  const mini=f=>NIVELES.map(n=>{const h=n.misiones.filter(m=>f.H.includes(m.id)).length,p=Math.round(100*h/n.misiones.length);return `<span title="Nivel ${n.id}: ${h}/${n.misiones.length}" style="display:inline-block;width:34px;height:8px;border-radius:6px;background:linear-gradient(90deg,var(--green) ${p}%,#e5e9f5 ${p}%);margin-right:3px"></span>`}).join("");
+  const cnt=k=>filas.filter(f=>f.J&&(k===6?!f.n:f.n&&f.n.id===k)).length;
+  $("#dlgBody").innerHTML=`<div class="actions" style="margin:0 0 10px"><label style="font-weight:800">Sección: <select id="avMat" style="font:inherit;padding:6px 8px;border-radius:10px;border:2px solid var(--line)">${mats.map(m=>`<option value="${m.id}" ${m.id===sel?"selected":""}>${esc(m.nombre.trim())}${m.seccion?" · "+esc(m.seccion):""}</option>`).join("")}</select></label><button class="sec" id="avCsv">⬇️ Descargar Excel (CSV)</button><button class="sec" id="avRec">↻ Actualizar</button></div>
+    <div class="rule" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr))">${NIVELES.map(n=>`<div><b style="font-size:1.3rem">${cnt(n.id)}</b><br><small>en el nivel ${n.id}</small></div>`).join("")}<div><b style="font-size:1.3rem">${cnt(6)}</b><br><small>terminaron todo</small></div></div>
+    <div style="overflow:auto"><table><thead><tr><th>Estudiante</th><th>Va por</th><th>Misiones</th><th>Niveles 1 a 5</th><th>XP</th><th>Último avance</th></tr></thead><tbody>
+    ${filas.map(f=>`<tr><td>${esc(f.nombre)}</td><td>${celdaNivel(f)}</td><td>${f.J?f.H.length+"/"+TODAS.length:"—"}</td><td style="white-space:nowrap">${f.J?mini(f):""}</td><td>${f.J?f.J.xp:"—"}</td><td>${fch((f.J&&f.J.actualizado)||ult[f.e.id])}</td></tr>`).join("")||'<tr><td colspan="6">No hay estudiantes en esta sección.</td></tr>'}</tbody></table></div>
+    <p style="color:var(--mut);font-size:.85rem;margin:8px 0 0">El avance se guarda en la plataforma desde hoy. Quien jugó antes desde su dispositivo aparece «sin avance guardado» hasta que vuelva a abrir el juego: en ese momento se sube lo que ya tenía.</p>`;
+  $("#avMat").onchange=e=>{verAvanceEstudiantes.mat=e.target.value;verAvanceEstudiantes()};$("#avRec").onclick=()=>verAvanceEstudiantes();
+  $("#avCsv").onclick=()=>{const q=v=>`"${String(v).replace(/"/g,'""')}"`;const L=[["Estudiante","Va por","Misiones completadas","XP","Último avance",...NIVELES.map(n=>"Nivel "+n.id)].map(q).join(",")]
+    .concat(filas.map(f=>[f.nombre,!f.J?(ult[f.e.id]?"Entró, sin avance guardado":"No ha entrado"):f.n?`Nivel ${f.n.id} · ${f.n.t}`:"Terminó",f.J?f.H.length:0,f.J?f.J.xp:0,fch((f.J&&f.J.actualizado)||ult[f.e.id]),...NIVELES.map(n=>`${n.misiones.filter(m=>f.H.includes(m.id)).length}/${n.misiones.length}`)].map(q).join(",")));
+    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["﻿"+L.join("\n")],{type:"text/csv"}));a.download="Avance_Mision_Seguros.csv";a.click()}}
 async function cargarActs(forzar){
   if(typeof sb==="undefined"||!SES)return;if(ACT.lista&&!forzar)return;
   try{
@@ -676,7 +727,7 @@ function hubHTML(){
   const grupo=k=>{const G=L.filter(t=>((t.contenido_actividad||{}).seg_tipo||"evaluativa")===k);if(!DOC&&!G.length)return "";
     return `<div style="margin-top:10px"><h4 style="margin:0 0 6px">${TIPO_ACT[k].et} <span style="text-transform:none;letter-spacing:0;font-weight:600">· ${TIPO_ACT[k].desc}</span></h4>${G.map(fila).join("")||'<p style="color:var(--mut);margin:0">Todavía no hay.</p>'}</div>`};
   return `<section class="panel" style="margin-bottom:18px;border-color:#c7d2fe"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h3 style="margin:0;margin-right:auto">📚 Actividades del profe</h3>
-    ${DOC&&!(ACT.lista||[]).length?`<button class="pur" id="crearPaq">✨ Crear 2 prácticas y 3 trabajos cotidianos</button>`:""}</div>
+    ${DOC?`<button class="pur" id="verAvance">👥 Avance de los estudiantes</button>`:""}${DOC&&!(ACT.lista||[]).length?`<button class="pur" id="crearPaq">✨ Crear 2 prácticas y 3 trabajos cotidianos</button>`:""}</div>
     <p style="margin:4px 0 0;color:var(--mut);font-size:.88rem">${DOC?"Se crean cerradas: ábralas una por una con <b>▶ Abrir</b> cuando quiera liberarlas. Los trabajos cotidianos tienen su indicador en la Rúbrica y la nota se pone sola al entregar.":"Estas son las actividades que tu profe abrió. Las prácticas no llevan nota; los trabajos cotidianos sí."}</p>
     ${grupo("diaria")}${grupo("evaluativa")}</section>`;
 }
@@ -687,6 +738,7 @@ function activarHub(){
   document.querySelectorAll("[data-ent]").forEach(b=>b.onclick=()=>verEntregas(ACT.lista.find(x=>x.id===+b.dataset.ent)));
   document.querySelectorAll("[data-insv]").forEach(b=>b.onclick=()=>verInstrumento(ACT.lista.find(x=>x.id===+b.dataset.insv)));
   const cp=$("#crearPaq");if(cp)cp.onclick=()=>crearPaquete(cp);
+  const va=$("#verAvance");if(va)va.onclick=()=>verAvanceEstudiantes();
 }
 async function crearIndicadorSeg(materiaId,descripcion,fecha){
   const {data:ex}=await sb.from("indicadores").select("id,letra").eq("materia_id",materiaId).eq("categoria","Trabajo cotidiano");
@@ -862,6 +914,7 @@ $("#manual").addEventListener("click",e=>{if(e.target===$("#manual"))$("#manual"
 $("#btnSonido").onclick=()=>{EST.sonido=!EST.sonido;guardar();pintarStats()};
 
 pintarStats();render();
+sincronizarAvance();
 cargarActs().then(()=>{if(!location.hash||location.hash==="#/"||location.hash==="#")render()});
 try{bitacoraRegistrar("seguros")}catch(e){}
 </script>
