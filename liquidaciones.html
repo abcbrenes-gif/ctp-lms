@@ -270,9 +270,9 @@ tr.hl td{background:#fff7d6; font-weight:700}
     else if (S.verEst) b.innerHTML = `<div class="banner"><b>👁️ Trabajo de ${esc(S.verEst.nombre)}</b> · ${esc(S.trabajo.titulo)} · ${S.verEst.estado}. Se ve lo que escribió en cada parte (✓ / ✗ y la respuesta correcta) y, en <b>💰 Salario</b>, su hoja de cálculo. Solo lectura.</div>`;
     else if (S.asignado) b.innerHTML = S.bloqueado
       ? (S.entrega.puntaje == null
-        ? `<div class="banner ok"><b>✓ Práctica entregada</b> (sin nota). Acertaste el <b>${Math.round(S.entrega.porcentaje || 0)} %</b> de los pasos. Abajo podés ver qué estaba bien.</div>`
+        ? `<div class="banner ok"><b>✓ Práctica entregada</b> (sin nota). Acertaste el <b>${Math.round(S.entrega.porcentaje || 0)} %</b> de los pasos.${S.entrega.datos_prueba && S.entrega.datos_prueba.liquidacion && S.entrega.datos_prueba.liquidacion.tarde ? " Se entregó después de la fecha." : ""} Abajo ves qué estaba bien y la <b>solución</b> de cada paso.</div>`
         : `<div class="banner ok"><b>✓ Entregado.</b> Tu nota: <b>${S.entrega.puntaje}/3</b> (${Math.round(S.entrega.porcentaje)} %). Abajo podés ver qué pasos estaban bien.</div>`)
-      : `<div class="banner"><b>${esc(S.trabajo.titulo)}</b>${tipoTrabajo() === "diaria" ? " · práctica diaria, <b>no lleva nota</b>" : tipoTrabajo() === "tarea" ? ` · tarea${S.trabajo.contenido_actividad.fecha_limite ? `, se entrega a más tardar el <b>${esc(S.trabajo.contenido_actividad.fecha_limite)}</b>` : ""}` : ""}. Leé los datos del caso y resolvé cada parte: escribí el resultado de cada paso y tocá <b>✔ Revisar</b>. Cuando termines todas, tocá <b>📤 Entregar al profe</b>. Tu avance se guarda solo.</div>`;
+      : `<div class="banner"><b>${esc(S.trabajo.titulo)}</b>${tipoTrabajo() === "diaria" ? ` · práctica, <b>no lleva nota</b>${S.trabajo.contenido_actividad.fecha_limite ? `; se entrega a más tardar el <b>${esc(S.trabajo.contenido_actividad.fecha_limite)}</b>` : ""}. Al entregarla vas a ver la solución` : tipoTrabajo() === "tarea" ? ` · tarea${S.trabajo.contenido_actividad.fecha_limite ? `, se entrega a más tardar el <b>${esc(S.trabajo.contenido_actividad.fecha_limite)}</b>` : ""}` : ""}. Leé los datos del caso y resolvé cada parte: escribí el resultado de cada paso y tocá <b>✔ Revisar</b>. Cuando termines todas, tocá <b>📤 Entregar al profe</b>. Tu avance se guarda solo.</div>`;
     else if (bloqueadoParaMi()) b.innerHTML = `<div class="banner">🔒 <b>El profe bloqueó las respuestas.</b> Llená los datos del caso (o tomá un caso de práctica), escribí el resultado de cada paso y tocá <b>✔ Revisar</b>: te dice qué está bien y qué no, sin mostrar el resultado.</div>`;
     else b.innerHTML = S.modo === "practica"
       ? `<div class="banner">✍️ <b>Lo calculo yo:</b> en cada pestaña escribí el resultado de cada paso y tocá <b>✔ Revisar</b>; la plataforma te dice qué está bien. Si te equivocás, abrí <b>💡 Cómo se calcula</b>.</div>`
@@ -417,7 +417,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
       cuerpo = `<ol class="pasos" style="--c:${col}">${pasosCalculo(k, R).map(([a, b, c]) => `<li><div><b>${esc(a)}</b><div class="det">${esc(b)}</div></div><div class="val">${esc(c)}</div></li>`).join("")}</ol>
         <div class="total"><span>${nombre}</span><b>${m(k === "preaviso" || k === "cesantia" ? (parte.aplica ? parte.monto : 0) : parte.monto)}</b></div>`;
     } else {
-      const pasos = liqPasosPractica(R)[k], rev = S.revisado[k] || S.bloqueado, ver = (S.verSol && S.verSol[k] && !bloqueadoParaMi()) || !!S.verEst;
+      const pasos = liqPasosPractica(R)[k], rev = S.revisado[k] || S.bloqueado, ver = (S.verSol && S.verSol[k] && !bloqueadoParaMi()) || !!S.verEst || (S.bloqueado && S.asignado && tipoTrabajo() === "diaria");
       cuerpo = `<ol class="pasos" style="--c:${col}">${pasos.map(p => { const r = rev ? revisar(p, S.resp) : null; const esF = String(S.resp[p.k] || "").trim().startsWith("="), fv = esF ? valorDe(S.resp[p.k], S.resp) : null; return `<li class="${r === true ? "ok" : r === false || (rev && r === null) ? "bad" : ""}">
           <div><b>${esc(p.et)}</b>${(r === false || (rev && r === null)) && p.ayuda ? `<div class="det">💡 ${esc(p.ayuda)}</div>` : ""}${ver ? `<div class="det">Respuesta: <b class="num">${p.tipo === "monto" ? m(p.ok) : d(p.ok)}</b></div>` : ""}</div>
           <div><input data-r="${p.k}" inputmode="decimal" value="${esc(S.resp[p.k] == null ? "" : S.resp[p.k])}" placeholder="${p.tipo === "monto" ? (k === "salario" ? "₡ 0,00 o =celda" : "₡ 0,00") : "días"}" aria-label="${esc(p.et)}" ${S.bloqueado ? "disabled" : ""}>${esF ? `<div class="calc" style="text-align:right">${fv === "x" ? "fórmula inválida" : "= " + m(fv)}</div>` : ""}<span class="marca">${r === true ? "✓" : r === false || (rev && r === null) ? "✗" : ""}</span></div></li>`; }).join("")}</ol>
@@ -802,7 +802,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
         error = r && r.error ? r.error.message : null; nota.puntaje = null; nota.porcentaje = prom;
       } else ({ error } = await guardarNotaManualActividad(S.trabajo, EST_ID, nota.puntaje, { respuestas: nota.puntos, porcentaje: nota.porcentaje, datos_prueba: dp }));
       if (error) { ev.target.disabled = false; alert("No se pudo entregar: " + error); return; }
-      S.entrega = { puntaje: nota.puntaje, porcentaje: nota.porcentaje }; S.bloqueado = true;
+      S.entrega = { puntaje: nota.puntaje, porcentaje: nota.porcentaje, datos_prueba: dp }; S.bloqueado = true;
       $("#modal").hidden = true; S.tab = "resumen"; pintarTodo();
     });
   }
@@ -885,7 +885,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
   // en «📥 Entregas». Las evaluativas y las tareas tienen su indicador en la
   // categoría que corresponde, así la nota llega sola a Rúbrica y Evaluaciones.
   const TIPOS_ACT = {
-    diaria: { et: "🟢 Prácticas diarias", corto: "Práctica diaria", desc: "no llevan nota", cat: null, comp: "Práctica diaria" },
+    diaria: { et: "🟢 Prácticas", corto: "Práctica", desc: "no llevan nota · con fecha de entrega y solución al entregar", cat: null, comp: "Práctica" },
     evaluativa: { et: "📝 Prácticas evaluativas", corto: "Práctica evaluativa", desc: "cuentan como trabajo cotidiano", cat: "Trabajo cotidiano", comp: "Trabajo cotidiano" },
     tarea: { et: "🏠 Tareas", corto: "Tarea", desc: "cuentan en el rubro de Tareas, con fecha de entrega", cat: "Tareas", comp: "Tareas" }
   };
@@ -929,7 +929,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
           ${t._caso ? `<button class="btn sm" type="button" data-hab="${t.id}">${t.habilitado === false ? "▶ Abrir" : "⏸️ Cerrar"}</button>` : ""}${C.liq_tipo ? `<button class="btn sm" type="button" data-borrar="${t.id}" title="Borrar">🗑️</button>` : ""}</div></td></tr>`;
       }
       const mi = HUB.mias[t.id];
-      const est = mi && mi.completado ? `<span class="pill ok">✅ ${mi.puntaje != null ? `Nota ${mi.puntaje}/3` : `Entregada · ${Math.round(mi.porcentaje || 0)} %`}</span>` : mi ? `<span class="pill warn">⏳ En curso</span>` : lim && hoyISO() > lim ? `<span class="pill bad">Atrasada</span>` : `<span class="pill">🆕 Pendiente</span>`;
+      const est = mi && mi.completado ? `<span class="pill ok">✅ ${mi.puntaje != null ? `Nota ${mi.puntaje}/3` : `Entregada · ${Math.round(mi.porcentaje || 0)} % de aciertos`}</span>` : mi ? `<span class="pill warn">⏳ En curso</span>` : lim && hoyISO() > lim ? `<span class="pill bad">Atrasada</span>` : `<span class="pill">🆕 Pendiente</span>`;
       return `<tr><td><b>${esc(t.titulo)}</b><div class="muted" style="font-size:.8rem">${esc(nomMateria(t._materia))}</div></td><td style="font-size:.84rem">${fechas}</td><td>${est}</td><td><div class="acc"><a class="btn sm ${mi && mi.completado ? "" : "primary"}" href="liquidaciones.html?trabajo=${t.id}">${mi && mi.completado ? "👁️ Ver" : mi ? "▶ Seguir" : "▶ Resolver"}</a></div></td></tr>`;
     };
     const grupo = k => {
@@ -937,13 +937,16 @@ tr.hl td{background:#fff7d6; font-weight:700}
       return `<div class="hubg"><div class="row" style="justify-content:space-between"><h3>${TIPOS_ACT[k].et} <span class="muted" style="font-weight:500; font-size:.8rem">· ${TIPOS_ACT[k].desc}</span></h3>${doc ? `<button class="btn sm primary" type="button" data-nueva="${k}">➕ Nueva</button>` : ""}</div>
         ${L.length ? `<div class="tbl act"><table><tbody>${L.map(fila).join("")}</tbody></table></div>` : `<p class="muted" style="font-size:.85rem; margin:6px 0 0">${doc ? "Todavía no hay." : "No hay por ahora."}</p>`}</div>`;
     };
-    h.innerHTML = `<section class="card"><h2>📚 Actividades de liquidaciones</h2>
+    const dia = acts.filter(t => t._tipo === "diaria"), hechas = dia.filter(t => HUB.mias[t.id] && HUB.mias[t.id].completado), pr = hechas.map(t => Number(HUB.mias[t.id].porcentaje) || 0);
+    const resumenEst = !doc && dia.length ? `<div class="banner" style="margin:6px 0">🟢 Prácticas: hiciste <b>${hechas.length} de ${dia.length}</b>${pr.length ? ` · promedio de aciertos <b>${Math.round(pr.reduce((a, b) => a + b, 0) / pr.length)} %</b>` : ""}${dia.filter(t => !(HUB.mias[t.id] && HUB.mias[t.id].completado) && t.contenido_actividad.fecha_limite && hoyISO() > t.contenido_actividad.fecha_limite).length ? ` · <span style="color:var(--bad)">${dia.filter(t => !(HUB.mias[t.id] && HUB.mias[t.id].completado) && t.contenido_actividad.fecha_limite && hoyISO() > t.contenido_actividad.fecha_limite).length} atrasada(s)</span>` : ""}. Tocá <b>👁️ Ver</b> en las que entregaste para ver tu resultado y la solución.</div>` : "";
+    h.innerHTML = `<section class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">📚 Actividades de liquidaciones</h2>${doc ? `<button class="btn sm primary" type="button" id="repPrac">📊 Reporte de prácticas</button>` : ""}</div>${resumenEst}
       <p class="muted" style="margin:0 0 6px; font-size:.86rem">${doc ? "Cree aquí las prácticas y tareas, arme el caso de cada una, ábrala para los estudiantes y revise lo que hizo cada quien en <b>📥 Entregas</b>." : "Estas son las prácticas y tareas que te dejó el profe. Más abajo podés practicar libremente con la calculadora."}</p>
       <div class="hubmenu" role="tablist">${["diaria", "evaluativa", "tarea"].map(k => { const n = acts.filter(t => t._tipo === k).length, on = HUB.abierto === k;
         return `<button type="button" class="hubbtn ${on ? "on" : ""}" data-hubk="${k}" aria-expanded="${on}">${TIPOS_ACT[k].et} <span class="pill">${n}</span> <span class="flecha">${on ? "▴" : "▾"}</span></button>`; }).join("")}</div>
       ${HUB.abierto ? `<div class="hubdesp">${grupo(HUB.abierto)}</div>` : ""}</section>`;
     h.querySelectorAll("[data-hubk]").forEach(b => b.addEventListener("click", () => { HUB.abierto = HUB.abierto === b.dataset.hubk ? null : b.dataset.hubk; try { localStorage.setItem("liq_hub_abierto", HUB.abierto || ""); } catch (e) {} pintarHub(); }));
     h.querySelectorAll("[data-nueva]").forEach(b => b.addEventListener("click", () => nuevaActividad(b.dataset.nueva)));
+    const rp = h.querySelector("#repPrac"); if (rp) rp.addEventListener("click", () => reportePracticas());
     h.querySelectorAll("[data-entregas]").forEach(b => b.addEventListener("click", () => verEntregas(HUB.acts.find(t => t.id === Number(b.dataset.entregas)))));
     h.querySelectorAll("[data-hab]").forEach(b => b.addEventListener("click", async () => {
       const t = HUB.acts.find(x => x.id === Number(b.dataset.hab)); b.disabled = true;
@@ -975,18 +978,18 @@ tr.hl td{background:#fff7d6; font-weight:700}
   function nuevaActividad(k) {
     const T = TIPOS_ACT[k];
     $("#modalCaja").innerHTML = `<h2>➕ Nueva ${T.corto.toLowerCase()}</h2>
-      <p class="muted" style="font-size:.86rem">${k === "diaria" ? "No lleva nota: los estudiantes la resuelven y usted ve lo que hizo cada uno." : `Se crea su indicador en <b>${T.cat}</b> (Rúbrica y Evaluaciones) y la nota se pone sola cuando el estudiante entrega.`} Después de crearla arma el caso (con IA o al azar), revisa la evaluación y la abre para los estudiantes.</p>
+      <p class="muted" style="font-size:.86rem">${k === "diaria" ? "No lleva nota (no cuenta para el trabajo cotidiano). Tiene fecha de entrega: usted ve en el 📊 Reporte cuántas hace cada estudiante, y ellos ven su resultado y la solución al entregar." : `Se crea su indicador en <b>${T.cat}</b> (Rúbrica y Evaluaciones) y la nota se pone sola cuando el estudiante entrega.`} Después de crearla arma el caso (con IA o al azar), revisa la evaluación y la abre para los estudiantes.</p>
       <div class="grid"><label class="fld">Título<input id="naTit" maxlength="120" placeholder="Ej.: Liquidación de 3 empleados — despido con responsabilidad"></label>
         <label class="fld">Materia / sección<select id="naMat">${HUB.materias.map(m => `<option value="${m.id}">${esc(m.nombre.trim())}</option>`).join("")}</select></label></div>
-      <div class="grid" style="margin-top:8px"><label class="fld">Fecha<input id="naFec" type="date" value="${hoyISO()}"></label>${k === "tarea" ? `<label class="fld">Fecha de entrega<input id="naLim" type="date"></label>` : ""}</div>
+      <div class="grid" style="margin-top:8px"><label class="fld">Fecha<input id="naFec" type="date" value="${hoyISO()}"></label>${k !== "evaluativa" ? `<label class="fld">Fecha de entrega<input id="naLim" type="date"></label>` : ""}</div>
       <p class="muted" id="naEst" style="min-height:1.2em"></p>
       <div class="row" style="justify-content:flex-end"><button class="btn" type="button" id="naNo">Cancelar</button><button class="btn primary" type="button" id="naSi">Crear y armar el caso</button></div>`;
     $("#modal").hidden = false;
     $("#naNo").addEventListener("click", () => { $("#modal").hidden = true; });
     $("#naSi").addEventListener("click", async ev => {
-      const titulo = $("#naTit").value.trim(), materia = Number($("#naMat").value), fecha = $("#naFec").value || null, lim = k === "tarea" ? ($("#naLim").value || null) : null;
+      const titulo = $("#naTit").value.trim(), materia = Number($("#naMat").value), fecha = $("#naFec").value || null, lim = k !== "evaluativa" ? ($("#naLim").value || null) : null;
       if (!titulo) { $("#naEst").textContent = "Escriba un título."; return; }
-      if (k === "tarea" && !lim) { $("#naEst").textContent = "Ponga la fecha de entrega de la tarea."; return; }
+      if (k !== "evaluativa" && !lim) { $("#naEst").textContent = `Ponga la fecha de entrega de la ${k === "tarea" ? "tarea" : "práctica"}.`; return; }
       ev.target.disabled = true; $("#naEst").textContent = "Creando…";
       try {
         const base = ESTRATEGIAS_EVALUACION.liquidacion_laboral.criterios;
@@ -998,6 +1001,41 @@ tr.hl td{background:#fff7d6; font-weight:700}
         location.href = `liquidaciones.html?trabajo=${data.id}&docente=1`;
       } catch (e) { ev.target.disabled = false; $("#naEst").textContent = "No se pudo crear: " + (e.message || e); }
     });
+  }
+  // 📊 Reporte de prácticas (sin nota): cuántas hizo cada estudiante, a tiempo o tarde.
+  async function reportePracticas(matSel) {
+    const dias = HUB.acts.filter(t => t._tipo === "diaria" && t._materia);
+    const mats = [...new Set(dias.map(t => t._materia))];
+    $("#modalCaja").innerHTML = `<h2>📊 Reporte de prácticas</h2><p class="muted">Cargando…</p>`; $("#modal").hidden = false;
+    if (!mats.length) { $("#modalCaja").innerHTML = `<h2>📊 Reporte de prácticas</h2><p class="muted">Todavía no hay prácticas creadas.</p><div class="row" style="justify-content:flex-end"><button class="btn primary" type="button" id="rpC">Cerrar</button></div>`; $("#rpC").addEventListener("click", () => { $("#modal").hidden = true; }); return; }
+    const mat = Number(matSel) || mats[0], L = dias.filter(t => t._materia === mat);
+    const [{ data: em }, { data: ae }] = await Promise.all([
+      sb.from("estudiante_materias").select("estudiante_id").eq("materia_id", mat),
+      sb.from("actividades_estudiante").select("trabajo_id, estudiante_id, completado, porcentaje, datos_prueba").in("trabajo_id", L.map(t => t.id))]);
+    const ids = (em || []).map(x => x.estudiante_id);
+    const { data: es } = ids.length ? await sb.from("estudiantes").select("id, nombre, apellido1, apellido2").in("id", ids) : { data: [] };
+    const por = {}; (ae || []).forEach(x => { por[x.estudiante_id + "|" + x.trabajo_id] = x; });
+    const hoy = hoyISO(), vencida = t => t.contenido_actividad.fecha_limite && hoy > t.contenido_actividad.fecha_limite;
+    const estado = (e, t) => { const a = por[e + "|" + t.id], Lq = a && a.datos_prueba && a.datos_prueba.liquidacion;
+      if (a && a.completado) return Lq && Lq.tarde ? ["tarde", `🟠 ${Math.round(a.porcentaje || 0)} %`] : ["ok", `✅ ${Math.round(a.porcentaje || 0)} %`];
+      if (Lq && Lq.metricas) return vencida(t) ? ["atr", "⏳ atrasada"] : ["cur", "⏳ en curso"];
+      return vencida(t) ? ["no", "❌ no la hizo"] : ["pen", "— pendiente"]; };
+    const filas = (es || []).map(e => ({ id: e.id, nombre: [e.apellido1, e.apellido2, e.nombre].filter(Boolean).join(" ") })).sort((a, b) => a.nombre.localeCompare(b.nombre, "es")).map(e => {
+      const E = L.map(t => estado(e.id, t)), c = k => E.filter(x => x[0] === k).length, pcts = L.map(t => por[e.id + "|" + t.id]).filter(a => a && a.completado).map(a => Number(a.porcentaje) || 0);
+      return { ...e, E, hechas: c("ok") + c("tarde"), aTiempo: c("ok"), tarde: c("tarde"), noHizo: c("no") + c("atr"), prom: pcts.length ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null }; });
+    const nomM = id => { const m = HUB.materias.find(x => x.id === id); return m ? m.nombre.trim() : "Materia " + id; };
+    $("#modalCaja").innerHTML = `<h2>📊 Reporte de prácticas (sin nota)</h2>
+      <div class="row" style="gap:8px; margin-bottom:8px"><label class="fld" style="max-width:280px">Materia / sección<select id="rpMat">${mats.map(m => `<option value="${m}" ${m === mat ? "selected" : ""}>${esc(nomM(m))}</option>`).join("")}</select></label><button class="btn sm" type="button" id="rpCsv">⬇ Descargar Excel (CSV)</button></div>
+      <p class="muted" style="font-size:.85rem; margin:0 0 8px">${L.length} práctica(s). ✅ a tiempo · 🟠 tarde (el % es de aciertos) · ⏳ en curso o atrasada · ❌ no la hizo y ya pasó la fecha · — pendiente.</p>
+      <div class="tbl"><table><thead><tr><th>Estudiante</th><th class="r">Hechas</th><th class="r">A tiempo</th><th class="r">Tarde</th><th class="r">No hechas (vencidas)</th><th class="r">Promedio</th>${L.map((t, i) => `<th title="${esc(t.titulo)}${t.contenido_actividad.fecha_limite ? " · entrega " + esc(t.contenido_actividad.fecha_limite) : ""}">P${i + 1}</th>`).join("")}</tr></thead>
+      <tbody>${filas.map(f => `<tr><td>${esc(f.nombre)}</td><td class="r"><b>${f.hechas}/${L.length}</b></td><td class="r">${f.aTiempo}</td><td class="r">${f.tarde}</td><td class="r">${f.noHizo}</td><td class="r">${f.prom == null ? "—" : f.prom + " %"}</td>${f.E.map(x => `<td style="white-space:nowrap">${x[1]}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="9" class="muted">No hay estudiantes en esta materia.</td></tr>`}</tbody></table></div>
+      <p class="muted" style="font-size:.8rem">${L.map((t, i) => `P${i + 1}: ${esc(t.titulo)}${t.contenido_actividad.fecha_limite ? " (entrega " + esc(t.contenido_actividad.fecha_limite) + ")" : ""}`).join(" · ")}</p>
+      <div class="row" style="justify-content:flex-end"><button class="btn primary" type="button" id="rpC">Cerrar</button></div>`;
+    $("#rpC").addEventListener("click", () => { $("#modal").hidden = true; });
+    $("#rpMat").addEventListener("change", e => reportePracticas(e.target.value));
+    $("#rpCsv").addEventListener("click", () => { const q = v => `"${String(v).replace(/"/g, '""')}"`;
+      const rows = [["Estudiante", "Hechas", "A tiempo", "Tarde", "No hechas (vencidas)", "Promedio %", ...L.map(t => t.titulo)].map(q).join(",")].concat(filas.map(f => [f.nombre, f.hechas, f.aTiempo, f.tarde, f.noHizo, f.prom == null ? "" : f.prom, ...f.E.map(x => x[1].replace(/^\S+\s/, ""))].map(q).join(",")));
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + rows.join("\n")], { type: "text/csv" })); a.download = "Reporte_practicas_liquidaciones.csv"; a.click(); });
   }
   async function verEntregas(t) {
     $("#modalCaja").innerHTML = `<h2>📥 Entregas · ${esc(t.titulo)}</h2><p class="muted">Cargando…</p>`; $("#modal").hidden = false;

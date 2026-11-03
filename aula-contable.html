@@ -583,6 +583,7 @@ const co=()=>APP.companies.find(c=>c.id===APP.activeId)||APP.companies[0]||null;
    repetible), "tarea" (se entrega una vez) y "casa" (trabajo en casa 😊, se
    entrega una vez). Las empresas viejas solo tienen "practica" o "tarea". */
 const CATS={evaluativa:{icon:"📝",nombre:"Práctica con valor evaluativo",corto:"Práctica evaluativa",chip:"tG",una:true,practica:true,orden:0},
+  formativa:{icon:"🧩",nombre:"Práctica formativa (con fecha de entrega, sin nota)",corto:"Práctica formativa",chip:"tI",una:true,practica:true,orden:0.5,formativa:true},
   practica:{icon:"🔄",nombre:"Práctica general",corto:"Práctica general",chip:"tI",una:false,practica:true,orden:1},
   tarea:{icon:"📌",nombre:"Tarea",corto:"Tarea",chip:"tG",una:true,practica:false,orden:2},
   casa:{icon:"😊",nombre:"Trabajo en casa",corto:"Trabajo en casa",chip:"tC",una:true,practica:false,orden:3}};
@@ -616,7 +617,9 @@ const trabajoHecho=c=>{const p=(c&&c.payroll)||{};return !!((c.entries||[]).leng
 function noRealizado(c){if(!c||!yaCerro(c))return null;if(unaEntrega(c)){if(c.entregado)return null;return trabajoHecho(c)?"avance":"nada"}return trabajoHecho(c)?null:"nada"}
 const leyendaNoRealizado=c=>{const k=noRealizado(c);return k==="nada"?"No realizó el trabajo en el tiempo asignado":k==="avance"?"No entregó el trabajo en el tiempo asignado (quedó con avance)":""};
 // El solucionario lo ve el estudiante cuando está publicado y su trabajo ya cerró (o no tiene horario).
-const veSolucionario=c=>!!(c&&c.evalCfg&&c.evalCfg.solucion&&c.evalCfg.solucion.on)&&(!finVentana(c)||yaCerro(c));
+const esFormativa=c=>catDe(c)==="formativa";
+// Práctica formativa: no cuenta para la nota y el estudiante ve la solución al entregar o al cerrar la fecha.
+const veSolucionario=c=>(esFormativa(c)&&(c.entregado||yaCerro(c)))||!!(c&&c.evalCfg&&c.evalCfg.solucion&&c.evalCfg.solucion.on)&&(!finVentana(c)||yaCerro(c));
 const tareaBloqueada=c=>!isTeacher()&&!!(c&&unaEntrega(c)&&c.entregado);
 
 /* Guardado agrupado: una escritura a la vez */
@@ -714,7 +717,7 @@ function render(){
   renderChrome();
   const main=document.getElementById("main");
   const pv=APP.comoEstudiante?`<div class="banner"><span>👀 Estás dentro de la cuenta de ${esc(APP.me.nombre)} (modo profesor) — lo que agregues o cambies se guarda en la cuenta real del estudiante.</span><button class="btn sm" data-act="volverPerfilEstudiante">Volver al perfil</button></div>
-   ${materialEntregadoHTML()}`:"";
+   ${formativasEstudianteHTML()}${materialEntregadoHTML()}`:"";
   if(!APP.me){main.innerHTML='<div class="empty"><h3>No hay sesión</h3><p>Volvé a <a href="./index.html">ctp-lms</a> y entrá primero ahí.</p></div>';return}
   APP.readOnly=!!APP.viewing||(APP.view!=="empresas"&&APP.view!=="entregar"&&tareaBloqueada(co()));
   let html=pv;
@@ -956,6 +959,7 @@ async function acUpsertSinConflicto(tabla,filtro,datos){
   return ex?sb.from(tabla).update(datos).eq("id",ex.id):sb.from(tabla).insert({...filtro,...datos});
 }
 async function acSubirNotaIndicador(estudianteId,c){
+  if(esFormativa(c))return false; // las prácticas formativas no son sumativas
   const cf=c.evalCfg||{};const lista=[...(cf.indicador&&cf.indicador.id?[{...cf.indicador,comp:"general"}]:[]),...(cf.indicadores||[])];if(!lista.length)return false;
   const r=resumenInforme(c);let okAny=false;
   for(const ind of lista){
@@ -1051,7 +1055,7 @@ function revisionDePractica(g){
   return `<div class="stack" style="margin-top:10px;border:2px solid var(--pop);border-radius:12px;padding:12px">
    <div class="row" style="align-items:center"><h4 style="margin:0;margin-right:auto">📊 Revisión de ${esc(g.name)}</h4><button class="btn sm ghost" data-act="reloadEmp" data-key="${esc(g.key)}">↻ Actualizar resultados</button></div>
    ${(()=>{const T=(APP.revTab&&APP.revTab[g.key])||"res";const tb=(k,l)=>`<button class="tab ${T===k?"on":""}" data-act="revTab" data-key="${esc(g.key)}" data-t="${k}">${l}</button>`;
-     return `<div class="tabs" style="margin:0">${tb("res","📊 Resultados")}${tb("eval","📝 Evaluaciones")}${tb("sol","✅ Solucionario y PDF")}${tb("hor","⏰ Horario")}${tb("ind","🎯 Indicador")}</div>${T==="res"?"":evControlesHTML(g,T)}`})()}
+     return `<div class="tabs" style="margin:0">${tb("res","📊 Resultados")}${tb("eval","📝 Evaluaciones")}${tb("sol","✅ Solucionario y PDF")}${tb("hor","⏰ Horario")}${g.cat==="formativa"?"":tb("ind","🎯 Indicador")}</div>${T==="res"?"":evControlesHTML(g,T)}`})()}
    ${((APP.revTab&&APP.revTab[g.key])||"res")==="res"?`<div class="row" style="justify-content:flex-end"><button class="btn sm pop" data-act="pdfGenerarTodos">📄 Generar PDF de todos los que ya guardaron</button></div>   <div class="row" style="gap:8px;flex-wrap:wrap">${chip("Con avance",`${av}/${n}`,pct(av,n)+" %")}${chip("Machote completo",`${ma}/${n}`,pct(ma,n)+" %")}${chip("Asiento resuelto",`${as}/${n}`,pct(as,n)+" %")}${chip("Evaluación (promedio)",prom!=null?prom+" %":"—",evs.length+" evaluó")}${chip("Eval. machote (promedio)",avg(aM),aM.length+"/"+n+" entregaron")}${chip("Eval. asiento (promedio)",avg(aA),aA.length+"/"+n+" entregaron")}</div>
    <div class="tbl"><table><thead><tr><th>Estudiante</th><th>Machote</th><th>Asiento planilla</th><th>Evaluación</th><th>Eval. machote</th><th>Eval. asiento</th><th>Nota</th><th>PDF resultados</th><th>Diagnóstico</th></tr></thead><tbody>
    ${ordenados.map(x=>{const dx=!x.avance?'<span class="chip tG" style="font-size:.7rem">⏳ Sin empezar</span>':((()=>{const E=compsDe(x.c);return (!E.machote||x.machote)&&(!E.asiento||x.asiento)&&(!E.evaluacion||x.ev!=null)&&(!E.evalMachote||x.eM)&&(!E.evalAsiento||x.eA)})()?'<span class="chip tI" style="font-size:.7rem">✓ Completa</span>':'<span class="chip tG" style="font-size:.7rem">En proceso</span>');
@@ -1150,6 +1154,11 @@ function detallePill(k){
   const caja=(titulo,head,rows,nota)=>`<div class="panel stack" style="margin:-4px 0 14px"><div class="row" style="align-items:flex-end;justify-content:space-between"><h3 style="margin:0">${titulo}</h3>${filtro}</div>${nota?`<p class="muted" style="margin:0;font-size:.86rem">${nota}</p>`:""}
     <div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.length?rows.join(""):`<tr><td colspan="${head.length}" class="muted">No hay.</td></tr>`}</tbody></table></div></div>`;
   const nom=w=>`<b>${esc(w.nombre)}</b> <small class="muted">${esc(w.seccion||"")}</small>`;
+  if(k==="formativas"){const P=[];for(const w of L)for(const c of w.companies)if(esFormativa(c)){const n=String(c.name||"").trim();if(!P.includes(n))P.push(n)}
+    const rows=L.map(w=>{const cs=w.companies.filter(esFormativa),E=cs.map(estadoFormativa),cnt=x=>E.filter(e=>e[0]===x).length,ps=cs.filter(c=>c.entregado).map(notaPct).filter(x=>x!=null);
+      const celdas=P.map(n=>{const c=cs.find(x=>String(x.name||"").trim()===n);if(!c)return '<td class="muted">—</td>';const [k]=estadoFormativa(c),v=notaPct(c);return `<td style="white-space:nowrap">${k==="ok"?"✅":k==="tarde"?"🟠":k==="no"?"❌":k==="atr"?"⏳":"—"}${c.entregado&&v!=null?" "+v+" %":""}</td>`}).join("");
+      return `<tr><td>${nom(w)}</td><td class="num"><b>${cnt("ok")+cnt("tarde")}/${cs.length}</b></td><td class="num">${cnt("ok")}</td><td class="num">${cnt("tarde")}</td><td class="num">${cnt("no")+cnt("atr")}</td><td class="num">${ps.length?Math.round(ps.reduce((a,b)=>a+b,0)/ps.length)+" %":"—"}</td>${celdas}</tr>`});
+    return caja("🧩 Reporte de prácticas formativas (sin nota)",["Estudiante","Hechas","A tiempo","Tarde","No hechas (vencidas)","Promedio",...P.map((n,i)=>`<span title="${esc(n)}">P${i+1}</span>`)],rows,`${P.map((n,i)=>`P${i+1}: ${esc(n)}`).join(" · ")||"Todavía no hay prácticas formativas."} · ✅ a tiempo · 🟠 tarde · ❌ no la hizo · ⏳ no la entregó · — pendiente. El % es su resultado, no cuenta para la nota.`)}
   if(k==="entregados"){const rows=[];for(const w of L)for(const c of w.companies)if(unaEntrega(c)&&c.entregado)rows.push(`<tr><td>${nom(w)}</td><td>${chipCat(catDe(c))} ${esc(c.name)}</td><td>${fecha(c.entregadoFecha)}</td></tr>`);
     return caja("✅ Trabajos entregados",["Estudiante","Trabajo","Entregado el"],rows)}
   if(k==="pendientes"){const rows=[];for(const w of L)for(const c of w.companies)if(unaEntrega(c)&&!c.entregado){const t=trabajo(c);rows.push(`<tr><td>${nom(w)}</td><td>${chipCat(catDe(c))} ${esc(c.name)}</td><td>${leyendaNoRealizado(c)?`<span class="chip" style="font-size:.7rem;background:var(--badbg);color:var(--bad)">❌ ${esc(leyendaNoRealizado(c))}</span>${noRealizado(c)==="avance"?` <button class="btn sm pop" data-act="finalizarEntrega" data-est="${esc(w.id)}" data-co="${esc(c.id)}">✅ Finalizar y marcar entregado</button>`:""}`:t?'<span class="chip tG" style="font-size:.7rem">En proceso</span>':'<span class="chip" style="font-size:.7rem">⏳ Sin empezar</span>'}</td><td>${fecha(w.actualizado)}</td></tr>`)}
@@ -1183,7 +1192,7 @@ function viewPorEmpresa(){
    ${grupos.map(g=>{
      const rows=g.rows.filter(r=>!q||(r.w.nombre+" "+r.w.id).toLowerCase().includes(q)).sort((a,b)=>a.w.nombre.localeCompare(b.w.nombre));
      const entregadas=g.rows.filter(r=>r.c.entregado).length;
-     return `<details class="panel" data-gkey="${esc(g.key)}"${APP.revOpen&&APP.revOpen[g.key]?" open":""}><summary style="cursor:pointer;font-weight:700">${chipCat(g.cat)} ${esc(g.name)} <small class="muted" style="font-weight:400">· ${g.rows.length} estudiante(s)${CATS[g.cat].una?` · ${entregadas} entregaron`:""}</small></summary>
+     return `<details class="panel" data-gkey="${esc(g.key)}"${APP.revOpen&&APP.revOpen[g.key]?" open":""}><summary style="cursor:pointer;font-weight:700">${chipCat(g.cat)} ${esc(g.name)} <small class="muted" style="font-weight:400">· ${g.rows.length} estudiante(s)${CATS[g.cat].una?` · ${entregadas} entregaron`:""}</small>${g.cat==="formativa"?(g.rows.some(r=>finVentana(r.c))?' <small class="chip tI" style="font-size:.7rem">Sin nota · solución al entregar</small>':' <small class="chip" style="font-size:.7rem;background:var(--badbg);color:var(--bad)">⚠️ Falta la fecha de entrega</small>'):""}</summary>
       <div class="row" style="margin-top:8px"><button class="btn sm ${APP.revPrac&&APP.revPrac[g.key]?"primary":"pop"}" data-act="toggleRevPractica" data-key="${esc(g.key)}">📊 Evaluación y revisión de ${CATS[g.cat].practica?"esta práctica":"este trabajo"}</button></div>${APP.revPrac&&APP.revPrac[g.key]?revisionDePractica(g):""}
       ${compsRowHTML(g)}
       ${(()=>{const fins=g.rows.map(r=>finVentana(r.c)).filter(Boolean),f=fins.length?Math.max(...fins):null,mix=new Set(fins).size>1;
@@ -1221,7 +1230,7 @@ function viewEntregas(){
      <div class="row" style="gap:8px"><button class="btn pop" data-act="cierreToggle">🏁 Cerrar trabajos y dar solución</button><button class="btn ghost" data-act="reloadEntregas">↻ Actualizar</button></div></div>
    ${(()=>{const d=APP.empData;if(!d)return "";let t=0,e=0,pr=0;for(const w of d)for(const c of w.companies){if(unaEntrega(c)){t++;if(c.entregado)e++}else pr++}
      const pb=(k,cls,html)=>`<button type="button" class="pill ${cls} pillbtn ${APP.pillVer===k?"on":""}" data-act="pillVer" data-k="${k}" aria-expanded="${APP.pillVer===k}">${html} <span class="muted" style="font-weight:400">${APP.pillVer===k?"▴":"▾"}</span></button>`;
-     return `<div class="pills">${pb("entregados","ok",`✅ <b>${e}/${t}</b> trabajos entregados`)}${pb("pendientes","warn",`⏳ <b>${t-e}</b> pendientes`)}${pb("practicas","info",`🔄 <b>${pr}</b> prácticas`)}${pb("estudiantes","",`🎓 <b>${d.length}</b> estudiantes`)}${pb("codigo","",`📥 <b>${(APP.entregas||[]).length}</b> entregas por código`)}</div>${APP.pillVer?detallePill(APP.pillVer):""}${APP.cierreAbierto?viewCierre():""}`})()}
+     return `<div class="pills">${pb("entregados","ok",`✅ <b>${e}/${t}</b> trabajos entregados`)}${pb("pendientes","warn",`⏳ <b>${t-e}</b> pendientes`)}${pb("practicas","info",`🔄 <b>${pr}</b> prácticas`)}${pb("formativas","info",`🧩 Reporte de prácticas formativas`)}${pb("estudiantes","",`🎓 <b>${d.length}</b> estudiantes`)}${pb("codigo","",`📥 <b>${(APP.entregas||[]).length}</b> entregas por código`)}</div>${APP.pillVer?detallePill(APP.pillVer):""}${APP.cierreAbierto?viewCierre():""}`})()}
    <div class="stack">
     <details class="panel"${APP.modulosOpen!==false?" open":""} id="modulosBox"><summary style="cursor:pointer;font-weight:800;font-family:var(--f-display);font-size:1.05rem">🔓 Módulos habilitados</summary>
      <p class="muted" style="margin:8px 0 12px">Activa o desactiva cada módulo para todos los estudiantes a la vez. Empresas y Catálogo están disponibles siempre.</p>
@@ -1244,6 +1253,19 @@ function viewEntregas(){
 const VIEWS={};
 // «📂 Material entregado»: cada trabajo con su estado, el PDF de resultados (el estudiante
 // lo ve cuando el profe habilitó la descarga) y su trabajo comparado con la solución.
+const entregoTarde=c=>{const f=finVentana(c);return !!(c&&c.entregado&&f&&c.entregadoFecha&&new Date(c.entregadoFecha).getTime()>f)};
+const estadoFormativa=c=>c.entregado?(entregoTarde(c)?["tarde","🟠 Entregada tarde"]:["ok","✅ Entregada a tiempo"]):yaCerro(c)?(trabajoHecho(c)?["atr","⏳ No la entregó (quedó con avance)"]:["no","❌ No la realizó"]):["pen",finVentana(c)?"⏰ Pendiente":"⏳ En proceso"];
+const notaPct=c=>{try{const r=resumenInforme(c);return r.nota}catch(e){return null}};
+// «🧩 Mis prácticas formativas»: cuáles hizo, su resultado (sin valor para la nota) y la solución.
+function formativasEstudianteHTML(){
+  const cs=sortCos((APP.companies||[]).filter(esFormativa));if(!cs.length)return "";
+  const hechas=cs.filter(c=>c.entregado),ps=hechas.map(notaPct).filter(x=>x!=null),prom=ps.length?Math.round(ps.reduce((a,b)=>a+b,0)/ps.length):null;
+  const fila=c=>{const [k,t]=estadoFormativa(c),n=notaPct(c),f=finVentana(c),sol=veSolucionario(c);
+    return `<tr><td><b>${esc(c.name)}</b></td><td>${f?esc(fmtDate(new Date(f).toISOString())):'<small class="muted">Sin fecha</small>'}</td><td><span class="chip" style="font-size:.7rem;${k==="ok"?"background:var(--okbg,#e3f8ea);color:var(--ok)":k==="no"||k==="atr"?"background:var(--badbg);color:var(--bad)":""}">${t}</span></td>
+      <td class="num">${c.entregado&&n!=null?`<b>${n} %</b>`:'<small class="muted">—</small>'}</td><td>${sol?`<button class="btn sm primary" data-act="abrirComparacion" data-id="${esc(c.id)}">✅ Ver la solución</button>`:'<small class="muted">Al entregar</small>'}</td></tr>`};
+  return `<details class="panel" style="margin:8px 0" open><summary style="cursor:pointer;font-weight:800">🧩 Mis prácticas formativas <small class="muted" style="font-weight:400">· hiciste ${hechas.length} de ${cs.length}${prom!=null?` · promedio ${prom} %`:""} · no cuentan para la nota</small></summary>
+    <div class="tbl" style="margin-top:8px"><table><thead><tr><th>Práctica</th><th>Fecha de entrega</th><th>Estado</th><th>Resultado</th><th>Solución</th></tr></thead><tbody>${cs.map(fila).join("")}</tbody></table></div></details>`;
+}
 function materialEntregadoHTML(){
   if(!APP.me)return "";
   const prof=isTeacher()||APP.comoEstudiante;
@@ -1285,7 +1307,7 @@ VIEWS.empresas=()=>{
       ${isTeacher()?`<label class="btn sm ghost edit-only" style="cursor:pointer;">📎 Adjuntar PDF<input type="file" accept="application/pdf" data-adjuntar-pdf="${c.id}" style="display:none"></label>`:""}
       <button class="btn sm danger edit-only" data-act="delCo" data-id="${c.id}">Eliminar</button>`}</div>
   </article>`}).join("");
-  return `${!isTeacher()&&!APP.comoEstudiante&&!APP.viewing&&!APP.demo?materialEntregadoHTML():""}<div class="head"><div><div class="eyebrow">Paso 0</div><h2>${APP.viewing?"Empresas entregadas":"Mis empresas"}</h2>
+  return `${!isTeacher()&&!APP.comoEstudiante&&!APP.viewing&&!APP.demo?formativasEstudianteHTML()+materialEntregadoHTML():""}<div class="head"><div><div class="eyebrow">Paso 0</div><h2>${APP.viewing?"Empresas entregadas":"Mis empresas"}</h2>
     <p>Crea todas las empresas que necesites. Cada una lleva un código propio y tiene su catálogo, asientos y estados financieros.</p></div></div>
   <div class="stack">
    ${APP.companies.length?`<div class="cards">${cards}</div>`:`<div class="empty"><h3>Aún no tienes empresas</h3><p>Crea la primera con el formulario. Si quieres practicar, marca “Incluir asientos de ejemplo”.</p></div>`}

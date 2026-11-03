@@ -10,7 +10,7 @@ async function cargarTrabajosAulaConta(ids) {
 // Tipo y estado de cada trabajo de Aula de Conta, igual que en Aula de Conta:
 // las tareas, evaluativas y trabajos en casa se entregan una vez; al cerrar el
 // horario, lo que no se hizo queda «No realizó el trabajo en el tiempo asignado».
-const TIPOS_AC = { evaluativa: ["Práctica evaluativa", true], practica: ["Práctica general", false], tarea: ["Tarea", true], casa: ["Trabajo en casa", true] };
+const TIPOS_AC = { evaluativa: ["Práctica evaluativa", true], formativa: ["Práctica formativa (sin nota)", true], practica: ["Práctica general", false], tarea: ["Tarea", true], casa: ["Trabajo en casa", true] };
 function estadoTrabajoAC(c) {
   const cat = TIPOS_AC[c.categoria] ? c.categoria : "practica", una = TIPOS_AC[cat][1];
   const v = c.evalCfg && c.evalCfg.ventana, fin = v && v.fin ? new Date(v.fin) : null, cerrado = !!fin && Date.now() > fin.getTime();
@@ -39,7 +39,7 @@ const pctAC = v => v == null ? "—" : v + " %";
 function notaColorAC(n) { return n == null ? "var(--text-muted)" : n >= 70 ? "var(--ledger-green)" : "#b3261e"; }
 function tablaInformeAulaConta(filas) {
   if (!filas.length) return `<p class="empty">Todavía no hay trabajos en Aula de Conta.</p>`;
-  const notas = filas.map(f => f.r && f.r.nota).filter(n => n != null);
+  const notas = filas.filter(f => !/formativa/i.test(f.tipo)).map(f => f.r && f.r.nota).filter(n => n != null);
   const prom = notas.length ? Math.round(notas.reduce((t, n) => t + n, 0) / notas.length) : null;
   return `<div style="overflow-x:auto;"><table class="tabla" style="width:100%; border-collapse:collapse; font-size:0.88rem;">
     <thead><tr style="text-align:left;"><th>Trabajo</th><th>Tipo</th><th>Estado</th><th>Machote</th><th>Asiento planilla</th><th>Evaluación</th><th>Eval. machote</th><th>Eval. asiento</th><th>Nota</th><th>Trabajo y solución</th><th>Actualizado</th></tr></thead>
@@ -90,7 +90,7 @@ async function abrirInformeSeccionAulaConta(sec, students, destino) {
     const por = {}; rows.forEach(r => { por[r.estudiante_id] = r; });
     const lista = (students || []).map(st => {
       const filas = filasInformeAulaConta((por[st.id] || {}).companies, st.id);
-      const notas = filas.map(f => f.r && f.r.nota).filter(n => n != null);
+      const notas = filas.filter(f => !/formativa/i.test(f.tipo)).map(f => f.r && f.r.nota).filter(n => n != null);
       const prom = notas.length ? Math.round(notas.reduce((t, n) => t + n, 0) / notas.length) : null;
       return { st, filas, prom, n: filas.length };
     }).sort((a, b) => (a.st.apellido1 || "").localeCompare(b.st.apellido1 || ""));
