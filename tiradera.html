@@ -537,6 +537,40 @@ function retosEjemplo() {
     ], tiempo: 120 }
   ];
 }
+/* Retos de Contabilidad básica: 3 de cada tipo */
+function retosContabilidadBasica() {
+  return [
+    { id: uid(), tipo: "seleccion", pregunta: "¿Cuál es la ecuación contable fundamental?", opciones: ["Activo = Pasivo + Patrimonio", "Activo = Ingresos − Gastos", "Pasivo = Activo + Patrimonio", "Patrimonio = Activo + Pasivo"], correcta: 0, tiempo: 30 },
+    { id: uid(), tipo: "seleccion", pregunta: "La empresa compra mobiliario y lo paga de contado. ¿Cómo afecta la ecuación contable?", opciones: ["Aumenta un activo y disminuye otro activo", "Aumenta un activo y aumenta un pasivo", "Disminuye el patrimonio", "Aumentan los ingresos"], correcta: 0, tiempo: 30 },
+    { id: uid(), tipo: "seleccion", pregunta: "¿En qué libro se registran las transacciones en orden cronológico, por medio de asientos?", opciones: ["Libro mayor", "Libro diario", "Balance de comprobación", "Estado de resultados"], correcta: 1, tiempo: 30 },
+    { id: uid(), tipo: "vf", pregunta: "Las cuentas de activo aumentan por el debe (débito).", correcta: true, tiempo: 20 },
+    { id: uid(), tipo: "vf", pregunta: "En la partida doble, la suma de los débitos debe ser igual a la suma de los créditos.", correcta: true, tiempo: 20 },
+    { id: uid(), tipo: "vf", pregunta: "Las cuentas por pagar a proveedores son un activo de la empresa.", correcta: false, tiempo: 20 },
+    { id: uid(), tipo: "sopa", pregunta: "Encontrá las clases de cuentas", palabras: [{ palabra: "Activo" }, { palabra: "Pasivo" }, { palabra: "Patrimonio" }, { palabra: "Ingresos" }, { palabra: "Gastos" }, { palabra: "Capital" }], tiempo: 90 },
+    { id: uid(), tipo: "sopa", pregunta: "Encontrá los términos del registro contable", palabras: [{ palabra: "Diario" }, { palabra: "Mayor" }, { palabra: "Balance" }, { palabra: "Asiento" }, { palabra: "Cuenta" }, { palabra: "Saldo" }], tiempo: 90 },
+    { id: uid(), tipo: "sopa", pregunta: "Encontrá cuentas de activo", palabras: [{ palabra: "Caja" }, { palabra: "Bancos" }, { palabra: "Inventario" }, { palabra: "Mobiliario" }, { palabra: "Terreno" }, { palabra: "Edificio" }], tiempo: 90 },
+    { id: uid(), tipo: "cruci", pregunta: "Crucigrama: la ecuación contable", palabras: [
+      { palabra: "Activo", pista: "Bienes y derechos que posee la empresa" },
+      { palabra: "Pasivo", pista: "Obligaciones o deudas de la empresa con terceros" },
+      { palabra: "Patrimonio", pista: "Diferencia entre activos y pasivos: lo que pertenece a los dueños" },
+      { palabra: "Capital", pista: "Aporte que hacen los dueños o socios para iniciar la empresa" }
+    ], tiempo: 120 },
+    { id: uid(), tipo: "cruci", pregunta: "Crucigrama: el registro contable", palabras: [
+      { palabra: "Debe", pista: "Lado izquierdo de una cuenta, donde se anotan los débitos" },
+      { palabra: "Haber", pista: "Lado derecho de una cuenta, donde se anotan los créditos" },
+      { palabra: "Asiento", pista: "Registro de una transacción en el libro diario" },
+      { palabra: "Partida", pista: "Principio de la ___ doble: todo débito tiene su crédito" },
+      { palabra: "Saldo", pista: "Diferencia entre los débitos y los créditos de una cuenta" }
+    ], tiempo: 120 },
+    { id: uid(), tipo: "cruci", pregunta: "Crucigrama: los resultados de la empresa", palabras: [
+      { palabra: "Ingresos", pista: "Aumentos del patrimonio por ventas o prestación de servicios" },
+      { palabra: "Gastos", pista: "Disminuciones del patrimonio por la operación del negocio" },
+      { palabra: "Utilidad", pista: "Resultado cuando los ingresos son mayores que los gastos" },
+      { palabra: "Perdida", pista: "Resultado cuando los gastos son mayores que los ingresos" },
+      { palabra: "Ventas", pista: "Ingreso principal de una empresa comercial" }
+    ], tiempo: 120 }
+  ];
+}
 if (!Array.isArray(S.retos) || !S.retos.length) S.retos = retosEjemplo();
 const guardarRetos = () => {
   store.set("tiradera_retos", S.retos);
@@ -622,6 +656,7 @@ function vistaConfig() {
         <h2 style="flex:2 1 260px">🛠️ Retos de la partida</h2>
         <div style="flex:0 0 auto;display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn small ghost" id="btnEjemplo">Cargar ejemplo</button>
+          <button class="btn small" id="btnBasica" title="3 retos de cada tipo: selección, falso y verdadero, sopa de letras y crucigrama">📗 Contabilidad básica (12 retos)</button>
           <button class="btn small ghost" id="btnExport">Exportar</button>
           <label class="btn small ghost" style="cursor:pointer">Importar<input type="file" id="inImport" accept="application/json" hidden></label>
         </div>
@@ -667,6 +702,13 @@ function vistaConfig() {
     abrirPartida();
   };
   $("#btnVolver").onclick = vistaInicio;
+  $("#btnBasica").onclick = () => {
+    const agregar = S.retos.length && confirm("¿Agregar los 12 retos de Contabilidad básica a los que ya tenés?\n\nAceptar = agregarlos al final · Cancelar = elegir si reemplazar");
+    if (agregar) S.retos = S.retos.concat(retosContabilidadBasica());
+    else if (!S.retos.length || confirm("¿Reemplazar los retos actuales por los 12 de Contabilidad básica?")) S.retos = retosContabilidadBasica();
+    else return;
+    guardarRetos(); vistaConfig(); toast("📗 Retos de Contabilidad básica cargados ✓");
+  };
   $("#btnEjemplo").onclick = () => { if (confirm("¿Reemplazar los retos actuales por los de ejemplo?")) { S.retos = retosEjemplo(); guardarRetos(); vistaConfig(); } };
   $("#btnExport").onclick = () => {
     const blob = new Blob([JSON.stringify(S.retos, null, 2)], { type: "application/json" });
