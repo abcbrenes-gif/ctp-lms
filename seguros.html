@@ -830,7 +830,12 @@ async function verEntregas(t){
     if(error){$("#entEst").textContent="No se pudo: "+error;b.disabled=false;return}verEntregas(t)});
 }
 // ═══ Manual de pistas ═══
+const GUIA_PDF="media/guia-contabilidad-seguros.pdf";
 const MAN={
+  guia:()=>`<p style="margin:0 0 8px">Guía completa de <b>Contabilidad de Seguros</b> (SUGESE): catálogo de 14 dígitos, primas, siniestros, provisiones técnicas y reaseguro, con todos los asientos.</p>
+    <div class="actions" style="margin:0 0 10px"><a class="stat" style="text-decoration:none;color:var(--ink)" href="${GUIA_PDF}" target="_blank" rel="noopener">↗️ Abrir en otra pestaña</a><a class="stat" style="text-decoration:none;color:var(--ink)" href="${GUIA_PDF}" download="Guia_Contabilidad_de_Seguros.pdf">⬇️ Descargar PDF</a></div>
+    <iframe src="${GUIA_PDF}#view=FitH" title="Guía de Contabilidad de Seguros (PDF)" style="width:100%;height:62vh;border:2px solid var(--line);border-radius:14px;background:#fff"></iframe>
+    <p style="margin:6px 0 0;color:var(--mut);font-size:.82rem">Si en tu celular no se ve aquí, usa «Abrir en otra pestaña».</p>`,
   plan:()=>`<input id="buscaPlan" placeholder="🔎 Buscar por código o nombre…" style="width:100%;font:inherit;padding:10px 12px;border:2px solid var(--line);border-radius:12px;margin-bottom:10px">
     <table><thead><tr><th>Código</th><th>Cuenta</th><th>Clase</th></tr></thead><tbody id="planBody">${PLAN.map(a=>`<tr data-q="${esc((a.cod+" "+a.nom).toLowerCase())}"><td class="cd">${a.cod}</td><td>${esc(a.nom)}</td><td style="color:${CLASES[a.cl].c};font-weight:800">${CLASES[a.cl].n}</td></tr>`).join("")}</tbody></table>`,
   doble:()=>`<p><b>Partida doble:</b> en todo asiento, la suma del <b>Debe</b> es igual a la suma del <b>Haber</b>.</p>
@@ -846,8 +851,8 @@ const MAN={
     <h4>Provisión matemática</h4><p>Valor neto de las obligaciones del asegurador por seguros sobre la vida a la fecha de cierre.</p>
     <h4>Reaseguro</h4><p>Es el «seguro de las aseguradoras»: la entidad cedente transfiere parte de sus grandes riesgos a una reaseguradora.</p>`
 };
-const MTABS=[["plan","📚 Plan de cuentas"],["doble","⚖️ Partida doble"],["codigo","🔢 Código de 14 dígitos"],["reglas","📌 Reglas clave"]];
-function abrirManual(t){t=t||"plan";$("#mtabs").innerHTML=MTABS.map(([k,l])=>`<button class="${k===t?"on":""}" data-mt="${k}">${l}</button>`).join("");$("#mbody").innerHTML=MAN[t]();
+const MTABS=[["guia","📄 Guía (PDF)"],["plan","📚 Plan de cuentas"],["doble","⚖️ Partida doble"],["codigo","🔢 Código de 14 dígitos"],["reglas","📌 Reglas clave"]];
+function abrirManual(t){t=t||"guia";$("#mtabs").innerHTML=MTABS.map(([k,l])=>`<button class="${k===t?"on":""}" data-mt="${k}">${l}</button>`).join("");$("#mbody").innerHTML=MAN[t]();
   document.querySelectorAll("[data-mt]").forEach(b=>b.onclick=()=>abrirManual(b.dataset.mt));
   const q=$("#buscaPlan");if(q)q.oninput=()=>{const v=q.value.toLowerCase().trim();document.querySelectorAll("#planBody tr").forEach(r=>r.hidden=v&&!r.dataset.q.includes(v))};
   const d=$("#manual");if(!d.open)d.showModal()}
