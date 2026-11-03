@@ -981,6 +981,9 @@ function borradorHTML(g){
     <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end"><div class="field" style="flex:1 1 260px"><label>Indicación para la IA (opcional)</label><input data-bdinst="${i}" placeholder="Ej.: más exigente con la renta; menciona las cuotas obreras"></div><button class="btn sm pop" data-act="indMejorar" data-key="${esc(g.key)}" data-i="${i}">✨ Mejorar con IA</button></div></div>`).join("")}
    <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn sm primary" data-act="indGuardarBorr" data-key="${esc(g.key)}" data-mat="${esc((APP.indMat&&APP.indMat[g.key])||"")}">💾 Crear indicadores y vincular</button><button class="btn sm ghost" data-act="indDescartar" data-key="${esc(g.key)}">Descartar borrador</button></div></div>`;
 }
+function compsRowHTML(g){const ev=compsDe(g.rows[0]&&g.rows[0].c);
+  return `<div class="panel" style="margin-top:8px;padding:10px;border:2px solid var(--pop)" data-comps="${esc(g.key)}"><b style="font-size:.9rem">🎯 Qué cuenta para la nota de esta práctica</b><br><small class="muted">Desmarca lo que no vas a evaluar y pulsa «Guardar». Lo desmarcado sale como «No se evalúa» y no baja la nota.</small>
+   <div class="row" style="margin-top:6px;align-items:center;gap:10px;flex-wrap:wrap">${COMP_AC.map(([k,l])=>`<label style="display:inline-flex;gap:4px;align-items:center;font-size:.86rem"><input type="checkbox" data-comp="${k}" ${ev[k]?"checked":""}> ${l}</label>`).join("")}<button class="btn sm primary" data-act="guardarComps" data-key="${esc(g.key)}">💾 Guardar qué cuenta para la nota</button></div></div>`}
 function indicadorPanelHTML(g){
   const rows=g.rows,cfg=rows[0]&&rows[0].c.evalCfg&&rows[0].c.evalCfg.indicador;const multi=(rows[0]&&rows[0].c.evalCfg&&rows[0].c.evalCfg.indicadores)||[];const d=APP.indData;
   if(!d)return '<div class="loading">Cargando materias e indicadores…</div>';
@@ -1002,7 +1005,8 @@ function indicadorPanelHTML(g){
     ${(cfg||multi.length)?`<button class="btn sm primary" data-act="indSync" data-key="${esc(g.key)}">🔄 Subir notas ahora</button><button class="btn sm ghost" data-act="indQuitar" data-key="${esc(g.key)}">Desvincular</button>`:""}
    </div>
    ${borradorHTML(g)}
-   <div class="row" style="gap:12px;flex-wrap:wrap"><small class="muted">Elige qué evalúa cada indicador. Primero se genera un borrador que puedes revisar, editar y mejorar antes de crearlo:</small>
+   ${compsRowHTML(g)}
+   <div class="row" style="gap:12px;flex-wrap:wrap"><small class="muted">Solo para «✨ Generar borrador con IA»: elige qué evalúa cada indicador nuevo. Primero se genera un borrador que puedes revisar, editar y mejorar antes de crearlo:</small>
     <label><input type="checkbox" data-iacomp="machote" checked> Machote</label><label><input type="checkbox" data-iacomp="asiento" checked> Asiento de planilla</label><label><input type="checkbox" data-iacomp="evaluacion"> Evaluación</label></div></div>`;
 }
 function evControlesHTML(g,tab){
@@ -1175,7 +1179,7 @@ function viewPorEmpresa(){
      const entregadas=g.rows.filter(r=>r.c.entregado).length;
      return `<details class="panel" data-gkey="${esc(g.key)}"${APP.revOpen&&APP.revOpen[g.key]?" open":""}><summary style="cursor:pointer;font-weight:700">${chipCat(g.cat)} ${esc(g.name)} <small class="muted" style="font-weight:400">· ${g.rows.length} estudiante(s)${CATS[g.cat].una?` · ${entregadas} entregaron`:""}</small></summary>
       <div class="row" style="margin-top:8px"><button class="btn sm ${APP.revPrac&&APP.revPrac[g.key]?"primary":"pop"}" data-act="toggleRevPractica" data-key="${esc(g.key)}">📊 Evaluación y revisión de ${CATS[g.cat].practica?"esta práctica":"este trabajo"}</button></div>${APP.revPrac&&APP.revPrac[g.key]?revisionDePractica(g):""}
-      ${(()=>{const ev=compsDe(g.rows[0]&&g.rows[0].c);return `<div class="row" style="margin-top:8px;align-items:center;gap:10px;flex-wrap:wrap" data-comps="${esc(g.key)}"><b style="font-size:.86rem">🎯 Qué cuenta para la nota:</b>${COMP_AC.map(([k,l])=>`<label style="display:inline-flex;gap:4px;align-items:center;font-size:.84rem"><input type="checkbox" data-comp="${k}" ${ev[k]?"checked":""}> ${l}</label>`).join("")}<button class="btn sm pop" data-act="guardarComps" data-key="${esc(g.key)}">💾 Guardar</button></div>`})()}
+      ${compsRowHTML(g)}
       ${(()=>{const fins=g.rows.map(r=>finVentana(r.c)).filter(Boolean),f=fins.length?Math.max(...fins):null,mix=new Set(fins).size>1;
         const loc=t=>{if(!t)return "";const d=new Date(t),z=n=>String(n).padStart(2,"0");return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`};
         return `<div class="row" style="margin-top:8px;align-items:flex-end;gap:8px;flex-wrap:wrap" data-fentrega="${esc(g.key)}"><div class="field" style="flex:0 1 240px;margin:0"><label>📅 Fecha de entrega ${f?(Date.now()>f?'<span class="chip" style="font-size:.7rem">🔒 Cerrada</span>':'<span class="chip tG" style="font-size:.7rem">⏰ Abierta</span>'):'<small class="muted">(sin fecha)</small>'}</label><input type="datetime-local" data-fe value="${loc(f)}"></div>
