@@ -1005,3 +1005,13 @@ table.grades td.num.low { color: var(--danger-text); font-weight: 700; }
   box-shadow: 6px 0 8px -6px rgba(0,0,0,.25);
 }
 .grades-ancla thead tr:first-child th:first-child { z-index: 3; }
+
+/* 📑 Evaluación por sección */
+.evi-head h2{margin:0 0 .2rem}.evi-head p{margin:0 0 1rem;color:var(--text-muted)}
+.evi-cat{margin:0 0 1.6rem}.evi-cat h3{margin:0 0 .5rem}.evi-cat h3 small{font-weight:400;color:var(--text-muted)}
+.evi-scroll{overflow-x:auto}
+.evi-t{width:100%;border-collapse:collapse;font-size:.86rem;margin-bottom:.6rem}
+.evi-t th,.evi-t td{border:1px solid var(--paper-line);padding:.4rem .5rem;vertical-align:top;text-align:left}
+.evi-t thead th{background:var(--surface-soft)}
+.evi-notas th,.evi-notas td{text-align:center}.evi-notas td.evi-nom{text-align:left;white-space:nowrap;position:sticky;left:0;background-color:var(--paper);background-image:linear-gradient(var(--surface),var(--surface))}
+.evi-lnk{font-size:.72rem;font-weight:700;text-decoration:none}.evi-mut{color:var(--text-muted);font-size:.8rem}

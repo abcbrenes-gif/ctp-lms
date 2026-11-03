@@ -69,6 +69,7 @@ async function render() {
   if (hash === "#/asistencia/informe") return renderInformeAsistenciaSeccion();
   if (hash === "#/periodos") return renderPeriodos();
   if (hash === "#/bitacora") return renderBitacora();
+  if (hash === "#/evaluacion") return renderEvaluacionInforme();
   const progUnidadMatch = hash.match(/^#\/programa\/(.+)$/);
   if (progUnidadMatch) return renderProgramaUnidad(decodeURIComponent(progUnidadMatch[1]));
   if (apartadoMatch) return renderApartado(decodeURIComponent(apartadoMatch[1]), false);
@@ -268,6 +269,7 @@ async function renderHome() {
     { grupo: "estrategias", href: "#/evaluaciones", icono: "📊", titulo: "Rúbrica y Evaluaciones", sub: "Categorías e indicadores de nota", cta: "Ver rúbrica →" },
     { grupo: "estrategias", href: "#/estrategias", icono: "🧪", titulo: "Estrategias de evaluación", sub: `Catálogo de ${Object.keys(ESTRATEGIAS_EVALUACION).length} estrategias para trabajos asignados`, cta: "Ver catálogo →" },
     { grupo: "estrategias", href: "#/mediacion", icono: "🎓", titulo: "Estrategias de mediación", sub: `Catálogo de ${Object.keys(ESTRATEGIAS_MEDIACION).length} formas de dar la clase, con pasos y guía en vivo`, cta: "Ver catálogo →" },
+    { grupo: "estrategias", href: "#/evaluacion", icono: "📑", titulo: "Evaluación", sub: "Por sección: indicadores, trabajo que realizaron los estudiantes y notas, en PDF", cta: "Ver evaluación →" },
     { grupo: "estrategias", href: "#/bitacora", icono: "🕓", titulo: "Bitácora de ingresos", sub: "Quién entró a la plataforma, cuándo, a qué módulo y desde qué dispositivo", cta: "Ver bitácora →" },
     { grupo: "juegos", href: AULA_CONTABLE_URL, icono: "🧮", titulo: "Aula de Conta", sub: "Simulador del ciclo contable (NIC/NIIF)", cta: "Abrir aula →" },
     { grupo: "juegos", href: "liquidaciones.html", icono: "📑", titulo: "Liquidaciones laborales", sub: "Preaviso, cesantía, vacaciones y aguinaldo: calculadora paso a paso y práctica", cta: "Abrir →" },

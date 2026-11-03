@@ -10416,8 +10416,15 @@ if (typeof MutationObserver !== "undefined") {
 // indicador (práctica de Aula de Conta, liquidación, Misión Seguros, Memoria
 // Contable o la página del tema donde vive el trabajo).
 async function enlazarTrabajosCalificar(holder, indicadores, estudiantes) {
+  const { enlaces } = await enlacesTrabajosIndicadores(indicadores, estudiantes);
+  pintarEnlacesCalificar(holder, enlaces);
+}
+// Para cada «estudiante-indicador», a dónde está guardado su trabajo.
+// Devuelve { enlaces: { "est-ind": {href, titulo, hecho, ext} }, trabajoDe: { ind: "nombre del trabajo" } }.
+async function enlacesTrabajosIndicadores(indicadores, estudiantes) {
   const indIds = (indicadores || []).map(i => i.id), estIds = (estudiantes || []).map(e => e.id);
-  if (!indIds.length || !estIds.length) return;
+  const trabajoDe = {};
+  if (!indIds.length || !estIds.length) return { enlaces: {}, trabajoDe };
   const enlaces = {}; // "est-ind" -> { href, titulo, hecho }
   const poner = (est, ind, v) => { const k = `${est}-${ind}`; if (!enlaces[k] || (v.hecho && !enlaces[k].hecho)) enlaces[k] = v; };
   const [{ data: tcs }, acRows] = await Promise.all([
@@ -10428,6 +10435,7 @@ async function enlazarTrabajosCalificar(holder, indicadores, estudiantes) {
   (acRows || []).forEach(r => (r.companies || []).forEach(c => {
     const cf = c && c.evalCfg; if (!cf) return;
     const ids = [cf.indicador && cf.indicador.id, ...((cf.indicadores || []).map(x => x && x.id))].filter(x => x != null && setInd.has(String(x)));
+    ids.forEach(ind => { if (!trabajoDe[ind]) trabajoDe[ind] = `🧮 Aula de Conta · ${c.name || "práctica"}`; });
     ids.forEach(ind => poner(r.estudiante_id, ind, { href: `${AULA_CONTABLE_URL}?comparar=${encodeURIComponent(c.id)}&como_estudiante=${encodeURIComponent(r.estudiante_id)}`, titulo: `Aula de Conta · ${c.name || "práctica"}: su trabajo comparado con la solución`, hecho: true, ext: true }));
   }));
   // Trabajos de la plataforma ligados al indicador.
@@ -10439,6 +10447,7 @@ async function enlazarTrabajosCalificar(holder, indicadores, estudiantes) {
   }
   trabajos.forEach(t => {
     const est = (t.contenido_actividad || {}).estrategia;
+    if (!trabajoDe[t.indicador_id]) trabajoDe[t.indicador_id] = `${({ liquidacion_laboral: "📑 Liquidación", mision_seguros: "🛡️ Misión Seguros", ruta_laboral: "⚖️ Ruta Laboral", juego_memoria: "🧠 Memoria Contable", juego_tiradera: "⚡ La Tiradera" })[est] || ("📝 " + (NOMBRES_ACTIVIDAD[t.tipo_actividad] || "Trabajo"))} · ${t.titulo || ""}`;
     estIds.forEach(e => {
       const h = !!hechos[`${e}-${t.id}`], q = encodeURIComponent(e);
       let href = null, titulo = t.titulo || "Trabajo", ext = false;
@@ -10451,8 +10460,11 @@ async function enlazarTrabajosCalificar(holder, indicadores, estudiantes) {
       if (href) poner(e, t.indicador_id, { href, titulo, hecho: h, ext });
     });
   });
+  return { enlaces, trabajoDe };
+}
+function pintarEnlacesCalificar(holder, enlaces) {
   Object.entries(enlaces).forEach(([k, v]) => {
-    const i = k.indexOf("-"), est = k.slice(0, i), ind = k.slice(i + 1);
+    const i = k.lastIndexOf("-"), est = k.slice(0, i), ind = k.slice(i + 1);
     const sel = holder.querySelector(`[data-cal-masiva="${ind}"][data-estudiante="${est}"]`);
     if (!sel || sel.parentElement.querySelector(".cal-enlace")) return;
     const a = document.createElement("a");
@@ -10461,4 +10473,77 @@ async function enlazarTrabajosCalificar(holder, indicadores, estudiantes) {
     a.style.cssText = `display:block; margin-top:3px; font-size:0.72rem; font-weight:700; white-space:nowrap; text-decoration:none; color:${v.hecho ? "var(--ledger-green, #0a6cff)" : "var(--text-muted)"};`;
     sel.insertAdjacentElement("afterend", a);
   });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 📑 Evaluación: por sección, los indicadores de cada componente de la
+// rúbrica, el trabajo que los evalúa y lo que logró cada estudiante. Todo se
+// puede descargar en PDF (de la sección o una hoja por estudiante).
+// ═══════════════════════════════════════════════════════════════════════
+const NIVEL_PTS = { 3: "Avanzado", 2: "Intermedio", 1: "Inicial", 0: "Sin evidencia" };
+async function renderEvaluacionInforme() {
+  const matSel = Number(sessionStorage.getItem("eval_inf_mat")) || null;
+  app.innerHTML = `${topbar()}<div class="wrap"><a href="#/" class="btn secondary small" style="margin-bottom:1rem; display:inline-block;">&larr; Inicio</a>
+    <h1 style="margin:0 0 0.3rem;">📑 Evaluación</h1>
+    <p style="color:var(--text-muted); margin:0 0 1rem;">Por sección: los indicadores de cada componente, el trabajo con que se evalúa cada uno y lo que logró cada estudiante. Descárguelo en PDF.</p>
+    <div id="evi-barra" style="display:flex; gap:0.6rem; flex-wrap:wrap; align-items:flex-end; margin-bottom:1rem;">Cargando secciones…</div>
+    <div id="evi-cuerpo"></div></div>`;
+  bindTopbar();
+  const { data: mats } = await sb.from("materias").select("id, nombre, seccion").order("id");
+  const mat = (mats || []).find(m => m.id === matSel) || (mats || [])[0];
+  if (!mat) { document.getElementById("evi-barra").textContent = "No hay materias."; return; }
+  document.getElementById("evi-barra").innerHTML = `<label style="display:flex; flex-direction:column; font-size:0.8rem;">Sección y materia<select id="evi-mat">${mats.map(m => `<option value="${m.id}" ${m.id === mat.id ? "selected" : ""}>${escAC(m.seccion || "")} · ${escAC((m.nombre || "").trim())}</option>`).join("")}</select></label>
+    <button class="btn small" id="evi-pdf" type="button" disabled>🖨️ PDF de la sección</button>
+    <button class="btn secondary small" id="evi-pdf-est" type="button" disabled>🖨️ PDF por estudiante (una hoja c/u)</button>`;
+  document.getElementById("evi-mat").addEventListener("change", e => { sessionStorage.setItem("eval_inf_mat", e.target.value); renderEvaluacionInforme(); });
+  const cuerpo = document.getElementById("evi-cuerpo");
+  cuerpo.textContent = "Cargando indicadores y notas…";
+  const [{ data: cats }, { data: inds }, { data: em }] = await Promise.all([
+    sb.from("rubrica_categorias").select("*").order("orden"),
+    sb.from("indicadores").select("id, categoria, letra, descripcion, puntaje_maximo, fecha_evaluacion, orden, resultado_id").eq("materia_id", mat.id).order("orden"),
+    sb.from("estudiante_materias").select("estudiante_id").eq("materia_id", mat.id)]);
+  const ids = (em || []).map(x => x.estudiante_id);
+  const [{ data: est }, { data: cal }] = await Promise.all([
+    ids.length ? sb.from("estudiantes").select("id, nombre, apellido1, apellido2, seccion").in("id", ids) : { data: [] },
+    (inds || []).length && ids.length ? sb.from("calificaciones_indicador").select("indicador_id, estudiante_id, puntaje_obtenido").in("indicador_id", inds.map(i => i.id)).in("estudiante_id", ids) : { data: [] }]);
+  const estudiantes = (est || []).sort((a, b) => `${a.apellido1} ${a.apellido2} ${a.nombre}`.localeCompare(`${b.apellido1} ${b.apellido2} ${b.nombre}`, "es"));
+  const nombre = e => [e.apellido1, e.apellido2].filter(Boolean).join(" ") + ", " + e.nombre;
+  const nota = {}; (cal || []).forEach(c => { nota[`${c.estudiante_id}-${c.indicador_id}`] = c.puntaje_obtenido; });
+  const { enlaces, trabajoDe } = await enlacesTrabajosIndicadores(inds || [], estudiantes).catch(() => ({ enlaces: {}, trabajoDe: {} }));
+  const ordenLetra = (a, b) => (a.orden || 0) - (b.orden || 0) || String(a.letra).localeCompare(String(b.letra), "es", { numeric: true });
+  const grupos = (cats || []).map(c => ({ c, I: (inds || []).filter(i => i.categoria === c.nombre).sort(ordenLetra) })).filter(g => g.I.length);
+  const resCat = (eid, g) => { const max = g.I.reduce((t, i) => t + Number(i.puntaje_maximo || 0), 0), ob = g.I.reduce((t, i) => t + Number(nota[`${eid}-${i.id}`] || 0), 0);
+    return { ob, max, pct: max ? ob / max * 100 : null, aporte: max ? ob / max * Number(g.c.porcentaje || 0) : null }; };
+  const total = eid => grupos.reduce((t, g) => t + (resCat(eid, g).aporte || 0), 0);
+  const pesoTotal = grupos.reduce((t, g) => t + Number(g.c.porcentaje || 0), 0);
+  const fmt1 = v => v == null ? "—" : (Math.round(v * 10) / 10).toLocaleString("es-CR");
+  const celda = (eid, i) => { const v = nota[`${eid}-${i.id}`], l = enlaces[`${eid}-${i.id}`];
+    return `${v == null ? '<span class="evi-mut">—</span>' : `<b>${v}</b>`}${l ? `<br><a class="evi-lnk" href="${l.href}" ${l.ext ? 'target="_blank" rel="noopener"' : ""} title="${escAC(l.titulo)}">${l.hecho ? "🔗 Ver" : "🔗 Sin entregar"}</a>` : ""}`; };
+  const seccionHTML = enPdf => `
+    <div class="evi-head"><h2>${escAC(mat.seccion || "")} · ${escAC((mat.nombre || "").trim())}</h2><p>${estudiantes.length} estudiantes · ${(inds || []).length} indicadores · ${new Date().toLocaleDateString("es-CR", { dateStyle: "long" })}</p></div>
+    ${grupos.map(g => `<section class="evi-cat"><h3>${escAC(g.c.nombre)} <small>(${fmt1(Number(g.c.porcentaje || 0))} %)</small></h3>
+      <table class="evi-t"><thead><tr><th>Ind.</th><th>Descripción del indicador</th><th>Máx.</th><th>Fecha</th><th>Trabajo con que se evalúa</th></tr></thead><tbody>
+        ${g.I.map(i => `<tr><td><b>${escAC(i.letra)}</b></td><td>${escAC(i.descripcion || "")}</td><td>${i.puntaje_maximo}</td><td>${escAC(i.fecha_evaluacion || "—")}</td><td>${escAC(trabajoDe[i.id] || "Se califica a mano")}</td></tr>`).join("")}</tbody></table>
+      <div class="evi-scroll"><table class="evi-t evi-notas"><thead><tr><th>Estudiante</th>${g.I.map(i => `<th title="${escAC(i.descripcion || "")}">${escAC(i.letra)}</th>`).join("")}<th>Puntos</th><th>%</th><th>Aporte</th></tr></thead><tbody>
+        ${estudiantes.map(e => { const r = resCat(e.id, g); return `<tr><td class="evi-nom">${escAC(nombre(e))}</td>${g.I.map(i => `<td>${celda(e.id, i)}</td>`).join("")}<td>${r.ob}/${r.max}</td><td>${fmt1(r.pct)}</td><td><b>${fmt1(r.aporte)}</b></td></tr>`; }).join("") || `<tr><td colspan="${g.I.length + 4}">No hay estudiantes.</td></tr>`}</tbody></table></div></section>`).join("") || "<p>Esta sección todavía no tiene indicadores en la Rúbrica.</p>"}
+    ${grupos.length ? `<section class="evi-cat"><h3>Resumen de la sección <small>(componentes con indicadores: ${fmt1(pesoTotal)} %)</small></h3>
+      <div class="evi-scroll"><table class="evi-t evi-notas"><thead><tr><th>Estudiante</th>${grupos.map(g => `<th>${escAC(g.c.nombre)}<br><small>${fmt1(Number(g.c.porcentaje || 0))} %</small></th>`).join("")}<th>Total</th></tr></thead><tbody>
+        ${estudiantes.map(e => `<tr><td class="evi-nom">${escAC(nombre(e))}</td>${grupos.map(g => `<td>${fmt1(resCat(e.id, g).aporte)}</td>`).join("")}<td><b>${fmt1(total(e.id))}</b></td></tr>`).join("")}</tbody></table></div>
+      <p class="evi-mut">Aporte = puntos obtenidos ÷ puntos posibles × porcentaje del componente. No incluye componentes sin indicadores (por ejemplo, asistencia).</p></section>` : ""}`;
+  const estudianteHTML = e => `<div class="evi-hoja"><div class="evi-head"><h2>${escAC(nombre(e))}</h2><p>${escAC(mat.seccion || "")} · ${escAC((mat.nombre || "").trim())} · ${new Date().toLocaleDateString("es-CR", { dateStyle: "long" })}</p></div>
+    ${grupos.map(g => { const r = resCat(e.id, g); return `<section class="evi-cat"><h3>${escAC(g.c.nombre)} <small>(${fmt1(Number(g.c.porcentaje || 0))} %) · ${r.ob}/${r.max} puntos · aporte ${fmt1(r.aporte)}</small></h3>
+      <table class="evi-t"><thead><tr><th>Ind.</th><th>Indicador</th><th>Trabajo</th><th>Estado</th><th>Puntos</th><th>Nivel</th></tr></thead><tbody>
+      ${g.I.map(i => { const v = nota[`${e.id}-${i.id}`], l = enlaces[`${e.id}-${i.id}`]; return `<tr><td><b>${escAC(i.letra)}</b></td><td>${escAC(i.descripcion || "")}</td><td>${escAC(trabajoDe[i.id] || "Se califica a mano")}</td><td>${l ? (l.hecho ? `<a href="${new URL(l.href, location.href).href}">✓ Realizado</a>` : "Sin entregar") : (v != null ? "Calificado" : "—")}</td><td>${v == null ? "—" : `${v}/${i.puntaje_maximo}`}</td><td>${v == null ? "—" : Number(i.puntaje_maximo) === 3 ? NIVEL_PTS[v] || "" : ""}</td></tr>`; }).join("")}</tbody></table></section>`; }).join("")}
+    <p class="evi-total">Total de los componentes con indicadores: <b>${fmt1(total(e.id))}</b> de ${fmt1(pesoTotal)} %</p></div>`;
+  cuerpo.innerHTML = `<div class="evi">${seccionHTML(false)}</div>`;
+  const css = `body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:18px}h2{margin:0 0 2px;font-size:18px}h3{font-size:14px;margin:14px 0 6px}h3 small{font-weight:400;color:#555}
+    .evi-head p{margin:0 0 10px;color:#555;font-size:12px}table{border-collapse:collapse;width:100%;font-size:10.5px;margin-bottom:8px}th,td{border:1px solid #999;padding:4px 5px;vertical-align:top;text-align:left}thead th{background:#eef2fb}
+    .evi-notas td,.evi-notas th{text-align:center}.evi-notas td.evi-nom{text-align:left;white-space:nowrap}.evi-lnk{font-size:9px;color:#0a4fd1;text-decoration:none}.evi-mut{color:#777;font-size:10px}.evi-hoja{page-break-after:always}.evi-hoja:last-child{page-break-after:auto}
+    .evi-cat{page-break-inside:auto}.evi-total{font-size:13px;margin-top:10px}a{color:#0a4fd1}@page{size:landscape;margin:12mm}`;
+  const imprimir = (titulo, html) => { const w = window.open("", "_blank"); if (!w) { alert("Permita las ventanas emergentes para descargar el PDF."); return; }
+    w.document.write(`<html><head><meta charset="utf-8"><title>${escAC(titulo)}</title><style>${css}</style></head><body>${html}<script>setTimeout(()=>print(),400)<\/script></body></html>`); w.document.close(); };
+  const b1 = document.getElementById("evi-pdf"), b2 = document.getElementById("evi-pdf-est");
+  b1.disabled = false; b2.disabled = !estudiantes.length || !grupos.length;
+  b1.addEventListener("click", () => imprimir(`Evaluación ${mat.seccion || ""} ${(mat.nombre || "").trim()}`, seccionHTML(true).replace(/<a class="evi-lnk" href="([^"]+)"/g, (m, h) => `<a class="evi-lnk" href="${new URL(h, location.href).href}"`)));
+  b2.addEventListener("click", () => imprimir(`Evaluación por estudiante ${mat.seccion || ""}`, estudiantes.map(estudianteHTML).join("")));
 }
