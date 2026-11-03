@@ -1015,3 +1015,6 @@ table.grades td.num.low { color: var(--danger-text); font-weight: 700; }
 .evi-t thead th{background:var(--surface-soft)}
 .evi-notas th,.evi-notas td{text-align:center}.evi-notas td.evi-nom{text-align:left;white-space:nowrap;position:sticky;left:0;background-color:var(--paper);background-image:linear-gradient(var(--surface),var(--surface))}
 .evi-lnk{font-size:.72rem;font-weight:700;text-decoration:none}.evi-mut{color:var(--text-muted);font-size:.8rem}
+.evi-crit{margin:0;padding-left:1rem;font-size:.8rem}.evi-crit li{margin:.1rem 0}
+.evi-trab{margin:.3rem 0 .8rem}.evi-trab summary{cursor:pointer;font-weight:700}
+.evi-tbox{border:1px solid var(--paper-line);border-radius:10px;padding:.6rem .8rem;margin:.6rem 0}.evi-tbox h4{margin:0 0 .3rem}

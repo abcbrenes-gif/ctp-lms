@@ -10423,19 +10423,19 @@ async function enlazarTrabajosCalificar(holder, indicadores, estudiantes) {
 // Devuelve { enlaces: { "est-ind": {href, titulo, hecho, ext} }, trabajoDe: { ind: "nombre del trabajo" } }.
 async function enlacesTrabajosIndicadores(indicadores, estudiantes) {
   const indIds = (indicadores || []).map(i => i.id), estIds = (estudiantes || []).map(e => e.id);
-  const trabajoDe = {};
-  if (!indIds.length || !estIds.length) return { enlaces: {}, trabajoDe };
+  const trabajoDe = {}, infoDe = {};
+  if (!indIds.length || !estIds.length) return { enlaces: {}, trabajoDe, infoDe };
   const enlaces = {}; // "est-ind" -> { href, titulo, hecho }
   const poner = (est, ind, v) => { const k = `${est}-${ind}`; if (!enlaces[k] || (v.hecho && !enlaces[k].hecho)) enlaces[k] = v; };
   const [{ data: tcs }, acRows] = await Promise.all([
-    sb.from("trabajos_cotidianos").select("id, titulo, indicador_id, tipo_actividad, subtema_id, publicacion_id, contenido_actividad").in("indicador_id", indIds),
+    sb.from("trabajos_cotidianos").select("id, titulo, fecha, descripcion, indicador_id, tipo_actividad, subtema_id, publicacion_id, contenido_actividad").in("indicador_id", indIds),
     cargarTrabajosAulaConta(estIds).catch(() => [])]);
   // Aula de Conta: cada práctica del estudiante lleva su indicador en evalCfg.
   const setInd = new Set(indIds.map(String));
   (acRows || []).forEach(r => (r.companies || []).forEach(c => {
     const cf = c && c.evalCfg; if (!cf) return;
     const ids = [cf.indicador && cf.indicador.id, ...((cf.indicadores || []).map(x => x && x.id))].filter(x => x != null && setInd.has(String(x)));
-    ids.forEach(ind => { if (!trabajoDe[ind]) trabajoDe[ind] = `🧮 Aula de Conta · ${c.name || "práctica"}`; });
+    ids.forEach(ind => { if (!trabajoDe[ind]) { trabajoDe[ind] = `🧮 Aula de Conta · ${c.name || "práctica"}`; infoDe[ind] = { ac: c }; } });
     ids.forEach(ind => poner(r.estudiante_id, ind, { href: `${AULA_CONTABLE_URL}?comparar=${encodeURIComponent(c.id)}&como_estudiante=${encodeURIComponent(r.estudiante_id)}`, titulo: `Aula de Conta · ${c.name || "práctica"}: su trabajo comparado con la solución`, hecho: true, ext: true }));
   }));
   // Trabajos de la plataforma ligados al indicador.
@@ -10447,6 +10447,7 @@ async function enlacesTrabajosIndicadores(indicadores, estudiantes) {
   }
   trabajos.forEach(t => {
     const est = (t.contenido_actividad || {}).estrategia;
+    if (!infoDe[t.indicador_id]) infoDe[t.indicador_id] = { tc: t };
     if (!trabajoDe[t.indicador_id]) trabajoDe[t.indicador_id] = `${({ liquidacion_laboral: "📑 Liquidación", mision_seguros: "🛡️ Misión Seguros", ruta_laboral: "⚖️ Ruta Laboral", juego_memoria: "🧠 Memoria Contable", juego_tiradera: "⚡ La Tiradera" })[est] || ("📝 " + (NOMBRES_ACTIVIDAD[t.tipo_actividad] || "Trabajo"))} · ${t.titulo || ""}`;
     estIds.forEach(e => {
       const h = !!hechos[`${e}-${t.id}`], q = encodeURIComponent(e);
@@ -10460,7 +10461,35 @@ async function enlacesTrabajosIndicadores(indicadores, estudiantes) {
       if (href) poner(e, t.indicador_id, { href, titulo, hecho: h, ext });
     });
   });
-  return { enlaces, trabajoDe };
+  return { enlaces, trabajoDe, infoDe };
+}
+// El trabajo que se puso a realizar, en HTML para ver o imprimir.
+function limpiarHtmlTrabajo(h) { return String(h || "").replace(/<script[\s\S]*?<\/script>/gi, "").replace(/\son\w+="[^"]*"/gi, "").replace(/\son\w+='[^']*'/gi, ""); }
+function trabajoAsignadoHTML(info, conRespuestas) {
+  if (!info) return "";
+  const e = escAC, m = v => "₡" + Number(v || 0).toLocaleString("es-CR");
+  if (info.ac) {
+    const c = info.ac, emp = (c.payroll && c.payroll.employees) || [], fin = c.evalCfg && c.evalCfg.ventana && c.evalCfg.ventana.fin;
+    return `<p><b>${e(c.name || "Práctica")}</b> · Aula de Conta · ${e(({ evaluativa: "Práctica evaluativa", formativa: "Práctica formativa", practica: "Práctica general", tarea: "Tarea", casa: "Trabajo en casa" })[c.categoria] || "Práctica")}${c.nivelPractica ? " · nivel " + e(c.nivelPractica) : ""}${fin ? " · entrega " + e(new Date(fin).toLocaleString("es-CR", { dateStyle: "medium", timeStyle: "short" })) : ""}</p>
+      ${c.pdfInstrucciones ? `<p>📄 Instrucciones en PDF: <a href="${e(c.pdfInstrucciones)}">${e(c.pdfInstrucciones)}</a></p>` : ""}
+      ${emp.length ? `<table class="evi-t"><thead><tr><th>Colaborador</th><th>Puesto</th><th>Salario base</th><th>Horas extra</th><th>Comisiones</th><th>Ausencias</th><th>Horas tarde</th><th>Jornada</th><th>Pago</th><th>Hijos / cónyuge</th></tr></thead><tbody>${emp.map(x => `<tr><td>${e(x.nombre)}</td><td>${e(x.puesto || "")}</td><td>${m(x.base)}</td><td>${x.horasExtra || 0}</td><td>${m(x.comisiones)}</td><td>${x.diasAusencia || 0} días</td><td>${x.horasTarde || 0}</td><td>${e(x.jornada || "")}</td><td>${e(x.tipoPago || "")}</td><td>${x.hijos || 0} / ${x.conyuge ? "sí" : "no"}</td></tr>`).join("")}</tbody></table>` : ""}`;
+  }
+  const t = info.tc, C = t.contenido_actividad || {}, ok = v => conRespuestas ? ` <b style="color:#15803d">✓</b>` : "";
+  let h = `<p><b>${e(t.titulo || "Trabajo")}</b> · ${e(NOMBRES_ACTIVIDAD[t.tipo_actividad] || "Trabajo")}${t.fecha ? " · " + e(t.fecha) : ""}${C.fecha_limite ? " · entrega " + e(C.fecha_limite) : ""}</p>`;
+  if (t.descripcion) h += `<div class="evi-desc">${limpiarHtmlTrabajo(t.descripcion)}</div>`;
+  const preg = C.preguntas || [];
+  if (preg.length) h += `<ol>${preg.map(q => `<li>${e(q.pregunta || q.enunciado || "")}${Array.isArray(q.opciones) ? `<ol type="a">${q.opciones.map((o, i) => `<li>${e(o)}${i === q.correcta ? ok() : ""}</li>`).join("")}</ol>` : ""}</li>`).join("")}</ol>`;
+  const af = C.afirmaciones || [];
+  if (af.length) h += `<ol>${af.map(a => `<li>${e(a.texto || a.afirmacion || "")}${conRespuestas ? ` <b>(${a.correcta || a.verdadera ? "Verdadero" : "Falso"})</b>` : " (V / F)"}</li>`).join("")}</ol>`;
+  const pal = C.palabras || C.pares || [];
+  if (pal.length) h += `<ul>${pal.map(w => `<li>${e(w.pista || w.definicion || "")}${w.pista || w.definicion ? " → " : ""}${conRespuestas || !(w.pista || w.definicion) ? `<b>${e(w.palabra || w.termino || "")}</b>` : "________"}</li>`).join("")}</ul>`;
+  const cp = C.casoPractico; if (cp && (cp.enunciado || cp.instruccion)) h += `<p><b>Caso práctico:</b> ${e(cp.enunciado || "")}</p>${cp.instruccion ? `<p>${e(cp.instruccion)}</p>` : ""}`;
+  if (C.estrategia === "liquidacion_laboral") { const P = C.liq_practica; if (P) h += `<p><b>${e(P.titulo || "Caso")}</b>${P.empresa ? " · " + e(P.empresa) : ""}</p>${P.enunciado ? `<p>${e(P.enunciado)}</p>` : ""}${(P.empleados || []).length ? `<ul>${P.empleados.map(x => `<li>${e(x.caso && x.caso.nombre || x.nombre || "Empleado")}</li>`).join("")}</ul>` : ""}`; else if (C.liq_caso) h += `<p>Caso de liquidación de ${e(C.liq_caso.nombre || "un trabajador")}.</p>`; }
+  if (C.estrategia === "mision_seguros") h += `<p>Misión Seguros: ${(C.seg_misiones || []).length} asientos contables (${(C.seg_misiones || []).map(x => e(x.base)).join(", ")}). ${e(C.seg_desc || "")}</p>`;
+  if (C.estrategia === "ruta_laboral") h += `<ol>${(C.lab_pasos || []).filter(p => p.k !== "intro").map(p => `<li>${limpiarHtmlTrabajo(p.txt)}${p.o ? `<ol type="a">${p.o.map((o, i) => `<li>${e(o)}${i === p.r ? ok() : ""}</li>`).join("")}</ol>` : ""}${p.k === "tf" && conRespuestas ? ` <b>(${p.r ? "Verdadero" : "Falso"})</b>` : ""}${p.k === "num" && conRespuestas ? ` <b>→ ${Math.round(p.ok * 100) / 100}${p.u ? " " + e(p.u) : ""}</b>` : ""}</li>`).join("")}</ol>`;
+  if (C.estrategia === "juego_tiradera" && (C.tiradera_retos || []).length) h += `<ol>${C.tiradera_retos.map(r => `<li>${e(r.pregunta || "")}</li>`).join("")}</ol>`;
+  if ((C.criterios || []).length) h += `<p><b>Criterios del instrumento:</b></p><ul>${C.criterios.map(c => `<li>${e(c.nombre)} (${c.puntos_max} pts)</li>`).join("")}</ul>`;
+  return h;
 }
 function pintarEnlacesCalificar(holder, enlaces) {
   Object.entries(enlaces).forEach(([k, v]) => {
@@ -10494,7 +10523,9 @@ async function renderEvaluacionInforme() {
   if (!mat) { document.getElementById("evi-barra").textContent = "No hay materias."; return; }
   document.getElementById("evi-barra").innerHTML = `<label style="display:flex; flex-direction:column; font-size:0.8rem;">Sección y materia<select id="evi-mat">${mats.map(m => `<option value="${m.id}" ${m.id === mat.id ? "selected" : ""}>${escAC(m.seccion || "")} · ${escAC((m.nombre || "").trim())}</option>`).join("")}</select></label>
     <button class="btn small" id="evi-pdf" type="button" disabled>🖨️ PDF de la sección</button>
-    <button class="btn secondary small" id="evi-pdf-est" type="button" disabled>🖨️ PDF por estudiante (una hoja c/u)</button>`;
+    <button class="btn secondary small" id="evi-pdf-est" type="button" disabled>🖨️ PDF por estudiante (una hoja c/u)</button>
+    <button class="btn secondary small" id="evi-pdf-trab" type="button" disabled>🖨️ PDF de indicadores, criterios y trabajos</button>
+    <label style="font-size:0.8rem; display:flex; align-items:center; gap:0.3rem;"><input type="checkbox" id="evi-resp" checked> con respuestas correctas</label>`;
   document.getElementById("evi-mat").addEventListener("change", e => { sessionStorage.setItem("eval_inf_mat", e.target.value); renderEvaluacionInforme(); });
   const cuerpo = document.getElementById("evi-cuerpo");
   cuerpo.textContent = "Cargando indicadores y notas…";
@@ -10503,13 +10534,17 @@ async function renderEvaluacionInforme() {
     sb.from("indicadores").select("id, categoria, letra, descripcion, puntaje_maximo, fecha_evaluacion, orden, resultado_id").eq("materia_id", mat.id).order("orden"),
     sb.from("estudiante_materias").select("estudiante_id").eq("materia_id", mat.id)]);
   const ids = (em || []).map(x => x.estudiante_id);
-  const [{ data: est }, { data: cal }] = await Promise.all([
+  const [{ data: est }, { data: cal }, { data: crit }] = await Promise.all([
     ids.length ? sb.from("estudiantes").select("id, nombre, apellido1, apellido2, seccion").in("id", ids) : { data: [] },
-    (inds || []).length && ids.length ? sb.from("calificaciones_indicador").select("indicador_id, estudiante_id, puntaje_obtenido").in("indicador_id", inds.map(i => i.id)).in("estudiante_id", ids) : { data: [] }]);
+    (inds || []).length && ids.length ? sb.from("calificaciones_indicador").select("indicador_id, estudiante_id, puntaje_obtenido").in("indicador_id", inds.map(i => i.id)).in("estudiante_id", ids) : { data: [] },
+    (inds || []).length ? sb.from("criterios_indicador").select("indicador_id, puntaje, nivel, descripcion").in("indicador_id", inds.map(i => i.id)) : { data: [] }]);
+  const critDe = {}; (crit || []).forEach(c => { (critDe[c.indicador_id] = critDe[c.indicador_id] || []).push(c); });
+  Object.values(critDe).forEach(l => l.sort((a, b) => b.puntaje - a.puntaje));
+  const criteriosHTML = i => { const L = critDe[i.id] || []; return L.length ? `<ul class="evi-crit">${L.map(c => `<li><b>${c.puntaje} pts${c.nivel ? " · " + escAC(c.nivel) : ""}:</b> ${escAC(c.descripcion || "")}</li>`).join("")}</ul>` : '<span class="evi-mut">Sin criterios</span>'; };
   const estudiantes = (est || []).sort((a, b) => `${a.apellido1} ${a.apellido2} ${a.nombre}`.localeCompare(`${b.apellido1} ${b.apellido2} ${b.nombre}`, "es"));
   const nombre = e => [e.apellido1, e.apellido2].filter(Boolean).join(" ") + ", " + e.nombre;
   const nota = {}; (cal || []).forEach(c => { nota[`${c.estudiante_id}-${c.indicador_id}`] = c.puntaje_obtenido; });
-  const { enlaces, trabajoDe } = await enlacesTrabajosIndicadores(inds || [], estudiantes).catch(() => ({ enlaces: {}, trabajoDe: {} }));
+  const { enlaces, trabajoDe, infoDe } = await enlacesTrabajosIndicadores(inds || [], estudiantes).catch(() => ({ enlaces: {}, trabajoDe: {}, infoDe: {} }));
   const ordenLetra = (a, b) => (a.orden || 0) - (b.orden || 0) || String(a.letra).localeCompare(String(b.letra), "es", { numeric: true });
   const grupos = (cats || []).map(c => ({ c, I: (inds || []).filter(i => i.categoria === c.nombre).sort(ordenLetra) })).filter(g => g.I.length);
   const resCat = (eid, g) => { const max = g.I.reduce((t, i) => t + Number(i.puntaje_maximo || 0), 0), ob = g.I.reduce((t, i) => t + Number(nota[`${eid}-${i.id}`] || 0), 0);
@@ -10522,14 +10557,20 @@ async function renderEvaluacionInforme() {
   const seccionHTML = enPdf => `
     <div class="evi-head"><h2>${escAC(mat.seccion || "")} · ${escAC((mat.nombre || "").trim())}</h2><p>${estudiantes.length} estudiantes · ${(inds || []).length} indicadores · ${new Date().toLocaleDateString("es-CR", { dateStyle: "long" })}</p></div>
     ${grupos.map(g => `<section class="evi-cat"><h3>${escAC(g.c.nombre)} <small>(${fmt1(Number(g.c.porcentaje || 0))} %)</small></h3>
-      <table class="evi-t"><thead><tr><th>Ind.</th><th>Descripción del indicador</th><th>Máx.</th><th>Fecha</th><th>Trabajo con que se evalúa</th></tr></thead><tbody>
-        ${g.I.map(i => `<tr><td><b>${escAC(i.letra)}</b></td><td>${escAC(i.descripcion || "")}</td><td>${i.puntaje_maximo}</td><td>${escAC(i.fecha_evaluacion || "—")}</td><td>${escAC(trabajoDe[i.id] || "Se califica a mano")}</td></tr>`).join("")}</tbody></table>
+      <table class="evi-t"><thead><tr><th>Ind.</th><th>Descripción del indicador</th><th>Criterios de evaluación</th><th>Máx.</th><th>Fecha</th><th>Trabajo con que se evalúa</th></tr></thead><tbody>
+        ${g.I.map(i => `<tr><td><b>${escAC(i.letra)}</b></td><td>${escAC(i.descripcion || "")}</td><td>${criteriosHTML(i)}</td><td>${i.puntaje_maximo}</td><td>${escAC(i.fecha_evaluacion || "—")}</td><td>${escAC(trabajoDe[i.id] || "Se califica a mano")}</td></tr>`).join("")}</tbody></table>
+      ${enPdf ? "" : `<details class="evi-trab"><summary>📄 Ver los trabajos que se pusieron a realizar (${g.I.filter(i => infoDe[i.id]).length})</summary>${g.I.filter(i => infoDe[i.id]).map(i => `<div class="evi-tbox"><h4>Indicador ${escAC(i.letra)}</h4>${trabajoAsignadoHTML(infoDe[i.id], true)}</div>`).join("") || '<p class="evi-mut">Ninguno de estos indicadores tiene un trabajo guardado en la plataforma.</p>'}</details>`}
       <div class="evi-scroll"><table class="evi-t evi-notas"><thead><tr><th>Estudiante</th>${g.I.map(i => `<th title="${escAC(i.descripcion || "")}">${escAC(i.letra)}</th>`).join("")}<th>Puntos</th><th>%</th><th>Aporte</th></tr></thead><tbody>
         ${estudiantes.map(e => { const r = resCat(e.id, g); return `<tr><td class="evi-nom">${escAC(nombre(e))}</td>${g.I.map(i => `<td>${celda(e.id, i)}</td>`).join("")}<td>${r.ob}/${r.max}</td><td>${fmt1(r.pct)}</td><td><b>${fmt1(r.aporte)}</b></td></tr>`; }).join("") || `<tr><td colspan="${g.I.length + 4}">No hay estudiantes.</td></tr>`}</tbody></table></div></section>`).join("") || "<p>Esta sección todavía no tiene indicadores en la Rúbrica.</p>"}
     ${grupos.length ? `<section class="evi-cat"><h3>Resumen de la sección <small>(componentes con indicadores: ${fmt1(pesoTotal)} %)</small></h3>
       <div class="evi-scroll"><table class="evi-t evi-notas"><thead><tr><th>Estudiante</th>${grupos.map(g => `<th>${escAC(g.c.nombre)}<br><small>${fmt1(Number(g.c.porcentaje || 0))} %</small></th>`).join("")}<th>Total</th></tr></thead><tbody>
         ${estudiantes.map(e => `<tr><td class="evi-nom">${escAC(nombre(e))}</td>${grupos.map(g => `<td>${fmt1(resCat(e.id, g).aporte)}</td>`).join("")}<td><b>${fmt1(total(e.id))}</b></td></tr>`).join("")}</tbody></table></div>
       <p class="evi-mut">Aporte = puntos obtenidos ÷ puntos posibles × porcentaje del componente. No incluye componentes sin indicadores (por ejemplo, asistencia).</p></section>` : ""}`;
+  const dossierHTML = conResp => `<div class="evi-head"><h2>Indicadores, criterios y trabajos · ${escAC(mat.seccion || "")} · ${escAC((mat.nombre || "").trim())}</h2><p>${(inds || []).length} indicadores · ${new Date().toLocaleDateString("es-CR", { dateStyle: "long" })}${conResp ? " · con respuestas correctas" : ""}</p></div>
+    ${grupos.map(g => `<section class="evi-cat"><h3>${escAC(g.c.nombre)} <small>(${fmt1(Number(g.c.porcentaje || 0))} %)</small></h3>
+      ${g.I.map(i => `<div class="evi-tbox"><h4>Indicador ${escAC(i.letra)} · ${escAC(i.descripcion || "")} <small>(máx. ${i.puntaje_maximo} pts${i.fecha_evaluacion ? " · " + escAC(i.fecha_evaluacion) : ""})</small></h4>
+        <p><b>Criterios de evaluación:</b></p>${criteriosHTML(i)}
+        <p><b>Trabajo que se puso a realizar:</b> ${escAC(trabajoDe[i.id] || "Se califica a mano (no hay trabajo guardado en la plataforma)")}</p>${trabajoAsignadoHTML(infoDe[i.id], conResp)}</div>`).join("")}</section>`).join("")}`;
   const estudianteHTML = e => `<div class="evi-hoja"><div class="evi-head"><h2>${escAC(nombre(e))}</h2><p>${escAC(mat.seccion || "")} · ${escAC((mat.nombre || "").trim())} · ${new Date().toLocaleDateString("es-CR", { dateStyle: "long" })}</p></div>
     ${grupos.map(g => { const r = resCat(e.id, g); return `<section class="evi-cat"><h3>${escAC(g.c.nombre)} <small>(${fmt1(Number(g.c.porcentaje || 0))} %) · ${r.ob}/${r.max} puntos · aporte ${fmt1(r.aporte)}</small></h3>
       <table class="evi-t"><thead><tr><th>Ind.</th><th>Indicador</th><th>Trabajo</th><th>Estado</th><th>Puntos</th><th>Nivel</th></tr></thead><tbody>
@@ -10539,11 +10580,13 @@ async function renderEvaluacionInforme() {
   const css = `body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:18px}h2{margin:0 0 2px;font-size:18px}h3{font-size:14px;margin:14px 0 6px}h3 small{font-weight:400;color:#555}
     .evi-head p{margin:0 0 10px;color:#555;font-size:12px}table{border-collapse:collapse;width:100%;font-size:10.5px;margin-bottom:8px}th,td{border:1px solid #999;padding:4px 5px;vertical-align:top;text-align:left}thead th{background:#eef2fb}
     .evi-notas td,.evi-notas th{text-align:center}.evi-notas td.evi-nom{text-align:left;white-space:nowrap}.evi-lnk{font-size:9px;color:#0a4fd1;text-decoration:none}.evi-mut{color:#777;font-size:10px}.evi-hoja{page-break-after:always}.evi-hoja:last-child{page-break-after:auto}
-    .evi-cat{page-break-inside:auto}.evi-total{font-size:13px;margin-top:10px}a{color:#0a4fd1}@page{size:landscape;margin:12mm}`;
+    .evi-cat{page-break-inside:auto}.evi-crit{margin:0;padding-left:14px}.evi-crit li{margin:1px 0}.evi-tbox{border:1px solid #bbb;border-radius:6px;padding:6px 10px;margin:8px 0;page-break-inside:avoid}.evi-tbox h4{margin:0 0 4px;font-size:12.5px}.evi-tbox p,.evi-tbox li{font-size:11px}.evi-desc{font-size:11px}.evi-total{font-size:13px;margin-top:10px}a{color:#0a4fd1}@page{size:landscape;margin:12mm}`;
   const imprimir = (titulo, html) => { const w = window.open("", "_blank"); if (!w) { alert("Permita las ventanas emergentes para descargar el PDF."); return; }
     w.document.write(`<html><head><meta charset="utf-8"><title>${escAC(titulo)}</title><style>${css}</style></head><body>${html}<script>setTimeout(()=>print(),400)<\/script></body></html>`); w.document.close(); };
   const b1 = document.getElementById("evi-pdf"), b2 = document.getElementById("evi-pdf-est");
   b1.disabled = false; b2.disabled = !estudiantes.length || !grupos.length;
   b1.addEventListener("click", () => imprimir(`Evaluación ${mat.seccion || ""} ${(mat.nombre || "").trim()}`, seccionHTML(true).replace(/<a class="evi-lnk" href="([^"]+)"/g, (m, h) => `<a class="evi-lnk" href="${new URL(h, location.href).href}"`)));
   b2.addEventListener("click", () => imprimir(`Evaluación por estudiante ${mat.seccion || ""}`, estudiantes.map(estudianteHTML).join("")));
+  const b3 = document.getElementById("evi-pdf-trab"); b3.disabled = !grupos.length;
+  b3.addEventListener("click", () => imprimir(`Indicadores, criterios y trabajos ${mat.seccion || ""}`, dossierHTML(document.getElementById("evi-resp").checked)));
 }
