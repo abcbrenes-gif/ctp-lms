@@ -769,7 +769,7 @@ async function readDelivery(txt){
   const p=JSON.parse(w.p);if(!Array.isArray(p.companies))throw new Error("El código no contiene empresas.");
   return {payload:p,check:w.h};
 }
-const vcode=h=>(h.slice(0,4)+"-"+h.slice(4,8)).toUpperCase();
+const vcode=h=>h?(String(h).slice(0,4)+"-"+String(h).slice(4,8)).toUpperCase():"directa";
 
 function viewEntregar(){
   const le=APP.lastEntregaGeneral;
@@ -1171,6 +1171,11 @@ function viewPorEmpresa(){
      const entregadas=g.rows.filter(r=>r.c.entregado).length;
      return `<details class="panel" data-gkey="${esc(g.key)}"${APP.revOpen&&APP.revOpen[g.key]?" open":""}><summary style="cursor:pointer;font-weight:700">${chipCat(g.cat)} ${esc(g.name)} <small class="muted" style="font-weight:400">· ${g.rows.length} estudiante(s)${CATS[g.cat].una?` · ${entregadas} entregaron`:""}</small></summary>
       <div class="row" style="margin-top:8px"><button class="btn sm ${APP.revPrac&&APP.revPrac[g.key]?"primary":"pop"}" data-act="toggleRevPractica" data-key="${esc(g.key)}">📊 Evaluación y revisión de ${CATS[g.cat].practica?"esta práctica":"este trabajo"}</button></div>${APP.revPrac&&APP.revPrac[g.key]?revisionDePractica(g):""}
+      ${(()=>{const fins=g.rows.map(r=>finVentana(r.c)).filter(Boolean),f=fins.length?Math.max(...fins):null,mix=new Set(fins).size>1;
+        const loc=t=>{if(!t)return "";const d=new Date(t),z=n=>String(n).padStart(2,"0");return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`};
+        return `<div class="row" style="margin-top:8px;align-items:flex-end;gap:8px;flex-wrap:wrap" data-fentrega="${esc(g.key)}"><div class="field" style="flex:0 1 240px;margin:0"><label>📅 Fecha de entrega ${f?(Date.now()>f?'<span class="chip" style="font-size:.7rem">🔒 Cerrada</span>':'<span class="chip tG" style="font-size:.7rem">⏰ Abierta</span>'):'<small class="muted">(sin fecha)</small>'}</label><input type="datetime-local" data-fe value="${loc(f)}"></div>
+          <button class="btn sm pop" data-act="fechaEntrega" data-key="${esc(g.key)}">💾 Guardar fecha de entrega</button>${f?`<button class="btn sm ghost" data-act="fechaEntregaQuitar" data-key="${esc(g.key)}">Quitar fecha</button>`:""}
+          <small class="muted">${mix?"Hay estudiantes con prórroga: se muestra la fecha más tardía. Guardar pone la misma fecha a todos. ":""}A esa hora se cierra: el estudiante puede ver pero ya no guardar ni entregar.</small></div>`})()}
       ${(()=>{const fin=g.rows.filter(r=>unaEntrega(r.c)&&noRealizado(r.c)==="avance");return fin.length?`<div class="row" style="margin-top:8px;align-items:center"><span class="chip" style="font-size:.78rem;background:var(--badbg);color:var(--bad)">❌ ${fin.length} no entregaron a tiempo pero tienen avance</span><button class="btn sm pop" data-act="finalizarTodos" data-key="${esc(g.key)}">✅ Finalizarlos y marcarlos como entregados</button></div>`:""})()}
       ${(()=>{const cand=g.rows.filter(r=>r.c.payroll&&(r.c.payroll.employees||[]).length&&!r.c.entregado&&!plV2(r.c.payroll));return cand.length?`<div class="row" style="margin-top:8px;align-items:center"><span class="chip tG" style="font-size:.78rem">🧾 ${cand.length} estudiante(s) tienen el machote de antes (empieza en el salario bruto)</span><button class="btn sm pop" data-act="machoteNuevo" data-key="${esc(g.key)}">🆕 Pasar al machote nuevo (salario base, extras y comisiones, rebajos)</button></div>`:""})()}
       ${(()=>{const t=tipoDelProfe(g);return t&&t!==g.cat?`<div class="row" style="margin-top:8px;align-items:center"><span class="chip tG" style="font-size:.78rem">⚠️ En su cuenta es ${CATS[t].icon} ${CATS[t].corto}, pero ${g.rows.length} estudiante(s) la tienen como ${CATS[g.cat].icon} ${CATS[g.cat].corto}</span><button class="btn sm pop" data-act="igualarTipo" data-key="${esc(g.key)}">🔁 Igualar el tipo al de mi cuenta</button></div>`:""})()}
@@ -1683,13 +1688,13 @@ async function subirPdfPractica(blob,companyId){
 // la solución) y la MISMA empresa, con los mismos datos y el mismo PDF,
 // directo en la cuenta de cada estudiante — así nadie tiene que digitarla
 // a mano ni armar el PDF aparte, y no hay margen de error de copiado.
-async function crearPracticaParaClase({nombreEmpresa,cantidad,seccion,nivel:nivelElegido,categoria="practica"}){
+async function crearPracticaParaClase({nombreEmpresa,cantidad,seccion,nivel:nivelElegido,categoria="practica",entrega=null}){
   const nivel=nivelElegido||proximoNivelPractica();
   const colaboradoresBase=generarColaboradoresPractica(cantidad,nivel);
   const anio=new Date().getFullYear();
   const armarEmpresa=(code,pdfUrl)=>({
     id:uid(),code,name:nombreEmpresa,cedula:"",currency:"₡",period:anio,categoria:normCat(categoria),entregado:false,
-    nivelPractica:nivel,pdfInstrucciones:pdfUrl||null,asignada:true,asignadaEl:new Date().toISOString(),
+    nivelPractica:nivel,pdfInstrucciones:pdfUrl||null,asignada:true,asignadaEl:new Date().toISOString(),...(entrega?{evalCfg:{ventana:{inicio:null,fin:entrega}}}:{}),
     accounts:BASE.map(a=>({...a})),entries:[],
     payroll:{params:clone(PL_DEFAULT),employees:colaboradoresBase.map(e=>({...e,id:uid()})),runs:[],evals:[]}
   });
@@ -2233,6 +2238,7 @@ function panelCrearPractica(){
       <label>Tipo de trabajo
         <select id="ppCategoria" style="display:block;margin-top:4px">${opcionesCategoria("practica")}</select>
       </label>
+      <label>📅 Fecha y hora de entrega <small class="muted">(opcional — a esa hora se cierra: ya no se puede guardar ni entregar)</small><input id="ppEntrega" type="datetime-local" style="display:block;margin-top:4px"></label>
       <label>Complejidad
         <select id="ppNivel" style="display:block;margin-top:4px">
           <option value="0">Automática (nivel ${nivel})</option>
@@ -3286,6 +3292,16 @@ document.addEventListener("click",async e=>{
   if(a==="verComparacion"){const k=b.dataset.est+"|"+b.dataset.co;APP.cmpVer=APP.cmpVer===k?null:k;
     APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true; // que la práctica siga abierta al volver a dibujar
     render();if(APP.cmpVer){const f=document.getElementById("cmpFila");if(f)f.scrollIntoView({behavior:"smooth",block:"nearest"})}return}
+  if(a==="fechaEntrega"||a==="fechaEntregaQuitar"){(async()=>{const key=b.dataset.key,box=b.closest("[data-fentrega]");
+    const rows=[];for(const w of (APP.empData||[]))for(const c of w.companies)if(claveGrupo(c)===key)rows.push({w,c});
+    let fin=null;if(a==="fechaEntrega"){const v=box.querySelector("[data-fe]").value;if(!v){toast("Escoja la fecha y la hora de entrega");return}fin=new Date(v).toISOString()}
+    else if(!confirm("¿Quitar la fecha de entrega? El trabajo queda abierto sin límite."))return;
+    b.disabled=true;let ok=0,fail=0;
+    for(const {w,c} of rows){try{await APP.store.updateEmpresaEstudiante(w.id,c.id,x=>{const cfg=evCfg(x);if(fin)cfg.ventana={inicio:(cfg.ventana&&cfg.ventana.inicio)||null,fin};else if(cfg.ventana){cfg.ventana.fin=null;if(!cfg.ventana.inicio)delete cfg.ventana}});ok++}catch(e){fail++}}
+    // También en la empresa de referencia del profesor (para las copias que se envíen después).
+    try{const ref=(APP.companies||[]).find(x=>nomPractica(x)===nomPractica(rows[0]&&rows[0].c));if(ref){const cfg=evCfg(ref);if(fin)cfg.ventana={inicio:null,fin};else delete cfg.ventana;await APP.store.saveCompany(ref)}}catch(e){}
+    toast(fail?`Fecha guardada para ${ok}; ${fail} con error`:(fin?`Fecha de entrega guardada para ${ok} estudiante(s) ✓`:`Fecha quitada a ${ok} estudiante(s)`));
+    APP.revOpen=APP.revOpen||{};APP.revOpen[key]=true;await loadEmpData()})();return}
   if(a==="finalizarEntrega"||a==="finalizarTodos"){(async()=>{
     let lista=[];
     if(a==="finalizarEntrega")lista=[{est:b.dataset.est,co:b.dataset.co}];
@@ -3385,7 +3401,7 @@ document.addEventListener("submit",async e=>{
     if(!nombre){if(estadoEl)estadoEl.textContent="Ponele un nombre a la empresa.";return}
     if(btn)btn.disabled=true;if(estadoEl)estadoEl.textContent="Creando la empresa y repartiéndola entre los estudiantes…";
     try{
-      const r=await crearPracticaParaClase({nombreEmpresa:nombre,cantidad,seccion,nivel:+val("ppNivel")||0,categoria:normCat(val("ppCategoria"))});
+      const fe=val("ppEntrega");const r=await crearPracticaParaClase({nombreEmpresa:nombre,cantidad,seccion,nivel:+val("ppNivel")||0,categoria:normCat(val("ppCategoria")),entrega:fe?new Date(fe).toISOString():null});
       APP.plCrearPracticaAbierto=false;render();
       toast(`Práctica "${nombre}" creada ✓ — ${r.ok} de ${r.total} estudiante(s)`+(r.fallidos.length?`. No se pudo con: ${r.fallidos.join(", ")}`:""));
     }catch(err){
