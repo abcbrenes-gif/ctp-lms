@@ -275,7 +275,7 @@ async function renderHome() {
     { grupo: "juegos", href: "tiradera.html", icono: "⚡", titulo: "La Tiradera", sub: "Retos en vivo para la clase: selección, falso/verdadero, sopa de letras y crucigrama, con podio", cta: "Lanzar retos →" },
     { grupo: "juegos", href: "tiradera.html?historial=1", icono: "📚", titulo: "Resultados de La Tiradera", sub: "Partidas anteriores: puntos ganados y perdidos de cada estudiante, descarga en Excel", cta: "Ver resultados →" },
     { grupo: "juegos", href: "planilla-opoly.html", icono: "🎲", titulo: "Planilla Opoly", sub: "Juego 3D tipo Monopoly para 2–8 jugadores: compra empresas resolviendo problemas de planilla", cta: "Jugar →" },
-    { grupo: "juegos", href: "laboral.html", icono: "⚖️", titulo: "Ruta Laboral CR", sub: "Juego con narrador y música: preaviso, cesantía, vacaciones y aguinaldo en 5 misiones con XP y medallas", cta: "Jugar →" },
+    { grupo: "juegos", href: "laboral.html", icono: "⚖️", titulo: "Ruta Laboral CR", sub: "Juego con narrador y música: contratos, aguinaldo, vacaciones, preaviso y cesantía en 6 misiones con XP y medallas", cta: "Jugar →" },
     { grupo: "juegos", href: "seguros.html", icono: "🛡️", titulo: "Misión Seguros", sub: "Contabilidad de seguros (SUGESE): 5 niveles para armar asientos arrastrando cuentas, con XP y rachas", cta: "Jugar →" }
   ];
   const tarjetaAcceso = a => `
