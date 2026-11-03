@@ -7801,6 +7801,42 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
     return `<button class="btn secondary small" data-ver-entregas-proyecto-ind="${t.id}">📂 Ver entregas</button>`;
   }
 
+  // Barra de acciones de cada indicador, ordenada en grupos con aire entre
+  // botones. Las herramientas que todavía no aplican se ven apagadas y dicen
+  // por qué, para que todas estén en cada evaluación.
+  function accionesIndicadorHTML(ind, esPruebaAuto) {
+    const t = trabajoPorIndicador[ind.id];
+    const conRetro = t && TIPOS_CON_RETRO.includes(t.tipo_actividad);
+    const apagado = (txt, por) => `<button class="btn secondary small ind-acc-off" type="button" disabled aria-disabled="true" title="${por}">${txt}</button>`;
+    const sinPrueba = "Disponible cuando este indicador tenga una prueba o actividad con respuestas";
+    const grupo = (icono, titulo, botones) => {
+      const b = botones.filter(Boolean).join("");
+      return b ? `<div class="ind-acc-grupo" role="group" aria-label="${titulo}"><div class="ind-acc-tit">${icono} ${titulo}</div><div class="ind-acc-btns">${b}</div></div>` : "";
+    };
+    const mep = mepCategoriaConFormato(catNombre)
+      ? (esPruebaAuto ? apagado("📋 Formato MEP", "Una prueba de selección se califica sola: no lleva instrumento MEP") : `<button class="btn small ind-acc-mep" data-mep-ind="${ind.id}" type="button">📋 Formato MEP</button>`)
+      : apagado("📋 Formato MEP", "Esta categoría no lleva instrumento MEP");
+    return `<div class="ind-acciones">
+      ${grupo("👥", "Estudiantes", [
+        botonHabilitarTrabajo(ind), botonHoraTrabajo(ind),
+        conRetro ? botonMostrarRespuestasTrabajo(ind) : apagado("🔒 Bloquear respuestas a estudiantes", sinPrueba)
+      ])}
+      ${grupo("🔍", "Revisar", [
+        conRetro ? botonVerRespuestasTrabajo(ind) : apagado("📝 Ver respuestas", sinPrueba),
+        conRetro ? botonDiagnosticoTrabajo(ind) : apagado("📊 Diagnóstico", sinPrueba),
+        t ? linkTrabajo(ind) : apagado("📎 Ver trabajo", "Este indicador no está ligado a un trabajo de un tema"),
+        botonVerEntregasIndicador(ind), botonVerEntregasProyectoIndicador(ind)
+      ])}
+      ${grupo("📄", "Instrumento y calificación", [
+        mep, botonPuntosTrabajo(ind), botonPdfTrabajo(ind), botonPedirProyectoTrabajo(ind), botonGenerarSeleccionProyecto(ind)
+      ])}
+      ${grupo("⚙️", "Indicador", [
+        `<button class="btn secondary small" data-editar-ind="${ind.id}" type="button">✏️ Editar</button>`,
+        `<button class="btn danger small ind-acc-del" data-del-indicador="${ind.id}" type="button">🗑️ Eliminar</button>`
+      ])}
+    </div>`;
+  }
+
   const siguienteLetra = siguienteLetraDisponible((indicadores || []).map(i => i.letra));
   const esCategoriaPruebas = catNombre === "Pruebas";
 
@@ -7848,24 +7884,8 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
                      </select>
                    </div>`)}
             </span>
-            <span style="display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap;">
-              ${botonHabilitarTrabajo(ind)}
-              ${botonHoraTrabajo(ind)}
-              ${botonVerRespuestasTrabajo(ind)}
-              ${botonMostrarRespuestasTrabajo(ind)}
-              ${botonDiagnosticoTrabajo(ind)}
-              ${botonPuntosTrabajo(ind)}
-              ${botonPdfTrabajo(ind)}
-              ${botonVerEntregasIndicador(ind)}
-              ${botonPedirProyectoTrabajo(ind)}
-              ${botonGenerarSeleccionProyecto(ind)}
-              ${botonVerEntregasProyectoIndicador(ind)}
-              ${linkTrabajo(ind)}
-              ${mepCategoriaConFormato(catNombre) && !esPruebaAuto ? `<button class="btn small" data-mep-ind="${ind.id}" type="button" style="background:#7c3aed; border-color:#7c3aed;">📋 Formato MEP</button>` : ""}
-              <button class="btn secondary small" data-editar-ind="${ind.id}" type="button">✏️ Editar</button>
-              <button class="btn danger small" data-del-indicador="${ind.id}">Eliminar</button>
-            </span>
           </div>
+          ${accionesIndicadorHTML(ind, esPruebaAuto)}
           ${trabajoPorIndicador[ind.id] && trabajoPorIndicador[ind.id].tipo_actividad === "prueba" ? `<div data-hora-ind-panel="${trabajoPorIndicador[ind.id].id}"></div>` : ""}
           ${trabajoPorIndicador[ind.id] && TIPOS_CON_RETRO.includes(trabajoPorIndicador[ind.id].tipo_actividad) ? `<div data-retro-ind-panel="${trabajoPorIndicador[ind.id].id}"></div>` : ""}
           ${trabajoPorIndicador[ind.id] && TIPOS_CON_RETRO.includes(trabajoPorIndicador[ind.id].tipo_actividad) ? `<div data-diagnostico-ind-panel="${trabajoPorIndicador[ind.id].id}"></div>` : ""}
