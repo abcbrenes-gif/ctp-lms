@@ -989,14 +989,14 @@ function indicadorPanelHTML(g){
   if(!d)return '<div class="loading">Cargando materias e indicadores…</div>';
   const mats=d.materias.filter(m=>!APP.empSec||!m.seccion||m.seccion===APP.empSec);
   const selMat=(APP.indMat&&APP.indMat[g.key])||(cfg&&cfg.materia_id)||(mats[0]&&mats[0].id)||"";
-  const inds=d.indicadores.filter(i=>i.materia_id===selMat);
-  const actual=cfg&&d.indicadores.find(i=>i.id===cfg.id);
+  const inds=d.indicadores.filter(i=>String(i.materia_id)===String(selMat));
+  const actual=cfg&&d.indicadores.find(i=>String(i.id)===String(cfg.id));
   return `<div class="panel stack" style="padding:10px" data-indbox="${esc(g.key)}"><b>🎯 Indicador de evaluación</b><small class="muted">Liga esta práctica a un indicador de la Rúbrica de ctp-lms. La nota del informe se sube sola como puntaje del indicador cada vez que el estudiante trabaja. Aplica a ${APP.empSec?"la sección "+esc(APP.empSec):"todas las secciones"}.</small>
    <div class="muted">${actual?`Actual: <b>${esc(actual.categoria)} ${esc(actual.letra||"")} · ${esc(actual.descripcion||"")}</b> (máx. ${actual.puntaje_maximo})`:"Sin indicador: la práctica no cuenta en la Rúbrica."}</div>
    ${multi.length?`<div class="muted">Indicadores por componente: ${multi.map(m=>{const i=d.indicadores.find(x=>x.id===m.id);return `<span class="chip tI" style="font-size:.7rem">${({machote:"Machote",asiento:"Asiento",evaluacion:"Evaluación",general:"General"})[m.comp]||m.comp}: ${i?esc(i.letra||"")+" · "+esc((i.descripcion||"").slice(0,50)):"(eliminado)"}</span>`}).join(" ")}</div>`:""}
    <div class="row" style="gap:10px;flex-wrap:wrap;align-items:flex-end">
-    <div class="field" style="flex:1 1 200px"><label>Materia</label><select data-indmat data-key="${esc(g.key)}">${mats.map(m=>`<option value="${esc(m.id)}" ${m.id===selMat?"selected":""}>${esc(m.nombre)}${m.seccion?" · "+esc(m.seccion):""}</option>`).join("")}</select></div>
-    <div class="field" style="flex:1 1 260px"><label>Indicador</label><select data-indsel>${inds.length?inds.map(i=>`<option value="${esc(i.id)}" ${cfg&&cfg.id===i.id?"selected":""}>${esc(i.categoria)} ${esc(i.letra||"")} · ${esc((i.descripcion||"").slice(0,60))} (máx ${i.puntaje_maximo})</option>`).join(""):'<option value="">(esta materia no tiene indicadores)</option>'}</select></div>
+    <div class="field" style="flex:1 1 200px"><label>Materia</label><select data-indmat data-key="${esc(g.key)}">${mats.map(m=>`<option value="${esc(m.id)}" ${String(m.id)===String(selMat)?"selected":""}>${esc(m.nombre)}${m.seccion?" · "+esc(m.seccion):""}</option>`).join("")}</select></div>
+    <div class="field" style="flex:1 1 260px"><label>Indicador</label><select data-indsel>${inds.length?inds.map(i=>`<option value="${esc(i.id)}" ${cfg&&String(cfg.id)===String(i.id)?"selected":""}>${esc(i.categoria)} ${esc(i.letra||"")} · ${esc((i.descripcion||"").slice(0,60))} (máx ${i.puntaje_maximo})</option>`).join(""):'<option value="">(esta materia no tiene indicadores)</option>'}</select></div>
    </div>
    <div class="row" style="gap:8px;flex-wrap:wrap">
     <button class="btn sm pop" data-act="indVincular" data-key="${esc(g.key)}" ${inds.length?"":"disabled"}>🔗 Vincular indicador</button>
