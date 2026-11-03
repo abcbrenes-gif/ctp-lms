@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Ruta Laboral CR · Juego de derechos laborales</title>
+<!-- Conexión con la plataforma (si el archivo se abre suelto, el juego funciona igual sin esto). -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js?v=20261030i" onerror="void 0"></script>
+<script src="js/actividades.js?v=20261103j" onerror="void 0"></script>
+<script src="js/bitacora.js?v=20261103j" onerror="void 0"></script>
 <style>
 :root{
   --bg:#0d0f1f;--bg2:#14173a;--card:#1a1e44;--card2:#20255a;--line:rgba(255,255,255,.09);
@@ -93,6 +98,10 @@ h1{font-size:clamp(1.6rem,4vw,2.4rem);margin:8px 0 4px;background:linear-gradien
 .toast.on{transform:translate(-50%,0)}
 .toast:empty{display:none}
 #fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:50}
+.actrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;border:1px solid var(--line);border-radius:16px;margin-bottom:8px;background:rgba(255,255,255,.03)}
+.ins table.tir-ins,#guiaB table.tir-ins{width:100%;border-collapse:collapse;font-size:.85rem;margin-bottom:8px}table.tir-ins th,table.tir-ins td{border:1px solid var(--line);padding:7px;vertical-align:top;text-align:left}table.tir-ins thead th{background:rgba(122,240,255,.1)}.ins{overflow-x:auto}
+.ef{display:flex;flex-direction:column;gap:3px;font-size:.82rem;font-weight:800;color:var(--mut);margin-top:8px}.ef input,.ef textarea{font:inherit;font-weight:600;color:var(--tx);background:#0f1230;border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+dialog{width:min(980px,96vw)}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 dialog{border:0;border-radius:22px;padding:0;width:min(760px,94vw);max-height:86vh;background:var(--bg2);color:var(--tx);box-shadow:0 30px 80px rgba(0,0,0,.6)}
 dialog::backdrop{background:rgba(5,6,20,.6);backdrop-filter:blur(4px)}
@@ -272,11 +281,12 @@ function confeti(){if(matchMedia("(prefers-reduced-motion: reduce)").matches)ret
 function irA(h){location.hash=h}
 addEventListener("hashchange",()=>{render();scrollTo({top:0})});
 function render(){callar();const h=location.hash.replace(/^#\/?/,"");
+  if(h.startsWith("a/")){const q=h.split("/"),id=+q[1];if(q[2]==="e")return verTrabajoEst(id,decodeURIComponent(q[3]));return paginaAct(id,q[2]==="jugar")}
   if(h.startsWith("m/")){const i=MISIONES.findIndex(m=>m.id===h.slice(2));if(i>=0&&abierta(i))return jugar(i);if(i>=0)toast("🔒 Primero completa la misión anterior")}
   mapa()}
 function mapa(){
   const M=medallas(),hechas=MISIONES.filter(m=>E.mis[m.id]&&E.mis[m.id].hecha).length;
-  $("#app").innerHTML=`<h1>Ruta Laboral CR</h1><p class="sub">Ayuda a personas trabajadoras de Costa Rica a defender sus derechos. Completa las misiones, gana XP y desbloquea medallas. · ${hechas}/${MISIONES.length} misiones</p>
+  $("#app").innerHTML=hubHTML()+`<h1>Ruta Laboral CR</h1><p class="sub">Ayuda a personas trabajadoras de Costa Rica a defender sus derechos. Completa las misiones, gana XP y desbloquea medallas. · ${hechas}/${MISIONES.length} misiones</p>
   <div class="grid">${MISIONES.map((m,i)=>{const st=E.mis[m.id]||{},n=m.pasos.length,p=st.hecha?100:Math.round(100*(st.paso||0)/n),ab=abierta(i);
     return `<section class="card mis ${ab?"":"lock"} ${st.hecha?"done":""}"><div style="display:flex;gap:12px;align-items:center"><div class="ic">${ab?m.ic:"🔒"}</div><div><small style="color:var(--cyan);font-weight:900;letter-spacing:.1em">MISIÓN ${i+1}</small><h3>${m.t}</h3></div></div>
       <p>${m.d}</p><div class="prog" role="progressbar" aria-valuenow="${p}" aria-valuemin="0" aria-valuemax="100" aria-label="Avance de la misión ${i+1}"><span style="width:${p}%"></span></div>
@@ -284,16 +294,21 @@ function mapa(){
       ${ab?`<button ${st.hecha?'class="sec"':""} onclick="sfx('clic');irA('#/m/${m.id}')">${st.hecha?"🔁 Repetir":p?"▶ Continuar":"▶ Empezar"}</button>`:`<small style="color:var(--mut)">🔒 Completa la misión ${i} para desbloquearla</small>`}</section>`}).join("")}</div>
   <section class="card" style="margin-top:18px"><b>🏅 Medallas</b><div class="medals">${M.map(m=>`<div class="medal ${m.on?"":"off"}" title="${m.d}"><b>${m.i}</b>${m.n}</div>`).join("")}</div></section>
   <p class="sub" style="margin-top:14px;font-size:.85rem">🎵 música · 🔔 efectos · 🗣️ narrador · 📘 guía de la ley. Tu avance se guarda en este dispositivo.</p>`;
-  if(E.voz&&!mapa.dicho){mapa.dicho=1}
+  activarHub();
 }
 function jugar(mi){
   const m=MISIONES[mi],st=E.mis[m.id]=E.mis[m.id]||{paso:0,fallos:0,xp:0};
   if(st.hecha&&st.paso>=m.pasos.length){st.paso=0;st.fallos=0;st.repite=true}
-  guardar();let intentos=0,resuelto=false;
+  guardar();jugarMision(m,{modo:"libre",st,mi,titulo:`Misión ${mi+1}: ${m.t}`,back:"#/"});
+}
+// Motor de cada misión. modo: "libre" (juego), "diaria" (práctica del profe, con
+// pistas) o "evaluativa" (trabajo cotidiano: una sola respuesta por paso, sin pistas).
+function jugarMision(m,ctx){
+  const st=ctx.st,mi=ctx.mi,EVAL=ctx.modo==="evaluativa";let intentos=0,resuelto=false;
   const pinta=()=>{
     const p=m.pasos[st.paso];if(!p)return fin();
     intentos=0;resuelto=p.k==="intro";
-    $("#app").innerHTML=`<div class="actions" style="margin:0 0 12px"><button class="sec" onclick="irA('#/')">← Mapa</button><span class="chip">${m.ic} Misión ${mi+1}: ${m.t}</span></div>
+    $("#app").innerHTML=`<div class="actions" style="margin:0 0 12px"><button class="sec" onclick="irA('${ctx.back}')">← Volver</button><span class="chip">${m.ic} ${ctx.titulo}</span>${EVAL?'<span class="chip" style="color:var(--amber)">📝 Trabajo cotidiano · una sola respuesta por paso</span>':""}</div>
     <div class="scene"><div class="avatar"><div class="face" aria-hidden="true">${m.pj.f}</div><div><b>${m.pj.n}</b><small>${m.pj.r}</small></div></div>
     <div class="card bubble"><div class="stepbar" aria-hidden="true">${m.pasos.map((_,i)=>`<i class="${i<=st.paso?"on":""}"></i>`).join("")}</div>
       <div class="kicker">${p.k==="intro"?"Historia":p.k==="num"?"Calcula":p.k==="tf"?"Verdadero o falso":"Decide"} · ${st.paso+1}/${m.pasos.length}</div>
@@ -302,7 +317,7 @@ function jugar(mi){
       ${p.tabla?`<table class="tabla">${p.tabla.map(([a,b])=>`<tr><td>${a}</td><td>${C(b)}</td></tr>`).join("")}</table>`:""}
       <div id="zona">${zona(p)}</div><div id="fb"></div>
       <div class="actions"><button id="sig" ${p.k==="intro"?"":"disabled"}>${p.k==="intro"?"Continuar ▶":"Siguiente ▶"}</button><button class="sec" id="rep" title="Escuchar de nuevo">🔊 Escuchar</button></div></div></div>`;
-    $("#sig").onclick=()=>{sfx("clic");st.paso++;guardar();pinta()};
+    $("#sig").onclick=async()=>{sfx("clic");st.paso++;guardar();if(ctx.onAvance){$("#sig").disabled=true;await ctx.onAvance(st)}pinta()};
     $("#rep").onclick=()=>hablar(textoPaso(p));
     activar(p);
     setTimeout(()=>hablar(textoPaso(p)),250);
@@ -311,13 +326,24 @@ function jugar(mi){
   const textoPaso=p=>p.txt+(p.k==="mc"?" Opciones: "+p.o.map((o,i)=>"ABCD"[i]+", "+o).join(". "):"")+(p.k==="tf"?" ¿Verdadero o falso?":"");
   const zona=p=>p.k==="mc"?`<div class="opts">${p.o.map((o,i)=>`<button class="opt" data-o="${i}"><span class="l">${"ABCD"[i]}</span>${o}</button>`).join("")}</div>`
     :p.k==="tf"?`<div class="opts" style="grid-template-columns:1fr 1fr"><button class="opt" data-tf="1"><span class="l">✔</span>Verdadero</button><button class="opt" data-tf="0"><span class="l">✘</span>Falso</button></div>`
-    :p.k==="num"?`<div class="numrow"><input id="num" inputmode="decimal" placeholder="${p.u?"Escribe los "+p.u:"Escribe el monto en colones"}" aria-label="Respuesta"><span class="u">${p.u||"₡"}</span><button id="chk">✅ Comprobar</button></div>`:"";
-  const premio=()=>{const g=intentos===1?20:intentos===2?12:6;E.xp+=g;st.xp=(st.xp||0)+g;E.racha++;E.mejorRacha=Math.max(E.mejorRacha,E.racha);resuelto=true;$("#sig").disabled=false;$("#sig").focus();
+    :p.k==="num"?`<div class="numrow"><input id="num" inputmode="decimal" placeholder="${p.u?"Escribe los "+p.u:"Escribe el monto en colones"}" aria-label="Respuesta"><span class="u">${p.u||"₡"}</span><button id="chk">${EVAL?"📌 Registrar respuesta":"✅ Comprobar"}</button></div>`:"";
+  const registrar=rec=>{ctx.onRes&&ctx.onRes(st.paso,{...rec,c:m.pasos[st.paso].c||null})};
+  const premio=()=>{registrar({ok:intentos===1,intentos});const g=intentos===1?20:intentos===2?12:6;E.xp+=g;st.xp=(st.xp||0)+g;E.racha++;E.mejorRacha=Math.max(E.mejorRacha,E.racha);resuelto=true;$("#sig").disabled=false;$("#sig").focus();
     const antes=medallas().filter(x=>x.on).length;guardar();stats();sfx("ok");if(E.racha>0&&E.racha%5===0)toast(`🔥 ¡Racha de ${E.racha}!`);
     const ahora=medallas().filter(x=>x.on).length;if(ahora>antes)toast("🏅 ¡Nueva medalla desbloqueada!");return g};
   const fallo=()=>{E.racha=0;st.fallos++;guardar();stats();sfx("mal")};
   const fb=(tipo,html,voz)=>{$("#fb").innerHTML=`<div class="fb ${tipo}">${html}</div>`;if(voz)hablar(voz);$("#live").textContent=limpio(html)};
+  const leerNum=v=>{let s=String(v).replace(/[₡\s]/g,"");if(/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s))s=s.replace(/\./g,"").replace(",",".");else if(/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(s))s=s.replace(/,/g,"");else s=s.replace(",",".");return Number(s)};
   const activar=p=>{
+    if(EVAL){
+      const lista=()=>{resuelto=true;$("#sig").disabled=false;$("#sig").focus();sfx("clic");fb("tip","📌 Respuesta registrada. Tu profe verá el resultado cuando entregues el trabajo.","Respuesta registrada.")};
+      if(p.k==="mc"||p.k==="tf")document.querySelectorAll("#zona .opt").forEach(b=>b.onclick=()=>{if(resuelto)return;
+        const v=p.k==="mc"?+b.dataset.o:b.dataset.tf==="1",ok=p.k==="mc"?v===p.r:v===p.r;b.style.borderColor="var(--amber)";b.style.background="rgba(255,210,122,.12)";
+        document.querySelectorAll("#zona .opt").forEach(x=>x.disabled=true);registrar({v,ok});lista()});
+      if(p.k==="num"){const inp=$("#num"),chk=$("#chk");const go=()=>{if(resuelto)return;const v=leerNum(inp.value);if(!inp.value||!isFinite(v)){fb("tip","✍️ Escribe un número.");return}
+        if(!confirm("¿Registrar esta respuesta? Solo tienes una oportunidad."))return;inp.disabled=true;chk.disabled=true;registrar({v,ok:Math.abs(v-p.ok)<=(p.tol||1)});lista()};
+        chk.onclick=go;inp.onkeydown=e=>{if(e.key==="Enter")go()}}
+      return}
     if(p.k==="mc"||p.k==="tf"){document.querySelectorAll("#zona .opt").forEach(b=>b.onclick=()=>{if(resuelto)return;intentos++;
       const ok=p.k==="mc"?+b.dataset.o===p.r:(b.dataset.tf==="1")===p.r;
       if(ok){b.classList.add("good");document.querySelectorAll("#zona .opt").forEach(x=>x.disabled=true);const g=premio();fb("ok",`🎉 ¡Correcto! +${g} XP<small>${p.ex}</small>${p.ley?`<span class="law">📜 ${p.ley}</span>`:""}`,"¡Correcto! "+p.ex)}
@@ -325,11 +351,11 @@ function jugar(mi){
     if(p.k==="num"){const inp=$("#num"),chk=$("#chk");const leer=v=>{let s=String(v).replace(/[₡\s]/g,"");if(/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s))s=s.replace(/\./g,"").replace(",",".");else if(/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(s))s=s.replace(/,/g,"");else s=s.replace(",",".");return Number(s)};
       const go=()=>{if(resuelto)return;const v=leer(inp.value);if(!inp.value||!isFinite(v)){fb("tip","✍️ Escribe un número.");return}intentos++;
         if(Math.abs(v-p.ok)<=(p.tol||1)){inp.disabled=true;chk.disabled=true;const g=premio();fb("ok",`🎉 ¡Exacto! ${p.u?p.ok+" "+p.u:C(Math.round(p.ok*100)/100)} · +${g} XP${p.sol?`<small>${p.sol}</small>`:""}`,"¡Exacto! "+(p.sol||""))}
-        else{fallo();if(intentos>=3){inp.disabled=true;chk.disabled=true;resuelto=true;$("#sig").disabled=false;fb("tip",`💡 La respuesta era <b>${p.u?p.ok+" "+p.u:C(Math.round(p.ok*100)/100)}</b>.<small>${p.ayuda}${p.sol?" · "+p.sol:""}</small>`,"La respuesta era "+(p.u?p.ok+" "+p.u:C(Math.round(p.ok*100)/100)))}
+        else{fallo();if(intentos>=3){inp.disabled=true;chk.disabled=true;resuelto=true;$("#sig").disabled=false;registrar({ok:false,intentos});fb("tip",`💡 La respuesta era <b>${p.u?p.ok+" "+p.u:C(Math.round(p.ok*100)/100)}</b>.<small>${p.ayuda}${p.sol?" · "+p.sol:""}</small>`,"La respuesta era "+(p.u?p.ok+" "+p.u:C(Math.round(p.ok*100)/100)))}
           else fb("bad",`🤔 Todavía no.<small>Pista: ${p.ayuda}</small>`,"Todavía no. Pista: "+p.ayuda)}};
       chk.onclick=go;inp.onkeydown=e=>{if(e.key==="Enter")go()}}
   };
-  const fin=()=>{const prim=!st.hecha;st.hecha=true;if(prim){E.xp+=100;st.xp=(st.xp||0)+100}guardar();stats();sfx("nivel");confeti();
+  const fin=()=>{if(ctx.onFin)return ctx.onFin(st);const prim=!st.hecha;st.hecha=true;if(prim){E.xp+=100;st.xp=(st.xp||0)+100}guardar();stats();sfx("nivel");confeti();
     const sig=MISIONES[mi+1];
     $("#app").innerHTML=`<div class="card win"><div class="big">${m.medalla[0]}</div><h1>¡Misión cumplida!</h1>
       <p class="sub">Desbloqueaste la medalla <b style="color:var(--amber)">${m.medalla[1]}</b>${prim?" · +100 XP de bonificación":""}</p>
@@ -339,15 +365,263 @@ function jugar(mi){
   pinta();
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════
+// Actividades del profe (plataforma): prácticas interactivas sin nota y
+// trabajos cotidianos con indicador en la Rúbrica. Cada una es una fila de
+// trabajos_cotidianos con contenido_actividad.estrategia = "ruta_laboral".
+// Se crean cerradas y el profe las abre una por una.
+// ═══════════════════════════════════════════════════════════════════════
+const ESTR="ruta_laboral";
+const HAY_BD=()=>typeof sb!=="undefined"&&!!SES;
+const DOC=!!(SES&&SES.role&&SES.role!=="estudiante"),EST_ID=SES&&SES.role==="estudiante"?SES.id:null;
+const LAB_CRIT=[
+ {nombre:"Identifica los conceptos y las reglas del Código de Trabajo y de las publicaciones del MTSS sobre el tema.",puntos_max:3,auto:"lab_conceptos_pct",cat:"concepto"},
+ {nombre:"Aplica la normativa laboral para decidir los derechos de la persona trabajadora en casos concretos.",puntos_max:3,auto:"lab_casos_pct",cat:"caso"},
+ {nombre:"Calcula correctamente los montos y los días según los procedimientos del MTSS.",puntos_max:3,auto:"lab_calculos_pct",cat:"calculo"}];
+const CAT_NOM={concepto:"Concepto",caso:"Caso",calculo:"Cálculo"};
+const T={mc:(txt,o,r,c,ex,ley)=>({k:"mc",txt,o,r,c,ex,ley}),tf:(txt,r,c,ex,ley)=>({k:"tf",txt,r,c,ex,ley}),num:(txt,ok,c,x)=>({k:"num",txt,ok,c,...x}),intro:txt=>({k:"intro",txt})};
+const PAQ_LAB=[
+ {tipo:"diaria",titulo:"Práctica 1 · Contratos de trabajo",ic:"📝",pj:{n:"Luis",r:"Ayudante en una ferretería",f:"👨🏽‍🔧"},desc:"Elementos del contrato, contrato oral, tipos de contrato, período de prueba y causas de terminación.",pasos:[
+  T.intro("¡Hola! Soy Luis, tengo 18 años y empecé a trabajar en una ferretería. Tengo horario, mi jefe me dice qué hacer y me pagan cada quincena, pero <b>no firmé nada</b>."),
+  T.mc("¿Cuáles son los tres elementos de un contrato de trabajo?",["Prestación personal, salario y subordinación","Firma, testigos y abogado","Uniforme, horario y gafete","Experiencia, título y edad"],0,"concepto","Prestación personal del servicio, recibo de salario y dependencia (subordinación jurídica).","Código de Trabajo, art. 18"),
+  T.tf("Verdadero o falso: el contrato de Luis es válido aunque sea oral.",true,"concepto","Verdadero. La ley permite el contrato oral, con los mismos efectos que el escrito.","MTSS · Manual básico"),
+  T.mc("Luis tiene horario, recibe órdenes de su jefe y le pagan cada quincena. ¿Hay contrato de trabajo?",["No, porque no firmó","Sí: hay servicio personal, salario y subordinación","Solo si trabaja más de un año","Solo si el patrono lo inscribe"],1,"caso","Están los tres elementos; lo que más pesa es la subordinación (horario e instrucciones).","Código de Trabajo, art. 18"),
+  T.num("La ferretería tiene <b>4 trabajadores</b>. Si Luis tuviera que probar su contrato oral con compañeros, ¿cuántos testigos necesita?",2,"calculo",{u:"testigos",ayuda:"Se necesitan tres compañeros; si el patrono emplea cuatro trabajadores o menos, bastan dos.",sol:"Con 4 trabajadores o menos bastan 2 testigos."}),
+  T.mc("La ferretería contrata a un albañil solo para construir la bodega nueva. ¿Qué tipo de contrato es?",["Por tiempo indefinido","Por obra determinada","Por servicios profesionales","A plazo fijo de un año"],1,"caso","Cuando se contrata para realizar una obra específica es un contrato por obra determinada (tiempo determinado).","Código de Trabajo, art. 26"),
+  T.mc("¿Cuánto dura el período de prueba, en el que no hay obligación de dar preaviso?",["1 mes","Los primeros 3 meses","6 meses","1 año"],1,"concepto","Antes de los tres meses no hay obligación de dar preaviso, pues se trata del período de prueba.","MTSS · Preaviso y cesantía"),
+  T.mc("Luis faltó <b>dos días seguidos</b> sin permiso ni justificación. ¿Qué puede pasar?",["Nada, es su derecho","Lo pueden despedir sin responsabilidad patronal","Le deben pagar cesantía","Le rebajan las vacaciones"],1,"caso","Faltar 2 días consecutivos o más de 2 alternos en el mismo mes es causa de despido sin responsabilidad patronal.","Código de Trabajo, art. 81"),
+  T.tf("Verdadero o falso: cuando termina la relación, el patrono debe darle a Luis una carta de conclusión del contrato si él la pide.",true,"concepto","Verdadero: a pedido del trabajador, cualquiera que sea la causa.","Código de Trabajo, art. 35")]},
+ {tipo:"diaria",titulo:"Práctica 2 · Aguinaldo y vacaciones",ic:"🎁",pj:{n:"Ana",r:"Cajera en un supermercado (pago mensual)",f:"👩🏾‍💼"},desc:"Cálculo del aguinaldo con horas extra, rebajos permitidos, días y pago de vacaciones y vacaciones proporcionales.",pasos:[
+  T.intro("Hola, soy Ana. Trabajo de cajera en un supermercado y me pagan por mes. Quiero calcular <b>mi aguinaldo</b> y <b>mis vacaciones</b>."),
+  T.mc("¿Qué período se suma para el aguinaldo?",["Del 1 de enero al 31 de diciembre","Del 1 de diciembre del año anterior al 30 de noviembre","Los últimos 6 meses","Solo noviembre"],1,"concepto","Del 1 de diciembre del año anterior al 30 de noviembre, salarios ordinarios y extraordinarios.","Ley 2412"),
+  T.num("Estos son mis salarios del período. ¿Cuánto suman?",4350000,"calculo",{tabla:[["Diciembre a mayo (₡350 000 × 6)",2100000],["Junio a noviembre (₡365 000 × 6)",2190000],["Horas extra del período",60000]],ayuda:"Suma las tres filas.",sol:"2 100 000 + 2 190 000 + 60 000 = ₡4 350 000"}),
+  T.num("¿Cuánto es mi <b>aguinaldo</b>?",362500,"calculo",{datos:["Total del período: ₡4 350 000"],ayuda:"Total ÷ 12.",sol:"₡4 350 000 ÷ 12 = ₡362 500"}),
+  T.tf("Verdadero o falso: al aguinaldo se le rebaja la CCSS como a cualquier salario.",false,"concepto","Falso. Solo se le puede rebajar la pensión alimentaria.","Ley 2412"),
+  T.mc("Con pago mensual, ¿cuántos días de vacaciones me tocan por cada 50 semanas?",["12","14","15","10"],1,"concepto","Con pago mensual o quincenal son 14 días, porque incluye los dos días de descanso semanal.","MTSS · Vacaciones"),
+  T.num("Mi promedio mensual de las últimas 50 semanas es ₡390 000. ¿Cuál es mi <b>salario diario</b>?",13000,"calculo",{datos:["₡390 000 ÷ 30"],ayuda:"Salario mensual ÷ 30.",sol:"₡390 000 ÷ 30 = ₡13 000"}),
+  T.num("¿Cuánto me pagan por mis <b>14 días</b> de vacaciones?",182000,"calculo",{datos:["₡13 000 diarios × 14"],ayuda:"Salario diario × 14.",sol:"₡13 000 × 14 = ₡182 000"}),
+  T.mc("Si renuncio a los <b>9 meses</b>, sin cumplir las 50 semanas, ¿cuántos días de vacaciones me pagan?",["Ninguno","9 días (1 por cada mes)","14 días","4,5 días"],1,"caso","Si la relación termina antes de las 50 semanas, corresponde como mínimo 1 día por cada mes trabajado.","MTSS · Vacaciones")]},
+ {tipo:"diaria",titulo:"Práctica 3 · Preaviso y cesantía",ic:"📢",pj:{n:"Jorge",r:"Chofer de una distribuidora (pago mensual)",f:"👨🏻‍✈️"},desc:"Plazo del preaviso, promedio de 6 meses, salario diario, tabla de cesantía y cálculo de ambos montos.",pasos:[
+  T.intro("Soy Jorge, chofer. Trabajé <b>3 años y 2 meses</b> con contrato por tiempo indefinido y me despidieron <b>sin justa causa</b>, sin darme preaviso."),
+  T.mc("Con 3 años y 2 meses, ¿cuánto preaviso le correspondía a Jorge?",["1 semana","15 días","1 mes","No hay"],2,"caso","Después de un año de labores corresponde un mes de preaviso.","Código de Trabajo, art. 28"),
+  T.num("¿Cuál es su <b>promedio mensual</b> de los últimos 6 meses?",3200000/6,"calculo",{tabla:[["Mes 1",520000],["Mes 2",520000],["Mes 3",520000],["Mes 4",540000],["Mes 5",540000],["Mes 6",560000]],tol:1,ayuda:"Suma los 6 salarios y divide entre 6.",sol:"₡3 200 000 ÷ 6 = ₡533 333,33"}),
+  T.num("¿Cuál es su <b>salario diario</b>?",3200000/6/30,"calculo",{datos:["Promedio ₡533 333,33 ÷ 30"],ayuda:"Promedio mensual ÷ 30.",sol:"₡17 777,78"}),
+  T.num("¿Cuánto le deben pagar de <b>preaviso</b>? (1 mes = 30 días)",3200000/6,"calculo",{datos:["₡17 777,78 × 30"],tol:15,ayuda:"Salario diario × 30.",sol:"₡533 333,33"}),
+  T.mc("Según la tabla del art. 29, con 3 años de antigüedad, ¿cuántos días por año le corresponden?",["19,5","20","20,5","22"],2,"concepto","Año 1: 19,5 · año 2: 20 · año 3: 20,5 días por año laborado. La fracción de 2 meses no cuenta porque no supera seis meses.","Código de Trabajo, art. 29"),
+  T.num("¿Cuántos <b>días de cesantía</b> le tocan en total?",61.5,"calculo",{u:"días",datos:["3 años × 20,5 días"],tol:.01,ayuda:"Años contados × días por año.",sol:"3 × 20,5 = 61,5 días"}),
+  T.num("¿Cuánto es la <b>cesantía</b> de Jorge?",3200000/6/30*61.5,"calculo",{datos:["61,5 días × ₡17 777,78"],tol:15,ayuda:"Días de cesantía × salario diario.",sol:"₡1 093 333,33"}),
+  T.tf("Verdadero o falso: si Jorge hubiera renunciado, también le pagarían cesantía.",false,"caso","Falso. La cesantía se paga cuando la relación termina con responsabilidad patronal, no en una renuncia común.","Código de Trabajo, art. 29")]},
+ {tipo:"diaria",titulo:"Práctica 4 · La liquidación completa",ic:"🧾",pj:{n:"Melissa",r:"Recepcionista de un hotel (pago mensual)",f:"👩🏻‍💼"},desc:"Liquidación de 9 meses: preaviso, cesantía, vacaciones y aguinaldo proporcionales, total y qué cambia si renuncia.",pasos:[
+  T.intro("Soy Melissa. Entré al hotel el <b>1 de septiembre de 2025</b> y me despidieron sin justa causa el <b>31 de mayo de 2026</b>: trabajé <b>9 meses</b>. Siempre gané ₡400 000 al mes (₡13 333,33 por día)."),
+  T.mc("Por un despido sin justa causa, ¿qué derechos le corresponden?",["Solo aguinaldo","Preaviso, cesantía, vacaciones y aguinaldo proporcionales","Solo cesantía","Nada, tenía menos de un año"],1,"caso","Con responsabilidad patronal corresponden preaviso, cesantía, vacaciones y aguinaldo proporcionales.","MTSS · Compendio de dudas"),
+  T.num("<b>Preaviso:</b> con 9 meses le tocaban 15 días. ¿Cuánto se le paga?",200000,"calculo",{datos:["15 días × ₡13 333,33"],tol:2,ayuda:"Más de 6 meses y menos de 1 año: 15 días.",sol:"₡200 000"}),
+  T.num("<b>Cesantía:</b> con 9 meses le tocan 14 días. ¿Cuánto es?",400000/30*14,"calculo",{datos:["14 días × ₡13 333,33"],tol:2,ayuda:"Más de 6 meses y menos de 1 año: 14 días.",sol:"₡186 666,67"}),
+  T.num("<b>Vacaciones proporcionales:</b> 1 día por mes trabajado. ¿Cuánto se le paga?",120000,"calculo",{datos:["9 días × ₡13 333,33"],tol:2,ayuda:"Días × salario diario.",sol:"₡120 000"}),
+  T.num("<b>Aguinaldo proporcional:</b> del 1 de diciembre al 31 de mayo ganó 6 meses de ₡400 000. ¿Cuánto le toca?",200000,"calculo",{datos:["₡2 400 000 ÷ 12"],ayuda:"Salarios desde el 1 de diciembre ÷ 12.",sol:"₡200 000"}),
+  T.num("¿Cuál es el <b>total</b> de la liquidación de Melissa?",706666.67,"calculo",{tabla:[["Preaviso",200000],["Cesantía",186666.67],["Vacaciones",120000],["Aguinaldo",200000]],tol:2,ayuda:"Suma las cuatro partidas.",sol:"₡706 666,67"}),
+  T.mc("Si Melissa hubiera <b>renunciado</b>, ¿qué le pagarían?",["Todo igual","Solo vacaciones y aguinaldo proporcionales","Cesantía y preaviso","Nada"],1,"caso","Al renunciar no hay cesantía ni preaviso a su favor; sí vacaciones y aguinaldo proporcionales.","MTSS · Compendio de dudas"),
+  T.mc("¿Cuándo debía el hotel pagarle la liquidación?",["En un mes","El mismo día en que terminó la relación","En diciembre","Cuando pueda"],1,"concepto","La obligación es liquidar las prestaciones el mismo día en que termina la relación laboral.","MTSS · Preaviso y cesantía")]},
+ {tipo:"evaluativa",titulo:"Trabajo cotidiano 1 · Contratos y aguinaldo",ic:"📝",pj:{n:"Pablo",r:"Mesero en un restaurante",f:"🧑🏽‍🍳"},desc:"Identifica los elementos y tipos de contrato de trabajo y calcula el aguinaldo según la Ley 2412.",pasos:[
+  T.intro("Soy Pablo y trabajo de mesero. Este trabajo cotidiano tiene preguntas de concepto, casos y cálculos. <b>Cada respuesta se registra una sola vez.</b>"),
+  T.mc("¿Qué elemento distingue un contrato de trabajo de un contrato por servicios profesionales?",["El monto del pago","La subordinación jurídica","El lugar de trabajo","Que sea escrito"],1,"concepto","La subordinación jurídica (dirección y mando del patrono, deber de obediencia).","MTSS · Manual básico"),
+  T.tf("Verdadero o falso: un contrato de trabajo oral tiene los mismos efectos que uno escrito.",true,"concepto","Verdadero.","MTSS · Manual básico"),
+  T.mc("El restaurante contrató a Pablo solo del 1 al 31 de diciembre para la temporada. ¿Qué tipo de contrato es?",["Por tiempo indefinido","A plazo fijo","Por servicios profesionales","Por obra determinada"],1,"caso","Tiene fecha de terminación fijada de antemano: plazo fijo.","Código de Trabajo, art. 26"),
+  T.mc("Al terminar ese contrato de temporada, ¿qué derechos tiene Pablo?",["Preaviso y cesantía","Vacaciones y aguinaldo proporcionales","Ninguno","Solo cesantía"],1,"caso","Los contratos por tiempo definido dan vacaciones y aguinaldo proporcionales.","MTSS · Compendio de dudas"),
+  T.mc("¿Hasta cuándo hay plazo para pagar el aguinaldo?",["31 de diciembre","Primeros 20 días de diciembre","30 de noviembre","15 de enero"],1,"concepto","Dentro de los primeros veinte días de diciembre.","Ley 2412"),
+  T.num("Una compañera de Pablo trabajó del 1 de marzo al 30 de noviembre ganando ₡330 000 por mes. ¿Cuánto es su <b>aguinaldo proporcional</b>?",247500,"calculo",{datos:["9 meses × ₡330 000","÷ 12"],sol:"₡247 500"}),
+  T.num("Otro compañero ganó ₡340 000 todos los meses de diciembre a noviembre, más ₡36 000 de horas extra. ¿Cuánto es su <b>aguinaldo</b>?",343000,"calculo",{datos:["12 × ₡340 000 + ₡36 000","÷ 12"],sol:"₡343 000"}),
+  T.tf("Verdadero o falso: si el contrato termina en agosto, la persona pierde el derecho al aguinaldo.",false,"caso","Falso: se paga el aguinaldo proporcional a los meses trabajados.","Ley 2412")]},
+ {tipo:"evaluativa",titulo:"Trabajo cotidiano 2 · Vacaciones y preaviso",ic:"🏖️",pj:{n:"Rebeca",r:"Asistente de oficina (pago mensual)",f:"👩🏽‍💻"},desc:"Determina los días y el pago de las vacaciones y aplica las reglas del preaviso según la antigüedad.",pasos:[
+  T.intro("Soy Rebeca, asistente de oficina con pago mensual. Responde con cuidado: <b>cada respuesta se registra una sola vez</b> y no hay pistas."),
+  T.mc("¿Cada cuánto trabajo continuo se gana el derecho a vacaciones?",["Cada 12 meses","Cada 50 semanas","Cada 6 meses","Cada 100 días"],1,"concepto","Dos semanas por cada cincuenta semanas de labores continuas.","Código de Trabajo, art. 153"),
+  T.mc("¿Quién fija la fecha de las vacaciones?",["La persona trabajadora","El patrono, dentro de las 15 semanas siguientes","El MTSS","Se sortea"],1,"concepto","El patrono, dentro de las quince semanas posteriores a cumplir las cincuenta.","Código de Trabajo, art. 155"),
+  T.num("Rebeca tiene un promedio mensual de ₡450 000. ¿Cuál es su <b>salario diario</b> para vacaciones?",15000,"calculo",{datos:["Pago mensual: ÷ 30"],sol:"₡15 000"}),
+  T.num("¿Cuánto se le paga por sus <b>14 días</b> de vacaciones?",210000,"calculo",{datos:["Salario diario × 14"],sol:"₡210 000"}),
+  T.tf("Verdadero o falso: el patrono puede pagarle las vacaciones en dinero en lugar del descanso cuando él quiera.",false,"concepto","Falso: son incompensables salvo las excepciones de ley.","Código de Trabajo, art. 156"),
+  T.mc("Rebeca quiere <b>renunciar</b> a los 8 meses. ¿Qué preaviso debe darle ella al patrono?",["Ninguno","1 semana","15 días","1 mes"],2,"caso","Quien renuncia debe dar el preaviso; con más de 6 meses y menos de 1 año son 15 días.","Código de Trabajo, art. 28"),
+  T.mc("A un compañero lo despiden sin justa causa a los <b>4 meses</b>. ¿Cuánto preaviso le debían dar?",["Ninguno, está en prueba","1 semana","15 días","1 mes"],1,"caso","Más de 3 meses y menos de 6: una semana.","Código de Trabajo, art. 28"),
+  T.num("Otro compañero, con 3 años, fue despedido sin justa causa y sin preaviso. ¿Cuánto se le debe pagar de <b>preaviso</b> (1 mes = 30 días)?",500000,"calculo",{tabla:[["Mes 1",480000],["Mes 2",480000],["Mes 3",500000],["Mes 4",500000],["Mes 5",520000],["Mes 6",520000]],tol:2,sol:"Promedio ₡500 000 ÷ 30 × 30 = ₡500 000"})]},
+ {tipo:"evaluativa",titulo:"Trabajo cotidiano 3 · Cesantía y liquidación",ic:"🛟",pj:{n:"Esteban",r:"Técnico de mantenimiento (pago mensual)",f:"👨🏻‍🔧"},desc:"Calcula el auxilio de cesantía con la tabla del art. 29 y la liquidación completa de una persona despedida con responsabilidad patronal.",pasos:[
+  T.intro("Soy Esteban. Entré el <b>1 de mayo de 2021</b> y me despidieron sin justa causa el <b>31 de agosto de 2026</b>: <b>5 años y 4 meses</b>. Mi promedio de los últimos 6 meses es ₡600 000 (₡20 000 por día). <b>Cada respuesta se registra una sola vez.</b>"),
+  T.mc("¿Cuándo se paga el auxilio de cesantía?",["En cualquier renuncia","Cuando la relación termina con responsabilidad patronal","Solo si hay más de 8 años","Cada diciembre"],1,"concepto","Cuando el contrato por tiempo indefinido termina con responsabilidad patronal.","Código de Trabajo, art. 29"),
+  T.tf("Verdadero o falso: a la cesantía NO se le rebajan cargas sociales.",true,"concepto","Verdadero: no se le aplica ningún rebajo de cargas sociales.","MTSS · Preaviso y cesantía"),
+  T.mc("Con 5 años y 4 meses, ¿cuántos días por año le corresponden según la tabla?",["20","21","21,24","22"],2,"caso","Año 5: 21,24 días por año laborado. La fracción de 4 meses no cuenta.","Código de Trabajo, art. 29"),
+  T.num("¿Cuántos <b>días de cesantía</b> le corresponden?",106.2,"calculo",{u:"días",tol:.01,sol:"5 × 21,24 = 106,2 días"}),
+  T.num("¿Cuánto es su <b>cesantía</b>?",2124000,"calculo",{datos:["Días de cesantía × ₡20 000"],tol:2,sol:"₡2 124 000"}),
+  T.num("<b>Aguinaldo proporcional:</b> del 1 de diciembre al 31 de agosto ganó 9 meses de ₡600 000. ¿Cuánto le toca?",450000,"calculo",{sol:"₡5 400 000 ÷ 12 = ₡450 000"}),
+  T.num("¿Cuál es el <b>total</b> de su liquidación?",3234000,"calculo",{tabla:[["Preaviso (1 mes)",600000],["Cesantía",2124000],["Vacaciones proporcionales (3 días)",60000],["Aguinaldo proporcional",450000]],tol:2,sol:"₡3 234 000"}),
+  T.mc("Si a Esteban lo hubieran despedido <b>con justa causa</b>, ¿qué le pagarían?",["Todo igual","Solo aguinaldo y vacaciones proporcionales","Solo cesantía","Preaviso y cesantía"],1,"caso","Sin responsabilidad patronal solo corresponden aguinaldo y vacaciones proporcionales.","MTSS · Compendio de dudas")]}
+];
+
+const ACT={lista:null,mats:[],mis:[],mias:{},nombres:{}};
+const escH=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+async function cargarActs(f){if(!HAY_BD()||(ACT.lista&&!f))return;
+  try{const [{data},{data:mats}]=await Promise.all([sb.from("trabajos_cotidianos").select("id,titulo,fecha,habilitado,indicador_id,contenido_actividad").eq("contenido_actividad->>estrategia",ESTR).order("id"),sb.from("materias").select("id,nombre,seccion").order("id")]);
+    ACT.lista=data||[];ACT.mats=mats||[];
+    if(EST_ID){const [{data:em},{data:ae}]=await Promise.all([sb.from("estudiante_materias").select("materia_id").eq("estudiante_id",EST_ID),ACT.lista.length?sb.from("actividades_estudiante").select("trabajo_id,completado,puntaje,porcentaje,datos_prueba").eq("estudiante_id",EST_ID).in("trabajo_id",ACT.lista.map(t=>t.id)):{data:[]}]);
+      ACT.mis=(em||[]).map(x=>x.materia_id);ACT.mias={};(ae||[]).forEach(x=>ACT.mias[x.trabajo_id]=x)}
+  }catch(e){ACT.lista=ACT.lista||[]}}
+const nomMat=id=>{const m=ACT.mats.find(x=>x.id===Number(id));return m?m.nombre.trim()+(m.seccion?" · "+m.seccion:""):"Sin materia"};
+const progDe=t=>{const a=ACT.mias[t.id];return (a&&a.datos_prueba&&a.datos_prueba.laboral)||{paso:0,resp:{}}};
+const misionDe=t=>{const C=t.contenido_actividad||{};return {id:"act"+t.id,ic:C.lab_ic||"📘",t:t.titulo,pj:C.lab_pj||{n:"Caso",r:"",f:"🧑"},pasos:C.lab_pasos||[],medalla:["🏅",t.titulo]}};
+const critDe=t=>{const C=t.contenido_actividad||{};return C.criterios&&C.criterios.length?C.criterios:LAB_CRIT};
+function metricasDe(t,prog){const M=misionDe(t),out={};
+  LAB_CRIT.forEach(c=>{const idx=M.pasos.map((p,i)=>[p,i]).filter(([p])=>p.c===c.cat);if(!idx.length)return;
+    const ok=idx.filter(([,i])=>prog.resp&&prog.resp[i]&&prog.resp[i].ok).length;out[c.auto]=Math.round(1000*ok/idx.length)/10});return out}
+function hubHTML(){
+  if(!HAY_BD())return "";
+  if(!ACT.lista)return `<section class="card" style="margin-bottom:18px"><b>📚 Actividades del profe</b><p class="sub" style="margin:6px 0 0">Cargando…</p></section>`;
+  const L=ACT.lista.filter(t=>DOC||((t.habilitado!==false||(ACT.mias[t.id]&&ACT.mias[t.id].completado))&&ACT.mis.includes(Number((t.contenido_actividad||{}).materia_id))));
+  if(!DOC&&!L.length)return "";
+  const fila=t=>{const C=t.contenido_actividad||{},n=(C.lab_pasos||[]).length,mi=ACT.mias[t.id],pr=progDe(t),hechos=Object.keys(pr.resp||{}).length,ev=C.lab_tipo==="evaluativa";
+    const est=DOC?(t.habilitado===false?'<span class="chip" style="color:var(--mut)">⏸️ Cerrada</span>':'<span class="chip" style="color:var(--mint)">🟢 Abierta</span>')
+      :mi&&mi.completado?`<span class="chip" style="color:var(--mint)">✅ ${ev?"Entregado"+(mi.puntaje!=null?" · nota "+mi.puntaje+"/3":""):"Completada"}</span>`:hechos?`<span class="chip" style="color:var(--amber)">⏳ ${hechos} respuestas</span>`:'<span class="chip">🆕 Pendiente</span>';
+    return `<div class="actrow"><div style="flex:1;min-width:210px"><b>${C.lab_ic||""} ${escH(t.titulo)}</b><div style="color:var(--mut);font-size:.84rem">${n-1} pasos${DOC?" · "+escH(nomMat(C.materia_id)):""} · ${escH(C.lab_desc||"")}</div></div>${est}
+      <div class="actions" style="margin:0">${ev&&DOC?`<button class="sec" data-insv="${t.id}">📋 Evaluación</button>`:""}<button ${DOC?'class="sec"':""} onclick="irA('#/a/${t.id}')">${DOC?"👁️ Ver y probar":mi&&mi.completado?"👁️ Ver":hechos?"▶ Seguir":"▶ Empezar"}</button>
+      ${DOC?`<button class="${t.habilitado===false?"ok":"sec"}" data-hab="${t.id}">${t.habilitado===false?"▶ Abrir":"⏸️ Cerrar"}</button><button class="sec" data-ent="${t.id}">📥 Entregas</button>`:""}</div></div>`};
+  const grupo=(k,et,d)=>{const G=L.filter(t=>((t.contenido_actividad||{}).lab_tipo||"evaluativa")===k);if(!DOC&&!G.length)return "";
+    return `<h4 style="margin:14px 0 6px;color:var(--cyan)">${et} <small style="color:var(--mut);font-weight:600">· ${d}</small></h4>${G.map(fila).join("")||'<p class="sub" style="margin:0">Todavía no hay.</p>'}`};
+  return `<section class="card" style="margin-bottom:18px;border-color:rgba(122,240,255,.35)"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b style="font-size:1.15rem;margin-right:auto">📚 Actividades del profe</b>${DOC&&!ACT.lista.length?`<button class="pink" id="crearPaq">✨ Crear 4 prácticas y 3 trabajos cotidianos</button>`:""}</div>
+    <p class="sub" style="margin:6px 0 0;font-size:.9rem">${DOC?"Se crean cerradas: ábralas una por una con <b>▶ Abrir</b>. Los trabajos cotidianos tienen su indicador en la Rúbrica, muestran la evaluación en formato MEP antes de empezar y la nota se pone sola al entregar.":"Estas son las actividades que tu profe abrió. Las prácticas no llevan nota; los trabajos cotidianos sí."}</p>
+    ${grupo("diaria","🟢 Prácticas interactivas","sin nota: con pistas, narrador y XP")}${grupo("evaluativa","📝 Trabajos cotidianos","con nota en la Rúbrica: una sola respuesta por paso, sin pistas")}</section>`}
+function activarHub(){
+  if(HAY_BD()&&!ACT.lista)cargarActs().then(()=>{if(!location.hash||location.hash==="#/"||location.hash==="#")mapa()});
+  document.querySelectorAll("[data-hab]").forEach(b=>b.onclick=async()=>{const t=ACT.lista.find(x=>x.id===+b.dataset.hab);b.disabled=true;
+    const {error}=await sb.from("trabajos_cotidianos").update({habilitado:t.habilitado===false}).eq("id",t.id);if(error){alert("No se pudo: "+error.message);b.disabled=false;return}
+    t.habilitado=t.habilitado===false;toast(t.habilitado===false?"⏸️ Cerrada":"🟢 Abierta para los estudiantes");mapa()});
+  document.querySelectorAll("[data-ent]").forEach(b=>b.onclick=()=>verEntregas(ACT.lista.find(x=>x.id===+b.dataset.ent)));
+  document.querySelectorAll("[data-insv]").forEach(b=>b.onclick=()=>verInstrumento(ACT.lista.find(x=>x.id===+b.dataset.insv)));
+  const cp=$("#crearPaq");if(cp)cp.onclick=()=>crearPaqueteLab(cp)}
+async function crearIndicador(materiaId,desc,fecha){
+  const {data:ex}=await sb.from("indicadores").select("id,letra").eq("materia_id",materiaId).eq("categoria","Trabajo cotidiano");
+  const us=new Set((ex||[]).map(e=>String(e.letra||"").trim().toUpperCase()));let i=0,letra="";
+  for(;;){let n=i,l="";do{l=String.fromCharCode(65+(n%26))+l;n=Math.floor(n/26)-1}while(n>=0);if(!us.has(l)){letra=l;break}i++}
+  const {data,error}=await sb.from("indicadores").insert({materia_id:materiaId,categoria:"Trabajo cotidiano",letra,descripcion:desc,puntaje_maximo:3,fecha_evaluacion:fecha,orden:(ex||[]).length+1}).select().maybeSingle();
+  if(error||!data)throw new Error(error?error.message:"no se pudo crear el indicador");
+  try{await sb.from("criterios_indicador").insert([[0,"Sin evidencia","No realiza el trabajo o logra menos del 35 % de los criterios."],[1,"Inicial","Logra entre el 35 % y el 59 % de los conceptos, casos y cálculos."],[2,"Intermedio","Logra entre el 60 % y el 84 % de los conceptos, casos y cálculos."],[3,"Avanzado","Logra el 85 % o más de los conceptos, casos y cálculos."]].map(([puntaje,nivel,descripcion])=>({indicador_id:data.id,puntaje,nivel,descripcion})))}catch(e){}
+  return data}
+async function crearPaqueteLab(btn,materiaId){
+  if(!materiaId){const ops=ACT.mats.map(m=>`${m.id} = ${m.nombre.trim()}${m.seccion?" · "+m.seccion:""}`).join("\n");const r=prompt("¿En qué materia se crean? Escriba el número:\n"+ops,String((ACT.mats.find(m=>/contable/i.test(m.nombre))||ACT.mats[0]||{}).id||""));if(!r)return;materiaId=Number(r)}
+  if(btn)btn.disabled=true;const hoy=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10),ids=[];
+  try{for(const P of PAQ_LAB){const ev=P.tipo==="evaluativa";const ind=ev?await crearIndicador(materiaId,P.desc,hoy):null;
+    const C={estrategia:ESTR,lab_tipo:P.tipo,materia_id:materiaId,lab_desc:P.desc,lab_ic:P.ic,lab_pj:P.pj,lab_pasos:P.pasos,
+      criterios:ev?LAB_CRIT.map(c=>({...c,niveles:typeof tiraderaNivelesDe==="function"?tiraderaNivelesDe(c):undefined})):[],
+      lab_instrumento:{componente:ev?"Trabajo cotidiano":"Práctica",tipo:"Escala de desempeño",subarea:"",unidad:"Legislación laboral: contratos, aguinaldo, vacaciones, preaviso y cesantía",resultado:"",indicador:P.desc}};
+    const {data,error}=await sb.from("trabajos_cotidianos").insert({titulo:P.titulo,fecha:hoy,tipo_actividad:"rubrica_directa",habilitado:false,indicador_id:ind?ind.id:null,contenido_actividad:C}).select("id").maybeSingle();
+    if(error||!data){if(ind)await sb.from("indicadores").delete().eq("id",ind.id);throw new Error(error?error.message:"sin respuesta")}ids.push(data.id)}}
+  catch(e){alert("No se pudo crear todo: "+(e.message||e))}
+  await cargarActs(true);mapa();return ids}
+async function guardarProg(t,prog,extra){if(!EST_ID)return true;
+  const r=await upsertSinConflicto("actividades_estudiante",{trabajo_id:t.id,estudiante_id:EST_ID},{datos_prueba:{laboral:prog},actualizado_en:new Date().toISOString(),...(extra||{})});
+  if(r&&r.error){alert("No se pudo guardar tu avance: "+r.error.message);return false}
+  ACT.mias[t.id]={...(ACT.mias[t.id]||{}),datos_prueba:{laboral:prog},...(extra||{})};return true}
+// Evaluación en formato MEP.
+const insDe=t=>{const C=t.contenido_actividad||{};return {componente:"Trabajo cotidiano",tipo:"Escala de desempeño",subarea:"",unidad:"Legislación laboral",resultado:"",indicador:C.lab_desc||"",...(C.lab_instrumento||{})}};
+function instrumentoHTML(t){const M=misionDe(t),cnt=c=>M.pasos.filter(p=>p.c===c).length;
+  const crit=critDe(t).filter(c=>cnt(c.cat||LAB_CRIT.find(x=>x.auto===c.auto).cat));
+  const h=typeof tiraderaInstrumentoHTML==="function"?tiraderaInstrumentoHTML(t.titulo,crit,insDe(t)):"";
+  return h.replace(/Se califica con el registro del juego\./g,"Se califica solo con las respuestas registradas.").replace(/Los puntos del juego no son la nota\./,"Los puntos de experiencia (XP) no son la nota.").replace(/Los indicadores automáticos usan el registro de la partida/,"Cada criterio usa el % de respuestas correctas")
+    +`<div class="fb tip"><b>¿Cómo se calcula?</b> El trabajo tiene ${cnt("concepto")} preguntas de concepto (criterio 1), ${cnt("caso")} casos (criterio 2) y ${cnt("calculo")} cálculos (criterio 3). Cada paso se responde <b>una sola vez</b>, sin pistas; los que no respondas cuentan como incorrectos.</div>`}
+function verInstrumento(t){$("#gt").textContent="📋 Evaluación · formato MEP";
+  $("#guiaB").innerHTML=`<div id="insImp" class="ins">${instrumentoHTML(t)}</div><div class="actions"><button class="sec" id="insPrint">🖨️ Imprimir o guardar PDF</button>${DOC?'<button class="pink" id="insEdit">✏️ Editar</button>':""}</div>`;
+  if(!$("#guia").open)$("#guia").showModal();
+  $("#insPrint").onclick=()=>{const w=open("","_blank");w.document.write(`<html><head><title>${escH(t.titulo)}</title><style>body{font-family:Arial,sans-serif;padding:20px}table{border-collapse:collapse;width:100%;font-size:12px}th,td{border:1px solid #999;padding:6px;vertical-align:top}.fb{margin-top:12px;font-size:12px}</style></head><body>${$("#insImp").innerHTML}</body></html>`);w.document.close();w.print()};
+  const e=$("#insEdit");if(e)e.onclick=()=>editarInstrumento(t)}
+function editarInstrumento(t){const I=insDe(t),K=critDe(t);
+  const f=(k,l,a)=>`<label class="ef"><span>${l}</span>${a?`<textarea data-ins="${k}" rows="2">${escH(I[k])}</textarea>`:`<input data-ins="${k}" value="${escH(I[k])}">`}</label>`;
+  $("#guiaB").innerHTML=`<p class="sub" style="margin:0">Copie el resultado de aprendizaje y el indicador de logro del programa. Los estudiantes ven esta evaluación antes de empezar.</p>${f("componente","Componente")}${f("tipo","Tipo")}${f("subarea","Subárea")}${f("unidad","Unidad de estudio / tema")}${f("resultado","Resultado de aprendizaje",1)}${f("indicador","Indicador de logro",1)}
+    ${K.map((c,i)=>{const nv=typeof tiraderaNivelesDe==="function"?tiraderaNivelesDe(c):(c.niveles||{});return `<div class="card" style="padding:10px;margin-top:10px"><label class="ef"><span>Criterio ${i+1}</span><textarea rows="2" data-cr="${i}|nombre">${escH(c.nombre)}</textarea></label>${[["avanzado","Avanzado (3)"],["intermedio","Intermedio (2)"],["inicial","Inicial (1)"]].map(([k,l])=>`<label class="ef"><span>${l}</span><textarea rows="2" data-cr="${i}|${k}">${escH(nv[k]||"")}</textarea></label>`).join("")}</div>`}).join("")}
+    <div class="actions"><button class="ok" id="insG">💾 Guardar</button><button class="sec" id="insV">Cancelar</button><span id="insE" class="sub" style="margin:0"></span></div>`;
+  $("#insV").onclick=()=>verInstrumento(t);
+  $("#insG").onclick=async()=>{const ni={...I};document.querySelectorAll("[data-ins]").forEach(x=>ni[x.dataset.ins]=x.value.trim());
+    const nk=K.map(c=>({...c,niveles:{...(typeof tiraderaNivelesDe==="function"?tiraderaNivelesDe(c):(c.niveles||{}))}}));
+    document.querySelectorAll("[data-cr]").forEach(x=>{const [i,k]=x.dataset.cr.split("|");if(k==="nombre")nk[+i].nombre=x.value.trim();else nk[+i].niveles[k]=x.value.trim()});
+    $("#insG").disabled=true;const {data:a}=await sb.from("trabajos_cotidianos").select("contenido_actividad").eq("id",t.id).maybeSingle();
+    const C={...((a&&a.contenido_actividad)||t.contenido_actividad),lab_instrumento:ni,criterios:nk};
+    const {error}=await sb.from("trabajos_cotidianos").update({contenido_actividad:C}).eq("id",t.id);
+    if(error){$("#insE").textContent="No se pudo: "+error.message;$("#insG").disabled=false;return}t.contenido_actividad=C;toast("✓ Evaluación guardada");verInstrumento(t)}}
+// Página de una actividad: reglas, evaluación MEP (antes de empezar) y entrega.
+async function paginaAct(id,jugarYa){
+  $("#app").innerHTML='<p class="sub">Cargando actividad…</p>';await cargarActs();
+  let t=(ACT.lista||[]).find(x=>x.id===id);
+  if(!t){$("#app").innerHTML='<p class="sub">No se encontró la actividad (entra desde la plataforma).</p><button onclick="irA(\'#/\')">← Mapa</button>';return}
+  const C=t.contenido_actividad||{},ev=C.lab_tipo==="evaluativa",M=misionDe(t),mi=ACT.mias[t.id];
+  let prog=EST_ID?progDe(t):(ACT.prueba&&ACT.prueba.id===t.id?ACT.prueba.prog:(ACT.prueba={id:t.id,prog:{paso:0,resp:{}}}).prog);
+  prog.resp=prog.resp||{};prog.fallos=prog.fallos||0;prog.paso=prog.paso||0;
+  if(!DOC&&t.habilitado===false&&!(mi&&mi.completado)){$("#app").innerHTML=`<div class="card"><h3>${escH(t.titulo)}</h3><p>Esta actividad todavía no está abierta (o ya se cerró). Consulta con tu profe.</p><button onclick="irA('#/')">← Mapa</button></div>`;return}
+  const entregado=!!(mi&&mi.completado);
+  if(jugarYa&&!(entregado&&ev)){
+    if(prog.paso>=M.pasos.length&&!ev){prog.paso=0;}
+    jugarMision(M,{modo:ev?"evaluativa":"diaria",st:prog,titulo:t.titulo,back:"#/a/"+t.id,
+      onRes:(i,rec)=>{prog.resp[i]=rec;if(ev)guardarProg(t,prog)},
+      onAvance:async st=>{await guardarProg(t,st)},
+      onFin:async st=>{
+        if(!ev){const P=M.pasos.filter(p=>p.k!=="intro").length,prim=Object.values(st.resp).filter(r=>r.ok).length,pct=P?Math.round(100*prim/P):0;
+          await guardarProg(t,st,EST_ID?{completado:true,puntaje:null,porcentaje:pct}:null);sfx("nivel");confeti();toast("🏆 ¡Práctica completada!")}
+        irA("#/a/"+t.id)}});
+    return}
+  if(ev&&EST_ID&&!entregado&&!prog.vio_instrumento){
+    $("#app").innerHTML=`<div class="actions" style="margin:0 0 12px"><button class="sec" onclick="irA('#/')">← Mapa</button><span class="chip">📋 Antes de empezar: así te vamos a evaluar</span></div><div class="card ins">${instrumentoHTML(t)}</div><div class="actions"><button class="ok" id="insOk">✅ Leí la evaluación, empezar el trabajo</button></div>`;
+    hablar("Antes de empezar, lee cómo te vamos a evaluar.");
+    $("#insOk").onclick=async()=>{$("#insOk").disabled=true;prog.vio_instrumento=new Date().toISOString();await guardarProg(t,prog);irA("#/a/"+t.id+"/jugar")};return}
+  const P=M.pasos.filter(p=>p.k!=="intro").length,hechos=Object.keys(prog.resp).length,pct=P?Math.round(100*hechos/P):0;
+  const met=ev&&(entregado||DOC)?(prog.metricas||metricasDe(t,prog)):null,terminado=prog.paso>=M.pasos.length;
+  $("#app").innerHTML=`<div class="actions" style="margin:0 0 12px"><button class="sec" onclick="irA('#/')">← Mapa</button><span class="chip">${ev?"📝 Trabajo cotidiano":"🟢 Práctica interactiva"}${t.indicador_id?" · con indicador":" · sin nota"}</span>${ev?'<button class="sec" id="verIns">📋 Evaluación (formato MEP)</button>':""}</div>
+   <div class="card"><div style="display:flex;gap:14px;align-items:center"><div class="ic" style="width:64px;height:64px;border-radius:20px;display:grid;place-items:center;font-size:2rem;background:rgba(255,255,255,.06)">${M.ic}</div><div><h2 style="margin:0">${escH(t.titulo)}</h2><p class="sub" style="margin:4px 0 0">${escH(C.lab_desc||"")}</p></div></div>
+    ${DOC?'<div class="fb tip">🧪 Vista del profe: puede resolverla para probarla; no se guarda nada.</div>':""}
+    <p style="margin:14px 0 6px">${ev?"<b>Reglas:</b> cada paso se responde <b>una sola vez</b>, sin pistas ni ver si está bien. Al final toca <b>📤 Entregar</b>: la nota se calcula sola con el % de conceptos, casos y cálculos correctos (85 % o más = 3 · 60–84 % = 2 · 35–59 % = 1).":"<b>Práctica sin nota:</b> tienes pistas, varios intentos, narrador y XP. Termínala para completarla."}</p>
+    <div class="prog"><span style="width:${entregado?100:pct}%"></span></div><small class="sub">${hechos}/${P} pasos respondidos</small>
+    ${met?`<div class="grid" style="margin-top:14px">${LAB_CRIT.filter(c=>met[c.auto]!=null).map(c=>`<div class="card" style="padding:12px"><b style="font-size:1.4rem;color:var(--cyan)">${Math.round(met[c.auto])} %</b><br><small>${escH(c.nombre)}</small></div>`).join("")}</div>`:""}
+    ${entregado&&ev?`<p style="font-size:1.2rem;font-weight:900;margin:14px 0 0">Nota del indicador: ${mi.puntaje!=null?mi.puntaje+" / 3":"—"} ${mi.porcentaje!=null?`(${Math.round(mi.porcentaje)} %)`:""}</p>`:""}
+    ${entregado&&!ev?'<p style="font-weight:900;color:var(--mint)">🏆 Práctica completada</p>':""}
+    <div class="actions">${entregado&&ev?"":`<button class="pink" onclick="sfx('clic');irA('#/a/${t.id}/jugar')">${entregado?"🔁 Repetir la práctica":terminado&&ev?"👁️ Revisar":hechos?"▶ Seguir":"▶ Empezar"}</button>`}${ev&&EST_ID&&!entregado?`<button class="ok" id="entregar">📤 Entregar trabajo</button>`:""}</div></div>`;
+  const vi=$("#verIns");if(vi)vi.onclick=()=>verInstrumento(t);
+  const eb=$("#entregar");if(eb)eb.onclick=async()=>{const falt=P-hechos;
+    if(!confirm(`${falt?`Te faltan ${falt} paso(s) por responder: cuentan como incorrectos.\n\n`:""}¿Entregar el trabajo? Ya no podrás cambiarlo.`))return;
+    eb.disabled=true;const met2=metricasDe(t,prog),crit=critDe(t).filter(c=>met2[c.auto]!=null),nota=memoriaNotaDesdeMetricas(crit,met2,[]);
+    prog.metricas=met2;prog.entregado_en=new Date().toISOString();
+    const {error}=await guardarNotaManualActividad(t,EST_ID,nota.puntaje,{respuestas:nota.puntos,porcentaje:nota.porcentaje,datos_prueba:{laboral:prog}});
+    if(error){eb.disabled=false;alert("No se pudo entregar: "+error);return}
+    ACT.mias[t.id]={completado:true,puntaje:nota.puntaje,porcentaje:nota.porcentaje,datos_prueba:{laboral:prog}};sfx("nivel");confeti();hablar("¡Trabajo entregado!");paginaAct(t.id)};
+}
+// El profe revisa lo que respondió un estudiante, paso por paso.
+async function verTrabajoEst(id,est){await cargarActs();const t=(ACT.lista||[]).find(x=>x.id===id);if(!t||!DOC){irA("#/");return}
+  const {data:a}=await sb.from("actividades_estudiante").select("completado,puntaje,porcentaje,datos_prueba").eq("trabajo_id",id).eq("estudiante_id",est).maybeSingle();
+  const pr=(a&&a.datos_prueba&&a.datos_prueba.laboral)||{resp:{}},M=misionDe(t),ev=(t.contenido_actividad||{}).lab_tipo==="evaluativa";
+  const resp=(p,r)=>!r?"—":p.k==="mc"?escH(p.o[r.v]??(r.ok?p.o[p.r]:"(varios intentos)")):p.k==="tf"?(r.v===undefined?(r.ok?(p.r?"Verdadero":"Falso"):"(varios intentos)"):r.v?"Verdadero":"Falso"):r.v!=null?(p.u?r.v+" "+p.u:C(r.v)):r.ok?"Correcto":"(varios intentos)";
+  const corr=p=>p.k==="mc"?escH(p.o[p.r]):p.k==="tf"?(p.r?"Verdadero":"Falso"):p.u?Math.round(p.ok*100)/100+" "+p.u:C(Math.round(p.ok*100)/100);
+  $("#app").innerHTML=`<div class="actions" style="margin:0 0 12px"><button class="sec" onclick="irA('#/a/${id}')">← ${escH(t.titulo)}</button><span class="chip">👁️ ${escH(ACT.nombres[est]||est)}</span>${a&&a.completado?`<span class="chip" style="color:var(--mint)">✅ ${ev?"Nota "+(a.puntaje!=null?a.puntaje+"/3":"—"):"Completó"}</span>`:""}</div>
+   <div class="card" style="overflow-x:auto"><table class="tabla"><thead><tr><th>#</th><th>Tipo</th><th>Pregunta</th><th>Respondió</th><th>Correcta</th><th></th></tr></thead><tbody>
+   ${M.pasos.map((p,i)=>p.k==="intro"?"":`<tr><td>${i}</td><td>${CAT_NOM[p.c]||""}</td><td>${p.txt}</td><td>${resp(p,pr.resp[i])}</td><td>${corr(p)}</td><td style="font-size:1.2rem">${pr.resp[i]?(pr.resp[i].ok?"✅":"❌"):"—"}</td></tr>`).join("")}</tbody></table></div>`}
+async function verEntregas(t){const d=$("#guia"),C=t.contenido_actividad||{},ev=C.lab_tipo==="evaluativa",M=misionDe(t),P=M.pasos.filter(p=>p.k!=="intro").length;
+  $("#gt").textContent="📥 Entregas · "+t.titulo;$("#guiaB").innerHTML="<p>Cargando…</p>";if(!d.open)d.showModal();
+  const [{data:em},{data:ae}]=await Promise.all([sb.from("estudiante_materias").select("estudiante_id").eq("materia_id",C.materia_id),sb.from("actividades_estudiante").select("estudiante_id,completado,puntaje,porcentaje,datos_prueba").eq("trabajo_id",t.id)]);
+  const ids=(em||[]).map(x=>x.estudiante_id),{data:es}=ids.length?await sb.from("estudiantes").select("id,nombre,apellido1,apellido2").in("id",ids):{data:[]};
+  const por={};(ae||[]).forEach(x=>por[x.estudiante_id]=x);
+  const lista=(es||[]).map(e=>({id:e.id,nombre:[e.apellido1,e.apellido2,e.nombre].filter(Boolean).join(" ")})).sort((a,b)=>a.nombre.localeCompare(b.nombre,"es"));lista.forEach(e=>ACT.nombres[e.id]=e.nombre);
+  const pc=v=>v==null?"—":`<b style="color:${v>=85?"var(--mint)":v>=60?"var(--amber)":"var(--red)"}">${Math.round(v)} %</b>`;const crits=LAB_CRIT.filter(c=>M.pasos.some(p=>p.c===c.cat));let ent=0,trab=0;
+  const filas=lista.map(e=>{const a=por[e.id],pr=(a&&a.datos_prueba&&a.datos_prueba.laboral)||{resp:{}},h=Object.keys(pr.resp||{}).length,ok=a&&a.completado;if(ok)ent++;else if(h)trab++;
+    const met=ev&&(ok||h)?(pr.metricas||metricasDe(t,pr)):null;
+    return `<tr><td>${escH(e.nombre)}</td><td>${ok?"✅ "+(ev?(pr.calificado_por_docente?"Calificado":"Entregó"):"Completó"):h?`⏳ ${h}/${P}`:"— Sin empezar"}</td>${ev?crits.map(c=>`<td>${met?pc(met[c.auto]):"—"}</td>`).join("")+`<td><b>${ok&&a.puntaje!=null?a.puntaje+"/3":"—"}</b></td>`:`<td>${h}/${P}</td><td>${ok&&a.porcentaje!=null?Math.round(a.porcentaje)+" % a la primera":"—"}</td>`}
+      <td>${h||ok?`<button class="sec" style="padding:6px 10px" data-ver="${escH(e.id)}">👁️ Ver</button>`:""}${ev&&!ok&&h?` <button class="sec" style="padding:6px 10px" data-nota="${escH(e.id)}">Poner nota con lo que lleva</button>`:""}</td></tr>`}).join("");
+  $("#guiaB").innerHTML=`<p class="sub" style="margin:0 0 8px">${ev?"Trabajo cotidiano":"Práctica"} · ${escH(nomMat(C.materia_id))} · ${ent} de ${lista.length} ${ev?"entregaron":"completaron"}${trab?` · ${trab} trabajando`:""}.</p>
+    <div style="overflow-x:auto"><table class="tabla"><thead><tr><th>Estudiante</th><th>Estado</th>${ev?crits.map(c=>`<th>${CAT_NOM[c.cat]}s</th>`).join("")+"<th>Nota</th>":"<th>Pasos</th><th>Resultado</th>"}<th></th></tr></thead><tbody>${filas||'<tr><td colspan="7">No hay estudiantes en esta materia.</td></tr>'}</tbody></table></div><p id="entE" class="sub"></p>`;
+  d.querySelectorAll("[data-ver]").forEach(b=>b.onclick=()=>{d.close();irA(`#/a/${t.id}/e/${encodeURIComponent(b.dataset.ver)}`)});
+  d.querySelectorAll("[data-nota]").forEach(b=>b.onclick=async()=>{const a=por[b.dataset.nota],pr=(a.datos_prueba&&a.datos_prueba.laboral)||{resp:{}};
+    if(!confirm("¿Poner la nota con lo que lleva? Lo que no respondió cuenta como incorrecto."))return;b.disabled=true;
+    const met=metricasDe(t,pr),nota=memoriaNotaDesdeMetricas(critDe(t).filter(c=>met[c.auto]!=null),met,[]);
+    const {error}=await guardarNotaManualActividad(t,b.dataset.nota,nota.puntaje,{respuestas:nota.puntos,porcentaje:nota.porcentaje,datos_prueba:{laboral:{...pr,metricas:met,calificado_por_docente:true,entregado_en:new Date().toISOString()}}});
+    if(error){$("#entE").textContent="No se pudo: "+error;b.disabled=false;return}verEntregas(t)})}
 // ═══ Guía rápida ═══
-$("#guiaB").innerHTML=`<p style="color:var(--mut);margin-top:0">Resumen de las publicaciones del Ministerio de Trabajo y Seguridad Social (MTSS) y del Código de Trabajo.</p>
+const GUIA_HTML=`<p style="color:var(--mut);margin-top:0">Resumen de las publicaciones del Ministerio de Trabajo y Seguridad Social (MTSS) y del Código de Trabajo.</p>
 <h4>📝 Contratos de trabajo</h4><ul><li>Hay contrato cuando existen prestación personal del servicio, salario y subordinación jurídica (horario, indicaciones). Puede ser escrito u oral.</li><li>Tipos: por tiempo determinado (a plazo fijo o por obra determinada) y por tiempo indefinido. Si al vencer el plazo el trabajo sigue siendo permanente, se tiene como indefinido.</li><li>Plazo fijo: da vacaciones y aguinaldo proporcionales. Preaviso y cesantía solo en contratos por tiempo indefinido.</li><li>Despido sin responsabilidad patronal: causas del art. 81 (p. ej., faltar 2 días consecutivos). Terminación con responsabilidad patronal por faltas del patrono: art. 83 (p. ej., no pagar el salario a tiempo). Carta de conclusión del contrato a pedido del trabajador (art. 35).</li></ul>
 <h4>📢 Preaviso (art. 28)</h4><ul><li>Lo da quien termina la relación sin justa causa: la persona trabajadora al renunciar o el patrono al despedir sin justa causa. Solo en contratos por tiempo indefinido.</li><li>Menos de 3 meses: no hay (período de prueba) · 3 a 6 meses: 1 semana · 6 meses a 1 año: 15 días · más de 1 año: 1 mes.</li><li>Debe darse en tiempo; si no, se paga en dinero. Durante el preaviso hay un día libre pagado por semana para buscar trabajo.</li><li>Cálculo: promedio de los últimos 6 meses ÷ 30 (pago mensual) o ÷ 26 (pago semanal, excepto comercio).</li></ul>
 <h4>🛟 Cesantía (art. 29)</h4><ul><li>Se paga cuando el contrato por tiempo indefinido termina con responsabilidad patronal.</li><li>3 a 6 meses: 7 días · 6 meses a 1 año: 14 días · más de 1 año: tabla (año 1: 19,5 · año 2: 20 · año 3: 20,5 · año 4: 21 · año 5: 21,24 · año 6: 21,5 · años 7 a 9: 22 · año 10: 21,5 · año 11: 21 · año 12: 20,5 · año 13 y más: 20 días por año laborado o fracción superior a seis meses).</li><li>Tope: los últimos 8 años. No se le rebajan cargas sociales.</li></ul>
 <h4>🏖️ Vacaciones (art. 153 y ss.)</h4><ul><li>Mínimo 2 semanas por cada 50 semanas continuas: 14 días con pago mensual o quincenal (salario ÷ 30 × 14), 12 con pago semanal (salario semanal ÷ 6 × 12); en comercio con pago semanal, salario semanal ÷ 7 × 14.</li><li>Si la relación termina antes de las 50 semanas: 1 día por cada mes trabajado.</li><li>Las fija el patrono dentro de las 15 semanas siguientes. Son incompensables salvo excepciones de ley.</li></ul>
 <h4>🎁 Aguinaldo (Ley 2412)</h4><ul><li>Salarios ordinarios y extraordinarios del 1 de diciembre al 30 de noviembre ÷ 12. Se paga en los primeros 20 días de diciembre.</li><li>Solo se le rebaja la pensión alimentaria. Si el contrato termina antes, se paga proporcional.</li></ul>
 <h4>🧾 Al terminar la relación</h4><ul><li>Despido con responsabilidad patronal: preaviso, cesantía, vacaciones y aguinaldo proporcionales.</li><li>Renuncia o despido sin responsabilidad patronal: aguinaldo y vacaciones proporcionales.</li><li>Consultas: 800 TRABAJO (800 872 2256) · www.mtss.go.cr</li></ul>`;
-$("#bGuia").onclick=()=>{sfx("clic");$("#guia").showModal()};
+$("#bGuia").onclick=()=>{sfx("clic");$("#gt").textContent="📘 Guía rápida (MTSS)";$("#guiaB").innerHTML=GUIA_HTML;$("#guia").showModal()};
 $("#bMus").onclick=()=>{E.mus=!E.mus;guardar();stats();musica(E.mus);toast(E.mus?"🎵 Música activada":"🎵 Música en silencio")};
 $("#bSfx").onclick=()=>{E.sfx=!E.sfx;guardar();stats();sfx("clic")};
 $("#bVoz").onclick=()=>{E.voz=!E.voz;guardar();stats();if(!E.voz)callar();else{if(!window.speechSynthesis)toast("Este navegador no tiene narrador de voz");else hablar("Narrador activado.")}};
@@ -355,9 +629,6 @@ $("#bVoz").onclick=()=>{E.voz=!E.voz;guardar();stats();if(!E.voz)callar();else{i
 document.addEventListener("pointerdown",function una(){if(E.mus)musica(true);document.removeEventListener("pointerdown",una)},{once:true});
 stats();render();
 </script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js" onerror="void 0"></script>
-<script src="js/config.js?v=20261030i" onerror="void 0"></script>
-<script src="js/bitacora.js?v=20261103h" onerror="void 0"></script>
 <script>try{if(typeof bitacoraRegistrar==="function")bitacoraRegistrar("laboral")}catch(e){}</script>
 </body>
 </html>

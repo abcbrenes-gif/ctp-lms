@@ -5765,7 +5765,7 @@ async function pintarPanelCalificarRubrica(panel, trabajo, materiaId) {
   const entregaPorEstudiante = {};
   (entregas || []).forEach(e => { entregaPorEstudiante[e.estudiante_id] = e; });
 
-  const esTiraderaTrabajo = trabajo.contenido_actividad && ["juego_tiradera", "juego_memoria", "liquidacion_laboral", "mision_seguros"].includes(trabajo.contenido_actividad.estrategia);
+  const esTiraderaTrabajo = trabajo.contenido_actividad && ["juego_tiradera", "juego_memoria", "liquidacion_laboral", "mision_seguros", "ruta_laboral"].includes(trabajo.contenido_actividad.estrategia);
   // En La Tiradera, los indicadores "a mano" se califican por nivel de desempeño (formato MEP).
   const campoCriterio = (estId, c, i, valor) => {
     if (esTiraderaTrabajo && !c.auto) {
@@ -10199,7 +10199,7 @@ const DOC_DEF_EXT_OK = /\.(pdf|docx?|xlsx?|pptx?|txt|csv|odt|ods|odp|jpe?g|png|w
 async function agregarDocumentoDefinitivo(holder, trabajos, estudianteId, prefijo) {
   prefijo = prefijo || "";
   // Los juegos (Memoria Contable, La Tiradera) no llevan documento para adjuntar.
-  trabajos = (trabajos || []).filter(t => !(t.contenido_actividad && ["juego_memoria", "juego_tiradera", "liquidacion_laboral", "mision_seguros"].includes(t.contenido_actividad.estrategia)));
+  trabajos = (trabajos || []).filter(t => !(t.contenido_actividad && ["juego_memoria", "juego_tiradera", "liquidacion_laboral", "mision_seguros", "ruta_laboral"].includes(t.contenido_actividad.estrategia)));
   if (!trabajos.length) return;
   if (!session) { const d = document.createElement("div"); d.textContent = "⚠️ Sin sesión para adjuntar documento."; holder && holder.appendChild(d); return; }
   try {
@@ -10444,6 +10444,7 @@ async function enlazarTrabajosCalificar(holder, indicadores, estudiantes) {
       let href = null, titulo = t.titulo || "Trabajo", ext = false;
       if (est === "liquidacion_laboral") { href = `liquidaciones.html?trabajo=${t.id}&est=${q}`; ext = true; titulo = "Liquidación · " + titulo; }
       else if (est === "mision_seguros") { href = `seguros.html#/a/${t.id}/e/${q}`; ext = true; titulo = "Misión Seguros · " + titulo; }
+      else if (est === "ruta_laboral") { href = `laboral.html#/a/${t.id}/e/${q}`; ext = true; titulo = "Ruta Laboral · " + titulo; }
       else if (est === "juego_memoria") { href = `memoria.html?trabajo=${t.id}&est=${q}&docente=1`; ext = true; titulo = "Memoria Contable · " + titulo; }
       else if (t.subtema_id) href = `#/subtema/${t.subtema_id}`;
       else if (t.publicacion_id) href = `#/apartado/${t.publicacion_id}`;
