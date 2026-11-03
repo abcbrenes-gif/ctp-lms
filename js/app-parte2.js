@@ -9222,6 +9222,7 @@ async function cargarCalificarTodos(materiaId, catNombre, indicadores) {
 
   if (listaHolder) listaHolder.style.display = "none";
 
+  enlazarTrabajosCalificar(holder, indicadores, estudiantes || []).catch(e => console.warn("enlaces de trabajos:", e));
   document.getElementById("cerrar-calificar-todos").addEventListener("click", () => {
     holder.innerHTML = "";
     if (listaHolder) listaHolder.style.display = "";
@@ -10407,4 +10408,56 @@ function activarTablaMover(raiz) {
 if (typeof MutationObserver !== "undefined") {
   new MutationObserver(() => { if (document.querySelector("[data-tabla-mover]:not([data-mover-listo])")) activarTablaMover(); })
     .observe(document.documentElement, { childList: true, subtree: true });
+}
+
+
+// «Calificar a todos»: debajo de cada nota pone un vínculo 🔗 que lleva
+// directo a donde está guardado el trabajo de ese estudiante para ese
+// indicador (práctica de Aula de Conta, liquidación, Misión Seguros, Memoria
+// Contable o la página del tema donde vive el trabajo).
+async function enlazarTrabajosCalificar(holder, indicadores, estudiantes) {
+  const indIds = (indicadores || []).map(i => i.id), estIds = (estudiantes || []).map(e => e.id);
+  if (!indIds.length || !estIds.length) return;
+  const enlaces = {}; // "est-ind" -> { href, titulo, hecho }
+  const poner = (est, ind, v) => { const k = `${est}-${ind}`; if (!enlaces[k] || (v.hecho && !enlaces[k].hecho)) enlaces[k] = v; };
+  const [{ data: tcs }, acRows] = await Promise.all([
+    sb.from("trabajos_cotidianos").select("id, titulo, indicador_id, tipo_actividad, subtema_id, publicacion_id, contenido_actividad").in("indicador_id", indIds),
+    cargarTrabajosAulaConta(estIds).catch(() => [])]);
+  // Aula de Conta: cada práctica del estudiante lleva su indicador en evalCfg.
+  const setInd = new Set(indIds.map(String));
+  (acRows || []).forEach(r => (r.companies || []).forEach(c => {
+    const cf = c && c.evalCfg; if (!cf) return;
+    const ids = [cf.indicador && cf.indicador.id, ...((cf.indicadores || []).map(x => x && x.id))].filter(x => x != null && setInd.has(String(x)));
+    ids.forEach(ind => poner(r.estudiante_id, ind, { href: `${AULA_CONTABLE_URL}?comparar=${encodeURIComponent(c.id)}&como_estudiante=${encodeURIComponent(r.estudiante_id)}`, titulo: `Aula de Conta · ${c.name || "práctica"}: su trabajo comparado con la solución`, hecho: true, ext: true }));
+  }));
+  // Trabajos de la plataforma ligados al indicador.
+  const trabajos = tcs || [];
+  let hechos = {};
+  if (trabajos.length) {
+    const { data: ae } = await sb.from("actividades_estudiante").select("trabajo_id, estudiante_id").in("trabajo_id", trabajos.map(t => t.id)).in("estudiante_id", estIds);
+    (ae || []).forEach(x => { hechos[`${x.estudiante_id}-${x.trabajo_id}`] = true; });
+  }
+  trabajos.forEach(t => {
+    const est = (t.contenido_actividad || {}).estrategia;
+    estIds.forEach(e => {
+      const h = !!hechos[`${e}-${t.id}`], q = encodeURIComponent(e);
+      let href = null, titulo = t.titulo || "Trabajo", ext = false;
+      if (est === "liquidacion_laboral") { href = `liquidaciones.html?trabajo=${t.id}&est=${q}`; ext = true; titulo = "Liquidación · " + titulo; }
+      else if (est === "mision_seguros") { href = `seguros.html#/a/${t.id}/e/${q}`; ext = true; titulo = "Misión Seguros · " + titulo; }
+      else if (est === "juego_memoria") { href = `memoria.html?trabajo=${t.id}&est=${q}&docente=1`; ext = true; titulo = "Memoria Contable · " + titulo; }
+      else if (t.subtema_id) href = `#/subtema/${t.subtema_id}`;
+      else if (t.publicacion_id) href = `#/apartado/${t.publicacion_id}`;
+      if (href) poner(e, t.indicador_id, { href, titulo, hecho: h, ext });
+    });
+  });
+  Object.entries(enlaces).forEach(([k, v]) => {
+    const i = k.indexOf("-"), est = k.slice(0, i), ind = k.slice(i + 1);
+    const sel = holder.querySelector(`[data-cal-masiva="${ind}"][data-estudiante="${est}"]`);
+    if (!sel || sel.parentElement.querySelector(".cal-enlace")) return;
+    const a = document.createElement("a");
+    a.className = "cal-enlace"; a.href = v.href; a.textContent = v.hecho ? "🔗 Ver" : "🔗 Sin entregar";
+    a.title = v.titulo; if (v.ext) { a.target = "_blank"; a.rel = "noopener"; }
+    a.style.cssText = `display:block; margin-top:3px; font-size:0.72rem; font-weight:700; white-space:nowrap; text-decoration:none; color:${v.hecho ? "var(--ledger-green, #0a6cff)" : "var(--text-muted)"};`;
+    sel.insertAdjacentElement("afterend", a);
+  });
 }
