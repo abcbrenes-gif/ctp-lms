@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Misión Seguros · CTP Mercedes Norte</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js?v=20261030i"></script>
+<script src="js/bitacora.js?v=20261103a"></script>
+<style>
+:root{
+  --bg:#f3f6ff;--card:#fff;--ink:#1b2340;--mut:#5d6889;--line:#dfe5f5;
+  --blue:#2563eb;--blue2:#1d4ed8;--blue-s:#e6eeff;
+  --green:#16a34a;--green2:#22c55e;--green-s:#e3f8ea;
+  --purple:#7c3aed;--purple2:#a855f7;--purple-s:#f1eaff;
+  --red:#dc2626;--red-s:#fde8e8;--amber:#d97706;--amber-s:#fff4dc;
+  --r:18px;--sh:0 10px 30px rgba(37,56,120,.10);
+  --c1:#2563eb;--c2:#dc2626;--c3:#0d9488;--c4:#d97706;--c5:#16a34a;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 "Nunito","Segoe UI",system-ui,Roboto,sans-serif}
+button{font:inherit;cursor:pointer;border:0;border-radius:14px;padding:10px 16px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--blue2),var(--blue));box-shadow:0 4px 0 #1e3a8a;transition:transform .12s,box-shadow .12s,filter .12s}
+button:hover{filter:brightness(1.06)}
+button:active{transform:translateY(3px);box-shadow:0 1px 0 #1e3a8a}
+button:focus-visible,.blk:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--purple);outline-offset:3px}
+button:disabled{opacity:.45;cursor:not-allowed;transform:none}
+button.sec{background:#fff;color:var(--ink);border:2px solid var(--line);box-shadow:0 3px 0 var(--line)}
+button.ok{background:linear-gradient(135deg,#15803d,var(--green2));box-shadow:0 4px 0 #14532d}
+button.pur{background:linear-gradient(135deg,var(--purple),var(--purple2));box-shadow:0 4px 0 #4c1d95}
+button.ghost{background:transparent;color:var(--mut);box-shadow:none;padding:6px 10px}
+.hidden{display:none!important}
+.wrap{max-width:1180px;margin:0 auto;padding:16px}
+/* barra superior */
+.top{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);border-bottom:2px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:900;font-size:1.1rem;margin-right:auto}
+.brand .logo{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-size:1.3rem;background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff}
+.stat{display:flex;align-items:center;gap:8px;background:#fff;border:2px solid var(--line);border-radius:999px;padding:5px 12px;font-weight:800}
+.xpbar{width:140px;height:10px;border-radius:99px;background:var(--purple-s);overflow:hidden}
+.xpbar>span{display:block;height:100%;background:linear-gradient(90deg,var(--purple),var(--purple2));transition:width .6s}
+.streak.on{border-color:#fdba74;background:#fff7ed;color:#c2410c}
+.streak.pop{animation:pop .5s}
+@keyframes pop{40%{transform:scale(1.18)}}
+/* mapa de niveles */
+h1{font-size:1.7rem;margin:6px 0 2px}
+.sub{color:var(--mut);margin:0 0 18px}
+.levels{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.lvl{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);border:2px solid var(--line);padding:18px;display:flex;flex-direction:column;gap:10px;position:relative;overflow:hidden;transition:transform .2s}
+.lvl:not(.lock):hover{transform:translateY(-3px)}
+.lvl .n{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-size:1.6rem;color:#fff;background:linear-gradient(135deg,var(--blue),var(--purple))}
+.lvl h3{margin:0;font-size:1.05rem}
+.lvl p{margin:0;color:var(--mut);font-size:.9rem}
+.lvl.lock{opacity:.6}
+.lvl.lock .n{background:#9aa5c4}
+.lvl.done{border-color:#86efac}
+.lvl.done .n{background:linear-gradient(135deg,#15803d,var(--green2))}
+.prog{height:12px;background:var(--blue-s);border-radius:99px;overflow:hidden}
+.prog>span{display:block;height:100%;background:linear-gradient(90deg,var(--green),var(--green2));transition:width .6s}
+.lvl small{color:var(--mut);font-weight:700}
+.missions{display:flex;flex-wrap:wrap;gap:6px}
+.mdot{width:34px;height:34px;padding:0;border-radius:50%;font-size:.8rem;box-shadow:0 3px 0 #1e3a8a}
+.mdot.done{background:linear-gradient(135deg,#15803d,var(--green2));box-shadow:0 3px 0 #14532d}
+.mdot.lock{background:#c7cee3;box-shadow:0 3px 0 #9aa5c4}
+/* misión */
+.mhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.mhead h2{margin:0;font-size:1.25rem;margin-right:auto}
+.tag{display:inline-block;font-size:.75rem;font-weight:800;padding:3px 10px;border-radius:99px;background:var(--purple-s);color:var(--purple)}
+.story{background:linear-gradient(135deg,#1e3a8a,#4c1d95);color:#fff;border-radius:var(--r);padding:18px 20px;box-shadow:var(--sh);display:flex;gap:16px;align-items:flex-start}
+.story .ic{font-size:2.4rem;line-height:1}
+.story b{color:#fde68a}
+.story p{margin:4px 0 0}
+.datos{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.datos span{background:rgba(255,255,255,.14);border-radius:10px;padding:5px 10px;font-weight:800}
+.game{display:grid;grid-template-columns:320px minmax(0,1fr);gap:16px;margin-top:16px;align-items:start}
+@media(max-width:900px){.game{grid-template-columns:minmax(0,1fr)!important}}
+.panel{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);border:2px solid var(--line);padding:14px}
+.panel h4{margin:0 0 8px;font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
+.bank{display:flex;flex-direction:column;gap:8px;max-height:62vh;overflow:auto;padding:2px}
+@media(max-width:900px){.game>.panel:first-child{position:sticky;top:0;z-index:15}.bank{max-height:none;flex-direction:row;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:6px}.bank .blk{flex:0 0 230px;scroll-snap-align:start}.top{position:static}}
+@media(max-width:620px){.col{min-height:110px}.top .wrap{gap:8px}.xpbar{width:70px}.brand div div{display:none}}
+.blk{display:flex;gap:10px;align-items:center;background:#fff;border:2px solid var(--line);border-left:6px solid var(--cc,var(--c1));border-radius:14px;padding:9px 10px;cursor:grab;user-select:none;touch-action:none;transition:transform .15s,box-shadow .15s,border-color .15s;text-align:left;color:var(--ink);font-weight:700;box-shadow:0 2px 0 var(--line)}
+.blk:hover{transform:translateX(3px)}
+.blk.sel{border-color:var(--purple);box-shadow:0 0 0 4px var(--purple-s)}
+.blk.used{opacity:.4}
+.blk .cd{font-family:ui-monospace,Consolas,monospace;font-size:.78rem;background:var(--blue-s);color:var(--blue2);border-radius:8px;padding:2px 6px;white-space:nowrap}
+.blk .nm{font-size:.86rem;line-height:1.2}
+.blk .cl{display:block;font-size:.68rem;color:var(--cc);font-weight:900;text-transform:uppercase;letter-spacing:.04em}
+.ghost-drag{position:fixed;z-index:100;pointer-events:none;transform:rotate(-3deg) scale(1.04);box-shadow:0 18px 40px rgba(0,0,0,.25);opacity:.95;width:280px}
+/* comprobante */
+.voucher{background:#fffef7;border:2px solid #eadfb8;border-radius:var(--r);box-shadow:var(--sh);overflow:hidden}
+.voucher .vh{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:#fff6d6;border-bottom:2px dashed #eadfb8;font-weight:900}
+.cols{display:grid;grid-template-columns:1fr 1fr}
+@media(max-width:620px){.cols{grid-template-columns:1fr}}
+.col{padding:12px;min-height:200px;display:flex;flex-direction:column;gap:8px;transition:background .2s}
+.col+.col{border-left:2px dashed #eadfb8}
+@media(max-width:620px){.col+.col{border-left:0;border-top:2px dashed #eadfb8}}
+.col .ch{display:flex;justify-content:space-between;align-items:center;font-weight:900;letter-spacing:.08em}
+.col.debe .ch{color:var(--blue2)}.col.haber .ch{color:var(--purple)}
+.col.over{background:#eef4ff}
+.col.haber.over{background:#f5efff}
+.drop{border:2px dashed #cfd7ee;border-radius:14px;padding:12px;text-align:center;color:var(--mut);font-weight:700;font-size:.86rem;background:transparent;box-shadow:none}
+.drop:hover{border-color:var(--purple);color:var(--purple)}
+.line{display:grid;grid-template-columns:1fr 130px 30px;gap:6px;align-items:center;background:#fff;border:2px solid var(--line);border-left:6px solid var(--cc);border-radius:12px;padding:7px 8px;animation:slide .25s ease}
+@keyframes slide{from{opacity:0;transform:translateY(-6px)}}
+.line .cd{font-family:ui-monospace,Consolas,monospace;font-size:.74rem;color:var(--blue2)}
+.line .nm{font-size:.82rem;font-weight:700;line-height:1.15}
+.line input{width:100%;font:inherit;font-weight:800;text-align:right;border:2px solid var(--line);border-radius:10px;padding:7px 8px;font-variant-numeric:tabular-nums}
+.line .x{padding:0;width:30px;height:30px;border-radius:50%;background:var(--red-s);color:var(--red);box-shadow:none}
+.line.good{border-color:#86efac;background:var(--green-s)}
+.line.bad{border-color:#fca5a5;background:var(--red-s);animation:shake .4s}
+@keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.tot{display:grid;grid-template-columns:1fr 1fr;border-top:2px dashed #eadfb8;font-weight:900;font-variant-numeric:tabular-nums}
+.tot div{padding:10px 14px;display:flex;justify-content:space-between}
+.tot div+div{border-left:2px dashed #eadfb8}
+.balance{padding:8px 14px;text-align:center;font-weight:800;font-size:.9rem}
+.balance.okb{background:var(--green-s);color:var(--green)}
+.balance.nob{background:var(--amber-s);color:var(--amber)}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.fb{margin-top:12px;border-radius:14px;padding:12px 14px;font-weight:700;display:flex;gap:10px;align-items:flex-start}
+.fb.bad{background:var(--red-s);color:#991b1b;border:2px solid #fca5a5}
+.fb.ok{background:var(--green-s);color:#166534;border:2px solid #86efac}
+.fb.tip{background:var(--amber-s);color:#92400e;border:2px solid #fcd34d}
+.fb ul{margin:4px 0 0;padding-left:18px}
+.stamp{position:absolute;right:24px;top:40%;transform:rotate(-14deg) scale(3);opacity:0;border:5px solid var(--green);color:var(--green);font-weight:900;font-size:1.4rem;letter-spacing:.1em;padding:4px 14px;border-radius:12px;background:rgba(255,255,255,.85);pointer-events:none}
+.stamp.on{animation:stamp .55s forwards}
+@keyframes stamp{to{transform:rotate(-14deg) scale(1);opacity:1}}
+/* nivel 1 */
+.code{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:10px 0}
+.seg{min-width:72px;border:2px dashed #b8c3e6;border-radius:14px;padding:8px;text-align:center;background:#fff;color:var(--ink);box-shadow:none}
+.seg .d{font-family:ui-monospace,Consolas,monospace;font-size:1.5rem;font-weight:900;color:var(--blue2)}
+.seg .lb{display:block;min-height:22px;font-size:.78rem;font-weight:800;color:var(--purple)}
+.seg.good{border-style:solid;border-color:var(--green);background:var(--green-s)}
+.seg.bad{border-style:solid;border-color:var(--red);background:var(--red-s)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.chip{background:var(--purple-s);color:var(--purple);box-shadow:0 3px 0 #ddd0fb;border:2px solid #ddd0fb}
+.chip.sel{background:var(--purple);color:#fff}
+.chip.used{opacity:.35}
+.bins{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+@media(max-width:860px){.bins{grid-template-columns:repeat(2,1fr)}}
+.bin{border:2px dashed var(--cc);border-radius:16px;padding:10px;min-height:140px;background:#fff;display:flex;flex-direction:column;gap:6px;color:var(--ink);box-shadow:none;text-align:left;font-weight:600}
+.bin .bt{font-weight:900;color:var(--cc);text-align:center}
+.bin.over{background:var(--blue-s)}
+.mini{font-size:.78rem;border:2px solid var(--line);border-left:5px solid var(--cc,#9aa5c4);border-radius:10px;padding:5px 7px;background:#fff}
+.mini.good{border-color:#86efac;background:var(--green-s)}
+.mini.bad{border-color:#fca5a5;background:var(--red-s)}
+.quiz{display:flex;flex-direction:column;gap:10px}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.opt{background:#fff;color:var(--ink);border:2px solid var(--line);box-shadow:0 3px 0 var(--line);text-align:left}
+.opt.good{background:var(--green-s);border-color:var(--green)}
+.opt.bad{background:var(--red-s);border-color:var(--red)}
+/* manual */
+dialog{border:0;border-radius:22px;padding:0;width:min(860px,94vw);max-height:88vh;box-shadow:0 30px 80px rgba(0,0,0,.3)}
+dialog::backdrop{background:rgba(20,26,60,.45);backdrop-filter:blur(3px)}
+.mh{display:flex;align-items:center;gap:10px;padding:14px 18px;background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff}
+.mh h3{margin:0;margin-right:auto}
+.mtabs{display:flex;gap:6px;flex-wrap:wrap;padding:10px 18px 0}
+.mtabs button{background:var(--blue-s);color:var(--blue2);box-shadow:none;padding:7px 12px}
+.mtabs button.on{background:var(--blue);color:#fff}
+.mbody{padding:14px 18px 20px;overflow:auto;max-height:calc(88vh - 120px)}
+.mbody table{width:100%;border-collapse:collapse;font-size:.88rem}
+.mbody td,.mbody th{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.mbody .cd{font-family:ui-monospace,Consolas,monospace;color:var(--blue2);white-space:nowrap}
+.rule{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:10px 0}
+.rule div{border-radius:14px;padding:12px;border:2px solid var(--line)}
+#confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:200}
+html,body{overflow-x:hidden}
+.toast{max-width:90vw;text-align:center;position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(120px);background:var(--ink);color:#fff;padding:12px 18px;border-radius:14px;font-weight:800;z-index:150;transition:transform .35s}
+.toast.on{transform:translateX(-50%) translateY(0)}
+.toast:empty{display:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<canvas id="confetti"></canvas>
+<div class="top"><div class="wrap">
+  <div class="brand"><div class="logo">🛡️</div><div>Misión Seguros<div style="font-size:.72rem;color:var(--mut);font-weight:700">Contabilidad de seguros · Plan SUGESE</div></div></div>
+  <div class="stat" title="Experiencia acumulada">⭐ <span id="xpTxt">0 XP</span><div class="xpbar" aria-hidden="true"><span id="xpBar" style="width:0"></span></div></div>
+  <div class="stat streak" id="streak" title="Racha de respuestas correctas seguidas">🔥 <span id="streakTxt">0</span></div>
+  <button class="pur" id="btnManual">📖 Manual de Pistas</button>
+  <button class="sec" id="btnSonido" aria-pressed="true" title="Sonido">🔊</button>
+  <a href="index.html" class="stat" style="text-decoration:none;color:var(--ink)">← Plataforma</a>
+</div></div>
+<main class="wrap" id="app"></main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="sr" id="live" aria-live="assertive"></div>
+
+<dialog id="manual" aria-labelledby="manualTit">
+  <div class="mh"><h3 id="manualTit">📖 Manual de Pistas</h3><button class="sec" id="cerrarManual">Cerrar ✕</button></div>
+  <div class="mtabs" id="mtabs"></div>
+  <div class="mbody" id="mbody"></div>
+</dialog>
+
+<script>
+"use strict";
+// ═══════════════════════════════════════════════════════════════════════
+// Datos: tomados únicamente de la «Guía de Contabilidad de Seguros» (SUGESE)
+// ═══════════════════════════════════════════════════════════════════════
+const CLASES={1:{n:"Activo",c:"var(--c1)",aum:"D"},2:{n:"Pasivo",c:"var(--c2)",aum:"H"},3:{n:"Patrimonio",c:"var(--c3)",aum:"H"},4:{n:"Gasto",c:"var(--c4)",aum:"D"},5:{n:"Ingreso",c:"var(--c5)",aum:"H"}};
+const PLAN=[
+ ["1.010","Disponibilidades (Bancos / Caja)"],
+ ["1.020.020","Inversiones disponibles para la venta"],
+ ["1.040.030.010","Primas por cobrar, seguro directo — Tomadores"],
+ ["1.040.030.020","Primas por cobrar, seguro directo — Intermediarios"],
+ ["1.040.040","Primas vencidas"],
+ ["1.040.080.030","Derechos de cobro con agentes e intermediarios de seguros"],
+ ["1.050.010","Cuenta corriente coaseguro"],
+ ["1.060.010.010","Participación del reaseguro cedido en la provisión para primas no devengadas"],
+ ["1.060.010.020","Participación del reaseguro retrocedido en la provisión para primas no devengadas"],
+ ["1.090.020.040","Comisiones diferidas de contratos de seguros y reaseguro aceptado"],
+ ["2.050.010.010","Provisión para primas no devengadas — Seguro directo"],
+ ["2.050.020.010","Provisión para insuficiencia de primas — Seguro directo"],
+ ["2.050.030.010","Provisión matemática — Seguro directo"],
+ ["2.050.040.010","Siniestros liquidados y no pagados — Seguro directo"],
+ ["2.050.040.030","Siniestros liquidados y controvertidos por el asegurado"],
+ ["2.050.040.050","Siniestros en proceso de liquidación — Seguro directo"],
+ ["2.050.050.010","Provisión para siniestros ocurridos y no reportados (IBNR) — Seguro directo"],
+ ["2.050.060.010","Provisión para participación en beneficios y extornos — Seguro directo"],
+ ["2.060.010.010","Reaseguro cedido (cuentas acreedoras)"],
+ ["2.060.010.020","Reaseguro retrocedido (cuentas acreedoras)"],
+ ["2.070.010.010","Obligaciones con asegurados — Primas extornadas"],
+ ["2.070.020","Obligaciones con agentes e intermediarios"],
+ ["2.070.020.010","Obligaciones con agentes e intermediarios — Comisiones por pagar"],
+ ["2.080.010.080","Comisiones diferidas de contratos de reaseguro cedido y retrocedido"],
+ ["3.010","Patrimonio neto y reservas de capital (3.010 a 3.080)"],
+ ["4.020.010.010","Siniestros pagados — Seguro directo"],
+ ["4.020.030.010","Participación en beneficios y extornos — Seguro directo"],
+ ["4.030.010.010","Gastos por comisiones seguro directo — Sobre primas emitidas"],
+ ["4.030.010.070","Ajustes por comisiones diferidas"],
+ ["4.040.010.010","Primas cedidas por reaseguro cedido"],
+ ["4.070","Gastos de administración"],
+ ["4.080.010.010","Ajustes a provisiones técnicas (gasto) — Primas no devengadas e insuficiencia de primas"],
+ ["4.080.010.020","Ajustes a provisiones técnicas (gasto) — Provisiones matemáticas"],
+ ["4.080.010.030","Ajustes a provisiones técnicas (gasto) — Provisiones para siniestros"],
+ ["4.080.010.040","Ajustes a provisiones técnicas (gasto) — Participación en beneficios y extornos"],
+ ["4.080.010.070","Participación del reaseguro en las provisiones técnicas (gasto)"],
+ ["5.020.010.010","Primas emitidas — Seguro directo (netas de extornos y anulaciones)"],
+ ["5.030.010.010","Comisiones sobre primas cedidas"],
+ ["5.030.010.040","Comisiones reaseguro cedido — Ajustes por comisiones diferidas"],
+ ["5.030.020.010","Comisiones sobre primas retrocedidas"],
+ ["5.030.020.040","Comisiones reaseguro retrocedido — Ajustes por comisiones diferidas"],
+ ["5.040","Siniestros recuperados"],
+ ["5.070.010.010","Ajustes a provisiones técnicas (ingreso) — Primas no devengadas e insuficiencia de primas"],
+ ["5.070.010.020","Ajustes a provisiones técnicas (ingreso) — Provisión matemática, seguro directo"],
+ ["5.070.010.030","Ajustes a provisiones técnicas (ingreso) — Provisiones para siniestros"],
+ ["5.070.010.040","Ajustes a provisiones técnicas (ingreso) — Participación en beneficios y extornos"],
+ ["5.070.010.070","Participación del reaseguro en las provisiones técnicas (ingreso)"]
+].map(([cod,nom])=>({cod,nom,cl:+cod[0]}));
+const CTA=Object.fromEntries(PLAN.map(a=>[a.cod,a]));
+
+// Asientos: [código, "D"|"H", monto]
+const NIVELES=[
+ {id:1,ic:"🔢",t:"El código de 14 dígitos y la clasificación",d:"Descifra la estructura del código contable y clasifica las cuentas por su clase.",misiones:[
+   {id:"1-1",tipo:"codigo",t:"Descifra el código",ic:"🧩",historia:"¡Bienvenido a la aseguradora! Antes de registrar, necesitas leer el idioma de las cuentas. Coloca cada etiqueta sobre su parte del código.",cod:["1","040","030","010","M","001"]},
+   {id:"1-2",tipo:"quiz",t:"¿Qué dígitos son?",ic:"🎯",historia:"Un auditor te pone a prueba con códigos reales del plan. ¡Responde rápido y sin errores!",preguntas:[
+     {p:"En el código 2.050.040.050, ¿qué indica el primer dígito (2)?",o:["La clase: Pasivo","El grupo","La moneda","La cuenta analítica"],r:0},
+     {p:"¿Cuántos dígitos tiene en total el código del catálogo?",o:["10","12","14","8"],r:2},
+     {p:"En 1.040.030.010, ¿qué parte es «010»?",o:["La clase","La subcuenta","La moneda","El grupo"],r:1},
+     {p:"¿Qué dígito del código identifica la moneda?",o:["El dígito 1","Los dígitos 2 a 4","El dígito 11","Los dígitos 12 a 14"],r:2},
+     {p:"¿Qué parte del código usa los dígitos 12 a 14?",o:["La cuenta","La cuenta analítica","La subcuenta","El grupo"],r:1}]},
+   {id:"1-3",tipo:"clasificar",t:"Clasifica las cuentas I",ic:"🗂️",historia:"Llegaron cuentas nuevas al sistema y están revueltas. Arrastra cada una a su clase según el primer dígito y su naturaleza.",cuentas:["1.040.030.010","2.050.010.010","5.020.010.010","4.030.010.010","3.010","1.010","2.070.020.010","4.020.010.010","5.040","1.090.020.040"]},
+   {id:"1-4",tipo:"clasificar",t:"Clasifica las cuentas II",ic:"🗃️",historia:"Segunda ronda: ahora con provisiones técnicas y reaseguro. ¡Atención a los detalles!",cuentas:["2.050.040.050","4.080.010.030","5.070.010.030","1.060.010.010","2.060.010.010","4.040.010.010","5.030.010.010","2.050.030.010","1.020.020","4.070"]}
+ ]},
+ {id:2,ic:"📝",t:"Primas y comisiones (seguro directo)",d:"Emisión de pólizas, comisiones, cobro, provisión para primas no devengadas y su cierre.",misiones:[
+   {id:"2.1",t:"Registro de la póliza emitida",ic:"📄",historia:"¡La aseguradora vendió pólizas por <b>₡1 200 000</b>! De ese total, <b>₡700 000</b> los cobra directamente a los tomadores y <b>₡500 000</b> a través de un intermediario. Tu misión: registrar la emisión.",datos:["Tomadores ₡700 000","Intermediarios ₡500 000"],tip:"Se registra la TOTALIDAD de la prima del periodo de cobertura. Las primas por cobrar son un activo y las primas emitidas son un ingreso.",lineas:[["1.040.030.010","D",700000],["1.040.030.020","D",500000],["5.020.010.010","H",1200000]]},
+   {id:"2.2",t:"Comisión sobre primas emitidas",ic:"🤝",historia:"El mediador de seguros ganó una comisión del <b>10 %</b> sobre las primas emitidas de <b>₡1 200 000</b>. Todavía no se le ha pagado.",datos:["Comisión: 10 % de ₡1 200 000"],tip:"La comisión es un gasto para la aseguradora; lo que se le debe al mediador es una obligación (pasivo).",lineas:[["4.030.010.010","D",120000],["2.070.020.010","H",120000]]},
+   {id:"2.3",t:"Cobro inmediato de primas",ic:"💰",historia:"¡Entró el dinero! Los tomadores pagaron <b>₡700 000</b> y el intermediario trasladó <b>₡500 000</b>. Todo se depositó en el banco.",datos:["Tomadores ₡700 000","Intermediarios ₡500 000"],tip:"Al cobrar, aumentan las disponibilidades y se cancelan (disminuyen) las primas por cobrar.",lineas:[["1.010","D",1200000],["1.040.030.010","H",700000],["1.040.030.020","H",500000]]},
+   {id:"2.4",t:"El intermediario cobró pero no trasladó",ic:"⏳",historia:"Un intermediario recaudó <b>₡350 000</b> de primas, pero todavía no le ha entregado el dinero a la aseguradora.",datos:["Recaudado sin trasladar ₡350 000"],tip:"La prima por cobrar a intermediarios se convierte en un derecho de cobro con el agente o intermediario.",lineas:[["1.040.080.030","D",350000],["1.040.030.020","H",350000]]},
+   {id:"2.5",t:"Provisión para primas no devengadas",ic:"📆",historia:"Al cierre, <b>₡800 000</b> de las primas emitidas corresponden a cobertura que todavía no ha transcurrido. Hay que periodificar ese ingreso.",datos:["Prima no devengada ₡800 000"],tip:"Se reconoce un gasto por ajuste a provisiones técnicas y se constituye la provisión (pasivo).",lineas:[["4.080.010.010","D",800000],["2.050.010.010","H",800000]]},
+   {id:"2.6",t:"Diferimiento de la comisión",ic:"🧾",historia:"De la comisión del mediador, <b>₡80 000</b> corresponden a la cobertura de periodos futuros. Hay que diferirlos.",datos:["Comisión a diferir ₡80 000"],tip:"La comisión diferida es un activo y el ajuste reduce el gasto del año.",lineas:[["1.090.020.040","D",80000],["4.030.010.070","H",80000]]},
+   {id:"2.7",t:"Cierre: liberación de la provisión de primas",ic:"🔓",historia:"Llegó el cierre del ejercicio: se libera la provisión para primas no devengadas de <b>₡800 000</b>.",datos:["Provisión a liberar ₡800 000"],tip:"Se rebaja la provisión (pasivo) y se reconoce el ingreso por ajuste a provisiones técnicas.",lineas:[["2.050.010.010","D",800000],["5.070.010.010","H",800000]]},
+   {id:"2.8",t:"Cierre: imputación de la comisión diferida",ic:"🔁",historia:"Al cierre, la comisión diferida de <b>₡80 000</b> se imputa al gasto del periodo.",datos:["Comisión diferida ₡80 000"],tip:"Es el movimiento inverso del diferimiento: se rebaja el activo de comisiones diferidas.",lineas:[["4.030.010.070","D",80000],["1.090.020.040","H",80000]]}
+ ]},
+ {id:3,ic:"🚗",t:"Siniestros de corto plazo (≤ 1 año)",d:"Notificación, ajustes, liquidación, rechazo, pago e IBNR.",misiones:[
+   {id:"3.1",t:"Notificación del siniestro",ic:"📞",historia:"¡Un asegurado reportó un choque! El perito estima los daños en <b>₡2 500 000</b>. Constituye la provisión.",datos:["Estimación ₡2 500 000"],tip:"Se reconoce el gasto por ajuste a provisiones para siniestros y el pasivo de siniestros en proceso de liquidación.",lineas:[["4.080.010.030","D",2500000],["2.050.040.050","H",2500000]]},
+   {id:"3.2",t:"Aumento de la provisión",ic:"📈",historia:"Nueva información: los daños son mayores. La provisión debe <b>aumentar ₡400 000</b>.",datos:["Aumento ₡400 000"],tip:"Un aumento se registra igual que la notificación inicial.",lineas:[["4.080.010.030","D",400000],["2.050.040.050","H",400000]]},
+   {id:"3.3",t:"Disminución de la provisión",ic:"📉",historia:"En otro reclamo, los daños resultaron menores a lo estimado: la provisión <b>disminuye ₡300 000</b>.",datos:["Disminución ₡300 000"],tip:"Se rebaja el pasivo y la diferencia se reconoce como ingreso por ajuste a provisiones para siniestros.",lineas:[["2.050.040.050","D",300000],["5.070.010.030","H",300000]]},
+   {id:"3.4",t:"Monto final de la indemnización",ic:"⚖️",historia:"Se cierra la valoración de un siniestro con provisión de <b>₡2 600 000</b>: se liquidan <b>₡2 000 000</b> (aún sin pagar) y <b>₡600 000</b> quedan controvertidos por el asegurado.",datos:["Liquidado no pagado ₡2 000 000","Controvertido ₡600 000"],tip:"La provisión en proceso de liquidación se traslada a las cuentas de siniestros liquidados.",lineas:[["2.050.040.050","D",2600000],["2.050.040.010","H",2000000],["2.050.040.030","H",600000]]},
+   {id:"3.5",t:"Rechazo por falta de cobertura",ic:"🚫",historia:"Un reclamo de <b>₡900 000</b> no estaba cubierto por la póliza. Hay que anular su provisión.",datos:["Provisión a anular ₡900 000"],tip:"Se rebaja la provisión y se reconoce el ingreso por ajuste a provisiones para siniestros.",lineas:[["2.050.040.050","D",900000],["5.070.010.030","H",900000]]},
+   {id:"3.6",t:"Pago directo al asegurado",ic:"🏦",historia:"La aseguradora transfiere <b>₡2 000 000</b> directamente al asegurado por su indemnización.",datos:["Pago ₡2 000 000"],tip:"Se reconoce el siniestro pagado como gasto y sale el dinero de bancos.",lineas:[["4.020.010.010","D",2000000],["1.010","H",2000000]]},
+   {id:"3.6b",t:"Pago a través del intermediario",ic:"🧑‍💼",historia:"Otra indemnización de <b>₡750 000</b> se pagará por medio del agente intermediario.",datos:["Pago vía intermediario ₡750 000"],tip:"En vez de salir de bancos, queda la obligación con agentes e intermediarios.",lineas:[["4.020.010.010","D",750000],["2.070.020","H",750000]]},
+   {id:"3.7",t:"Siniestros ocurridos y no reportados (IBNR)",ic:"🕵️",historia:"El actuario estima que hay siniestros ya ocurridos pero aún no reportados por <b>₡1 100 000</b>.",datos:["Estimación IBNR ₡1 100 000"],tip:"Se reconoce el gasto por ajuste a provisiones para siniestros y la provisión IBNR (pasivo).",lineas:[["4.080.010.030","D",1100000],["2.050.050.010","H",1100000]]},
+   {id:"3.8",t:"Reversión de la provisión IBNR",ic:"↩️",historia:"En el siguiente periodo se revierte la provisión IBNR de <b>₡1 100 000</b>.",datos:["Reversión ₡1 100 000"],tip:"Es lo contrario a la constitución: se rebaja el pasivo y se reconoce un ingreso.",lineas:[["2.050.050.010","D",1100000],["5.070.010.030","H",1100000]]}
+ ]},
+ {id:4,ic:"❤️",t:"Seguros personales y de vida (> 1 año)",d:"Provisión matemática, su liberación, reclasificación y pago final.",misiones:[
+   {id:"3.9",t:"Constitución de la provisión matemática",ic:"🧮",historia:"La cartera de seguros de vida requiere constituir una provisión matemática de <b>₡5 000 000</b> al cierre.",datos:["Provisión matemática ₡5 000 000"],tip:"La provisión matemática es el valor neto de las obligaciones del asegurador: gasto por ajuste y pasivo.",lineas:[["4.080.010.020","D",5000000],["2.050.030.010","H",5000000]]},
+   {id:"3.10",t:"Paso 1: liberar la provisión matemática",ic:"🔓",historia:"Falleció un asegurado y sus beneficiarios tienen derecho a <b>₡3 000 000</b>. Primero se libera la provisión matemática.",datos:["Liberación ₡3 000 000"],tip:"Se rebaja la provisión matemática y se reconoce el ingreso por ajuste a provisiones técnicas.",lineas:[["2.050.030.010","D",3000000],["5.070.010.020","H",3000000]]},
+   {id:"3.11",t:"Paso 2: reclasificar a siniestros",ic:"🔀",historia:"Ahora los <b>₡3 000 000</b> se reclasifican a la provisión de siniestros liquidados y no pagados.",datos:["Reclasificación ₡3 000 000"],tip:"Gasto por ajuste a provisiones para siniestros contra siniestros liquidados y no pagados.",lineas:[["4.080.010.030","D",3000000],["2.050.040.010","H",3000000]]},
+   {id:"3.12",t:"Paso 3: reclasificar a ingreso antes del pago",ic:"🔄",historia:"Antes de pagar, los <b>₡3 000 000</b> de siniestros liquidados se reclasifican al ingreso.",datos:["Reclasificación ₡3 000 000"],tip:"Se rebaja el pasivo de siniestros liquidados y no pagados contra el ingreso por ajuste a provisiones para siniestros.",lineas:[["2.050.040.010","D",3000000],["5.070.010.030","H",3000000]]},
+   {id:"3.13",t:"Paso 4: pago final por intermediario",ic:"💸",historia:"La indemnización de <b>₡3 000 000</b> se paga a los beneficiarios por medio del intermediario.",datos:["Pago ₡3 000 000 vía intermediario"],tip:"Siniestro pagado (gasto) contra la obligación con agentes e intermediarios.",lineas:[["4.020.010.010","D",3000000],["2.070.020","H",3000000]]}
+ ]},
+ {id:5,ic:"🌐",t:"Provisiones especiales y reaseguro",d:"Insuficiencia de primas, participación en beneficios y extornos, y reaseguro cedido y retrocedido.",misiones:[
+   {id:"4.1",t:"Insuficiencia de primas",ic:"⚠️",historia:"Las primas no alcanzarán para los siniestros y gastos esperados del periodo restante: falta cubrir <b>₡600 000</b>.",datos:["Insuficiencia ₡600 000"],tip:"Gasto por ajuste a provisiones de primas no devengadas e insuficiencia, contra la provisión para insuficiencia de primas.",lineas:[["4.080.010.010","D",600000],["2.050.020.010","H",600000]]},
+   {id:"4.2",t:"Reversión de la insuficiencia",ic:"↩️",historia:"La situación mejoró: se revierte la provisión por insuficiencia de primas de <b>₡600 000</b>.",datos:["Reversión ₡600 000"],tip:"Se rebaja la provisión y se reconoce el ingreso por ajuste.",lineas:[["2.050.020.010","D",600000],["5.070.010.010","H",600000]]},
+   {id:"4.3",t:"Participación en beneficios: reconocimiento global",ic:"🎁",historia:"Por baja siniestralidad, los asegurados tendrán beneficios por <b>₡1 500 000</b> en total.",datos:["Reconocimiento global ₡1 500 000"],tip:"Gasto por provisiones para participación en beneficios y extornos contra su provisión (pasivo).",lineas:[["4.080.010.040","D",1500000],["2.050.060.010","H",1500000]]},
+   {id:"4.4",t:"Reversión global",ic:"🔙",historia:"Se revierte la provisión global de participación en beneficios de <b>₡1 500 000</b>.",datos:["Reversión ₡1 500 000"],tip:"Se rebaja la provisión y se reconoce el ingreso correspondiente.",lineas:[["2.050.060.010","D",1500000],["5.070.010.040","H",1500000]]},
+   {id:"4.5",t:"Reconocimiento individual",ic:"👤",historia:"A un asegurado en particular le corresponden <b>₡250 000</b> de participación en beneficios.",datos:["Beneficio individual ₡250 000"],tip:"Se registra con la provisión para siniestros: gasto por ajuste contra siniestros liquidados y no pagados.",lineas:[["4.080.010.030","D",250000],["2.050.040.010","H",250000]]},
+   {id:"4.6",t:"Pago individualizado",ic:"🤲",historia:"Se paga al asegurado su participación individual de <b>₡250 000</b>.",datos:["Pago ₡250 000"],tip:"Según la guía: se rebajan los siniestros liquidados y no pagados contra el ingreso por ajuste a provisiones para siniestros.",lineas:[["2.050.040.010","D",250000],["5.070.010.030","H",250000]]},
+   {id:"4.7",t:"Beneficio aplicado como prima única",ic:"➕",historia:"Un tomador decide usar su beneficio de <b>₡180 000</b> como prima única para ampliar su seguro.",datos:["Prima única ₡180 000"],tip:"La participación en beneficios es un gasto y se convierte en primas emitidas (ingreso).",lineas:[["4.020.030.010","D",180000],["5.020.010.010","H",180000]]},
+   {id:"4.8",t:"Devolución en efectivo al tomador",ic:"💵",historia:"Otro tomador pide que le devuelvan su beneficio de <b>₡120 000</b> en dinero.",datos:["Devolución ₡120 000"],tip:"Gasto por participación en beneficios contra la obligación con asegurados por primas extornadas.",lineas:[["4.020.030.010","D",120000],["2.070.010.010","H",120000]]},
+   {id:"4.9",t:"Incremento de la provisión matemática",ic:"📊",historia:"En un seguro de vida, el beneficio de <b>₡200 000</b> se suma a la provisión matemática del asegurado.",datos:["Incremento ₡200 000"],tip:"Gasto por participación en beneficios contra la provisión matemática.",lineas:[["4.020.030.010","D",200000],["2.050.030.010","H",200000]]},
+   {id:"5.1",t:"Póliza cedida y retrocedida",ic:"🌍",historia:"Para protegerse de grandes riesgos, la aseguradora cede primas por <b>₡900 000</b>: <b>₡600 000</b> en reaseguro cedido y <b>₡300 000</b> en retrocedido.",datos:["Cedido ₡600 000","Retrocedido ₡300 000"],tip:"Las primas cedidas son un gasto; lo que se le debe al reasegurador va en cuentas acreedoras (pasivo).",lineas:[["4.040.010.010","D",900000],["2.060.010.010","H",600000],["2.060.010.020","H",300000]]},
+   {id:"5.2",t:"Comisiones por reaseguro",ic:"🏷️",historia:"El reasegurador reconoce comisiones de <b>₡120 000</b> sobre primas cedidas y <b>₡60 000</b> sobre primas retrocedidas. Se rebajan de la deuda.",datos:["Sobre cedidas ₡120 000","Sobre retrocedidas ₡60 000"],tip:"La guía registra la reducción de la deuda en la cuenta acreedora de reaseguro cedido/retrocedido (2.060.010.010) y las comisiones como ingreso.",lineas:[["2.060.010.010","D",180000],["5.030.010.010","H",120000],["5.030.020.010","H",60000]]},
+   {id:"5.3",t:"Participación del reaseguro en la provisión no devengada",ic:"🧩",historia:"Al cierre, los reaseguradores participan en la provisión para primas no devengadas: <b>₡400 000</b> el cedido y <b>₡200 000</b> el retrocedido.",datos:["Cedido ₡400 000","Retrocedido ₡200 000"],tip:"La participación del reaseguro es un activo; la contrapartida es el ingreso por participación del reaseguro en las provisiones técnicas.",lineas:[["1.060.010.010","D",400000],["1.060.010.020","D",200000],["5.070.010.070","H",600000]]},
+   {id:"5.4",t:"Diferimiento de comisiones de reaseguro",ic:"⏸️",historia:"Parte de las comisiones de reaseguro corresponde a periodos futuros: <b>₡50 000</b> del cedido y <b>₡25 000</b> del retrocedido.",datos:["Cedido ₡50 000","Retrocedido ₡25 000"],tip:"Se ajustan las comisiones (ingreso) y se crea el pasivo de comisiones diferidas de reaseguro.",lineas:[["5.030.010.040","D",50000],["5.030.020.040","D",25000],["2.080.010.080","H",75000]]},
+   {id:"5.5",t:"Cierre: participación del reaseguro",ic:"🔐",historia:"Al cierre se cancela la participación del reaseguro en la provisión no devengada: <b>₡400 000</b> cedido y <b>₡200 000</b> retrocedido.",datos:["Cedido ₡400 000","Retrocedido ₡200 000"],tip:"Inverso del asiento 5.3: gasto por participación del reaseguro contra los activos de participación.",lineas:[["4.080.010.070","D",600000],["1.060.010.010","H",400000],["1.060.010.020","H",200000]]},
+   {id:"5.6",t:"Cierre: comisiones diferidas de reaseguro",ic:"🏁",historia:"Último sello: se cierran las comisiones diferidas de reaseguro de <b>₡75 000</b> (₡50 000 cedido y ₡25 000 retrocedido).",datos:["Cedido ₡50 000","Retrocedido ₡25 000"],tip:"Inverso del asiento 5.4: se rebaja el pasivo de comisiones diferidas contra los ajustes de comisiones.",lineas:[["2.080.010.080","D",75000],["5.030.010.040","H",50000],["5.030.020.040","H",25000]]}
+ ]}
+];
+const ETIQ_COD=["Clase","Grupo","Cuenta","Subcuenta","Moneda","Cuenta analítica"];
+const DIG_COD=["dígito 1","dígitos 2 a 4","dígitos 5 a 7","dígitos 8 a 10","dígito 11","dígitos 12 a 14"];
+
+// ═══════════════════════════════════════════════════════════════════════
+// Estado y progreso (se guarda en este navegador, por estudiante)
+// ═══════════════════════════════════════════════════════════════════════
+const SES=(()=>{try{return JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")||"null")}catch(e){return null}})();
+const ES_DOCENTE=!!(SES&&SES.role==="docente")||/[?&]docente=1/.test(location.search);
+const KEY="mision_seguros_v1_"+((SES&&SES.id)||"invitado");
+let EST={xp:0,racha:0,mejorRacha:0,hechas:{},sonido:true};
+try{Object.assign(EST,JSON.parse(localStorage.getItem(KEY)||"{}"))}catch(e){}
+const guardar=()=>{try{localStorage.setItem(KEY,JSON.stringify(EST))}catch(e){}};
+const TODAS=NIVELES.flatMap(n=>n.misiones);
+const XP_MAX=TODAS.length*100;
+const nivelDe=mid=>NIVELES.find(n=>n.misiones.some(m=>m.id===mid));
+const hechasNivel=n=>n.misiones.filter(m=>EST.hechas[m.id]).length;
+const nivelAbierto=n=>ES_DOCENTE||n.id===1||hechasNivel(NIVELES[n.id-2])===NIVELES[n.id-2].misiones.length;
+const misionAbierta=(n,i)=>ES_DOCENTE||(nivelAbierto(n)&&(i===0||EST.hechas[n.misiones[i-1].id]));
+
+const $=s=>document.querySelector(s);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt=n=>"₡"+Math.round(n).toLocaleString("es-CR");
+const num=v=>{let s=String(v||"").replace(/[₡\s]/g,"");if(!s)return 0;
+  if(/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s))s=s.replace(/\./g,"").replace(",",".");else if(/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(s))s=s.replace(/,/g,"");else s=s.replace(",",".");
+  const n=Number(s);return isFinite(n)?n:NaN};
+const clase=cod=>CLASES[+String(cod)[0]];
+const nomLado=l=>l==="D"?"Debe":"Haber";
+function anunciar(t){$("#live").textContent=t}
+function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("on");clearTimeout(toast.k);toast.k=setTimeout(()=>e.classList.remove("on"),2600)}
+
+// ═══ Barra de progreso ═══
+function pintarStats(salto){
+  $("#xpTxt").textContent=EST.xp+" XP";$("#xpBar").style.width=Math.min(100,100*EST.xp/XP_MAX)+"%";
+  const s=$("#streak");$("#streakTxt").textContent=EST.racha;s.classList.toggle("on",EST.racha>=2);
+  if(salto){s.classList.remove("pop");void s.offsetWidth;s.classList.add("pop")}
+  $("#btnSonido").textContent=EST.sonido?"🔊":"🔇";$("#btnSonido").setAttribute("aria-pressed",String(EST.sonido));
+}
+function acierto(mid,intentos){
+  const nueva=!EST.hechas[mid];
+  const gana=nueva?Math.max(40,100-20*(intentos-1)):10;
+  EST.xp+=gana;EST.racha++;EST.mejorRacha=Math.max(EST.mejorRacha,EST.racha);
+  if(nueva)EST.hechas[mid]={xp:gana,intentos,fecha:new Date().toISOString()};
+  guardar();pintarStats(true);confeti();sonar("ok");return gana;
+}
+function fallo(){EST.racha=0;guardar();pintarStats();sonar("bad")}
+
+// ═══ Sonido y confeti ═══
+let AC=null;
+function sonar(tipo){if(!EST.sonido)return;try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();
+  const notas=tipo==="ok"?[523,659,784,1047]:tipo==="bad"?[220,180]:[660];
+  notas.forEach((f,i)=>{const o=AC.createOscillator(),g=AC.createGain();o.type=tipo==="bad"?"sawtooth":"triangle";o.frequency.value=f;
+    g.gain.setValueAtTime(0.0001,AC.currentTime+i*.11);g.gain.exponentialRampToValueAtTime(.18,AC.currentTime+i*.11+.02);g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+i*.11+.22);
+    o.connect(g).connect(AC.destination);o.start(AC.currentTime+i*.11);o.stop(AC.currentTime+i*.11+.25)})}catch(e){}}
+function confeti(){
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  const c=$("#confetti"),x=c.getContext("2d");c.width=innerWidth;c.height=innerHeight;
+  const col=["#2563eb","#16a34a","#7c3aed","#f59e0b","#ec4899","#06b6d4"];
+  const P=Array.from({length:150},()=>({x:innerWidth/2+(Math.random()-.5)*200,y:innerHeight*.35,vx:(Math.random()-.5)*14,vy:-Math.random()*14-4,r:Math.random()*6+4,c:col[Math.random()*col.length|0],a:Math.random()*6,va:(Math.random()-.5)*.3}));
+  let t=0;(function f(){x.clearRect(0,0,c.width,c.height);P.forEach(p=>{p.vy+=.35;p.x+=p.vx;p.y+=p.vy;p.a+=p.va;x.save();x.translate(p.x,p.y);x.rotate(p.a);x.fillStyle=p.c;x.fillRect(-p.r/2,-p.r/4,p.r,p.r/2);x.restore()});
+    if(++t<130)requestAnimationFrame(f);else x.clearRect(0,0,c.width,c.height)})();
+}
+
+// ═══ Arrastrar y soltar (mouse y dedo) + tocar para colocar ═══
+// Cualquier elemento con data-drag se puede arrastrar sobre un data-drop.
+// Tocar un bloque lo selecciona; tocar después una zona lo coloca ahí.
+let SEL=null;
+function seleccionar(el){document.querySelectorAll(".sel").forEach(e=>e.classList.remove("sel"));SEL=el&&el!==SEL?el:null;if(SEL){SEL.classList.add("sel");anunciar("Seleccionaste "+(SEL.dataset.lbl||SEL.textContent.trim())+". Ahora toca dónde colocarlo.")}}
+let SOLTAR=null;
+function activarArrastre(root,alSoltar){
+  SOLTAR=alSoltar;if(root.dataset.arrastreListo)return;root.dataset.arrastreListo="1";alSoltar=(a,b)=>SOLTAR&&SOLTAR(a,b);
+  root.addEventListener("pointerdown",e=>{
+    const el=e.target.closest("[data-drag]");if(!el||e.button>0||e.target.closest("input,.x"))return;
+    const x0=e.clientX,y0=e.clientY;let g=null,over=null;
+    const mover=ev=>{
+      if(!g&&Math.hypot(ev.clientX-x0,ev.clientY-y0)<8)return;
+      if(!g){g=el.cloneNode(true);g.classList.add("ghost-drag");g.classList.remove("sel");g.style.width=Math.min(300,el.offsetWidth)+"px";document.body.appendChild(g);try{el.setPointerCapture(e.pointerId)}catch(_){}}
+      g.style.left=ev.clientX-20+"px";g.style.top=ev.clientY-20+"px";
+      g.style.display="none";const z=document.elementFromPoint(ev.clientX,ev.clientY);g.style.display="";
+      const d=z&&z.closest("[data-drop]");if(d!==over){over&&over.classList.remove("over");over=d;over&&over.classList.add("over")}
+    };
+    const fin=()=>{removeEventListener("pointermove",mover);removeEventListener("pointerup",fin);removeEventListener("pointercancel",fin);
+      if(g){g.remove();over&&over.classList.remove("over");if(over){SEL=null;document.querySelectorAll(".sel").forEach(x=>x.classList.remove("sel"));alSoltar(el,over);sonar("tic")}
+        el.dataset.arrastrado="1";setTimeout(()=>delete el.dataset.arrastrado,50)}};
+    addEventListener("pointermove",mover);addEventListener("pointerup",fin);addEventListener("pointercancel",fin);
+  });
+  root.addEventListener("click",e=>{
+    const el=e.target.closest("[data-drag]");
+    if(el&&!e.target.closest("input,.x")){if(el.dataset.arrastrado)return;seleccionar(el);return}
+    const d=e.target.closest("[data-drop]");
+    if(d&&SEL&&!e.target.closest("input,.x")){const s=SEL;seleccionar(null);alSoltar(s,d);sonar("tic")}
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Pantallas
+// ═══════════════════════════════════════════════════════════════════════
+function irA(h){location.hash=h}
+function render(){
+  const h=location.hash.replace(/^#\/?/,"");
+  if(h.startsWith("m/")){const m=TODAS.find(x=>x.id===decodeURIComponent(h.slice(2)));if(m){const n=nivelDe(m.id),i=n.misiones.indexOf(m);if(misionAbierta(n,i))return pintarMision(m);toast("🔒 Primero completa la misión anterior")}}
+  pintarMapa();
+}
+addEventListener("hashchange",()=>{render();scrollTo({top:0})});
+
+function pintarMapa(){
+  const tot=TODAS.filter(m=>EST.hechas[m.id]).length;
+  $("#app").innerHTML=`<h1>🛡️ Tu carrera en la aseguradora</h1>
+   <p class="sub">${tot} de ${TODAS.length} misiones completadas · mejor racha 🔥 ${EST.mejorRacha}${ES_DOCENTE?" · <b>Modo docente: todos los niveles abiertos</b>":""}</p>
+   <div class="levels">${NIVELES.map(n=>{const h=hechasNivel(n),p=Math.round(100*h/n.misiones.length),ab=nivelAbierto(n),done=h===n.misiones.length;
+     return `<section class="lvl ${ab?"":"lock"} ${done?"done":""}" aria-label="Nivel ${n.id}">
+      <div style="display:flex;gap:12px;align-items:center"><div class="n">${ab?n.ic:"🔒"}</div><div><small>NIVEL ${n.id}</small><h3>${esc(n.t)}</h3></div></div>
+      <p>${esc(n.d)}</p>
+      <div class="prog" role="progressbar" aria-valuenow="${p}" aria-valuemin="0" aria-valuemax="100" aria-label="Avance del nivel ${n.id}"><span style="width:${p}%"></span></div>
+      <small>${p} % · ${h}/${n.misiones.length} misiones</small>
+      <div class="missions">${n.misiones.map((m,i)=>{const ok=EST.hechas[m.id],a=misionAbierta(n,i);
+        return `<button class="mdot ${ok?"done":a?"":"lock"}" ${a?`onclick="irA('#/m/${encodeURIComponent(m.id)}')"`:"disabled"} title="${esc(m.t)}" aria-label="Misión ${esc(m.id)}: ${esc(m.t)}${ok?" (completada)":""}">${ok?"✓":esc(m.id.replace(/^\d-/,""))}</button>`}).join("")}</div>
+      ${ab?`<button ${done?'class="sec"':""} onclick="irA('#/m/${encodeURIComponent((n.misiones.find(m=>!EST.hechas[m.id])||n.misiones[0]).id)}')">${done?"🔁 Repasar":h?"▶ Continuar":"▶ Empezar"}</button>`:`<small>🔒 Completa el nivel ${n.id-1} para desbloquearlo</small>`}
+     </section>`}).join("")}</div>
+   <p class="sub" style="margin-top:18px">Tu avance se guarda en este dispositivo. ${SES&&SES.id?"":"Entra desde la plataforma para que quede a tu nombre."}</p>`;
+}
+
+function cabecera(m){const n=nivelDe(m.id),i=n.misiones.indexOf(m);
+  return `<div class="mhead"><button class="sec" onclick="irA('#/')">← Mapa</button><h2>${m.ic} ${esc(m.t)}</h2><span class="tag">Nivel ${n.id} · Misión ${i+1}/${n.misiones.length}</span>${EST.hechas[m.id]?'<span class="tag" style="background:var(--green-s);color:var(--green)">✓ Completada</span>':""}</div>
+  <div class="story"><div class="ic">${m.ic}</div><div><b>MISIÓN</b><p>${m.historia}</p>${m.datos?`<div class="datos">${m.datos.map(d=>`<span>${esc(d)}</span>`).join("")}</div>`:""}</div></div>`}
+function siguiente(m){const i=TODAS.indexOf(m),s=TODAS[i+1];return s?`<button class="ok" onclick="irA('#/m/${encodeURIComponent(s.id)}')">Siguiente misión ▶</button>`:`<button class="ok" onclick="irA('#/')">🏆 Ver mi carrera</button>`}
+function pintarMision(m){SEL=null;const f={codigo:misionCodigo,quiz:misionQuiz,clasificar:misionClasificar}[m.tipo];(f||misionAsiento)(m)}
+
+// ─── Nivel 1: descifrar el código ───
+function misionCodigo(m){
+  const st={pos:Array(6).fill(null),intentos:0};
+  const orden=ETIQ_COD.map((t,i)=>i).sort(()=>Math.random()-.5);
+  $("#app").innerHTML=cabecera(m)+`<div class="panel" style="margin-top:16px">
+    <h4>El código del catálogo</h4>
+    <div class="code" id="segs">${m.cod.map((d,i)=>`<button class="seg" data-drop="${i}" aria-label="Parte ${i+1} del código: ${d}"><div class="d">${d}</div><span class="lb" data-lb="${i}">?</span></button>`).join(`<div style="align-self:center;font-weight:900;color:var(--mut)">.</div>`)}</div>
+    <h4 style="text-align:center;margin-top:14px">Etiquetas (arrastra o toca una y luego toca su parte)</h4>
+    <div class="chips" id="chips">${orden.map(i=>`<button class="chip" data-drag data-et="${i}" data-lbl="${ETIQ_COD[i]}">${ETIQ_COD[i]}</button>`).join("")}</div>
+    <div class="actions" style="justify-content:center"><button class="ok" id="val">✅ Validar</button><button class="sec" id="reset">↺ Reiniciar</button></div>
+    <div id="fb"></div></div>`;
+  const pintar=()=>{st.pos.forEach((et,i)=>{const s=$(`[data-lb="${i}"]`);s.textContent=et==null?"?":ETIQ_COD[et]});
+    document.querySelectorAll("[data-et]").forEach(c=>c.classList.toggle("used",st.pos.includes(+c.dataset.et)))};
+  activarArrastre($("#app"),(el,zona)=>{const et=+el.dataset.et,i=+zona.dataset.drop;const prev=st.pos.indexOf(et);if(prev>=0)st.pos[prev]=null;st.pos[i]=et;
+    document.querySelectorAll(".seg").forEach(s=>s.classList.remove("good","bad"));pintar()});
+  $("#reset").onclick=()=>{st.pos.fill(null);document.querySelectorAll(".seg").forEach(s=>s.classList.remove("good","bad"));pintar();$("#fb").innerHTML=""};
+  $("#val").onclick=()=>{
+    if(st.pos.includes(null)){$("#fb").innerHTML=`<div class="fb tip">💡 Todavía hay partes sin etiqueta.</div>`;return}
+    st.intentos++;let ok=0;st.pos.forEach((et,i)=>{const s=document.querySelector(`.seg[data-drop="${i}"]`);s.classList.toggle("good",et===i);s.classList.toggle("bad",et!==i);if(et===i)ok++});
+    if(ok===6){const g=acierto(m.id,st.intentos);$("#fb").innerHTML=`<div class="fb ok">🎉 ¡Código descifrado! +${g} XP<br><small>Clase (dígito 1) · Grupo (dígitos 2–4) · Cuenta (5–7) · Subcuenta (8–10) · Moneda (11) · Cuenta analítica (12–14) = 14 dígitos.</small></div><div class="actions">${siguiente(m)}</div>`}
+    else{fallo();$("#fb").innerHTML=`<div class="fb bad">🤔 ¡Casi! Tienes ${ok} de 6 bien. Pista: el código va de lo general (la clase, un solo dígito) a lo más detallado (la cuenta analítica, al final). La moneda es un solo dígito.</div>`}
+  };
+}
+
+// ─── Nivel 1: preguntas rápidas ───
+function misionQuiz(m){
+  let i=0,errores=0;
+  const paso=()=>{const q=m.preguntas[i];
+    $("#app").innerHTML=cabecera(m)+`<div class="panel quiz" style="margin-top:16px"><h4>Pregunta ${i+1} de ${m.preguntas.length}</h4>
+      <div class="prog"><span style="width:${100*i/m.preguntas.length}%"></span></div>
+      <p style="font-size:1.1rem;font-weight:800;margin:6px 0">${esc(q.p)}</p>
+      <div class="opts">${q.o.map((o,k)=>`<button class="opt" data-k="${k}">${esc(o)}</button>`).join("")}</div><div id="fb"></div></div>`;
+    document.querySelectorAll(".opt").forEach(b=>b.onclick=()=>{const k=+b.dataset.k;
+      if(k===q.r){b.classList.add("good");sonar("tic");document.querySelectorAll(".opt").forEach(x=>x.disabled=true);
+        setTimeout(()=>{i++;if(i<m.preguntas.length)paso();else{const g=acierto(m.id,1+errores);$("#fb").innerHTML=`<div class="fb ok">🎉 ¡Auditoría superada! +${g} XP</div><div class="actions">${siguiente(m)}</div>`}},650)}
+      else{b.classList.add("bad");b.disabled=true;errores++;fallo();$("#fb").innerHTML=`<div class="fb bad">❌ Esa no es. Recuerda: Clase = dígito 1 · Grupo = 2 a 4 · Cuenta = 5 a 7 · Subcuenta = 8 a 10 · Moneda = 11 · Analítica = 12 a 14.</div>`}})};
+  paso();
+}
+
+// ─── Nivel 1: clasificar cuentas ───
+function misionClasificar(m){
+  const st={en:{},intentos:0};
+  const orden=[...m.cuentas].sort(()=>Math.random()-.5);
+  const pintar=()=>{
+    $("#app").innerHTML=cabecera(m)+`<div class="game" style="grid-template-columns:300px minmax(0,1fr)"><div class="panel"><h4>Cuentas por clasificar</h4><div class="bank">${orden.filter(c=>!st.en[c]).map(c=>blk(c,true)).join("")||'<p style="color:var(--mut);font-weight:700">¡Todas colocadas! Ahora valida. ✅</p>'}</div></div>
+      <div><div class="bins">${[1,2,3,4,5].map(k=>`<button class="bin" data-drop="${k}" style="--cc:${CLASES[k].c}" aria-label="Clase ${k}: ${CLASES[k].n}"><div class="bt">${k} · ${CLASES[k].n}</div>${Object.keys(st.en).filter(c=>st.en[c]===k).map(c=>`<div class="mini" data-cta="${c}" style="--cc:${clase(c).c}"><b>${c}</b><br>${esc(CTA[c].nom)}</div>`).join("")}</button>`).join("")}</div>
+      <div class="actions"><button class="ok" id="val">✅ Validar</button><button class="sec" id="reset">↺ Reiniciar</button></div><div id="fb"></div></div></div>`;
+    $("#reset").onclick=()=>{st.en={};pintar()};
+    $("#val").onclick=()=>{
+      if(Object.keys(st.en).length<m.cuentas.length){$("#fb").innerHTML=`<div class="fb tip">💡 Coloca todas las cuentas antes de validar.</div>`;return}
+      st.intentos++;let malas=[];
+      m.cuentas.forEach(c=>{const ok=st.en[c]===+c[0];document.querySelector(`.mini[data-cta="${c}"]`).classList.add(ok?"good":"bad");if(!ok)malas.push(c)});
+      if(!malas.length){const g=acierto(m.id,st.intentos);$("#fb").innerHTML=`<div class="fb ok">🎉 ¡Todo en orden! +${g} XP</div><div class="actions">${siguiente(m)}</div>`}
+      else{fallo();$("#fb").innerHTML=`<div class="fb bad">🤔 ¡Casi! ${malas.length} cuenta(s) en la clase equivocada. Pista: el <b>primer dígito</b> del código es la clase: 1 Activo · 2 Pasivo · 3 Patrimonio · 4 Gastos · 5 Ingresos.<br><button class="sec" style="margin-top:8px" id="sacar">Sacar las incorrectas</button></div>`;
+        $("#sacar").onclick=()=>{malas.forEach(c=>delete st.en[c]);pintar()}}
+    };
+  };
+  activarArrastre($("#app"),(el,zona)=>{st.en[el.dataset.cta]=+zona.dataset.drop;pintar()});
+  pintar();
+}
+
+// ─── Niveles 2 a 5: desafío de construcción contable ───
+function blk(cod,sinClase){const a=CTA[cod],k=clase(cod);
+  return `<div class="blk" tabindex="0" role="button" data-drag data-cta="${cod}" data-lbl="${esc(cod+" "+a.nom)}" style="--cc:${k.c}"><span class="cd">${cod}</span><span class="nm">${sinClase?"":`<span class="cl">${k.n}</span>`}${esc(a.nom)}</span></div>`}
+function banco(m){
+  const ok=[...new Set(m.lineas.map(l=>l[0]))];
+  const sim=PLAN.filter(a=>!ok.includes(a.cod)).map(a=>{let s=0;ok.forEach(c=>{if(a.cod.slice(0,5)===c.slice(0,5))s+=3;if(a.cod.slice(0,9)===c.slice(0,9))s+=3;if(a.cl===+c[0])s+=1;
+    const w=CTA[c].nom.toLowerCase().split(/\W+/).filter(x=>x.length>5);if(w.some(x=>a.nom.toLowerCase().includes(x)))s+=2});return {a,s:s+((m.id.charCodeAt(0)*a.cod.length)%7)/10}});
+  sim.sort((x,y)=>y.s-x.s);
+  const dist=sim.slice(0,Math.max(5,9-ok.length)).map(x=>x.a.cod);
+  let seed=[...m.id].reduce((t,c)=>t*31+c.charCodeAt(0),7);const rnd=()=>((seed=(seed*9301+49297)%233280)/233280);
+  return [...ok,...dist].sort(()=>rnd()-.5);
+}
+function misionAsiento(m){
+  const st={lineas:[],intentos:0,pistaVista:false,sellado:false};
+  const cuentas=banco(m);
+  const totales=()=>{const d=st.lineas.filter(l=>l.lado==="D").reduce((t,l)=>t+(num(l.monto)||0),0),h=st.lineas.filter(l=>l.lado==="H").reduce((t,l)=>t+(num(l.monto)||0),0);return {d,h}};
+  const pintarTot=()=>{const {d,h}=totales();$("#totD").textContent=fmt(d);$("#totH").textContent=fmt(h);
+    const b=$("#bal");if(!st.lineas.length){b.className="balance";b.textContent="Arrastra cuentas al comprobante para empezar";return}
+    if(d===h&&d>0){b.className="balance okb";b.textContent="⚖️ ¡Partida doble cuadrada! Debe = Haber"}else{b.className="balance nob";b.textContent="⚖️ Diferencia: "+fmt(Math.abs(d-h))+(d>h?" (sobra en el Debe)":" (sobra en el Haber)")}};
+  const lineaHTML=(l,i)=>{const a=CTA[l.cod],k=clase(l.cod);return `<div class="line" data-i="${i}" ${st.sellado?"":`data-drag data-cta="${l.cod}" data-lbl="${esc(l.cod+" "+a.nom)}" title="Arrástrala a la otra columna si la quieres cambiar de lado"`} style="--cc:${k.c}"><div><div class="cd">${l.cod}</div><div class="nm">${esc(a.nom)}</div></div>
+      <input inputmode="decimal" placeholder="Monto ₡" value="${esc(l.monto)}" data-monto="${i}" aria-label="Monto de ${esc(a.nom)} en el ${nomLado(l.lado)}" ${st.sellado?"disabled":""}>
+      <button class="x" data-quitar="${i}" title="Quitar" aria-label="Quitar ${esc(a.nom)}" ${st.sellado?"disabled":""}>✕</button></div>`};
+  const pintar=()=>{
+    const usados=new Set(st.lineas.map(l=>l.cod));
+    $("#app").innerHTML=cabecera(m)+`<div class="game">
+      <div class="panel"><h4>🧱 Banco de cuentas</h4><p style="margin:0 0 8px;color:var(--mut);font-size:.84rem">Arrastra un bloque al <b>Debe</b> o al <b>Haber</b>, o tócalo y luego toca la columna. En el celular desliza los bloques de lado.</p>
+        <div class="bank">${cuentas.map(c=>blk(c).replace('class="blk"',`class="blk${usados.has(c)?" used":""}"`)).join("")}</div></div>
+      <div style="position:relative"><div class="voucher"><div class="vh"><span>📒 Comprobante de diario · Asiento ${esc(m.id)}</span><span style="font-size:.8rem;color:var(--mut)">Aseguradora · Plan SUGESE</span></div>
+        <div class="cols">${["D","H"].map(L=>`<div class="col ${L==="D"?"debe":"haber"}" data-drop="${L}"><div class="ch"><span>${L==="D"?"DEBE":"HABER"}</span><small style="letter-spacing:0;color:var(--mut);font-weight:700">${L==="D"?"cargos":"abonos"}</small></div>
+          ${st.lineas.map((l,i)=>l.lado===L?lineaHTML(l,i):"").join("")}
+          ${st.sellado?"":`<button class="drop" data-drop="${L}" aria-label="Colocar la cuenta seleccionada en el ${nomLado(L)}">＋ Suelta aquí una cuenta</button>`}</div>`).join("")}</div>
+        <div class="tot"><div><span>Total Debe</span><span id="totD">₡0</span></div><div><span>Total Haber</span><span id="totH">₡0</span></div></div>
+        <div class="balance" id="bal"></div></div><div class="stamp" id="stamp">SELLADO ✓</div>
+        <div class="actions">${st.sellado?siguiente(m):`<button class="ok" id="val">✅ Validar asiento</button><button class="sec" id="pista">💡 Pista (-10 XP)</button><button class="ghost" id="limpiar">↺ Limpiar</button>`}</div>
+        <div id="fb">${st.fb||""}</div></div></div>`;
+    pintarTot();
+    document.querySelectorAll("[data-monto]").forEach(inp=>{inp.oninput=()=>{st.lineas[+inp.dataset.monto].monto=inp.value;pintarTot()};
+      inp.onblur=()=>{const v=num(inp.value);if(inp.value&&isFinite(v)){inp.value=v.toLocaleString("es-CR");st.lineas[+inp.dataset.monto].monto=inp.value}}});
+    document.querySelectorAll("[data-quitar]").forEach(b=>b.onclick=e=>{e.stopPropagation();st.lineas.splice(+b.dataset.quitar,1);st.fb="";pintar()});
+    if(st.sellado){$("#stamp").classList.add("on");return}
+    $("#limpiar").onclick=()=>{st.lineas=[];st.fb="";pintar()};
+    $("#pista").onclick=()=>{if(!st.pistaVista){st.pistaVista=true;EST.xp=Math.max(0,EST.xp-10);guardar();pintarStats()}st.fb=`<div class="fb tip">💡 ${esc(m.tip)}</div>`;$("#fb").innerHTML=st.fb};
+    $("#val").onclick=validar;
+    document.querySelectorAll(".blk").forEach(b=>b.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();seleccionar(b)}}));
+  };
+  const colocar=(cod,lado)=>{
+    const ya=st.lineas.findIndex(l=>l.cod===cod);
+    if(ya>=0){st.lineas[ya].lado=lado}else st.lineas.push({cod,lado,monto:""});
+    st.fb="";pintar();const inp=document.querySelector(`[data-monto="${st.lineas.findIndex(l=>l.cod===cod)}"]`);if(inp&&!inp.value)inp.focus();
+  };
+  const validar=()=>{
+    const esperado=m.lineas.map(([cod,lado,monto])=>({cod,lado,monto}));
+    if(!st.lineas.length){st.fb=`<div class="fb tip">💡 Primero arrastra las cuentas al comprobante.</div>`;$("#fb").innerHTML=st.fb;return}
+    if(st.lineas.some(l=>!(num(l.monto)>0))){st.fb=`<div class="fb tip">💡 Escribe el monto de cada cuenta del comprobante.</div>`;$("#fb").innerHTML=st.fb;return}
+    st.intentos++;
+    const pistas=[];const marca={};
+    st.lineas.forEach((l,i)=>{const e=esperado.find(x=>x.cod===l.cod),a=CTA[l.cod],k=clase(l.cod);
+      if(!e){marca[i]="bad";pistas.push(`La cuenta <b>${l.cod} ${esc(a.nom)}</b> no participa en esta transacción.`);return}
+      if(e.lado!==l.lado){marca[i]="bad";const aum=k.aum===e.lado;pistas.push(`¡Casi! <b>${esc(a.nom)}</b> es ${k.n==="Patrimonio"?"parte del":"un"} <b>${k.n}</b>: aquí ${aum?"aumenta":"disminuye"}, por eso va al <b>${nomLado(e.lado)}</b>.`);return}
+      if(Math.abs(num(l.monto)-e.monto)>0.5){marca[i]="bad";pistas.push(`<b>${esc(a.nom)}</b> está en el lado correcto, pero revisa el monto con los datos de la misión.`);return}
+      marca[i]="good"});
+    const faltan=esperado.filter(e=>!st.lineas.some(l=>l.cod===e.cod));
+    faltan.forEach(e=>pistas.push(`Falta una cuenta en el <b>${nomLado(e.lado)}</b>. Pista: busca una cuenta de <b>${clase(e.cod).n}</b> (clase ${e.cod[0]}).`));
+    const {d,h}=totales();
+    if(d!==h)pistas.push(`La partida doble no cuadra: el Debe suma ${fmt(d)} y el Haber ${fmt(h)}.`);
+    if(!pistas.length){st.sellado=true;const g=acierto(m.id,st.intentos);
+      st.fb=`<div class="fb ok">🎉 ¡Asiento sellado! +${g} XP ${st.intentos===1?"· ¡a la primera! 🌟":""}<br><small>${esc(m.tip)}</small></div>`;pintar();anunciar("Asiento correcto. Ganaste "+g+" XP");return}
+    fallo();
+    st.fb=`<div class="fb bad">🤔 <div>Revisa esto:<ul>${pistas.slice(0,3).map(p=>`<li>${p}</li>`).join("")}</ul></div></div>`;
+    pintar();Object.entries(marca).forEach(([i,c])=>{const el=document.querySelector(`.line[data-i="${i}"]`);el&&el.classList.add(c)});
+    anunciar("El asiento tiene errores. Revisa las pistas.");
+  };
+  activarArrastre($("#app"),(el,zona)=>{const L=zona.closest("[data-drop]").dataset.drop;if(L==="D"||L==="H")colocar(el.dataset.cta,L)});
+  pintar();
+}
+
+// ═══ Manual de pistas ═══
+const MAN={
+  plan:()=>`<input id="buscaPlan" placeholder="🔎 Buscar por código o nombre…" style="width:100%;font:inherit;padding:10px 12px;border:2px solid var(--line);border-radius:12px;margin-bottom:10px">
+    <table><thead><tr><th>Código</th><th>Cuenta</th><th>Clase</th></tr></thead><tbody id="planBody">${PLAN.map(a=>`<tr data-q="${esc((a.cod+" "+a.nom).toLowerCase())}"><td class="cd">${a.cod}</td><td>${esc(a.nom)}</td><td style="color:${CLASES[a.cl].c};font-weight:800">${CLASES[a.cl].n}</td></tr>`).join("")}</tbody></table>`,
+  doble:()=>`<p><b>Partida doble:</b> en todo asiento, la suma del <b>Debe</b> es igual a la suma del <b>Haber</b>.</p>
+    <div class="rule"><div style="background:var(--blue-s)"><b>Aumentan en el DEBE</b><br>1 · Activos<br>4 · Gastos<br><small>Disminuyen en el Haber</small></div>
+    <div style="background:var(--purple-s)"><b>Aumentan en el HABER</b><br>2 · Pasivos<br>3 · Patrimonio<br>5 · Ingresos<br><small>Disminuyen en el Debe</small></div></div>
+    <p><b>Truco:</b> una <i>constitución</i> o <i>aumento</i> de provisión técnica es gasto (4.080) contra pasivo (2.050). Una <i>reversión</i>, <i>liberación</i> o <i>disminución</i> rebaja el pasivo (2.050) contra ingreso (5.070).</p>`,
+  codigo:()=>`<p>El catálogo usa un código de <b>14 dígitos</b> que va de lo general a lo detallado:</p>
+    <table><tbody>${ETIQ_COD.map((e,i)=>`<tr><td><b>${e}</b></td><td>${DIG_COD[i]}</td></tr>`).join("")}</tbody></table>
+    <p>Ejemplo: <span class="cd">1 . 040 . 030 . 010 . M . 001</span> → clase 1 (Activo), grupo 040, cuenta 030, subcuenta 010, moneda M y cuenta analítica 001.</p>
+    <p><b>Clases:</b> 1 Activos · 2 Pasivos · 3 Patrimonio · 4 Gastos · 5 Ingresos.</p>`,
+  reglas:()=>`<h4>Primas</h4><ul><li>Al vender un seguro se contabiliza la <b>totalidad</b> de la prima del periodo de cobertura, haya o no pago fraccionado.</li><li>Se contabiliza el gasto total por comisiones del mediador y se periodifica durante la cobertura.</li><li>El ingreso por primas se periodifica con la <b>Provisión para primas no devengadas</b>.</li></ul>
+    <h4>Ciclo de un siniestro</h4><ol><li><b>Notificación:</b> se constituye una provisión estimada.</li><li><b>Ajuste:</b> la estimación sube o baja con nueva información.</li><li><b>Liquidación / pago:</b> se fija la indemnización y se paga, o se rechaza si no hay cobertura.</li></ol>
+    <h4>Provisión matemática</h4><p>Valor neto de las obligaciones del asegurador por seguros sobre la vida a la fecha de cierre.</p>
+    <h4>Reaseguro</h4><p>Es el «seguro de las aseguradoras»: la entidad cedente transfiere parte de sus grandes riesgos a una reaseguradora.</p>`
+};
+const MTABS=[["plan","📚 Plan de cuentas"],["doble","⚖️ Partida doble"],["codigo","🔢 Código de 14 dígitos"],["reglas","📌 Reglas clave"]];
+function abrirManual(t){t=t||"plan";$("#mtabs").innerHTML=MTABS.map(([k,l])=>`<button class="${k===t?"on":""}" data-mt="${k}">${l}</button>`).join("");$("#mbody").innerHTML=MAN[t]();
+  document.querySelectorAll("[data-mt]").forEach(b=>b.onclick=()=>abrirManual(b.dataset.mt));
+  const q=$("#buscaPlan");if(q)q.oninput=()=>{const v=q.value.toLowerCase().trim();document.querySelectorAll("#planBody tr").forEach(r=>r.hidden=v&&!r.dataset.q.includes(v))};
+  const d=$("#manual");if(!d.open)d.showModal()}
+$("#btnManual").onclick=()=>abrirManual();
+$("#cerrarManual").onclick=()=>$("#manual").close();
+$("#manual").addEventListener("click",e=>{if(e.target===$("#manual"))$("#manual").close()});
+$("#btnSonido").onclick=()=>{EST.sonido=!EST.sonido;guardar();pintarStats()};
+
+pintarStats();render();
+try{bitacoraRegistrar("seguros")}catch(e){}
+</script>
+</body>
+</html>
