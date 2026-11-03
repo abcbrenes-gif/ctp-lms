@@ -977,3 +977,31 @@ table.grades td.num.low { color: var(--danger-text); font-weight: 700; }
   .ind-acc-btns { flex-direction: row; flex-wrap: wrap; }
   .ind-acc-btns .btn { width: auto; flex: 1 1 calc(50% - 0.35rem); justify-content: center; text-align: center; }
 }
+
+/* Tablas anchas: columna del estudiante anclada + mover arrastrando */
+.tabla-mover { position: relative; }
+.tabla-mover-barra {
+  position: sticky; top: 0; z-index: 4; display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.35rem 0;
+}
+.tabla-mover-barra small { flex: 1; text-align: center; color: var(--text-muted); font-size: 0.78rem; }
+.tabla-mover-barra .btn { min-width: 44px; min-height: 38px; font-size: 1rem; }
+.tabla-mover-barra .btn:disabled { opacity: .35; cursor: default; }
+.tabla-mover.sin-mover .tabla-mover-barra { display: none; }
+.tabla-mover-area {
+  overflow-x: auto; cursor: grab; scroll-behavior: auto; -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain; border-radius: 10px;
+}
+.tabla-mover-area:focus-visible { outline: 3px solid #7c3aed; outline-offset: 2px; }
+.tabla-mover-area.arrastrando { cursor: grabbing; user-select: none; }
+.tabla-mover-area.arrastrando * { user-select: none; }
+.grades-ancla { border-collapse: separate; border-spacing: 0; }
+.grades-ancla thead tr:first-child th:first-child,
+.grades-ancla tbody td:first-child {
+  position: sticky; left: 0; z-index: 2;
+  background-color: var(--paper, #fff);
+  background-image: linear-gradient(var(--surface), var(--surface));
+  min-width: 11rem; max-width: 14rem;
+  box-shadow: 6px 0 8px -6px rgba(0,0,0,.25);
+}
+.grades-ancla thead tr:first-child th:first-child { z-index: 3; }

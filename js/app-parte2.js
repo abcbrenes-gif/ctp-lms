@@ -9174,8 +9174,14 @@ async function cargarCalificarTodos(materiaId, catNombre, indicadores) {
             </div>`).join("")}
         </div>
       </details>
-      <div style="overflow-x:auto;">
-        <table class="grades">
+      <div class="tabla-mover" data-tabla-mover>
+        <div class="tabla-mover-barra">
+          <button type="button" class="btn secondary small" data-mover="-1" aria-label="Mover la tabla a la izquierda">◀</button>
+          <small>Arrastra la tabla con el mouse o el dedo para moverte de izquierda a derecha</small>
+          <button type="button" class="btn secondary small" data-mover="1" aria-label="Mover la tabla a la derecha">▶</button>
+        </div>
+      <div class="tabla-mover-area" data-mover-area tabindex="0" aria-label="Tabla de calificaciones (usa las flechas del teclado para moverte)">
+        <table class="grades grades-ancla">
           <thead>
             <tr>
               <th rowspan="2" style="vertical-align:bottom;">Estudiante</th>
@@ -9209,6 +9215,7 @@ async function cargarCalificarTodos(materiaId, catNombre, indicadores) {
             }).join("") || `<tr><td colspan="${indicadores.length + 2}" class="empty">No hay estudiantes en esta sección.</td></tr>`}
           </tbody>
         </table>
+      </div>
       </div>
       <div class="row" style="margin-top:0.8rem;"><button class="btn" id="guardar-calificar-todos">Guardar todas las calificaciones</button></div>
     </div>`;
@@ -10353,4 +10360,51 @@ function agregarPanelHabilitarDeNuevo(fila, t) {
   };
   det.addEventListener("toggle", () => { if (det.open) pintar(); });
   if (fila.firstElementChild && fila.firstElementChild.nextSibling) fila.insertBefore(det, fila.firstElementChild.nextSibling); else fila.appendChild(det);
+}
+
+
+// Tablas anchas: columna del estudiante anclada y mover de izquierda a
+// derecha arrastrando (mouse o dedo), con las flechas ◀ ▶ o con el teclado,
+// sin depender de la barra de abajo.
+function activarTablaMover(raiz) {
+  (raiz || document).querySelectorAll("[data-tabla-mover]:not([data-mover-listo])").forEach(box => {
+    box.setAttribute("data-mover-listo", "1");
+    const area = box.querySelector("[data-mover-area]");
+    if (!area) return;
+    const paso = () => Math.max(200, area.clientWidth * 0.6);
+    box.querySelectorAll("[data-mover]").forEach(b => b.addEventListener("click", () => area.scrollBy({ left: Number(b.dataset.mover) * paso(), behavior: "smooth" })));
+    area.addEventListener("keydown", e => {
+      if (e.target !== area) return;
+      if (e.key === "ArrowRight") { area.scrollBy({ left: 120 }); e.preventDefault(); }
+      if (e.key === "ArrowLeft") { area.scrollBy({ left: -120 }); e.preventDefault(); }
+    });
+    let x0 = 0, s0 = 0, arrastrando = false, movio = false;
+    area.addEventListener("pointerdown", e => {
+      if (e.pointerType !== "mouse" || e.button !== 0) return; // en táctil el dedo ya desliza solo
+      if (e.target.closest("select, input, button, a, textarea, label")) return;
+      arrastrando = true; movio = false; x0 = e.clientX; s0 = area.scrollLeft;
+      area.classList.add("arrastrando");
+    });
+    window.addEventListener("pointermove", e => {
+      if (!arrastrando) return;
+      const dx = e.clientX - x0; if (Math.abs(dx) > 3) movio = true;
+      area.scrollLeft = s0 - dx;
+    });
+    window.addEventListener("pointerup", () => { if (arrastrando) { arrastrando = false; area.classList.remove("arrastrando"); } });
+    area.addEventListener("click", e => { if (movio) { e.stopPropagation(); e.preventDefault(); movio = false; } }, true);
+    const actualizar = () => {
+      const max = area.scrollWidth - area.clientWidth;
+      box.classList.toggle("sin-mover", max <= 2);
+      const [izq, der] = box.querySelectorAll("[data-mover]");
+      if (izq) izq.disabled = area.scrollLeft <= 1;
+      if (der) der.disabled = area.scrollLeft >= max - 1;
+    };
+    area.addEventListener("scroll", actualizar, { passive: true });
+    window.addEventListener("resize", actualizar);
+    actualizar();
+  });
+}
+if (typeof MutationObserver !== "undefined") {
+  new MutationObserver(() => { if (document.querySelector("[data-tabla-mover]:not([data-mover-listo])")) activarTablaMover(); })
+    .observe(document.documentElement, { childList: true, subtree: true });
 }
