@@ -1,3 +1,37 @@
+// ═══ Letra del indicador junto al título de cada trabajo (profe y estudiante) ═══
+// Se pinta un marcador con los ids de los indicadores del trabajo y después se
+// llenan todos los marcadores de la página con una sola consulta.
+function letraIndHTML(t) {
+  if (!t) return "";
+  const ids = [t.indicador_id, ...(((t.contenido_actividad || {}).indicadores_criterio) || [])].filter(x => x != null && x !== "");
+  if (!ids.length) return "";
+  return ` <span class="ind-letra" data-ind-letras="${[...new Set(ids.map(String))].join(",")}"></span>`;
+}
+const _letrasInd = {};
+let _letrasIndTimer = null;
+async function pintarLetrasIndicadores() {
+  const marcas = Array.from(document.querySelectorAll("[data-ind-letras]:not([data-ind-ok])"));
+  if (!marcas.length || typeof sb === "undefined") return;
+  const faltan = [...new Set(marcas.flatMap(m => m.dataset.indLetras.split(",")).filter(id => !(id in _letrasInd)))];
+  if (faltan.length) {
+    const { data } = await sb.from("indicadores").select("id, letra, categoria").in("id", faltan.map(Number));
+    faltan.forEach(id => { _letrasInd[id] = null; });
+    (data || []).forEach(i => { _letrasInd[String(i.id)] = i; });
+  }
+  marcas.forEach(m => {
+    const L = m.dataset.indLetras.split(",").map(id => _letrasInd[id]).filter(Boolean);
+    m.setAttribute("data-ind-ok", "1");
+    if (!L.length) { m.remove(); return; }
+    m.innerHTML = L.map(i => `<b>${escAC(i.letra)}</b>`).join(" · ");
+    m.title = "Indicador" + (L.length > 1 ? "es " : " ") + L.map(i => `${i.letra} (${i.categoria})`).join(", ") + " de la Rúbrica";
+    m.insertAdjacentHTML("afterbegin", "Ind. ");
+  });
+}
+if (typeof MutationObserver !== "undefined" && typeof document !== "undefined") {
+  new MutationObserver(() => { clearTimeout(_letrasIndTimer); _letrasIndTimer = setTimeout(() => pintarLetrasIndicadores().catch(() => {}), 120); })
+    .observe(document.documentElement, { childList: true, subtree: true });
+}
+
 // --- Informe de Aula de Conta (notas y trabajos) ---
 // Aula de Conta guarda en cada empresa un "resumenInforme" cada vez que el estudiante
 // trabaja; el profesor puede forzar la actualización desde Aula de Conta.
@@ -1764,7 +1798,7 @@ async function renderMateriasEstudiante(el, s) {
       <div class="roster" id="trabajos-materia-${m.id}">
         ${trabajos.map(t => `
           <div class="roster-row">
-            <span class="name">${t.titulo}${t.fecha ? " · " + t.fecha : ""}<span style="color:var(--text-muted); font-size:0.78rem;"> (${t.publicaciones?.titulo || ""})</span></span>
+            <span class="name">${t.titulo}${letraIndHTML(t)}${t.fecha ? " · " + t.fecha : ""}<span style="color:var(--text-muted); font-size:0.78rem;"> (${t.publicaciones?.titulo || ""})</span></span>
             <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.85rem;">
               <input type="checkbox" data-mi-trabajo-materia="${t.id}" ${porTrabajo[t.id] ? "checked" : ""} /> Completado
             </label>
@@ -3494,7 +3528,7 @@ async function pintarTrabajosClase(trabajos, soloLectura, holderId, opts) {
       return `
       <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem;">
         <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
-          <span class="name">${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+          <span class="name">${t.titulo}${letraIndHTML(t)}${t.fecha ? " · " + t.fecha : ""}</span>
           ${yaEntregado
             ? `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Entregado${miEntrega.nota != null ? " · Nota: " + miEntrega.nota : ""}</span>`
             : ""}
@@ -3559,7 +3593,7 @@ async function pintarTrabajosClase(trabajos, soloLectura, holderId, opts) {
       return `
       <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem; ${t.habilitado === false ? "opacity:0.55;" : ""}">
         <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
-          <span class="name">${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+          <span class="name">${t.titulo}${letraIndHTML(t)}${t.fecha ? " · " + t.fecha : ""}</span>
           <span style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
             <span class="badge">${entregas.filter(e => e.archivo_ruta).length} entregaron</span>
             <button class="btn ${t.habilitado === false ? "" : "secondary"} small" data-toggle-clase-habilitado="${t.id}" data-estado-actual="${t.habilitado !== false}">
@@ -3738,7 +3772,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         return `
         <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.4rem;">
           <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
-            <span class="name">📁 ${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+            <span class="name">📁 ${t.titulo}${letraIndHTML(t)}${t.fecha ? " · " + t.fecha : ""}</span>
             <span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>
           </div>
           ${instrucciones ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${instrucciones}</div>` : ""}
@@ -3774,7 +3808,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         return `
         <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.4rem;">
           <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
-            <span class="name">💡 ${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+            <span class="name">💡 ${t.titulo}${letraIndHTML(t)}${t.fecha ? " · " + t.fecha : ""}</span>
             <span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>
           </div>
           ${pregunta ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${pregunta}</div>` : ""}
@@ -3804,7 +3838,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         return `
         <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.4rem;">
           <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
-            <span class="name">🖼️ ${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+            <span class="name">🖼️ ${t.titulo}${letraIndHTML(t)}${t.fecha ? " · " + t.fecha : ""}</span>
             <span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>
           </div>
           ${instrucciones ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${instrucciones}</div>` : ""}
@@ -3828,7 +3862,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         return `
         <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.4rem;">
           <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
-            <span class="name">✍️ ${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+            <span class="name">✍️ ${t.titulo}${letraIndHTML(t)}${t.fecha ? " · " + t.fecha : ""}</span>
             <span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>
           </div>
           ${instrucciones ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${instrucciones}</div>` : ""}
@@ -3849,7 +3883,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         return `
         <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.4rem;">
           <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
-            <span class="name">🧮 ${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+            <span class="name">🧮 ${t.titulo}${letraIndHTML(t)}${t.fecha ? " · " + t.fecha : ""}</span>
             <span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>
           </div>
           ${instrucciones ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${instrucciones}</div>` : ""}
@@ -3882,7 +3916,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
         return `
         <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.4rem;">
           <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
-            <span class="name">${t.tipo_actividad === "prueba" ? "📝" : "🧠"} ${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+            <span class="name">${t.tipo_actividad === "prueba" ? "📝" : "🧠"} ${t.titulo}${letraIndHTML(t)}${t.fecha ? " · " + t.fecha : ""}</span>
             <span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>
           </div>
           ${accionInicio}
@@ -3899,7 +3933,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
       return `
       <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem;">
         <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
-          <span class="name">${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+          <span class="name">${t.titulo}${letraIndHTML(t)}${t.fecha ? " · " + t.fecha : ""}</span>
           ${yaEntregado
             ? `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Entregado</span>`
             : `<label style="display:flex; align-items:center; gap:0.4rem; font-size:0.85rem;">
@@ -4185,7 +4219,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
     holder.innerHTML = trabajos.map(t => `
       <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem; ${t.habilitado === false ? "opacity:0.55;" : ""}">
         <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
-          <span class="name">${t.tipo_actividad === "prueba" ? "📝 " : (t.tipo_actividad === "rubrica_directa" ? "🧮 " : (t.tipo_actividad === "respuesta_abierta" ? "✍️ " : (t.tipo_actividad === "autoevaluacion" ? "🪞 " : (t.tipo_actividad && t.tipo_actividad !== "simple" ? "🧠 " : ""))))}${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+          <span class="name">${t.tipo_actividad === "prueba" ? "📝 " : (t.tipo_actividad === "rubrica_directa" ? "🧮 " : (t.tipo_actividad === "respuesta_abierta" ? "✍️ " : (t.tipo_actividad === "autoevaluacion" ? "🪞 " : (t.tipo_actividad && t.tipo_actividad !== "simple" ? "🧠 " : ""))))}${t.titulo}${letraIndHTML(t)}${t.fecha ? " · " + t.fecha : ""}</span>
           <span style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
             ${t.tipo_actividad && t.tipo_actividad !== "simple" ? `<span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>` : ""}
             ${t.tipo_actividad === "prueba" ? `<span class="badge" style="font-weight:400;">${t.fecha_hora_inicio ? "⏰ Inicia: " + formatearFechaHora(t.fecha_hora_inicio) : "⏰ Sin hora programada"}</span>
@@ -6749,7 +6783,7 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
         return `
         <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.4rem;">
           <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
-            <span class="name">🖼️ ${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+            <span class="name">🖼️ ${t.titulo}${letraIndHTML(t)}${t.fecha ? " · " + t.fecha : ""}</span>
             <span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>
           </div>
           ${instrucciones ? `<div class="roa-cell-texto" style="font-size:0.85rem;">${instrucciones}</div>` : ""}
@@ -6781,7 +6815,7 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
         return `
         <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.4rem;">
           <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
-            <span class="name">${t.tipo_actividad === "prueba" ? "📝" : "🧠"} ${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+            <span class="name">${t.tipo_actividad === "prueba" ? "📝" : "🧠"} ${t.titulo}${letraIndHTML(t)}${t.fecha ? " · " + t.fecha : ""}</span>
             <span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>
           </div>
           ${accionInicio}
@@ -6798,7 +6832,7 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
       return `
       <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem;">
         <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
-          <span class="name">${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+          <span class="name">${t.titulo}${letraIndHTML(t)}${t.fecha ? " · " + t.fecha : ""}</span>
           ${yaEntregado
             ? `<span class="badge" style="background:var(--success-bg); color:var(--success-text);">✓ Entregado</span>`
             : `<label style="display:flex; align-items:center; gap:0.4rem; font-size:0.85rem;">
@@ -6922,7 +6956,7 @@ async function pintarTrabajosCotidianos(trabajos, soloLectura, publicacionId, ma
     holder.innerHTML = trabajos.map(t => `
       <div class="roster-row" style="align-items:flex-start; flex-direction:column; gap:0.3rem; ${t.habilitado === false ? "opacity:0.55;" : ""}">
         <div style="display:flex; justify-content:space-between; width:100%; align-items:center; flex-wrap:wrap; gap:0.4rem;">
-          <span class="name">${t.tipo_actividad === "prueba" ? "📝 " : (t.tipo_actividad && t.tipo_actividad !== "simple" ? "🧠 " : "")}${t.titulo}${t.fecha ? " · " + t.fecha : ""}</span>
+          <span class="name">${t.tipo_actividad === "prueba" ? "📝 " : (t.tipo_actividad && t.tipo_actividad !== "simple" ? "🧠 " : "")}${t.titulo}${letraIndHTML(t)}${t.fecha ? " · " + t.fecha : ""}</span>
           <span style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
             ${t.tipo_actividad && t.tipo_actividad !== "simple" ? `<span class="badge" style="font-weight:400;">${NOMBRES_ACTIVIDAD[t.tipo_actividad] || t.tipo_actividad}</span>` : ""}
             ${t.tipo_actividad === "prueba" ? `<span class="badge" style="font-weight:400;">${t.fecha_hora_inicio ? "⏰ Inicia: " + formatearFechaHora(t.fecha_hora_inicio) : "⏰ Sin hora programada"}</span>
