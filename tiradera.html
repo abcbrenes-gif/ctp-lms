@@ -677,6 +677,7 @@ function vistaConfig() {
         <div class="field"><label for="cfgMax">Máximo de participantes</label><input id="cfgMax" type="number" min="1" max="${CUPO_MAX}" value="${+S.cfg.maximo || CUPO_MAX}"><small class="muted">Máximo ${CUPO_MAX} participantes</small></div>
       </div>
       <label style="display:flex;gap:8px;align-items:center;font-weight:800;margin:4px 0 10px"><input type="checkbox" id="cfgProp" ${S.cfg.propuestas ? "checked" : ""} style="width:20px;height:20px"> ✍️ Los estudiantes pueden proponer preguntas (selección única y falso/verdadero) desde su celular, y yo las apruebo</label>
+      <label style="display:flex;gap:8px;align-items:center;font-weight:800;margin:4px 0 10px"><input type="checkbox" id="cfgMezclar" ${S.cfg.mezclar ? "checked" : ""} style="width:20px;height:20px"> 🔀 En cada celular las opciones de selección única salen en otro orden y con otro color (para que no se copien)</label>
       <p class="muted cfg-grupal" style="font-size:.85rem;margin:0">En grupos, cada estudiante juega desde su dispositivo y el puntaje del grupo es el promedio de sus integrantes. El registro sigue siendo individual.</p>
     </div>
     ${S.trabajo ? `<div class="card" style="margin-top:16px;background:#fff8e1">📌 Partida ligada al trabajo <b>«${esc(S.trabajo.titulo)}»</b> de la plataforma: los retos y el registro de puntos se guardan ahí para calificar con los criterios.</div>` : ""}
@@ -685,11 +686,11 @@ function vistaConfig() {
     <div class="center" style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn ghost" id="btnVolver">← Volver al inicio</button><button class="btn ghost" id="btnHist2">📚 Partidas anteriores</button></div>`);
   $("#btnHist2").onclick = vistaHistorial;
   const syncCfg = () => {
-    S.cfg = { modalidad: $("#cfgModo").value, grupos: +$("#cfgGrupos").value, asignacion: $("#cfgAsig").value, maximo: Math.max(1, Math.min(CUPO_MAX, +$("#cfgMax").value || CUPO_MAX)), porGrupo: Math.max(0, Math.min(18, +$("#cfgPorGrupo").value || 0)), propuestas: $("#cfgProp").checked };
+    S.cfg = { modalidad: $("#cfgModo").value, grupos: +$("#cfgGrupos").value, asignacion: $("#cfgAsig").value, maximo: Math.max(1, Math.min(CUPO_MAX, +$("#cfgMax").value || CUPO_MAX)), porGrupo: Math.max(0, Math.min(18, +$("#cfgPorGrupo").value || 0)), propuestas: $("#cfgProp").checked, mezclar: $("#cfgMezclar").checked };
     guardarCfg();
     $$(".cfg-grupal").forEach(el => el.style.display = S.cfg.modalidad === "grupal" ? "" : "none");
   };
-  ["#cfgModo", "#cfgGrupos", "#cfgAsig", "#cfgMax", "#cfgPorGrupo", "#cfgProp"].forEach(sel => $(sel).addEventListener("change", syncCfg));
+  ["#cfgModo", "#cfgGrupos", "#cfgAsig", "#cfgMax", "#cfgPorGrupo", "#cfgProp", "#cfgMezclar"].forEach(sel => $(sel).addEventListener("change", syncCfg));
   syncCfg();
   pintarEditorEvaluacion();
   $$("[data-edit]").forEach(b => b.onclick = () => { editando = +b.dataset.edit; vistaEditor(); });
@@ -1167,10 +1168,18 @@ function agregarBots() {
   pintarJugadoresLobby(); difundirEstado();
 }
 
+// Orden fijo por estudiante y reto (no cambia si recarga la página).
+function ordenMezclado(n, semilla) {
+  let h = 2166136261; for (const ch of String(semilla)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
+  const rnd = () => { h = (Math.imul(h ^ (h >>> 15), 2246822507) + 0x9e3779b9) >>> 0; return h / 4294967296; };
+  const a = Array.from({ length: n }, (_, i) => i);
+  for (let i = n - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
 // Versión del reto sin respuestas, para mandarla a los jugadores.
 function retoPublico(r) {
   const p = { id: r.id, tipo: r.tipo, pregunta: r.pregunta, tiempo: r.tiempo, autor: r.autor || null, autorId: r.autorId || null };
-  if (r.tipo === "seleccion") p.opciones = r.opciones;
+  if (r.tipo === "seleccion") { p.opciones = r.opciones; if (S.cfg.mezclar) p.mezclar = true; }
   if (r.tipo === "sopa") { p.N = r._sopa.N; p.grid = r._sopa.grid; p.palabras = r._sopa.colocadas.map(x => x.palabra); }
   if (r.tipo === "cruci") { p.filas = r._cruci.filas; p.cols = r._cruci.cols; p.palabras = r._cruci.palabras.map(x => ({ num: x.num, r: x.r, c: x.c, dir: x.dir, len: x.w.length, pista: x.pista })); }
   return p;
@@ -1541,7 +1550,7 @@ function vistaRondaHost() {
   const r = S.reto, revelar = S.fase === "revelar";
   const sol = revelar ? solucionReto(r) : null;
   let cuerpo = "";
-  if (r.tipo === "seleccion") cuerpo = `<div class="answers">${r.opciones.map((o, i) => `<div class="ans c${i} ${revelar && i !== r.correcta ? "dim" : ""} ${revelar && i === r.correcta ? "right" : ""}"><span class="shape">${SHAPES[i]}</span><span>${esc(o)}</span>${revelar ? `<span class="count">${sol.conteo[i]}</span>` : ""}</div>`).join("")}</div>`;
+  if (r.tipo === "seleccion") cuerpo = (S.cfg.mezclar && !revelar ? `<p class="muted center" style="margin:0 0 6px">🔀 En cada celular las opciones salen en otro orden y color: lean el texto.</p>` : "") + `<div class="answers">${r.opciones.map((o, i) => `<div class="ans c${i} ${revelar && i !== r.correcta ? "dim" : ""} ${revelar && i === r.correcta ? "right" : ""}"><span class="shape">${SHAPES[i]}</span><span>${esc(o)}</span>${revelar ? `<span class="count">${sol.conteo[i]}</span>` : ""}</div>`).join("")}</div>`;
   if (r.tipo === "vf") cuerpo = `<div class="answers">${[["Verdadero", true, 3], ["Falso", false, 0]].map(([t, v, c]) => `<div class="ans c${c} ${revelar && v !== r.correcta ? "dim" : ""} ${revelar && v === r.correcta ? "right" : ""}"><span class="shape">${v ? "✔" : "✘"}</span><span>${t}</span>${revelar ? `<span class="count">${sol.conteo[v ? 0 : 1]}</span>` : ""}</div>`).join("")}</div>`;
   if (r.tipo === "sopa") cuerpo = sopaHTML(S.publico, revelar ? r._sopa.colocadas : null, true);
   if (r.tipo === "cruci") cuerpo = cruciHTML(S.publico, revelar ? sol.palabras : null, true);
@@ -1784,7 +1793,10 @@ function pintarJugador() {
   else if ((r.tipo === "seleccion" || r.tipo === "vf") && yaRespondio && !revelar) cuerpo = feedbackHTML(res, "Respuesta enviada");
   else if (r.tipo === "seleccion") {
     const elegida = res && res.detalle ? res.detalle.opcion : null;
-    cuerpo = `<div class="answers">${r.opciones.map((o, i) => `<button class="ans c${i} ${revelar && e.solucion.correcta !== i ? "dim" : ""} ${revelar && e.solucion.correcta === i ? "right" : ""} ${elegida === i ? "picked" : ""}" data-op="${i}" ${revelar ? "disabled" : ""}><span class="shape">${SHAPES[i]}</span><span>${esc(o)}</span></button>`).join("")}</div>`;
+    // Con "mezclar", cada estudiante ve las opciones en otro orden y con otro color/forma
+    // (según su posición), así no sirve copiar "la roja" o "la de arriba". Se envía el índice original.
+    const orden = r.mezclar ? ordenMezclado(r.opciones.length, S.yo.id + "|" + r.id) : r.opciones.map((_, i) => i);
+    cuerpo = `<div class="answers">${orden.map((i, pos) => { const o = r.opciones[i], v = r.mezclar ? pos : i; return `<button class="ans c${v} ${revelar && e.solucion.correcta !== i ? "dim" : ""} ${revelar && e.solucion.correcta === i ? "right" : ""} ${elegida === i ? "picked" : ""}" data-op="${i}" ${revelar ? "disabled" : ""}><span class="shape">${SHAPES[v]}</span><span>${esc(o)}</span></button>`; }).join("")}</div>`;
   } else if (r.tipo === "vf") {
     const elegida = res && res.detalle ? res.detalle.valor : null;
     cuerpo = `<div class="answers">${[["Verdadero", true, 3], ["Falso", false, 0]].map(([t, v, c]) => `<button class="ans c${c} ${revelar && e.solucion.correcta !== v ? "dim" : ""} ${revelar && e.solucion.correcta === v ? "right" : ""} ${elegida === v ? "picked" : ""}" data-vf="${v}" ${revelar ? "disabled" : ""}><span class="shape">${v ? "✔" : "✘"}</span><span>${t}</span></button>`).join("")}</div>`;
@@ -2126,6 +2138,7 @@ $("#connPill").textContent = sbClient ? "Listo para jugar" : "Modo local (esta c
       S.trabajo = { id: t.id, titulo: t.titulo };
       const c = t.contenido_actividad || {};
       if (Array.isArray(c.tiradera_retos) && c.tiradera_retos.length) { S.retos = c.tiradera_retos; store.set("tiradera_retos", S.retos); }
+      if (c.tiradera_mezclar) { S.cfg.mezclar = true; guardarCfg(); }
       if (c.tiradera_instrumento) S.instrumento = Object.assign({}, INSTRUMENTO_BASE, c.tiradera_instrumento);
       else S.instrumento = Object.assign({}, INSTRUMENTO_BASE, S.instrumento, { unidad: S.instrumento.unidad || t.titulo || "" });
       if (Array.isArray(c.criterios) && c.criterios.length) S.criterios = c.criterios.map((x, i) => ({ ...x, auto: x.auto || (CRITERIOS_BASE[i] && CRITERIOS_BASE[i].auto) || null }));

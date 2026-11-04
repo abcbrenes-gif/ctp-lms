@@ -794,6 +794,7 @@ async function guardarResultadoActividad(trabajo, estudianteId, { respuestas, po
   const tieneCasoPractico = !!(trabajo.contenido_actividad && trabajo.contenido_actividad.casoPractico
     && ((trabajo.contenido_actividad.casoPractico.enunciado || "").trim() || (trabajo.contenido_actividad.casoPractico.instruccion || "").trim()));
 
+  if (!tieneCasoPractico && await guardarNotasPorCriterio(trabajo, estudianteId, respuestas)) return puntaje;
   if (trabajo.indicador_id && !tieneCasoPractico) {
     const { error: errorIndicador } = await upsertSinConflicto(
       "calificaciones_indicador",
@@ -838,9 +839,27 @@ async function guardarEntregaRespuestaAbierta(trabajo, estudianteId, texto) {
 // Trabajos cuyos criterios son cada uno un indicador de la Rúbrica
 // (contenido_actividad.indicadores_criterio = [id del criterio 1, 2, 3…]):
 // cada indicador recibe el puntaje de SU criterio.
+// Selección única con preguntas agrupadas por tema (contenido_actividad.grupos +
+// pregunta.grupo): cada grupo es un criterio, y su puntaje 0-3 sale del % de
+// aciertos de las preguntas de ese grupo. En los demás casos, "respuestas" ya
+// son los puntos de cada criterio (rúbrica).
+function puntosPorCriterioActividad(trabajo, respuestas) {
+  const C = (trabajo && trabajo.contenido_actividad) || {};
+  if ((trabajo.tipo_actividad === "seleccion_unica" || trabajo.tipo_actividad === "prueba") && Array.isArray(C.grupos) && C.grupos.length) {
+    const P = C.preguntas || [];
+    return C.grupos.map((g, gi) => {
+      const idx = P.map((_, i) => i).filter(i => Number(P[i].grupo) === gi);
+      if (!idx.length) return null;
+      const ok = idx.filter(i => Array.isArray(respuestas) && respuestas[i] === P[i].correcta).length;
+      return puntajeDesdePorcentaje((ok / idx.length) * 100);
+    });
+  }
+  return respuestas;
+}
 async function guardarNotasPorCriterio(trabajo, estudianteId, puntos) {
   const ids = (trabajo && trabajo.contenido_actividad && trabajo.contenido_actividad.indicadores_criterio) || [];
   if (!ids.length || !Array.isArray(puntos)) return false;
+  puntos = puntosPorCriterioActividad(trabajo, puntos);
   for (let i = 0; i < ids.length; i++) {
     if (ids[i] == null || puntos[i] == null) continue;
     const { error } = await upsertSinConflicto("calificaciones_indicador", { indicador_id: ids[i], estudiante_id: estudianteId }, { puntaje_obtenido: Number(puntos[i]) });

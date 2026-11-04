@@ -4452,13 +4452,19 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
           const contenidoNuevo = { ...resultado.contenido };
           if (contenidoViejo && contenidoViejo.fecha_limite) contenidoNuevo.fecha_limite = contenidoViejo.fecha_limite;
           if (contenidoViejo && contenidoViejo.cantidad_esperada) contenidoNuevo.cantidad_esperada = contenidoViejo.cantidad_esperada;
+          // Se conservan los indicadores por criterio y los temas (grupos) de cada pregunta.
+          ["indicadores_criterio", "grupos", "criterios", "su_instrumento"].forEach(k => { if (contenidoViejo && contenidoViejo[k] !== undefined && contenidoNuevo[k] === undefined) contenidoNuevo[k] = contenidoViejo[k]; });
+          if (contenidoViejo && Array.isArray(contenidoViejo.grupos) && Array.isArray(contenidoNuevo.preguntas)) {
+            const grupoDe = {}; (contenidoViejo.preguntas || []).forEach(p => { grupoDe[p.pregunta] = p.grupo; });
+            contenidoNuevo.preguntas = contenidoNuevo.preguntas.map(p => (p.grupo === undefined && grupoDe[p.pregunta] !== undefined) ? { ...p, grupo: grupoDe[p.pregunta] } : p);
+          }
           const { error } = await sb.from("trabajos_cotidianos").update({ contenido_actividad: contenidoNuevo }).eq("id", trabajoId);
           if (error) {
             btnGuardar.disabled = false;
             if (estadoEl) estadoEl.textContent = "No se pudo guardar: " + error.message;
             return;
           }
-          trabajo.contenido_actividad = resultado.contenido;
+          trabajo.contenido_actividad = contenidoNuevo;
 
           // Recalcula automáticamente la nota de quienes ya habían resuelto
           // esta actividad, contra las preguntas/afirmaciones que quedaron
@@ -4479,7 +4485,8 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
                 datosUpdate.datos_prueba = { ...(entrega.datos_prueba || {}), apareamiento_respuestas: r.apareamientoRespuestas };
               }
               await sb.from("actividades_estudiante").update(datosUpdate).eq("id", entrega.id);
-              if (trabajo.indicador_id && !tieneCasoPractico) {
+              if (!tieneCasoPractico && await guardarNotasPorCriterio({ ...trabajo, contenido_actividad: contenidoNuevo }, entrega.estudiante_id, r.respuestas)) { /* un indicador por tema */ }
+              else if (trabajo.indicador_id && !tieneCasoPractico) {
                 await upsertSinConflicto("calificaciones_indicador", { indicador_id: trabajo.indicador_id, estudiante_id: entrega.estudiante_id }, { puntaje_obtenido: nuevoPuntaje });
               }
               recalculadas++;
