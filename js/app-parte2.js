@@ -9227,6 +9227,20 @@ async function pintarProyectoIntegral(holder, materiaId, catNombre, indicadores,
 }
 
 async function cargarCalificarTodos(materiaId, catNombre, indicadores) {
+  // Las pruebas no son indicadores: no llevan letra ni tema, y cada una aporta
+  // según su propio porcentaje (peso_prueba), no según el total de la categoría.
+  const esPruebas = String(catNombre || "").trim().toLowerCase() === "pruebas";
+  const pesoPruebas = indicadores.reduce((a, i) => a + (i.peso_prueba != null ? Number(i.peso_prueba) : 0), 0);
+  const resultadoCal = (valorDe) => {
+    if (esPruebas) {
+      const cuentan = indicadores.filter(i => i.peso_prueba != null && Number(i.puntaje_maximo) > 0);
+      if (!cuentan.length) return "—";
+      return cuentan.reduce((a, i) => a + (Number(valorDe(i)) || 0) / Number(i.puntaje_maximo) * Number(i.peso_prueba), 0).toFixed(1);
+    }
+    const sumaMax = indicadores.reduce((a, i) => a + Number(i.puntaje_maximo), 0);
+    const sumaObt = indicadores.reduce((a, i) => a + Number(valorDe(i) || 0), 0);
+    return sumaMax > 0 ? ((sumaObt / sumaMax) * categoriaObj?.porcentaje).toFixed(1) : "—";
+  };
   const holder = document.getElementById("calificar-todos-holder");
   const listaHolder = document.getElementById("lista-indicadores-holder");
   if (!holder) return;
@@ -9314,18 +9328,16 @@ async function cargarCalificarTodos(materiaId, catNombre, indicadores) {
           <thead>
             <tr>
               <th rowspan="2" style="vertical-align:bottom;">Estudiante</th>
-              ${gruposPorTema.map(g => `<th colspan="${g.items.length}" style="text-align:center; font-size:0.76rem; font-weight:600; border-bottom:1px solid var(--paper-line);" title="${g.tema.replace(/"/g, "&quot;")}">📘 ${g.tema}</th>`).join("")}
-              <th rowspan="2" style="vertical-align:bottom;">Resultado (${categoriaObj?.porcentaje || "?"}%)</th>
+              ${esPruebas ? `<th colspan="${indicadoresOrdenados.length}" style="text-align:center; font-size:0.76rem; font-weight:600; border-bottom:1px solid var(--paper-line);">📝 Pruebas</th>` : gruposPorTema.map(g => `<th colspan="${g.items.length}" style="text-align:center; font-size:0.76rem; font-weight:600; border-bottom:1px solid var(--paper-line);" title="${g.tema.replace(/"/g, "&quot;")}">📘 ${g.tema}</th>`).join("")}
+              <th rowspan="2" style="vertical-align:bottom;">${esPruebas ? `Aporte (de ${pesoPruebas || "?"}%)` : `Resultado (${categoriaObj?.porcentaje || "?"}%)`}</th>
             </tr>
             <tr>
-              ${indicadoresOrdenados.map(i => `<th style="text-align:center;" title="${(i.criterios_indicador || []).sort((a, b) => a.puntaje - b.puntaje).map(c => `${c.nivel ? c.nivel + " (" + c.puntaje + "): " : c.puntaje + ": "}${c.descripcion}`).join(" · ").replace(/"/g, "&quot;")}">${i.letra}</th>`).join("")}
+              ${indicadoresOrdenados.map(i => `<th style="text-align:center;" title="${(i.criterios_indicador || []).sort((a, b) => a.puntaje - b.puntaje).map(c => `${c.nivel ? c.nivel + " (" + c.puntaje + "): " : c.puntaje + ": "}${c.descripcion}`).join(" · ").replace(/"/g, "&quot;")}">${esPruebas ? `${escAC(i.descripcion || "Prueba")}<br><small style="font-weight:400;">${Number(i.puntaje_maximo)} pts · ${i.peso_prueba != null ? i.peso_prueba + " %" : "sin %"}</small>` : i.letra}</th>`).join("")}
             </tr>
           </thead>
           <tbody>
             ${(estudiantes || []).map(st => {
-              const sumaMax = indicadores.reduce((a, i) => a + Number(i.puntaje_maximo), 0);
-              const sumaObt = indicadores.reduce((a, i) => a + Number(mapa[`${st.id}-${i.id}`] || 0), 0);
-              const resultado = sumaMax > 0 ? ((sumaObt / sumaMax) * categoriaObj?.porcentaje).toFixed(1) : "—";
+              const resultado = resultadoCal(i => mapa[`${st.id}-${i.id}`]);
               return `
               <tr data-fila-estudiante-cal="${st.id}">
                 <td>${st.apellido1} ${st.apellido2}, ${st.nombre}</td>
@@ -9358,12 +9370,10 @@ async function cargarCalificarTodos(materiaId, catNombre, indicadores) {
   });
 
   function recalcularFila(estId) {
-    const sumaMax = indicadores.reduce((a, i) => a + Number(i.puntaje_maximo), 0);
-    const sumaObt = indicadores.reduce((a, i) => {
+    const resultado = resultadoCal(i => {
       const sel = holder.querySelector(`[data-cal-masiva="${i.id}"][data-estudiante="${estId}"]`);
-      return a + Number(sel ? sel.value : 0);
-    }, 0);
-    const resultado = sumaMax > 0 ? ((sumaObt / sumaMax) * categoriaObj?.porcentaje).toFixed(1) : "—";
+      return sel ? sel.value : 0;
+    });
     const celda = holder.querySelector(`[data-resultado-de="${estId}"]`);
     if (celda) celda.textContent = `${resultado}%`;
   }
