@@ -704,6 +704,7 @@ async function cargarActs(forzar){
       sb.from("trabajos_cotidianos").select("id,titulo,fecha,habilitado,indicador_id,contenido_actividad").eq("contenido_actividad->>estrategia",ESTRATEGIA).order("id"),
       sb.from("materias").select("id,nombre,seccion").order("id")]);
     ACT.lista=data||[];ACT.materias=mats||[];
+    if(DOC)sincronizarCriterios().catch(()=>{});
     if(EST_ID){
       const [{data:em},{data:ae}]=await Promise.all([sb.from("estudiante_materias").select("materia_id").eq("estudiante_id",EST_ID),
         ACT.lista.length?sb.from("actividades_estudiante").select("trabajo_id,completado,puntaje,porcentaje,datos_prueba").eq("estudiante_id",EST_ID).in("trabajo_id",ACT.lista.map(t=>t.id)):{data:[]}]);
@@ -772,6 +773,16 @@ async function separarCriterios(t){
   const {data:ae}=await sb.from("actividades_estudiante").select("estudiante_id,completado,respuestas").eq("trabajo_id",t.id).eq("completado",true);
   let notas=0;for(const a of ae||[])if(Array.isArray(a.respuestas)&&a.respuestas.length){await guardarNotasPorCriterio(t,a.estudiante_id,a.respuestas);notas++}
   render();return {letras,notas}}
+// Si alguien entregó con una versión vieja de la página (solo se llenó un indicador),
+// al abrir el profe Misión Seguros se completan los indicadores de cada criterio.
+async function sincronizarCriterios(){
+  const T=(ACT.lista||[]).filter(t=>((t.contenido_actividad||{}).indicadores_criterio||[]).length);if(!T.length)return;
+  const ids=T.flatMap(t=>t.contenido_actividad.indicadores_criterio);
+  const [{data:ae},{data:n}]=await Promise.all([sb.from("actividades_estudiante").select("trabajo_id,estudiante_id,respuestas").in("trabajo_id",T.map(t=>t.id)).eq("completado",true),
+    sb.from("calificaciones_indicador").select("indicador_id,estudiante_id,puntaje_obtenido").in("indicador_id",ids)]);
+  const g={};(n||[]).forEach(x=>g[x.indicador_id+"|"+x.estudiante_id]=Number(x.puntaje_obtenido));
+  for(const a of ae||[]){if(!Array.isArray(a.respuestas))continue;const t=T.find(x=>x.id===a.trabajo_id);
+    if(t.contenido_actividad.indicadores_criterio.some((id,j)=>a.respuestas[j]!=null&&g[id+"|"+a.estudiante_id]!==Number(a.respuestas[j])))await guardarNotasPorCriterio(t,a.estudiante_id,a.respuestas)}}
 async function crearIndicadorSeg(materiaId,descripcion,fecha){
   const {data:ex}=await sb.from("indicadores").select("id,letra").eq("materia_id",materiaId).eq("categoria","Trabajo cotidiano");
   const usadas=new Set((ex||[]).map(e=>String(e.letra||"").trim().toUpperCase()));let i=0,letra="";
