@@ -68,6 +68,7 @@ async function render() {
   if (hash === "#/asistencia/resumen") return renderResumenAsistencia();
   if (hash === "#/asistencia/informe") return renderInformeAsistenciaSeccion();
   if (hash === "#/periodos") return renderPeriodos();
+  if (hash === "#/notas-periodo") return renderNotasPeriodo();
   if (hash === "#/bitacora") return renderBitacora();
   if (hash === "#/evaluacion") return renderEvaluacionInforme();
   const progUnidadMatch = hash.match(/^#\/programa\/(.+)$/);
@@ -270,6 +271,7 @@ async function renderHome() {
     { grupo: "estrategias", href: "#/estrategias", icono: "🧪", titulo: "Estrategias de evaluación", sub: `Catálogo de ${Object.keys(ESTRATEGIAS_EVALUACION).length} estrategias para trabajos asignados`, cta: "Ver catálogo →" },
     { grupo: "estrategias", href: "#/mediacion", icono: "🎓", titulo: "Estrategias de mediación", sub: `Catálogo de ${Object.keys(ESTRATEGIAS_MEDIACION).length} formas de dar la clase, con pasos y guía en vivo`, cta: "Ver catálogo →" },
     { grupo: "estrategias", href: "#/evaluacion", icono: "📑", titulo: "Evaluación", sub: "Por sección: indicadores, trabajo que realizaron los estudiantes y notas, en PDF", cta: "Ver evaluación →" },
+    { grupo: "estrategias", href: "#/notas-periodo", icono: "📄", titulo: "Notas por período", sub: "Acta del I Período, nota del II Período y nota anual según el MEP (50 % + 50 %), con PDF", cta: "Ver notas →" },
     { grupo: "estrategias", href: "#/bitacora", icono: "🕓", titulo: "Bitácora de ingresos", sub: "Quién entró a la plataforma, cuándo, a qué módulo y desde qué dispositivo", cta: "Ver bitácora →" },
     { grupo: "juegos", href: AULA_CONTABLE_URL, icono: "🧮", titulo: "Aula de Conta", sub: "Simulador del ciclo contable (NIC/NIIF)", cta: "Abrir aula →" },
     { grupo: "juegos", href: "liquidaciones.html", icono: "📑", titulo: "Liquidaciones laborales", sub: "Preaviso, cesantía, vacaciones y aguinaldo: calculadora paso a paso y práctica", cta: "Abrir →" },
@@ -1815,6 +1817,7 @@ async function renderPeriodos() {
     <div class="wrap">
       <h1>Períodos</h1>
       <p style="color:var(--text-muted); margin-top:-0.6em;">Define las fechas de cada período (I, II, III). El sistema usa estas fechas para separar automáticamente los indicadores, las notas y la asistencia en el "Reporte oficial" de cada estudiante — por fecha, sin que tengas que etiquetar nada a mano.</p>
+      <p><a class="btn small" href="#/notas-periodo">📄 Notas por período y nota anual (acta del I Período)</a></p>
       <div id="periodos-lista" style="margin-top:1rem;">Cargando…</div>
       <form class="inline-form" id="periodo-form" style="margin-top:1rem;">
         <input name="nombre" placeholder="Nombre (ej. I Período)" required style="flex:1; min-width:10rem" />
@@ -2295,6 +2298,7 @@ async function renderPerfil(id, isSelf) {
 
 
       <div id="bitacora-panel" style="margin-bottom:1rem;"></div>
+      <div id="notas-periodo-panel" style="margin-bottom:1rem;"></div>
       ${isSelf ? "" : `<div id="logros-panel" style="margin-bottom:1.3rem;"></div>`}
 
       ${isSelf ? `<div style="margin-bottom:0.8rem;"><a href="#/estrategias" class="btn secondary small">🧪 Cómo se evalúa cada tipo de trabajo</a></div>` : ""}
@@ -2316,6 +2320,7 @@ async function renderPerfil(id, isSelf) {
   bindTopbar();
 
   pintarBitacoraPerfil(s, isSelf);
+  if (typeof pintarNotasPeriodoPerfil === "function") pintarNotasPeriodoPerfil(s, isSelf).catch(e => console.error("notas por período:", e));
   ligarMenuEstudiante();
   const verComoBtn = document.getElementById("ver-como-estudiante");
   if (verComoBtn) verComoBtn.addEventListener("click", () => { previewEstudianteId = s.id; renderPerfil(s.id, true); });

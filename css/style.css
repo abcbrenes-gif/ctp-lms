@@ -1033,3 +1033,27 @@ table.grades td.num.low { color: var(--danger-text); font-weight: 700; }
 .evi-crit{margin:0;padding-left:1rem;font-size:.8rem}.evi-crit li{margin:.1rem 0}
 .evi-trab{margin:.3rem 0 .8rem}.evi-trab summary{cursor:pointer;font-weight:700}
 .evi-tbox{border:1px solid var(--paper-line);border-radius:10px;padding:.6rem .8rem;margin:.6rem 0}.evi-tbox h4{margin:0 0 .3rem}
+
+/* Notas por período */
+.np-barra { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; margin:.6rem 0; }
+.np-barra select { padding:.35rem .5rem; border-radius:8px; }
+.np-vis { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; padding:.6rem .8rem; border:2px dashed #c4b5fd; border-radius:12px; background:#faf5ff; margin:.4rem 0 .8rem; }
+.np-vis-tit { font-weight:700; margin-right:.3rem; }
+.np-sw { border:2px solid #d4d4d8; background:#fff; border-radius:999px; padding:.35rem .8rem; font-weight:700; cursor:pointer; color:#52525b; }
+.np-sw.on { border-color:#16a34a; background:#dcfce7; color:#166534; }
+.np-imp { padding:.8rem; border:1px solid var(--border, #ddd); border-radius:12px; margin-bottom:.8rem; }
+.np-res { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:.5rem; margin:.4rem 0 .8rem; }
+.np-res > div { border:1px solid var(--border, #e5e7eb); border-radius:12px; padding:.55rem .7rem; text-align:center; }
+.np-res b { display:block; font-size:1.3rem; }
+.np-res small { color:var(--text-muted); }
+.np-tabla .np-in { width:5.5rem; padding:.3rem .4rem; border-radius:8px; border:1px solid #cbd5e1; text-align:center; font:inherit; }
+.np-prov { font-size:.72rem; color:#b45309; margin-top:2px; }
+.np-ok { color:#166534; background:#dcfce7; padding:.15rem .5rem; border-radius:999px; font-weight:700; }
+.np-no { color:#991b1b; background:#fee2e2; padding:.15rem .5rem; border-radius:999px; font-weight:700; }
+.np-perfil { border:2px solid #c7d2fe; border-radius:14px; padding:.8rem 1rem; background:var(--surface, #fff); }
+.np-solo-profe { margin:0 0 .5rem; font-size:.85rem; color:#6d28d9; }
+.np-perfil-mat { margin-top:.4rem; }
+.np-perfil-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:.5rem; margin-top:.35rem; }
+.np-perfil-grid > div { border:1px solid var(--border, #e5e7eb); border-radius:10px; padding:.45rem .6rem; text-align:center; }
+.np-perfil-grid span { display:block; font-size:.78rem; color:var(--text-muted); }
+.np-perfil-grid b { font-size:1.2rem; }
