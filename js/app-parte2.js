@@ -19,7 +19,8 @@ async function pintarLetrasIndicadores() {
     (data || []).forEach(i => { _letrasInd[String(i.id)] = i; });
   }
   marcas.forEach(m => {
-    const L = m.dataset.indLetras.split(",").map(id => _letrasInd[id]).filter(Boolean);
+    // Las pruebas no son indicadores: no llevan letra.
+    const L = m.dataset.indLetras.split(",").map(id => _letrasInd[id]).filter(i => i && String(i.categoria || "").trim().toLowerCase() !== "pruebas");
     m.setAttribute("data-ind-ok", "1");
     if (!L.length) { m.remove(); return; }
     m.innerHTML = L.map(i => `<b>${escAC(i.letra)}</b>`).join(" · ");
