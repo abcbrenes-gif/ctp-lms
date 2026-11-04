@@ -988,6 +988,21 @@ table.grades td.num.low { color: var(--danger-text); font-weight: 700; }
 .tabla-mover-barra .btn { min-width: 44px; min-height: 38px; font-size: 1rem; }
 .tabla-mover-barra .btn:disabled { opacity: .35; cursor: default; }
 .tabla-mover.sin-mover .tabla-mover-barra { display: none; }
+.tm-flechas { position: sticky; top: 48vh; height: 0; z-index: 6; pointer-events: none; }
+.tm-flecha {
+  position: absolute; top: 0; pointer-events: auto; width: 46px; height: 46px; border-radius: 50%;
+  border: 2px solid #fff; background: #7c3aed; color: #fff; font-size: 1.35rem; font-weight: 900; line-height: 1;
+  box-shadow: 0 6px 18px rgba(76, 29, 149, .35); cursor: pointer; display: grid; place-items: center;
+  transition: opacity .2s, transform .15s; opacity: .92;
+}
+.tm-flecha:hover { opacity: 1; transform: scale(1.08); }
+.tm-flecha:active { transform: scale(.95); }
+.tm-flecha:focus-visible { outline: 3px solid #fbbf24; outline-offset: 2px; }
+.tm-flecha.izq { left: var(--tm-izq, 8px); }
+.tm-flecha.der { right: 8px; }
+.tm-flecha.oculta { opacity: 0; pointer-events: none; }
+.tabla-mover.sin-mover .tm-flechas { display: none; }
+@media print { .tm-flechas { display: none; } }
 .tabla-mover-area {
   overflow-x: auto; cursor: grab; scroll-behavior: auto; -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain; border-radius: 10px;

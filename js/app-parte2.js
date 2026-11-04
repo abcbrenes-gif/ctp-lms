@@ -10374,6 +10374,21 @@ function activarTablaMover(raiz) {
     if (!area) return;
     const paso = () => Math.max(200, area.clientWidth * 0.6);
     box.querySelectorAll("[data-mover]").forEach(b => b.addEventListener("click", () => area.scrollBy({ left: Number(b.dataset.mover) * paso(), behavior: "smooth" })));
+    // Flechas grandes a los lados, que siguen a la vista al bajar por la tabla.
+    const fl = document.createElement("div");
+    fl.className = "tm-flechas";
+    fl.innerHTML = `<button type="button" class="tm-flecha izq" data-mover-lado="-1" aria-label="Mover a la izquierda" title="Ver columnas anteriores">❮</button><button type="button" class="tm-flecha der" data-mover-lado="1" aria-label="Mover a la derecha" title="Ver más columnas">❯</button>`;
+    area.parentNode.insertBefore(fl, area);
+    const [fIzq, fDer] = fl.querySelectorAll("button");
+    let tMant = null;
+    fl.querySelectorAll("button").forEach(b => {
+      const dir = Number(b.dataset.moverLado);
+      b.addEventListener("click", () => area.scrollBy({ left: dir * paso(), behavior: "smooth" }));
+      // Mantener presionado = seguir moviendo.
+      b.addEventListener("pointerdown", () => { clearInterval(tMant); tMant = setTimeout(() => { tMant = setInterval(() => area.scrollBy({ left: dir * 40 }), 30); }, 350); });
+      ["pointerup", "pointerleave", "pointercancel"].forEach(ev => b.addEventListener(ev, () => { clearTimeout(tMant); clearInterval(tMant); }));
+    });
+    const anclar = () => { const th = area.querySelector("thead th"); fl.style.setProperty("--tm-izq", ((th && th.offsetWidth) || 0) + 6 + "px"); };
     area.addEventListener("keydown", e => {
       if (e.target !== area) return;
       if (e.key === "ArrowRight") { area.scrollBy({ left: 120 }); e.preventDefault(); }
@@ -10399,6 +10414,9 @@ function activarTablaMover(raiz) {
       const [izq, der] = box.querySelectorAll("[data-mover]");
       if (izq) izq.disabled = area.scrollLeft <= 1;
       if (der) der.disabled = area.scrollLeft >= max - 1;
+      fIzq.classList.toggle("oculta", area.scrollLeft <= 1);
+      fDer.classList.toggle("oculta", area.scrollLeft >= max - 1);
+      anclar();
     };
     area.addEventListener("scroll", actualizar, { passive: true });
     window.addEventListener("resize", actualizar);
