@@ -6491,9 +6491,16 @@ async function pintarPanelPuntosPorParte(panel, trabajo, indicadorId, totalPunto
     pintarPanelPuntosPorParte(panel, trabajo, indicadorId, nuevoTotal, nuevoPeso);
   });
 
-  const guardarUno = async (estudianteId) => {
+  const guardarUno = async (estudianteId, silencioso) => {
     const input = panel.querySelector(`[data-parte3-input="${estudianteId}"]`);
     const valorCrudo = input.value === "" ? 0 : Number(input.value);
+    // Antes se recortaba en silencio (p. ej. a 0 si el total no dejaba espacio a la Parte 3).
+    if (!isNaN(valorCrudo) && (valorCrudo > parte3Max || valorCrudo < 0)) {
+      input.style.outline = "3px solid #dc2626";
+      if (!silencioso) alert(`La Parte 3 de ${nombrePorId[estudianteId] || estudianteId} es ${valorCrudo}, pero solo puede valer de 0 a ${parte3Max} puntos con un total de ${total}. Revise el total de puntos de la prueba (botón «Aplicar»). No se guardó.`);
+      return false;
+    }
+    input.style.outline = "";
     const p3 = Math.max(0, Math.min(parte3Max, isNaN(valorCrudo) ? 0 : valorCrudo));
     const entrega = entregas.find(e => String(e.estudiante_id) === String(estudianteId));
     if (!entrega) return;
@@ -6535,7 +6542,9 @@ async function pintarPanelPuntosPorParte(panel, trabajo, indicadorId, totalPunto
   if (btnGuardarTodos) btnGuardarTodos.addEventListener("click", async () => {
     btnGuardarTodos.disabled = true;
     btnGuardarTodos.textContent = "Guardando…";
-    for (const e of entregas) await guardarUno(e.estudiante_id);
+    let malos = 0;
+    for (const e of entregas) if ((await guardarUno(e.estudiante_id, true)) === false) malos++;
+    if (malos) alert(`${malos} nota(s) de la Parte 3 se pasan del máximo (${parte3Max} puntos con un total de ${total}). Quedaron marcadas en rojo y no se guardaron.`);
     btnGuardarTodos.disabled = false;
     btnGuardarTodos.textContent = "Guardar todas";
   });
