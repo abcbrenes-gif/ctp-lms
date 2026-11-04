@@ -10428,7 +10428,7 @@ async function enlacesTrabajosIndicadores(indicadores, estudiantes) {
   const enlaces = {}; // "est-ind" -> { href, titulo, hecho }
   const poner = (est, ind, v) => { const k = `${est}-${ind}`; if (!enlaces[k] || (v.hecho && !enlaces[k].hecho)) enlaces[k] = v; };
   const [{ data: tcs }, acRows] = await Promise.all([
-    sb.from("trabajos_cotidianos").select("id, titulo, fecha, descripcion, indicador_id, tipo_actividad, subtema_id, publicacion_id, contenido_actividad").in("indicador_id", indIds),
+    sb.from("trabajos_cotidianos").select("id, titulo, fecha, descripcion, indicador_id, tipo_actividad, subtema_id, publicacion_id, contenido_actividad").or(`indicador_id.in.(${indIds.join(",")}),contenido_actividad->indicadores_criterio.not.is.null`),
     cargarTrabajosAulaConta(estIds).catch(() => [])]);
   // Aula de Conta: cada práctica del estudiante lleva su indicador en evalCfg.
   const setInd = new Set(indIds.map(String));
@@ -10439,16 +10439,18 @@ async function enlacesTrabajosIndicadores(indicadores, estudiantes) {
     ids.forEach(ind => poner(r.estudiante_id, ind, { href: `${AULA_CONTABLE_URL}?comparar=${encodeURIComponent(c.id)}&como_estudiante=${encodeURIComponent(r.estudiante_id)}`, titulo: `Aula de Conta · ${c.name || "práctica"}: su trabajo comparado con la solución`, hecho: true, ext: true }));
   }));
   // Trabajos de la plataforma ligados al indicador.
-  const trabajos = tcs || [];
+  // Un trabajo puede alimentar varios indicadores (uno por criterio).
+  const indsDe = t => { const L = [t.indicador_id, ...(((t.contenido_actividad || {}).indicadores_criterio) || [])].filter(x => x != null && setInd.has(String(x))); return [...new Set(L.map(Number))]; };
+  const trabajos = (tcs || []).filter(t => indsDe(t).length);
   let hechos = {};
   if (trabajos.length) {
     const { data: ae } = await sb.from("actividades_estudiante").select("trabajo_id, estudiante_id").in("trabajo_id", trabajos.map(t => t.id)).in("estudiante_id", estIds);
     (ae || []).forEach(x => { hechos[`${x.estudiante_id}-${x.trabajo_id}`] = true; });
   }
-  trabajos.forEach(t => {
+  trabajos.forEach(t => indsDe(t).forEach(indT => {
     const est = (t.contenido_actividad || {}).estrategia;
-    if (!infoDe[t.indicador_id]) infoDe[t.indicador_id] = { tc: t };
-    if (!trabajoDe[t.indicador_id]) trabajoDe[t.indicador_id] = `${({ liquidacion_laboral: "📑 Liquidación", mision_seguros: "🛡️ Misión Seguros", ruta_laboral: "⚖️ Ruta Laboral", juego_memoria: "🧠 Memoria Contable", juego_tiradera: "⚡ La Tiradera" })[est] || ("📝 " + (NOMBRES_ACTIVIDAD[t.tipo_actividad] || "Trabajo"))} · ${t.titulo || ""}`;
+    if (!infoDe[indT]) infoDe[indT] = { tc: t };
+    if (!trabajoDe[indT]) trabajoDe[indT] = `${({ liquidacion_laboral: "📑 Liquidación", mision_seguros: "🛡️ Misión Seguros", ruta_laboral: "⚖️ Ruta Laboral", juego_memoria: "🧠 Memoria Contable", juego_tiradera: "⚡ La Tiradera" })[est] || ("📝 " + (NOMBRES_ACTIVIDAD[t.tipo_actividad] || "Trabajo"))} · ${t.titulo || ""}`;
     estIds.forEach(e => {
       const h = !!hechos[`${e}-${t.id}`], q = encodeURIComponent(e);
       let href = null, titulo = t.titulo || "Trabajo", ext = false;
@@ -10458,9 +10460,9 @@ async function enlacesTrabajosIndicadores(indicadores, estudiantes) {
       else if (est === "juego_memoria") { href = `memoria.html?trabajo=${t.id}&est=${q}&docente=1`; ext = true; titulo = "Memoria Contable · " + titulo; }
       else if (t.subtema_id) href = `#/subtema/${t.subtema_id}`;
       else if (t.publicacion_id) href = `#/apartado/${t.publicacion_id}`;
-      if (href) poner(e, t.indicador_id, { href, titulo, hecho: h, ext });
+      if (href) poner(e, indT, { href, titulo, hecho: h, ext });
     });
-  });
+  }));
   return { enlaces, trabajoDe, infoDe };
 }
 // El trabajo que se puso a realizar, en HTML para ver o imprimir.

@@ -835,6 +835,19 @@ async function guardarEntregaRespuestaAbierta(trabajo, estudianteId, texto) {
 // ese estudiante, y — si el trabajo tiene indicador — también
 // calificaciones_indicador, para que aparezca de inmediato en Rúbrica y
 // Evaluaciones sin pasos adicionales.
+// Trabajos cuyos criterios son cada uno un indicador de la Rúbrica
+// (contenido_actividad.indicadores_criterio = [id del criterio 1, 2, 3…]):
+// cada indicador recibe el puntaje de SU criterio.
+async function guardarNotasPorCriterio(trabajo, estudianteId, puntos) {
+  const ids = (trabajo && trabajo.contenido_actividad && trabajo.contenido_actividad.indicadores_criterio) || [];
+  if (!ids.length || !Array.isArray(puntos)) return false;
+  for (let i = 0; i < ids.length; i++) {
+    if (ids[i] == null || puntos[i] == null) continue;
+    const { error } = await upsertSinConflicto("calificaciones_indicador", { indicador_id: ids[i], estudiante_id: estudianteId }, { puntaje_obtenido: Number(puntos[i]) });
+    if (error) console.error("No se pudo guardar el indicador del criterio", i + 1, error.message);
+  }
+  return true;
+}
 async function guardarNotaManualActividad(trabajo, estudianteId, puntaje, datosExtra) {
   const datosActividad = { puntaje, completado: true, actualizado_en: new Date().toISOString(), ...(datosExtra || {}) };
   const { error: errorActividad } = await upsertSinConflicto(
@@ -851,6 +864,7 @@ async function guardarNotaManualActividad(trabajo, estudianteId, puntaje, datosE
   );
   if (errorEstado) console.error("No se pudo actualizar trabajos_cotidianos_estudiante:", errorEstado.message);
 
+  if (await guardarNotasPorCriterio(trabajo, estudianteId, datosExtra && datosExtra.respuestas)) return { error: null };
   if (trabajo.indicador_id) {
     const { error: errorIndicador } = await upsertSinConflicto(
       "calificaciones_indicador",

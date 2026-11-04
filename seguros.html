@@ -6,7 +6,7 @@
 <title>Misión Seguros · CTP Mercedes Norte</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="js/config.js?v=20261030i"></script>
-<script src="js/actividades.js?v=20261103f"></script>
+<script src="js/actividades.js?v=20261104a"></script>
 <script src="js/bitacora.js?v=20261103a"></script>
 <style>
 :root{
@@ -727,7 +727,7 @@ function hubHTML(){
     const ni=inhab(t).length;
     return `<div class="actrow"><div style="flex:1;min-width:200px"><b>${esc(t.titulo)}</b><div style="color:var(--mut);font-size:.82rem">${n} asientos${DOC?" · "+esc(nomMat(C.materia_id)):""}${C.seg_desc?" · "+esc(C.seg_desc):""}</div></div>${est}${DOC&&ni?`<span class="tag" style="background:var(--red-s);color:var(--red)">🚫 ${ni} inhabilitado${ni>1?"s":""}</span>`:""}
       <div class="actbtns"><button ${DOC?'class="sec"':""} onclick="irA('#/a/${t.id}')">${DOC?"👁️ Ver y probar":mi&&mi.completado?"👁️ Ver":hechos?"▶ Seguir":"▶ Empezar"}</button>
-      ${DOC&&C.seg_tipo==="evaluativa"?`<button class="sec" data-insv="${t.id}">📋 Evaluación</button>`:""}${DOC?`<button class="${t.habilitado===false?"ok":"sec"}" data-hab="${t.id}">${t.habilitado===false?"▶ Abrir":"⏸️ Cerrar"}</button><button class="sec" data-ent="${t.id}">📥 Entregas</button><button class="sec" data-inh="${t.id}">🚫 Inhabilitar estudiantes</button>`:""}</div></div>`};
+      ${DOC&&C.seg_tipo==="evaluativa"?`<button class="sec" data-insv="${t.id}">📋 Evaluación</button>${(C.indicadores_criterio||[]).length?"":`<button class="pur" data-sep="${t.id}">🧩 Un indicador por criterio</button>`}`:""}${DOC?`<button class="${t.habilitado===false?"ok":"sec"}" data-hab="${t.id}">${t.habilitado===false?"▶ Abrir":"⏸️ Cerrar"}</button><button class="sec" data-ent="${t.id}">📥 Entregas</button><button class="sec" data-inh="${t.id}">🚫 Inhabilitar estudiantes</button>`:""}</div></div>`};
   const grupo=k=>{const G=L.filter(t=>((t.contenido_actividad||{}).seg_tipo||"evaluativa")===k);if(!DOC&&!G.length)return "";
     return `<div style="margin-top:10px"><h4 style="margin:0 0 6px">${TIPO_ACT[k].et} <span style="text-transform:none;letter-spacing:0;font-weight:600">· ${TIPO_ACT[k].desc}</span></h4>${G.map(fila).join("")||'<p style="color:var(--mut);margin:0">Todavía no hay.</p>'}</div>`};
   return `<section class="panel" style="margin-bottom:18px;border-color:#c7d2fe"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h3 style="margin:0;margin-right:auto">📚 Actividades del profe</h3>
@@ -742,9 +742,36 @@ function activarHub(){
   document.querySelectorAll("[data-ent]").forEach(b=>b.onclick=()=>verEntregas(ACT.lista.find(x=>x.id===+b.dataset.ent)));
   document.querySelectorAll("[data-inh]").forEach(b=>b.onclick=()=>verEntregas(ACT.lista.find(x=>x.id===+b.dataset.inh)));
   document.querySelectorAll("[data-insv]").forEach(b=>b.onclick=()=>verInstrumento(ACT.lista.find(x=>x.id===+b.dataset.insv)));
+  document.querySelectorAll("[data-sep]").forEach(b=>b.onclick=async()=>{const t=ACT.lista.find(x=>x.id===+b.dataset.sep);
+    if(!confirm(`«${t.titulo}»\n\nSe va a separar en ${SEG_CRIT.length} indicadores de la Rúbrica, uno por criterio (cuentas, Debe/Haber y montos), y las notas que ya hay se pasan a cada criterio. ¿Seguir?`))return;
+    b.disabled=true;try{const r=await separarCriterios(t);toast(`🧩 Listo: indicadores ${r.letras.join(", ")} · ${r.notas} notas pasadas`)}catch(e){alert("No se pudo: "+(e.message||e));b.disabled=false}});
   const cp=$("#crearPaq");if(cp)cp.onclick=()=>crearPaquete(cp);
   const va=$("#verAvance");if(va)va.onclick=()=>verAvanceEstudiantes();
 }
+// Niveles de un indicador que mide UN criterio (el % de ese aspecto).
+const SEG_QUE=["las cuentas del plan SUGESE que corresponden a cada transacción","la ubicación de cada cuenta en el Debe o el Haber","los montos de cada cuenta, con la partida doble cuadrada"];
+const nivelesCrit=i=>[[0,"Sin evidencia",`No realiza el trabajo o registra correctamente menos del 35 % de ${SEG_QUE[i]}.`],[1,"Inicial",`Registra correctamente entre el 35 % y el 59 % de ${SEG_QUE[i]}.`],[2,"Intermedio",`Registra correctamente entre el 60 % y el 84 % de ${SEG_QUE[i]}.`],[3,"Avanzado",`Registra correctamente el 85 % o más de ${SEG_QUE[i]}.`]];
+// Convierte el indicador único de un trabajo cotidiano en un indicador por criterio
+// (X → X1, X2, X3), y pasa a cada uno el puntaje de su criterio en las entregas que ya hay.
+async function separarCriterios(t){
+  const C=t.contenido_actividad||{};if((C.indicadores_criterio||[]).length)return {letras:[],notas:0};
+  if(!t.indicador_id)throw new Error("el trabajo no tiene indicador");
+  const {data:base}=await sb.from("indicadores").select("*").eq("id",t.indicador_id).maybeSingle();if(!base)throw new Error("no encontré el indicador");
+  const L=String(base.letra||"").trim(),ord=Number(base.orden)||0,ids=[],letras=[];
+  for(let i=0;i<SEG_CRIT.length;i++){
+    const desc=`${SEG_CRIT[i].nombre} (${t.titulo})`,letra=L+(i+1);let id;
+    if(i===0){const {error}=await sb.from("indicadores").update({letra,descripcion:desc}).eq("id",base.id);if(error)throw new Error(error.message);id=base.id;
+      await sb.from("criterios_indicador").delete().eq("indicador_id",id)}
+    else{const {data,error}=await sb.from("indicadores").insert({materia_id:base.materia_id,categoria:base.categoria,letra,descripcion:desc,puntaje_maximo:3,fecha_evaluacion:base.fecha_evaluacion,orden:ord+i/10}).select("id").maybeSingle();
+      if(error||!data){const r=await sb.from("indicadores").insert({materia_id:base.materia_id,categoria:base.categoria,letra,descripcion:desc,puntaje_maximo:3,fecha_evaluacion:base.fecha_evaluacion,orden:ord}).select("id").maybeSingle();if(r.error||!r.data)throw new Error((r.error||error||{}).message||"no se pudo crear");id=r.data.id}else id=data.id}
+    await sb.from("criterios_indicador").insert(nivelesCrit(i).map(([puntaje,nivel,d])=>({indicador_id:id,puntaje,nivel,descripcion:d})));
+    ids.push(id);letras.push(letra)}
+  const C2={...C,indicadores_criterio:ids,criterios:(C.criterios||[]).map((c,i)=>({...c,indicador_id:ids[i]}))};
+  const {error}=await sb.from("trabajos_cotidianos").update({contenido_actividad:C2}).eq("id",t.id);if(error)throw new Error(error.message);
+  t.contenido_actividad=C2;
+  const {data:ae}=await sb.from("actividades_estudiante").select("estudiante_id,completado,respuestas").eq("trabajo_id",t.id).eq("completado",true);
+  let notas=0;for(const a of ae||[])if(Array.isArray(a.respuestas)&&a.respuestas.length){await guardarNotasPorCriterio(t,a.estudiante_id,a.respuestas);notas++}
+  render();return {letras,notas}}
 async function crearIndicadorSeg(materiaId,descripcion,fecha){
   const {data:ex}=await sb.from("indicadores").select("id,letra").eq("materia_id",materiaId).eq("categoria","Trabajo cotidiano");
   const usadas=new Set((ex||[]).map(e=>String(e.letra||"").trim().toUpperCase()));let i=0,letra="";
@@ -764,7 +791,8 @@ async function crearPaquete(btn,materiaId){
     const ind=P.tipo==="evaluativa"?await crearIndicadorSeg(materiaId,P.desc,hoy):null;
     const C={estrategia:ESTRATEGIA,seg_tipo:P.tipo,materia_id:materiaId,seg_desc:P.desc,seg_misiones:P.bases.map(b=>({base:b,f:P.f})),criterios:P.tipo==="evaluativa"?SEG_CRIT.map(c=>({...c,niveles:typeof tiraderaNivelesDe==="function"?tiraderaNivelesDe(c):undefined})):[],
       seg_instrumento:{componente:P.tipo==="evaluativa"?"Trabajo cotidiano":"Práctica",tipo:"Escala de desempeño",subarea:"Gestión tributaria",unidad:"Seguros",resultado:"Resolver casos de seguros, aplicando los fundamentos operativos, técnicos y financieros, según la normativa vigente.",indicador:P.desc}};
-    const {data,error}=await sb.from("trabajos_cotidianos").insert({titulo:P.titulo,fecha:hoy,tipo_actividad:"rubrica_directa",habilitado:false,indicador_id:ind?ind.id:null,contenido_actividad:C}).select("id").maybeSingle();
+    const {data,error}=await sb.from("trabajos_cotidianos").insert({titulo:P.titulo,fecha:hoy,tipo_actividad:"rubrica_directa",habilitado:false,indicador_id:ind?ind.id:null,contenido_actividad:C}).select("*").maybeSingle();
+    if(data&&ind)try{await separarCriterios(data)}catch(e){}
     if(error||!data){if(ind)await sb.from("indicadores").delete().eq("id",ind.id);throw new Error(error?error.message:"sin respuesta")}
     hechos.push(data.id)}
   }catch(e){alert("No se pudo crear todo: "+(e.message||e))}
