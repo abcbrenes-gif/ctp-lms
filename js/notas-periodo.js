@@ -59,7 +59,10 @@ function npFila(C, estId, plataforma) {
   const p2def = npNum(((C.p2 || {}).notas || {})[estId]);
   const p2 = p2def != null ? p2def : (plataforma != null ? Math.round(plataforma * 100) / 100 : null);
   const anual = p1 != null && p2 != null ? npRedondear(p1 * NP_PESOS.p1 + p2 * NP_PESOS.p2) : null;
-  return { p1, p2, p2def, provisional: p2def == null && p2 != null, anual, aprueba: anual != null ? anual >= NP_APRUEBA : null };
+  const provisional = p2def == null && p2 != null;
+  // Nota mínima del II Período para que la anual (redondeada) llegue a 70.
+  const necesita = p1 != null ? Math.max(0, Math.ceil(((NP_APRUEBA - 0.5) - p1 * NP_PESOS.p1) / NP_PESOS.p2 * 100 - 1e-9) / 100) : null;
+  return { p1, p2, p2def, provisional, anual, necesita, aprueba: anual != null && !provisional ? anual >= NP_APRUEBA : null };
 }
 
 // Lee un acta pegada como texto: cada línea con la cédula (9 dígitos o con
@@ -102,7 +105,7 @@ async function renderNotasPeriodo() {
 
   function pintar() {
     const filas = lista.map(e => ({ e, f: npFila(C, e.id, plat[e.id]) }));
-    const conAnual = filas.filter(x => x.f.anual != null);
+    const conAnual = filas.filter(x => x.f.aprueba != null);
     const aprob = conAnual.filter(x => x.f.aprueba).length;
     const prom = k => { const v = filas.map(x => x.f[k]).filter(x => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
     const algunaProv = filas.some(x => x.f.provisional);
@@ -130,20 +133,21 @@ async function renderNotasPeriodo() {
         <div><b>${npFmt(prom("p1"))}</b><small>promedio I Período</small></div>
         <div><b>${npFmt(prom("p2"))}</b><small>promedio II Período${algunaProv ? " (en curso)" : ""}</small></div>
         <div><b>${npFmt(prom("anual"))}</b><small>promedio nota anual</small></div>
-        <div><b style="color:#15803d">${aprob}</b><small>aprueban (≥ ${NP_APRUEBA})</small></div>
-        <div><b style="color:#b91c1c">${conAnual.length - aprob}</b><small>no aprueban</small></div>
+        ${conAnual.length ? `<div><b style="color:#15803d">${aprob}</b><small>aprueban (≥ ${NP_APRUEBA})</small></div>
+        <div><b style="color:#b91c1c">${conAnual.length - aprob}</b><small>no aprueban</small></div>` : `<div><b>${npFmt(prom("necesita"))}</b><small>en promedio necesitan en el II Período para aprobar</small></div>`}
       </div>
       <div style="overflow-x:auto"><table class="grades np-tabla">
-        <thead><tr><th>Estudiante</th><th>Cédula</th><th>I Período<br><small>(acta · 50 %)</small></th><th>II Período<br><small>(50 %)</small></th><th>Nota anual</th><th>Condición</th></tr></thead>
+        <thead><tr><th>Estudiante</th><th>Cédula</th><th>I Período<br><small>(acta · 50 %)</small></th><th>II Período<br><small>(50 %)</small></th><th>Nota anual</th><th>Necesita en el<br>II Período</th><th>Condición</th></tr></thead>
         <tbody>${filas.map(({ e, f }) => `<tr>
           <td>${npEsc(nombre(e))}</td><td class="cedula">${npEsc(e.id)}</td>
           <td><input class="np-in" type="number" min="0" max="100" step="0.01" data-p="p1" data-est="${npEsc(e.id)}" value="${f.p1 ?? ""}"></td>
           <td><input class="np-in" type="number" min="0" max="100" step="0.01" data-p="p2" data-est="${npEsc(e.id)}" value="${f.p2def ?? ""}" placeholder="${plat[e.id] != null ? npFmt(plat[e.id]) : "—"}">
             ${f.provisional ? `<div class="np-prov">en curso: ${npFmt(f.p2)} (plataforma)</div>` : ""}</td>
           <td class="num"><b style="font-size:1.05rem">${f.anual ?? "—"}</b>${f.provisional && f.anual != null ? `<div class="np-prov">proyectada</div>` : ""}</td>
-          <td>${f.aprueba == null ? "—" : f.aprueba ? '<span class="np-ok">Aprobado</span>' : '<span class="np-no">Aplazado</span>'}</td></tr>`).join("") || `<tr><td colspan="6" class="empty">No hay estudiantes en esta sección.</td></tr>`}</tbody>
+          <td class="num">${f.necesita == null ? "—" : `<b class="${f.necesita > 100 ? "np-no" : f.necesita >= 80 ? "np-alerta" : ""}">${npFmt(f.necesita)}</b>`}</td>
+          <td>${f.aprueba == null ? (f.provisional ? '<span class="np-pend">II Período en curso</span>' : "—") : f.aprueba ? '<span class="np-ok">Aprobado</span>' : '<span class="np-no">Aplazado</span>'}</td></tr>`).join("") || `<tr><td colspan="7" class="empty">No hay estudiantes en esta sección.</td></tr>`}</tbody>
       </table></div>
-      <p style="color:var(--text-muted);font-size:.85rem">Si el II Período está vacío, se usa la nota que la plataforma calcula hoy con la Rúbrica (sale como <i>en curso</i> y la anual como <i>proyectada</i>). Al cerrar el período, use <b>📌 Fijar el II Período</b> o escriba la nota definitiva. Los cambios se guardan solos.</p>
+      <p style="color:var(--text-muted);font-size:.85rem">Si el II Período está vacío, se usa la nota que la plataforma calcula hoy con la Rúbrica (sale como <i>en curso</i> y la anual como <i>proyectada</i>; la condición final aparece cuando se fija el II Período). <b>Necesita en el II Período</b> = la nota mínima del II Período para que la anual llegue a ${NP_APRUEBA}. Al cerrar el período, use <b>📌 Fijar el II Período</b> o escriba la nota definitiva. Los cambios se guardan solos.</p>
       <p id="np-msg" style="color:var(--text-muted)"></p>`;
     const msg = t => { const m = document.getElementById("np-msg"); if (m) m.textContent = t; };
     const guardar = async () => { try { reg = await npGuardar(sel, reg, C); C = reg.C; msg("✅ Guardado " + new Date().toLocaleTimeString("es-CR")); } catch (er) { msg("❌ No se pudo guardar: " + er.message); } };
@@ -183,8 +187,8 @@ async function renderNotasPeriodo() {
         <style>body{font-family:Arial,sans-serif;margin:24px;color:#111}h2{margin:0}p{margin:4px 0 12px;color:#444;font-size:12px}table{border-collapse:collapse;width:100%;font-size:12px}th,td{border:1px solid #999;padding:5px 7px}th{background:#eef2ff}td.n{text-align:center}.f{margin-top:40px;font-size:12px}</style></head><body>
         <h2>CTP Mercedes Norte · Notas por período y nota anual</h2>
         <p>${npEsc(String(materia.nombre).trim())} · Sección ${npEsc(materia.seccion)} · Curso lectivo ${new Date().getFullYear()} · Nota anual = 50 % I Período + 50 % II Período (Decreto 45509-MEP, art. 48). Aprobado con ${NP_APRUEBA} o más.${algunaProv ? " El II Período marcado con * es la nota en curso de la plataforma (nota anual proyectada)." : ""}</p>
-        <table><thead><tr><th>#</th><th>Cédula</th><th>Estudiante</th><th>I Período</th><th>II Período</th><th>Nota anual</th><th>Condición</th></tr></thead><tbody>
-        ${filas.map(({ e, f }, i) => `<tr><td class="n">${i + 1}</td><td>${npEsc(e.id)}</td><td>${npEsc(nombre(e))}</td><td class="n">${npFmt(f.p1)}</td><td class="n">${npFmt(f.p2)}${f.provisional ? "*" : ""}</td><td class="n"><b>${f.anual ?? "—"}</b></td><td class="n">${f.aprueba == null ? "—" : f.aprueba ? "Aprobado" : "Aplazado"}</td></tr>`).join("")}
+        <table><thead><tr><th>#</th><th>Cédula</th><th>Estudiante</th><th>I Período</th><th>II Período</th><th>Nota anual</th><th>Necesita en II</th><th>Condición</th></tr></thead><tbody>
+        ${filas.map(({ e, f }, i) => `<tr><td class="n">${i + 1}</td><td>${npEsc(e.id)}</td><td>${npEsc(nombre(e))}</td><td class="n">${npFmt(f.p1)}</td><td class="n">${npFmt(f.p2)}${f.provisional ? "*" : ""}</td><td class="n"><b>${f.anual ?? "—"}</b>${f.provisional && f.anual != null ? "*" : ""}</td><td class="n">${npFmt(f.necesita)}</td><td class="n">${f.aprueba == null ? (f.provisional ? "Pendiente" : "—") : f.aprueba ? "Aprobado" : "Aplazado"}</td></tr>`).join("")}
         </tbody></table><div class="f">______________________________<br>Firma del docente</div><script>setTimeout(()=>print(),300)<\/script></body></html>`);
       w.document.close();
     };
@@ -218,7 +222,8 @@ async function pintarNotasPeriodoPerfil(estudiante, esEstudiante) {
         ${verP1 ? `<div><span>I Período</span><b>${npFmt(f.p1)}</b></div>` : ""}
         ${verAnual ? `<div><span>II Período${f.provisional ? " (en curso)" : ""}</span><b>${npFmt(f.p2)}</b></div>
         <div><span>Nota anual${f.provisional ? " (proyectada)" : ""}</span><b>${f.anual ?? "—"}</b></div>
-        <div><span>Condición</span><b class="${f.aprueba ? "np-ok" : f.aprueba === false ? "np-no" : ""}">${f.aprueba == null ? "—" : f.aprueba ? "Aprobado" : "Aplazado"}</b></div>` : ""}
+        <div><span>Condición</span><b class="${f.aprueba ? "np-ok" : f.aprueba === false ? "np-no" : ""}">${f.aprueba == null ? (f.provisional ? "Pendiente" : "—") : f.aprueba ? "Aprobado" : "Aplazado"}</b></div>` : ""}
+        ${verP1 && f.necesita != null && f.aprueba == null ? `<div><span>Necesitas en el II Período para aprobar</span><b>${npFmt(f.necesita)}</b></div>` : ""}
       </div></div>`);
   }
   if (!bloques.length) { holder.innerHTML = ""; return; }

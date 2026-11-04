@@ -1057,3 +1057,5 @@ table.grades td.num.low { color: var(--danger-text); font-weight: 700; }
 .np-perfil-grid > div { border:1px solid var(--border, #e5e7eb); border-radius:10px; padding:.45rem .6rem; text-align:center; }
 .np-perfil-grid span { display:block; font-size:.78rem; color:var(--text-muted); }
 .np-perfil-grid b { font-size:1.2rem; }
+.np-pend { color:#92400e; background:#fef3c7; padding:.15rem .5rem; border-radius:999px; font-weight:700; font-size:.82rem; }
+.np-alerta { color:#b45309; }
