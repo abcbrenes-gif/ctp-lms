@@ -7701,6 +7701,72 @@ function generarPdfPrueba(trabajo) {
   w.document.close();
 }
 
+async function pintarNotasManualesPrueba(panel, indId, materiaId) {
+  const [{ data: ind }, { data: em }, { data: cal }] = await Promise.all([
+    sb.from("indicadores").select("id, descripcion, puntaje_maximo, peso_prueba").eq("id", indId).maybeSingle(),
+    sb.from("estudiante_materias").select("estudiante_id").eq("materia_id", materiaId),
+    sb.from("calificaciones_indicador").select("estudiante_id, puntaje_obtenido").eq("indicador_id", indId)]);
+  const ids = (em || []).map(x => x.estudiante_id);
+  const { data: es } = ids.length ? await sb.from("estudiantes").select("id, nombre, apellido1, apellido2").in("id", ids) : { data: [] };
+  const lista = (es || []).sort((a, b) => `${a.apellido1} ${a.apellido2} ${a.nombre}`.localeCompare(`${b.apellido1} ${b.apellido2} ${b.nombre}`, "es"));
+  const nota = {}; (cal || []).forEach(c => { nota[c.estudiante_id] = c.puntaje_obtenido; });
+  const total0 = ind && ind.peso_prueba != null && Number(ind.puntaje_maximo) > 3 ? Number(ind.puntaje_maximo) : "";
+  const peso0 = ind && ind.peso_prueba != null ? Number(ind.peso_prueba) : "";
+  const f2 = v => (Math.round(v * 100) / 100).toLocaleString("es-CR", { maximumFractionDigits: 2 });
+  panel.innerHTML = `
+    <div class="nmp">
+      <div class="nmp-top">
+        <label>Total de puntos de la prueba <input type="number" min="1" step="0.5" data-nmp-total value="${total0}" placeholder="Ej.: 69"></label>
+        <label>Porcentaje de la prueba en la nota <input type="number" min="0" max="100" step="0.1" data-nmp-peso value="${peso0}" placeholder="Ej.: 20"> %</label>
+        <button class="btn small" data-nmp-guardar type="button">💾 Guardar notas</button>
+        <span data-nmp-msg style="font-size:0.82rem; color:var(--text-muted);"></span>
+      </div>
+      <div style="overflow-x:auto"><table class="grades nmp-tabla">
+        <thead><tr><th>Estudiante</th><th>Total de puntos</th><th>Puntos obtenidos</th><th>Nota</th><th>Porcentaje</th></tr></thead>
+        <tbody>${lista.map(e => `<tr data-nmp-fila="${escAC(e.id)}">
+          <td>${escAC(`${e.apellido1} ${e.apellido2 || ""}, ${e.nombre}`.replace(/\s+,/, ","))}</td>
+          <td class="num" data-nmp-tot></td>
+          <td><input type="number" min="0" step="0.5" data-nmp-pts value="${nota[e.id] ?? ""}" style="width:6rem; text-align:center;"></td>
+          <td class="num" data-nmp-nota></td>
+          <td class="num" data-nmp-pct></td></tr>`).join("") || `<tr><td colspan="5" class="empty">No hay estudiantes en esta sección.</td></tr>`}</tbody>
+      </table></div>
+      <p style="font-size:0.78rem; color:var(--text-muted); margin:0.4rem 0 0;">Nota = puntos obtenidos ÷ total × 100. Porcentaje = lo que aporta la prueba a la nota final (nota × porcentaje de la prueba). Las casillas vacías no se guardan.</p>
+    </div>`;
+  const totalEl = panel.querySelector("[data-nmp-total]"), pesoEl = panel.querySelector("[data-nmp-peso]"), msg = panel.querySelector("[data-nmp-msg]");
+  const recalcular = () => {
+    const T = Number(totalEl.value) || 0, P = Number(pesoEl.value) || 0;
+    panel.querySelectorAll("[data-nmp-fila]").forEach(tr => {
+      const inp = tr.querySelector("[data-nmp-pts]"), v = inp.value === "" ? null : Number(inp.value);
+      tr.querySelector("[data-nmp-tot]").textContent = T ? f2(T) : "—";
+      const malo = v != null && (v < 0 || (T && v > T));
+      inp.style.outline = malo ? "3px solid #dc2626" : "";
+      const n = v != null && T && !malo ? (v / T) * 100 : null;
+      tr.querySelector("[data-nmp-nota]").textContent = n == null ? "—" : f2(n);
+      tr.querySelector("[data-nmp-pct]").textContent = n == null || !P ? "—" : f2(n * P / 100) + " %";
+    });
+  };
+  panel.querySelectorAll("input").forEach(i => i.addEventListener("input", recalcular));
+  recalcular();
+  panel.querySelector("[data-nmp-guardar]").addEventListener("click", async (ev) => {
+    const T = Number(totalEl.value), P = Number(pesoEl.value);
+    if (!T || T <= 0) { msg.textContent = "Escriba el total de puntos de la prueba."; return; }
+    if (pesoEl.value === "" || P < 0 || P > 100) { msg.textContent = "Escriba el porcentaje de la prueba (0 a 100)."; return; }
+    const filas = Array.from(panel.querySelectorAll("[data-nmp-fila]")).map(tr => ({ id: tr.dataset.nmpFila, v: tr.querySelector("[data-nmp-pts]").value }));
+    const malos = filas.filter(f => f.v !== "" && (Number(f.v) < 0 || Number(f.v) > T));
+    if (malos.length) { msg.textContent = `${malos.length} nota(s) se pasan del total de ${T} puntos (marcadas en rojo). No se guardó nada.`; return; }
+    ev.target.disabled = true; msg.textContent = "Guardando…";
+    const { error } = await sb.from("indicadores").update({ puntaje_maximo: T, peso_prueba: P }).eq("id", indId);
+    let n = 0;
+    if (!error) for (const f of filas) {
+      if (f.v === "") continue;
+      const r = await upsertSinConflicto("calificaciones_indicador", { indicador_id: indId, estudiante_id: f.id }, { puntaje_obtenido: Number(f.v) });
+      if (!r.error) n++;
+    }
+    ev.target.disabled = false;
+    msg.textContent = error ? "No se pudo guardar: " + error.message : `✅ ${n} nota(s) guardadas sobre ${T} puntos (${P} % de la nota).`;
+  });
+}
+
 async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
   const holder = document.getElementById("materia-indicadores");
   if (!holder) return;
@@ -7879,7 +7945,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
         botonVerEntregasIndicador(ind), botonVerEntregasProyectoIndicador(ind)
       ])}
       ${grupo("📄", "Instrumento y calificación", [
-        mep, botonPuntosTrabajo(ind), botonPdfTrabajo(ind), botonPedirProyectoTrabajo(ind), botonGenerarSeleccionProyecto(ind)
+        mep, botonPuntosTrabajo(ind), catNombre === "Pruebas" ? `<button class="btn small" data-manual-prueba="${ind.id}" type="button">✍️ Notas manuales</button>` : "", botonPdfTrabajo(ind), botonPedirProyectoTrabajo(ind), botonGenerarSeleccionProyecto(ind)
       ])}
       ${grupo("⚙️", "Indicador", [
         `<button class="btn secondary small" data-editar-ind="${ind.id}" type="button">✏️ Editar</button>`,
@@ -7945,6 +8011,7 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
           ${trabajoPorIndicador[ind.id] && TIPOS_CON_RETRO.includes(trabajoPorIndicador[ind.id].tipo_actividad) ? `<div data-retro-ind-panel="${trabajoPorIndicador[ind.id].id}"></div>` : ""}
           ${trabajoPorIndicador[ind.id] && TIPOS_CON_RETRO.includes(trabajoPorIndicador[ind.id].tipo_actividad) ? `<div data-diagnostico-ind-panel="${trabajoPorIndicador[ind.id].id}"></div>` : ""}
           ${trabajoPorIndicador[ind.id] && trabajoPorIndicador[ind.id].tipo_actividad === "prueba" ? `<div data-puntos-ind-panel="${trabajoPorIndicador[ind.id].id}" data-indicador-para-puntos="${ind.id}"></div>` : ""}
+          ${catNombre === "Pruebas" ? `<div data-manual-prueba-panel="${ind.id}"></div>` : ""}
           <div data-editar-ind-panel="${ind.id}"></div>
           <div data-mep-panel="${ind.id}"></div>
           ${!trabajoPorIndicador[ind.id] ? `<div data-pedir-archivo-panel="${ind.id}"></div>` : ""}
@@ -8171,6 +8238,17 @@ async function cargarIndicadoresDeMateria(materiaId, categoriaActiva) {
       if (!t) return;
       panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando…</p>`;
       panel.innerHTML = await construirDiagnosticoPorPregunta(t);
+    });
+  });
+  // Notas manuales de una prueba: total de puntos, puntos obtenidos, nota y porcentaje (aporte).
+  holder.querySelectorAll("[data-manual-prueba]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const indId = Number(btn.dataset.manualPrueba);
+      const panel = holder.querySelector(`[data-manual-prueba-panel="${indId}"]`);
+      if (!panel) return;
+      if (panel.innerHTML) { panel.innerHTML = ""; return; }
+      panel.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Cargando…</p>`;
+      await pintarNotasManualesPrueba(panel, indId, materiaId);
     });
   });
   holder.querySelectorAll("[data-puntos-ind]").forEach(btn => {
