@@ -2,6 +2,12 @@
 
 Estas reglas las dio el profesor (Contabilidad, CTP Mercedes Norte). Seguirlas siempre.
 
+## Reglamentación MEP (siempre)
+- Todo lo que se cree o califique debe seguir la reglamentación del MEP (Reglamento de Evaluación de los Aprendizajes, Decreto 45509-MEP, y los lineamientos de la DDC/DEVA).
+- Indicadores: se derivan del resultado de aprendizaje del programa, redactados con verbo + contenido + condición.
+- Instrumentos (escala de desempeño, rúbrica, lista de cotejo): niveles Inicial (1), Intermedio (2) y Avanzado (3), con descriptor observable en cada nivel; 0 = sin evidencia.
+- Componentes de la nota según la Rúbrica de la plataforma (Trabajo cotidiano, Tareas, Proyectos, Pruebas, Asistencia).
+
 ## Antes de tocar datos
 - Antes de cambiar, mover o borrar notas, indicadores, trabajos o asistencia que ya existen: decir en una línea qué se va a cambiar y esperar el sí del profesor.
 - Si una instrucción es ambigua, hacer UNA pregunta corta antes de empezar; no suponer.
