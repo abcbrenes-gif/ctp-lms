@@ -6656,7 +6656,7 @@ function leerContenidoActividadDesdeFormulario(tipo, el) {
 // indicadores queden con la misma letra cuando uno se borró a mitad de
 // camino (el conteo simple "A + cantidad" se desincroniza en ese caso).
 function siguienteLetraDisponible(usadas) {
-  const set = new Set((usadas || []).filter(Boolean).map(l => String(l).trim().toUpperCase()));
+  const set = new Set((usadas || []).filter(Boolean).flatMap(l => { const u = String(l).trim().toUpperCase(); return [u, u.replace(/\d+$/, "")]; }));
   let i = 0;
   while (true) {
     let letra = "";

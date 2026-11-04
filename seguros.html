@@ -842,7 +842,7 @@ async function sincronizarCriterios(){
     if(t.contenido_actividad.indicadores_criterio.some((id,j)=>a.respuestas[j]!=null&&g[id+"|"+a.estudiante_id]!==Number(a.respuestas[j])))await guardarNotasPorCriterio(t,a.estudiante_id,a.respuestas)}}
 async function crearIndicadorSeg(materiaId,descripcion,fecha){
   const {data:ex}=await sb.from("indicadores").select("id,letra").eq("materia_id",materiaId).eq("categoria","Trabajo cotidiano");
-  const usadas=new Set((ex||[]).map(e=>String(e.letra||"").trim().toUpperCase()));let i=0,letra="";
+  const usadas=new Set((ex||[]).map(e=>String(e.letra||"").trim().toUpperCase().replace(/\d+$/,"")));let i=0,letra="";
   for(;;){let n=i,l="";do{l=String.fromCharCode(65+(n%26))+l;n=Math.floor(n/26)-1}while(n>=0);if(!usadas.has(l)){letra=l;break}i++}
   const {data,error}=await sb.from("indicadores").insert({materia_id:materiaId,categoria:"Trabajo cotidiano",letra,descripcion,puntaje_maximo:3,fecha_evaluacion:fecha,orden:(ex||[]).length+1}).select().maybeSingle();
   if(error||!data)throw new Error(error?error.message:"no se pudo crear el indicador");
