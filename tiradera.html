@@ -242,6 +242,7 @@ body.embed .card{box-shadow:none;padding:4px}
   .tipo-tabs{grid-template-columns:repeat(2,1fr)}
   .timer{width:72px;height:72px}.timer .t-num{font-size:1.5rem}
 }
+.pin-ok{padding:10px 12px;border-radius:12px;background:#dcfce7;color:#166534;font-weight:800}
 </style>
 </head>
 <body>
@@ -623,7 +624,10 @@ function vistaInicio() {
         <div class="emoji">🎮</div>
         <h2>Quiero jugar</h2>
         <div class="field"><label for="inPin">PIN de la partida</label><input id="inPin" class="pin-input" inputmode="numeric" maxlength="6" placeholder="000000" value="${esc(pinUrl)}"></div>
-        <div class="field"><label for="inNombre">Tu nombre completo</label><input id="inNombre" maxlength="60" autocomplete="name" placeholder="Ej.: Valentina Gómez Rojas" value="${esc(S.yo && S.yo.nombre ? S.yo.nombre : nombreUrl)}"></div>
+        ${sesionPlataforma() ? `<div class="field"><label>Jugás como</label><div class="pin-ok">✅ ${esc(sesionPlataforma().nombre || "Sesión de la plataforma")}</div></div>` : `
+        <div class="field"><label for="inCed">Tu cédula</label><input id="inCed" inputmode="numeric" maxlength="14" autocomplete="username" placeholder="Ej.: 402870846" value="${esc(QS.get("est") || (S.yo && S.yo.est) || "")}"></div>
+        <div class="field"><label for="inPinEst">Tu PIN de la plataforma</label><input id="inPinEst" type="password" inputmode="numeric" maxlength="12" autocomplete="current-password" placeholder="El mismo con que entrás a la plataforma">
+          <small class="muted">🔒 Es para confirmar que sos vos: nadie puede jugar con el nombre de otro compañero.</small></div>`}
         <div class="field"><label for="inApodo">Tu apodo para jugar</label><input id="inApodo" maxlength="16" placeholder="Ej.: La Contadora" value="${esc(S.yo && S.yo.apodo ? S.yo.apodo : "")}">
           <small class="muted">En el podio vas a aparecer con tu apodo. Tu nombre real solo lo ve el profe en el registro.</small></div>
         <button class="btn big green" id="btnJoin" style="width:100%">Entrar a la partida</button>
@@ -1689,15 +1693,50 @@ function cruciHTML(p, revelar, soloVer) {
 /* ============================================================
    9. PARTICIPANTE
    ============================================================ */
+// Sesión abierta de la plataforma (mismo sitio): ya está identificado.
+function sesionPlataforma() {
+  try {
+    const x = JSON.parse(sessionStorage.getItem("ctp_lms_session_v2") || "null");
+    if (x && x.role === "estudiante" && x.id) return { id: String(x.id), nombre: x.nombre || QS.get("nombre") || "" };
+  } catch (e) {}
+  return null;
+}
+// La cédula se guarda con guiones (4-0287-0846); se acepta escrita con o sin ellos.
+function formatoCedula(v) {
+  const t = String(v || "").trim();
+  const d = t.replace(/\D/g, "");
+  if (d.length === 9) return `${d[0]}-${d.slice(1, 5)}-${d.slice(5)}`;
+  return t;
+}
+async function verificarEstudiante() {
+  const ses = sesionPlataforma();
+  if (!sbClient) { toast("No hay conexión con la plataforma para verificar tu PIN. Avisale al profe.", 5000); return null; }
+  if (ses) {
+    const { data } = await sbClient.from("estudiantes").select("id, nombre, apellido1, apellido2").eq("id", ses.id).maybeSingle();
+    if (data) return data;
+  }
+  const ced = formatoCedula($("#inCed") ? $("#inCed").value : "");
+  const pinEst = (($("#inPinEst") || {}).value || "").trim();
+  if (!ced) { toast("Escribí tu cédula."); return null; }
+  if (!pinEst) { toast("Escribí tu PIN de la plataforma."); return null; }
+  let r = await sbClient.from("estudiantes").select("id, nombre, apellido1, apellido2").eq("id", ced).eq("pin", pinEst).maybeSingle();
+  if (!r.data && ced !== $("#inCed").value.trim()) r = await sbClient.from("estudiantes").select("id, nombre, apellido1, apellido2").eq("id", $("#inCed").value.trim()).eq("pin", pinEst).maybeSingle();
+  if (r.error) { toast("No se pudo verificar ahora. Intentá de nuevo.", 4000); return null; }
+  if (!r.data) { toast("Cédula o PIN incorrectos. Usá el mismo PIN con que entrás a la plataforma.", 5000); return null; }
+  return r.data;
+}
 async function unirse() {
   const pin = ($("#inPin").value || "").replace(/\D/g, "");
-  const nombre = ($("#inNombre").value || "").trim().replace(/\s+/g, " ");
   const apodo = ($("#inApodo").value || "").trim().replace(/\s+/g, " ");
   if (pin.length !== 6) { toast("El PIN tiene 6 números."); return; }
-  if (nombre.split(" ").length < 2) { toast("Escribí tu nombre completo (nombre y apellido)."); return; }
   if (!apodo) { toast("Escribí tu apodo para jugar."); return; }
+  const btn = $("#btnJoin"); if (btn) { btn.disabled = true; btn.textContent = "Verificando…"; }
+  const est = await verificarEstudiante();
+  if (btn) { btn.disabled = false; btn.textContent = "Entrar a la partida"; }
+  if (!est) return;
+  const nombre = [est.nombre, est.apellido1, est.apellido2].filter(Boolean).join(" ").replace(/\s+/g, " ");
   S.rol = "player"; S.pin = pin; S.expulsado = false;
-  S.yo = { id: (S.yo && S.yo.id) || "j-" + uid(), nombre, apodo, est: QS.get("est") || (S.yo && S.yo.est) || null, grupo: S.yo && S.yo.pin === pin ? S.yo.grupo : null, pin };
+  S.yo = { id: (S.yo && S.yo.est === est.id && S.yo.id) || "j-" + uid(), nombre, apodo, est: est.id, verificado: true, grupo: S.yo && S.yo.pin === pin ? S.yo.grupo : null, pin };
   store.sset("tiradera_yo", S.yo);
   pantalla(`<div class="card center"><h2>Entrando a la partida ${pin}…</h2><p class="muted">Si tarda, revisá que el PIN sea el correcto.</p></div>`);
   S.canal = await crearCanal(pin, S.yo.id, jugadorEvento, null);
