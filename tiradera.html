@@ -1336,6 +1336,7 @@ function cerrarRonda() {
   });
   S.fase = "revelar";
   Object.keys(S.jugadores).forEach(id => S.canal.enviar("result", resultadoPara(id)));
+  if (S.ritmo) { difundirEstado(); ritmoTrasRonda(); return; }
   vistaRondaHost();
   difundirEstado();
   difundirMonitor();
@@ -1480,6 +1481,7 @@ async function obtenerTrabajoSinAsignar() {
 }
 let _autoT = null, _autoCorriendo = false;
 function autoguardar(inmediato) {
+  if (S.ritmo) return;
   clearTimeout(_autoT);
   _autoT = setTimeout(async () => {
     if (_autoCorriendo) { autoguardar(); return; }
@@ -1554,6 +1556,7 @@ function descargarRegistroCSV(partida) {
 
 /* ---------- Vista del ponente durante la ronda ---------- */
 function vistaRondaHost() {
+  if (S.ritmo) return;
   const r = S.reto, revelar = S.fase === "revelar";
   const sol = revelar ? solucionReto(r) : null;
   let cuerpo = "";
@@ -1585,6 +1588,7 @@ function vistaRondaHost() {
   actualizarVivoHost(true);
 }
 function actualizarVivoHost() {
+  if (S.ritmo) return;
   const v = $("#vivo"); if (!v) return;
   if (esGrupal()) pintarVivo(v, rankingGrupos(), null, "🏆 Podio en vivo · grupos");
   else pintarVivo(v, rankingPublico(), null);
@@ -1738,6 +1742,8 @@ async function unirse() {
   if (btn) { btn.disabled = false; btn.textContent = "Entrar a la partida"; }
   if (!est) return;
   const nombre = [est.nombre, est.apellido1, est.apellido2].filter(Boolean).join(" ").replace(/\s+/g, " ");
+  // ¿Hay una Tiradera «a su ritmo» abierta con este PIN para la sección del estudiante?
+  try { const tr = await buscarRitmo(pin, est); if (tr) return iniciarRitmo(tr, est, nombre, apodo, pin); } catch (e) { console.warn("ritmo:", e); }
   S.rol = "player"; S.pin = pin; S.expulsado = false;
   S.yo = { id: (S.yo && S.yo.est === est.id && S.yo.id) || "j-" + uid(), nombre, apodo, est: est.id, verificado: true, grupo: S.yo && S.yo.pin === pin ? S.yo.grupo : null, pin };
   store.sset("tiradera_yo", S.yo);
@@ -2017,6 +2023,148 @@ function activarCruci(r, fin) {
   $("#btnEnviarCruci").onclick = () => { if (!confirm("¿Enviar el crucigrama? Ya no lo vas a poder cambiar.")) return; enviarRespuesta({ palabras: leer(), final: true }); };
   clearTimeout(S._autoCruci);
   S._autoCruci = setTimeout(() => { if (!S.enviado && S.estadoRemoto && S.estadoRemoto.fase === "pregunta") enviarRespuesta({ palabras: leer(), final: true }); }, Math.max(0, fin - Date.now() - 400));
+}
+
+/* ============================================================
+   9b. A SU RITMO (trabajo con contenido_actividad.tiradera_ritmo =
+   { activo, pin, hasta, materia_id }): cada estudiante entra con el PIN
+   cuando quiera, resuelve los retos solo (con el mismo tiempo y puntaje
+   que en vivo) y al terminar su nota va a los indicadores del trabajo.
+   Un solo intento; si recarga, sigue donde iba (el reloj no se detiene).
+   ============================================================ */
+async function buscarRitmo(pin, est) {
+  if (!sbClient) return null;
+  const { data } = await sbClient.from("trabajos_cotidianos").select("id, titulo, indicador_id, habilitado, contenido_actividad")
+    .eq("contenido_actividad->tiradera_ritmo->>pin", pin);
+  const ahora = Date.now();
+  const lista = (data || []).filter(t => {
+    const R = (t.contenido_actividad || {}).tiradera_ritmo || {};
+    return R.activo !== false && t.habilitado !== false && (!R.hasta || ahora <= Date.parse(R.hasta)) && (!R.desde || ahora >= Date.parse(R.desde));
+  });
+  if (!lista.length) return null;
+  const { data: em } = await sbClient.from("estudiante_materias").select("materia_id").eq("estudiante_id", est.id);
+  const mats = (em || []).map(x => String(x.materia_id));
+  return lista.find(t => { const m = t.contenido_actividad.tiradera_ritmo.materia_id; return !m || mats.includes(String(m)); }) || null;
+}
+async function ritmoGuardar(extra) {
+  const R = S.ritmo; if (!R || !sbClient) return;
+  const fila = { trabajo_id: R.t.id, estudiante_id: R.est.id };
+  const datos = { datos_prueba: { ...(R.datosPrevios || {}), tiradera_ritmo: R.P }, actualizado_en: new Date().toISOString(), ...(extra || {}) };
+  const { data: ex } = await sbClient.from("actividades_estudiante").select("id").match(fila).limit(1).maybeSingle();
+  const r = ex ? await sbClient.from("actividades_estudiante").update(datos).eq("id", ex.id) : await sbClient.from("actividades_estudiante").insert({ ...fila, completado: false, ...datos });
+  if (r.error) console.warn("No se pudo guardar el avance:", r.error.message);
+}
+async function iniciarRitmo(t, est, nombre, apodo, pin) {
+  const C = t.contenido_actividad || {}, retosBase = (C.tiradera_retos || []).filter(r => !validarReto(r));
+  if (!retosBase.length) { toast("Este trabajo no tiene retos.", 4000); return; }
+  pantalla(`<div class="card center"><h2>Cargando tu Tiradera…</h2></div>`);
+  const { data: ae } = await sbClient.from("actividades_estudiante").select("id, completado, datos_prueba, puntaje").eq("trabajo_id", t.id).eq("estudiante_id", est.id).maybeSingle();
+  if (ae && ae.completado) return ritmoResumen(t, (ae.datos_prueba || {}).tiradera_ritmo, nombre);
+  const n = retosBase.length;
+  const P = (ae && ae.datos_prueba && ae.datos_prueba.tiradera_ritmo) || {
+    orden: ordenMezclado(n, est.id + "|" + t.id), i: 0, pts: 0, racha: 0, apodo,
+    stats: { ganados: 0, perdidos: 0, aciertos: 0, errores: 0, sinResp: 0, logros: [], rest: [], excluidas: 0, aportes: 0 },
+    detalle: [], gen: {}, inicio: {}, empezo: new Date().toISOString()
+  };
+  S.ritmo = { t, est, nombre, P, datosPrevios: ae ? (ae.datos_prueba || {}) : {} };
+  S.rol = "player"; S.pin = "ritmo-" + t.id; S.expulsado = false;
+  S.cfg.mezclar = !!C.tiradera_mezclar || S.cfg.mezclar;
+  S.cfg.modalidad = "individual";
+  S.yo = { id: "r-" + est.id, nombre, apodo: P.apodo || apodo, est: est.id, verificado: true, pin };
+  S.retos = P.orden.map(k => retosBase[k]);
+  S.instrumento = C.tiradera_instrumento || null;
+  S.jugadores = { [S.yo.id]: { id: S.yo.id, nombre, apodo: S.yo.apodo, pts: P.pts, racha: P.racha, ultimoDelta: 0, online: true, est: est.id, stats: P.stats, detalle: P.detalle } };
+  S.bots = []; S.respuestas = {}; S.rondasJugadas = P.i;
+  S.canal = { modo: "ritmo", listo: true, trackPresencia: () => {}, cerrar: () => {},
+    enviar: (ev, data) => { if (ev === "answer") recibirRespuesta(data); else if (ev === "state" || ev === "result") setTimeout(() => jugadorEvento(ev, data), 0); } };
+  S.estadoRemoto = null; S.miResultado = null;
+  if (P.i === 0 && !P.inicio[S.retos[0].id]) {
+    pantalla(`<div class="card center" style="max-width:640px;margin:0 auto">
+      <h2>⚡ ${esc(t.titulo)}</h2>
+      <p style="font-size:1.05rem">Hola, <b>${esc(nombre)}</b>. Esta Tiradera la hacés <b>a tu ritmo</b>: ${n} retos, uno tras otro, cada uno con su tiempo.</p>
+      <ul style="text-align:left;line-height:1.6"><li>Rápido y bien suma; equivocarte o dejar correr el tiempo, resta.</li><li>Tenés <b>un solo intento</b>. Si cerrás la página, al volver seguís donde ibas, pero el tiempo del reto no se detiene.</li><li>Al terminar, tu nota se pasa sola a la Rúbrica.</li></ul>
+      <button class="btn big green" id="btnRitmoEmpezar">¡Empezar!</button></div>`);
+    $("#btnRitmoEmpezar").onclick = () => ritmoReto();
+    return;
+  }
+  ritmoReto();
+}
+function ritmoReto() {
+  const R = S.ritmo, P = R.P;
+  if (P.i >= S.retos.length) return ritmoFin();
+  const base = S.retos[P.i];
+  const r = JSON.parse(JSON.stringify(base));
+  if (r.tipo === "sopa") r._sopa = P.gen[r.id] || (P.gen[r.id] = generarSopa(r.palabras.map(p => p.palabra), 10));
+  if (r.tipo === "cruci") r._cruci = P.gen[r.id] || (P.gen[r.id] = generarCrucigrama(r.palabras));
+  if (!P.inicio[r.id]) { P.inicio[r.id] = Date.now(); ritmoGuardar(); }
+  S.idx = P.i; S.reto = r; S.publico = retoPublico(r); S.respuestas = {};
+  S.fase = "pregunta"; S.terminaEn = P.inicio[r.id] + r.tiempo * 1000;
+  S.miResultado = null; S.enviado = false; S.sopaHallazgos = []; S.estadoRemoto = null;
+  clearTimeout(S._finRonda);
+  const restante = S.terminaEn - Date.now();
+  if (restante <= 0) { cerrarRonda(); return; }
+  difundirEstado();
+  S._finRonda = setTimeout(cerrarRonda, restante + 300);
+}
+function ritmoTrasRonda() {
+  const R = S.ritmo, P = R.P, j = S.jugadores[S.yo.id];
+  P.pts = j.pts; P.racha = j.racha; P.stats = j.stats; P.detalle = j.detalle; P.i = S.idx + 1;
+  ritmoGuardar();
+  setTimeout(() => {
+    const ult = P.i >= S.retos.length;
+    const b = document.createElement("div"); b.className = "center"; b.style.margin = "14px 0";
+    b.innerHTML = `<button class="btn big green" id="btnRitmoSig">${ult ? "🏁 Ver mi resultado" : "Siguiente reto ▶"}</button>`;
+    const vivo = $("#vivoJ"); if (vivo) vivo.parentNode.insertBefore(b, vivo); else document.body.appendChild(b);
+    $("#btnRitmoSig").onclick = () => ritmoReto();
+  }, 120);
+}
+function ritmoMetricas(P, n) {
+  const st = P.stats, pct = v => Math.round(Math.max(0, Math.min(100, v)) * 10) / 10;
+  const respondidas = st.logros.length - st.sinResp;
+  return {
+    dominio_pct: pct(st.logros.reduce((a, b) => a + b, 0) / n * 100),
+    participacion_pct: pct(respondidas / n * 100),
+    precision_pct: pct(st.ganados + st.perdidos > 0 ? st.ganados / (st.ganados + st.perdidos) * 100 : 0),
+    rapidez_pct: pct((st.rest.length ? st.rest.reduce((a, b) => a + b, 0) / st.rest.length : 0) * 200)
+  };
+}
+const ritmoPuntos = v => v >= 85 ? 3 : v >= 60 ? 2 : v >= 35 ? 1 : 0;
+async function ritmoFin() {
+  const R = S.ritmo, P = R.P, t = R.t, C = t.contenido_actividad || {}, n = S.retos.length;
+  pantalla(`<div class="card center"><h2>Guardando tu resultado…</h2></div>`);
+  const M = ritmoMetricas(P, n);
+  const crit = C.criterios || [];
+  const pts = crit.map(c => ritmoPuntos(Number(M[c.auto]) || 0));
+  const max = crit.reduce((a, c) => a + (Number(c.puntos_max) || 3), 0) || 1;
+  const total = pts.reduce((a, b) => a + b, 0);
+  P.terminado = new Date().toISOString(); P.metricas = M; P.puntos_criterio = pts;
+  await ritmoGuardar({ completado: true, puntaje: Math.round(total / max * 3), porcentaje: Math.round(total / max * 100), respuestas: pts });
+  const ids = C.indicadores_criterio || [];
+  for (let k = 0; k < ids.length; k++) {
+    if (pts[k] == null) continue;
+    const fila = { indicador_id: ids[k], estudiante_id: R.est.id };
+    const { data: ex } = await sbClient.from("calificaciones_indicador").select("id").match(fila).limit(1).maybeSingle();
+    const r = ex ? await sbClient.from("calificaciones_indicador").update({ puntaje_obtenido: pts[k] }).eq("id", ex.id) : await sbClient.from("calificaciones_indicador").insert({ ...fila, puntaje_obtenido: pts[k] });
+    if (r.error) console.warn("No se pudo guardar la nota del criterio", k + 1, r.error.message);
+  }
+  const fe = { trabajo_id: t.id, estudiante_id: R.est.id };
+  const { data: tce } = await sbClient.from("trabajos_cotidianos_estudiante").select("id").match(fe).limit(1).maybeSingle();
+  if (tce) await sbClient.from("trabajos_cotidianos_estudiante").update({ completado: true, entregado_en: new Date().toISOString() }).eq("id", tce.id);
+  else await sbClient.from("trabajos_cotidianos_estudiante").insert({ ...fe, completado: true, entregado_en: new Date().toISOString() });
+  lanzarConfeti && lanzarConfeti();
+  ritmoResumen(t, P, R.nombre);
+}
+function ritmoResumen(t, P, nombre) {
+  S.ritmo = null;
+  if (!P) { pantalla(`<div class="card center"><h2>✅ Ya hiciste esta Tiradera</h2><p class="muted">Solo se puede hacer una vez.</p></div>`); return; }
+  const n = (t.contenido_actividad.tiradera_retos || []).length, M = P.metricas || ritmoMetricas(P, n), C = t.contenido_actividad || {};
+  const fila = (l, v) => `<tr><td style="text-align:left">${l}</td><td><b>${Math.round(v)} %</b></td></tr>`;
+  pantalla(`<div class="card center" style="max-width:640px;margin:0 auto">
+    <h2>🏁 ¡Terminaste, ${esc(nombre)}!</h2>
+    <p style="font-size:1.2rem">Hiciste <b>${P.pts} puntos</b> · ${P.stats.aciertos} retos correctos de ${n}.</p>
+    <table class="tbl" style="margin:10px auto;min-width:280px">${fila("Dominio del contenido", M.dominio_pct)}${fila("Participación (a tiempo)", M.participacion_pct)}${fila("Precisión", M.precision_pct)}</table>
+    ${(C.criterios || []).length && P.puntos_criterio ? `<p class="muted">Tu nota ya está en la Rúbrica: ${(C.criterios || []).map((c, k) => `${esc(String(c.nombre).split(":")[0])} ${P.puntos_criterio[k]}/3`).join(" · ")}.</p>` : ""}
+    <p class="muted">Solo se puede hacer una vez.</p></div>`);
 }
 
 /* ============================================================
