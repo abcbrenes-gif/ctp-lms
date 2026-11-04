@@ -110,8 +110,14 @@ async function mepIndicadoresDeGrupo(materiaId, categoria, indicadorId, soloHabi
   const { data } = await q;
   let lista = data || [];
   if (soloHabilitados && lista.length) {
-    const { data: tcs } = await sb.from("trabajos_cotidianos").select("indicador_id, habilitado").in("indicador_id", lista.map(i => i.id));
-    const hab = {}; (tcs || []).forEach(t => { hab[t.indicador_id] = t.habilitado !== false; });
+    const idsL = lista.map(i => i.id);
+    const { data: tcs } = await sb.from("trabajos_cotidianos").select("indicador_id, habilitado, contenido_actividad")
+      .or(`indicador_id.in.(${idsL.join(",")}),contenido_actividad->indicadores_criterio.not.is.null`);
+    const hab = {};
+    (tcs || []).forEach(t => {
+      [t.indicador_id, ...(((t.contenido_actividad || {}).indicadores_criterio) || [])].filter(x => x != null && idsL.includes(Number(x)))
+        .forEach(id => { hab[id] = (hab[id] || false) || t.habilitado !== false; });
+    });
     lista = lista.filter(i => !(i.id in hab) || hab[i.id] || String(i.id) === String(indicadorId));
   }
   return lista;

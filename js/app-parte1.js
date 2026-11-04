@@ -1672,9 +1672,14 @@ async function calcularNotaIndicadores(estudianteId, materiaId, categoriaNombre,
   // se toca, siempre se muestra igual que antes.
   if (soloHabilitados && indicadores.length > 0) {
     const idsConPosibleTrabajo = indicadores.map(i => i.id);
-    const { data: trabajosVinculados } = await sb.from("trabajos_cotidianos").select("indicador_id, habilitado").in("indicador_id", idsConPosibleTrabajo);
+    const { data: trabajosVinculados } = await sb.from("trabajos_cotidianos").select("indicador_id, habilitado, contenido_actividad")
+      .or(`indicador_id.in.(${idsConPosibleTrabajo.join(",")}),contenido_actividad->indicadores_criterio.not.is.null`);
     const habilitadoPorIndicador = {};
-    (trabajosVinculados || []).forEach(t => { habilitadoPorIndicador[t.indicador_id] = t.habilitado !== false; });
+    // Un trabajo puede evaluar varios indicadores (uno por criterio): todos se muestran o se ocultan juntos.
+    (trabajosVinculados || []).forEach(t => {
+      [t.indicador_id, ...(((t.contenido_actividad || {}).indicadores_criterio) || [])].filter(x => x != null && idsConPosibleTrabajo.includes(Number(x)))
+        .forEach(id => { habilitadoPorIndicador[id] = (habilitadoPorIndicador[id] || false) || t.habilitado !== false; });
+    });
     indicadores = indicadores.filter(i => !(i.id in habilitadoPorIndicador) || habilitadoPorIndicador[i.id]);
   }
 
