@@ -1549,10 +1549,44 @@ function pesoAusencia(estado) {
 // Calcula la nota de Asistencia (0-100) de un estudiante en una materia,
 // según el artículo 31° del REA: % de ausencias injustificadas sobre el
 // total de lecciones impartidas (con llegadas tardías ponderadas).
+// ═══ Asistencia registrada fuera de la plataforma (reportes oficiales en PDF) ═══
+// Se guarda en un registro de trabajos_cotidianos (habilitado:false, sin indicador)
+// con estrategia "asistencia_externa": { materia_id, periodo, desde, hasta, fuente,
+// estudiantes: { <id>: { impartidas, presentes, justificadas, tardias, conversion,
+// injustificadas, total_injustificadas } } }. Se SUMA a lo que se pasó en la plataforma.
+const _asistExterna = {};
+async function asistenciaExterna(materiaId) {
+  const k = String(materiaId);
+  if (_asistExterna[k] && Date.now() - _asistExterna[k].t < 60000) return _asistExterna[k].v;
+  const { data } = await sb.from("trabajos_cotidianos").select("id, contenido_actividad")
+    .eq("contenido_actividad->>estrategia", "asistencia_externa").eq("contenido_actividad->>materia_id", k).order("id");
+  const v = (data || []).map(r => r.contenido_actividad);
+  _asistExterna[k] = { t: Date.now(), v };
+  return v;
+}
+function _externaEnRango(x, fechaInicio, fechaFin) {
+  return !fechaInicio || !fechaFin || (x.desde <= fechaFin && x.hasta >= fechaInicio);
+}
+async function externaDeEstudiante(estudianteId, materiaId, fechaInicio, fechaFin) {
+  const lista = (await asistenciaExterna(materiaId)).filter(x => _externaEnRango(x, fechaInicio, fechaFin));
+  const suma = { impartidas: 0, presentes: 0, justificadas: 0, tardias: 0, conversion: 0, injustificadas: 0, total_injustificadas: 0, fuentes: [] };
+  lista.forEach(x => {
+    const e = (x.estudiantes || {})[estudianteId];
+    if (!e) return;
+    ["impartidas", "presentes", "justificadas", "tardias", "conversion", "injustificadas", "total_injustificadas"].forEach(c => { suma[c] += Number(e[c]) || 0; });
+    suma.fuentes.push(x);
+  });
+  return suma.fuentes.length ? suma : null;
+}
+
 async function calcularNotaAsistencia(estudianteId, materiaId) {
   const { data: lecciones } = await sb.from("lecciones").select("id").eq("materia_id", materiaId);
   const leccionIds = (lecciones || []).map(l => l.id);
-  if (leccionIds.length === 0) return null;
+  const ext = await externaDeEstudiante(estudianteId, materiaId);
+  if (leccionIds.length === 0) {
+    if (!ext || !ext.impartidas) return null;
+    return { nota: Math.max(0, (1 - ext.total_injustificadas / ext.impartidas) * 100), impartidas: ext.impartidas, ausenciasComputadas: ext.total_injustificadas };
+  }
 
   // Dos consultas separadas: el total de lecciones impartidas (de todos
   // los estudiantes de la materia, para contar combinaciones distintas
@@ -1562,11 +1596,11 @@ async function calcularNotaAsistencia(estudianteId, materiaId) {
   // devuelve por consulta, y los registros de algunos estudiantes
   // quedaban fuera del corte (dando 0 ausencias = 100% de nota).
   const todosRegistros = await traerTodasLasFilas(() => sb.from("asistencia_lecciones").select("leccion_id, fecha").in("leccion_id", leccionIds).order("id"));
-  if (!todosRegistros || todosRegistros.length === 0) return null;
+  if ((!todosRegistros || todosRegistros.length === 0) && !ext) return null;
   const { data: delEstudiante } = await sb.from("asistencia_lecciones").select("estado").eq("estudiante_id", estudianteId).in("leccion_id", leccionIds);
 
-  const impartidas = new Set(todosRegistros.map(r => `${r.leccion_id}-${r.fecha}`)).size;
-  const ausenciasComputadas = (delEstudiante || []).reduce((acc, r) => acc + pesoAusencia(r.estado), 0);
+  const impartidas = new Set((todosRegistros || []).map(r => `${r.leccion_id}-${r.fecha}`)).size + (ext ? ext.impartidas : 0);
+  const ausenciasComputadas = (delEstudiante || []).reduce((acc, r) => acc + pesoAusencia(r.estado), 0) + (ext ? ext.total_injustificadas : 0);
 
   if (impartidas === 0) return null;
   const nota = Math.max(0, (1 - ausenciasComputadas / impartidas) * 100);
@@ -1588,17 +1622,21 @@ async function calcularNotaAsistenciaPeriodo(estudianteId, materiaId, fechaInici
   // 1000 filas que Supabase devuelve por consulta.
   const todosRegistros = await traerTodasLasFilas(() => sb.from("asistencia_lecciones").select("leccion_id, fecha")
     .in("leccion_id", leccionIds).gte("fecha", fechaInicio).lte("fecha", fechaFin).order("id"));
-  if (!todosRegistros || todosRegistros.length === 0) return null;
+  const ext = await externaDeEstudiante(estudianteId, materiaId, fechaInicio, fechaFin);
+  if ((!todosRegistros || todosRegistros.length === 0) && !ext) return null;
   const { data: delEstudianteRaw } = await sb.from("asistencia_lecciones").select("leccion_id, fecha, estado")
     .eq("estudiante_id", estudianteId).in("leccion_id", leccionIds).gte("fecha", fechaInicio).lte("fecha", fechaFin);
   const delEstudiante = delEstudianteRaw || [];
 
-  const impartidas = new Set(todosRegistros.map(r => `${r.leccion_id}-${r.fecha}`)).size;
+  const E = ext || { impartidas: 0, justificadas: 0, tardias: 0, conversion: 0, injustificadas: 0, total_injustificadas: 0 };
+  const impartidasPlat = new Set((todosRegistros || []).map(r => `${r.leccion_id}-${r.fecha}`)).size;
+  const impartidas = impartidasPlat + E.impartidas;
 
-  const justificadas = delEstudiante.filter(r => r.estado === "ausente_justificada" || r.estado === "tardia_justificada").length;
-  const tardias = delEstudiante.filter(r => r.estado === "tardia_leve" || r.estado === "tardia_grave");
-  const ausentesInjustificadas = delEstudiante.filter(r => r.estado === "ausente_injustificada").length;
-  const porConversionTardias = tardias.reduce((a, r) => a + pesoAusencia(r.estado), 0);
+  const justificadas = delEstudiante.filter(r => r.estado === "ausente_justificada" || r.estado === "tardia_justificada").length + E.justificadas;
+  const tardiasPlat = delEstudiante.filter(r => r.estado === "tardia_leve" || r.estado === "tardia_grave");
+  const tardias = { length: tardiasPlat.length + E.tardias };
+  const ausentesInjustificadas = delEstudiante.filter(r => r.estado === "ausente_injustificada").length + E.injustificadas;
+  const porConversionTardias = tardiasPlat.reduce((a, r) => a + pesoAusencia(r.estado), 0) + E.conversion;
   const totalInjustificadas = ausentesInjustificadas + porConversionTardias;
   const presentes = Math.max(0, impartidas - justificadas - totalInjustificadas);
 
@@ -1612,6 +1650,11 @@ async function calcularNotaAsistenciaPeriodo(estudianteId, materiaId, fechaInici
       leccion: leccionPorId[r.leccion_id]?.numero || "",
       estado: ESTADOS_ASISTENCIA.find(e => e.v === r.estado)?.l || r.estado
     }));
+  if (ext) ext.fuentes.forEach(x => {
+    const e = x.estudiantes[estudianteId];
+    detalleFaltas.unshift({ fecha: `${x.desde} al ${x.hasta}`, leccion: "",
+      estado: `${x.fuente || "Reporte externo"}: ${e.impartidas} lecciones, ${e.injustificadas} ausencias injustificadas, ${e.tardias} tardías (${e.conversion} ausencias por conversión), ${e.justificadas} justificadas` });
+  });
 
   return { nota, impartidas, presentes, justificadas, tardias: tardias.length, porConversionTardias, ausentesInjustificadas, totalInjustificadas, detalleFaltas };
 }
