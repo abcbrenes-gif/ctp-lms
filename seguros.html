@@ -712,7 +712,10 @@ async function cargarActs(forzar){
   }catch(e){ACT.lista=ACT.lista||[]}
 }
 const nomMat=id=>{const m=ACT.materias.find(x=>x.id===Number(id));return m?`${m.nombre.trim()}${m.seccion?" · "+m.seccion:""}`:"Sin materia"};
-const visibles=()=>(ACT.lista||[]).filter(t=>DOC||((t.habilitado!==false||(ACT.mias[t.id]&&ACT.mias[t.id].completado))&&ACT.mis.includes(Number((t.contenido_actividad||{}).materia_id))));
+// Estudiantes inhabilitados en una actividad (p. ej. ausentes): no la ven hasta que el profe los habilite.
+const inhab=t=>((t&&t.contenido_actividad||{}).inhabilitados||[]).map(String);
+const estoyInhab=t=>!!EST_ID&&inhab(t).includes(String(EST_ID))&&!(ACT.mias[t.id]&&ACT.mias[t.id].completado);
+const visibles=()=>(ACT.lista||[]).filter(t=>DOC||((t.habilitado!==false||(ACT.mias[t.id]&&ACT.mias[t.id].completado))&&!estoyInhab(t)&&ACT.mis.includes(Number((t.contenido_actividad||{}).materia_id))));
 function hubHTML(){
   if(!SES)return "";
   if(!ACT.lista)return `<div class="panel" style="margin-bottom:18px"><h4>📚 Actividades del profe</h4><p style="margin:0;color:var(--mut)">Cargando…</p></div>`;
@@ -721,9 +724,10 @@ function hubHTML(){
   const fila=t=>{const C=t.contenido_actividad||{},n=(C.seg_misiones||[]).length,mi=ACT.mias[t.id],pr=ACT.prog[t.id]||{reg:{}},hechos=Object.values(pr.reg||{}).filter(r=>r.sellado||r.registrado).length;
     const est=DOC?(t.habilitado===false?'<span class="tag" style="background:#eef1f8;color:var(--mut)">⏸️ Cerrada</span>':'<span class="tag" style="background:var(--green-s);color:var(--green)">🟢 Abierta</span>')
       :mi&&mi.completado?`<span class="tag" style="background:var(--green-s);color:var(--green)">✅ ${C.seg_tipo==="evaluativa"?`Entregado${mi.puntaje!=null?" · nota "+mi.puntaje+"/3":""}`:"Completada"}</span>`:hechos?`<span class="tag" style="background:var(--amber-s);color:var(--amber)">⏳ ${hechos}/${n} asientos</span>`:'<span class="tag">🆕 Pendiente</span>';
-    return `<div class="actrow"><div style="flex:1;min-width:200px"><b>${esc(t.titulo)}</b><div style="color:var(--mut);font-size:.82rem">${n} asientos${DOC?" · "+esc(nomMat(C.materia_id)):""}${C.seg_desc?" · "+esc(C.seg_desc):""}</div></div>${est}
+    const ni=inhab(t).length;
+    return `<div class="actrow"><div style="flex:1;min-width:200px"><b>${esc(t.titulo)}</b><div style="color:var(--mut);font-size:.82rem">${n} asientos${DOC?" · "+esc(nomMat(C.materia_id)):""}${C.seg_desc?" · "+esc(C.seg_desc):""}</div></div>${est}${DOC&&ni?`<span class="tag" style="background:var(--red-s);color:var(--red)">🚫 ${ni} inhabilitado${ni>1?"s":""}</span>`:""}
       <div class="actbtns"><button ${DOC?'class="sec"':""} onclick="irA('#/a/${t.id}')">${DOC?"👁️ Ver y probar":mi&&mi.completado?"👁️ Ver":hechos?"▶ Seguir":"▶ Empezar"}</button>
-      ${DOC&&C.seg_tipo==="evaluativa"?`<button class="sec" data-insv="${t.id}">📋 Evaluación</button>`:""}${DOC?`<button class="${t.habilitado===false?"ok":"sec"}" data-hab="${t.id}">${t.habilitado===false?"▶ Abrir":"⏸️ Cerrar"}</button><button class="sec" data-ent="${t.id}">📥 Entregas</button>`:""}</div></div>`};
+      ${DOC&&C.seg_tipo==="evaluativa"?`<button class="sec" data-insv="${t.id}">📋 Evaluación</button>`:""}${DOC?`<button class="${t.habilitado===false?"ok":"sec"}" data-hab="${t.id}">${t.habilitado===false?"▶ Abrir":"⏸️ Cerrar"}</button><button class="sec" data-ent="${t.id}">📥 Entregas</button><button class="sec" data-inh="${t.id}">🚫 Inhabilitar estudiantes</button>`:""}</div></div>`};
   const grupo=k=>{const G=L.filter(t=>((t.contenido_actividad||{}).seg_tipo||"evaluativa")===k);if(!DOC&&!G.length)return "";
     return `<div style="margin-top:10px"><h4 style="margin:0 0 6px">${TIPO_ACT[k].et} <span style="text-transform:none;letter-spacing:0;font-weight:600">· ${TIPO_ACT[k].desc}</span></h4>${G.map(fila).join("")||'<p style="color:var(--mut);margin:0">Todavía no hay.</p>'}</div>`};
   return `<section class="panel" style="margin-bottom:18px;border-color:#c7d2fe"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h3 style="margin:0;margin-right:auto">📚 Actividades del profe</h3>
@@ -736,6 +740,7 @@ function activarHub(){
     const {error}=await sb.from("trabajos_cotidianos").update({habilitado:t.habilitado===false}).eq("id",t.id);
     if(error){alert("No se pudo cambiar: "+error.message);b.disabled=false;return}t.habilitado=t.habilitado===false;toast(t.habilitado===false?"⏸️ Cerrada":"🟢 Abierta para los estudiantes");render()});
   document.querySelectorAll("[data-ent]").forEach(b=>b.onclick=()=>verEntregas(ACT.lista.find(x=>x.id===+b.dataset.ent)));
+  document.querySelectorAll("[data-inh]").forEach(b=>b.onclick=()=>verEntregas(ACT.lista.find(x=>x.id===+b.dataset.inh)));
   document.querySelectorAll("[data-insv]").forEach(b=>b.onclick=()=>verInstrumento(ACT.lista.find(x=>x.id===+b.dataset.insv)));
   const cp=$("#crearPaq");if(cp)cp.onclick=()=>crearPaquete(cp);
   const va=$("#verAvance");if(va)va.onclick=()=>verAvanceEstudiantes();
@@ -782,6 +787,7 @@ async function pintarActividad(id,idx,estVer){
   if(DOC&&estVer){const {data}=await sb.from("actividades_estudiante").select("completado,puntaje,porcentaje,datos_prueba").eq("trabajo_id",act.id).eq("estudiante_id",estVer).maybeSingle();mi=data;prog=(data&&data.datos_prueba&&data.datos_prueba.seguros)||{reg:{}}}
   else if(DOC){prog=ACT.prueba&&ACT.prueba.id===act.id?ACT.prueba.prog:(ACT.prueba={id:act.id,prog:{reg:{}}}).prog}
   if(!DOC&&act.habilitado===false&&!(mi&&mi.completado)){$("#app").innerHTML=`<div class="panel"><h3>${esc(act.titulo)}</h3><p>Esta actividad todavía no está abierta (o ya se cerró). Consulta con tu profe.</p><button onclick="irA('#/')">← Mapa</button></div>`;return}
+  if(!DOC&&estoyInhab(act)){$("#app").innerHTML=`<div class="panel"><h3>${esc(act.titulo)}</h3><p>🚫 Esta actividad no está habilitada para vos por ahora (por ejemplo, porque no estuviste en la lección). Cuando tu profe te la habilite, vas a poder hacerla.</p><button onclick="irA('#/')">← Mapa</button></div>`;return}
   const entregado=!!(mi&&mi.completado&&modo==="evaluativa");
   if(modo==="evaluativa"&&EST_ID&&!entregado&&!prog.vio_instrumento){
     $("#app").innerHTML=`<div class="mhead"><button class="sec" onclick="irA('#/')">← Mapa</button><h2>📋 Antes de empezar: así te vamos a evaluar</h2></div>
@@ -866,14 +872,21 @@ async function verEntregas(t){
   const por={};(ae||[]).forEach(x=>{por[x.estudiante_id]=x});ACT.nombres=ACT.nombres||{};
   const lista=(es||[]).map(e=>({id:e.id,nombre:[e.apellido1,e.apellido2,e.nombre].filter(Boolean).join(" ")})).sort((a,b)=>a.nombre.localeCompare(b.nombre,"es"));
   lista.forEach(e=>ACT.nombres[e.id]=e.nombre);
-  const pc=v=>v==null?"—":`<b style="color:${v>=85?"var(--green)":v>=60?"var(--amber)":"var(--red)"}">${Math.round(v)} %</b>`;let ent=0,trab=0;
+  const pc=v=>v==null?"—":`<b style="color:${v>=85?"var(--green)":v>=60?"var(--amber)":"var(--red)"}">${Math.round(v)} %</b>`;let ent=0,trab=0,nInh=0;const INH=inhab(t);
   const filas=lista.map(e=>{const a=por[e.id],pr=(a&&a.datos_prueba&&a.datos_prueba.seguros)||{reg:{}},h=M.filter((_,i)=>pr.reg[i]&&(pr.reg[i].sellado||pr.reg[i].registrado)).length,ok=a&&a.completado;
-    if(ok)ent++;else if(h)trab++;const met=modo==="evaluativa"&&(ok||h)?(pr.metricas||metricasDe(t,pr)):null;
-    const estado=ok?`✅ ${modo==="evaluativa"?(pr.calificado_por_docente?"Calificado sin entregar":"Entregó"):"Completó"}`:h?`⏳ ${h}/${M.length}`:"— Sin empezar";
+    const bl=INH.includes(String(e.id))&&!ok;if(bl)nInh++;
+    if(ok)ent++;else if(h&&!bl)trab++;const met=modo==="evaluativa"&&(ok||h)?(pr.metricas||metricasDe(t,pr)):null;
+    const estado=bl?'<span style="color:var(--red);font-weight:800">🚫 Inhabilitado</span>':ok?`✅ ${modo==="evaluativa"?(pr.calificado_por_docente?"Calificado sin entregar":"Entregó"):"Completó"}`:h?`⏳ ${h}/${M.length}`:"— Sin empezar";
     return `<tr><td>${esc(e.nombre)}</td><td>${estado}</td>${modo==="evaluativa"?SEG_CRIT.map(c=>`<td>${met?pc(met[c.auto]):"—"}</td>`).join("")+`<td><b>${ok&&a.puntaje!=null?a.puntaje+"/3":"—"}</b></td>`:`<td>${h}/${M.length}</td><td>${ok&&a.porcentaje!=null?Math.round(a.porcentaje)+" % a la primera":"—"}</td>`}
-      <td>${h||ok?`<button class="sec" style="padding:5px 9px" data-verest="${esc(e.id)}">👁️ Ver</button>`:""}${modo==="evaluativa"&&!ok&&h?` <button class="sec" style="padding:5px 9px" data-nota="${esc(e.id)}">Poner nota con lo que lleva</button>`:""}</td></tr>`}).join("");
-  $("#dlgBody").innerHTML=`<p style="margin:0 0 8px;color:var(--mut)">${TIPO_ACT[modo].corto} · ${esc(nomMat(C.materia_id))} · ${ent} de ${lista.length} ${modo==="evaluativa"?"entregaron":"completaron"}${trab?` · ${trab} trabajando`:""}.${modo==="evaluativa"?" Nota: 85 % o más = 3 · 60–84 % = 2 · 35–59 % = 1 en cada criterio.":""}</p>
-    <div style="overflow:auto"><table><thead><tr><th>Estudiante</th><th>Estado</th>${modo==="evaluativa"?"<th>Cuentas</th><th>Debe/Haber</th><th>Montos</th><th>Nota</th>":"<th>Asientos</th><th>Resultado</th>"}<th></th></tr></thead><tbody>${filas||'<tr><td colspan="7">No hay estudiantes en esta materia.</td></tr>'}</tbody></table></div><p id="entEst" style="color:var(--mut)"></p>`;
+      <td>${h||ok?`<button class="sec" style="padding:5px 9px" data-verest="${esc(e.id)}">👁️ Ver</button>`:""}${modo==="evaluativa"&&!ok&&h?` <button class="sec" style="padding:5px 9px" data-nota="${esc(e.id)}">Poner nota con lo que lleva</button>`:""}${ok?"":` <button class="${bl?"ok":"sec"}" style="padding:5px 9px" data-tinh="${esc(e.id)}">${bl?"✅ Habilitar":"🚫 Inhabilitar"}</button>`}</td></tr>`}).join("");
+  $("#dlgBody").innerHTML=`<p style="margin:0 0 8px;color:var(--mut)">${TIPO_ACT[modo].corto} · ${esc(nomMat(C.materia_id))} · ${ent} de ${lista.length} ${modo==="evaluativa"?"entregaron":"completaron"}${trab?` · ${trab} trabajando`:""}${nInh?` · <b style="color:var(--red)">${nInh} inhabilitado${nInh>1?"s":""}</b>`:""}.${modo==="evaluativa"?" Nota: 85 % o más = 3 · 60–84 % = 2 · 35–59 % = 1 en cada criterio.":""}</p>
+    <div style="overflow:auto"><table><thead><tr><th>Estudiante</th><th>Estado</th>${modo==="evaluativa"?"<th>Cuentas</th><th>Debe/Haber</th><th>Montos</th><th>Nota</th>":"<th>Asientos</th><th>Resultado</th>"}<th></th></tr></thead><tbody>${filas||'<tr><td colspan="7">No hay estudiantes en esta materia.</td></tr>'}</tbody></table></div>
+    <p style="color:var(--mut);font-size:.85rem;margin:8px 0 0">🚫 <b>Inhabilitar</b>: el estudiante no ve la actividad ni puede hacerla (por ejemplo, si estuvo ausente). Tóquelo de nuevo (<b>✅ Habilitar</b>) cuando quiera que la reponga. Quien ya entregó no se puede inhabilitar.</p><p id="entEst" style="color:var(--mut)"></p>`;
+  d.querySelectorAll("[data-tinh]").forEach(b=>b.onclick=async()=>{b.disabled=true;const id=String(b.dataset.tinh),C0=t.contenido_actividad||{};
+    const cur=(C0.inhabilitados||[]).map(String),nuevo=cur.includes(id)?cur.filter(x=>x!==id):cur.concat(id);
+    const C2={...C0,inhabilitados:nuevo};const {error}=await sb.from("trabajos_cotidianos").update({contenido_actividad:C2}).eq("id",t.id);
+    if(error){$("#entEst").textContent="No se pudo cambiar: "+error.message;b.disabled=false;return}
+    t.contenido_actividad=C2;toast(nuevo.includes(id)?"🚫 Inhabilitado en esta actividad":"✅ Habilitado: ya puede hacerla");verEntregas(t);render()});
   d.querySelectorAll("[data-verest]").forEach(b=>b.onclick=()=>{d.close();irA(`#/a/${t.id}/e/${encodeURIComponent(b.dataset.verest)}`)});
   d.querySelectorAll("[data-nota]").forEach(b=>b.onclick=async()=>{const a=por[b.dataset.nota],pr=(a.datos_prueba&&a.datos_prueba.seguros)||{reg:{}};
     if(!confirm("¿Poner la nota con lo que lleva? Los asientos sin registrar cuentan como incorrectos."))return;b.disabled=true;
