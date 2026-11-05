@@ -181,10 +181,13 @@ tr.hl td{background:#fff7d6; font-weight:700}
   // trabajos_cotidianos con contenido_actividad.config_liq = true). Mientras
   // esté bloqueado, el estudiante no ve la calculadora ni los resultados:
   // solo resuelve y revisa si cada paso está bien o mal.
-  let BLOQUEO = true;
+  let BLOQUEO = true, OCULTAR_F = false;
   const bloqueadoParaMi = () => BLOQUEO && !ES_DOCENTE;
+  // El profe puede ocultar a los estudiantes cómo se calcula (fórmulas, ayudas y el tramo marcado de la tabla).
+  // Después de entregar un trabajo se vuelven a ver.
+  const formulasOcultasParaMi = () => OCULTAR_F && !ES_DOCENTE && !S.bloqueado;
   async function leerBloqueo() {
-    try { const { data } = await sb.from("trabajos_cotidianos").select("id, contenido_actividad").eq("contenido_actividad->>config_liq", "true").order("id").limit(1); if (data && data[0]) { BLOQUEO = data[0].contenido_actividad.bloquear_respuestas !== false; return data[0]; } } catch (e) {}
+    try { const { data } = await sb.from("trabajos_cotidianos").select("id, contenido_actividad").eq("contenido_actividad->>config_liq", "true").order("id").limit(1); if (data && data[0]) { BLOQUEO = data[0].contenido_actividad.bloquear_respuestas !== false; OCULTAR_F = data[0].contenido_actividad.ocultar_formulas === true; return data[0]; } } catch (e) {}
     return null;
   }
   async function cambiarBloqueo() {
@@ -195,7 +198,15 @@ tr.hl td{background:#fff7d6; font-weight:700}
     if (r.error) { alert("No se pudo cambiar: " + r.error.message); return; }
     BLOQUEO = nuevo; pintarTodo();
   }
-  const botonBloqueo = () => ES_DOCENTE ? `<button class="btn" type="button" id="bloqueo" title="Para los estudiantes">${BLOQUEO ? "🔒 Respuestas bloqueadas" : "🔓 Respuestas visibles"}</button>` : "";
+  async function cambiarFormulas() {
+    const fila = await leerBloqueo(), nuevo = !OCULTAR_F;
+    const cont = { ...((fila && fila.contenido_actividad) || { config_liq: true, sin_asignar: true, bloquear_respuestas: BLOQUEO }), ocultar_formulas: nuevo };
+    const r = fila ? await sb.from("trabajos_cotidianos").update({ contenido_actividad: cont }).eq("id", fila.id)
+      : await sb.from("trabajos_cotidianos").insert({ titulo: "Liquidaciones laborales (configuración, no borrar)", tipo_actividad: "rubrica_directa", habilitado: false, contenido_actividad: cont });
+    if (r.error) { alert("No se pudo cambiar: " + r.error.message); return; }
+    OCULTAR_F = nuevo; pintarTodo();
+  }
+  const botonBloqueo = () => ES_DOCENTE ? `<button class="btn" type="button" id="bloqueo" title="Para los estudiantes">${BLOQUEO ? "🔒 Respuestas bloqueadas" : "🔓 Respuestas visibles"}</button><button class="btn" type="button" id="formulas" title="Para los estudiantes: fórmulas, ayudas y el tramo marcado de las tablas">${OCULTAR_F ? "🙈 Fórmulas ocultas" : "💡 Fórmulas visibles"}</button>` : "";
 
   // Estado
   const S = {
@@ -247,6 +258,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
     on("guardarCaso", guardarCasoDocente);
     on("entregar", entregar);
     on("bloqueo", cambiarBloqueo);
+    on("formulas", cambiarFormulas);
   }
   function puntajeParte(p) {
     const R = liqCalcularCaso(S.caso); if (R.error) return null;
@@ -275,7 +287,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
       : `<div class="banner"><b>${esc(S.trabajo.titulo)}</b>${tipoTrabajo() === "diaria" ? ` · práctica, <b>no lleva nota</b>${S.trabajo.contenido_actividad.fecha_limite ? `; se entrega a más tardar el <b>${esc(S.trabajo.contenido_actividad.fecha_limite)}</b>` : ""}. Al entregarla vas a ver la solución` : tipoTrabajo() === "tarea" ? ` · tarea${S.trabajo.contenido_actividad.fecha_limite ? `, se entrega a más tardar el <b>${esc(S.trabajo.contenido_actividad.fecha_limite)}</b>` : ""}` : ""}. Leé los datos del caso y resolvé cada parte: escribí el resultado de cada paso y tocá <b>✔ Revisar</b>. Cuando termines todas, tocá <b>📤 Entregar al profe</b>. Tu avance se guarda solo.</div>`;
     else if (bloqueadoParaMi()) b.innerHTML = `<div class="banner">🔒 <b>El profe bloqueó las respuestas.</b> Llená los datos del caso (o tomá un caso de práctica), escribí el resultado de cada paso y tocá <b>✔ Revisar</b>: te dice qué está bien y qué no, sin mostrar el resultado.</div>`;
     else b.innerHTML = S.modo === "practica"
-      ? `<div class="banner">✍️ <b>Lo calculo yo:</b> en cada pestaña escribí el resultado de cada paso y tocá <b>✔ Revisar</b>; la plataforma te dice qué está bien. Si te equivocás, abrí <b>💡 Cómo se calcula</b>.</div>`
+      ? `<div class="banner">✍️ <b>Lo calculo yo:</b> en cada pestaña escribí el resultado de cada paso y tocá <b>✔ Revisar</b>; la plataforma te dice qué está bien. ${formulasOcultasParaMi() ? "" : " Si te equivocás, abrí <b>💡 Cómo se calcula</b>."}</div>`
       : `<div class="banner">🧮 <b>Calculadora:</b> llená los datos del caso como prefieras (por fechas o por tiempo, y el salario mensual fijo o los últimos 12 meses, que se calculan con las fechas). Cada pestaña muestra el cálculo paso a paso.</div>`;
     b.querySelectorAll("[data-parte]").forEach(c => c.addEventListener("change", () => { S.partesEval = EVALUABLES.filter(k => b.querySelector(`[data-parte="${k}"]`).checked); }));
   }
@@ -431,14 +443,14 @@ tr.hl td{background:#fff7d6; font-weight:700}
     } else {
       const pasos = liqPasosPractica(R)[k], rev = S.revisado[k] || S.bloqueado, ver = (S.verSol && S.verSol[k] && !bloqueadoParaMi()) || !!S.verEst || (S.bloqueado && S.asignado && tipoTrabajo() === "diaria");
       cuerpo = `<ol class="pasos" style="--c:${col}">${pasos.map(p => { const r = rev ? revisar(p, S.resp) : null; const esF = String(S.resp[p.k] || "").trim().startsWith("="), fv = esF ? valorDe(S.resp[p.k], S.resp) : null; return `<li class="${r === true ? "ok" : r === false || (rev && r === null) ? "bad" : ""}">
-          <div><b>${esc(p.et)}</b>${(r === false || (rev && r === null)) && p.ayuda ? `<div class="det">💡 ${esc(p.ayuda)}</div>` : ""}${ver ? `<div class="det">Respuesta: <b class="num">${p.tipo === "monto" ? m(p.ok) : d(p.ok)}</b></div>` : ""}</div>
+          <div><b>${esc(p.et)}</b>${(r === false || (rev && r === null)) && p.ayuda && !formulasOcultasParaMi() ? `<div class="det">💡 ${esc(p.ayuda)}</div>` : ""}${ver ? `<div class="det">Respuesta: <b class="num">${p.tipo === "monto" ? m(p.ok) : d(p.ok)}</b></div>` : ""}</div>
           <div><input data-r="${p.k}" inputmode="decimal" value="${esc(S.resp[p.k] == null ? "" : S.resp[p.k])}" placeholder="${p.tipo === "monto" ? (k === "salario" ? "₡ 0,00 o =celda" : "₡ 0,00") : "días"}" aria-label="${esc(p.et)}" ${S.bloqueado ? "disabled" : ""}>${esF ? `<div class="calc" style="text-align:right">${fv === "x" ? "fórmula inválida" : "= " + m(fv)}</div>` : ""}<span class="marca">${r === true ? "✓" : r === false || (rev && r === null) ? "✗" : ""}</span></div></li>`; }).join("")}</ol>
         ${S.bloqueado ? "" : `<div class="row" style="margin-top:10px"><button class="btn primary" type="button" id="revisar">✔ Revisar</button>${S.asignado || bloqueadoParaMi() ? "" : `<button class="btn" type="button" id="verSol">${ver ? "🙈 Ocultar respuestas" : "👀 Ver respuestas"}</button>`}<span class="puntaje" id="pp"></span></div>`}
-        <details style="margin-top:10px"><summary style="cursor:pointer; font-weight:700">💡 Cómo se calcula</summary><ol class="pasos" style="--c:${col}">${pasosCalculo(k, R).map(([a, b]) => `<li><div><b>${esc(a)}</b><div class="det">${(S.asignado && !S.bloqueado) || bloqueadoParaMi() ? "" : esc(b)}</div></div><div></div></li>`).join("")}</ol></details>`;
+        ${formulasOcultasParaMi() ? "" : `<details style="margin-top:10px"><summary style="cursor:pointer; font-weight:700">💡 Cómo se calcula</summary><ol class="pasos" style="--c:${col}">${pasosCalculo(k, R).map(([a, b]) => `<li><div><b>${esc(a)}</b><div class="det">${(S.asignado && !S.bloqueado) || bloqueadoParaMi() ? "" : esc(b)}</div></div><div></div></li>`).join("")}</ol></details>`}`;
     }
     return `<section class="card" style="--c:${col}">
       <h2>${nombre}</h2>
-      <div class="dos" style="margin-top:8px"><div class="ley" style="--c:${col}">${TEXTO_LEY[k]}</div><div>${tablaLey(k, R) || `<div class="ley" style="--c:${col}"><b>Datos que usa:</b> ${k === "salario" ? "fecha de ingreso y de salida, salario mensual, horas extra o comisiones e incapacidades (pestaña Datos)." : k === "vacaciones" ? "meses del período actual, días disfrutados y el promedio de los últimos 12 meses." : "lo devengado (ordinario + extraordinario) desde el 1 de diciembre hasta la salida."}</div>`}</div></div>
+      <div class="dos" style="margin-top:8px"><div class="ley" style="--c:${col}">${TEXTO_LEY[k]}</div><div>${(!formulasOcultasParaMi() && tablaLey(k, R)) || `<div class="ley" style="--c:${col}"><b>Datos que usa:</b> ${k === "salario" ? "fecha de ingreso y de salida, salario mensual, horas extra o comisiones e incapacidades (pestaña Datos)." : k === "vacaciones" ? "meses del período actual, días disfrutados y el promedio de los últimos 12 meses." : "lo devengado (ordinario + extraordinario) desde el 1 de diciembre hasta la salida."}</div>`}</div></div>
       ${noAplica ? `<p class="noaplica" style="margin-top:10px">Con el motivo «${esc((LIQ_MOTIVOS.find(x => x[0] === S.caso.motivo) || [])[1])}» no se paga ${k === "preaviso" ? "preaviso" : "cesantía"}${R.antiguedad.mesesTotales < 3 ? " (además tiene menos de 3 meses)" : ""}.${practica ? " En la práctica, escribí 0 en los montos." : ""}</p>` : ""}
       ${k === "salario" && S.asignado && !S.partesEval.includes("salario") ? `<p class="muted" style="font-size:.84rem">En este trabajo el salario no se califica aparte: usá la hoja para tus cálculos.</p>` : ""}
       ${k === "salario" && practica ? hojaHTML() : ""}
