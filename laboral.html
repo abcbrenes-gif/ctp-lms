@@ -591,6 +591,38 @@ function editarInstrumento(t){const I=insDe(t),K=critDe(t);
     const C={...((a&&a.contenido_actividad)||t.contenido_actividad),lab_instrumento:ni,criterios:nk};
     const {error}=await sb.from("trabajos_cotidianos").update({contenido_actividad:C}).eq("id",t.id);
     if(error){$("#insE").textContent="No se pudo: "+error.message;$("#insG").disabled=false;return}t.contenido_actividad=C;toast("✓ Evaluación guardada");verInstrumento(t)}}
+// ═══ Solución de un trabajo cotidiano ═══
+// El profe la ve siempre y decide cuándo publicarla (contenido_actividad.lab_solucion_publicada).
+// El estudiante la ve cuando está publicada y ya entregó (o el trabajo está cerrado).
+const solPublicada=t=>!!((t.contenido_actividad||{}).lab_solucion_publicada);
+const solVisibleEst=(t,mi)=>solPublicada(t)&&(!!(mi&&mi.completado)||t.habilitado===false);
+function correctaHTML(p){if(p.k==="mc")return escH(p.o[p.r]);if(p.k==="tf")return p.r?"Verdadero":"Falso";
+  return `<b>${p.u?(Math.round(p.ok*100)/100).toLocaleString("es-CR")+" "+escH(p.u):C(p.ok)}</b>`}
+function procedimientoHTML(p){const out=[];
+  if(p.tabla)out.push(`<table class="tabla" style="margin:4px 0;font-size:.85rem"><tbody>${p.tabla.map(([a,b])=>`<tr><td>${escH(a)}</td><td style="text-align:right">${typeof b==="number"?C(b):escH(b)}</td></tr>`).join("")}</tbody></table>`);
+  if(p.datos)out.push(p.datos.map(escH).join(" → "));
+  if(p.sol)out.push("<b>"+escH(p.sol)+"</b>");
+  if(p.ex)out.push(p.ex);if(p.ley)out.push(`<small style="color:var(--mut)">📚 ${escH(p.ley)}</small>`);
+  return out.join("<br>")}
+function solucionHTML(t,prog){const M=misionDe(t);let n=0;
+  const mias=prog&&prog.resp||{};
+  return `<h3 style="margin:0 0 4px">📖 Solución · ${escH(t.titulo)}</h3><p class="sub" style="margin:0 0 10px">${escH((t.contenido_actividad||{}).lab_desc||"")}</p>
+  ${M.pasos.map((p,i)=>{if(p.k==="intro")return `<div class="fb tip" style="margin:0 0 10px">${p.txt}</div>`;n++;const r=mias[i];
+    const tu=r?(r.intentosV||[r.v]).filter(v=>v!==undefined).map(v=>valResp(p,v)).join(" · "):null;
+    return `<div class="card" style="padding:12px;margin:0 0 10px"><div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap"><b>${n}.</b><span class="chip">${CAT_NOM[p.c]||""}</span>${prog?`<span style="margin-left:auto;font-size:1.1rem">${r?(r.ok?"✅":"❌"):"—"}</span>`:""}</div>
+      <p style="margin:6px 0">${p.txt}</p>
+      ${p.k==="mc"?`<ol type="a" style="margin:0 0 6px;padding-left:22px">${p.o.map((o,k)=>`<li style="${k===p.r?"font-weight:800;color:var(--mint)":""}">${escH(o)}${k===p.r?" ✔":""}</li>`).join("")}</ol>`:""}
+      <p style="margin:4px 0"><b>Respuesta correcta:</b> ${correctaHTML(p)}</p>
+      ${prog?`<p style="margin:4px 0"><b>Tu respuesta:</b> ${tu||"No respondiste"}</p>`:""}
+      ${procedimientoHTML(p)?`<div style="margin-top:6px;font-size:.92rem"><b>Explicación:</b><br>${procedimientoHTML(p)}</div>`:""}</div>`}).join("")}`}
+function verSolucion(t,prog){$("#gt").textContent="📖 Solución";
+  $("#guiaB").innerHTML=`<div id="solImp">${solucionHTML(t,prog)}</div><div class="actions"><button class="sec" id="solPrint">🖨️ Imprimir o guardar PDF</button></div>`;
+  if(!$("#guia").open)$("#guia").showModal();
+  $("#solPrint").onclick=()=>{const w=open("","_blank");w.document.write(`<html><head><meta charset="utf-8"><title>Solución · ${escH(t.titulo)}</title><style>body{font-family:Arial,sans-serif;padding:20px;color:#222}.card{border:1px solid #bbb;border-radius:8px;padding:10px;margin:0 0 10px;page-break-inside:avoid}.chip{border:1px solid #999;border-radius:10px;padding:0 6px;font-size:11px}table{border-collapse:collapse}td{border:1px solid #bbb;padding:3px 6px}</style></head><body>${$("#solImp").innerHTML}</body></html>`);w.document.close();w.print()}}
+async function publicarSolucion(t,si){const {data:a}=await sb.from("trabajos_cotidianos").select("contenido_actividad").eq("id",t.id).maybeSingle();
+  const C={...((a&&a.contenido_actividad)||t.contenido_actividad),lab_solucion_publicada:si};
+  const {error}=await sb.from("trabajos_cotidianos").update({contenido_actividad:C}).eq("id",t.id);
+  if(error){alert("No se pudo: "+error.message);return}t.contenido_actividad=C;toast(si?"📢 Solución publicada":"🙈 Solución oculta");paginaAct(t.id)}
 // Página de una actividad: reglas, evaluación MEP (antes de empezar) y entrega.
 async function paginaAct(id,jugarYa){
   $("#app").innerHTML='<p class="sub">Cargando actividad…</p>';await cargarActs();
@@ -617,7 +649,8 @@ async function paginaAct(id,jugarYa){
     $("#insOk").onclick=async()=>{$("#insOk").disabled=true;prog.vio_instrumento=new Date().toISOString();await guardarProg(t,prog);irA("#/a/"+t.id+"/jugar")};return}
   const P=M.pasos.filter(p=>p.k!=="intro").length,hechos=Object.keys(prog.resp).length,pct=P?Math.round(100*hechos/P):0;
   const met=ev&&(entregado||DOC)?(prog.metricas||metricasDe(t,prog)):null,terminado=prog.paso>=M.pasos.length;
-  $("#app").innerHTML=`<div class="actions" style="margin:0 0 12px"><button class="sec" onclick="irA('#/')">← Mapa</button><span class="chip">${ev?"📝 Trabajo cotidiano":"🟢 Práctica interactiva"}${t.indicador_id?" · con indicador":" · sin nota"}</span>${ev?'<button class="sec" id="verIns">📋 Evaluación (formato MEP)</button>':""}</div>
+  $("#app").innerHTML=`<div class="actions" style="margin:0 0 12px"><button class="sec" onclick="irA('#/')">← Mapa</button><span class="chip">${ev?"📝 Trabajo cotidiano":"🟢 Práctica interactiva"}${t.indicador_id?" · con indicador":" · sin nota"}</span>${ev?'<button class="sec" id="verIns">📋 Evaluación (formato MEP)</button>':""}${ev&&DOC?`<button class="sec" id="verSol">📖 Ver solución</button><button class="${solPublicada(t)?"sec":"ok"}" id="pubSol">${solPublicada(t)?"🙈 Ocultar solución":"📢 Publicar solución"}</button>`:""}${ev&&!DOC&&solVisibleEst(t,mi)?'<button class="ok" id="verSol">📖 Ver solución</button>':""}</div>
+   ${ev&&DOC?`<div class="fb ${solPublicada(t)?"ok":"tip"}" style="margin:0 0 12px">${solPublicada(t)?"📢 La solución está <b>publicada</b>: la ven los estudiantes que ya entregaron (y todos cuando el trabajo esté cerrado).":"🔒 La solución está <b>oculta</b> para los estudiantes."}</div>`:""}
    <div class="card"><div style="display:flex;gap:14px;align-items:center"><div class="ic" style="width:64px;height:64px;border-radius:20px;display:grid;place-items:center;font-size:2rem;background:rgba(255,255,255,.06)">${M.ic}</div><div><h2 style="margin:0">${escH(t.titulo)}</h2><p class="sub" style="margin:4px 0 0">${escH(C.lab_desc||"")}</p></div></div>
     ${DOC?'<div class="fb tip">🧪 Vista del profe: puede resolverla para probarla; no se guarda nada.</div>':""}
     <p style="margin:14px 0 6px">${ev?"<b>Reglas:</b> cada paso se responde <b>una sola vez</b>, sin pistas ni ver si está bien. Al final toca <b>📤 Entregar</b>: la nota se calcula sola con el % de conceptos, casos y cálculos correctos (85 % o más = 3 · 60–84 % = 2 · 35–59 % = 1).":"<b>Práctica sin nota:</b> tienes pistas, varios intentos, narrador y XP. Termínala para completarla."}</p>
@@ -627,6 +660,8 @@ async function paginaAct(id,jugarYa){
     ${entregado&&!ev?'<p style="font-weight:900;color:var(--mint)">🏆 Práctica completada</p>':""}
     <div class="actions">${entregado&&ev?"":`<button class="pink" onclick="sfx('clic');irA('#/a/${t.id}/jugar')">${entregado?"🔁 Repetir la práctica":terminado&&ev?"👁️ Revisar":hechos?"▶ Seguir":"▶ Empezar"}</button>`}${ev&&EST_ID&&!entregado?`<button class="ok" id="entregar">📤 Entregar trabajo</button>`:""}</div></div>`;
   const vi=$("#verIns");if(vi)vi.onclick=()=>verInstrumento(t);
+  const vs=$("#verSol");if(vs)vs.onclick=()=>verSolucion(t,EST_ID?prog:null);
+  const ps=$("#pubSol");if(ps)ps.onclick=()=>{const si=!solPublicada(t);if(si&&!confirm("¿Publicar la solución? La verán los estudiantes que ya entregaron este trabajo (y todos cuando lo cierre)."))return;ps.disabled=true;publicarSolucion(t,si)};
   const eb=$("#entregar");if(eb)eb.onclick=async()=>{const falt=P-hechos;
     if(!confirm(`${falt?`Te faltan ${falt} paso(s) por responder: cuentan como incorrectos.\n\n`:""}¿Entregar el trabajo? Ya no podrás cambiarlo.`))return;
     eb.disabled=true;const met2=metricasDe(t,prog),crit=critDe(t).filter(c=>met2[c.auto]!=null),nota=memoriaNotaDesdeMetricas(crit,met2,[]);
