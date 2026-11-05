@@ -2499,13 +2499,17 @@ async function generarReporteOficial(estudiante, materiaId, periodos) {
         trabajo = mod ? (BITACORA_MODULOS && BITACORA_MODULOS[mod]) || mod : "Evaluación fuera de la plataforma";
         realizo = "Sin trabajo ligado en la plataforma (revisar evidencia física o del módulo).";
       }
-      const f = fechaIndicador(i);
+      const f = fechaIndicador(i), conFecha = !!(i.fecha_evaluacion || ts.length);
       const delMod = mod ? ingPer.filter(r => r.modulo === mod) : ingPer;
       const ese = delMod.filter(r => String(r.fecha).slice(0, 10) === f).length;
       const desde = delMod.filter(r => String(r.fecha).slice(0, 10) >= f);
+      const nomMod = m => (typeof BITACORA_MODULOS !== "undefined" && BITACORA_MODULOS[m]) || m;
+      const cuenta = {}; delMod.forEach(r => { cuenta[r.modulo] = (cuenta[r.modulo] || 0) + 1; });
       const ingreso = delMod.length
-        ? `${mod ? (BITACORA_MODULOS && BITACORA_MODULOS[mod]) || mod : "Plataforma"}: ${delMod.length} ingreso${delMod.length === 1 ? "" : "s"} en el período${ese ? `; sí ingresó el día de la evaluación (${fCorta(f)})` : `; no ingresó el día de la evaluación (${fCorta(f)})`}${desde.length ? ` · último: ${fCorta(String(desde[0].fecha))}` : ""}`
-        : `No registra ingresos${mod ? " a ese módulo" : ""} en el período.`;
+        ? `${delMod.length} ingreso${delMod.length === 1 ? "" : "s"} en el período (${Object.entries(cuenta).map(([m, n]) => nomMod(m) + " " + n).join(", ")})`
+          + (conFecha ? (ese ? `; sí ingresó el día de la evaluación (${fCorta(f)})` : `; no ingresó el día de la evaluación (${fCorta(f)})`) + (desde.length ? `; después de esa fecha: ${desde.length}` : "; ninguno después de esa fecha") : "")
+          + ` · último: ${fCorta(String(delMod[0].fecha))}`
+        : `No registra ingresos${mod ? " a " + nomMod(mod) : " a la plataforma"} en el período.`;
       return `<tr><td style="text-align:center;font-weight:700;">${i.letra}</td><td>${trabajo}</td><td>${realizo}</td><td>${ingreso}</td></tr>`;
     }).join("");
     return `<p style="font-weight:600; margin:0.8rem 0 0.3rem;">Cotejo de indicadores en 0 (ingreso y realización en la plataforma)</p>
