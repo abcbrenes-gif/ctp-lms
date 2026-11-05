@@ -95,7 +95,7 @@ function tiraderaInstrumentoHTML(titulo, criterios, instrumento) {
   const I = { ...TIRADERA_INSTRUMENTO_BASE, ...(instrumento || {}) };
   const e = v => String(v == null ? "" : v).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const total = (criterios || []).reduce((a, c) => a + (Number(c.puntos_max) || 0), 0);
-  const dato = (k, v) => `<tr><th style="text-align:left;width:32%;">${k}</th><td>${e(v) || "&nbsp;"}</td></tr>`;
+  const dato = (k, v) => `<tr><th style="text-align:left;width:32%;">${k}</th><td>${e(v).replace(/\n/g, "<br>") || "&nbsp;"}</td></tr>`;
   return `
     <h2 style="margin:0 0 2px;">Instrumento de evaluación · ${e(titulo || "La Tiradera")}</h2>
     <p style="margin:0 0 10px; color:#555;">CTP Mercedes Norte · ${e(I.tipo)} · Componente: ${e(I.componente)}</p>
