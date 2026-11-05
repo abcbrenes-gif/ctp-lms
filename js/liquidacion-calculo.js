@@ -14,7 +14,7 @@ const LIQ_MOTIVOS = [
 ];
 const LIQ_SALARIO_MODOS = [
   ["mensual", "Salario mensual fijo"],
-  ["meses", "Últimos 12 meses (se calculan con las fechas)"]
+  ["meses", "Últimos 12 meses"]
 ];
 // Formas de pago anteriores (quincenal, semanal, por hora): se convierten a
 // salario mensual fijo para que los casos ya guardados sigan funcionando.
@@ -30,7 +30,7 @@ const LIQ_SEMANAS_MES = 4.33;
 const liqR = n => Math.round((+n || 0) * 100) / 100;
 const liqFecha = s => { const [y, m, d] = String(s || "").split("-").map(Number); return y ? new Date(Date.UTC(y, (m || 1) - 1, d || 1)) : null; };
 const liqIsoF = d => d.toISOString().slice(0, 10);
-const liqMesNombre = ym => { const [y, m] = ym.split("-").map(Number); return ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "set", "oct", "nov", "dic"][m - 1] + " " + y; };
+const liqMesNombre = ym => { if (/^m\d+$/.test(ym)) return "Mes " + ym.slice(1) + (ym === "m12" ? " (último)" : ""); const [y, m] = ym.split("-").map(Number); return ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "set", "oct", "nov", "dic"][m - 1] + " " + y; };
 
 function liqAntig(ing, sal) {
   let y = sal.getUTCFullYear() - ing.getUTCFullYear(), m = sal.getUTCMonth() - ing.getUTCMonth(), d = sal.getUTCDate() - ing.getUTCDate() + 1;
@@ -59,6 +59,17 @@ function liqDiasDelMes(ym, ing, sal) {
 // salario ordinario (salario mensual ÷ 30 × días). Las horas extra y las
 // incapacidades se toman de lo que se escribió en c.salarios.
 function liqMesesAuto(c) {
+  // Sin fechas (tiempo en años, meses y días): los 12 meses se escriben a mano,
+  // del Mes 1 (el más antiguo) al Mes 12 (el último antes de la salida).
+  if (c.tiempoModo !== "fechas") {
+    const base = +c.salarioMensual || 0, prev = {}; (c.salarios || []).forEach(x => { if (x && x.mes) prev[x.mes] = x; });
+    return Array.from({ length: 12 }, (_, i) => {
+      const mes = "m" + (i + 1), p = prev[mes] || {};
+      const ordinario = p.ordinario !== undefined && p.ordinario !== null && p.ordinario !== "" ? +p.ordinario || 0 : base;
+      const extra = +p.extra || 0, dias = ordinario > 0 || extra > 0 ? 30 : 0;
+      return { mes, dias, ordinario: liqR(ordinario), extra: dias ? extra : 0, incap: dias ? !!p.incap : false, manual: true };
+    });
+  }
   const ing = liqFecha(c.fechaIngreso), sal = liqFecha(c.fechaSalida), base = +c.salarioMensual || 0;
   const prev = {}; (c.salarios || []).forEach(x => { if (x && x.mes) prev[x.mes] = x; });
   return liqMeses12(c.fechaSalida).map(mes => {
@@ -93,7 +104,6 @@ function liqCalcularCaso(c) {
   // 2) Salarios: promedio de los últimos 6 meses (preaviso y cesantía) y de 12 (vacaciones)
   let prom6, prom12, usados6 = 0, usados12 = 0, formulaMensual = "";
   c = liqNormalizarCaso({ ...c });
-  if (c.salarioModo === "meses" && c.tiempoModo !== "fechas") c.salarioModo = "mensual";
   const auto = c.salarioModo === "meses" ? liqMesesAuto(c) : [];
   const filas = auto.map(x => ({ mes: x.mes, dias: x.dias, total: liqR(x.ordinario + x.extra), incap: x.incap }));
   if (c.salarioModo === "meses") {
@@ -148,6 +158,7 @@ function liqCalcularCaso(c) {
   if (c.tiempoModo === "directo") {
     agMeses = Math.min(12, +c.mesesAguinaldo || 0);
     agTotal = liqR(prom6 * agMeses);
+    if (c.salarioModo === "meses") { const n = Math.ceil(agMeses), sel = filas.slice(12 - n).filter(x => !x.incap); agTotal = liqR(sel.reduce((s, x) => s + x.total, 0) - (n > agMeses && sel.length ? sel[0].total * (n - agMeses) : 0)); }
     agPeriodo = `${agMeses} mes(es) desde el 1 de diciembre`;
   } else {
     const aY = sal.getUTCMonth() === 11 ? sal.getUTCFullYear() : sal.getUTCFullYear() - 1;

@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="js/config.js?v=20261030i"></script>
 <script src="js/actividades.js?v=20261104g"></script>
-<script src="js/liquidacion-calculo.js?v=20261030i"></script>
+<script src="js/liquidacion-calculo.js?v=20261105f"></script>
 <script src="js/bitacora.js?v=20261031a"></script>
 <script>document.addEventListener("DOMContentLoaded",()=>{try{bitacoraRegistrar("liquidaciones")}catch(e){}});</script>
 <script src="js/hoja-calculo.js?v=20261030i"></script>
@@ -291,6 +291,18 @@ tr.hl td{background:#fff7d6; font-weight:700}
 
   function tablaMesesHTML(c) {
     const meses = liqMesesAuto(c), ro = soloLectura(), oc = S.modo === "practica";
+    if (c.tiempoModo !== "fechas") {
+      const tot = meses.filter(x => !x.incap).reduce((s, x) => s + x.ordinario + x.extra, 0);
+      return `<p class="muted" style="font-size:.82rem; margin:8px 0 6px">Escriba el salario de cada uno de los últimos 12 meses: <b>Mes 1</b> es el más antiguo y <b>Mes 12</b> el último antes de la salida. El «Salario mensual» de arriba llena los meses que deje en blanco; escriba 0 en un mes que no laboró. ${ro ? "" : "Marque «Incapacidad» si hubo subsidio (ese mes no cuenta)."}</p>
+        <div class="tbl meses"><table><thead><tr><th>Mes</th><th class="r">Salario ordinario</th><th class="r">Horas extra / comisiones</th><th>Incapacidad</th><th class="r">Total del mes</th></tr></thead><tbody>
+        ${meses.map((x, i) => { const p = (c.salarios || []).find(y => y && y.mes === x.mes) || {}, escrito = p.ordinario !== undefined && p.ordinario !== null && p.ordinario !== "";
+          return `<tr${x.dias ? "" : ' style="opacity:.6"'}><td>${liqMesNombre(x.mes)}</td>
+          <td><input data-sal="${i}" data-mes="${x.mes}" data-f="ordinario" inputmode="decimal" value="${escrito ? esc(p.ordinario) : ""}" placeholder="${esc(+c.salarioMensual || 0)}" ${ro ? "disabled" : ""}></td>
+          <td><input data-sal="${i}" data-mes="${x.mes}" data-f="extra" inputmode="decimal" value="${x.extra ? esc(x.extra) : ""}" placeholder="0" ${ro ? "disabled" : ""}></td>
+          <td><input type="checkbox" data-sal="${i}" data-mes="${x.mes}" data-f="incap" ${x.incap ? "checked" : ""} ${ro || !x.dias ? "disabled" : ""} style="width:auto"></td>
+          <td class="r">${x.incap ? "—" : m(x.ordinario + x.extra)}</td></tr>`; }).join("")}</tbody>
+          <tfoot><tr><th colspan="4">Total de los 12 meses</th><th class="r">${m(tot)}</th></tr></tfoot></table></div>`;
+    }
     if (oc) return `<p class="muted" style="font-size:.82rem; margin:8px 0 6px">Estos son los 12 meses que terminan en el mes de salida. Lo que ganó cada mes lo calculás vos en la pestaña <b>💰 Salario</b> con las fechas del caso${ro ? "" : ". Agregá aquí las horas extra o comisiones y marcá «Incapacidad» si hubo subsidio"}.</p>
         <div class="tbl meses"><table><thead><tr><th>Mes</th><th class="r">Horas extra / comisiones</th><th>Incapacidad</th></tr></thead><tbody>
         ${meses.map((x, i) => `<tr${x.dias ? "" : ' style="opacity:.45"'}><td>${liqMesNombre(x.mes)}${x.dias ? "" : " · no laboraba"}</td>
@@ -314,7 +326,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
     liqNormalizarCaso(c);
     let salario = "";
     if (c.salarioModo !== "meses") salario = `<div class="grid">${campo("salarioMensual", "Salario mensual (₡)")}</div>`;
-    else if (c.tiempoModo !== "fechas") salario = `<div class="grid">${campo("salarioMensual", "Salario mensual (₡)")}</div><p class="muted" style="font-size:.82rem">⚠️ Los últimos 12 meses se calculan con la fecha de ingreso y la de salida. Cambie el tiempo laborado a <b>«Por fechas»</b>; mientras tanto se usa el salario mensual fijo.</p>`;
+    else if (c.tiempoModo !== "fechas") salario = `<div class="grid">${campo("salarioMensual", "Salario mensual (₡) · llena los meses en blanco")}</div><div id="mesesBox">${tablaMesesHTML(c)}</div>`;
     else {
       salario = `<div class="grid">${campo("salarioMensual", "Salario mensual (₡)")}</div><div id="mesesBox">${tablaMesesHTML(c)}</div>`;
     }
@@ -347,7 +359,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
     v.querySelectorAll("[data-sal]").forEach(inp => inp.addEventListener("change", () => {
       const mes = inp.dataset.mes; S.caso.salarios = Array.isArray(S.caso.salarios) ? S.caso.salarios : [];
       let x = S.caso.salarios.find(y => y && y.mes === mes); if (!x) { x = { mes, extra: 0, incap: false }; S.caso.salarios.push(x); }
-      x[inp.dataset.f] = inp.type === "checkbox" ? inp.checked : (inp.value === "" ? 0 : Number(String(inp.value).replace(/[^\d.]/g, "")) || 0);
+      x[inp.dataset.f] = inp.type === "checkbox" ? inp.checked : inp.value === "" ? (inp.dataset.f === "ordinario" ? "" : 0) : Number(String(inp.value).replace(/[^\d.]/g, "")) || 0;
       persistir(); refrescarMeses();
     }));
   }
