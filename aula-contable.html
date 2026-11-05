@@ -880,7 +880,7 @@ async function generarPdfResultadosEstudiante(c,p,info){
   const fecha=new Date().toLocaleString("es-CR");
   doc.setFont("helvetica","bold");doc.setFontSize(11);doc.text(`Estudiante: ${nombre}   ·   Cédula: ${usuario}${ses.seccion?"   ·   Sección: "+ses.seccion:""}`,M,y);y+=15;
   doc.setFont("helvetica","normal");doc.setFontSize(9.5);doc.text(`Práctica / empresa: ${c.name}   ·   Guardado el: ${fecha}`,M,y);y+=16;
-  const st=plSheetStatus(p),P=p.params;
+  p=p||{};const st=(p.employees||[]).length?plSheetStatus(p):{ok:0,total:0},P=p.params||PL_DEFAULT;
   const pctM=st.total?Math.round(100*st.ok/st.total):0;
   let R=null;try{R=plResumen([c])}catch(e){}
   const eM=p.evalM&&p.evalM.resultado,eA=p.evalA&&p.evalA.resultado;
@@ -892,7 +892,28 @@ async function generarPdfResultadosEstudiante(c,p,info){
       ["Evaluación del machote",eM?`${eM.pct} % (${eM.ok}/${eM.total})`:(c.evalCfg&&c.evalCfg.machote&&c.evalCfg.machote.on?"Habilitada · sin entregar":"No habilitada")],
       ["Evaluación de asientos",eA?`${eA.pct} % (${eA.ok}/${eA.total})`:(c.evalCfg&&c.evalCfg.asiento&&c.evalCfg.asiento.on?"Habilitada · sin entregar":"No habilitada")]]});
   y=doc.lastAutoTable.finalY+14;
-  doc.setFont("helvetica","bold");doc.setFontSize(10.5);doc.text("Detalle del machote: respuesta del estudiante vs. solución",M,y);y+=6;
+  const titulo=t=>{if(y>540){doc.addPage();y=40}doc.setFont("helvetica","bold");doc.setFontSize(10.5);doc.setTextColor(16,40,44);doc.text(t,M,y)};
+  const tabla=(head,body,colOk)=>{doc.autoTable({startY:y+4,margin:{left:M,right:M},styles:{fontSize:8,cellPadding:3},headStyles:{fillColor:[16,40,44],textColor:255},head:[head],body,
+    didParseCell:d=>{if(d.section==="body"&&d.column.index===colOk){d.cell.styles.textColor=d.cell.raw==="SI"?[14,124,102]:[200,50,50];d.cell.styles.fontStyle="bold"}}});y=doc.lastAutoTable.finalY+16};
+  const cuentaN=code=>((c.accounts||[]).find(a=>a.code===code)||{}).name||"",fmt=v=>String(v??"").trim()===""?"":(isNaN(parseNum(v))?String(v):NF.format(parseNum(v)));
+  // Asientos de planilla: lo que hizo el estudiante vs. la solución
+  const runs=(p.runs||[]).filter(r=>r.res&&r.res.length);
+  runs.forEach((run,i)=>{const sol=plEntryLines(run),m=run.mach||{};
+    const filas=sol.map(l=>{const t=m[l.code]||{},d=parseNum(t.d)||0,cr=parseNum(t.c)||0,bien=l.d?(near(d,l.d)&&!cr):(near(cr,l.c)&&!d);
+      return [l.code+" "+cuentaN(l.code),fmt(t.d),fmt(t.c),l.d?NF.format(l.d):"",l.c?NF.format(l.c):"",bien?"SI":"NO"]});
+    Object.keys(m).filter(code=>!sol.some(l=>l.code===code)&&((parseNum(m[code].d)||0)||(parseNum(m[code].c)||0))).forEach(code=>filas.push([code+" "+cuentaN(code)+" (no va en este asiento)",fmt(m[code].d),fmt(m[code].c),"","","NO"]));
+    const nOk=filas.filter(f=>f[5]==="SI").length;
+    titulo(`Asiento de la planilla${runs.length>1?" "+(i+1):""}${run.periodo?" · "+run.periodo:""}: ${nOk} de ${filas.length} cuentas correctas${run.intentos?" · "+run.intentos+" intento(s)":""}`);
+    tabla(["Cuenta","Debe del estudiante","Haber del estudiante","Debe correcto","Haber correcto","¿Correcto?"],filas,5)});
+  // Asientos registrados por el estudiante en el libro diario
+  const ents=(c.entries||[]).filter(e=>(e.lines||[]).length);
+  if(ents.length){titulo(`Asientos registrados por el estudiante en el libro diario (${ents.length})`);
+    const body=[];ents.forEach(e=>{(e.lines||[]).forEach((l,k)=>body.push([k?"":String(e.n||""),k?"":String(e.date||""),k?"":String(e.desc||""),String(l.code||"")+" "+cuentaN(l.code),l.d?NF.format(l.d):"",l.c?NF.format(l.c):""]));
+      const td=(e.lines||[]).reduce((a,l)=>a+(+l.d||0),0),tc=(e.lines||[]).reduce((a,l)=>a+(+l.c||0),0);body.push(["","","","Totales",NF.format(td),NF.format(tc)])});
+    doc.autoTable({startY:y+4,margin:{left:M,right:M},styles:{fontSize:8,cellPadding:3},headStyles:{fillColor:[16,40,44],textColor:255},head:[["N.º","Fecha","Descripción","Cuenta","Debe","Haber"]],body,
+      didParseCell:d=>{if(d.section==="body"&&d.row.raw[3]==="Totales")d.cell.styles.fontStyle="bold"}});y=doc.lastAutoTable.finalY+16}
+  if((p.employees||[]).length){
+  titulo("Detalle del machote: respuesta del estudiante vs. solución");y+=2;
   const body=[];const wr=plWithReb(p);
   for(const e of p.employees){const k=plCalc(e,P),ans=p.sheet[e.id]||{};
     for(const [q,lab] of plSheetFields(k,wr,plV2(p))){const raw=ans[q],v=parseNum(raw),sol=plSol(k,q),good=plOk(k,q,v);
@@ -900,6 +921,7 @@ async function generarPdfResultadosEstudiante(c,p,info){
   doc.autoTable({startY:y+4,margin:{left:M,right:M},styles:{fontSize:8,cellPadding:3},headStyles:{fillColor:[16,40,44],textColor:255},
     head:[["Colaborador","Concepto","Respuesta","Solución","¿Correcto?"]],body,
     didParseCell:d=>{if(d.section==="body"&&d.column.index===4){d.cell.styles.textColor=d.cell.raw==="SI"?[14,124,102]:[200,50,50];d.cell.styles.fontStyle="bold"}}});
+  }
   const total=doc.internal.getNumberOfPages();
   for(let i=1;i<=total;i++){doc.setPage(i);doc.setFontSize(7.5);doc.setTextColor(86,112,110);doc.text(`Generado automáticamente por Aula Contable · Página ${i} de ${total}`,W/2,600,{align:"center"})}
   return doc.output("blob");
@@ -915,7 +937,10 @@ async function guardarPdfResultados(c,p){
     const st=plSheetStatus(p);p.pdfResultados={url,fecha:new Date().toISOString(),ok:st.ok,total:st.total};touch(c);flush();toast("Planilla guardada ✓ · PDF de resultados generado")}
   catch(err){toast("Planilla guardada ✓ (no se pudo generar el PDF: "+(err&&err.message||err)+")")}
 }
-function pdfResultadosLink(c,est){const r=c.payroll&&c.payroll.pdfResultados;
+const btnPdfDescargar=(c,est)=>`<button class="btn sm primary" data-act="pdfDescargar" data-est="${esc(est||"")}" data-co="${esc(c.id)}" title="Solución de los asientos y lo que hizo el estudiante">⬇ PDF solución + trabajo</button>`;
+function descargarBlob(blob,nombre){const u=URL.createObjectURL(blob),a=document.createElement("a");a.href=u;a.download=nombre;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}
+function pdfResultadosLink(c,est){return pdfResultadosLink0(c,est)+`<div style="margin-top:4px">${btnPdfDescargar(c,est)}</div>`}
+function pdfResultadosLink0(c,est){const r=c.payroll&&c.payroll.pdfResultados;
   if(!(r&&r.url)){const sh=c.payroll&&c.payroll.sheet&&Object.keys(c.payroll.sheet).length;
     return sh?`<button class="btn sm pop" data-act="pdfGenerar" data-est="${esc(est)}" data-co="${esc(c.id)}">📄 Generar PDF</button>`:'<small class="muted">Aún no guardó</small>'}
   const open=APP.pdfVer===(est+"|"+c.id);
@@ -2416,7 +2441,7 @@ function plViewEntrega(c,p){
         ${ev.detalles.map(d=>`<div class="row" style="align-items:center;gap:8px"><span style="color:${d.ok?"var(--ok)":"var(--bad)"}">${d.ok?"✓":"✗"}</span><span>${esc(d.texto)}</span></div>`).join("")}
       </div>`:""}
       <div><button class="btn primary" data-pact="guardarEntregaPlanilla" ${puedeGuardar?"":"disabled"}>💾 Guardar como entrega</button></div>
-      ${veComparacion(c)?`<details class="panel" open style="margin:4px 0 0"><summary style="cursor:pointer;font-weight:800">📋 Tu trabajo comparado con la solución</summary><p class="muted" style="margin:6px 0 8px;font-size:.88rem">En verde lo que está bien; en rojo lo que no, con el monto correcto debajo.</p>${comparacionHTML(c)}</details>`:`<p class="note" style="margin:0">📋 Cuando guardés tu entrega vas a ver tu trabajo comparado con la solución.</p>`}
+      ${veComparacion(c)?`<details class="panel" open style="margin:4px 0 0"><summary style="cursor:pointer;font-weight:800">📋 Tu trabajo comparado con la solución</summary><p class="muted" style="margin:6px 0 8px;font-size:.88rem">En verde lo que está bien; en rojo lo que no, con el monto correcto debajo.</p><div class="row" style="justify-content:flex-end;margin:0 0 8px">${btnPdfDescargar(c,"")}</div>${comparacionHTML(c)}</details>`:`<p class="note" style="margin:0">📋 Cuando guardés tu entrega vas a ver tu trabajo comparado con la solución.</p>`}
       ${!puedeGuardar?`<p class="note" style="margin:0">Primero procesá al menos una planilla del mes, en "Colaboradores y planilla".</p>`:`<p class="note" style="margin:0">Podés guardarla varias veces — cada vez que avancés más, volvé a guardar y vas a ver si ya quedó bien, y tu profesor va a ver la versión más reciente arriba de todas.</p>`}
     </div>
   </div>`;
@@ -3321,6 +3346,15 @@ document.addEventListener("click",async e=>{
       catch(err){fail++;lastErr=(err&&err.message)||String(err)}}
     toast(fail?`PDF: ${ok} generados, ${fail} con error (${lastErr})`:`PDF generados: ${ok}`);
     await loadEmpData()})();return}
+  if(a==="pdfDescargar"){(async()=>{const t0=b.textContent;b.disabled=true;b.textContent="Generando…";
+    try{let c0,info=null;
+      if(b.dataset.est&&isTeacher()){const w=(APP.empData||[]).find(x=>x.id===b.dataset.est);c0=w&&w.companies.find(x=>x.id===b.dataset.co);info=w&&{nombre:w.nombre,usuario:w.id,seccion:w.seccion}}
+      else{c0=APP.companies.find(x=>x.id===b.dataset.co);if(APP.viewing)info={nombre:APP.viewing.nombre||"",usuario:"",seccion:""}}
+      if(!c0)throw new Error("no se encontró el trabajo");
+      const blob=await generarPdfResultadosEstudiante(c0,c0.payroll||{},info);
+      descargarBlob(blob,`${String(c0.name||"practica").trim().replace(/[^\w\u00C0-\u017F -]/g,"").replace(/\s+/g,"_")}_${((info&&info.nombre)||(APP.me&&APP.me.nombre)||"estudiante").replace(/\s+/g,"_")}.pdf`);toast("PDF descargado ✓")}
+    catch(err){toast("No se pudo generar el PDF: "+((err&&err.message)||err))}
+    b.disabled=false;b.textContent=t0})();return}
   if(a==="pdfVer"){const k=b.dataset.est+"|"+b.dataset.co;APP.pdfVer=APP.pdfVer===k?null:k;render();return}
   if(a==="revTab"){APP.revTab=APP.revTab||{};APP.revTab[b.dataset.key]=b.dataset.t;if(b.dataset.t==="ind"&&!APP.indData){render();cargarIndicadoresLms().then(()=>render()).catch(()=>{APP.indData={materias:[],indicadores:[]};render()});return}APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
   if(a==="toggleRevPractica"){APP.revPrac=APP.revPrac||{};APP.revPrac[b.dataset.key]=!APP.revPrac[b.dataset.key];APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
