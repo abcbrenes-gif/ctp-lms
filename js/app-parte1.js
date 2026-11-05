@@ -2451,11 +2451,91 @@ async function generarReporteOficial(estudiante, materiaId, periodos) {
   const { data: categorias } = await sb.from("rubrica_categorias").select("*").order("orden");
 
   function fmtPct(n) { return (Math.round(n * 10) / 10) + "%"; }
+  const fCorta = f => { try { return new Date(f.length <= 10 ? f + "T12:00:00" : f).toLocaleDateString("es-CR", { day: "numeric", month: "short" }); } catch (e) { return f; } };
+  // Orden natural de letras: A, B, … Z, AA, AB…
+  const ordenLetra = (a, b) => (String(a.letra || "").length - String(b.letra || "").length) || String(a.letra || "").localeCompare(String(b.letra || ""), "es") || (a.orden || 0) - (b.orden || 0);
+
+  // ── Datos de apoyo (una sola vez) ──
+  const { data: indMateria } = await sb.from("indicadores").select("*, criterios_indicador(*)").eq("materia_id", materiaId);
+  const idsMateria = (indMateria || []).map(i => i.id);
+  const { data: trabVinc } = idsMateria.length ? await sb.from("trabajos_cotidianos").select("id, titulo, indicador_id, creado_en, habilitado, contenido_actividad")
+    .or(`indicador_id.in.(${idsMateria.join(",")}),contenido_actividad->indicadores_criterio.not.is.null`) : { data: [] };
+  const trabajosDe = {}; // indicador_id → [trabajos]
+  (trabVinc || []).forEach(t => {
+    [t.indicador_id, ...(((t.contenido_actividad || {}).indicadores_criterio) || [])].map(Number).filter(x => idsMateria.includes(x))
+      .forEach(id => { (trabajosDe[id] = trabajosDe[id] || []).some(y => y.id === t.id) || trabajosDe[id].push(t); });
+  });
+  const trabIds = [...new Set((trabVinc || []).map(t => t.id))];
+  const { data: entregas } = trabIds.length ? await sb.from("actividades_estudiante").select("trabajo_id, completado, puntaje, porcentaje, creado_en, actualizado_en").eq("estudiante_id", estudiante.id).in("trabajo_id", trabIds) : { data: [] };
+  const entregaDe = {}; (entregas || []).forEach(e => { entregaDe[e.trabajo_id] = e; });
+  let ingresos = [];
+  try { if (typeof bitacoraDe === "function") ingresos = (await bitacoraDe(estudiante.id, 5000)).filas || []; } catch (e) {}
+  const hoy = new Date().toISOString().slice(0, 10);
+  // Fecha con la que el indicador cae en un período: la fecha de evaluación;
+  // si no tiene, la del trabajo de la plataforma que lo evalúa; si tampoco, el período actual.
+  const fechaIndicador = i => {
+    if (i.fecha_evaluacion) return i.fecha_evaluacion;
+    const ts = (trabajosDe[i.id] || []).map(t => (t.creado_en || "").slice(0, 10)).filter(Boolean).sort();
+    return ts[0] || hoy;
+  };
+  const enPeriodo = (i, ini, fin) => { const f = fechaIndicador(i); return f >= ini && f <= fin; };
+  const moduloDe = i => { const d = (i.descripcion || "").toLowerCase(); return /aula\s*(de\s*)?cont/.test(d) ? "aula_conta" : /liquidaci/.test(d) ? "liquidaciones" : /seguro/.test(d) ? "seguros" : /laboral|ruta/.test(d) && /juego|ruta laboral/.test(d) ? "laboral" : null; };
+
+  // Cotejo de los indicadores en 0: ¿entró a la plataforma? ¿realizó el trabajo?
+  function cotejoCeros(lista, porIndicador, ini, fin) {
+    const ceros = lista.filter(i => !Number(porIndicador[i.id] || 0));
+    if (!ceros.length) return "";
+    const ingPer = ingresos.filter(r => { const d = String(r.fecha).slice(0, 10); return d >= ini && d <= fin; });
+    const filas = ceros.map(i => {
+      const ts = trabajosDe[i.id] || [], mod = moduloDe(i);
+      let trabajo, realizo;
+      if (ts.length) {
+        trabajo = ts.map(t => t.titulo).join("<br/>");
+        const hechas = ts.map(t => entregaDe[t.id]).filter(Boolean);
+        realizo = hechas.length
+          ? hechas.map(e => `Sí entró al trabajo (${fCorta(e.creado_en || e.actualizado_en)})${e.completado ? ", lo entregó" : ", no lo terminó/entregó"}${e.porcentaje != null ? ` · ${Math.round(e.porcentaje)} %` : ""}`).join("<br/>")
+          : "No hay registro de que lo haya realizado en la plataforma.";
+      } else {
+        trabajo = mod ? (BITACORA_MODULOS && BITACORA_MODULOS[mod]) || mod : "Evaluación fuera de la plataforma";
+        realizo = "Sin trabajo ligado en la plataforma (revisar evidencia física o del módulo).";
+      }
+      const f = fechaIndicador(i);
+      const delMod = mod ? ingPer.filter(r => r.modulo === mod) : ingPer;
+      const ese = delMod.filter(r => String(r.fecha).slice(0, 10) === f).length;
+      const desde = delMod.filter(r => String(r.fecha).slice(0, 10) >= f);
+      const ingreso = delMod.length
+        ? `${mod ? (BITACORA_MODULOS && BITACORA_MODULOS[mod]) || mod : "Plataforma"}: ${delMod.length} ingreso${delMod.length === 1 ? "" : "s"} en el período${ese ? `; sí ingresó el día de la evaluación (${fCorta(f)})` : `; no ingresó el día de la evaluación (${fCorta(f)})`}${desde.length ? ` · último: ${fCorta(String(desde[0].fecha))}` : ""}`
+        : `No registra ingresos${mod ? " a ese módulo" : ""} en el período.`;
+      return `<tr><td style="text-align:center;font-weight:700;">${i.letra}</td><td>${trabajo}</td><td>${realizo}</td><td>${ingreso}</td></tr>`;
+    }).join("");
+    return `<p style="font-weight:600; margin:0.8rem 0 0.3rem;">Cotejo de indicadores en 0 (ingreso y realización en la plataforma)</p>
+      <table><thead><tr><th style="width:6%;">Ind.</th><th style="width:30%;">Trabajo en la plataforma</th><th>¿Lo realizó?</th><th style="width:30%;">Ingresos (bitácora)</th></tr></thead><tbody>${filas}</tbody></table>`;
+  }
+
+  // Pruebas: puntos reales y el porcentaje propio de cada prueba (no son indicadores).
+  async function bloquePruebas(cat, fechaInicio, fechaFin) {
+    const pruebas = (indMateria || []).filter(i => i.categoria === cat.nombre && enPeriodo(i, fechaInicio, fechaFin)).sort(ordenLetra);
+    if (!pruebas.length) return null;
+    const { data: cal } = await sb.from("calificaciones_indicador").select("*").eq("estudiante_id", estudiante.id).in("indicador_id", pruebas.map(i => i.id));
+    const por = {}; (cal || []).forEach(c => { por[c.indicador_id] = c.puntaje_obtenido; });
+    let contribucion = 0;
+    const filas = pruebas.map(i => {
+      const max = Number(i.puntaje_maximo) || 0, obt = Number(por[i.id] || 0), peso = i.peso_prueba != null ? Number(i.peso_prueba) : null;
+      const pct = max > 0 ? obt / max * 100 : 0, aporte = peso != null ? pct * peso / 100 : 0;
+      contribucion += aporte;
+      const nombre = ((trabajosDe[i.id] || [])[0] || {}).titulo || i.descripcion;
+      return `<tr><td>${nombre}</td><td style="text-align:center;">${max}</td><td style="text-align:center;">${obt}</td><td style="text-align:center;">${fmtPct(pct)}</td><td style="text-align:center;">${peso != null ? peso + "%" : "—"}</td><td style="text-align:center;font-weight:700;">${fmtPct(aporte)}</td></tr>`;
+    }).join("");
+    const html = `
+      <div class="titulo-principal" style="font-size:1rem; text-align:left; padding:0.5rem 0.8rem;">Evaluación de ${cat.nombre}</div>
+      <table><thead><tr><th>Prueba</th><th>Total de puntos</th><th>Puntos obtenidos</th><th>Nota</th><th>Porcentaje</th><th>Aporte (de ${cat.porcentaje}%)</th></tr></thead>
+      <tbody>${filas}<tr><td colspan="5" style="text-align:right;font-weight:700;">Resultado de ${cat.nombre.toLowerCase()}</td><td style="text-align:center;font-weight:700;">${fmtPct(contribucion)}</td></tr></tbody></table>`;
+    return { html, contribucion };
+  }
 
   async function bloqueCategoria(cat, fechaInicio, fechaFin) {
-    // Indicadores (con fecha dentro del período)
-    const { data: indicadoresTodos } = await sb.from("indicadores").select("*, criterios_indicador(*)").eq("materia_id", materiaId).eq("categoria", cat.nombre).order("orden");
-    const indicadores = (indicadoresTodos || []).filter(i => i.fecha_evaluacion && i.fecha_evaluacion >= fechaInicio && i.fecha_evaluacion <= fechaFin);
+    // Indicadores del período (por su fecha de evaluación o la del trabajo que los evalúa), en orden de letra
+    const indicadores = (indMateria || []).filter(i => i.categoria === cat.nombre && enPeriodo(i, fechaInicio, fechaFin)).sort(ordenLetra);
 
     if (indicadores.length > 0) {
       const indicadorIds = indicadores.map(i => i.id);
@@ -2478,12 +2558,13 @@ async function generarReporteOficial(estudiante, materiaId, periodos) {
           <thead><tr><th style="width:45%;">Indicador</th><th style="width:12%;">Puntaje máximo</th><th>Criterios</th></tr></thead>
           <tbody>
             ${indicadores.map(i => `<tr>
-              <td><strong>${i.letra}:</strong> ${i.descripcion}<div style="font-size:0.75rem; color:#666;">Fecha${i.lecciones ? " y lecciones" : ""}: ${i.fecha_evaluacion}${i.lecciones ? " · " + i.lecciones + " lecciones" : ""}</div></td>
+              <td><strong>${i.letra}:</strong> ${i.descripcion}<div style="font-size:0.75rem; color:#666;">Fecha${i.lecciones ? " y lecciones" : ""}: ${fechaIndicador(i)}${i.lecciones ? " · " + i.lecciones + " lecciones" : ""}</div></td>
               <td style="text-align:center;">${i.puntaje_maximo} puntos</td>
               <td>${(i.criterios_indicador || []).length ? i.criterios_indicador.sort((a, b) => a.puntaje - b.puntaje).map(c => `${c.puntaje} punto${c.puntaje === 1 ? "" : "s"}: ${c.descripcion}`).join("<br/>") : "Sin criterios configurados."}</td>
             </tr>`).join("")}
           </tbody>
-        </table>`;
+        </table>
+        ${cotejoCeros(indicadores, porIndicador, fechaInicio, fechaFin)}`;
       return { html, contribucion };
     }
 
@@ -2539,7 +2620,8 @@ async function generarReporteOficial(estudiante, materiaId, periodos) {
     let bloques = "", resumenCols = "", resumenVals = "", totalPct = 0;
     for (const cat of (categorias || [])) {
       const esAsistencia = cat.nombre.trim().toLowerCase() === "asistencia";
-      const resultado = esAsistencia ? await bloqueAsistencia(cat, p.fecha_inicio, p.fecha_fin) : await bloqueCategoria(cat, p.fecha_inicio, p.fecha_fin);
+      const esPruebas = cat.nombre.trim().toLowerCase() === "pruebas";
+      const resultado = esAsistencia ? await bloqueAsistencia(cat, p.fecha_inicio, p.fecha_fin) : esPruebas ? await bloquePruebas(cat, p.fecha_inicio, p.fecha_fin) : await bloqueCategoria(cat, p.fecha_inicio, p.fecha_fin);
       resumenCols += `<th>${cat.nombre} (${cat.porcentaje}%)</th>`;
       if (resultado) {
         bloques += `<div style="margin-top:1.3rem;">${resultado.html}</div>`;
