@@ -774,13 +774,19 @@ async function readDelivery(txt){
 }
 const vcode=h=>h?(String(h).slice(0,4)+"-"+String(h).slice(4,8)).toUpperCase():"directa";
 
+// Solo se marca sola la empresa abierta (o, si no hay, las que tienen trabajo):
+// antes venían todas marcadas y, al entregar una práctica, se cerraban también
+// las otras prácticas de entrega única aunque estuvieran vacías.
+function marcarPorDefecto(c){if(unaEntrega(c)&&c.entregado)return false;
+  if(APP.activeId&&APP.companies.some(x=>x.id===APP.activeId))return c.id===APP.activeId;
+  return trabajoHecho(c)}
 function viewEntregar(){
   const le=APP.lastEntregaGeneral;
   return `<div class="head"><div><div class="eyebrow">Entrega al profesor</div><h2>Entregar trabajo</h2>
     <p>Entrega tu avance al final de cada clase: elegí las empresas y guardalas — quedan directo en las "Entregas recibidas" de tu profesor. No hace falta generar ningún código ni enviarlo por Teams.</p></div></div>
   <div class="panel stack">
     <h3>Empresas a entregar</h3>
-    ${APP.companies.length?sortCos(APP.companies).map(c=>`<label class="check"><input type="checkbox" class="dsel" value="${c.id}" checked> <span class="code">${esc(c.code)}</span> ${esc(c.name)} <small class="muted">· ${c.entries.length} asientos · ${CATS[catDe(c)].icon} ${CATS[catDe(c)].corto.toLowerCase()}${unaEntrega(c)?(c.entregado?", ya entregada":" — se bloqueará al entregar"):""}</small></label>`).join("")
+    ${APP.companies.length?sortCos(APP.companies).map(c=>`<label class="check"><input type="checkbox" class="dsel" value="${c.id}" ${marcarPorDefecto(c)?"checked":""} ${unaEntrega(c)&&c.entregado?"disabled":""}> <span class="code">${esc(c.code)}</span> ${esc(c.name)} <small class="muted">· ${c.entries.length} asientos · ${CATS[catDe(c)].icon} ${CATS[catDe(c)].corto.toLowerCase()}${unaEntrega(c)?(c.entregado?", ya entregada":" — se bloqueará al entregar"):""}</small></label>`).join("")
       :'<p class="muted" style="margin:0">Todavía no tienes empresas para entregar.</p>'}
     ${le?`<div class="status ok"><span class="dot"></span>Guardada como entrega el ${esc(fmtDate(le))}.</div>`:""}
     <div><button class="btn primary" data-act="guardarEntregaGeneral" ${APP.companies.length?"":"disabled"}>💾 Guardar entrega</button></div>
@@ -3206,6 +3212,8 @@ document.addEventListener("click",async e=>{
   if(a==="guardarEntregaGeneral"){const ids=[...document.querySelectorAll(".dsel:checked")].map(x=>x.value);
     if(!ids.length){toast("Marca al menos una empresa");return}
     const sel=APP.companies.filter(x=>ids.includes(x.id)),ahora=new Date().toISOString();
+    const seCierran=sel.filter(x=>unaEntrega(x)&&!x.entregado);
+    if(seCierran.length&&!confirm("Estas se entregan una sola vez y ya no podrás cambiarlas:\n\n"+seCierran.map(x=>"• "+String(x.name||"").replace(/\s+/g," ")+(trabajoHecho(x)?"":"  (¡está vacía!)")).join("\n")+"\n\n¿Entregar?"))return;
     for(const x of sel)if(unaEntrega(x)&&!x.entregado){x.entregado=true;x.entregadoFecha=ahora;touch(x)}
     await flush();
     b.disabled=true;const txt=b.textContent;b.textContent="Guardando…";
