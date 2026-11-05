@@ -2453,7 +2453,9 @@ async function generarReporteOficial(estudiante, materiaId, periodos) {
   function fmtPct(n) { return (Math.round(n * 10) / 10) + "%"; }
   const fCorta = f => { try { return new Date(f.length <= 10 ? f + "T12:00:00" : f).toLocaleDateString("es-CR", { day: "numeric", month: "short" }); } catch (e) { return f; } };
   // Orden natural de letras: A, B, … Z, AA, AB…
-  const ordenLetra = (a, b) => (String(a.letra || "").length - String(b.letra || "").length) || String(a.letra || "").localeCompare(String(b.letra || ""), "es") || (a.orden || 0) - (b.orden || 0);
+  // (M1, M2, M3 van juntos después de M y antes de N)
+  const partesLetra = l => { const m = String(l || "").trim().toUpperCase().match(/^([A-Z]+)(\d*)$/); return m ? [m[1], Number(m[2] || 0)] : [String(l || ""), 0]; };
+  const ordenLetra = (a, b) => { const [la, na] = partesLetra(a.letra), [lb, nb] = partesLetra(b.letra); return (la.length - lb.length) || la.localeCompare(lb, "es") || (na - nb) || (a.orden || 0) - (b.orden || 0); };
 
   // ── Datos de apoyo (una sola vez) ──
   const { data: indMateria } = await sb.from("indicadores").select("*, criterios_indicador(*)").eq("materia_id", materiaId);

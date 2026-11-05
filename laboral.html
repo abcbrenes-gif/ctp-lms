@@ -534,23 +534,29 @@ function activarHub(){
   document.querySelectorAll("[data-insv]").forEach(b=>b.onclick=()=>verInstrumento(ACT.lista.find(x=>x.id===+b.dataset.insv)));
   const rl=$("#verRL");if(rl)rl.onclick=()=>verRespuestasLibre();
   const cp=$("#crearPaq");if(cp)cp.onclick=()=>crearPaqueteLab(cp)}
-async function crearIndicador(materiaId,desc,fecha){
+async function crearIndicador(materiaId,desc,fecha,letraFija,nivelesTxt){
   const {data:ex}=await sb.from("indicadores").select("id,letra").eq("materia_id",materiaId).eq("categoria","Trabajo cotidiano");
   const us=new Set((ex||[]).map(e=>String(e.letra||"").trim().toUpperCase()));let i=0,letra="";
-  for(;;){let n=i,l="";do{l=String.fromCharCode(65+(n%26))+l;n=Math.floor(n/26)-1}while(n>=0);if(!us.has(l)){letra=l;break}i++}
+  if(letraFija)letra=letraFija;else for(;;){let n=i,l="";do{l=String.fromCharCode(65+(n%26))+l;n=Math.floor(n/26)-1}while(n>=0);if(!us.has(l)&&![1,2,3].some(k=>us.has(l+k))){letra=l;break}i++}
   const {data,error}=await sb.from("indicadores").insert({materia_id:materiaId,categoria:"Trabajo cotidiano",letra,descripcion:desc,puntaje_maximo:3,fecha_evaluacion:fecha,orden:(ex||[]).length+1}).select().maybeSingle();
   if(error||!data)throw new Error(error?error.message:"no se pudo crear el indicador");
-  try{await sb.from("criterios_indicador").insert([[0,"Sin evidencia","No realiza el trabajo o logra menos del 35 % de los criterios."],[1,"Inicial","Logra entre el 35 % y el 59 % de los conceptos, casos y cálculos."],[2,"Intermedio","Logra entre el 60 % y el 84 % de los conceptos, casos y cálculos."],[3,"Avanzado","Logra el 85 % o más de los conceptos, casos y cálculos."]].map(([puntaje,nivel,descripcion])=>({indicador_id:data.id,puntaje,nivel,descripcion})))}catch(e){}
+  try{await sb.from("criterios_indicador").insert((nivelesTxt||[[0,"Sin evidencia","No realiza el trabajo o logra menos del 35 % de los criterios."],[1,"Inicial","Logra entre el 35 % y el 59 % de los conceptos, casos y cálculos."],[2,"Intermedio","Logra entre el 60 % y el 84 % de los conceptos, casos y cálculos."],[3,"Avanzado","Logra el 85 % o más de los conceptos, casos y cálculos."]]).map(([puntaje,nivel,descripcion])=>({indicador_id:data.id,puntaje,nivel,descripcion})))}catch(e){}
   return data}
 async function crearPaqueteLab(btn,materiaId){
   if(!materiaId){const ops=ACT.mats.map(m=>`${m.id} = ${m.nombre.trim()}${m.seccion?" · "+m.seccion:""}`).join("\n");const r=prompt("¿En qué materia se crean? Escriba el número:\n"+ops,String((ACT.mats.find(m=>/contable/i.test(m.nombre))||ACT.mats[0]||{}).id||""));if(!r)return;materiaId=Number(r)}
   if(btn)btn.disabled=true;const hoy=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10),ids=[];
-  try{for(const P of PAQ_LAB){const ev=P.tipo==="evaluativa";const ind=ev?await crearIndicador(materiaId,P.desc,hoy):null;
-    const C={estrategia:ESTR,lab_tipo:P.tipo,materia_id:materiaId,lab_desc:P.desc,lab_ic:P.ic,lab_pj:P.pj,lab_pasos:P.pasos,
+  try{for(const P of PAQ_LAB){const ev=P.tipo==="evaluativa";// Trabajo cotidiano: un indicador por criterio (conceptos, casos, cálculos): X1, X2, X3.
+    let ind=null,indsCrit=[];
+    if(ev){const que=["las preguntas de concepto","los casos","los cálculos"],tema=P.desc.replace(/\.$/,"");
+      const descs=[`Identifica los conceptos y las reglas del Código de Trabajo y del MTSS en ${que[0]} de «${P.titulo}» (${tema}).`,`Aplica la normativa laboral para decidir los derechos de la persona trabajadora en ${que[1]} de «${P.titulo}» (${tema}).`,`Calcula los montos y los días según los procedimientos del MTSS en ${que[2]} de «${P.titulo}» (${tema}).`];
+      const niv=k=>[[0,"Sin evidencia",`No realiza el trabajo o responde correctamente menos del 35 % de ${que[k]}.`],[1,"Inicial",`Responde correctamente entre el 35 % y el 59 % de ${que[k]}.`],[2,"Intermedio",`Responde correctamente entre el 60 % y el 84 % de ${que[k]}.`],[3,"Avanzado",`Responde correctamente el 85 % o más de ${que[k]}.`]];
+      const i1=await crearIndicador(materiaId,descs[0],hoy,null,niv(0));const base=String(i1.letra);await sb.from("indicadores").update({letra:base+"1"}).eq("id",i1.id);
+      indsCrit=[i1.id];for(const k of [1,2]){const ik=await crearIndicador(materiaId,descs[k],hoy,base+(k+1),niv(k));indsCrit.push(ik.id)}ind=i1}
+    const C={estrategia:ESTR,lab_tipo:P.tipo,...(indsCrit.length?{indicadores_criterio:indsCrit}:{}),materia_id:materiaId,lab_desc:P.desc,lab_ic:P.ic,lab_pj:P.pj,lab_pasos:P.pasos,
       criterios:ev?LAB_CRIT.map(c=>({...c,niveles:typeof tiraderaNivelesDe==="function"?tiraderaNivelesDe(c):undefined})):[],
       lab_instrumento:{componente:ev?"Trabajo cotidiano":"Práctica",tipo:"Escala de desempeño",subarea:"",unidad:"Legislación laboral: contratos, aguinaldo, vacaciones, preaviso y cesantía",resultado:"",indicador:P.desc}};
     const {data,error}=await sb.from("trabajos_cotidianos").insert({titulo:P.titulo,fecha:hoy,tipo_actividad:"rubrica_directa",habilitado:false,indicador_id:ind?ind.id:null,contenido_actividad:C}).select("id").maybeSingle();
-    if(error||!data){if(ind)await sb.from("indicadores").delete().eq("id",ind.id);throw new Error(error?error.message:"sin respuesta")}ids.push(data.id)}}
+    if(error||!data){for(const x of indsCrit)await sb.from("indicadores").delete().eq("id",x);throw new Error(error?error.message:"sin respuesta")}ids.push(data.id)}}
   catch(e){alert("No se pudo crear todo: "+(e.message||e))}
   await cargarActs(true);mapa();return ids}
 async function guardarProg(t,prog,extra){if(!EST_ID)return true;
