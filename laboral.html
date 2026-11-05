@@ -462,7 +462,7 @@ const escH=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"
 // ═══ Respuestas del juego libre (las 6 misiones del mapa) ═══
 // Se guardan en un registro de la plataforma (estrategia "ruta_laboral_registro"):
 // actividades_estudiante.datos_prueba.libre = { <misión>: { <paso>: {v, ok, intentosV, t} } }.
-const REG_LAB="ruta_laboral_registro";let REG_LAB_ID=null,LIB=null,tLib=null;
+const REG_LAB="ruta_laboral_registro";let REG_LAB_ID=null,LIB=null,HIST=null,tLib=null;
 async function idRegLab(crear){if(REG_LAB_ID||!HAY_BD())return REG_LAB_ID;
   const {data}=await sb.from("trabajos_cotidianos").select("id").eq("contenido_actividad->>estrategia",REG_LAB).limit(1);
   if(data&&data[0])return REG_LAB_ID=data[0].id;if(!crear)return null;
@@ -470,9 +470,10 @@ async function idRegLab(crear){if(REG_LAB_ID||!HAY_BD())return REG_LAB_ID;
   return REG_LAB_ID=r.data&&r.data.id}
 async function guardarRespLibre(m,paso,rec){if(!EST_ID||!HAY_BD())return;
   try{const id=await idRegLab(true);if(!id)return;
-    if(!LIB){const {data}=await sb.from("actividades_estudiante").select("datos_prueba").eq("trabajo_id",id).eq("estudiante_id",EST_ID).maybeSingle();LIB=(data&&data.datos_prueba&&data.datos_prueba.libre)||{}}
+    if(!LIB){const {data}=await sb.from("actividades_estudiante").select("datos_prueba").eq("trabajo_id",id).eq("estudiante_id",EST_ID).maybeSingle();const d=(data&&data.datos_prueba)||{};LIB=d.libre||{};HIST=Array.isArray(d.historial)?d.historial:[]}
     LIB[m.id]=LIB[m.id]||{};LIB[m.id][paso]=rec;
-    clearTimeout(tLib);tLib=setTimeout(()=>upsertSinConflicto("actividades_estudiante",{trabajo_id:id,estudiante_id:EST_ID},{datos_prueba:{libre:LIB},actualizado_en:new Date().toISOString()}).catch(()=>{}),800)}catch(e){}}
+    HIST.push({m:m.id,p:paso,...rec});if(HIST.length>3000)HIST=HIST.slice(-3000);
+    clearTimeout(tLib);tLib=setTimeout(()=>upsertSinConflicto("actividades_estudiante",{trabajo_id:id,estudiante_id:EST_ID},{datos_prueba:{libre:LIB,historial:HIST},actualizado_en:new Date().toISOString()}).catch(()=>{}),800)}catch(e){}}
 const valResp=(p,v)=>p.k==="mc"?escH(p.o[v]??"—"):p.k==="tf"?(v?"Verdadero":"Falso"):(p.u?v+" "+p.u:C(v));
 async function verRespuestasLibre(){const d=$("#guia");$("#gt").textContent="👥 Respuestas del juego libre";$("#guiaB").innerHTML="<p>Cargando…</p>";if(!d.open)d.showModal();
   await cargarActs();const id=await idRegLab(false);
@@ -480,7 +481,7 @@ async function verRespuestasLibre(){const d=$("#guia");$("#gt").textContent="�
   const [{data:em},{data:ae}]=await Promise.all([sb.from("estudiante_materias").select("estudiante_id").eq("materia_id",sel),id?sb.from("actividades_estudiante").select("estudiante_id,datos_prueba,actualizado_en").eq("trabajo_id",id):{data:[]}]);
   const ids=(em||[]).map(x=>x.estudiante_id),{data:es}=ids.length?await sb.from("estudiantes").select("id,nombre,apellido1,apellido2").in("id",ids):{data:[]};
   const por={};(ae||[]).forEach(x=>por[x.estudiante_id]=x);
-  const filas=(es||[]).map(e=>({e,nom:[e.apellido1,e.apellido2,e.nombre].filter(Boolean).join(" "),L:(por[e.id]&&por[e.id].datos_prueba&&por[e.id].datos_prueba.libre)||{},act:por[e.id]&&por[e.id].actualizado_en})).sort((a,b)=>a.nom.localeCompare(b.nom,"es"));
+  const filas=(es||[]).map(e=>({e,nom:[e.apellido1,e.apellido2,e.nombre].filter(Boolean).join(" "),L:(por[e.id]&&por[e.id].datos_prueba&&por[e.id].datos_prueba.libre)||{},H:(por[e.id]&&por[e.id].datos_prueba&&por[e.id].datos_prueba.historial)||[],act:por[e.id]&&por[e.id].actualizado_en})).sort((a,b)=>a.nom.localeCompare(b.nom,"es"));
   const celda=(f,m)=>{const R=f.L[m.id]||{},n=Object.keys(R).length,P=m.pasos.filter(p=>p.k!=="intro").length,ok=Object.values(R).filter(r=>r.ok).length;return n?`<b>${n}/${P}</b><br><small style="color:var(--mut)">${ok} al 1.er intento</small>`:"—"};
   $("#guiaB").innerHTML=`<div class="actions" style="margin:0 0 10px"><label style="font-weight:800">Sección: <select id="rlMat" style="font:inherit;padding:6px 8px;border-radius:10px">${mats.map(m=>`<option value="${m.id}" ${m.id===sel?"selected":""}>${escH(String(m.nombre).trim())}${m.seccion?" · "+escH(m.seccion):""}</option>`).join("")}</select></label></div>
     <div style="overflow:auto"><table class="tabla"><thead><tr><th>Estudiante</th>${MISIONES.map((m,i)=>`<th title="${escH(m.t)}">M${i+1}</th>`).join("")}<th></th></tr></thead><tbody>
@@ -489,7 +490,9 @@ async function verRespuestasLibre(){const d=$("#guia");$("#gt").textContent="�
   $("#rlMat").onchange=e=>{verRespuestasLibre.mat=e.target.value;verRespuestasLibre()};
   document.querySelectorAll("[data-rlver]").forEach(b=>b.onclick=()=>{const f=filas.find(x=>x.e.id===b.dataset.rlver);
     $("#gt").textContent="👁️ "+f.nom+" · juego libre";
-    $("#guiaB").innerHTML=`<div class="actions" style="margin:0 0 10px"><button class="sec" id="rlVolver">← Todos</button></div>`+MISIONES.map((m,i)=>{const R=f.L[m.id];if(!R)return"";
+    const fh=t=>{try{return new Date(t).toLocaleString("es-CR",{dateStyle:"short",timeStyle:"short"})}catch(e){return""}};
+    const histHTML=f.H.length?`<h4 style="margin:12px 0 6px">🕘 Historial de respuestas (${f.H.length})</h4><div style="overflow:auto;max-height:420px"><table class="tabla"><thead><tr><th>Fecha</th><th>Misión</th><th>Pregunta</th><th>Respondió</th><th></th></tr></thead><tbody>${f.H.slice().reverse().map(h=>{const mi=MISIONES.findIndex(x=>x.id===h.m),m=MISIONES[mi],p=m&&m.pasos[h.p];if(!p)return"";return `<tr><td style="white-space:nowrap">${fh(h.t)}</td><td>M${mi+1}</td><td>${p.txt}</td><td>${(h.intentosV||[h.v]).filter(v=>v!==undefined).map((v,j,a)=>`<div>${a.length>1?`<small style="color:var(--mut)">${j+1}.</small> `:""}${valResp(p,v)}</div>`).join("")||"—"}</td><td style="font-size:1.2rem">${h.ok?"✅":"❌"}</td></tr>`}).join("")}</tbody></table></div>`:"";
+    $("#guiaB").innerHTML=`<div class="actions" style="margin:0 0 10px"><button class="sec" id="rlVolver">← Todos</button></div>`+histHTML+`<h4 style="margin:16px 0 0">📌 Última respuesta por misión</h4>`+MISIONES.map((m,i)=>{const R=f.L[m.id];if(!R)return"";
       return `<h4 style="margin:12px 0 6px">${m.ic} Misión ${i+1}: ${escH(m.t)}</h4><div style="overflow:auto"><table class="tabla"><thead><tr><th>#</th><th>Pregunta</th><th>Respondió</th><th>Correcta</th><th></th></tr></thead><tbody>
       ${m.pasos.map((p,k)=>p.k==="intro"||!R[k]?"":`<tr><td>${k}</td><td>${p.txt}</td><td>${(R[k].intentosV||[R[k].v]).filter(v=>v!==undefined).map((v,j,a)=>`<div>${a.length>1?`<small style="color:var(--mut)">${j+1}.</small> `:""}${valResp(p,v)}</div>`).join("")||"—"}</td><td>${p.k==="mc"?escH(p.o[p.r]):p.k==="tf"?(p.r?"Verdadero":"Falso"):(p.u?Math.round(p.ok*100)/100+" "+p.u:C(Math.round(p.ok*100)/100))}</td><td style="font-size:1.2rem">${R[k].ok?"✅":"❌"}</td></tr>`).join("")}</tbody></table></div>`}).join("");
     $("#rlVolver").onclick=()=>verRespuestasLibre()})}
