@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Exámenes · CTP Mercedes Norte</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js?v=20261030i"></script>
+<script src="js/actividades.js?v=20261105e"></script>
+<script src="js/bitacora.js?v=20261105g"></script>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--tx:#17202a;--mut:#5d6b78;--line:#d9e0e6;--pri:#0e6e5c;--pri2:#e3f3ef;--bad:#c0392b;--bad2:#fbeaea;--warn:#a66a00;--warn2:#fff4dc;--ok:#1e8449;--ok2:#e7f6ec;--sh:0 1px 3px rgba(0,0,0,.08),0 4px 14px rgba(0,0,0,.05)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#11161b;--card:#1a2128;--tx:#e8edf1;--mut:#9aa8b4;--line:#2d3842;--pri:#38c2a3;--pri2:#173a33;--bad:#ff7b6b;--bad2:#3a1f1d;--warn:#f2b84b;--warn2:#3a2f17;--ok:#5fd38d;--ok2:#17331f;--sh:0 1px 3px rgba(0,0,0,.4)}}
+:root[data-theme="dark"]{--bg:#11161b;--card:#1a2128;--tx:#e8edf1;--mut:#9aa8b4;--line:#2d3842;--pri:#38c2a3;--pri2:#173a33;--bad:#ff7b6b;--bad2:#3a1f1d;--warn:#f2b84b;--warn2:#3a2f17;--ok:#5fd38d;--ok2:#17331f;--sh:0 1px 3px rgba(0,0,0,.4)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.5 "Segoe UI",system-ui,Roboto,sans-serif}
+.wrap{max-width:1000px;margin:0 auto;padding:16px}
+header.top{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+header.top .wrap{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 16px}
+.brand{font-weight:800;margin-right:auto;display:flex;align-items:center;gap:8px}
+.brand small{display:block;font-weight:500;color:var(--mut);font-size:.75rem}
+h1,h2,h3{line-height:1.25;margin:0 0 8px}h1{font-size:1.5rem}h2{font-size:1.2rem}h3{font-size:1.05rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:var(--sh);margin:0 0 14px}
+.muted{color:var(--mut)}.small{font-size:.85rem}
+button,.btn{font:inherit;font-weight:600;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--tx);border-radius:9px;padding:8px 14px;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+button:hover{border-color:var(--pri)}
+button.pri{background:var(--pri);border-color:var(--pri);color:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) button.pri{color:#06201a}}
+button.danger{color:var(--bad);border-color:var(--bad)}
+button.sm{padding:4px 10px;font-size:.85rem}
+button:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+label.f{display:flex;flex-direction:column;gap:4px;font-weight:600;font-size:.88rem}
+input,select,textarea{font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 9px;width:100%}
+textarea{min-height:60px;resize:vertical}
+input[type=checkbox],input[type=radio]{width:auto}
+.chip{display:inline-block;font-size:.78rem;font-weight:700;padding:2px 9px;border-radius:999px;border:1px solid var(--line);background:var(--bg)}
+.chip.ok{background:var(--ok2);color:var(--ok);border-color:transparent}.chip.warn{background:var(--warn2);color:var(--warn);border-color:transparent}.chip.bad{background:var(--bad2);color:var(--bad);border-color:transparent}.chip.pri{background:var(--pri2);color:var(--pri);border-color:transparent}
+.tbl{overflow:auto}table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}th{background:var(--bg);font-size:.8rem;text-transform:uppercase;letter-spacing:.03em;color:var(--mut)}
+td.r,th.r{text-align:right}
+.parte{border-left:4px solid var(--pri);padding-left:12px;margin:18px 0}
+.item{border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0;background:var(--card)}
+.item .q{font-weight:600;margin:0 0 8px;white-space:pre-wrap}
+.opc{display:flex;gap:10px;align-items:flex-start;padding:7px 9px;border:1px solid var(--line);border-radius:8px;margin:5px 0;cursor:pointer}
+.opc:hover{border-color:var(--pri)}.opc input{margin-top:4px}
+.opc.sel{border-color:var(--pri);background:var(--pri2)}
+.ed-item{border:1px dashed var(--line);border-radius:10px;padding:10px;margin:8px 0}
+.barra{position:sticky;top:0;z-index:30;background:var(--card);border-bottom:2px solid var(--pri);padding:8px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.reloj{font-variant-numeric:tabular-nums;font-weight:800;font-size:1.15rem}
+.reloj.poco{color:var(--bad)}
+.ok-t{color:var(--ok);font-weight:700}.bad-t{color:var(--bad);font-weight:700}
+.aviso{border-radius:10px;padding:10px 12px;margin:0 0 12px;background:var(--warn2);color:var(--tx);border:1px solid var(--warn)}
+.aviso.ok{background:var(--ok2);border-color:var(--ok)}
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--tx);width:min(900px,96vw);max-height:90vh;padding:0}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+dialog .dh{position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;align-items:center;gap:8px}
+dialog .db{padding:14px 16px}
+.no-sel{user-select:none;-webkit-user-select:none}
+.hidden{display:none!important}
+@media (max-width:600px){.wrap{padding:12px}.card{padding:12px}}
+@media print{header.top,.noprint{display:none!important}body{background:#fff;color:#000}.card{box-shadow:none;border:0}}
+</style>
+</head>
+<body>
+<header class="top noprint"><div class="wrap">
+  <div class="brand">📝 <span>Exámenes<small>CTP Mercedes Norte · Contabilidad</small></span></div>
+  <span id="quien" class="muted small"></span>
+  <a class="btn" href="index.html">← Plataforma</a>
+</div></header>
+<main class="wrap" id="app"><p class="muted">Cargando…</p></main>
+<dialog id="dlg"><div class="dh"><b id="dlgT" style="margin-right:auto"></b><button class="sm" id="dlgX">✕ Cerrar</button></div><div class="db" id="dlgB"></div></dialog>
+
+<script>
+"use strict";
+// ═══════════════════════════════════════════════════════════════════
+// Exámenes: el profe arma el examen (borrador), lo revisa como estudiante
+// y después lo publica en la sección. Se califica con puntos reales y
+// aporta su propio porcentaje en «Pruebas» (no es indicador: no lleva letra
+// ni resultado de aprendizaje).
+// Se guarda en trabajos_cotidianos (contenido_actividad.estrategia = "examen_modulo")
+// y las respuestas en actividades_estudiante.
+// ═══════════════════════════════════════════════════════════════════
+const SES=(()=>{try{return JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")||"null")}catch(e){return null}})();
+const DOC=!!(SES&&SES.role&&SES.role!=="estudiante"),EST_ID=SES&&SES.role==="estudiante"?String(SES.id):null;
+const ESTR="examen_modulo";
+const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const nl=s=>esc(s).replace(/\n/g,"<br>");
+const uid=()=>Math.random().toString(36).slice(2,10);
+const clone=o=>JSON.parse(JSON.stringify(o));
+const NF=new Intl.NumberFormat("es-CR",{maximumFractionDigits:2});
+const fmtPts=n=>NF.format(Math.round((+n||0)*100)/100);
+const fmtFH=iso=>{if(!iso)return"—";try{return new Date(iso).toLocaleString("es-CR",{weekday:"short",day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}catch(e){return iso}};
+const aLocal=iso=>{if(!iso)return"";const d=new Date(iso);const p=n=>String(n).padStart(2,"0");return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`};
+const deLocal=v=>v?new Date(v).toISOString():null;
+const hoyISO=()=>{const d=new Date(),p=n=>String(n).padStart(2,"0");return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`};
+function toast(t){const d=document.createElement("div");d.textContent=t;d.style.cssText="position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#17202a;color:#fff;padding:10px 16px;border-radius:10px;z-index:99;font-weight:600;box-shadow:0 4px 18px rgba(0,0,0,.3)";document.body.appendChild(d);setTimeout(()=>d.remove(),2600)}
+const dlg=$("#dlg");$("#dlgX").onclick=()=>dlg.close();
+function abrirDlg(t,html){$("#dlgT").textContent=t;$("#dlgB").innerHTML=html;if(!dlg.open)dlg.showModal()}
+
+const TIPOS={
+  sel:{ic:"🔘",n:"Selección única",ins:"Marque con una X la opción correcta."},
+  fv:{ic:"✅",n:"Falso o verdadero",ins:"Escriba V si el enunciado es verdadero o F si es falso."},
+  pareo:{ic:"🔗",n:"Pareo",ins:"Asocie cada enunciado de la columna A con la opción correcta de la columna B."},
+  corta:{ic:"✏️",n:"Respuesta corta",ins:"Responda en forma breve."},
+  num:{ic:"🔢",n:"Respuesta numérica (cálculo)",ins:"Realice el cálculo y escriba el resultado."},
+  des:{ic:"📝",n:"Desarrollo (se califica a mano)",ins:"Resuelva en forma clara y ordenada."}
+};
+const nuevoItem=t=>({id:uid(),txt:"",pts:1,...(t==="sel"?{o:["","","",""],r:0}:t==="fv"?{r:true}:t==="pareo"?{a:"",b:""}:t==="corta"?{acepta:[""]}:t==="num"?{r:0,tol:0.01}:{guia:""})});
+const nuevaParte=t=>({id:uid(),tipo:t,titulo:TIPOS[t].n,instrucciones:TIPOS[t].ins,items:[nuevoItem(t)],extras:[]});
+const nuevoEx=()=>({materia_id:null,titulo:"",instrucciones:"Lea con atención cada parte. Trabaje en forma individual. Al terminar, presione «Entregar examen».",fecha:hoyISO(),inicio:null,cierre:null,duracion:80,peso:20,mezclar:true,mostrar_resultados:false,publicado:false,indicador_id:null,partes:[]});
+const itemsDe=ex=>(ex.partes||[]).flatMap(p=>(p.items||[]).map(it=>({p,it})));
+const totalPts=ex=>itemsDe(ex).reduce((s,{it})=>s+(+it.pts||0),0);
+
+// ── Corrección automática ──
+const norm=s=>String(s??"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^\w\s%]/g," ").replace(/\s+/g," ").trim();
+function parseNum(v){let s=String(v??"").replace(/[₡$\s]/g,"").replace(/[^\d.,-]/g,"");if(!s)return NaN;
+  const lc=s.lastIndexOf(","),lp=s.lastIndexOf(".");
+  if(lc>-1&&lp>-1){if(lc>lp)s=s.replace(/\./g,"").replace(",",".");else s=s.replace(/,/g,"")}
+  else if(lc>-1){s=/^-?\d{1,3}(,\d{3})+$/.test(s)?s.replace(/,/g,""):s.replace(",",".")}
+  else if(lp>-1&&/^-?\d{1,3}(\.\d{3})+$/.test(s))s=s.replace(/\./g,"");
+  return Number(s)}
+const respondido=v=>!(v===undefined||v===null||String(v).trim()==="");
+// Devuelve los puntos automáticos de un ítem, o null si se califica a mano.
+function autoItem(p,it,v){const pts=+it.pts||0;
+  if(!respondido(v))return 0;
+  if(p.tipo==="des")return null;
+  if(p.tipo==="sel")return +v===+it.r?pts:0;
+  if(p.tipo==="fv")return (v==="V")===!!it.r?pts:0;
+  if(p.tipo==="pareo")return v===it.id?pts:0;
+  if(p.tipo==="num"){const n=parseNum(v);return !isNaN(n)&&Math.abs(n-(+it.r||0))<=Math.max(+it.tol||0,0.005)?pts:0}
+  if(p.tipo==="corta"){const a=norm(v);return (it.acepta||[]).some(x=>norm(x)&&norm(x)===a)?pts:null} // si no coincide, lo revisa el profe
+  return 0}
+function calificar(ex,resp,manual){const auto={},pend=[];let tot=0;
+  for(const {p,it} of itemsDe(ex)){const m=manual&&manual[it.id];
+    const a=autoItem(p,it,resp[it.id]);auto[it.id]=a;
+    const v=m!==undefined&&m!==null&&m!==""?+m:a;
+    if(v===null){pend.push(it.id);continue}tot+=v}
+  return {auto,pend,total:Math.round(tot*100)/100}}
+const verResp=(p,it,v)=>{if(!respondido(v))return '<span class="muted">(sin responder)</span>';
+  if(p.tipo==="sel")return esc(it.o[+v]??"—");if(p.tipo==="fv")return v==="V"?"Verdadero":"Falso";
+  if(p.tipo==="pareo"){const b=p.items.find(x=>x.id===v);return esc(b?b.b:(p.extras||[])[+String(v).replace("x","")]??"—")}
+  return nl(v)};
+const verCorrecta=(p,it)=>p.tipo==="sel"?esc(it.o[it.r]):p.tipo==="fv"?(it.r?"Verdadero":"Falso"):p.tipo==="pareo"?esc(it.b):p.tipo==="num"?fmtPts(it.r)+(+it.tol?` <small class="muted">(± ${fmtPts(it.tol)})</small>`:""):p.tipo==="corta"?(it.acepta||[]).filter(Boolean).map(esc).join(" · "):(it.guia?nl(it.guia):'<span class="muted">Se califica a mano</span>');
+
+// ── Orden mezclado (el mismo para cada estudiante en cada intento) ──
+function rng(seed){let h=1779033703^seed.length;for(let i=0;i<seed.length;i++){h=Math.imul(h^seed.charCodeAt(i),3432918353);h=h<<13|h>>>19}
+  return()=>{h=Math.imul(h^h>>>16,2246822507);h=Math.imul(h^h>>>13,3266489909);return((h^=h>>>16)>>>0)/4294967296}}
+function mezclar(arr,r){const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+
+// ── Datos ──
+const S={mats:[],exs:[]};
+async function cargarMaterias(){
+  if(DOC){const {data}=await sb.from("materias").select("*").order("nombre");S.mats=data||[]}
+  else if(EST_ID){const {data:em}=await sb.from("estudiante_materias").select("materia_id").eq("estudiante_id",EST_ID);const ids=(em||[]).map(x=>x.materia_id);
+    const {data}=ids.length?await sb.from("materias").select("*").in("id",ids):{data:[]};S.mats=data||[]}}
+const nomMat=id=>{const m=S.mats.find(x=>+x.id===+id);return m?String(m.nombre||"").trim()+(m.seccion?" · "+m.seccion:""):"(sin sección)"};
+async function cargarExamenes(){const {data,error}=await sb.from("trabajos_cotidianos").select("id,titulo,fecha,habilitado,indicador_id,contenido_actividad").eq("contenido_actividad->>estrategia",ESTR).order("id",{ascending:false});
+  if(error)throw error;S.exs=(data||[]).map(t=>({...t,ex:{...nuevoEx(),...((t.contenido_actividad||{}).ex||{})}}));return S.exs}
+async function guardarExamen(t){const ex=t.ex;const fila={titulo:ex.titulo||"Examen",fecha:ex.fecha||hoyISO(),habilitado:!!ex.publicado,tipo_actividad:"rubrica_directa",contenido_actividad:{...(t.contenido_actividad||{}),estrategia:ESTR,ex}};
+  if(ex.indicador_id)fila.indicador_id=ex.indicador_id;
+  if(t.id){const {error}=await sb.from("trabajos_cotidianos").update(fila).eq("id",t.id);if(error)throw error}
+  else{const {data,error}=await sb.from("trabajos_cotidianos").insert(fila).select("id").maybeSingle();if(error)throw error;t.id=data.id}
+  // Mantiene al día el total de puntos y el porcentaje de su registro en «Pruebas».
+  if(ex.indicador_id)await sb.from("indicadores").update({descripcion:ex.titulo,puntaje_maximo:totalPts(ex),peso_prueba:+ex.peso||0,fecha_evaluacion:ex.fecha}).eq("id",ex.indicador_id);
+  return t}
+
+// ── Arranque ──
+async function iniciar(){
+  if(!SES){$("#app").innerHTML=`<div class="card"><h2>Inicie sesión en la plataforma</h2><p>Para entrar a los exámenes, primero ingrese a la plataforma con su usuario y vuelva a abrir <b>📝 Exámenes</b> desde ahí.</p><a class="btn" href="index.html">Ir a la plataforma</a></div>`;return}
+  $("#quien").textContent=DOC?"👩‍🏫 Profesor":"👤 "+(SES.nombre||EST_ID);
+  try{if(typeof bitacoraRegistrar==="function")bitacoraRegistrar("examenes")}catch(e){}
+  await cargarMaterias();window.addEventListener("hashchange",ruta);ruta()}
+async function ruta(){const h=location.hash.replace(/^#\/?/,"").split("/");
+  if(RUN&&!RUN.entregado&&!RUN.previa&&h[0]!=="hacer")guardarAvance();
+  if(RUN){clearInterval(RUN.timer);RUN=null}document.removeEventListener("visibilitychange",salida);document.querySelector("header.top").classList.remove("hidden");
+  try{
+    if(DOC){if(h[0]==="nuevo")return editor(null);if(h[0]==="editar")return editor(+h[1]);if(h[0]==="previa")return previa(+h[1]);if(h[0]==="resultados")return resultados(+h[1]);return listaProfe()}
+    if(h[0]==="hacer")return hacer(+h[1]);return listaEst()
+  }catch(e){console.error(e);$("#app").innerHTML=`<div class="card"><b>No se pudo cargar.</b><p class="muted">${esc(e.message||e)}</p><button onclick="location.reload()">Reintentar</button></div>`}}
+
+// ═══════════════════ PROFESOR ═══════════════════
+async function listaProfe(){$("#app").innerHTML='<p class="muted">Cargando exámenes…</p>';await cargarExamenes();
+  const ids=S.exs.map(t=>t.id);const {data:ae}=ids.length?await sb.from("actividades_estudiante").select("trabajo_id,completado").in("trabajo_id",ids):{data:[]};
+  const cnt={};(ae||[]).forEach(a=>{cnt[a.trabajo_id]=cnt[a.trabajo_id]||{e:0,c:0};cnt[a.trabajo_id][a.completado?"e":"c"]++});
+  $("#app").innerHTML=`<div class="row" style="margin:4px 0 14px"><div style="margin-right:auto"><h1>📝 Exámenes</h1><p class="muted" style="margin:0">Arme el examen como borrador, revíselo como estudiante y publíquelo cuando esté listo.</p></div><button class="pri" onclick="location.hash='#/nuevo'">＋ Nuevo examen</button></div>
+  ${S.exs.length?S.exs.map(t=>{const ex=t.ex,c=cnt[t.id]||{e:0,c:0},n=itemsDe(ex).length;
+    return `<div class="card"><div class="row" style="align-items:flex-start"><div style="margin-right:auto;min-width:220px">
+      <h2 style="margin:0 0 4px">${esc(ex.titulo||"(sin título)")}</h2>
+      <div class="row small"><span class="chip ${ex.publicado?"ok":"warn"}">${ex.publicado?"📢 Publicado":"✏️ Borrador (los estudiantes no lo ven)"}</span><span class="chip">${esc(nomMat(ex.materia_id))}</span><span class="chip">${n} ítems · ${fmtPts(totalPts(ex))} pts</span><span class="chip">${fmtPts(ex.peso)} %</span></div>
+      <p class="small muted" style="margin:6px 0 0">Inicia: ${fmtFH(ex.inicio)}${ex.cierre?" · Cierra: "+fmtFH(ex.cierre):""}${ex.duracion?" · "+ex.duracion+" min":""}${ex.publicado||c.e||c.c?` · <b>${c.e}</b> entregados${c.c?`, ${c.c} en curso`:""}`:""}</p></div>
+      <div class="row"><button onclick="location.hash='#/editar/${t.id}'">✏️ Editar</button><button onclick="location.hash='#/previa/${t.id}'">👁 Ver como estudiante</button><button onclick="location.hash='#/resultados/${t.id}'">📊 Resultados</button>
+      <button class="${ex.publicado?"":"pri"}" data-pub="${t.id}">${ex.publicado?"🙈 Ocultar":"📢 Publicar"}</button><button data-print="${t.id}">🖨️ Imprimir</button><button data-dup="${t.id}">⧉ Duplicar</button>${!ex.publicado&&!ex.indicador_id&&!(c.e||c.c)?`<button class="danger" data-del="${t.id}">🗑</button>`:""}</div></div></div>`}).join(""):`<div class="card"><p>Todavía no hay exámenes. Toque <b>＋ Nuevo examen</b> para armar el primero.</p></div>`}`;
+  $$("[data-pub]").forEach(b=>b.onclick=()=>publicar(S.exs.find(t=>t.id===+b.dataset.pub),b));
+  $$("[data-print]").forEach(b=>b.onclick=()=>imprimir(S.exs.find(t=>t.id===+b.dataset.print)));
+  $$("[data-dup]").forEach(b=>b.onclick=async()=>{const t=S.exs.find(x=>x.id===+b.dataset.dup);const ex=clone(t.ex);ex.titulo+=" (copia)";ex.publicado=false;ex.indicador_id=null;
+    const sel=prompt("¿Para qué sección es la copia?\n"+S.mats.map((m,i)=>`${i+1}. ${nomMat(m.id)}`).join("\n"),"1");if(sel===null)return;const m=S.mats[(+sel||1)-1];if(m)ex.materia_id=m.id;
+    try{await guardarExamen({ex});toast("Copia creada como borrador");listaProfe()}catch(e){alert("No se pudo: "+e.message)}});
+  $$("[data-del]").forEach(b=>b.onclick=async()=>{if(!confirm("¿Borrar este borrador? No tiene entregas ni notas."))return;await sb.from("trabajos_cotidianos").delete().eq("id",+b.dataset.del);listaProfe()})}
+
+function validar(ex){const e=[];if(!ex.titulo.trim())e.push("Falta el título.");if(!ex.materia_id)e.push("Falta la sección.");if(!ex.inicio)e.push("Falta la fecha y hora de inicio.");if(!(+ex.peso>0))e.push("Falta el porcentaje de la prueba.");
+  const its=itemsDe(ex);if(!its.length)e.push("El examen no tiene preguntas.");
+  its.forEach(({p,it},i)=>{const n=`Parte «${p.titulo}», ítem ${p.items.indexOf(it)+1}`;
+    if(!(+it.pts>0))e.push(n+": falta el puntaje.");
+    if(p.tipo==="pareo"){if(!it.a.trim()||!it.b.trim())e.push(n+": falta la columna A o la B.")}else if(!String(it.txt||"").trim())e.push(n+": falta el enunciado.");
+    if(p.tipo==="sel"&&(it.o.filter(o=>o.trim()).length<2||!String(it.o[it.r]||"").trim()))e.push(n+": revise las opciones y la correcta.");
+    if(p.tipo==="corta"&&!(it.acepta||[]).some(x=>x.trim()))e.push(n+": escriba al menos una respuesta aceptada.");});
+  return e}
+async function publicar(t,btn){const ex=t.ex;
+  if(ex.publicado){if(!confirm("¿Ocultar el examen? Los estudiantes dejan de verlo. Las respuestas y notas que ya existan no se borran."))return;
+    ex.publicado=false;btn.disabled=true;await guardarExamen(t);toast("🙈 Examen oculto");return listaProfe()}
+  const er=validar(ex);if(er.length)return alert("Antes de publicar, corrija:\n\n• "+er.join("\n• "));
+  if(!confirm(`¿Publicar «${ex.titulo}» en ${nomMat(ex.materia_id)}?\n\n• ${itemsDe(ex).length} ítems · ${fmtPts(totalPts(ex))} puntos · ${fmtPts(ex.peso)} %\n• Inicia: ${fmtFH(ex.inicio)}${ex.cierre?"\n• Cierra: "+fmtFH(ex.cierre):""}\n\nSe registra en «Pruebas» con sus puntos reales.`))return;
+  btn.disabled=true;
+  try{if(!ex.indicador_id){const {data:o}=await sb.from("indicadores").select("orden").eq("materia_id",ex.materia_id).eq("categoria","Pruebas").order("orden",{ascending:false}).limit(1);
+      const base={materia_id:ex.materia_id,categoria:"Pruebas",descripcion:ex.titulo,puntaje_maximo:totalPts(ex),fecha_evaluacion:ex.fecha,peso_prueba:+ex.peso||0,orden:((o&&o[0]&&o[0].orden)||0)+1,resultado_id:null};
+      let r=await sb.from("indicadores").insert({...base,letra:""}).select("id").maybeSingle();
+      if(r.error)r=await sb.from("indicadores").insert({...base,letra:"P"}).select("id").maybeSingle();
+      if(r.error)throw r.error;ex.indicador_id=r.data.id}
+    ex.publicado=true;ex.publicado_el=new Date().toISOString();await guardarExamen(t);toast("📢 Examen publicado");listaProfe()}
+  catch(e){btn.disabled=false;alert("No se pudo publicar: "+(e.message||e))}}
+
+// ── Editor ──
+let ED=null,EDsucio=false;
+window.addEventListener("beforeunload",e=>{if(EDsucio&&location.hash.startsWith("#/editar")||EDsucio&&location.hash==="#/nuevo"){e.preventDefault();e.returnValue=""}});
+async function editor(id){if(!S.exs.length)await cargarExamenes();
+  const t=id?S.exs.find(x=>x.id===id):null;if(id&&!t)throw new Error("No se encontró el examen.");
+  ED=t?{...t,ex:clone(t.ex)}:{ex:nuevoEx()};if(!ED.ex.materia_id&&S.mats[0])ED.ex.materia_id=S.mats[0].id;EDsucio=false;pintarEditor()}
+function pintarEditor(){const ex=ED.ex;
+  $("#app").innerHTML=`<div class="row" style="margin:4px 0 12px"><h1 style="margin-right:auto">${ED.id?"✏️ Editar examen":"＋ Nuevo examen"}</h1><button onclick="salirEditor()">← Exámenes</button><button class="pri" id="edGuardar">💾 Guardar</button></div>
+  ${ex.publicado?`<div class="aviso">📢 Este examen está <b>publicado</b>. Si cambia preguntas o puntos, las entregas que ya existan se recalculan con la versión nueva en 📊 Resultados.</div>`:""}
+  <div class="card"><h2>Datos generales</h2><div class="grid">
+    <label class="f" style="grid-column:1/-1">Título<input data-g="titulo" value="${esc(ex.titulo)}" placeholder="Ej.: Prueba escrita de Gestión Contable · II Período"></label>
+    <label class="f">Sección<select data-g="materia_id">${S.mats.map(m=>`<option value="${m.id}" ${+m.id===+ex.materia_id?"selected":""}>${esc(nomMat(m.id))}</option>`).join("")}</select></label>
+    <label class="f">Fecha de la prueba<input type="date" data-g="fecha" value="${esc(ex.fecha)}"></label>
+    <label class="f">Inicia (fecha y hora)<input type="datetime-local" data-g="inicio" value="${aLocal(ex.inicio)}"></label>
+    <label class="f">Cierra (opcional)<input type="datetime-local" data-g="cierre" value="${aLocal(ex.cierre)}"></label>
+    <label class="f">Duración (minutos, 0 = sin límite)<input type="number" min="0" data-g="duracion" value="${esc(ex.duracion||0)}"></label>
+    <label class="f">Porcentaje de la prueba (%)<input type="number" min="0" step="0.5" data-g="peso" value="${esc(ex.peso)}"></label>
+    <label class="f" style="grid-column:1/-1">Instrucciones generales<textarea data-g="instrucciones">${esc(ex.instrucciones)}</textarea></label>
+    <label class="row small"><input type="checkbox" data-g="mezclar" ${ex.mezclar?"checked":""}> Mezclar el orden de los ítems y de las opciones para cada estudiante</label>
+    <label class="row small"><input type="checkbox" data-g="mostrar_resultados" ${ex.mostrar_resultados?"checked":""}> Mostrar a cada estudiante su nota y las respuestas correctas después de entregar</label>
+  </div><p class="small muted" style="margin:10px 0 0">Total: <b id="edTot">${fmtPts(totalPts(ex))}</b> puntos · ${itemsDe(ex).length} ítems. Se califica con puntos reales y aporta su propio ${fmtPts(ex.peso)} % en «Pruebas».</p></div>
+  ${ex.partes.map((p,pi)=>parteEdHTML(p,pi)).join("")}
+  <div class="card"><h3>＋ Agregar una parte</h3><div class="row">${Object.entries(TIPOS).map(([k,v])=>`<button data-addp="${k}">${v.ic} ${v.n}</button>`).join("")}</div></div>
+  <div class="row" style="justify-content:flex-end"><button class="pri" id="edGuardar2">💾 Guardar</button></div>`;
+  ligarEditor()}
+function parteEdHTML(p,pi){const T=TIPOS[p.tipo];
+  return `<div class="card" data-pi="${pi}"><div class="row" style="margin:0 0 8px"><b style="margin-right:auto">Parte ${pi+1} · ${T.ic} ${T.n} <span class="muted small">(${fmtPts(p.items.reduce((s,i)=>s+(+i.pts||0),0))} pts)</span></b>
+    <button class="sm" data-pmov="-1" ${pi?"":"disabled"}>↑</button><button class="sm" data-pmov="1">↓</button><button class="sm danger" data-pdel>Quitar parte</button></div>
+    <div class="grid"><label class="f">Título de la parte<input data-p="titulo" value="${esc(p.titulo)}"></label><label class="f" style="grid-column:span 2">Instrucciones<input data-p="instrucciones" value="${esc(p.instrucciones)}"></label></div>
+    ${p.items.map((it,ii)=>itemEdHTML(p,it,ii)).join("")}
+    ${p.tipo==="pareo"?`<label class="f" style="margin-top:8px">Opciones extra de la columna B que no corresponden a nada (una por línea, opcional)<textarea data-p="extras">${esc((p.extras||[]).join("\n"))}</textarea></label>`:""}
+    <div class="row" style="margin-top:8px"><button class="sm" data-addi>＋ Agregar ${p.tipo==="pareo"?"par":"ítem"}</button><button class="sm" data-ptsall>Mismo puntaje a todos</button></div></div>`}
+function itemEdHTML(p,it,ii){const pts=`<label class="f" style="max-width:110px">Puntos<input type="number" min="0" step="0.5" data-i="pts" value="${esc(it.pts)}"></label>`;
+  const ctl=`<div class="row"><b class="muted small" style="margin-right:auto">${ii+1}.</b><button class="sm" data-imov="-1" ${ii?"":"disabled"}>↑</button><button class="sm" data-imov="1">↓</button><button class="sm danger" data-idel>✕</button></div>`;
+  let cuerpo="";
+  if(p.tipo==="pareo")cuerpo=`<div class="grid"><label class="f">Columna A (enunciado)<input data-i="a" value="${esc(it.a)}"></label><label class="f">Columna B (respuesta que le corresponde)<input data-i="b" value="${esc(it.b)}"></label>${pts}</div>`;
+  else{cuerpo=`<label class="f">Enunciado<textarea data-i="txt" rows="2">${esc(it.txt)}</textarea></label><div class="row" style="align-items:flex-end;margin-top:6px">`;
+    if(p.tipo==="sel")cuerpo+=`<div style="flex:1 1 400px">${it.o.map((o,k)=>`<div class="row" style="margin:3px 0;flex-wrap:nowrap"><input type="radio" name="r_${it.id}" data-r="${k}" ${+it.r===k?"checked":""} title="Correcta"><b class="small">${"abcdefgh"[k]})</b><input data-o="${k}" value="${esc(o)}" placeholder="Opción ${"abcdefgh"[k]}"><button class="sm" data-odel="${k}" ${it.o.length>2?"":"disabled"}>✕</button></div>`).join("")}<button class="sm" data-oadd ${it.o.length>=6?"disabled":""}>＋ Opción</button> <span class="small muted">Marque el círculo de la correcta.</span></div>`;
+    if(p.tipo==="fv")cuerpo+=`<label class="f" style="max-width:180px">Respuesta correcta<select data-i="r"><option value="1" ${it.r?"selected":""}>Verdadero</option><option value="0" ${it.r?"":"selected"}>Falso</option></select></label>`;
+    if(p.tipo==="corta")cuerpo+=`<label class="f" style="flex:1 1 300px">Respuestas aceptadas (una por línea; no importan mayúsculas ni tildes)<textarea data-i="acepta" rows="2">${esc((it.acepta||[]).join("\n"))}</textarea></label>`;
+    if(p.tipo==="num")cuerpo+=`<label class="f" style="max-width:200px">Resultado correcto<input data-i="r" inputmode="decimal" value="${esc(it.r)}"></label><label class="f" style="max-width:160px">Margen aceptado (±)<input data-i="tol" inputmode="decimal" value="${esc(it.tol)}"></label>`;
+    if(p.tipo==="des")cuerpo+=`<label class="f" style="flex:1 1 400px">Solución o guía para calificar (solo la ve el profe)<textarea data-i="guia" rows="2">${esc(it.guia)}</textarea></label>`;
+    cuerpo+=pts+"</div>"}
+  return `<div class="ed-item" data-ii="${ii}">${ctl}${cuerpo}</div>`}
+function ligarEditor(){const ex=ED.ex,ap=$("#app");
+  const sucio=()=>{EDsucio=true;const t=$("#edTot");if(t)t.textContent=fmtPts(totalPts(ex))};
+  ap.querySelectorAll("[data-g]").forEach(el=>el.oninput=el.onchange=()=>{const k=el.dataset.g;
+    ex[k]=el.type==="checkbox"?el.checked:k==="inicio"||k==="cierre"?deLocal(el.value):k==="materia_id"?+el.value:k==="duracion"||k==="peso"?+el.value||0:el.value;sucio()});
+  ap.querySelectorAll("[data-pi]").forEach(card=>{const p=ex.partes[+card.dataset.pi];
+    card.querySelectorAll("[data-p]").forEach(el=>el.oninput=()=>{const k=el.dataset.p;p[k]=k==="extras"?el.value.split("\n").map(s=>s.trim()).filter(Boolean):el.value;sucio()});
+    card.querySelector("[data-pdel]").onclick=()=>{if(confirm("¿Quitar esta parte y sus ítems?")){ex.partes.splice(+card.dataset.pi,1);sucio();pintarEditor()}};
+    card.querySelectorAll("[data-pmov]").forEach(b=>b.onclick=()=>{const i=+card.dataset.pi,j=i+ +b.dataset.pmov;if(j<0||j>=ex.partes.length)return;[ex.partes[i],ex.partes[j]]=[ex.partes[j],ex.partes[i]];sucio();pintarEditor()});
+    card.querySelector("[data-addi]").onclick=()=>{p.items.push(nuevoItem(p.tipo));const u=p.items[p.items.length-2];if(u)p.items[p.items.length-1].pts=u.pts;sucio();pintarEditor()};
+    card.querySelector("[data-ptsall]").onclick=()=>{const v=prompt("Puntos para cada ítem de esta parte:","1");if(v===null)return;p.items.forEach(i=>i.pts=+v||0);sucio();pintarEditor()};
+    card.querySelectorAll("[data-ii]").forEach(box=>{const ii=+box.dataset.ii,it=p.items[ii];
+      box.querySelectorAll("[data-i]").forEach(el=>el.oninput=el.onchange=()=>{const k=el.dataset.i;
+        it[k]=k==="pts"?+el.value||0:k==="acepta"?el.value.split("\n"):k==="r"&&p.tipo==="fv"?el.value==="1":k==="r"||k==="tol"?parseNum(el.value)||0:el.value;sucio()});
+      box.querySelectorAll("[data-o]").forEach(el=>el.oninput=()=>{it.o[+el.dataset.o]=el.value;sucio()});
+      box.querySelectorAll("[data-r]").forEach(el=>el.onchange=()=>{it.r=+el.dataset.r;sucio()});
+      box.querySelectorAll("[data-odel]").forEach(b=>b.onclick=()=>{const k=+b.dataset.odel;it.o.splice(k,1);if(it.r>=it.o.length||it.r===k)it.r=0;else if(it.r>k)it.r--;sucio();pintarEditor()});
+      const oa=box.querySelector("[data-oadd]");if(oa)oa.onclick=()=>{it.o.push("");sucio();pintarEditor()};
+      box.querySelector("[data-idel]").onclick=()=>{p.items.splice(ii,1);sucio();pintarEditor()};
+      box.querySelectorAll("[data-imov]").forEach(b=>b.onclick=()=>{const j=ii+ +b.dataset.imov;if(j<0||j>=p.items.length)return;[p.items[ii],p.items[j]]=[p.items[j],p.items[ii]];sucio();pintarEditor()})})});
+  ap.querySelectorAll("[data-addp]").forEach(b=>b.onclick=()=>{ex.partes.push(nuevaParte(b.dataset.addp));sucio();pintarEditor();window.scrollTo(0,document.body.scrollHeight)});
+  const g=async b=>{b.disabled=true;try{if(ex.publicado){const er=validar(ex);if(er.length&&!confirm("El examen publicado tiene pendientes:\n• "+er.join("\n• ")+"\n\n¿Guardar de todos modos?")){b.disabled=false;return}}
+      await guardarExamen(ED);EDsucio=false;const i=S.exs.findIndex(x=>x.id===ED.id);if(i>-1)S.exs[i]={...ED,ex:clone(ED.ex)};else S.exs.unshift({...ED,ex:clone(ED.ex)});
+      toast("💾 Guardado");if(location.hash!=="#/editar/"+ED.id)history.replaceState(null,"","#/editar/"+ED.id)}catch(e){alert("No se pudo guardar: "+(e.message||e))}b.disabled=false};
+  $("#edGuardar").onclick=e=>g(e.currentTarget);$("#edGuardar2").onclick=e=>g(e.currentTarget)}
+window.salirEditor=()=>{if(EDsucio&&!confirm("Hay cambios sin guardar. ¿Salir sin guardar?"))return;EDsucio=false;location.hash="#/"};
+
+// ── Vista previa (como estudiante, no guarda nada) ──
+async function previa(id){if(!S.exs.length)await cargarExamenes();const t=S.exs.find(x=>x.id===id);if(!t)throw new Error("No se encontró el examen.");
+  pintarExamen(t,{previa:true,dp:{semilla:"previa-"+Date.now()},resp:{}})}
+
+// ── Resultados y calificación ──
+async function resultados(id){$("#app").innerHTML='<p class="muted">Cargando resultados…</p>';await cargarExamenes();const t=S.exs.find(x=>x.id===id);if(!t)throw new Error("No se encontró el examen.");const ex=t.ex;
+  const [{data:em},{data:ae}]=await Promise.all([sb.from("estudiante_materias").select("estudiante_id").eq("materia_id",ex.materia_id),sb.from("actividades_estudiante").select("*").eq("trabajo_id",t.id)]);
+  const ids=(em||[]).map(x=>x.estudiante_id);const {data:es}=ids.length?await sb.from("estudiantes").select("id,nombre,apellido1,apellido2").in("id",ids):{data:[]};
+  const {data:cal}=ex.indicador_id?await sb.from("calificaciones_indicador").select("estudiante_id,puntaje_obtenido").eq("indicador_id",ex.indicador_id):{data:[]};
+  const notaReg={};(cal||[]).forEach(c=>notaReg[c.estudiante_id]=c.puntaje_obtenido);
+  const tot=totalPts(ex);
+  const filas=(es||[]).map(e=>{const a=(ae||[]).find(x=>x.estudiante_id===e.id),dp=(a&&a.datos_prueba)||{},c=a?calificar(ex,a.respuestas||{},dp.manual||{}):null;
+    return {e,a,dp,c,nom:[e.apellido1,e.apellido2,e.nombre].filter(Boolean).join(" ")}}).sort((x,y)=>x.nom.localeCompare(y.nom,"es"));
+  const ent=filas.filter(f=>f.a&&f.a.completado),pend=ent.filter(f=>f.c.pend.length).length;
+  $("#app").innerHTML=`<div class="row" style="margin:4px 0 12px"><div style="margin-right:auto"><h1>📊 ${esc(ex.titulo)}</h1><p class="muted" style="margin:0">${esc(nomMat(ex.materia_id))} · ${fmtPts(tot)} puntos · ${fmtPts(ex.peso)} %</p></div><button onclick="location.hash='#/'">← Exámenes</button></div>
+   <div class="card"><div class="row"><span class="chip ok">${ent.length} entregados</span><span class="chip warn">${filas.filter(f=>f.a&&!f.a.completado).length} en curso</span><span class="chip">${filas.filter(f=>!f.a).length} sin iniciar</span>${pend?`<span class="chip bad">${pend} con ítems por calificar a mano</span>`:""}
+     <span style="margin-left:auto"></span>${ex.indicador_id?`<button class="pri" id="regTodos" ${ent.length?"":"disabled"}>📥 Pasar notas a «Pruebas»</button>`:'<span class="small muted">Se registra en «Pruebas» al publicarlo.</span>'}</div>
+   <p class="small muted" style="margin:8px 0 0">La nota se pasa sola a «Pruebas» cuando el examen no tiene ítems de desarrollo. Si tiene, califíquelos en <b>Calificar</b> y luego use <b>Pasar notas a «Pruebas»</b>.</p></div>
+   <div class="card tbl"><table><thead><tr><th>Estudiante</th><th>Estado</th><th class="r">Puntos</th><th class="r">Nota</th><th class="r">Aporte</th><th class="r">En «Pruebas»</th><th>Salidas</th><th></th></tr></thead><tbody>
+   ${filas.map(f=>{const est=!f.a?'<span class="chip">Sin iniciar</span>':f.a.completado?`<span class="chip ok">Entregado</span><br><small class="muted">${fmtFH(f.dp.entregado_ts||f.a.actualizado_en)}</small>`:`<span class="chip warn">En curso</span><br><small class="muted">desde ${fmtFH(f.dp.inicio_ts)}</small>`;
+     const pts=f.c?f.c.total:null,nota=pts!=null&&tot?pts/tot*100:null;
+     return `<tr><td><b>${esc(f.nom)}</b><br><small class="muted">${esc(f.e.id)}</small></td><td>${est}${f.c&&f.c.pend.length&&f.a.completado?`<br><span class="chip bad">${f.c.pend.length} por calificar</span>`:""}</td>
+      <td class="r">${pts!=null?fmtPts(pts)+" / "+fmtPts(tot):"—"}</td><td class="r">${nota!=null?fmtPts(nota)+" %":"—"}</td><td class="r">${nota!=null?fmtPts(nota*(+ex.peso||0)/100)+" %":"—"}</td>
+      <td class="r">${notaReg[f.e.id]!=null?fmtPts(notaReg[f.e.id])+" pts":"—"}</td><td>${f.a&&f.a.intentos_salida?`<span class="chip warn">${f.a.intentos_salida}</span>`:""}</td>
+      <td><div class="row">${f.a?`<button class="sm" data-cal="${esc(f.e.id)}">✍️ Calificar</button>`:""}${f.a&&f.a.completado?`<button class="sm" data-reab="${esc(f.e.id)}" title="Le permite seguir respondiendo">↺ Reabrir</button>`:""}</div></td></tr>`}).join("")||'<tr><td colspan="8">No hay estudiantes en esta sección.</td></tr>'}
+   </tbody></table></div>`;
+  $$("[data-cal]").forEach(b=>b.onclick=()=>calificarEst(t,filas.find(f=>f.e.id===b.dataset.cal)));
+  $$("[data-reab]").forEach(b=>b.onclick=async()=>{const f=filas.find(x=>x.e.id===b.dataset.reab);if(!confirm(`¿Reabrir el examen de ${f.nom}? Conserva lo que respondió y puede seguir hasta la hora de cierre.${ex.duracion?" El tiempo vuelve a contar desde que entre.":""}`))return;
+    const dp={...f.dp,reabierto_ts:new Date().toISOString(),inicio_ts:ex.duracion?null:f.dp.inicio_ts};
+    await sb.from("actividades_estudiante").update({completado:false,datos_prueba:dp}).eq("id",f.a.id);toast("Reabierto");resultados(id)});
+  const rt=$("#regTodos");if(rt)rt.onclick=async()=>{const listos=ent.filter(f=>!f.c.pend.length),faltan=ent.length-listos.length;
+    if(!confirm(`Se pasan a «Pruebas» los puntos de ${listos.length} estudiante(s).${faltan?`\n${faltan} tienen ítems sin calificar y no se pasan todavía.`:""}`))return;
+    rt.disabled=true;let ok=0;for(const f of listos){const r=await registrarNota(ex,f.e.id,f.c.total);if(!r.error)ok++}toast(`📥 ${ok} notas en «Pruebas»`);resultados(id)}}
+async function registrarNota(ex,estId,pts){if(!ex.indicador_id)return {error:"sin registro"};
+  return upsertSinConflicto("calificaciones_indicador",{indicador_id:ex.indicador_id,estudiante_id:estId},{puntaje_obtenido:Math.round(pts*100)/100})}
+function revisionHTML(ex,resp,dp,{editable,paraEst}={}){const man=(dp&&dp.manual)||{};
+  return ex.partes.map((p,pi)=>`<div class="parte"><h3>Parte ${pi+1}. ${esc(p.titulo)} <span class="muted small">(${fmtPts(p.items.reduce((s,i)=>s+(+i.pts||0),0))} pts)</span></h3>
+   ${p.items.map((it,ii)=>{const v=resp[it.id],a=autoItem(p,it,v),m=man[it.id],val=m!==undefined&&m!==null&&m!==""?+m:a,pts=+it.pts||0;
+     const est=val===null?'<span class="chip bad">Por calificar</span>':val>=pts?'<span class="ok-t">✔</span>':val>0?'<span class="chip warn">Parcial</span>':'<span class="bad-t">✘</span>';
+     return `<div class="item"><div class="row" style="align-items:flex-start"><p class="q" style="margin-right:auto;flex:1">${ii+1}. ${p.tipo==="pareo"?esc(it.a):nl(it.txt)}</p>${est}</div>
+      <div class="small"><b>Respuesta:</b> ${verResp(p,it,v)}</div>
+      ${paraEst&&p.tipo==="des"?"":`<div class="small"><b>${p.tipo==="des"?"Guía":"Correcta"}:</b> ${verCorrecta(p,it)}</div>`}
+      <div class="row small" style="margin-top:6px">${editable?`<label class="row">Puntos: <input type="number" min="0" max="${pts}" step="0.25" data-man="${it.id}" value="${val===null?"":val}" style="width:90px"> / ${fmtPts(pts)}</label>${a!==null&&m!=null&&m!==""&&+m!==a?`<small class="muted">(automático: ${fmtPts(a)})</small>`:""}`:`<b>${val===null?"—":fmtPts(val)} / ${fmtPts(pts)} pts</b>`}</div></div>`}).join("")}</div>`).join("")}
+function calificarEst(t,f){const ex=t.ex,resp=(f.a&&f.a.respuestas)||{},dp=f.dp||{};
+  abrirDlg("✍️ "+f.nom,`<p class="muted small" style="margin:0 0 10px">Lo automático ya viene calificado; puede cambiar cualquier puntaje. Los ítems de desarrollo y las respuestas cortas que no coincidieron quedan «Por calificar».</p>
+   ${revisionHTML(ex,resp,dp,{editable:true})}
+   <div class="row" style="position:sticky;bottom:0;background:var(--card);padding:10px 0;border-top:1px solid var(--line)"><b id="calTot" style="margin-right:auto"></b><button class="pri" id="calGuardar">💾 Guardar${ex.indicador_id?" y pasar a «Pruebas»":""}</button></div>`);
+  const leer=()=>{const man={...(dp.manual||{})};$$("[data-man]",dlg).forEach(i=>{const it=itemsDe(ex).find(x=>x.it.id===i.dataset.man);const a=autoItem(it.p,it.it,resp[i.dataset.man]);
+      if(i.value==="")delete man[i.dataset.man];else{const v=Math.max(0,Math.min(+it.it.pts||0,+i.value));if(v!==a)man[i.dataset.man]=v;else delete man[i.dataset.man]}});return man};
+  const pintaTot=()=>{const c=calificar(ex,resp,leer()),tot=totalPts(ex);$("#calTot").textContent=`Total: ${fmtPts(c.total)} / ${fmtPts(tot)} pts · ${fmtPts(tot?c.total/tot*100:0)} %${c.pend.length?` · ${c.pend.length} por calificar`:""}`};
+  $$("[data-man]",dlg).forEach(i=>i.oninput=pintaTot);pintaTot();
+  $("#calGuardar").onclick=async e=>{const b=e.currentTarget;const man=leer(),c=calificar(ex,resp,man);
+    if(c.pend.length&&!confirm(`Quedan ${c.pend.length} ítem(s) sin calificar (cuentan 0). ¿Guardar así?`))return;
+    b.disabled=true;const tot=totalPts(ex);const ndp={...dp,manual:man,puntos_obtenidos_total:c.total,puntos_totales:tot,calificado_ts:new Date().toISOString()};
+    let r=f.a?await sb.from("actividades_estudiante").update({datos_prueba:ndp,puntaje:c.total,porcentaje:tot?Math.round(c.total/tot*1000)/10:0}).eq("id",f.a.id):{error:null};
+    if(!r.error&&f.a&&f.a.completado)r=await registrarNota(ex,f.e.id,c.total);
+    if(r.error){b.disabled=false;return alert("No se pudo guardar: "+(r.error.message||r.error))}
+    toast("💾 Calificación guardada");dlg.close();resultados(t.id)}}
+
+// ── Imprimir (versión en papel o solucionario) ──
+function imprimir(t){const ex=t.ex,sol=confirm("¿Imprimir con las respuestas correctas (solucionario)?\n\nAceptar = solucionario · Cancelar = examen para el estudiante");
+  const w=open("","_blank");if(!w)return alert("Permita las ventanas emergentes para imprimir.");
+  const partes=ex.partes.map((p,pi)=>{const its=p.items;
+    let cuerpo="";
+    if(p.tipo==="pareo"){const B=mezclar([...its.map(i=>i.b),...(p.extras||[])],rng("imp"+t.id));
+      cuerpo=`<table style="width:100%;border-collapse:collapse"><tr><td style="width:50%;vertical-align:top">${its.map((i,k)=>`<p>(${sol?"abcdefghijklmnopqrstuvwxyz"[B.indexOf(i.b)]:"&nbsp;&nbsp;&nbsp;"}) ${k+1}. ${esc(i.a)}</p>`).join("")}</td><td style="vertical-align:top">${B.map((b,k)=>`<p>${"abcdefghijklmnopqrstuvwxyz"[k]}. ${esc(b)}</p>`).join("")}</td></tr></table>`}
+    else cuerpo=its.map((it,k)=>`<div style="margin:0 0 12px;page-break-inside:avoid"><p style="margin:0 0 4px"><b>${k+1}.</b> ${p.tipo==="fv"?`( ${sol?(it.r?"V":"F"):"&nbsp;&nbsp;"} ) `:""}${nl(it.txt)} <i>(${fmtPts(it.pts)} pts)</i></p>
+      ${p.tipo==="sel"?it.o.map((o,j)=>`<p style="margin:2px 0 2px 18px">${sol&&j===+it.r?"<b>☒":"☐"} ${"abcdefgh"[j]}) ${esc(o)}${sol&&j===+it.r?"</b>":""}</p>`).join(""):""}
+      ${p.tipo==="corta"||p.tipo==="num"?`<p style="margin:4px 0 0 18px">${sol?"<b>R/ "+verCorrecta(p,it)+"</b>":"R/ _______________________________"}</p>`:""}
+      ${p.tipo==="des"?(sol&&it.guia?`<p style="margin:4px 0 0 18px"><b>Guía:</b> ${nl(it.guia)}</p>`:'<div style="height:120px;border:1px solid #bbb;margin:6px 0 0 18px"></div>'):""}</div>`).join("");
+    return `<h3 style="margin:18px 0 4px">Parte ${pi+1}. ${esc(p.titulo)} (${fmtPts(its.reduce((s,i)=>s+(+i.pts||0),0))} pts)</h3><p style="margin:0 0 8px"><i>${esc(p.instrucciones)}</i></p>${cuerpo}`}).join("");
+  w.document.write(`<html><head><meta charset="utf-8"><title>${esc(ex.titulo)}${sol?" · Solucionario":""}</title><style>body{font:12pt/1.4 Arial,sans-serif;color:#000;padding:24px}table.h td{border:1px solid #888;padding:4px 8px}</style></head><body>
+   <h2 style="text-align:center;margin:0">CTP Mercedes Norte · Especialidad de Contabilidad</h2><h3 style="text-align:center;margin:4px 0 12px">${esc(ex.titulo)}${sol?" · SOLUCIONARIO":""}</h3>
+   <table class="h" style="width:100%;border-collapse:collapse;margin:0 0 10px"><tr><td>Nombre: </td><td>Sección: ${esc(nomMat(ex.materia_id))}</td><td>Fecha: ${esc(ex.fecha)}</td></tr><tr><td>Puntos totales: ${fmtPts(totalPts(ex))}</td><td>Puntos obtenidos:</td><td>Porcentaje: ${fmtPts(ex.peso)} %</td></tr></table>
+   <p><b>Instrucciones generales:</b> ${nl(ex.instrucciones)}</p>${partes}</body></html>`);w.document.close();setTimeout(()=>w.print(),400)}
+
+// ═══════════════════ ESTUDIANTE ═══════════════════
+function estadoEx(ex,a){const ahora=Date.now();
+  if(a&&a.completado)return {k:"entregado",t:"Entregado"};
+  if(ex.inicio&&ahora<new Date(ex.inicio))return {k:"pronto",t:"Disponible desde "+fmtFH(ex.inicio)};
+  if(ex.cierre&&ahora>new Date(ex.cierre))return {k:"cerrado",t:"Cerrado"};
+  return {k:"abierto",t:a?"En curso":"Disponible"}}
+async function listaEst(){$("#app").innerHTML='<p class="muted">Cargando…</p>';await cargarExamenes();
+  const mios=S.exs.filter(t=>t.habilitado&&t.ex.publicado&&S.mats.some(m=>+m.id===+t.ex.materia_id));
+  const {data:ae}=mios.length?await sb.from("actividades_estudiante").select("trabajo_id,completado,puntaje,datos_prueba").eq("estudiante_id",EST_ID).in("trabajo_id",mios.map(t=>t.id)):{data:[]};
+  $("#app").innerHTML=`<h1>📝 Mis exámenes</h1>${mios.length?mios.map(t=>{const ex=t.ex,a=(ae||[]).find(x=>x.trabajo_id===t.id),st=estadoEx(ex,a);
+    return `<div class="card"><div class="row"><div style="margin-right:auto"><h2 style="margin:0 0 4px">${esc(ex.titulo)}</h2><div class="row small"><span class="chip ${st.k==="entregado"?"ok":st.k==="abierto"?"pri":st.k==="cerrado"?"bad":"warn"}">${esc(st.t)}</span><span class="chip">${fmtPts(totalPts(ex))} pts</span><span class="chip">${fmtPts(ex.peso)} %</span>${ex.duracion?`<span class="chip">⏱ ${ex.duracion} min</span>`:""}</div>
+      ${st.k==="entregado"&&ex.mostrar_resultados&&a&&a.datos_prueba&&a.datos_prueba.puntos_obtenidos_total!=null?`<p style="margin:6px 0 0"><b>Resultado: ${fmtPts(a.datos_prueba.puntos_obtenidos_total)} / ${fmtPts(totalPts(ex))} pts</b></p>`:""}</div>
+      ${st.k==="abierto"?`<button class="pri" onclick="location.hash='#/hacer/${t.id}'">${a?"▶ Continuar":"▶ Iniciar"}</button>`:st.k==="entregado"&&ex.mostrar_resultados?`<button onclick="location.hash='#/hacer/${t.id}'">👁 Ver revisión</button>`:""}</div></div>`}).join(""):'<div class="card"><p>No tiene exámenes publicados por ahora.</p></div>'}`}
+
+let RUN=null;
+async function hacer(id){await cargarExamenes();const t=S.exs.find(x=>x.id===id&&x.habilitado&&x.ex.publicado);if(!t)throw new Error("Este examen no está disponible.");
+  const ex=t.ex;if(!S.mats.some(m=>+m.id===+ex.materia_id))throw new Error("Este examen no es de su sección.");
+  const {data:a}=await sb.from("actividades_estudiante").select("*").eq("trabajo_id",t.id).eq("estudiante_id",EST_ID).limit(1).maybeSingle();
+  const st=estadoEx(ex,a);
+  if(st.k==="entregado"){const dp=a.datos_prueba||{};
+    $("#app").innerHTML=`<div class="card"><h1>${esc(ex.titulo)}</h1><div class="aviso ok">✅ Examen entregado el ${fmtFH(dp.entregado_ts||a.actualizado_en)}.</div>${ex.mostrar_resultados?`<h2>Resultado: ${fmtPts(dp.puntos_obtenidos_total??a.puntaje)} / ${fmtPts(totalPts(ex))} pts</h2>${calificar(ex,a.respuestas||{},dp.manual).pend.length?'<p class="muted">Algunos ítems todavía los está calificando el profe.</p>':""}${revisionHTML(ex,a.respuestas||{},dp,{paraEst:true})}`:'<p>Su profe le dará el resultado cuando lo revise.</p>'}<button onclick="location.hash='#/'">← Mis exámenes</button></div>`;return}
+  // Si ya había empezado y se le acabó la hora de cierre, se abre para que se entregue solo con lo guardado.
+  const empezado=a&&(a.datos_prueba||{}).inicio_ts;
+  if(st.k==="cerrado"&&empezado)return pintarExamen(t,{a,dp:a.datos_prueba,resp:{...(a.respuestas||{})}});
+  if(st.k!=="abierto")return $("#app").innerHTML=`<div class="card"><h1>${esc(ex.titulo)}</h1><p>${esc(st.t)}.</p><button onclick="location.hash='#/'">← Mis exámenes</button></div>`;
+  if(!a||!(a.datos_prueba||{}).inicio_ts){
+    $("#app").innerHTML=`<div class="card"><h1>${esc(ex.titulo)}</h1><p><b>Instrucciones generales:</b><br>${nl(ex.instrucciones)}</p>
+     <ul><li>${itemsDe(ex).length} ítems en ${ex.partes.length} partes · <b>${fmtPts(totalPts(ex))} puntos</b> · vale ${fmtPts(ex.peso)} % de la nota.</li>${ex.duracion?`<li>Tiene <b>${ex.duracion} minutos</b> desde que toque «Comenzar». Al terminarse el tiempo, el examen se entrega solo.</li>`:""}${ex.cierre?`<li>Cierra: <b>${fmtFH(ex.cierre)}</b>.</li>`:""}
+     <li>Sus respuestas se guardan solas mientras avanza. Se entrega <b>una sola vez</b>.</li><li>Las salidas de esta pantalla quedan registradas para su profe.</li></ul>
+     <div class="row"><button class="pri" id="comenzar">▶ Comenzar el examen</button><button onclick="location.hash='#/'">Volver</button></div></div>`;
+    $("#comenzar").onclick=async e=>{e.currentTarget.disabled=true;const dp={...((a&&a.datos_prueba)||{}),inicio_ts:new Date().toISOString(),semilla:(a&&a.datos_prueba&&a.datos_prueba.semilla)||EST_ID+"-"+t.id};
+      const r=await upsertSinConflicto("actividades_estudiante",{trabajo_id:t.id,estudiante_id:EST_ID},{respuestas:(a&&a.respuestas)||{},completado:false,datos_prueba:dp,actualizado_en:new Date().toISOString()});
+      if(r.error){e.currentTarget.disabled=false;return alert("No se pudo iniciar: "+r.error.message)}hacer(id)};return}
+  pintarExamen(t,{a,dp:a.datos_prueba,resp:{...(a.respuestas||{})}})}
+
+function pintarExamen(t,{previa,a,dp,resp}){const ex=t.ex,R=rng(dp.semilla||"x");
+  try{const bk=JSON.parse(localStorage.getItem("examen_"+t.id+"_"+EST_ID)||"null");if(!previa&&bk&&bk.t>(a&&a.actualizado_en?new Date(a.actualizado_en).getTime():0))Object.assign(resp,bk.r)}catch(e){}
+  const fin=previa?null:(()=>{const xs=[];if(ex.duracion&&dp.inicio_ts)xs.push(new Date(dp.inicio_ts).getTime()+ex.duracion*60000);if(ex.cierre)xs.push(new Date(ex.cierre).getTime());return xs.length?Math.min(...xs):null})();
+  RUN={t,ex,a,dp,resp,previa,fin,salidas:(a&&a.intentos_salida)||0,timer:null,guardar:null,entregado:false};
+  const letras="abcdefghijklmnopqrstuvwxyz";
+  const partesHTML=ex.partes.map((p,pi)=>{const its=ex.mezclar&&p.tipo!=="pareo"?mezclar(p.items,R):p.items;let cuerpo="";
+    if(p.tipo==="pareo"){const B=mezclar([...p.items.map(i=>({v:i.id,t:i.b})),...(p.extras||[]).map((x,k)=>({v:"x"+k,t:x}))],R);
+      cuerpo=`<div class="grid" style="grid-template-columns:1fr 1fr"><div>${(ex.mezclar?mezclar(p.items,R):p.items).map((it,k)=>`<div class="item"><p class="q">${k+1}. ${esc(it.a)} <span class="muted small">(${fmtPts(it.pts)} pts)</span></p><select data-resp="${it.id}"><option value="">— Elija —</option>${B.map((b,j)=>`<option value="${esc(b.v)}" ${resp[it.id]===b.v?"selected":""}>${letras[j]}. ${esc(b.t.length>60?b.t.slice(0,60)+"…":b.t)}</option>`).join("")}</select></div>`).join("")}</div>
+       <div class="item"><b>Columna B</b>${B.map((b,j)=>`<p style="margin:6px 0"><b>${letras[j]}.</b> ${esc(b.t)}</p>`).join("")}</div></div>`}
+    else cuerpo=its.map((it,k)=>{const v=resp[it.id];let ctl="";
+      if(p.tipo==="sel"){const ord=ex.mezclar?mezclar(it.o.map((o,j)=>j).filter(j=>String(it.o[j]).trim()),R):it.o.map((o,j)=>j).filter(j=>String(it.o[j]).trim());
+        ctl=ord.map((j,n)=>`<label class="opc ${+v===j&&respondido(v)?"sel":""}"><input type="radio" name="o_${it.id}" data-resp="${it.id}" value="${j}" ${+v===j&&respondido(v)?"checked":""}><span><b>${letras[n]})</b> ${esc(it.o[j])}</span></label>`).join("")}
+      else if(p.tipo==="fv")ctl=`<div class="row">${["V","F"].map(x=>`<label class="opc ${v===x?"sel":""}" style="flex:0 0 auto"><input type="radio" name="o_${it.id}" data-resp="${it.id}" value="${x}" ${v===x?"checked":""}><span>${x==="V"?"Verdadero":"Falso"}</span></label>`).join("")}</div>`;
+      else if(p.tipo==="num")ctl=`<input data-resp="${it.id}" inputmode="decimal" value="${esc(v??"")}" placeholder="Resultado" style="max-width:260px">`;
+      else if(p.tipo==="corta")ctl=`<input data-resp="${it.id}" value="${esc(v??"")}" placeholder="Respuesta">`;
+      else ctl=`<textarea data-resp="${it.id}" rows="6" placeholder="Escriba aquí su desarrollo">${esc(v??"")}</textarea>`;
+      return `<div class="item"><p class="q">${k+1}. ${nl(it.txt)} <span class="muted small">(${fmtPts(it.pts)} pts)</span></p>${ctl}</div>`}).join("");
+    return `<section class="parte"><h2>Parte ${pi+1}. ${esc(p.titulo)} <span class="muted small">(${fmtPts(p.items.reduce((s,i)=>s+(+i.pts||0),0))} pts)</span></h2><p class="muted" style="margin:0 0 6px"><i>${esc(p.instrucciones)}</i></p>${cuerpo}</section>`}).join("");
+  document.querySelector("header.top").classList.add("hidden");
+  $("#app").innerHTML=`<div class="barra" style="margin:-16px -16px 14px">${previa?`<span class="chip warn">👁 Vista previa: así lo ven los estudiantes. No se guarda nada.</span>`:""}<b style="margin-right:auto">${esc(ex.titulo)}</b><span id="prog" class="small muted"></span>${fin?`<span class="reloj" id="reloj"></span>`:""}<span id="estGuard" class="small muted"></span>
+     ${previa?`<button onclick="salirPrevia()">← Salir</button>`:""}<button class="pri" id="entregar">${previa?"Revisar como entregado":"📤 Entregar examen"}</button></div>
+    <div class="card"><h1>${esc(ex.titulo)}</h1><p class="small muted" style="margin:0 0 6px">${esc(nomMat(ex.materia_id))} · ${fmtPts(totalPts(ex))} puntos · ${fmtPts(ex.peso)} %</p><p style="margin:0">${nl(ex.instrucciones)}</p></div>
+    <div class="card ${previa?"":"no-sel"}" id="cuerpo">${partesHTML}</div>
+    <div class="row noprint" style="justify-content:flex-end;margin-bottom:40px"><button class="pri" id="entregar2">${previa?"Revisar como entregado":"📤 Entregar examen"}</button></div>`;
+  const prog=()=>{const n=itemsDe(ex).length,r=itemsDe(ex).filter(({it})=>respondido(resp[it.id])).length;$("#prog").textContent=`${r} de ${n} respondidos`};prog();
+  $$("[data-resp]").forEach(el=>{const h=()=>{const id=el.dataset.resp;
+      if(el.type==="radio"){if(!el.checked)return;resp[id]=el.value;$$(`input[name="${el.name}"]`).forEach(x=>x.closest(".opc").classList.toggle("sel",x.checked))}else resp[id]=el.value;
+      prog();if(!previa)programarGuardado()};el.addEventListener(el.tagName==="SELECT"||el.type==="radio"?"change":"input",h)});
+  if(!previa){document.addEventListener("contextmenu",bloq);document.addEventListener("copy",bloq);document.addEventListener("visibilitychange",salida)}
+  const ent=()=>entregar();$("#entregar").onclick=ent;$("#entregar2").onclick=ent;
+  if(fin){const tick=()=>{const ms=fin-Date.now(),el=$("#reloj");if(!el)return clearInterval(RUN.timer);
+      if(ms<=0){clearInterval(RUN.timer);el.textContent="⏱ 0:00";if(!RUN.entregado){alert("⏱ Se terminó el tiempo. Su examen se entrega ahora con lo que respondió.");entregar(true)}return}
+      const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60),ss=s%60;el.textContent="⏱ "+(h?h+":"+String(m).padStart(2,"0"):m)+":"+String(ss).padStart(2,"0");el.classList.toggle("poco",ms<5*60000)};
+    tick();RUN.timer=setInterval(tick,1000)}
+  window.scrollTo(0,0)}
+const bloq=e=>{if(RUN&&!RUN.previa)e.preventDefault()};
+function salida(){if(!RUN||RUN.previa||RUN.entregado||document.visibilityState!=="hidden")return;RUN.salidas++;programarGuardado(true)}
+let tGuard=null;
+function programarGuardado(ya){if(!RUN||RUN.previa)return;try{localStorage.setItem("examen_"+RUN.t.id+"_"+EST_ID,JSON.stringify({t:Date.now(),r:RUN.resp}))}catch(e){}
+  const e=$("#estGuard");if(e)e.textContent="Guardando…";clearTimeout(tGuard);tGuard=setTimeout(guardarAvance,ya?10:1200)}
+async function guardarAvance(){if(!RUN||RUN.entregado)return;const r=await upsertSinConflicto("actividades_estudiante",{trabajo_id:RUN.t.id,estudiante_id:EST_ID},{respuestas:RUN.resp,intentos_salida:RUN.salidas,completado:false,actualizado_en:new Date().toISOString()});
+  const e=$("#estGuard");if(e)e.textContent=r.error?"⚠️ Sin conexión: se guarda en este equipo":"✓ Guardado"}
+async function entregar(forzado){if(!RUN||RUN.entregado)return;const {t,ex,resp,previa}=RUN;
+  const sin=itemsDe(ex).filter(({it})=>!respondido(resp[it.id])).length;
+  if(!forzado&&!confirm((sin?`Le faltan ${sin} ítem(s) por responder.\n\n`:"")+(previa?"¿Ver la revisión como si se hubiera entregado?":"¿Entregar el examen? Ya no podrá cambiar sus respuestas.")))return;
+  const c=calificar(ex,resp,{}),tot=totalPts(ex);
+  if(previa){RUN.entregado=true;clearInterval(RUN.timer);$("#app").innerHTML=`<div class="barra" style="margin:-16px -16px 14px"><span class="chip warn">👁 Vista previa</span><b style="margin-right:auto">${esc(ex.titulo)}</b><button onclick="salirPrevia()">← Salir</button></div>
+     <div class="card"><h2>Resultado automático: ${fmtPts(c.total)} / ${fmtPts(tot)} pts${c.pend.length?` · ${c.pend.length} ítem(s) se califican a mano`:""}</h2>${revisionHTML(ex,resp,{})}</div>`;window.scrollTo(0,0);return}
+  RUN.entregado=true;clearInterval(RUN.timer);clearTimeout(tGuard);
+  const b=$("#entregar");if(b){b.disabled=true;b.textContent="Entregando…"}
+  const dp={...(RUN.dp||{}),entregado_ts:new Date().toISOString(),puntos_obtenidos_total:c.total,puntos_totales:tot,por_calificar:c.pend.length,auto_entrega:!!forzado};
+  const r=await upsertSinConflicto("actividades_estudiante",{trabajo_id:t.id,estudiante_id:EST_ID},{respuestas:resp,completado:true,puntaje:c.total,porcentaje:tot?Math.round(c.total/tot*1000)/10:0,intentos_salida:RUN.salidas,datos_prueba:dp,actualizado_en:new Date().toISOString()});
+  if(r.error){RUN.entregado=false;if(b){b.disabled=false;b.textContent="📤 Entregar examen"}return alert("No se pudo entregar (revise la conexión) y vuelva a tocar «Entregar». Sus respuestas siguen guardadas en este equipo.\n\n"+r.error.message)}
+  if(!c.pend.length)await registrarNota(ex,EST_ID,c.total);
+  try{localStorage.removeItem("examen_"+t.id+"_"+EST_ID)}catch(e){}
+  document.removeEventListener("visibilitychange",salida);document.querySelector("header.top").classList.remove("hidden");
+  $("#app").innerHTML=`<div class="card"><h1>✅ Examen entregado</h1><p>${esc(ex.titulo)} · ${fmtFH(dp.entregado_ts)}</p>${ex.mostrar_resultados?`<h2>Resultado: ${fmtPts(c.total)} / ${fmtPts(tot)} pts</h2>${c.pend.length?'<p class="muted">Algunos ítems los califica su profe.</p>':""}`:'<p>Su profe le dará el resultado cuando lo revise.</p>'}<button onclick="location.hash='#/'">← Mis exámenes</button></div>`;window.scrollTo(0,0)}
+window.salirPrevia=()=>{clearInterval(RUN&&RUN.timer);RUN=null;document.querySelector("header.top").classList.remove("hidden");location.hash="#/"};
+iniciar();
+</script>
+</body>
+</html>

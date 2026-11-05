@@ -7,7 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 const BITACORA_TABLA = "bitacora_ingresos";
-const BITACORA_MODULOS = { plataforma: "🏫 Plataforma", aula_conta: "🧮 Aula de Conta", liquidaciones: "📑 Liquidaciones", memoria: "🧠 Memoria Contable", seguros: "🛡️ Misión Seguros", laboral: "⚖️ Ruta Laboral CR" };
+const BITACORA_MODULOS = { plataforma: "🏫 Plataforma", examenes: "📝 Exámenes", aula_conta: "🧮 Aula de Conta", liquidaciones: "📑 Liquidaciones", memoria: "🧠 Memoria Contable", seguros: "🛡️ Misión Seguros", laboral: "⚖️ Ruta Laboral CR" };
 const BITACORA_AVISO = "🔒 Tus ingresos a la plataforma quedan registrados (fecha, hora y módulo) en una bitácora que ve tu profe.";
 const BITACORA_SQL = `create table if not exists public.bitacora_ingresos (
   id bigserial primary key,

@@ -270,6 +270,7 @@ async function renderHome() {
     { grupo: "estrategias", href: "#/evaluaciones", icono: "📊", titulo: "Rúbrica y Evaluaciones", sub: "Categorías e indicadores de nota", cta: "Ver rúbrica →" },
     { grupo: "estrategias", href: "#/estrategias", icono: "🧪", titulo: "Estrategias de evaluación", sub: `Catálogo de ${Object.keys(ESTRATEGIAS_EVALUACION).length} estrategias para trabajos asignados`, cta: "Ver catálogo →" },
     { grupo: "estrategias", href: "#/mediacion", icono: "🎓", titulo: "Estrategias de mediación", sub: `Catálogo de ${Object.keys(ESTRATEGIAS_MEDIACION).length} formas de dar la clase, con pasos y guía en vivo`, cta: "Ver catálogo →" },
+    { grupo: "estrategias", href: "examen.html", icono: "📝", titulo: "Exámenes", sub: "Arme la prueba como borrador, revísela como estudiante y publíquela en la sección (puntos reales y su propio %)", cta: "Abrir exámenes →" },
     { grupo: "estrategias", href: "#/evaluacion", icono: "📑", titulo: "Evaluación", sub: "Por sección: indicadores, trabajo que realizaron los estudiantes y notas, en PDF", cta: "Ver evaluación →" },
     { grupo: "estrategias", href: "#/notas-periodo", icono: "📄", titulo: "Notas por período", sub: "Acta del I Período, nota del II Período y nota anual según el MEP (50 % + 50 %), con PDF", cta: "Ver notas →" },
     { grupo: "estrategias", href: "#/bitacora", icono: "🕓", titulo: "Bitácora de ingresos", sub: "Quién entró a la plataforma, cuándo, a qué módulo y desde qué dispositivo", cta: "Ver bitácora →" },
@@ -2807,7 +2808,7 @@ async function actividadGuardadaDesde(desdeISO) {
 // (Mismo estilo que los Accesos rápidos del docente. Los grupos se pueden reorganizar aquí.)
 function gruposMenuEstudiante(s) {
   return [
-    { k: "notas", ic: "📝", t: "Mis notas", sub: "Trabajo cotidiano, notas, tareas, rúbrica y asistencia", items: [["tc", "📋", "Trabajo cotidiano"], ["notas", "📝", "Notas y Tareas"], ["rubrica", "📊", "Rúbrica"], ["asistencia", "🗓️", "Asistencia"]] },
+    { k: "notas", ic: "📝", t: "Mis notas", sub: "Trabajo cotidiano, notas, tareas, rúbrica y asistencia", items: [["link:examen.html", "📝", "Exámenes"], ["tc", "📋", "Trabajo cotidiano"], ["notas", "📝", "Notas y Tareas"], ["rubrica", "📊", "Rúbrica"], ["asistencia", "🗓️", "Asistencia"]] },
     { k: "materias", ic: "📚", t: "Mis materias", sub: "Temas, trabajos y material de clase", items: [["materias-est", "📚", "Materias"], ...(esSeccion113(s.seccion) ? [["infografias", "🖼️", "Mis infografías"]] : [])] },
     { k: "juegos", ic: "🎮", t: "Juegos y simuladores", sub: "Aula de Conta, ContaRed, Liquidaciones, La Tiradera, Planilla Opoly, Misión Seguros y Ruta Laboral CR", items: [
       ["link:" + AULA_CONTABLE_URL + "?como_estudiante=" + encodeURIComponent(s.id), "🧮", "Aula de Conta"],
