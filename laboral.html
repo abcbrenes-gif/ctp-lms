@@ -7,7 +7,7 @@
 <!-- Conexión con la plataforma (si el archivo se abre suelto, el juego funciona igual sin esto). -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="js/config.js?v=20261030i" onerror="void 0"></script>
-<script src="js/actividades.js?v=20261104g" onerror="void 0"></script>
+<script src="js/actividades.js?v=20261105d" onerror="void 0"></script>
 <script src="js/bitacora.js?v=20261103j" onerror="void 0"></script>
 <style>
 :root{
@@ -551,10 +551,13 @@ async function crearPaqueteLab(btn,materiaId){
       const descs=[`Identifica los conceptos y las reglas del Código de Trabajo y del MTSS en ${que[0]} de «${P.titulo}» (${tema}).`,`Aplica la normativa laboral para decidir los derechos de la persona trabajadora en ${que[1]} de «${P.titulo}» (${tema}).`,`Calcula los montos y los días según los procedimientos del MTSS en ${que[2]} de «${P.titulo}» (${tema}).`];
       const niv=k=>[[0,"Sin evidencia",`No realiza el trabajo o responde correctamente menos del 35 % de ${que[k]}.`],[1,"Inicial",`Responde correctamente entre el 35 % y el 59 % de ${que[k]}.`],[2,"Intermedio",`Responde correctamente entre el 60 % y el 84 % de ${que[k]}.`],[3,"Avanzado",`Responde correctamente el 85 % o más de ${que[k]}.`]];
       const i1=await crearIndicador(materiaId,descs[0],hoy,null,niv(0));const base=String(i1.letra);await sb.from("indicadores").update({letra:base+"1"}).eq("id",i1.id);
-      indsCrit=[i1.id];for(const k of [1,2]){const ik=await crearIndicador(materiaId,descs[k],hoy,base+(k+1),niv(k));indsCrit.push(ik.id)}ind=i1}
+      indsCrit=[i1.id];for(const k of [1,2]){const ik=await crearIndicador(materiaId,descs[k],hoy,base+(k+1),niv(k));indsCrit.push(ik.id)}ind=i1;
+      // Los criterios del trabajo son los mismos indicadores (texto y niveles).
+      P._crit=LAB_CRIT.map((c,k)=>{const n=niv(k);return {...c,nombre:descs[k],letra:base+(k+1),indicador_id:indsCrit[k],niveles:{avanzado:n[3][2],intermedio:n[2][2],inicial:n[1][2]}}});
+      P._indTxt=descs.map((d,k)=>`${base}${k+1}: ${d}`).join("\n")}
     const C={estrategia:ESTR,lab_tipo:P.tipo,...(indsCrit.length?{indicadores_criterio:indsCrit}:{}),materia_id:materiaId,lab_desc:P.desc,lab_ic:P.ic,lab_pj:P.pj,lab_pasos:P.pasos,
-      criterios:ev?LAB_CRIT.map(c=>({...c,niveles:typeof tiraderaNivelesDe==="function"?tiraderaNivelesDe(c):undefined})):[],
-      lab_instrumento:{componente:ev?"Trabajo cotidiano":"Práctica",tipo:"Escala de desempeño",subarea:"",unidad:"Legislación laboral: contratos, aguinaldo, vacaciones, preaviso y cesantía",resultado:"",indicador:P.desc}};
+      criterios:ev?(P._crit||LAB_CRIT.map(c=>({...c,niveles:typeof tiraderaNivelesDe==="function"?tiraderaNivelesDe(c):undefined}))):[],
+      lab_instrumento:{componente:ev?"Trabajo cotidiano":"Práctica",tipo:"Escala de desempeño",subarea:"",unidad:"Legislación laboral: contratos, aguinaldo, vacaciones, preaviso y cesantía",resultado:"",indicador:P._indTxt||P.desc}};
     const {data,error}=await sb.from("trabajos_cotidianos").insert({titulo:P.titulo,fecha:hoy,tipo_actividad:"rubrica_directa",habilitado:false,indicador_id:ind?ind.id:null,contenido_actividad:C}).select("id").maybeSingle();
     if(error||!data){for(const x of indsCrit)await sb.from("indicadores").delete().eq("id",x);throw new Error(error?error.message:"sin respuesta")}ids.push(data.id)}}
   catch(e){alert("No se pudo crear todo: "+(e.message||e))}
