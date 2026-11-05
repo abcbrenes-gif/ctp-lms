@@ -304,10 +304,10 @@ function jugar(mi){
 // Motor de cada misión. modo: "libre" (juego), "diaria" (práctica del profe, con
 // pistas) o "evaluativa" (trabajo cotidiano: una sola respuesta por paso, sin pistas).
 function jugarMision(m,ctx){
-  const st=ctx.st,mi=ctx.mi,EVAL=ctx.modo==="evaluativa";let intentos=0,resuelto=false;
+  const st=ctx.st,mi=ctx.mi,EVAL=ctx.modo==="evaluativa";let intentos=0,resuelto=false,tries=[];
   const pinta=()=>{
     const p=m.pasos[st.paso];if(!p)return fin();
-    intentos=0;resuelto=p.k==="intro";
+    intentos=0;tries=[];resuelto=p.k==="intro";
     $("#app").innerHTML=`<div class="actions" style="margin:0 0 12px"><button class="sec" onclick="irA('${ctx.back}')">← Volver</button><span class="chip">${m.ic} ${ctx.titulo}</span>${EVAL?'<span class="chip" style="color:var(--amber)">📝 Trabajo cotidiano · una sola respuesta por paso</span>':""}</div>
     <div class="scene"><div class="avatar"><div class="face" aria-hidden="true">${m.pj.f}</div><div><b>${m.pj.n}</b><small>${m.pj.r}</small></div></div>
     <div class="card bubble"><div class="stepbar" aria-hidden="true">${m.pasos.map((_,i)=>`<i class="${i<=st.paso?"on":""}"></i>`).join("")}</div>
@@ -327,7 +327,10 @@ function jugarMision(m,ctx){
   const zona=p=>p.k==="mc"?`<div class="opts">${p.o.map((o,i)=>`<button class="opt" data-o="${i}"><span class="l">${"ABCD"[i]}</span>${o}</button>`).join("")}</div>`
     :p.k==="tf"?`<div class="opts" style="grid-template-columns:1fr 1fr"><button class="opt" data-tf="1"><span class="l">✔</span>Verdadero</button><button class="opt" data-tf="0"><span class="l">✘</span>Falso</button></div>`
     :p.k==="num"?`<div class="numrow"><input id="num" inputmode="decimal" placeholder="${p.u?"Escribe los "+p.u:"Escribe el monto en colones"}" aria-label="Respuesta"><span class="u">${p.u||"₡"}</span><button id="chk">${EVAL?"📌 Registrar respuesta":"✅ Comprobar"}</button></div>`:"";
-  const registrar=rec=>{ctx.onRes&&ctx.onRes(st.paso,{...rec,c:m.pasos[st.paso].c||null})};
+  // Se guarda lo que respondió el estudiante: el valor final (v) y todos sus intentos.
+  const registrar=rec=>{const r={...rec,c:m.pasos[st.paso].c||null,t:new Date().toISOString()};
+    if(tries.length){r.intentosV=tries.slice();if(r.v===undefined)r.v=tries[tries.length-1]}
+    ctx.onRes&&ctx.onRes(st.paso,r);if(ctx.modo==="libre")guardarRespLibre(m,st.paso,r)};
   const premio=()=>{registrar({ok:intentos===1,intentos});const g=intentos===1?20:intentos===2?12:6;E.xp+=g;st.xp=(st.xp||0)+g;E.racha++;E.mejorRacha=Math.max(E.mejorRacha,E.racha);resuelto=true;$("#sig").disabled=false;$("#sig").focus();
     const antes=medallas().filter(x=>x.on).length;guardar();stats();sfx("ok");if(E.racha>0&&E.racha%5===0)toast(`🔥 ¡Racha de ${E.racha}!`);
     const ahora=medallas().filter(x=>x.on).length;if(ahora>antes)toast("🏅 ¡Nueva medalla desbloqueada!");return g};
@@ -345,11 +348,11 @@ function jugarMision(m,ctx){
         chk.onclick=go;inp.onkeydown=e=>{if(e.key==="Enter")go()}}
       return}
     if(p.k==="mc"||p.k==="tf"){document.querySelectorAll("#zona .opt").forEach(b=>b.onclick=()=>{if(resuelto)return;intentos++;
-      const ok=p.k==="mc"?+b.dataset.o===p.r:(b.dataset.tf==="1")===p.r;
+      const ok=p.k==="mc"?+b.dataset.o===p.r:(b.dataset.tf==="1")===p.r;tries.push(p.k==="mc"?+b.dataset.o:b.dataset.tf==="1");
       if(ok){b.classList.add("good");document.querySelectorAll("#zona .opt").forEach(x=>x.disabled=true);const g=premio();fb("ok",`🎉 ¡Correcto! +${g} XP<small>${p.ex}</small>${p.ley?`<span class="law">📜 ${p.ley}</span>`:""}`,"¡Correcto! "+p.ex)}
       else{b.classList.add("bad");b.disabled=true;fallo();fb("bad",`😬 No es esa. ¡Inténtalo otra vez!${intentos>=2?`<small>Pista: ${p.ex.split(".")[0]}.</small>`:""}`,"No es esa. Inténtalo otra vez.")}})}
     if(p.k==="num"){const inp=$("#num"),chk=$("#chk");const leer=v=>{let s=String(v).replace(/[₡\s]/g,"");if(/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s))s=s.replace(/\./g,"").replace(",",".");else if(/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(s))s=s.replace(/,/g,"");else s=s.replace(",",".");return Number(s)};
-      const go=()=>{if(resuelto)return;const v=leer(inp.value);if(!inp.value||!isFinite(v)){fb("tip","✍️ Escribe un número.");return}intentos++;
+      const go=()=>{if(resuelto)return;const v=leer(inp.value);if(!inp.value||!isFinite(v)){fb("tip","✍️ Escribe un número.");return}intentos++;tries.push(v);
         if(Math.abs(v-p.ok)<=(p.tol||1)){inp.disabled=true;chk.disabled=true;const g=premio();fb("ok",`🎉 ¡Exacto! ${p.u?p.ok+" "+p.u:C(Math.round(p.ok*100)/100)} · +${g} XP${p.sol?`<small>${p.sol}</small>`:""}`,"¡Exacto! "+(p.sol||""))}
         else{fallo();if(intentos>=3){inp.disabled=true;chk.disabled=true;resuelto=true;$("#sig").disabled=false;registrar({ok:false,intentos});fb("tip",`💡 La respuesta era <b>${p.u?p.ok+" "+p.u:C(Math.round(p.ok*100)/100)}</b>.<small>${p.ayuda}${p.sol?" · "+p.sol:""}</small>`,"La respuesta era "+(p.u?p.ok+" "+p.u:C(Math.round(p.ok*100)/100)))}
           else fb("bad",`🤔 Todavía no.<small>Pista: ${p.ayuda}</small>`,"Todavía no. Pista: "+p.ayuda)}};
@@ -456,6 +459,40 @@ const PAQ_LAB=[
 
 const ACT={lista:null,mats:[],mis:[],mias:{},nombres:{}};
 const escH=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+// ═══ Respuestas del juego libre (las 6 misiones del mapa) ═══
+// Se guardan en un registro de la plataforma (estrategia "ruta_laboral_registro"):
+// actividades_estudiante.datos_prueba.libre = { <misión>: { <paso>: {v, ok, intentosV, t} } }.
+const REG_LAB="ruta_laboral_registro";let REG_LAB_ID=null,LIB=null,tLib=null;
+async function idRegLab(crear){if(REG_LAB_ID||!HAY_BD())return REG_LAB_ID;
+  const {data}=await sb.from("trabajos_cotidianos").select("id").eq("contenido_actividad->>estrategia",REG_LAB).limit(1);
+  if(data&&data[0])return REG_LAB_ID=data[0].id;if(!crear)return null;
+  const r=await sb.from("trabajos_cotidianos").insert({titulo:"Ruta Laboral · respuestas del juego libre (registro, no borrar)",tipo_actividad:"rubrica_directa",habilitado:false,contenido_actividad:{estrategia:REG_LAB}}).select("id").maybeSingle();
+  return REG_LAB_ID=r.data&&r.data.id}
+async function guardarRespLibre(m,paso,rec){if(!EST_ID||!HAY_BD())return;
+  try{const id=await idRegLab(true);if(!id)return;
+    if(!LIB){const {data}=await sb.from("actividades_estudiante").select("datos_prueba").eq("trabajo_id",id).eq("estudiante_id",EST_ID).maybeSingle();LIB=(data&&data.datos_prueba&&data.datos_prueba.libre)||{}}
+    LIB[m.id]=LIB[m.id]||{};LIB[m.id][paso]=rec;
+    clearTimeout(tLib);tLib=setTimeout(()=>upsertSinConflicto("actividades_estudiante",{trabajo_id:id,estudiante_id:EST_ID},{datos_prueba:{libre:LIB},actualizado_en:new Date().toISOString()}).catch(()=>{}),800)}catch(e){}}
+const valResp=(p,v)=>p.k==="mc"?escH(p.o[v]??"—"):p.k==="tf"?(v?"Verdadero":"Falso"):(p.u?v+" "+p.u:C(v));
+async function verRespuestasLibre(){const d=$("#guia");$("#gt").textContent="👥 Respuestas del juego libre";$("#guiaB").innerHTML="<p>Cargando…</p>";if(!d.open)d.showModal();
+  await cargarActs();const id=await idRegLab(false);
+  const mats=ACT.mats||[],sel=+(verRespuestasLibre.mat||(mats.find(m=>/contab/i.test(m.nombre))||mats[0]||{}).id);
+  const [{data:em},{data:ae}]=await Promise.all([sb.from("estudiante_materias").select("estudiante_id").eq("materia_id",sel),id?sb.from("actividades_estudiante").select("estudiante_id,datos_prueba,actualizado_en").eq("trabajo_id",id):{data:[]}]);
+  const ids=(em||[]).map(x=>x.estudiante_id),{data:es}=ids.length?await sb.from("estudiantes").select("id,nombre,apellido1,apellido2").in("id",ids):{data:[]};
+  const por={};(ae||[]).forEach(x=>por[x.estudiante_id]=x);
+  const filas=(es||[]).map(e=>({e,nom:[e.apellido1,e.apellido2,e.nombre].filter(Boolean).join(" "),L:(por[e.id]&&por[e.id].datos_prueba&&por[e.id].datos_prueba.libre)||{},act:por[e.id]&&por[e.id].actualizado_en})).sort((a,b)=>a.nom.localeCompare(b.nom,"es"));
+  const celda=(f,m)=>{const R=f.L[m.id]||{},n=Object.keys(R).length,P=m.pasos.filter(p=>p.k!=="intro").length,ok=Object.values(R).filter(r=>r.ok).length;return n?`<b>${n}/${P}</b><br><small style="color:var(--mut)">${ok} al 1.er intento</small>`:"—"};
+  $("#guiaB").innerHTML=`<div class="actions" style="margin:0 0 10px"><label style="font-weight:800">Sección: <select id="rlMat" style="font:inherit;padding:6px 8px;border-radius:10px">${mats.map(m=>`<option value="${m.id}" ${m.id===sel?"selected":""}>${escH(String(m.nombre).trim())}${m.seccion?" · "+escH(m.seccion):""}</option>`).join("")}</select></label></div>
+    <div style="overflow:auto"><table class="tabla"><thead><tr><th>Estudiante</th>${MISIONES.map((m,i)=>`<th title="${escH(m.t)}">M${i+1}</th>`).join("")}<th></th></tr></thead><tbody>
+    ${filas.map(f=>`<tr><td>${escH(f.nom)}</td>${MISIONES.map(m=>`<td style="text-align:center">${celda(f,m)}</td>`).join("")}<td>${Object.keys(f.L).length?`<button class="sec" data-rlver="${escH(f.e.id)}" style="padding:4px 10px">👁️ Ver</button>`:""}</td></tr>`).join("")||'<tr><td colspan="9">No hay estudiantes.</td></tr>'}</tbody></table></div>
+    <p style="color:var(--mut);font-size:.85rem;margin:8px 0 0">Se guardan desde hoy: cada respuesta del juego libre (con todos sus intentos) queda registrada cuando el estudiante juega con su sesión de la plataforma.</p>`;
+  $("#rlMat").onchange=e=>{verRespuestasLibre.mat=e.target.value;verRespuestasLibre()};
+  document.querySelectorAll("[data-rlver]").forEach(b=>b.onclick=()=>{const f=filas.find(x=>x.e.id===b.dataset.rlver);
+    $("#gt").textContent="👁️ "+f.nom+" · juego libre";
+    $("#guiaB").innerHTML=`<div class="actions" style="margin:0 0 10px"><button class="sec" id="rlVolver">← Todos</button></div>`+MISIONES.map((m,i)=>{const R=f.L[m.id];if(!R)return"";
+      return `<h4 style="margin:12px 0 6px">${m.ic} Misión ${i+1}: ${escH(m.t)}</h4><div style="overflow:auto"><table class="tabla"><thead><tr><th>#</th><th>Pregunta</th><th>Respondió</th><th>Correcta</th><th></th></tr></thead><tbody>
+      ${m.pasos.map((p,k)=>p.k==="intro"||!R[k]?"":`<tr><td>${k}</td><td>${p.txt}</td><td>${(R[k].intentosV||[R[k].v]).filter(v=>v!==undefined).map((v,j,a)=>`<div>${a.length>1?`<small style="color:var(--mut)">${j+1}.</small> `:""}${valResp(p,v)}</div>`).join("")||"—"}</td><td>${p.k==="mc"?escH(p.o[p.r]):p.k==="tf"?(p.r?"Verdadero":"Falso"):(p.u?Math.round(p.ok*100)/100+" "+p.u:C(Math.round(p.ok*100)/100))}</td><td style="font-size:1.2rem">${R[k].ok?"✅":"❌"}</td></tr>`).join("")}</tbody></table></div>`}).join("");
+    $("#rlVolver").onclick=()=>verRespuestasLibre()})}
 async function cargarActs(f){if(!HAY_BD()||(ACT.lista&&!f))return;
   try{const [{data},{data:mats}]=await Promise.all([sb.from("trabajos_cotidianos").select("id,titulo,fecha,habilitado,indicador_id,contenido_actividad").eq("contenido_actividad->>estrategia",ESTR).order("id"),sb.from("materias").select("id,nombre,seccion").order("id")]);
     ACT.lista=data||[];ACT.mats=mats||[];
@@ -482,7 +519,7 @@ function hubHTML(){
       ${DOC?`<button class="${t.habilitado===false?"ok":"sec"}" data-hab="${t.id}">${t.habilitado===false?"▶ Abrir":"⏸️ Cerrar"}</button><button class="sec" data-ent="${t.id}">📥 Entregas</button>`:""}</div></div>`};
   const grupo=(k,et,d)=>{const G=L.filter(t=>((t.contenido_actividad||{}).lab_tipo||"evaluativa")===k);if(!DOC&&!G.length)return "";
     return `<h4 style="margin:14px 0 6px;color:var(--cyan)">${et} <small style="color:var(--mut);font-weight:600">· ${d}</small></h4>${G.map(fila).join("")||'<p class="sub" style="margin:0">Todavía no hay.</p>'}`};
-  return `<section class="card" style="margin-bottom:18px;border-color:rgba(122,240,255,.35)"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b style="font-size:1.15rem;margin-right:auto">📚 Actividades del profe</b>${DOC&&!ACT.lista.length?`<button class="pink" id="crearPaq">✨ Crear 4 prácticas y 3 trabajos cotidianos</button>`:""}</div>
+  return `<section class="card" style="margin-bottom:18px;border-color:rgba(122,240,255,.35)"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b style="font-size:1.15rem;margin-right:auto">📚 Actividades del profe</b>${DOC?`<button class="sec" id="verRL">👥 Respuestas del juego libre</button>`:""}${DOC&&!ACT.lista.length?`<button class="pink" id="crearPaq">✨ Crear 4 prácticas y 3 trabajos cotidianos</button>`:""}</div>
     <p class="sub" style="margin:6px 0 0;font-size:.9rem">${DOC?"Se crean cerradas: ábralas una por una con <b>▶ Abrir</b>. Los trabajos cotidianos tienen su indicador en la Rúbrica, muestran la evaluación en formato MEP antes de empezar y la nota se pone sola al entregar.":"Estas son las actividades que tu profe abrió. Las prácticas no llevan nota; los trabajos cotidianos sí."}</p>
     ${grupo("diaria","🟢 Prácticas interactivas","sin nota: con pistas, narrador y XP")}${grupo("evaluativa","📝 Trabajos cotidianos","con nota en la Rúbrica: una sola respuesta por paso, sin pistas")}</section>`}
 function activarHub(){
@@ -492,6 +529,7 @@ function activarHub(){
     t.habilitado=t.habilitado===false;toast(t.habilitado===false?"⏸️ Cerrada":"🟢 Abierta para los estudiantes");mapa()});
   document.querySelectorAll("[data-ent]").forEach(b=>b.onclick=()=>verEntregas(ACT.lista.find(x=>x.id===+b.dataset.ent)));
   document.querySelectorAll("[data-insv]").forEach(b=>b.onclick=()=>verInstrumento(ACT.lista.find(x=>x.id===+b.dataset.insv)));
+  const rl=$("#verRL");if(rl)rl.onclick=()=>verRespuestasLibre();
   const cp=$("#crearPaq");if(cp)cp.onclick=()=>crearPaqueteLab(cp)}
 async function crearIndicador(materiaId,desc,fecha){
   const {data:ex}=await sb.from("indicadores").select("id,letra").eq("materia_id",materiaId).eq("categoria","Trabajo cotidiano");
@@ -554,7 +592,7 @@ async function paginaAct(id,jugarYa){
   if(jugarYa&&!(entregado&&ev)){
     if(prog.paso>=M.pasos.length&&!ev){prog.paso=0;}
     jugarMision(M,{modo:ev?"evaluativa":"diaria",st:prog,titulo:t.titulo,back:"#/a/"+t.id,
-      onRes:(i,rec)=>{prog.resp[i]=rec;if(ev)guardarProg(t,prog)},
+      onRes:(i,rec)=>{prog.resp[i]=rec;guardarProg(t,prog)},
       onAvance:async st=>{await guardarProg(t,st)},
       onFin:async st=>{
         if(!ev){const P=M.pasos.filter(p=>p.k!=="intro").length,prim=Object.values(st.resp).filter(r=>r.ok).length,pct=P?Math.round(100*prim/P):0;
@@ -589,7 +627,10 @@ async function paginaAct(id,jugarYa){
 async function verTrabajoEst(id,est){await cargarActs();const t=(ACT.lista||[]).find(x=>x.id===id);if(!t||!DOC){irA("#/");return}
   const {data:a}=await sb.from("actividades_estudiante").select("completado,puntaje,porcentaje,datos_prueba").eq("trabajo_id",id).eq("estudiante_id",est).maybeSingle();
   const pr=(a&&a.datos_prueba&&a.datos_prueba.laboral)||{resp:{}},M=misionDe(t),ev=(t.contenido_actividad||{}).lab_tipo==="evaluativa";
-  const resp=(p,r)=>!r?"—":p.k==="mc"?escH(p.o[r.v]??(r.ok?p.o[p.r]:"(varios intentos)")):p.k==="tf"?(r.v===undefined?(r.ok?(p.r?"Verdadero":"Falso"):"(varios intentos)"):r.v?"Verdadero":"Falso"):r.v!=null?(p.u?r.v+" "+p.u:C(r.v)):r.ok?"Correcto":"(varios intentos)";
+  const val=(p,v)=>p.k==="mc"?escH(p.o[v]??"—"):p.k==="tf"?(v?"Verdadero":"Falso"):(p.u?v+" "+p.u:C(v));
+  const resp=(p,r)=>{if(!r)return"—";
+    if(r.intentosV&&r.intentosV.length)return r.intentosV.map((v,k)=>`<div>${r.intentosV.length>1?`<small style="color:var(--mut)">${k+1}.</small> `:""}${val(p,v)}</div>`).join("");
+    return p.k==="mc"?escH(p.o[r.v]??(r.ok?p.o[p.r]:"(no guardado)")):p.k==="tf"?(r.v===undefined?(r.ok?(p.r?"Verdadero":"Falso"):"(no guardado)"):r.v?"Verdadero":"Falso"):r.v!=null?(p.u?r.v+" "+p.u:C(r.v)):r.ok?"Correcto":"(no guardado)"};
   const corr=p=>p.k==="mc"?escH(p.o[p.r]):p.k==="tf"?(p.r?"Verdadero":"Falso"):p.u?Math.round(p.ok*100)/100+" "+p.u:C(Math.round(p.ok*100)/100);
   $("#app").innerHTML=`<div class="actions" style="margin:0 0 12px"><button class="sec" onclick="irA('#/a/${id}')">← ${escH(t.titulo)}</button><span class="chip">👁️ ${escH(ACT.nombres[est]||est)}</span>${a&&a.completado?`<span class="chip" style="color:var(--mint)">✅ ${ev?"Nota "+(a.puntaje!=null?a.puntaje+"/3":"—"):"Completó"}</span>`:""}</div>
    <div class="card" style="overflow-x:auto"><table class="tabla"><thead><tr><th>#</th><th>Tipo</th><th>Pregunta</th><th>Respondió</th><th>Correcta</th><th></th></tr></thead><tbody>
