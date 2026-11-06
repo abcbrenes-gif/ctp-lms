@@ -107,6 +107,10 @@ const TIPOS={
   num:{ic:"🔢",n:"Respuesta numérica (cálculo)",ins:"Realice el cálculo y escriba el resultado."},
   des:{ic:"📝",n:"Desarrollo (se califica a mano)",ins:"Resuelva en forma clara y ordenada."}
 };
+// Aplicaciones de la plataforma que un reto puede pedir abrir.
+const APPS={"Liquidaciones laborales":"liquidaciones.html","Aula de Conta":"aula-contable.html","Ruta Laboral CR":"laboral.html","Misión Seguros":"seguros.html","La Tiradera":"tiradera.html","Planilla Opoly":"planilla-opoly.html"};
+const urlApp=n=>{const k=Object.keys(APPS).find(x=>norm(x)===norm(n)||norm(n).includes(norm(x).split(" ")[0]));if(!k)return null;let u=APPS[k];if(k==="Aula de Conta"&&EST_ID)u+="?como_estudiante="+encodeURIComponent(EST_ID);return u};
+const appNombre=n=>Object.keys(APPS).find(x=>norm(x)===norm(n)||norm(n).includes(norm(x).split(" ")[0]))||n;
 const nuevoItem=t=>({id:uid(),txt:"",pts:1,...(t==="sel"?{o:["","","",""],r:0}:t==="fv"?{r:true}:t==="pareo"?{a:"",b:""}:t==="corta"?{acepta:[""]}:t==="num"?{r:0,tol:0.01}:{guia:""})});
 const nuevaParte=t=>({id:uid(),tipo:t,titulo:TIPOS[t].n,instrucciones:TIPOS[t].ins,items:[nuevoItem(t)],extras:[]});
 const nuevoEx=()=>({materia_id:null,titulo:"",instrucciones:"Lea con atención cada parte. Trabaje en forma individual. Al terminar, presione «Entregar examen».",fecha:hoyISO(),inicio:null,cierre:null,duracion:80,peso:20,mezclar:true,mostrar_resultados:false,publicado:false,indicador_id:null,partes:[]});
@@ -128,7 +132,7 @@ function autoItem(p,it,v){const pts=+it.pts||0;
   if(p.tipo==="des")return null;
   if(p.tipo==="sel")return +v===+it.r?pts:0;
   if(p.tipo==="fv")return (v==="V")===!!it.r?pts:0;
-  if(p.tipo==="pareo")return v===it.id?pts:0;
+  if(p.tipo==="pareo"){const el=p.items.find(x=>x.id===v);return v===it.id||(el&&norm(el.b)===norm(it.b))?pts:0}
   if(p.tipo==="num"){const n=parseNum(v);return !isNaN(n)&&Math.abs(n-(+it.r||0))<=Math.max(+it.tol||0,0.005)?pts:0}
   if(p.tipo==="corta"){const a=norm(v);return (it.acepta||[]).some(x=>norm(x)&&norm(x)===a)?pts:null} // si no coincide, lo revisa el profe
   return 0}
@@ -184,7 +188,7 @@ async function ruta(){const h=location.hash.replace(/^#\/?/,"").split("/");
 async function listaProfe(){$("#app").innerHTML='<p class="muted">Cargando exámenes…</p>';await cargarExamenes();
   const ids=S.exs.map(t=>t.id);const {data:ae}=ids.length?await sb.from("actividades_estudiante").select("trabajo_id,completado").in("trabajo_id",ids):{data:[]};
   const cnt={};(ae||[]).forEach(a=>{cnt[a.trabajo_id]=cnt[a.trabajo_id]||{e:0,c:0};cnt[a.trabajo_id][a.completado?"e":"c"]++});
-  $("#app").innerHTML=`<div class="row" style="margin:4px 0 14px"><div style="margin-right:auto"><h1>📝 Exámenes</h1><p class="muted" style="margin:0">Arme el examen como borrador, revíselo como estudiante y publíquelo cuando esté listo.</p></div><button class="pri" onclick="location.hash='#/nuevo'">＋ Nuevo examen</button></div>
+  $("#app").innerHTML=`<div class="row" style="margin:4px 0 14px"><div style="margin-right:auto"><h1>📝 Exámenes</h1><p class="muted" style="margin:0">Arme el examen como borrador, revíselo como estudiante y publíquelo cuando esté listo.</p></div><button id="impJson">📥 Importar JSON</button><button class="pri" onclick="location.hash='#/nuevo'">＋ Nuevo examen</button></div>
   ${S.exs.length?S.exs.map(t=>{const ex=t.ex,c=cnt[t.id]||{e:0,c:0},n=itemsDe(ex).length;
     return `<div class="card"><div class="row" style="align-items:flex-start"><div style="margin-right:auto;min-width:220px">
       <h2 style="margin:0 0 4px">${esc(ex.titulo||"(sin título)")}</h2>
@@ -192,6 +196,7 @@ async function listaProfe(){$("#app").innerHTML='<p class="muted">Cargando exám
       <p class="small muted" style="margin:6px 0 0">Inicia: ${fmtFH(ex.inicio)}${ex.cierre?" · Cierra: "+fmtFH(ex.cierre):""}${ex.duracion?" · "+ex.duracion+" min":""}${ex.publicado||c.e||c.c?` · <b>${c.e}</b> entregados${c.c?`, ${c.c} en curso`:""}`:""}</p></div>
       <div class="row"><button onclick="location.hash='#/editar/${t.id}'">✏️ Editar</button><button onclick="location.hash='#/previa/${t.id}'">👁 Ver como estudiante</button><button onclick="location.hash='#/resultados/${t.id}'">📊 Resultados</button>
       <button class="${ex.publicado?"":"pri"}" data-pub="${t.id}">${ex.publicado?"🙈 Ocultar":"📢 Publicar"}</button><button data-print="${t.id}">🖨️ Imprimir</button><button data-dup="${t.id}">⧉ Duplicar</button>${!ex.publicado&&!ex.indicador_id&&!(c.e||c.c)?`<button class="danger" data-del="${t.id}">🗑</button>`:""}</div></div></div>`}).join(""):`<div class="card"><p>Todavía no hay exámenes. Toque <b>＋ Nuevo examen</b> para armar el primero.</p></div>`}`;
+  $("#impJson").onclick=importarJSON;
   $$("[data-pub]").forEach(b=>b.onclick=()=>publicar(S.exs.find(t=>t.id===+b.dataset.pub),b));
   $$("[data-print]").forEach(b=>b.onclick=()=>imprimir(S.exs.find(t=>t.id===+b.dataset.print)));
   $$("[data-dup]").forEach(b=>b.onclick=async()=>{const t=S.exs.find(x=>x.id===+b.dataset.dup);const ex=clone(t.ex);ex.titulo+=" (copia)";ex.publicado=false;ex.indicador_id=null;
@@ -199,6 +204,42 @@ async function listaProfe(){$("#app").innerHTML='<p class="muted">Cargando exám
     try{await guardarExamen({ex});toast("Copia creada como borrador");listaProfe()}catch(e){alert("No se pudo: "+e.message)}});
   $$("[data-del]").forEach(b=>b.onclick=async()=>{if(!confirm("¿Borrar este borrador? No tiene entregas ni notas."))return;await sb.from("trabajos_cotidianos").delete().eq("id",+b.dataset.del);listaProfe()})}
 
+// ── Importar un examen en JSON (reactivos con herramienta, enunciado, opciones, respuesta y retroalimentación) ──
+function exDesdeJSON(J,materiaId){const meta=J.examen||{},reac=Array.isArray(J)?J:(J.reactivos||J.preguntas||[]);if(!reac.length)throw new Error("El JSON no trae reactivos.");
+  const ex={...nuevoEx(),titulo:meta.titulo||"Examen importado",instrucciones:meta.instrucciones||nuevoEx().instrucciones,peso:+meta.peso||20,duracion:+meta.duracion||80,
+    materia_id:materiaId||(S.mats.find(m=>String(m.seccion||"").trim()===String(meta.seccion||"").trim())||{}).id||+meta.materia_id||null,partes:[]};
+  const tipoDe=r=>{const t=norm(r.tipo_pregunta||"").replace(/ /g,"_"),ops=r.opciones_o_valor_esperado;
+    if(/falso|verdad/.test(t))return"fv";if(/pareo/.test(t))return"pareo";if(/desarrollo|abierta/.test(t))return"des";if(/corta/.test(t))return"corta";
+    if(Array.isArray(ops)&&ops.length>=2)return"sel";if(!isNaN(parseNum(r.respuesta_correcta))||(ops&&ops.valor!=null))return"num";return"corta"};
+  let cur=null;
+  reac.forEach(r=>{const tp=tipoDe(r),pn=r.parte||TIPOS[tp].n;
+    if(!cur||cur._k!==pn||cur.tipo!==tp){cur={_k:pn,id:uid(),tipo:tp,titulo:String(pn).replace(/^parte\s*\d+\s*[.:·-]\s*/i,""),instrucciones:r.instrucciones_parte||TIPOS[tp].ins,items:[],extras:[]};ex.partes.push(cur)}
+    const it={id:uid(),txt:r.enunciado||"",pts:+r.puntos||+r.puntaje||1,app:r.herramienta_requerida&&norm(r.herramienta_requerida)!=="ninguna"?r.herramienta_requerida:"",accion:r.accion_en_herramienta||"",
+      tema:r.tema||"",just:r.justificacion_pedagogica||"",fb_ok:r.feedback_exito||"",fb_err:r.feedback_error||""};
+    const ops=r.opciones_o_valor_esperado,rc=String(r.respuesta_correcta??"").trim();
+    if(tp==="sel"){it.o=ops.map(String);let k=it.o.findIndex(o=>norm(o)===norm(rc));if(k<0&&/^[a-h]\)?$/i.test(rc))k="abcdefgh".indexOf(rc[0].toLowerCase());if(k<0)throw new Error(`Reactivo ${r.id_pregunta}: la respuesta correcta no está entre las opciones.`);it.r=k}
+    else if(tp==="fv")it.r=/^v/i.test(rc);
+    else if(tp==="pareo"){it.a=it.txt;it.b=rc;delete it.txt}
+    else if(tp==="num"){it.r=ops&&ops.valor!=null?+ops.valor:parseNum(rc);it.tol=ops&&ops.margen!=null?+ops.margen:0.01}
+    else if(tp==="corta")it.acepta=[rc,...(Array.isArray(ops)?ops.map(String):[])].filter(Boolean);
+    else it.guia=rc;
+    cur.items.push(it)});
+  // En el pareo, las opciones de la columna B que no le corresponden a ningún enunciado quedan como «extras».
+  ex.partes.filter(p=>p.tipo==="pareo").forEach(p=>{const bs=new Set(p.items.map(i=>norm(i.b)));const todas=reac.filter(r=>(r.parte||"")===p._k).flatMap(r=>Array.isArray(r.opciones_o_valor_esperado)?r.opciones_o_valor_esperado:[]);
+    p.extras=[...new Set(todas.filter(o=>!bs.has(norm(o))))];
+    // Si varias filas tienen la misma respuesta (p. ej. «Activo»), la columna B se arma con los valores únicos.
+    });
+  ex.partes.forEach(p=>delete p._k);
+  return ex}
+function importarJSON(){abrirDlg("📥 Importar examen en JSON",`<p class="small muted" style="margin:0 0 8px">Pegue el JSON o elija el archivo. Queda como <b>borrador</b>: nadie lo ve hasta que usted lo publique.</p>
+   <label class="f">Sección<select id="impMat"><option value="">(la que diga el JSON)</option>${S.mats.map(m=>`<option value="${m.id}">${esc(nomMat(m.id))}</option>`).join("")}</select></label>
+   <label class="f" style="margin-top:8px">Archivo .json<input type="file" id="impFile" accept=".json,application/json"></label>
+   <label class="f" style="margin-top:8px">o pegue el JSON<textarea id="impTxt" rows="10" placeholder='{"examen":{...},"reactivos":[...]}'></textarea></label>
+   <div class="row" style="margin-top:10px;justify-content:flex-end"><button class="pri" id="impOk">📥 Crear borrador</button></div>`);
+  $("#impFile").onchange=async e=>{const f=e.target.files[0];if(f)$("#impTxt").value=await f.text()};
+  $("#impOk").onclick=async e=>{const b=e.currentTarget;try{const ex=exDesdeJSON(JSON.parse($("#impTxt").value),+$("#impMat").value||null);
+      b.disabled=true;await guardarExamen({ex});dlg.close();toast(`📥 Borrador creado: ${itemsDe(ex).length} ítems · ${fmtPts(totalPts(ex))} pts`);listaProfe()}
+    catch(err){b.disabled=false;alert("No se pudo importar: "+(err.message||err))}}}
 function validar(ex){const e=[];if(!ex.titulo.trim())e.push("Falta el título.");if(!ex.materia_id)e.push("Falta la sección.");if(!ex.inicio)e.push("Falta la fecha y hora de inicio.");if(!(+ex.peso>0))e.push("Falta el porcentaje de la prueba.");
   const its=itemsDe(ex);if(!its.length)e.push("El examen no tiene preguntas.");
   its.forEach(({p,it},i)=>{const n=`Parte «${p.titulo}», ítem ${p.items.indexOf(it)+1}`;
@@ -264,7 +305,13 @@ function itemEdHTML(p,it,ii){const pts=`<label class="f" style="max-width:110px"
     if(p.tipo==="num")cuerpo+=`<label class="f" style="max-width:200px">Resultado correcto<input data-i="r" inputmode="decimal" value="${esc(it.r)}"></label><label class="f" style="max-width:160px">Margen aceptado (±)<input data-i="tol" inputmode="decimal" value="${esc(it.tol)}"></label>`;
     if(p.tipo==="des")cuerpo+=`<label class="f" style="flex:1 1 400px">Solución o guía para calificar (solo la ve el profe)<textarea data-i="guia" rows="2">${esc(it.guia)}</textarea></label>`;
     cuerpo+=pts+"</div>"}
-  return `<div class="ed-item" data-ii="${ii}">${ctl}${cuerpo}</div>`}
+  const extra=`<details style="margin-top:6px"${it.app||it.just||it.tema?" open":""}><summary class="small" style="cursor:pointer;font-weight:700">🧰 App, tema y retroalimentación ${it.app?`<span class="chip pri">${esc(appNombre(it.app))}</span>`:""}</summary><div class="grid" style="margin-top:6px">
+    <label class="f">App que debe abrir<select data-i="app"><option value="">Ninguna</option>${Object.keys(APPS).map(k=>`<option ${appNombre(it.app||"")===k?"selected":""}>${k}</option>`).join("")}</select></label>
+    <label class="f" style="grid-column:span 2">Qué debe hacer en la app<textarea data-i="accion" rows="2">${esc(it.accion||"")}</textarea></label>
+    <label class="f">Tema o concepto (para «Qué reforzar»)<input data-i="tema" value="${esc(it.tema||"")}"></label>
+    <label class="f" style="grid-column:span 2">Explicación (se muestra al revisar)<textarea data-i="just" rows="2">${esc(it.just||"")}</textarea></label>
+    <label class="f">Mensaje si acierta<input data-i="fb_ok" value="${esc(it.fb_ok||"")}"></label><label class="f" style="grid-column:span 2">Pista si falla<input data-i="fb_err" value="${esc(it.fb_err||"")}"></label></div></details>`;
+  return `<div class="ed-item" data-ii="${ii}">${ctl}${cuerpo}${extra}</div>`}
 function ligarEditor(){const ex=ED.ex,ap=$("#app");
   const sucio=()=>{EDsucio=true;const t=$("#edTot");if(t)t.textContent=fmtPts(totalPts(ex))};
   ap.querySelectorAll("[data-g]").forEach(el=>el.oninput=el.onchange=()=>{const k=el.dataset.g;
@@ -326,13 +373,23 @@ async function resultados(id){$("#app").innerHTML='<p class="muted">Cargando res
     rt.disabled=true;let ok=0;for(const f of listos){const r=await registrarNota(ex,f.e.id,f.c.total);if(!r.error)ok++}toast(`📥 ${ok} notas en «Pruebas»`);resultados(id)}}
 async function registrarNota(ex,estId,pts){if(!ex.indicador_id)return {error:"sin registro"};
   return upsertSinConflicto("calificaciones_indicador",{indicador_id:ex.indicador_id,estudiante_id:estId},{puntaje_obtenido:Math.round(pts*100)/100})}
+// Desglose por parte y conceptos que necesita reforzar (ítems sin el puntaje completo).
+function desgloseHTML(ex,resp,dp){const man=(dp&&dp.manual)||{},fal={};
+  const filas=ex.partes.map((p,pi)=>{let o=0,t=0;p.items.forEach(it=>{const a=autoItem(p,it,resp[it.id]),m=man[it.id],v=m!==undefined&&m!==null&&m!==""?+m:a,pts=+it.pts||0;t+=pts;o+=v||0;
+      if(v!==null&&v<pts){const k=it.tema||p.titulo;fal[k]=fal[k]||[];fal[k].push(it.fb_err||"")}});
+    return `<tr><td>Parte ${pi+1}. ${esc(p.titulo)}</td><td class="r">${fmtPts(o)} / ${fmtPts(t)}</td><td class="r">${t?Math.round(o/t*100):0} %</td></tr>`}).join("");
+  const temas=Object.keys(fal);
+  return `<div class="card"><h3>📊 Desglose por parte</h3><div class="tbl"><table><thead><tr><th>Parte</th><th class="r">Puntos</th><th class="r">Logro</th></tr></thead><tbody>${filas}</tbody></table></div>
+    ${temas.length?`<h3 style="margin-top:12px">📌 Conceptos para reforzar</h3><ul>${temas.map(k=>`<li><b>${esc(k)}</b>${fal[k].filter(Boolean)[0]?`<br><span class="small muted">${esc(fal[k].filter(Boolean)[0])}</span>`:""}</li>`).join("")}</ul>`:'<p class="ok-t" style="margin-top:10px">🏆 ¡Logró todos los conceptos evaluados!</p>'}</div>`}
 function revisionHTML(ex,resp,dp,{editable,paraEst}={}){const man=(dp&&dp.manual)||{};
-  return ex.partes.map((p,pi)=>`<div class="parte"><h3>Parte ${pi+1}. ${esc(p.titulo)} <span class="muted small">(${fmtPts(p.items.reduce((s,i)=>s+(+i.pts||0),0))} pts)</span></h3>
+  return desgloseHTML(ex,resp,dp)+ex.partes.map((p,pi)=>`<div class="parte"><h3>Parte ${pi+1}. ${esc(p.titulo)} <span class="muted small">(${fmtPts(p.items.reduce((s,i)=>s+(+i.pts||0),0))} pts)</span></h3>
    ${p.items.map((it,ii)=>{const v=resp[it.id],a=autoItem(p,it,v),m=man[it.id],val=m!==undefined&&m!==null&&m!==""?+m:a,pts=+it.pts||0;
      const est=val===null?'<span class="chip bad">Por calificar</span>':val>=pts?'<span class="ok-t">✔</span>':val>0?'<span class="chip warn">Parcial</span>':'<span class="bad-t">✘</span>';
      return `<div class="item"><div class="row" style="align-items:flex-start"><p class="q" style="margin-right:auto;flex:1">${ii+1}. ${p.tipo==="pareo"?esc(it.a):nl(it.txt)}</p>${est}</div>
       <div class="small"><b>Respuesta:</b> ${verResp(p,it,v)}</div>
       ${paraEst&&p.tipo==="des"?"":`<div class="small"><b>${p.tipo==="des"?"Guía":"Correcta"}:</b> ${verCorrecta(p,it)}</div>`}
+      ${val!==null&&(val>=pts?it.fb_ok:it.fb_err)?`<div class="small" style="margin-top:4px">${val>=pts?"🎉":"🔍"} ${esc(val>=pts?it.fb_ok:it.fb_err)}</div>`:""}
+      ${it.just?`<div class="small muted" style="margin-top:4px">💡 ${nl(it.just)}</div>`:""}
       <div class="row small" style="margin-top:6px">${editable?`<label class="row">Puntos: <input type="number" min="0" max="${pts}" step="0.25" data-man="${it.id}" value="${val===null?"":val}" style="width:90px"> / ${fmtPts(pts)}</label>${a!==null&&m!=null&&m!==""&&+m!==a?`<small class="muted">(automático: ${fmtPts(a)})</small>`:""}`:`<b>${val===null?"—":fmtPts(val)} / ${fmtPts(pts)} pts</b>`}</div></div>`}).join("")}</div>`).join("")}
 function calificarEst(t,f){const ex=t.ex,resp=(f.a&&f.a.respuestas)||{},dp=f.dp||{};
   abrirDlg("✍️ "+f.nom,`<p class="muted small" style="margin:0 0 10px">Lo automático ya viene calificado; puede cambiar cualquier puntaje. Los ítems de desarrollo y las respuestas cortas que no coincidieron quedan «Por calificar».</p>
@@ -355,7 +412,7 @@ function imprimir(t){const ex=t.ex,sol=confirm("¿Imprimir con las respuestas co
   const w=open("","_blank");if(!w)return alert("Permita las ventanas emergentes para imprimir.");
   const partes=ex.partes.map((p,pi)=>{const its=p.items;
     let cuerpo="";
-    if(p.tipo==="pareo"){const B=mezclar([...its.map(i=>i.b),...(p.extras||[])],rng("imp"+t.id));
+    if(p.tipo==="pareo"){const B=mezclar([...new Set([...its.map(i=>i.b),...(p.extras||[])])],rng("imp"+t.id));
       cuerpo=`<table style="width:100%;border-collapse:collapse"><tr><td style="width:50%;vertical-align:top">${its.map((i,k)=>`<p>(${sol?"abcdefghijklmnopqrstuvwxyz"[B.indexOf(i.b)]:"&nbsp;&nbsp;&nbsp;"}) ${k+1}. ${esc(i.a)}</p>`).join("")}</td><td style="vertical-align:top">${B.map((b,k)=>`<p>${"abcdefghijklmnopqrstuvwxyz"[k]}. ${esc(b)}</p>`).join("")}</td></tr></table>`}
     else cuerpo=its.map((it,k)=>`<div style="margin:0 0 12px;page-break-inside:avoid"><p style="margin:0 0 4px"><b>${k+1}.</b> ${p.tipo==="fv"?`( ${sol?(it.r?"V":"F"):"&nbsp;&nbsp;"} ) `:""}${nl(it.txt)} <i>(${fmtPts(it.pts)} pts)</i></p>
       ${p.tipo==="sel"?it.o.map((o,j)=>`<p style="margin:2px 0 2px 18px">${sol&&j===+it.r?"<b>☒":"☐"} ${"abcdefgh"[j]}) ${esc(o)}${sol&&j===+it.r?"</b>":""}</p>`).join(""):""}
@@ -402,14 +459,16 @@ async function hacer(id){await cargarExamenes();const t=S.exs.find(x=>x.id===id&
       if(r.error){e.currentTarget.disabled=false;return alert("No se pudo iniciar: "+r.error.message)}hacer(id)};return}
   pintarExamen(t,{a,dp:a.datos_prueba,resp:{...(a.respuestas||{})}})}
 
+function appHTML(it){if(!it.app||norm(it.app)==="ninguna")return"";const u=urlApp(it.app);
+  return `<div class="aviso" style="margin:0 0 8px;background:var(--pri2);border-color:var(--pri)"><b>🧰 Use: ${esc(appNombre(it.app))}</b>${it.accion?`<div class="small" style="margin-top:4px;white-space:pre-wrap">${esc(it.accion)}</div>`:""}${u?`<div style="margin-top:6px"><a class="btn" href="${esc(u)}" target="_blank" rel="noopener" data-app>↗ Abrir ${esc(appNombre(it.app))}</a></div>`:""}</div>`}
 function pintarExamen(t,{previa,a,dp,resp}){const ex=t.ex,R=rng(dp.semilla||"x");
   try{const bk=JSON.parse(localStorage.getItem("examen_"+t.id+"_"+EST_ID)||"null");if(!previa&&bk&&bk.t>(a&&a.actualizado_en?new Date(a.actualizado_en).getTime():0))Object.assign(resp,bk.r)}catch(e){}
   const fin=previa?null:(()=>{const xs=[];if(ex.duracion&&dp.inicio_ts)xs.push(new Date(dp.inicio_ts).getTime()+ex.duracion*60000);if(ex.cierre)xs.push(new Date(ex.cierre).getTime());return xs.length?Math.min(...xs):null})();
   RUN={t,ex,a,dp,resp,previa,fin,salidas:(a&&a.intentos_salida)||0,timer:null,guardar:null,entregado:false};
   const letras="abcdefghijklmnopqrstuvwxyz";
   const partesHTML=ex.partes.map((p,pi)=>{const its=ex.mezclar&&p.tipo!=="pareo"?mezclar(p.items,R):p.items;let cuerpo="";
-    if(p.tipo==="pareo"){const B=mezclar([...p.items.map(i=>({v:i.id,t:i.b})),...(p.extras||[]).map((x,k)=>({v:"x"+k,t:x}))],R);
-      cuerpo=`<div class="grid" style="grid-template-columns:1fr 1fr"><div>${(ex.mezclar?mezclar(p.items,R):p.items).map((it,k)=>`<div class="item"><p class="q">${k+1}. ${esc(it.a)} <span class="muted small">(${fmtPts(it.pts)} pts)</span></p><select data-resp="${it.id}"><option value="">— Elija —</option>${B.map((b,j)=>`<option value="${esc(b.v)}" ${resp[it.id]===b.v?"selected":""}>${letras[j]}. ${esc(b.t.length>60?b.t.slice(0,60)+"…":b.t)}</option>`).join("")}</select></div>`).join("")}</div>
+    if(p.tipo==="pareo"){const vistos=new Set(),B=mezclar([...p.items.map(i=>({v:i.id,t:i.b})),...(p.extras||[]).map((x,k)=>({v:"x"+k,t:x}))].filter(o=>{const k=norm(o.t);if(vistos.has(k))return false;vistos.add(k);return true}),R);
+      cuerpo=`${appHTML(p.items.find(i=>i.app)||{})}<div class="grid" style="grid-template-columns:1fr 1fr"><div>${(ex.mezclar?mezclar(p.items,R):p.items).map((it,k)=>`<div class="item"><p class="q">${k+1}. ${esc(it.a)} <span class="muted small">(${fmtPts(it.pts)} pts)</span></p><select data-resp="${it.id}"><option value="">— Elija —</option>${B.map((b,j)=>`<option value="${esc(b.v)}" ${resp[it.id]===b.v?"selected":""}>${letras[j]}. ${esc(b.t.length>60?b.t.slice(0,60)+"…":b.t)}</option>`).join("")}</select></div>`).join("")}</div>
        <div class="item"><b>Columna B</b>${B.map((b,j)=>`<p style="margin:6px 0"><b>${letras[j]}.</b> ${esc(b.t)}</p>`).join("")}</div></div>`}
     else cuerpo=its.map((it,k)=>{const v=resp[it.id];let ctl="";
       if(p.tipo==="sel"){const ord=ex.mezclar?mezclar(it.o.map((o,j)=>j).filter(j=>String(it.o[j]).trim()),R):it.o.map((o,j)=>j).filter(j=>String(it.o[j]).trim());
@@ -418,7 +477,7 @@ function pintarExamen(t,{previa,a,dp,resp}){const ex=t.ex,R=rng(dp.semilla||"x")
       else if(p.tipo==="num")ctl=`<input data-resp="${it.id}" inputmode="decimal" value="${esc(v??"")}" placeholder="Resultado" style="max-width:260px">`;
       else if(p.tipo==="corta")ctl=`<input data-resp="${it.id}" value="${esc(v??"")}" placeholder="Respuesta">`;
       else ctl=`<textarea data-resp="${it.id}" rows="6" placeholder="Escriba aquí su desarrollo">${esc(v??"")}</textarea>`;
-      return `<div class="item"><p class="q">${k+1}. ${nl(it.txt)} <span class="muted small">(${fmtPts(it.pts)} pts)</span></p>${ctl}</div>`}).join("");
+      return `<div class="item"><p class="q">${k+1}. ${nl(it.txt)} <span class="muted small">(${fmtPts(it.pts)} pts)</span></p>${appHTML(it)}${ctl}</div>`}).join("");
     return `<section class="parte"><h2>Parte ${pi+1}. ${esc(p.titulo)} <span class="muted small">(${fmtPts(p.items.reduce((s,i)=>s+(+i.pts||0),0))} pts)</span></h2><p class="muted" style="margin:0 0 6px"><i>${esc(p.instrucciones)}</i></p>${cuerpo}</section>`}).join("");
   document.querySelector("header.top").classList.add("hidden");
   $("#app").innerHTML=`<div class="barra" style="margin:-16px -16px 14px">${previa?`<span class="chip warn">👁 Vista previa: así lo ven los estudiantes. No se guarda nada.</span>`:""}<b style="margin-right:auto">${esc(ex.titulo)}</b><span id="prog" class="small muted"></span>${fin?`<span class="reloj" id="reloj"></span>`:""}<span id="estGuard" class="small muted"></span>
@@ -430,6 +489,7 @@ function pintarExamen(t,{previa,a,dp,resp}){const ex=t.ex,R=rng(dp.semilla||"x")
   $$("[data-resp]").forEach(el=>{const h=()=>{const id=el.dataset.resp;
       if(el.type==="radio"){if(!el.checked)return;resp[id]=el.value;$$(`input[name="${el.name}"]`).forEach(x=>x.closest(".opc").classList.toggle("sel",x.checked))}else resp[id]=el.value;
       prog();if(!previa)programarGuardado()};el.addEventListener(el.tagName==="SELECT"||el.type==="radio"?"change":"input",h)});
+  $$("[data-app]").forEach(x=>x.addEventListener("click",()=>{if(RUN)RUN.appHasta=Date.now()+4000}));
   if(!previa){document.addEventListener("contextmenu",bloq);document.addEventListener("copy",bloq);document.addEventListener("visibilitychange",salida)}
   const ent=()=>entregar();$("#entregar").onclick=ent;$("#entregar2").onclick=ent;
   if(fin){const tick=()=>{const ms=fin-Date.now(),el=$("#reloj");if(!el)return clearInterval(RUN.timer);
@@ -438,7 +498,7 @@ function pintarExamen(t,{previa,a,dp,resp}){const ex=t.ex,R=rng(dp.semilla||"x")
     tick();RUN.timer=setInterval(tick,1000)}
   window.scrollTo(0,0)}
 const bloq=e=>{if(RUN&&!RUN.previa)e.preventDefault()};
-function salida(){if(!RUN||RUN.previa||RUN.entregado||document.visibilityState!=="hidden")return;RUN.salidas++;programarGuardado(true)}
+function salida(){if(!RUN||RUN.previa||RUN.entregado||document.visibilityState!=="hidden")return;if(RUN.appHasta&&Date.now()<RUN.appHasta){RUN.apps=(RUN.apps||0)+1;return}RUN.salidas++;programarGuardado(true)}
 let tGuard=null;
 function programarGuardado(ya){if(!RUN||RUN.previa)return;try{localStorage.setItem("examen_"+RUN.t.id+"_"+EST_ID,JSON.stringify({t:Date.now(),r:RUN.resp}))}catch(e){}
   const e=$("#estGuard");if(e)e.textContent="Guardando…";clearTimeout(tGuard);tGuard=setTimeout(guardarAvance,ya?10:1200)}

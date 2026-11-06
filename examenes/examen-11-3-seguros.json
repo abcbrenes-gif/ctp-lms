@@ -1,0 +1,299 @@
+{
+  "examen": {
+    "titulo": "Examen de Contabilidad de Seguros · 11-3",
+    "seccion": "11-3",
+    "materia_id": 2,
+    "peso": 20,
+    "duracion": 80,
+    "instrucciones": "¡Bienvenido(a) a la aseguradora! 🛡️ Hoy usted es el contador(a) que registra pólizas, comisiones, siniestros y provisiones según el plan de cuentas de SUGESE. Cuando un reto diga 🧰, abra Misión Seguros, haga la misión indicada y vuelva con su respuesta.",
+    "normativa": "Plan de cuentas para entidades de seguros de la SUGESE (código de 14 dígitos), provisiones técnicas (primas no devengadas, siniestros, IBNR, matemática).",
+    "puntos_totales": 30
+  },
+  "reactivos": [
+    {
+      "id_pregunta": 1,
+      "tipo_pregunta": "pareo",
+      "parte": "Parte 1. Descifra las cuentas",
+      "tema": "Clasificación de cuentas por el primer dígito",
+      "puntos": 1,
+      "herramienta_requerida": "Misión Seguros",
+      "accion_en_herramienta": "Abra Misión Seguros → Nivel 1 «El código de 14 dígitos y la clasificación» → misiones «Descifra el código» y «Clasifica las cuentas».",
+      "enunciado": "1.040.030.010 · Primas por cobrar, seguro directo — Tomadores",
+      "opciones_o_valor_esperado": [
+        "Activo",
+        "Pasivo",
+        "Gasto",
+        "Ingreso"
+      ],
+      "respuesta_correcta": "Activo",
+      "justificacion_pedagogica": "El primer dígito del código SUGESE indica la clase: 1 Activo, 2 Pasivo, 3 Patrimonio, 4 Gastos, 5 Ingresos.",
+      "feedback_exito": "¡Código descifrado! 🧩",
+      "feedback_error": "Pista: mire solo el PRIMER dígito."
+    },
+    {
+      "id_pregunta": 2,
+      "tipo_pregunta": "pareo",
+      "parte": "Parte 1. Descifra las cuentas",
+      "tema": "Clasificación de cuentas por el primer dígito",
+      "puntos": 1,
+      "herramienta_requerida": "Misión Seguros",
+      "accion_en_herramienta": "Misión Seguros → Nivel 1.",
+      "enunciado": "2.050.010.010 · Provisión para primas no devengadas — Seguro directo",
+      "opciones_o_valor_esperado": [
+        "Activo",
+        "Pasivo",
+        "Gasto",
+        "Ingreso"
+      ],
+      "respuesta_correcta": "Pasivo",
+      "justificacion_pedagogica": "Clase 2 = Pasivo: las provisiones técnicas son obligaciones con los asegurados.",
+      "feedback_exito": "¡Bien! 🗂️",
+      "feedback_error": "Pista: el 2 indica obligaciones."
+    },
+    {
+      "id_pregunta": 3,
+      "tipo_pregunta": "pareo",
+      "parte": "Parte 1. Descifra las cuentas",
+      "tema": "Clasificación de cuentas por el primer dígito",
+      "puntos": 1,
+      "herramienta_requerida": "Misión Seguros",
+      "accion_en_herramienta": "Misión Seguros → Nivel 1.",
+      "enunciado": "4.020.010.010 · Siniestros pagados — Seguro directo",
+      "opciones_o_valor_esperado": [
+        "Activo",
+        "Pasivo",
+        "Gasto",
+        "Ingreso"
+      ],
+      "respuesta_correcta": "Gasto",
+      "justificacion_pedagogica": "Clase 4 = Gastos: pagar un siniestro es el costo principal de la aseguradora.",
+      "feedback_exito": "¡Correcto! ✅",
+      "feedback_error": "Pista: en el plan de seguros, el 4 son gastos y el 5 ingresos."
+    },
+    {
+      "id_pregunta": 4,
+      "tipo_pregunta": "pareo",
+      "parte": "Parte 1. Descifra las cuentas",
+      "tema": "Clasificación de cuentas por el primer dígito",
+      "puntos": 1,
+      "herramienta_requerida": "Misión Seguros",
+      "accion_en_herramienta": "Misión Seguros → Nivel 1.",
+      "enunciado": "5.020.010.010 · Primas emitidas — Seguro directo",
+      "opciones_o_valor_esperado": [
+        "Activo",
+        "Pasivo",
+        "Gasto",
+        "Ingreso"
+      ],
+      "respuesta_correcta": "Ingreso",
+      "justificacion_pedagogica": "Clase 5 = Ingresos: las primas emitidas son el ingreso por vender pólizas.",
+      "feedback_exito": "¡Así es! 💰",
+      "feedback_error": "Pista: vender pólizas genera…"
+    },
+    {
+      "id_pregunta": 5,
+      "tipo_pregunta": "seleccion_unica",
+      "parte": "Parte 2. ¿Qué cuenta se mueve?",
+      "tema": "Emisión de pólizas (primas emitidas)",
+      "puntos": 2,
+      "herramienta_requerida": "Misión Seguros",
+      "accion_en_herramienta": "Misión Seguros → Nivel 2 «Primas y comisiones» → misión 2.1 «Registro de la póliza emitida».",
+      "enunciado": "📄 La aseguradora emitió pólizas por ₡1 200 000 (₡700 000 los cobra a los tomadores y ₡500 000 por medio de intermediarios). ¿Qué cuenta va al HABER?",
+      "opciones_o_valor_esperado": [
+        "Primas por cobrar, seguro directo — Tomadores",
+        "Primas emitidas — Seguro directo",
+        "Disponibilidades (Bancos / Caja)",
+        "Provisión para primas no devengadas — Seguro directo"
+      ],
+      "respuesta_correcta": "Primas emitidas — Seguro directo",
+      "justificacion_pedagogica": "Asiento: Debe 1.040.030.010 Primas por cobrar Tomadores ₡700 000 y 1.040.030.020 Intermediarios ₡500 000; Haber 5.020.010.010 Primas emitidas ₡1 200 000.",
+      "feedback_exito": "¡Póliza registrada! 📄",
+      "feedback_error": "Pista: el ingreso nace cuando se EMITE la póliza; el dinero todavía no ha entrado."
+    },
+    {
+      "id_pregunta": 6,
+      "tipo_pregunta": "seleccion_unica",
+      "parte": "Parte 2. ¿Qué cuenta se mueve?",
+      "tema": "Comisiones sobre primas emitidas",
+      "puntos": 2,
+      "herramienta_requerida": "Misión Seguros",
+      "accion_en_herramienta": "Misión Seguros → Nivel 2 → misión 2.2 «Comisión sobre primas emitidas».",
+      "enunciado": "🤝 El mediador ganó una comisión sobre las primas emitidas que todavía no se le ha pagado. ¿Qué cuenta va al DEBE?",
+      "opciones_o_valor_esperado": [
+        "Gastos por comisiones seguro directo — Sobre primas emitidas",
+        "Obligaciones con agentes e intermediarios — Comisiones por pagar",
+        "Primas emitidas — Seguro directo",
+        "Siniestros pagados — Seguro directo"
+      ],
+      "respuesta_correcta": "Gastos por comisiones seguro directo — Sobre primas emitidas",
+      "justificacion_pedagogica": "Debe 4.030.010.010 Gastos por comisiones (gasto del periodo); Haber 2.070.020.010 Comisiones por pagar (pasivo, porque aún no se paga).",
+      "feedback_exito": "¡Comisión al día! 🤝",
+      "feedback_error": "Pista: para la aseguradora la comisión es un GASTO; la deuda va al haber."
+    },
+    {
+      "id_pregunta": 7,
+      "tipo_pregunta": "seleccion_unica",
+      "parte": "Parte 2. ¿Qué cuenta se mueve?",
+      "tema": "Provisión para primas no devengadas",
+      "puntos": 2,
+      "herramienta_requerida": "Misión Seguros",
+      "accion_en_herramienta": "Misión Seguros → Nivel 2 → misión 2.5 «Provisión para primas no devengadas».",
+      "enunciado": "📆 Al cierre, ₡800 000 de las primas emitidas corresponden a cobertura que todavía no ha transcurrido. ¿Qué cuenta va al HABER?",
+      "opciones_o_valor_esperado": [
+        "Ajustes a provisiones técnicas (gasto) — Primas no devengadas",
+        "Provisión para primas no devengadas — Seguro directo",
+        "Primas emitidas — Seguro directo",
+        "Ajustes a provisiones técnicas (ingreso) — Primas no devengadas"
+      ],
+      "respuesta_correcta": "Provisión para primas no devengadas — Seguro directo",
+      "justificacion_pedagogica": "Debe 4.080.010.010 Ajustes a provisiones técnicas (gasto) ₡800 000; Haber 2.050.010.010 Provisión para primas no devengadas ₡800 000. Así el ingreso se periodifica.",
+      "feedback_exito": "¡Periodificación perfecta! 📆",
+      "feedback_error": "Pista: la cobertura que falta es una OBLIGACIÓN con el asegurado (pasivo)."
+    },
+    {
+      "id_pregunta": 8,
+      "tipo_pregunta": "seleccion_unica",
+      "parte": "Parte 2. ¿Qué cuenta se mueve?",
+      "tema": "Notificación de siniestros",
+      "puntos": 2,
+      "herramienta_requerida": "Misión Seguros",
+      "accion_en_herramienta": "Misión Seguros → Nivel 3 «Siniestros de corto plazo» → misión 3.1 «Notificación del siniestro».",
+      "enunciado": "📞 Un asegurado reportó un choque y el perito estima los daños en ₡2 500 000. ¿Qué cuenta va al HABER?",
+      "opciones_o_valor_esperado": [
+        "Siniestros pagados — Seguro directo",
+        "Siniestros en proceso de liquidación — Seguro directo",
+        "Disponibilidades (Bancos / Caja)",
+        "Siniestros liquidados y no pagados — Seguro directo"
+      ],
+      "respuesta_correcta": "Siniestros en proceso de liquidación — Seguro directo",
+      "justificacion_pedagogica": "Debe 4.080.010.030 Ajustes a provisiones técnicas (gasto) — Provisiones para siniestros; Haber 2.050.040.050 Siniestros en proceso de liquidación ₡2 500 000. Todavía no se paga ni se liquida.",
+      "feedback_exito": "¡Siniestro bajo control! 🚗",
+      "feedback_error": "Pista: apenas se reportó: no está liquidado ni pagado, está EN PROCESO."
+    },
+    {
+      "id_pregunta": 9,
+      "tipo_pregunta": "seleccion_unica",
+      "parte": "Parte 2. ¿Qué cuenta se mueve?",
+      "tema": "Provisión IBNR",
+      "puntos": 2,
+      "herramienta_requerida": "Misión Seguros",
+      "accion_en_herramienta": "Misión Seguros → Nivel 3 → misión 3.7 «Siniestros ocurridos y no reportados (IBNR)».",
+      "enunciado": "🕵️ El actuario estima siniestros ya ocurridos pero aún no reportados por ₡1 100 000. ¿Qué cuenta va al HABER?",
+      "opciones_o_valor_esperado": [
+        "Provisión para siniestros ocurridos y no reportados (IBNR) — Seguro directo",
+        "Siniestros en proceso de liquidación — Seguro directo",
+        "Provisión matemática — Seguro directo",
+        "Ajustes a provisiones técnicas (ingreso) — Provisiones para siniestros"
+      ],
+      "respuesta_correcta": "Provisión para siniestros ocurridos y no reportados (IBNR) — Seguro directo",
+      "justificacion_pedagogica": "Debe 4.080.010.030 Ajustes (gasto) — Provisiones para siniestros; Haber 2.050.050.010 Provisión IBNR ₡1 100 000.",
+      "feedback_exito": "¡Detective contable! 🕵️",
+      "feedback_error": "Pista: IBNR significa «ocurridos pero no reportados» y tiene su propia provisión."
+    },
+    {
+      "id_pregunta": 10,
+      "tipo_pregunta": "falso_verdadero",
+      "parte": "Parte 3. ¿Falso o verdadero?",
+      "tema": "Disminución de la provisión de siniestros",
+      "puntos": 1,
+      "herramienta_requerida": "Misión Seguros",
+      "accion_en_herramienta": "Misión Seguros → Nivel 3 → misión 3.3 «Disminución de la provisión».",
+      "enunciado": "Cuando la provisión de un siniestro DISMINUYE porque los daños fueron menores, se registra un ingreso en «Ajustes a provisiones técnicas (ingreso) — Provisiones para siniestros».",
+      "opciones_o_valor_esperado": [
+        "Verdadero",
+        "Falso"
+      ],
+      "respuesta_correcta": "Verdadero",
+      "justificacion_pedagogica": "Debe 2.050.040.050 Siniestros en proceso de liquidación; Haber 5.070.010.030 Ajustes a provisiones técnicas (ingreso).",
+      "feedback_exito": "¡Eso es! 📉",
+      "feedback_error": "Pista: si un pasivo baja, ¿la contrapartida es un gasto o un ingreso?"
+    },
+    {
+      "id_pregunta": 11,
+      "tipo_pregunta": "falso_verdadero",
+      "parte": "Parte 3. ¿Falso o verdadero?",
+      "tema": "Primas recaudadas por intermediarios",
+      "puntos": 1,
+      "herramienta_requerida": "Misión Seguros",
+      "accion_en_herramienta": "Misión Seguros → Nivel 2 → misión 2.4 «El intermediario cobró pero no trasladó».",
+      "enunciado": "Si un intermediario cobró ₡350 000 de primas pero todavía no las traslada a la aseguradora, se registra un aumento en Disponibilidades (Bancos / Caja).",
+      "opciones_o_valor_esperado": [
+        "Verdadero",
+        "Falso"
+      ],
+      "respuesta_correcta": "Falso",
+      "justificacion_pedagogica": "El dinero aún no entró a la aseguradora: Debe 1.040.080.030 Derechos de cobro con agentes e intermediarios; Haber 1.040.030.020 Primas por cobrar — Intermediarios.",
+      "feedback_exito": "¡No se dejó engañar! 🧠",
+      "feedback_error": "Pista: ¿el dinero ya llegó al banco de la aseguradora?"
+    },
+    {
+      "id_pregunta": 12,
+      "tipo_pregunta": "falso_verdadero",
+      "parte": "Parte 3. ¿Falso o verdadero?",
+      "tema": "Provisión matemática (seguros de vida)",
+      "puntos": 1,
+      "herramienta_requerida": "Misión Seguros",
+      "accion_en_herramienta": "Misión Seguros → Nivel 4 «Seguros personales y de vida» → misión 3.9.",
+      "enunciado": "La provisión matemática se constituye para los seguros personales y de vida de largo plazo (más de 1 año).",
+      "opciones_o_valor_esperado": [
+        "Verdadero",
+        "Falso"
+      ],
+      "respuesta_correcta": "Verdadero",
+      "justificacion_pedagogica": "Nivel 4 de la guía: seguros personales y de vida (> 1 año) usan la provisión matemática (2.050.030.010).",
+      "feedback_exito": "¡Correcto! ❤️",
+      "feedback_error": "Pista: revise el Nivel 4 de Misión Seguros."
+    },
+    {
+      "id_pregunta": 13,
+      "tipo_pregunta": "caso_practico_con_app",
+      "parte": "Parte 4. Cálculos de la aseguradora",
+      "tema": "Cálculo de la comisión del mediador",
+      "puntos": 3,
+      "herramienta_requerida": "Misión Seguros",
+      "accion_en_herramienta": "Misión Seguros → Nivel 2 → misión 2.2: compare su cálculo con el monto del asiento.",
+      "enunciado": "🧮 El mediador gana una comisión del 10 % sobre las primas emitidas de ₡1 200 000. ¿De cuánto es la comisión?",
+      "opciones_o_valor_esperado": {
+        "valor": 120000,
+        "margen": 1
+      },
+      "respuesta_correcta": "120000",
+      "justificacion_pedagogica": "₡1 200 000 × 10 % = ₡120 000 (Debe Gastos por comisiones / Haber Comisiones por pagar).",
+      "feedback_exito": "¡Cálculo exacto! 🎯",
+      "feedback_error": "Pista: multiplique las primas emitidas por 10 %."
+    },
+    {
+      "id_pregunta": 14,
+      "tipo_pregunta": "caso_practico_con_app",
+      "parte": "Parte 4. Cálculos de la aseguradora",
+      "tema": "Saldo de la provisión de siniestros",
+      "puntos": 3,
+      "herramienta_requerida": "Misión Seguros",
+      "accion_en_herramienta": "Misión Seguros → Nivel 3 → misiones 3.1 y 3.2.",
+      "enunciado": "📈 Se constituyó una provisión de siniestro de ₡2 500 000. Luego llegó nueva información y la provisión AUMENTÓ ₡400 000. ¿Cuál es el saldo de «Siniestros en proceso de liquidación»?",
+      "opciones_o_valor_esperado": {
+        "valor": 2900000,
+        "margen": 1
+      },
+      "respuesta_correcta": "2900000",
+      "justificacion_pedagogica": "₡2 500 000 + ₡400 000 = ₡2 900 000. El aumento se registra igual que la constitución (Debe gasto / Haber provisión).",
+      "feedback_exito": "¡Saldo correcto! 📊",
+      "feedback_error": "Pista: el aumento se SUMA al haber de la provisión."
+    },
+    {
+      "id_pregunta": 15,
+      "tipo_pregunta": "desarrollo",
+      "parte": "Parte 5. El asiento del siniestro",
+      "tema": "Liquidación final del siniestro",
+      "puntos": 7,
+      "herramienta_requerida": "Misión Seguros",
+      "accion_en_herramienta": "Misión Seguros → Nivel 3 → misión 3.4 «Monto final de la indemnización».",
+      "enunciado": "⚖️ Se cierra la valoración de un siniestro con provisión de ₡2 600 000: se liquidan ₡2 000 000 (aún sin pagar) y ₡600 000 quedan controvertidos por el asegurado. Escriba el asiento completo (cuentas con su código, Debe y Haber) y explique en una línea por qué se usan esas cuentas.",
+      "opciones_o_valor_esperado": [],
+      "respuesta_correcta": "Debe 2.050.040.050 Siniestros en proceso de liquidación ₡2 600 000. Haber 2.050.040.010 Siniestros liquidados y no pagados ₡2 000 000 · 2.050.040.030 Siniestros liquidados y controvertidos por el asegurado ₡600 000.",
+      "justificacion_pedagogica": "Se rebaja la provisión de siniestros en proceso y se reclasifica a las dos cuentas de pasivo según el estado del reclamo. Escala sugerida: cuenta del debe 2 pts, cada cuenta del haber 2 pts, explicación 1 pt.",
+      "feedback_exito": "¡Asiento de experto! 🏅",
+      "feedback_error": "Pista: la provisión en proceso se cancela (debe) y pasa a dos pasivos: lo liquidado y lo controvertido."
+    }
+  ]
+}

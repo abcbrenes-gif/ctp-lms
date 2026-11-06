@@ -1,0 +1,287 @@
+{
+  "examen": {
+    "titulo": "Examen de Liquidaciones y Planillas · 10-1",
+    "seccion": "10-1",
+    "materia_id": 1,
+    "peso": 20,
+    "duracion": 80,
+    "instrucciones": "¡Hoy usted es la persona encargada de Recursos Humanos de la empresa! 💼 Resuelva cada reto. Cuando un reto diga 🧰, abra la aplicación indicada, haga lo que se pide y escriba aquí el resultado. Trabaje en forma individual; las respuestas se guardan solas.",
+    "normativa": "Código de Trabajo (arts. 28, 29, 30, 153 y 156), Ley 2412 de aguinaldo, Reglamentos de la CCSS (SEM e IVM), Ley 4351 del Banco Popular, Ley 7983 de Protección al Trabajador y tramos del impuesto al salario 2026 (Ley 7092).",
+    "puntos_totales": 40
+  },
+  "reactivos": [
+    {
+      "id_pregunta": 1,
+      "tipo_pregunta": "seleccion_unica",
+      "parte": "Parte 1. Derechos laborales en acción",
+      "tema": "Derechos según el motivo de salida (renuncia)",
+      "puntos": 2,
+      "herramienta_requerida": "Liquidaciones laborales",
+      "accion_en_herramienta": "Abra Liquidaciones → ＋ Caso propio → «Años, meses y días»: 0 años, 8 meses; meses desde el 1 de diciembre: 8 → Motivo: Renuncia → Salario mensual fijo ₡420 000. Fíjese cuáles pestañas quedan en ₡0.",
+      "enunciado": "🚀 Misión relámpago: Kevin trabajó 8 meses en una pulpería y RENUNCIÓ. Ganaba ₡420 000 al mes. ¿Qué le tienen que pagar en su liquidación?",
+      "opciones_o_valor_esperado": [
+        "Preaviso, cesantía, vacaciones y aguinaldo",
+        "Solo las vacaciones proporcionales y el aguinaldo proporcional",
+        "Solo la cesantía y el aguinaldo",
+        "Nada, porque fue él quien renunció"
+      ],
+      "respuesta_correcta": "Solo las vacaciones proporcionales y el aguinaldo proporcional",
+      "justificacion_pedagogica": "El preaviso y la cesantía se pagan cuando el patrono despide sin justa causa (Código de Trabajo, arts. 28 y 29). Las vacaciones (art. 153 y 156) y el aguinaldo (Ley 2412) son derechos adquiridos: se pagan siempre, también al renunciar. En la app: vacaciones ₡112 000 + aguinaldo ₡280 000 = ₡392 000.",
+      "feedback_exito": "¡Exacto! 🎯 Sabe distinguir los derechos que nunca se pierden.",
+      "feedback_error": "Pista 🔍: el preaviso y la cesantía dependen de QUIÉN termina la relación. ¿Kevin fue despedido?"
+    },
+    {
+      "id_pregunta": 2,
+      "tipo_pregunta": "seleccion_unica",
+      "parte": "Parte 1. Derechos laborales en acción",
+      "tema": "Preaviso (art. 28)",
+      "puntos": 2,
+      "herramienta_requerida": "Ruta Laboral CR",
+      "accion_en_herramienta": "Abra Ruta Laboral CR y repase la misión «Preaviso y cesantía»: busque la tabla de plazos del art. 28.",
+      "enunciado": "⚖️ A Sofía la despiden sin justa causa y sin avisarle. Trabajó 3 años en la empresa. ¿Cuántos días de preaviso le deben pagar?",
+      "opciones_o_valor_esperado": [
+        "7 días (1 semana)",
+        "15 días",
+        "30 días (1 mes)",
+        "60 días"
+      ],
+      "respuesta_correcta": "30 días (1 mes)",
+      "justificacion_pedagogica": "Art. 28 del Código de Trabajo: de 3 a 6 meses, 1 semana; de 6 meses a 1 año, 15 días; con 1 año o más, 1 mes de salario.",
+      "feedback_exito": "¡Bien jugado! 🏆 Domina los plazos del preaviso.",
+      "feedback_error": "Pista: revise la misión de preaviso en Ruta Laboral CR; el plazo cambia con el tiempo laborado y Sofía ya pasó del año."
+    },
+    {
+      "id_pregunta": 3,
+      "tipo_pregunta": "seleccion_unica",
+      "parte": "Parte 1. Derechos laborales en acción",
+      "tema": "Salario promedio para preaviso y cesantía (art. 30)",
+      "puntos": 2,
+      "herramienta_requerida": "Liquidaciones laborales",
+      "accion_en_herramienta": "En Liquidaciones, abra la pestaña 💰 Salario de cualquier caso y lea qué promedio usa cada derecho.",
+      "enunciado": "💰 Para calcular el preaviso y la cesantía, ¿qué salario se usa?",
+      "opciones_o_valor_esperado": [
+        "El último salario que recibió",
+        "El promedio de los salarios de los últimos 6 meses",
+        "El promedio de los últimos 12 meses",
+        "El salario mínimo de su ocupación"
+      ],
+      "respuesta_correcta": "El promedio de los salarios de los últimos 6 meses",
+      "justificacion_pedagogica": "Art. 30 del Código de Trabajo: el preaviso y la cesantía se calculan con el promedio de los salarios devengados en los últimos 6 meses (o fracción). Las vacaciones usan el promedio de las últimas 50 semanas (12 meses).",
+      "feedback_exito": "¡Correcto! 💡 Ese promedio es la base del salario diario.",
+      "feedback_error": "Pista: en Liquidaciones, la pestaña 💰 Salario muestra dos promedios distintos. ¿Cuál dice «preaviso y cesantía»?"
+    },
+    {
+      "id_pregunta": 4,
+      "tipo_pregunta": "caso_practico_con_app",
+      "parte": "Parte 2. Planilla en Aula de Conta",
+      "tema": "Deducciones obreras de la CCSS y Banco Popular (10,83 %)",
+      "puntos": 2,
+      "herramienta_requerida": "Aula de Conta",
+      "accion_en_herramienta": "1) Abra Aula de Conta y entre a una empresa de práctica. 2) Vaya a 🧾 Planilla y agregue a la colaboradora Daniela con salario bruto mensual de ₡750 000 (sin horas extra). 3) Llene el machote: deducciones obreras, renta, salario neto y cargas patronales.",
+      "enunciado": "🧾 Daniela gana un salario bruto de ₡750 000. ¿Cuánto se le rebaja en total por cargas obreras (SEM 5,50 % + IVM 4,33 % + Banco Popular 1 %)?",
+      "opciones_o_valor_esperado": {
+        "valor": 81225,
+        "margen": 1
+      },
+      "respuesta_correcta": "81225",
+      "justificacion_pedagogica": "Cargas obreras 2026: SEM 5,50 % + IVM 4,33 % + aporte del trabajador al Banco Popular 1 % = 10,83 %. ₡750 000 × 10,83 % = ₡81 225.",
+      "feedback_exito": "¡Perfecto! ✅ Sus deducciones están al céntimo.",
+      "feedback_error": "Pista: sume los tres porcentajes obreros (10,83 %) y multiplíquelos por el salario bruto."
+    },
+    {
+      "id_pregunta": 5,
+      "tipo_pregunta": "caso_practico_con_app",
+      "parte": "Parte 2. Planilla en Aula de Conta",
+      "tema": "Salario neto sin impuesto de renta",
+      "puntos": 2,
+      "herramienta_requerida": "Aula de Conta",
+      "accion_en_herramienta": "1) Abra Aula de Conta y entre a una empresa de práctica. 2) Vaya a 🧾 Planilla y agregue a la colaboradora Daniela con salario bruto mensual de ₡750 000 (sin horas extra). 3) Llene el machote: deducciones obreras, renta, salario neto y cargas patronales.",
+      "enunciado": "💵 ¿Cuál es el salario NETO de Daniela (₡750 000 brutos)? Ella no paga impuesto sobre la renta.",
+      "opciones_o_valor_esperado": {
+        "valor": 668775,
+        "margen": 1
+      },
+      "respuesta_correcta": "668775",
+      "justificacion_pedagogica": "₡750 000 está por debajo del tramo exento de ₡918 000 (2026), así que no hay renta. Neto = ₡750 000 − ₡81 225 = ₡668 775.",
+      "feedback_exito": "¡Excelente! 🙌 Daniela recibe lo justo.",
+      "feedback_error": "Pista: neto = bruto − deducciones obreras − renta. ¿Supera ₡918 000 para pagar renta?"
+    },
+    {
+      "id_pregunta": 6,
+      "tipo_pregunta": "caso_practico_con_app",
+      "parte": "Parte 2. Planilla en Aula de Conta",
+      "tema": "Impuesto sobre la renta al salario (tramos 2026)",
+      "puntos": 2,
+      "herramienta_requerida": "Aula de Conta",
+      "accion_en_herramienta": "En la misma planilla de Aula de Conta agregue a Andrés con salario bruto de ₡1 200 000 (sin hijos ni cónyuge para el crédito fiscal) y llene su fila del machote.",
+      "enunciado": "🏛️ Andrés gana ₡1 200 000 brutos al mes. ¿Cuánto se le retiene de impuesto sobre la renta? (Tramos 2026: hasta ₡918 000 exento; de ₡918 000 a ₡1 347 000, 10 %).",
+      "opciones_o_valor_esperado": {
+        "valor": 28200,
+        "margen": 1
+      },
+      "respuesta_correcta": "28200",
+      "justificacion_pedagogica": "Solo el exceso sobre ₡918 000 paga 10 %: (₡1 200 000 − ₡918 000) × 10 % = ₡28 200.",
+      "feedback_exito": "¡Crack de los tramos! 🧠",
+      "feedback_error": "Pista: el 10 % NO se aplica sobre todo el salario, solo sobre lo que pasa de ₡918 000."
+    },
+    {
+      "id_pregunta": 7,
+      "tipo_pregunta": "caso_practico_con_app",
+      "parte": "Parte 2. Planilla en Aula de Conta",
+      "tema": "Salario neto con renta",
+      "puntos": 2,
+      "herramienta_requerida": "Aula de Conta",
+      "accion_en_herramienta": "En la misma planilla de Aula de Conta agregue a Andrés con salario bruto de ₡1 200 000 (sin hijos ni cónyuge para el crédito fiscal) y llene su fila del machote.",
+      "enunciado": "💵 ¿Cuál es el salario NETO de Andrés (₡1 200 000 brutos)?",
+      "opciones_o_valor_esperado": {
+        "valor": 1041840,
+        "margen": 1
+      },
+      "respuesta_correcta": "1041840",
+      "justificacion_pedagogica": "Cargas obreras: ₡1 200 000 × 10,83 % = ₡129 960. Renta: ₡28 200. Neto = ₡1 200 000 − ₡129 960 − ₡28 200 = ₡1 041 840.",
+      "feedback_exito": "¡Así se hace! 💪 Planilla completa.",
+      "feedback_error": "Pista: reste las dos cosas: cargas obreras (10,83 %) y la renta del reto anterior."
+    },
+    {
+      "id_pregunta": 8,
+      "tipo_pregunta": "caso_practico_con_app",
+      "parte": "Parte 2. Planilla en Aula de Conta",
+      "tema": "Cargas sociales patronales (26,83 %)",
+      "puntos": 2,
+      "herramienta_requerida": "Aula de Conta",
+      "accion_en_herramienta": "1) Abra Aula de Conta y entre a una empresa de práctica. 2) Vaya a 🧾 Planilla y agregue a la colaboradora Daniela con salario bruto mensual de ₡750 000 (sin horas extra). 3) Llene el machote: deducciones obreras, renta, salario neto y cargas patronales.",
+      "enunciado": "🏢 ¿Cuánto paga el PATRONO en cargas sociales por el salario de Daniela (₡750 000)?",
+      "opciones_o_valor_esperado": {
+        "valor": 201225,
+        "margen": 1
+      },
+      "respuesta_correcta": "201225",
+      "justificacion_pedagogica": "Cargas patronales 2026 en la plataforma: SEM 9,25 % + IVM 5,58 % + FODESAF 5 % + IMAS 0,50 % + INA 1,50 % + Banco Popular 0,25 % + LPT 0,25 % + FCL 1,50 % + OPC 2 % + INS 1 % = 26,83 %. ₡750 000 × 26,83 % = ₡201 225.",
+      "feedback_exito": "¡Brutal! 🔥 Ya sabe cuánto le cuesta de verdad un colaborador a la empresa.",
+      "feedback_error": "Pista: las cargas patronales NO se rebajan del salario; son un gasto adicional del patrono (26,83 %)."
+    },
+    {
+      "id_pregunta": 9,
+      "tipo_pregunta": "caso_practico_con_app",
+      "parte": "Parte 3. La liquidación de Marcela",
+      "tema": "Salario diario (promedio ÷ 30)",
+      "puntos": 2,
+      "herramienta_requerida": "Liquidaciones laborales",
+      "accion_en_herramienta": "1) Abra Liquidaciones laborales → ＋ Caso propio. 2) Tiempo laborado: «Años, meses y días» = 3 años, 4 meses, 0 días; meses desde el 1 de diciembre: 11. 3) Motivo: despido con responsabilidad patronal; preaviso: no se dio. 4) Salario: «Salario mensual fijo» ₡480 000; vacaciones disfrutadas del período: 0. 5) Vaya pestaña por pestaña (💰 Salario, 🔔 Preaviso, 🛡️ Cesantía, 🏖️ Vacaciones, 🎄 Aguinaldo, 🧾 Resumen).",
+      "enunciado": "📂 CASO MARCELA: trabajó 3 años y 4 meses en una ferretería con salario fijo de ₡480 000 al mes. La despidieron con responsabilidad patronal y SIN preaviso. Tiene 4 meses de vacaciones del período actual sin disfrutar y lleva 11 meses desde el 1 de diciembre.\n¿Cuál es el salario DIARIO de Marcela?",
+      "opciones_o_valor_esperado": {
+        "valor": 16000,
+        "margen": 1
+      },
+      "respuesta_correcta": "16000",
+      "justificacion_pedagogica": "Salario diario = promedio de los últimos 6 meses ÷ 30 = ₡480 000 ÷ 30 = ₡16 000.",
+      "feedback_exito": "¡Arranque perfecto! 🏁",
+      "feedback_error": "Pista: el salario mensual se divide entre 30 días."
+    },
+    {
+      "id_pregunta": 10,
+      "tipo_pregunta": "caso_practico_con_app",
+      "parte": "Parte 3. La liquidación de Marcela",
+      "tema": "Preaviso (art. 28)",
+      "puntos": 2,
+      "herramienta_requerida": "Liquidaciones laborales",
+      "accion_en_herramienta": "1) Abra Liquidaciones laborales → ＋ Caso propio. 2) Tiempo laborado: «Años, meses y días» = 3 años, 4 meses, 0 días; meses desde el 1 de diciembre: 11. 3) Motivo: despido con responsabilidad patronal; preaviso: no se dio. 4) Salario: «Salario mensual fijo» ₡480 000; vacaciones disfrutadas del período: 0. 5) Vaya pestaña por pestaña (💰 Salario, 🔔 Preaviso, 🛡️ Cesantía, 🏖️ Vacaciones, 🎄 Aguinaldo, 🧾 Resumen).",
+      "enunciado": "📂 CASO MARCELA: trabajó 3 años y 4 meses en una ferretería con salario fijo de ₡480 000 al mes. La despidieron con responsabilidad patronal y SIN preaviso. Tiene 4 meses de vacaciones del período actual sin disfrutar y lleva 11 meses desde el 1 de diciembre.\n¿Cuánto le corresponde de PREAVISO?",
+      "opciones_o_valor_esperado": {
+        "valor": 480000,
+        "margen": 1
+      },
+      "respuesta_correcta": "480000",
+      "justificacion_pedagogica": "Con más de 1 año: 1 mes de preaviso = 30 días × ₡16 000 = ₡480 000 (Código de Trabajo, art. 28).",
+      "feedback_exito": "¡Preaviso dominado! ✅",
+      "feedback_error": "Pista: con más de 1 año corresponde 1 mes (30 días) de salario."
+    },
+    {
+      "id_pregunta": 11,
+      "tipo_pregunta": "caso_practico_con_app",
+      "parte": "Parte 3. La liquidación de Marcela",
+      "tema": "Cesantía (art. 29)",
+      "puntos": 4,
+      "herramienta_requerida": "Liquidaciones laborales",
+      "accion_en_herramienta": "1) Abra Liquidaciones laborales → ＋ Caso propio. 2) Tiempo laborado: «Años, meses y días» = 3 años, 4 meses, 0 días; meses desde el 1 de diciembre: 11. 3) Motivo: despido con responsabilidad patronal; preaviso: no se dio. 4) Salario: «Salario mensual fijo» ₡480 000; vacaciones disfrutadas del período: 0. 5) Vaya pestaña por pestaña (💰 Salario, 🔔 Preaviso, 🛡️ Cesantía, 🏖️ Vacaciones, 🎄 Aguinaldo, 🧾 Resumen).",
+      "enunciado": "📂 CASO MARCELA: trabajó 3 años y 4 meses en una ferretería con salario fijo de ₡480 000 al mes. La despidieron con responsabilidad patronal y SIN preaviso. Tiene 4 meses de vacaciones del período actual sin disfrutar y lleva 11 meses desde el 1 de diciembre.\n¿Cuánto le corresponde de CESANTÍA?",
+      "opciones_o_valor_esperado": {
+        "valor": 984000,
+        "margen": 1
+      },
+      "respuesta_correcta": "984000",
+      "justificacion_pedagogica": "Art. 29: con 3 años corresponden 20,5 días por año. La fracción de 4 meses (6 meses o menos) no se suma. 20,5 × 3 = 61,5 días × ₡16 000 = ₡984 000.",
+      "feedback_exito": "¡Nivel experto! 🥇 La cesantía es lo más difícil y le salió.",
+      "feedback_error": "Pista: busque en la tabla del art. 29 los días por año para 3 años, y recuerde que una fracción de 6 meses o menos no cuenta."
+    },
+    {
+      "id_pregunta": 12,
+      "tipo_pregunta": "caso_practico_con_app",
+      "parte": "Parte 3. La liquidación de Marcela",
+      "tema": "Vacaciones proporcionales (art. 153 y 156)",
+      "puntos": 2,
+      "herramienta_requerida": "Liquidaciones laborales",
+      "accion_en_herramienta": "1) Abra Liquidaciones laborales → ＋ Caso propio. 2) Tiempo laborado: «Años, meses y días» = 3 años, 4 meses, 0 días; meses desde el 1 de diciembre: 11. 3) Motivo: despido con responsabilidad patronal; preaviso: no se dio. 4) Salario: «Salario mensual fijo» ₡480 000; vacaciones disfrutadas del período: 0. 5) Vaya pestaña por pestaña (💰 Salario, 🔔 Preaviso, 🛡️ Cesantía, 🏖️ Vacaciones, 🎄 Aguinaldo, 🧾 Resumen).",
+      "enunciado": "📂 CASO MARCELA: trabajó 3 años y 4 meses en una ferretería con salario fijo de ₡480 000 al mes. La despidieron con responsabilidad patronal y SIN preaviso. Tiene 4 meses de vacaciones del período actual sin disfrutar y lleva 11 meses desde el 1 de diciembre.\n¿Cuánto le corresponde de VACACIONES pendientes?",
+      "opciones_o_valor_esperado": {
+        "valor": 64000,
+        "margen": 1
+      },
+      "respuesta_correcta": "64000",
+      "justificacion_pedagogica": "Vacaciones proporcionales: 1 día por cada mes laborado del período sin disfrutar → 4 días × ₡16 000 = ₡64 000.",
+      "feedback_exito": "¡Bien! 🏖️",
+      "feedback_error": "Pista: por cada mes del período actual se acumula 1 día de vacaciones."
+    },
+    {
+      "id_pregunta": 13,
+      "tipo_pregunta": "caso_practico_con_app",
+      "parte": "Parte 3. La liquidación de Marcela",
+      "tema": "Aguinaldo proporcional (Ley 2412)",
+      "puntos": 2,
+      "herramienta_requerida": "Liquidaciones laborales",
+      "accion_en_herramienta": "1) Abra Liquidaciones laborales → ＋ Caso propio. 2) Tiempo laborado: «Años, meses y días» = 3 años, 4 meses, 0 días; meses desde el 1 de diciembre: 11. 3) Motivo: despido con responsabilidad patronal; preaviso: no se dio. 4) Salario: «Salario mensual fijo» ₡480 000; vacaciones disfrutadas del período: 0. 5) Vaya pestaña por pestaña (💰 Salario, 🔔 Preaviso, 🛡️ Cesantía, 🏖️ Vacaciones, 🎄 Aguinaldo, 🧾 Resumen).",
+      "enunciado": "📂 CASO MARCELA: trabajó 3 años y 4 meses en una ferretería con salario fijo de ₡480 000 al mes. La despidieron con responsabilidad patronal y SIN preaviso. Tiene 4 meses de vacaciones del período actual sin disfrutar y lleva 11 meses desde el 1 de diciembre.\n¿Cuánto le corresponde de AGUINALDO?",
+      "opciones_o_valor_esperado": {
+        "valor": 440000,
+        "margen": 1
+      },
+      "respuesta_correcta": "440000",
+      "justificacion_pedagogica": "Aguinaldo = total devengado desde el 1 de diciembre ÷ 12 = (₡480 000 × 11) ÷ 12 = ₡440 000 (Ley 2412).",
+      "feedback_exito": "¡Navidad asegurada! 🎄",
+      "feedback_error": "Pista: sume lo ganado desde el 1 de diciembre y divídalo entre 12."
+    },
+    {
+      "id_pregunta": 14,
+      "tipo_pregunta": "caso_practico_con_app",
+      "parte": "Parte 3. La liquidación de Marcela",
+      "tema": "Total de la liquidación",
+      "puntos": 2,
+      "herramienta_requerida": "Liquidaciones laborales",
+      "accion_en_herramienta": "1) Abra Liquidaciones laborales → ＋ Caso propio. 2) Tiempo laborado: «Años, meses y días» = 3 años, 4 meses, 0 días; meses desde el 1 de diciembre: 11. 3) Motivo: despido con responsabilidad patronal; preaviso: no se dio. 4) Salario: «Salario mensual fijo» ₡480 000; vacaciones disfrutadas del período: 0. 5) Vaya pestaña por pestaña (💰 Salario, 🔔 Preaviso, 🛡️ Cesantía, 🏖️ Vacaciones, 🎄 Aguinaldo, 🧾 Resumen).",
+      "enunciado": "📂 CASO MARCELA: trabajó 3 años y 4 meses en una ferretería con salario fijo de ₡480 000 al mes. La despidieron con responsabilidad patronal y SIN preaviso. Tiene 4 meses de vacaciones del período actual sin disfrutar y lleva 11 meses desde el 1 de diciembre.\n¿Cuál es el TOTAL de la liquidación de Marcela?",
+      "opciones_o_valor_esperado": {
+        "valor": 1968000,
+        "margen": 1
+      },
+      "respuesta_correcta": "1968000",
+      "justificacion_pedagogica": "Total = preaviso ₡480 000 + cesantía ₡984 000 + vacaciones ₡64 000 + aguinaldo ₡440 000 = ₡1 968 000.",
+      "feedback_exito": "¡Liquidación completa! 🎉 Marcela recibe lo que la ley manda.",
+      "feedback_error": "Pista: revise la pestaña 🧾 Resumen y sume los cuatro derechos."
+    },
+    {
+      "id_pregunta": 15,
+      "tipo_pregunta": "desarrollo",
+      "parte": "Parte 4. El asiento de la planilla",
+      "tema": "Asiento de la planilla (pasivos laborales)",
+      "puntos": 10,
+      "herramienta_requerida": "Aula de Conta",
+      "accion_en_herramienta": "En Aula de Conta, en la empresa de práctica con la planilla de Daniela, abra «Asiento de la planilla» y compare las cuentas que la app le propone.",
+      "enunciado": "📒 Registre en el libro diario el asiento de la planilla de Daniela (salario bruto ₡750 000, sin renta). Use las cuentas de Aula de Conta: 6101 Salarios, 6102 Cargas sociales, 2107 CCSS por pagar, 2108 Banco Popular por pagar, 2109 FCL por pagar y 2104 Salarios y cargas sociales por pagar. Escriba cada línea con su cuenta, Debe y Haber, y compruebe que el asiento cuadra.",
+      "opciones_o_valor_esperado": [],
+      "respuesta_correcta": "Debe: 6101 Salarios ₡750 000 · 6102 Cargas sociales ₡201 225. Haber: 2107 CCSS por pagar ₡259 950 (obrera SEM+IVM 9,83 % = ₡73 725 + patronal 24,83 % = ₡186 225) · 2108 Banco Popular por pagar ₡11 250 (1 % obrero ₡7 500 + 0,25 % + 0,25 % patronal ₡3 750) · 2109 FCL por pagar ₡11 250 (1,5 %) · 2104 Salarios por pagar ₡668 775. Total Debe = Total Haber = ₡951 225.",
+      "justificacion_pedagogica": "Las obligaciones de la planilla son pasivos laborales: la CCSS, el Banco Popular y el FCL se registran en cuentas por pagar separadas según la ley que las crea, y el salario neto queda por pagar a la colaboradora. Escala sugerida: 2 pts por cada cuenta de gasto correcta (4), 1,5 pts por cada pasivo correcto (6).",
+      "feedback_exito": "¡Asiento cuadrado! 📒✨ Ya piensa como contador(a).",
+      "feedback_error": "Pista: el Debe son los dos gastos (salario bruto y cargas patronales). En el Haber van las retenciones y aportes por pagar y el salario neto."
+    }
+  ]
+}
