@@ -624,10 +624,7 @@ function vistaInicio() {
         <div class="emoji">🎮</div>
         <h2>Quiero jugar</h2>
         <div class="field"><label for="inPin">PIN de la partida</label><input id="inPin" class="pin-input" inputmode="numeric" maxlength="6" placeholder="000000" value="${esc(pinUrl)}"></div>
-        ${sesionPlataforma() ? `<div class="field"><label>Jugás como</label><div class="pin-ok">✅ ${esc(sesionPlataforma().nombre || "Sesión de la plataforma")}</div></div>` : `
-        <div class="field"><label for="inCed">Tu cédula</label><input id="inCed" inputmode="numeric" maxlength="14" autocomplete="username" placeholder="Ej.: 402870846" value="${esc(QS.get("est") || (S.yo && S.yo.est) || "")}"></div>
-        <div class="field"><label for="inPinEst">Tu PIN de la plataforma</label><input id="inPinEst" type="password" inputmode="numeric" maxlength="12" autocomplete="current-password" placeholder="El mismo con que entrás a la plataforma">
-          <small class="muted">🔒 Es para confirmar que sos vos: nadie puede jugar con el nombre de otro compañero.</small></div>`}
+        <div class="field"><label for="inNombre">Tu nombre completo</label><input id="inNombre" maxlength="60" autocomplete="name" placeholder="Ej.: Valentina Gómez Rojas" value="${esc(S.yo && S.yo.nombre ? S.yo.nombre : ((sesionPlataforma() || {}).nombre || nombreUrl))}"></div>
         <div class="field"><label for="inApodo">Tu apodo para jugar</label><input id="inApodo" maxlength="16" placeholder="Ej.: La Contadora" value="${esc(S.yo && S.yo.apodo ? S.yo.apodo : "")}">
           <small class="muted">En el podio vas a aparecer con tu apodo. Tu nombre real solo lo ve el profe en el registro.</small></div>
         <button class="btn big green" id="btnJoin" style="width:100%">Entrar a la partida</button>
@@ -1737,15 +1734,15 @@ async function unirse() {
   const apodo = ($("#inApodo").value || "").trim().replace(/\s+/g, " ");
   if (pin.length !== 6) { toast("El PIN tiene 6 números."); return; }
   if (!apodo) { toast("Escribí tu apodo para jugar."); return; }
-  const btn = $("#btnJoin"); if (btn) { btn.disabled = true; btn.textContent = "Verificando…"; }
-  const est = await verificarEstudiante();
-  if (btn) { btn.disabled = false; btn.textContent = "Entrar a la partida"; }
-  if (!est) return;
-  const nombre = [est.nombre, est.apellido1, est.apellido2].filter(Boolean).join(" ").replace(/\s+/g, " ");
+  // Reglas de antes: PIN de la partida + nombre completo + apodo (sin cédula ni PIN de la plataforma).
+  const nombre = (($("#inNombre") || {}).value || "").trim().replace(/\s+/g, " ");
+  if (nombre.split(" ").length < 2) { toast("Escribí tu nombre completo (nombre y apellido)."); return; }
+  const estId = (sesionPlataforma() || {}).id || QS.get("est") || (S.yo && S.yo.est) || null;
+  const est = estId ? { id: String(estId) } : null;
   // ¿Hay una Tiradera «a su ritmo» abierta con este PIN para la sección del estudiante?
-  try { const tr = await buscarRitmo(pin, est); if (tr) return iniciarRitmo(tr, est, nombre, apodo, pin); } catch (e) { console.warn("ritmo:", e); }
+  if (est) try { const tr = await buscarRitmo(pin, est); if (tr) return iniciarRitmo(tr, est, nombre, apodo, pin); } catch (e) { console.warn("ritmo:", e); }
   S.rol = "player"; S.pin = pin; S.expulsado = false;
-  S.yo = { id: (S.yo && S.yo.est === est.id && S.yo.id) || "j-" + uid(), nombre, apodo, est: est.id, verificado: true, grupo: S.yo && S.yo.pin === pin ? S.yo.grupo : null, pin };
+  S.yo = { id: (S.yo && S.yo.nombre === nombre && S.yo.id) || "j-" + uid(), nombre, apodo, est: est ? est.id : null, grupo: S.yo && S.yo.pin === pin ? S.yo.grupo : null, pin };
   store.sset("tiradera_yo", S.yo);
   pantalla(`<div class="card center"><h2>Entrando a la partida ${pin}…</h2><p class="muted">Si tarda, revisá que el PIN sea el correcto.</p></div>`);
   S.canal = await crearCanal(pin, S.yo.id, jugadorEvento, null);
