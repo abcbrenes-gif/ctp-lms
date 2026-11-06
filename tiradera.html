@@ -488,7 +488,7 @@ const S = {
   yo: store.sget("tiradera_yo", null), // {id, nombre, apodo, est, grupo} del participante
   // ---- solo host ----
   retos: store.get("tiradera_retos", null),
-  cfg: (c => { c.maximo = Math.min(CUPO_MAX, +c.maximo || CUPO_MAX); return c; })(Object.assign({ modalidad: "individual", grupos: 4, asignacion: "libre", maximo: 20, porGrupo: 0, propuestas: false, pinFijo: "111111" }, store.get("tiradera_cfg", {}))), // cupo máximo de 20
+  cfg: (c => { c.maximo = Math.min(CUPO_MAX, +c.maximo || CUPO_MAX); return c; })(Object.assign({ modalidad: "individual", grupos: 4, asignacion: "libre", maximo: 20, porGrupo: 0, propuestas: false, pinFijo: "" }, store.get("tiradera_cfg", {}), { pinFijo: "" })), // cupo máximo de 20
   propuestas: [],      // preguntas que proponen los estudiantes {pid, autorId, autorApodo, autorNombre, tipo, pregunta, opciones, correcta, estado}
   instrumento: Object.assign({}, INSTRUMENTO_BASE, store.get("tiradera_instrumento", {})),
   criterios: (() => {
@@ -678,7 +678,6 @@ function vistaConfig() {
         <div class="field"><label for="cfgMax">Máximo de participantes</label><input id="cfgMax" type="number" min="1" max="${CUPO_MAX}" value="${+S.cfg.maximo || CUPO_MAX}"><small class="muted">Máximo ${CUPO_MAX} participantes</small></div>
       </div>
       <label style="display:flex;gap:8px;align-items:center;font-weight:800;margin:4px 0 10px"><input type="checkbox" id="cfgProp" ${S.cfg.propuestas ? "checked" : ""} style="width:20px;height:20px"> ✍️ Los estudiantes pueden proponer preguntas (selección única y falso/verdadero) desde su celular, y yo las apruebo</label>
-      <label style="display:flex;gap:8px;align-items:center;font-weight:800;margin:4px 0 10px">🔢 PIN de la partida: <input id="cfgPinFijo" inputmode="numeric" maxlength="6" placeholder="al azar" value="${esc(S.cfg.pinFijo || "")}" style="width:110px;text-align:center;letter-spacing:3px;font-weight:900"> <small class="muted" style="font-weight:600">Siempre el mismo (por ejemplo 111111). Déjelo vacío para uno al azar.</small></label>
       <label style="display:flex;gap:8px;align-items:center;font-weight:800;margin:4px 0 10px"><input type="checkbox" id="cfgMezclar" ${S.cfg.mezclar ? "checked" : ""} style="width:20px;height:20px"> 🔀 En cada celular las opciones de selección única salen en otro orden y con otro color (para que no se copien)</label>
       <p class="muted cfg-grupal" style="font-size:.85rem;margin:0">En grupos, cada estudiante juega desde su dispositivo y el puntaje del grupo es el promedio de sus integrantes. El registro sigue siendo individual.</p>
     </div>
@@ -688,11 +687,11 @@ function vistaConfig() {
     <div class="center" style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn ghost" id="btnVolver">← Volver al inicio</button><button class="btn ghost" id="btnHist2">📚 Partidas anteriores</button></div>`);
   $("#btnHist2").onclick = vistaHistorial;
   const syncCfg = () => {
-    S.cfg = { modalidad: $("#cfgModo").value, grupos: +$("#cfgGrupos").value, asignacion: $("#cfgAsig").value, maximo: Math.max(1, Math.min(CUPO_MAX, +$("#cfgMax").value || CUPO_MAX)), porGrupo: Math.max(0, Math.min(18, +$("#cfgPorGrupo").value || 0)), propuestas: $("#cfgProp").checked, mezclar: $("#cfgMezclar").checked, pinFijo: ($("#cfgPinFijo").value || "").replace(/\D/g, "").slice(0, 6) };
+    S.cfg = { modalidad: $("#cfgModo").value, grupos: +$("#cfgGrupos").value, asignacion: $("#cfgAsig").value, maximo: Math.max(1, Math.min(CUPO_MAX, +$("#cfgMax").value || CUPO_MAX)), porGrupo: Math.max(0, Math.min(18, +$("#cfgPorGrupo").value || 0)), propuestas: $("#cfgProp").checked, mezclar: $("#cfgMezclar").checked, pinFijo: "" };
     guardarCfg();
     $$(".cfg-grupal").forEach(el => el.style.display = S.cfg.modalidad === "grupal" ? "" : "none");
   };
-  ["#cfgModo", "#cfgGrupos", "#cfgAsig", "#cfgMax", "#cfgPorGrupo", "#cfgProp", "#cfgMezclar", "#cfgPinFijo"].forEach(sel => $(sel).addEventListener("change", syncCfg));
+  ["#cfgModo", "#cfgGrupos", "#cfgAsig", "#cfgMax", "#cfgPorGrupo", "#cfgProp", "#cfgMezclar"].forEach(sel => $(sel).addEventListener("change", syncCfg));
   syncCfg();
   pintarEditorEvaluacion();
   $$("[data-edit]").forEach(b => b.onclick = () => { editando = +b.dataset.edit; vistaEditor(); });
