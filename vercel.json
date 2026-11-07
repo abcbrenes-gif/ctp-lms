@@ -1,3 +1,9 @@
 {
-  "cleanUrls": true
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/api/redactar-instruccion-examen", "destination": "/api/ia?fn=redactar-instruccion-examen" },
+    { "source": "/api/planear-examen", "destination": "/api/ia?fn=planear-examen" },
+    { "source": "/api/generar-examen-ia", "destination": "/api/ia?fn=generar-examen-ia" },
+    { "source": "/api/revisar-ley-infografia", "destination": "/api/ia?fn=revisar-ley-infografia" }
+  ]
 }
