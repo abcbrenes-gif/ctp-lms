@@ -113,7 +113,20 @@ const urlApp=n=>{const k=Object.keys(APPS).find(x=>norm(x)===norm(n)||norm(n).in
 const appNombre=n=>Object.keys(APPS).find(x=>norm(x)===norm(n)||norm(n).includes(norm(x).split(" ")[0]))||n;
 const nuevoItem=t=>({id:uid(),txt:"",pts:1,...(t==="sel"?{o:["","","",""],r:0}:t==="fv"?{r:true}:t==="pareo"?{a:"",b:""}:t==="corta"?{acepta:[""]}:t==="num"?{r:0,tol:0.01}:{guia:""})});
 const nuevaParte=t=>({id:uid(),tipo:t,titulo:TIPOS[t].n,instrucciones:TIPOS[t].ins,items:[nuevoItem(t)],extras:[]});
-const nuevoEx=()=>({materia_id:null,titulo:"",instrucciones:"Lea con atención cada parte. Trabaje en forma individual. Al terminar, presione «Entregar examen».",fecha:hoyISO(),inicio:null,cierre:null,duracion:80,peso:20,mezclar:true,mostrar_resultados:false,publicado:false,indicador_id:null,partes:[]});
+const ENC_DEF={institucion:"CTP Mercedes Norte",especialidad:"Contabilidad",subarea:"",unidad:"",docente:"",periodo:"II Período",tipo:"Prueba escrita",resultado:"",nota:""};
+const ENC_CAMPOS=[["institucion","Institución"],["especialidad","Especialidad"],["subarea","Subárea"],["unidad","Unidad de estudio"],["docente","Docente"],["periodo","Período"],["tipo","Tipo de prueba"]];
+const encDe=ex=>({...ENC_DEF,...(ex.encabezado||{})});
+// Encabezado del examen (lo ven el estudiante, la vista previa y la versión impresa).
+function encabezadoHTML(ex,{imprimir}={}){const E=encDe(ex),td=imprimir?' style="border:1px solid #888;padding:4px 8px"':"";
+  const celdas=[...ENC_CAMPOS.filter(([k])=>!["institucion","especialidad","tipo","periodo"].includes(k)&&String(E[k]||"").trim()).map(([k,n])=>[n,esc(E[k])]),
+    ["Sección",esc(nomMat(ex.materia_id))],["Fecha",esc(ex.fecha||"")],["Tiempo",ex.duracion?ex.duracion+" minutos":"—"],["Puntos totales",fmtPts(totalPts(ex))],["Porcentaje",fmtPts(ex.peso)+" %"]];
+  if(imprimir)celdas.unshift(["Nombre de la persona estudiante",""],["Puntos obtenidos",""],["Nota",""]);
+  const filas=[];for(let i=0;i<celdas.length;i+=3)filas.push(`<tr>${celdas.slice(i,i+3).map(([n,v])=>`<td${td}><span class="small muted">${n}:</span> <b>${v}</b></td>`).join("")}</tr>`);
+  return `<div style="text-align:center"><div style="font-weight:800;font-size:1.05rem">${esc(E.institucion)}</div>${E.especialidad?`<div>Especialidad de ${esc(E.especialidad)}</div>`:""}<h2 style="margin:6px 0 2px">${esc(ex.titulo)}</h2>${E.tipo?`<div class="small muted">${esc(E.tipo)}${E.periodo?" · "+esc(E.periodo):""}</div>`:""}</div>
+    <div class="tbl" style="margin:10px 0"><table style="font-size:.88rem${imprimir?";border-collapse:collapse;width:100%":""}"><tbody>${filas.join("")}</tbody></table></div>
+    ${E.resultado?`<p class="small" style="margin:4px 0"><b>Resultado de aprendizaje:</b> ${nl(E.resultado)}</p>`:""}${E.nota?`<p class="small" style="margin:4px 0">${nl(E.nota)}</p>`:""}`}
+const casoHTML=p=>String(p.caso||"").trim()?`<div class="aviso" style="background:var(--card);border-color:var(--line);border-left:4px solid var(--warn);white-space:pre-wrap;margin:6px 0 10px"><b>📂 ${esc(p.casoTitulo||"Caso")}</b><br>${esc(p.caso)}</div>`:"";
+const nuevoEx=()=>({encabezado:{...ENC_DEF},materia_id:null,titulo:"",instrucciones:"Lea con atención cada parte. Trabaje en forma individual. Al terminar, presione «Entregar examen».",fecha:hoyISO(),inicio:null,cierre:null,duracion:80,peso:20,mezclar:true,mostrar_resultados:false,publicado:false,indicador_id:null,partes:[]});
 const itemsDe=ex=>(ex.partes||[]).flatMap(p=>(p.items||[]).map(it=>({p,it})));
 const totalPts=ex=>itemsDe(ex).reduce((s,{it})=>s+(+it.pts||0),0);
 
@@ -283,6 +296,11 @@ function pintarEditor(){const ex=ED.ex;
     <label class="row small"><input type="checkbox" data-g="mezclar" ${ex.mezclar?"checked":""}> Mezclar el orden de los ítems y de las opciones para cada estudiante</label>
     <label class="row small"><input type="checkbox" data-g="mostrar_resultados" ${ex.mostrar_resultados?"checked":""}> Mostrar a cada estudiante su nota y las respuestas correctas después de entregar</label>
   </div><p class="small muted" style="margin:10px 0 0">Total: <b id="edTot">${fmtPts(totalPts(ex))}</b> puntos · ${itemsDe(ex).length} ítems. Se califica con puntos reales y aporta su propio ${fmtPts(ex.peso)} % en «Pruebas».</p></div>
+  <div class="card"><h2>🏫 Encabezado del examen</h2><p class="small muted" style="margin:0 0 8px">Lo ve la persona estudiante arriba del examen y sale en la versión impresa. La sección, la fecha, el tiempo, los puntos y el porcentaje se llenan solos.</p>
+   <div class="grid">${ENC_CAMPOS.map(([k,n])=>`<label class="f">${n}<input data-h="${k}" value="${esc(encDe(ex)[k])}"></label>`).join("")}
+    <label class="f" style="grid-column:1/-1">Resultado de aprendizaje (opcional)<textarea data-h="resultado" rows="2">${esc(encDe(ex).resultado)}</textarea></label>
+    <label class="f" style="grid-column:1/-1">Nota o aviso adicional (opcional)<textarea data-h="nota" rows="2">${esc(encDe(ex).nota)}</textarea></label></div>
+   <details style="margin-top:8px"><summary class="small" style="cursor:pointer;font-weight:700">👁 Ver cómo queda</summary><div class="card" id="encPrev" style="margin-top:8px">${encabezadoHTML(ex)}</div></details></div>
   ${ex.partes.map((p,pi)=>parteEdHTML(p,pi)).join("")}
   <div class="card"><h3>＋ Agregar una parte</h3><div class="row">${Object.entries(TIPOS).map(([k,v])=>`<button data-addp="${k}">${v.ic} ${v.n}</button>`).join("")}</div></div>
   <div class="row" style="justify-content:flex-end"><button class="pri" id="edGuardar2">💾 Guardar</button></div>`;
@@ -290,7 +308,8 @@ function pintarEditor(){const ex=ED.ex;
 function parteEdHTML(p,pi){const T=TIPOS[p.tipo];
   return `<div class="card" data-pi="${pi}"><div class="row" style="margin:0 0 8px"><b style="margin-right:auto">Parte ${pi+1} · ${T.ic} ${T.n} <span class="muted small">(${fmtPts(p.items.reduce((s,i)=>s+(+i.pts||0),0))} pts)</span></b>
     <button class="sm" data-pmov="-1" ${pi?"":"disabled"}>↑</button><button class="sm" data-pmov="1">↓</button><button class="sm danger" data-pdel>Quitar parte</button></div>
-    <div class="grid"><label class="f">Título de la parte<input data-p="titulo" value="${esc(p.titulo)}"></label><div class="f" style="grid-column:span 2"><span class="row" style="justify-content:space-between">Instrucciones de la parte<button type="button" class="sm" data-ia="parte">✨ Redactar con IA</button></span><textarea data-p="instrucciones" rows="2">${esc(p.instrucciones)}</textarea></div></div>
+    <div class="grid"><label class="f">Título de la parte<input data-p="titulo" value="${esc(p.titulo)}"></label><div class="f" style="grid-column:span 2"><span class="row" style="justify-content:space-between">Instrucciones de la parte<button type="button" class="sm" data-ia="parte">✨ Redactar con IA</button></span><textarea data-p="instrucciones" rows="2">${esc(p.instrucciones)}</textarea></div>
+      <label class="f" style="grid-column:1/-1">📂 Caso o enunciado principal de la parte (opcional): las preguntas de esta parte se basan en él<input data-p="casoTitulo" value="${esc(p.casoTitulo||"")}" placeholder="Título del caso (ej.: Caso Marcela)" style="margin-bottom:4px"><textarea data-p="caso" rows="${String(p.caso||"").split("\n").length>3?6:3}" placeholder="Escriba aquí los datos del caso. Se muestra una sola vez arriba de las preguntas de la parte.">${esc(p.caso||"")}</textarea></label></div>
     ${p.items.map((it,ii)=>itemEdHTML(p,it,ii)).join("")}
     ${p.tipo==="pareo"?`<label class="f" style="margin-top:8px">Opciones extra de la columna B que no corresponden a nada (una por línea, opcional)<textarea data-p="extras">${esc((p.extras||[]).join("\n"))}</textarea></label>`:""}
     <div class="row" style="margin-top:8px"><button class="sm" data-addi>＋ Agregar ${p.tipo==="pareo"?"par":"ítem"}</button><button class="sm" data-ptsall>Mismo puntaje a todos</button></div></div>`}
@@ -314,6 +333,7 @@ function itemEdHTML(p,it,ii){const pts=`<label class="f" style="max-width:110px"
   return `<div class="ed-item" data-ii="${ii}">${ctl}${cuerpo}${extra}</div>`}
 function ligarEditor(){const ex=ED.ex,ap=$("#app");
   const sucio=()=>{EDsucio=true;const t=$("#edTot");if(t)t.textContent=fmtPts(totalPts(ex))};
+  ap.querySelectorAll("[data-h]").forEach(el=>el.oninput=()=>{ex.encabezado={...encDe(ex),[el.dataset.h]:el.value};const pv=$("#encPrev");if(pv)pv.innerHTML=encabezadoHTML(ex);sucio()});
   ap.querySelectorAll("[data-g]").forEach(el=>el.oninput=el.onchange=()=>{const k=el.dataset.g;
     ex[k]=el.type==="checkbox"?el.checked:k==="inicio"||k==="cierre"?deLocal(el.value):k==="materia_id"?+el.value:k==="duracion"||k==="peso"?+el.value||0:el.value;sucio()});
   ap.querySelectorAll("[data-pi]").forEach(card=>{const p=ex.partes[+card.dataset.pi];
@@ -408,7 +428,7 @@ function desgloseHTML(ex,resp,dp){const man=(dp&&dp.manual)||{},fal={};
   return `<div class="card"><h3>📊 Desglose por parte</h3><div class="tbl"><table><thead><tr><th>Parte</th><th class="r">Puntos</th><th class="r">Logro</th></tr></thead><tbody>${filas}</tbody></table></div>
     ${temas.length?`<h3 style="margin-top:12px">📌 Conceptos para reforzar</h3><ul>${temas.map(k=>`<li><b>${esc(k)}</b>${fal[k].filter(Boolean)[0]?`<br><span class="small muted">${esc(fal[k].filter(Boolean)[0])}</span>`:""}</li>`).join("")}</ul>`:'<p class="ok-t" style="margin-top:10px">🏆 ¡Logró todos los conceptos evaluados!</p>'}</div>`}
 function revisionHTML(ex,resp,dp,{editable,paraEst}={}){const man=(dp&&dp.manual)||{};
-  return desgloseHTML(ex,resp,dp)+ex.partes.map((p,pi)=>`<div class="parte"><h3>Parte ${pi+1}. ${esc(p.titulo)} <span class="muted small">(${fmtPts(p.items.reduce((s,i)=>s+(+i.pts||0),0))} pts)</span></h3>
+  return desgloseHTML(ex,resp,dp)+ex.partes.map((p,pi)=>`<div class="parte"><h3>Parte ${pi+1}. ${esc(p.titulo)} <span class="muted small">(${fmtPts(p.items.reduce((s,i)=>s+(+i.pts||0),0))} pts)</span></h3>${casoHTML(p)}
    ${p.items.map((it,ii)=>{const v=resp[it.id],a=autoItem(p,it,v),m=man[it.id],val=m!==undefined&&m!==null&&m!==""?+m:a,pts=+it.pts||0;
      const est=val===null?'<span class="chip bad">Por calificar</span>':val>=pts?'<span class="ok-t">✔</span>':val>0?'<span class="chip warn">Parcial</span>':'<span class="bad-t">✘</span>';
      return `<div class="item"><div class="row" style="align-items:flex-start"><p class="q" style="margin-right:auto;flex:1">${ii+1}. ${p.tipo==="pareo"?esc(it.a):nl(it.txt)}</p>${est}</div>
@@ -444,10 +464,9 @@ function imprimir(t){const ex=t.ex,sol=confirm("¿Imprimir con las respuestas co
       ${p.tipo==="sel"?it.o.map((o,j)=>`<p style="margin:2px 0 2px 18px">${sol&&j===+it.r?"<b>☒":"☐"} ${"abcdefgh"[j]}) ${esc(o)}${sol&&j===+it.r?"</b>":""}</p>`).join(""):""}
       ${p.tipo==="corta"||p.tipo==="num"?`<p style="margin:4px 0 0 18px">${sol?"<b>R/ "+verCorrecta(p,it)+"</b>":"R/ _______________________________"}</p>`:""}
       ${p.tipo==="des"?(sol&&it.guia?`<p style="margin:4px 0 0 18px"><b>Guía:</b> ${nl(it.guia)}</p>`:'<div style="height:120px;border:1px solid #bbb;margin:6px 0 0 18px"></div>'):""}</div>`).join("");
-    return `<h3 style="margin:18px 0 4px">Parte ${pi+1}. ${esc(p.titulo)} (${fmtPts(its.reduce((s,i)=>s+(+i.pts||0),0))} pts)</h3><p style="margin:0 0 8px"><i>${esc(p.instrucciones)}</i></p>${cuerpo}`}).join("");
+    return `<h3 style="margin:18px 0 4px">Parte ${pi+1}. ${esc(p.titulo)} (${fmtPts(its.reduce((s,i)=>s+(+i.pts||0),0))} pts)</h3><p style="margin:0 0 8px"><i>${nl(p.instrucciones)}</i></p>${String(p.caso||"").trim()?`<div style="border:1px solid #888;padding:8px 10px;margin:0 0 10px;white-space:pre-wrap"><b>${esc(p.casoTitulo||"Caso")}</b><br>${esc(p.caso)}</div>`:""}${cuerpo}`}).join("");
   w.document.write(`<html><head><meta charset="utf-8"><title>${esc(ex.titulo)}${sol?" · Solucionario":""}</title><style>body{font:12pt/1.4 Arial,sans-serif;color:#000;padding:24px}table.h td{border:1px solid #888;padding:4px 8px}</style></head><body>
-   <h2 style="text-align:center;margin:0">CTP Mercedes Norte · Especialidad de Contabilidad</h2><h3 style="text-align:center;margin:4px 0 12px">${esc(ex.titulo)}${sol?" · SOLUCIONARIO":""}</h3>
-   <table class="h" style="width:100%;border-collapse:collapse;margin:0 0 10px"><tr><td>Nombre: </td><td>Sección: ${esc(nomMat(ex.materia_id))}</td><td>Fecha: ${esc(ex.fecha)}</td></tr><tr><td>Puntos totales: ${fmtPts(totalPts(ex))}</td><td>Puntos obtenidos:</td><td>Porcentaje: ${fmtPts(ex.peso)} %</td></tr></table>
+   ${encabezadoHTML(ex,{imprimir:true})}${sol?'<p style="text-align:center;font-weight:800">SOLUCIONARIO</p>':""}
    <p><b>Instrucciones generales:</b> ${nl(ex.instrucciones)}</p>${partes}</body></html>`);w.document.close();setTimeout(()=>w.print(),400)}
 
 // ═══════════════════ ESTUDIANTE ═══════════════════
@@ -476,7 +495,7 @@ async function hacer(id){await cargarExamenes();const t=S.exs.find(x=>x.id===id&
   if(st.k==="cerrado"&&empezado)return pintarExamen(t,{a,dp:a.datos_prueba,resp:{...(a.respuestas||{})}});
   if(st.k!=="abierto")return $("#app").innerHTML=`<div class="card"><h1>${esc(ex.titulo)}</h1><p>${esc(st.t)}.</p><button onclick="location.hash='#/'">← Mis exámenes</button></div>`;
   if(!a||!(a.datos_prueba||{}).inicio_ts){
-    $("#app").innerHTML=`<div class="card"><h1>${esc(ex.titulo)}</h1><p><b>Instrucciones generales:</b><br>${nl(ex.instrucciones)}</p>
+    $("#app").innerHTML=`<div class="card">${encabezadoHTML(ex)}<p><b>Instrucciones generales:</b><br>${nl(ex.instrucciones)}</p>
      <ul><li>${itemsDe(ex).length} ítems en ${ex.partes.length} partes · <b>${fmtPts(totalPts(ex))} puntos</b> · vale ${fmtPts(ex.peso)} % de la nota.</li>${ex.duracion?`<li>Tiene <b>${ex.duracion} minutos</b> desde que toque «Comenzar». Al terminarse el tiempo, el examen se entrega solo.</li>`:""}${ex.cierre?`<li>Cierra: <b>${fmtFH(ex.cierre)}</b>.</li>`:""}
      <li>Sus respuestas se guardan solas mientras avanza. Se entrega <b>una sola vez</b>.</li><li>Las salidas de esta pantalla quedan registradas para su profe.</li></ul>
      <div class="row"><button class="pri" id="comenzar">▶ Comenzar el examen</button><button onclick="location.hash='#/'">Volver</button></div></div>`;
@@ -504,11 +523,11 @@ function pintarExamen(t,{previa,a,dp,resp}){const ex=t.ex,R=rng(dp.semilla||"x")
       else if(p.tipo==="corta")ctl=`<input data-resp="${it.id}" value="${esc(v??"")}" placeholder="Respuesta">`;
       else ctl=`<textarea data-resp="${it.id}" rows="6" placeholder="Escriba aquí su desarrollo">${esc(v??"")}</textarea>`;
       return `<div class="item"><p class="q">${k+1}. ${nl(it.txt)} <span class="muted small">(${fmtPts(it.pts)} pts)</span></p>${appHTML(it)}${ctl}</div>`}).join("");
-    return `<section class="parte"><h2>Parte ${pi+1}. ${esc(p.titulo)} <span class="muted small">(${fmtPts(p.items.reduce((s,i)=>s+(+i.pts||0),0))} pts)</span></h2><p class="muted" style="margin:0 0 6px"><i>${nl(p.instrucciones)}</i></p>${cuerpo}</section>`}).join("");
+    return `<section class="parte"><h2>Parte ${pi+1}. ${esc(p.titulo)} <span class="muted small">(${fmtPts(p.items.reduce((s,i)=>s+(+i.pts||0),0))} pts)</span></h2><p class="muted" style="margin:0 0 6px"><i>${nl(p.instrucciones)}</i></p>${casoHTML(p)}${cuerpo}</section>`}).join("");
   document.querySelector("header.top").classList.add("hidden");
   $("#app").innerHTML=`<div class="barra" style="margin:-16px -16px 14px">${previa?`<span class="chip warn">👁 Vista previa: así lo ven los estudiantes. No se guarda nada.</span>`:""}<b style="margin-right:auto">${esc(ex.titulo)}</b><span id="prog" class="small muted"></span>${fin?`<span class="reloj" id="reloj"></span>`:""}<span id="estGuard" class="small muted"></span>
      ${previa?`<button onclick="salirPrevia()">← Salir</button>`:""}<button class="pri" id="entregar">${previa?"Revisar como entregado":"📤 Entregar examen"}</button></div>
-    <div class="card"><h1>${esc(ex.titulo)}</h1><p class="small muted" style="margin:0 0 6px">${esc(nomMat(ex.materia_id))} · ${fmtPts(totalPts(ex))} puntos · ${fmtPts(ex.peso)} %</p><p style="margin:0">${nl(ex.instrucciones)}</p></div>
+    <div class="card">${encabezadoHTML(ex)}<p style="margin:8px 0 0"><b>Instrucciones generales:</b><br>${nl(ex.instrucciones)}</p></div>
     <div class="card ${previa?"":"no-sel"}" id="cuerpo">${partesHTML}</div>
     <div class="row noprint" style="justify-content:flex-end;margin-bottom:40px"><button class="pri" id="entregar2">${previa?"Revisar como entregado":"📤 Entregar examen"}</button></div>`;
   const prog=()=>{const n=itemsDe(ex).length,r=itemsDe(ex).filter(({it})=>respondido(resp[it.id])).length;$("#prog").textContent=`${r} de ${n} respondidos`};prog();
