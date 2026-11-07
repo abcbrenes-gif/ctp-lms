@@ -193,7 +193,7 @@ async function ruta(){const h=location.hash.replace(/^#\/?/,"").split("/");
   if(RUN&&!RUN.entregado&&!RUN.previa&&h[0]!=="hacer")guardarAvance();
   if(RUN){clearInterval(RUN.timer);RUN=null}document.removeEventListener("visibilitychange",salida);document.querySelector("header.top").classList.remove("hidden");
   try{
-    if(DOC){if(h[0]==="nuevo")return editor(null);if(h[0]==="editar")return editor(+h[1]);if(h[0]==="previa")return previa(+h[1]);if(h[0]==="resultados")return resultados(+h[1]);return listaProfe()}
+    if(DOC){if(h[0]==="planear")return planear();if(h[0]==="nuevo")return editor(null);if(h[0]==="editar")return editor(+h[1]);if(h[0]==="previa")return previa(+h[1]);if(h[0]==="resultados")return resultados(+h[1]);return listaProfe()}
     if(h[0]==="hacer")return hacer(+h[1]);return listaEst()
   }catch(e){console.error(e);$("#app").innerHTML=`<div class="card"><b>No se pudo cargar.</b><p class="muted">${esc(e.message||e)}</p><button onclick="location.reload()">Reintentar</button></div>`}}
 
@@ -201,7 +201,7 @@ async function ruta(){const h=location.hash.replace(/^#\/?/,"").split("/");
 async function listaProfe(){$("#app").innerHTML='<p class="muted">Cargando exámenes…</p>';await cargarExamenes();
   const ids=S.exs.map(t=>t.id);const {data:ae}=ids.length?await sb.from("actividades_estudiante").select("trabajo_id,completado").in("trabajo_id",ids):{data:[]};
   const cnt={};(ae||[]).forEach(a=>{cnt[a.trabajo_id]=cnt[a.trabajo_id]||{e:0,c:0};cnt[a.trabajo_id][a.completado?"e":"c"]++});
-  $("#app").innerHTML=`<div class="row" style="margin:4px 0 14px"><div style="margin-right:auto"><h1>📝 Exámenes</h1><p class="muted" style="margin:0">Arme el examen como borrador, revíselo como estudiante y publíquelo cuando esté listo.</p></div><button id="impJson">📥 Importar JSON</button><button class="pri" onclick="location.hash='#/nuevo'">＋ Nuevo examen</button></div>
+  $("#app").innerHTML=`<div class="row" style="margin:4px 0 14px"><div style="margin-right:auto"><h1>📝 Exámenes</h1><p class="muted" style="margin:0">Arme el examen como borrador, revíselo como estudiante y publíquelo cuando esté listo.</p></div><button id="impJson">📥 Importar JSON</button><button onclick="location.hash='#/nuevo'">＋ Examen en blanco</button><button class="pri" onclick="location.hash='#/planear'">🧭 Planear examen con IA</button></div>
   ${S.exs.length?S.exs.map(t=>{const ex=t.ex,c=cnt[t.id]||{e:0,c:0},n=itemsDe(ex).length;
     return `<div class="card"><div class="row" style="align-items:flex-start"><div style="margin-right:auto;min-width:220px">
       <h2 style="margin:0 0 4px">${esc(ex.titulo||"(sin título)")}</h2>
@@ -216,6 +216,112 @@ async function listaProfe(){$("#app").innerHTML='<p class="muted">Cargando exám
     const sel=prompt("¿Para qué sección es la copia?\n"+S.mats.map((m,i)=>`${i+1}. ${nomMat(m.id)}`).join("\n"),"1");if(sel===null)return;const m=S.mats[(+sel||1)-1];if(m)ex.materia_id=m.id;
     try{await guardarExamen({ex});toast("Copia creada como borrador");listaProfe()}catch(e){alert("No se pudo: "+e.message)}});
   $$("[data-del]").forEach(b=>b.onclick=async()=>{if(!confirm("¿Borrar este borrador? No tiene entregas ni notas."))return;await sb.from("trabajos_cotidianos").delete().eq("id",+b.dataset.del);listaProfe()})}
+
+// ═══════════ PLANEAR EXAMEN: cuántas preguntas, investigación de temas vistos y selección ═══════════
+const ESTR_APP={ruta_laboral:"Ruta Laboral CR",liquidacion_laboral:"Liquidaciones laborales",mision_seguros:"Misión Seguros",juego_tiradera:"La Tiradera"};
+const APPS_DESC={"Liquidaciones laborales":"calcula paso a paso el salario promedio, el preaviso, la cesantía, las vacaciones, el aguinaldo y el asiento de una liquidación (caso propio con datos que se digitan)",
+  "Aula de Conta":"sistema contable: catálogo de cuentas, libro diario, mayor y planilla con machote (deducciones obreras, renta, salario neto, cargas patronales) y asiento de la planilla",
+  "Ruta Laboral CR":"misiones sobre derechos laborales de Costa Rica: contrato de trabajo, aguinaldo, vacaciones, preaviso, cesantía y liquidación",
+  "Misión Seguros":"misiones de contabilidad de seguros con el plan de cuentas SUGESE: emisión de pólizas, comisiones, provisiones técnicas, siniestros, IBNR y seguros de vida",
+  "La Tiradera":"juego de retos en vivo (selección única, falso o verdadero, sopa de letras y crucigrama)"};
+const TIPOS_IA=[["seleccion_unica","🔘 Selección única",2],["falso_verdadero","✅ Falso o verdadero",1],["pareo","🔗 Pareo",1],["respuesta_corta","✏️ Respuesta corta",2],["caso_practico_con_app","🔢 Cálculo / caso con app",3],["desarrollo","📝 Desarrollo",5]];
+const sinHtml=t=>String(t||"").replace(/<style[\s\S]*?<\/style>/gi," ").replace(/<[^>]+>/g," ").replace(/&nbsp;/g," ").replace(/&[a-z]+;/g," ").replace(/\s+/g," ").trim();
+let PL=null;
+async function todas(q){let out=[],o=0;for(;;){const {data,error}=await q().range(o,o+999);if(error)throw error;out=out.concat(data||[]);if(!data||data.length<1000)break;o+=1000}return out}
+async function investigarTemas(mid){
+  const [pubs,inds,trs]=await Promise.all([todas(()=>sb.from("publicaciones").select("*").eq("materia_id",mid)),todas(()=>sb.from("indicadores").select("id,letra,categoria,descripcion,puntaje_maximo,fecha_evaluacion").eq("materia_id",mid)),
+    todas(()=>sb.from("trabajos_cotidianos").select("id,titulo,habilitado,tipo_actividad,indicador_id,subtema_id,publicacion_id,creado_en,estr:contenido_actividad->>estrategia,mat:contenido_actividad->>materia_id,crit:contenido_actividad->indicadores_criterio"))]);
+  const pubIds=pubs.map(p=>p.id),subs=pubIds.length?await todas(()=>sb.from("subtemas").select("*").in("publicacion_id",pubIds)):[];
+  const indV=inds.filter(i=>!/prueba/i.test(i.categoria||"")),indIds=indV.map(i=>i.id);
+  const cal=indIds.length?await todas(()=>sb.from("calificaciones_indicador").select("indicador_id,puntaje_obtenido").in("indicador_id",indIds)):[];
+  const logroInd={};indV.forEach(i=>{const cs=cal.filter(c=>c.indicador_id===i.id);if(cs.length)logroInd[i.id]=cs.reduce((s,c)=>s+(+c.puntaje_obtenido||0),0)/cs.length/(+i.puntaje_maximo||3)*100});
+  const subPub={};subs.forEach(x=>subPub[x.id]=x.publicacion_id);
+  const indsDe=t=>[t.indicador_id,...(Array.isArray(t.crit)?t.crit:[])].filter(x=>indIds.includes(+x)).map(Number);
+  const mios=trs.filter(t=>!/registro|notas_periodo|asistencia|examen_modulo|config/.test(t.estr||"")&&(pubIds.includes(t.publicacion_id)||subPub[t.subtema_id]||indsDe(t).length||String(t.mat)===String(mid)));
+  const usados=new Set(),cand=[];
+  const resumenDe=(ts,ids)=>{const ls=ids.map(i=>logroInd[i]).filter(x=>x!=null);return {trabajos:ts.length,logro:ls.length?ls.reduce((a,b)=>a+b,0)/ls.length:null,indicadores:ids.map(i=>{const x=indV.find(y=>y.id===i);return x?`${x.letra}: ${sinHtml(x.descripcion)}`:""}).filter(Boolean)}};
+  pubs.forEach(p=>{const ss=subs.filter(x=>x.publicacion_id===p.id).sort((a,b)=>(a.orden||0)-(b.orden||0));const ts=mios.filter(t=>t.publicacion_id===p.id||subPub[t.subtema_id]===p.id);
+    if(!ss.length&&!ts.length&&!sinHtml(p.contenido))return;const ids=[...new Set(ts.flatMap(indsDe))];ts.forEach(t=>usados.add(t.id));ids.forEach(i=>usados.add("i"+i));
+    const contenido=[sinHtml(p.contenido),...ss.map(x=>`${x.titulo}: ${sinHtml(x.contenido)}`)].filter(Boolean).join("\n").slice(0,6000);
+    cand.push({id:"p"+p.id,titulo:sinHtml(p.titulo)||"(sin título)",origen:p.tipo==="apartado"?"🎯 Resultado de aprendizaje":"📚 Tema",visto:p.habilitado!==false||ts.some(t=>t.habilitado),fecha:String(p.creado_en||"").slice(0,10),subtemas:ss.map(x=>sinHtml(x.titulo)),resumen:contenido.slice(0,260),contenido,...resumenDe(ts,ids)})});
+  const porApp={};mios.filter(t=>!usados.has(t.id)&&ESTR_APP[t.estr]).forEach(t=>{(porApp[t.estr]=porApp[t.estr]||[]).push(t)});
+  Object.entries(porApp).forEach(([e,ts])=>{const ids=[...new Set(ts.flatMap(indsDe))];ts.forEach(t=>usados.add(t.id));ids.forEach(i=>usados.add("i"+i));
+    cand.push({id:"a"+e,titulo:`${ESTR_APP[e]}: ${ts.map(t=>t.titulo).slice(0,6).join(" · ")}`,origen:"🧩 App "+ESTR_APP[e],app:ESTR_APP[e],visto:ts.some(t=>t.habilitado),fecha:String(ts[0].creado_en||"").slice(0,10),subtemas:ts.map(t=>t.titulo),resumen:APPS_DESC[ESTR_APP[e]]||"",contenido:`${APPS_DESC[ESTR_APP[e]]||""}\nTrabajos realizados: ${ts.map(t=>t.titulo).join("; ")}`,...resumenDe(ts,ids)})});
+  indV.filter(i=>!usados.has("i"+i.id)&&!/asistencia/i.test(i.categoria||"")).forEach(i=>{const ts=mios.filter(t=>indsDe(t).includes(i.id));
+    cand.push({id:"i"+i.id,titulo:`${i.letra} · ${sinHtml(i.descripcion)}`,origen:"📌 Indicador ("+i.categoria+")",visto:ts.length?ts.some(t=>t.habilitado):true,fecha:i.fecha_evaluacion||"",subtemas:ts.map(t=>t.titulo),resumen:sinHtml(i.descripcion),contenido:`Indicador evaluado: ${sinHtml(i.descripcion)}${ts.length?"\nTrabajos: "+ts.map(t=>t.titulo).join("; "):""}`,...resumenDe(ts,[i.id])})});
+  const appsTxt=cand.map(c=>c.titulo+" "+c.contenido).join(" ").toLowerCase();
+  const CLAVE={"Liquidaciones laborales":/liquidaci/,"Aula de Conta":/aula\s*(de\s*)?cont/,"Ruta Laboral CR":/ruta laboral/,"Misión Seguros":/misi[oó]n seguros|sugese|aseguradora/,"La Tiradera":/tiradera/};
+  const apps=Object.keys(APPS_DESC).filter(a=>cand.some(c=>c.app===a)||CLAVE[a].test(appsTxt));
+  cand.forEach(c=>{c.incluir=c.visto&&(c.trabajos>0||c.contenido.length>200);c.preguntas=0});
+  return {temas:cand,apps}}
+function repartir(){const sel=PL.temas.filter(t=>t.incluir);if(!sel.length)return;const n=PL.n,base=Math.floor(n/sel.length);let resto=n-base*sel.length;
+  sel.sort((a,b)=>(b.trabajos-a.trabajos)).forEach(t=>{t.preguntas=base+(resto>0?1:0);resto--});PL.temas.filter(t=>!t.incluir).forEach(t=>t.preguntas=0)}
+async function planear(){if(!PL||PL.listo)PL={mid:(S.mats[0]||{}).id,n:15,duracion:80,peso:20,titulo:"",indicaciones:"",tipos:Object.fromEntries(TIPOS_IA.map(([k,,p])=>[k,{on:k!=="respuesta_corta",pts:p}])),temas:null,apps:[],comentario:""};pintarPlan()}
+function pintarPlan(){const P=PL,asig=(P.temas||[]).reduce((s,t)=>s+(t.incluir?+t.preguntas||0:0),0);
+  $("#app").innerHTML=`<div class="row" style="margin:4px 0 12px"><h1 style="margin-right:auto">🧭 Planear examen</h1><button onclick="location.hash='#/'">← Exámenes</button></div>
+  <div class="card"><h2>1️⃣ ¿Cuántas preguntas vamos a desarrollar?</h2><div class="grid">
+    <label class="f">Sección<select id="plMat">${S.mats.map(m=>`<option value="${m.id}" ${+m.id===+P.mid?"selected":""}>${esc(nomMat(m.id))}</option>`).join("")}</select></label>
+    <label class="f">Número de preguntas<input type="number" id="plN" min="1" max="80" value="${P.n}"></label>
+    <label class="f">Duración (minutos)<input type="number" id="plDur" min="0" value="${P.duracion}"></label>
+    <label class="f">Porcentaje (%)<input type="number" id="plPeso" min="0" step="0.5" value="${P.peso}"></label>
+    <label class="f" style="grid-column:1/-1">Título (opcional)<input id="plTit" value="${esc(P.titulo)}" placeholder="Si lo deja vacío, se arma con los temas"></label></div>
+    <p style="margin:12px 0 4px;font-weight:700">Tipos de pregunta y puntos de cada una</p><div class="grid">${TIPOS_IA.map(([k,n])=>`<label class="row small" style="border:1px solid var(--line);border-radius:8px;padding:6px 8px"><input type="checkbox" data-tipo="${k}" ${P.tipos[k].on?"checked":""}> <span style="flex:1">${n}</span><input type="number" min="0" step="0.5" data-tpts="${k}" value="${P.tipos[k].pts}" style="width:64px"> pts</label>`).join("")}</div>
+    <label class="f" style="margin-top:10px">Indicaciones para la IA (opcional)<textarea id="plInd" rows="2" placeholder="Ej.: casos de empresas de Mercedes Norte, nivel medio, dos cálculos con Liquidaciones">${esc(P.indicaciones)}</textarea></label>
+    <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="pri" id="plInv">🔎 ${P.temas?"Volver a investigar":"Investigar los temas vistos"}</button></div></div>
+  ${P.temas?`<div class="card"><h2>2️⃣ Temas vistos en la plataforma: ¿cuáles sí y cuáles no?</h2>
+    <p class="small muted" style="margin:0 0 8px">Investigué las publicaciones y subtemas, los trabajos de la sección, sus indicadores y cómo les fue (logro promedio). Marque los temas que entran; la IA puede sugerir, pero usted decide.</p>
+    ${P.comentario?`<div class="aviso ok">✨ ${esc(P.comentario)}</div>`:""}
+    <div class="row" style="margin:0 0 8px"><button class="sm" id="plIA">✨ Sugerencia de la IA</button><button class="sm" id="plTodos">☑ Todos</button><button class="sm" id="plNing">☐ Ninguno</button><button class="sm" id="plRep">⚖️ Repartir ${P.n} preguntas</button>
+      <span style="margin-left:auto" class="chip ${asig===P.n?"ok":"warn"}">${asig} de ${P.n} preguntas asignadas</span></div>
+    <div class="tbl"><table><thead><tr><th>Incluir</th><th>Tema</th><th>Evidencia en la plataforma</th><th>Sugerencia</th><th class="r">Preguntas</th></tr></thead><tbody>
+    ${P.temas.length?P.temas.map((t,i)=>`<tr style="${t.incluir?"":"opacity:.6"}"><td><input type="checkbox" data-inc="${i}" ${t.incluir?"checked":""}></td>
+      <td><b>${esc(t.titulo)}</b><br><span class="chip">${esc(t.origen)}</span>${t.subtemas.length?`<details class="small"><summary class="muted" style="cursor:pointer">${t.subtemas.length} subtemas / trabajos</summary>${t.subtemas.map(x=>"• "+esc(x)).join("<br>")}</details>`:""}</td>
+      <td class="small">${t.visto?'<span class="chip ok">Publicado</span>':'<span class="chip bad">No publicado</span>'}<br>${t.trabajos} trabajo(s)${t.logro!=null?`<br>Logro: <b class="${t.logro<60?"bad-t":t.logro<85?"":"ok-t"}">${Math.round(t.logro)} %</b>`:""}${t.fecha?`<br><span class="muted">${esc(t.fecha)}</span>`:""}</td>
+      <td class="small">${t.motivo?`${t.sugIA?"✅":"⛔"} ${esc(t.motivo)}`:'<span class="muted">—</span>'}</td>
+      <td class="r"><input type="number" min="0" data-npr="${i}" value="${t.incluir?t.preguntas||0:0}" style="width:64px" ${t.incluir?"":"disabled"}></td></tr>`).join(""):'<tr><td colspan="5">No encontré temas para esta sección.</td></tr>'}</tbody></table></div>
+    ${P.apps.length?`<p class="small" style="margin:8px 0 0">🧰 Apps que pueden usar los retos: <b>${P.apps.map(esc).join(", ")}</b></p>`:""}</div>
+  <div class="card"><h2>3️⃣ Generar el examen</h2><p class="small muted" style="margin:0 0 8px">La IA escribe las preguntas de cada tema marcado con el contenido que se vio en la plataforma. Queda como <b>borrador</b> para que usted lo revise y edite antes de publicar.</p>
+    <div class="row"><button class="pri" id="plGen" ${asig?"":"disabled"}>✨ Generar examen con ${asig} preguntas</button><span id="plProg" class="small muted"></span></div></div>`:""}`;
+  const leer=()=>{P.mid=+$("#plMat").value;P.n=Math.max(1,+$("#plN").value||1);P.duracion=+$("#plDur").value||0;P.peso=+$("#plPeso").value||0;P.titulo=$("#plTit").value;P.indicaciones=$("#plInd").value;
+    $$("[data-tipo]").forEach(c=>P.tipos[c.dataset.tipo].on=c.checked);$$("[data-tpts]").forEach(c=>P.tipos[c.dataset.tpts].pts=+c.value||0)};
+  ["#plN","#plDur","#plPeso","#plTit","#plInd"].forEach(x=>$(x).onchange=leer);$$("[data-tipo],[data-tpts]").forEach(c=>c.onchange=leer);
+  $("#plMat").onchange=()=>{leer();P.temas=null;pintarPlan()};
+  $("#plInv").onclick=async e=>{leer();const b=e.currentTarget;b.disabled=true;b.textContent="🔎 Investigando…";
+    try{const r=await investigarTemas(P.mid);P.temas=r.temas;P.apps=r.apps;P.comentario="";repartir();pintarPlan();sugerirIA()}catch(err){b.disabled=false;b.textContent="🔎 Investigar los temas vistos";alert("No se pudo investigar: "+(err.message||err))}};
+  if(!P.temas)return;
+  $("#plIA").onclick=()=>sugerirIA();
+  $("#plTodos").onclick=()=>{P.temas.forEach(t=>t.incluir=true);repartir();pintarPlan()};
+  $("#plNing").onclick=()=>{P.temas.forEach(t=>{t.incluir=false;t.preguntas=0});pintarPlan()};
+  $("#plRep").onclick=()=>{leer();repartir();pintarPlan()};
+  $$("[data-inc]").forEach(c=>c.onchange=()=>{const t=P.temas[+c.dataset.inc];t.incluir=c.checked;if(c.checked&&!t.preguntas)t.preguntas=1;if(!c.checked)t.preguntas=0;pintarPlan()});
+  $$("[data-npr]").forEach(c=>c.onchange=()=>{P.temas[+c.dataset.npr].preguntas=Math.max(0,+c.value||0);pintarPlan()});
+  $("#plGen").onclick=generarExamenIA}
+async function sugerirIA(){const P=PL,b=$("#plIA");if(b){b.disabled=true;b.textContent="✨ Pensando…"}
+  try{const r=await fetch("/api/planear-examen",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({seccion:nomMat(P.mid),preguntas:P.n,indicaciones:P.indicaciones,
+      temas:P.temas.map(t=>({id:t.id,titulo:t.titulo,origen:t.origen,visto:t.visto,trabajos:t.trabajos,logro:t.logro,fecha:t.fecha,subtemas:t.subtemas,resumen:t.resumen}))})});
+    const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"No se pudo.");
+    (d.temas||[]).forEach(x=>{const t=P.temas.find(y=>y.id===x.id);if(t){t.incluir=x.incluir;t.sugIA=x.incluir;t.preguntas=x.incluir?x.preguntas:0;t.motivo=x.motivo}});P.comentario=d.comentario||""}
+  catch(e){toast("La IA no respondió: "+(e.message||e)+". Puede marcar los temas usted.")}
+  if(location.hash==="#/planear")pintarPlan()}
+async function generarExamenIA(){const P=PL,sel=P.temas.filter(t=>t.incluir&&+t.preguntas>0),tipos=Object.keys(P.tipos).filter(k=>P.tipos[k].on);
+  if(!tipos.length)return alert("Marque al menos un tipo de pregunta.");
+  const total=sel.reduce((s,t)=>s+(+t.preguntas),0);if(!confirm(`Se van a generar ${total} preguntas de ${sel.length} tema(s). Tarda un poco (unos segundos por tema). ¿Seguir?`))return;
+  const b=$("#plGen"),pr=$("#plProg");b.disabled=true;const puntos=Object.fromEntries(tipos.map(k=>[k,P.tipos[k].pts]));const apps=P.apps.map(a=>({nombre:a,que:APPS_DESC[a]}));
+  let reac=[],fallos=[];
+  for(let i=0;i<sel.length;i++){const t=sel[i];pr.textContent=`✍️ Tema ${i+1} de ${sel.length}: ${t.titulo.slice(0,60)}…`;
+    let ok=false;for(let k=0;k<2&&!ok;k++){try{const r=await fetch("/api/generar-examen-ia",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({seccion:nomMat(P.mid),preguntas:+t.preguntas,tipos,puntos,apps,indicaciones:P.indicaciones,
+        tema:{titulo:t.titulo,subtemas:t.subtemas,indicadores:t.indicadores,contenido:t.contenido}})});const d=await r.json().catch(()=>({}));
+      if(r.ok&&d.reactivos){reac=reac.concat(d.reactivos.map(x=>({...x,tema:x.tema||t.titulo})));ok=true}else if(!d.reintentar)break}catch(e){}}
+    if(!ok)fallos.push(t.titulo)}
+  if(!reac.length){b.disabled=false;pr.textContent="";return alert("La IA no pudo generar las preguntas. Intente de nuevo en un momento.")}
+  const PARTES={seleccion_unica:"Selección única",falso_verdadero:"Falso o verdadero",pareo:"Pareo",respuesta_corta:"Respuesta corta",caso_practico_con_app:"Resolución de casos y cálculos",desarrollo:"Desarrollo"};
+  const orden=Object.keys(PARTES);reac.sort((a,b)=>orden.indexOf(a.tipo_pregunta)-orden.indexOf(b.tipo_pregunta));reac.forEach((x,i)=>{x.id_pregunta=i+1;x.parte=PARTES[x.tipo_pregunta]});
+  const titulo=P.titulo.trim()||`Examen de ${sel.slice(0,3).map(t=>t.titulo.replace(/^.*?:\s*/,"").split(" · ")[0]).join(", ").slice(0,90)}`;
+  try{const ex=exDesdeJSON({examen:{titulo,peso:P.peso,duracion:P.duracion},reactivos:reac},P.mid);ex.plan={temas:sel.map(t=>({titulo:t.titulo,preguntas:+t.preguntas})),creado:new Date().toISOString()};
+    const t=await guardarExamen({ex});PL.listo=true;toast(`✨ Borrador listo: ${itemsDe(ex).length} preguntas · ${fmtPts(totalPts(ex))} pts`);
+    if(fallos.length)alert("No se pudieron generar las preguntas de: "+fallos.join("; ")+". Puede agregarlas a mano en el editor.");
+    await cargarExamenes();location.hash="#/editar/"+t.id}
+  catch(e){b.disabled=false;pr.textContent="";alert("No se pudo armar el examen: "+(e.message||e))}}
 
 // ── Importar un examen en JSON (reactivos con herramienta, enunciado, opciones, respuesta y retroalimentación) ──
 function exDesdeJSON(J,materiaId){const meta=J.examen||{},reac=Array.isArray(J)?J:(J.reactivos||J.preguntas||[]);if(!reac.length)throw new Error("El JSON no trae reactivos.");
