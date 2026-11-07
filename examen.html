@@ -31,7 +31,7 @@ button.sm{padding:4px 10px;font-size:.85rem}
 button:disabled{opacity:.5;cursor:not-allowed}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
-label.f{display:flex;flex-direction:column;gap:4px;font-weight:600;font-size:.88rem}
+label.f,div.f{display:flex;flex-direction:column;gap:4px;font-weight:600;font-size:.88rem}
 input,select,textarea{font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 9px;width:100%}
 textarea{min-height:60px;resize:vertical}
 input[type=checkbox],input[type=radio]{width:auto}
@@ -279,7 +279,7 @@ function pintarEditor(){const ex=ED.ex;
     <label class="f">Cierra (opcional)<input type="datetime-local" data-g="cierre" value="${aLocal(ex.cierre)}"></label>
     <label class="f">Duración (minutos, 0 = sin límite)<input type="number" min="0" data-g="duracion" value="${esc(ex.duracion||0)}"></label>
     <label class="f">Porcentaje de la prueba (%)<input type="number" min="0" step="0.5" data-g="peso" value="${esc(ex.peso)}"></label>
-    <label class="f" style="grid-column:1/-1">Instrucciones generales<textarea data-g="instrucciones">${esc(ex.instrucciones)}</textarea></label>
+    <div class="f" style="grid-column:1/-1"><span class="row" style="justify-content:space-between">Instrucciones generales (las lee antes de comenzar)<button type="button" class="sm" data-ia="general">✨ Redactar con IA</button></span><textarea data-g="instrucciones" rows="5">${esc(ex.instrucciones)}</textarea></div>
     <label class="row small"><input type="checkbox" data-g="mezclar" ${ex.mezclar?"checked":""}> Mezclar el orden de los ítems y de las opciones para cada estudiante</label>
     <label class="row small"><input type="checkbox" data-g="mostrar_resultados" ${ex.mostrar_resultados?"checked":""}> Mostrar a cada estudiante su nota y las respuestas correctas después de entregar</label>
   </div><p class="small muted" style="margin:10px 0 0">Total: <b id="edTot">${fmtPts(totalPts(ex))}</b> puntos · ${itemsDe(ex).length} ítems. Se califica con puntos reales y aporta su propio ${fmtPts(ex.peso)} % en «Pruebas».</p></div>
@@ -290,7 +290,7 @@ function pintarEditor(){const ex=ED.ex;
 function parteEdHTML(p,pi){const T=TIPOS[p.tipo];
   return `<div class="card" data-pi="${pi}"><div class="row" style="margin:0 0 8px"><b style="margin-right:auto">Parte ${pi+1} · ${T.ic} ${T.n} <span class="muted small">(${fmtPts(p.items.reduce((s,i)=>s+(+i.pts||0),0))} pts)</span></b>
     <button class="sm" data-pmov="-1" ${pi?"":"disabled"}>↑</button><button class="sm" data-pmov="1">↓</button><button class="sm danger" data-pdel>Quitar parte</button></div>
-    <div class="grid"><label class="f">Título de la parte<input data-p="titulo" value="${esc(p.titulo)}"></label><label class="f" style="grid-column:span 2">Instrucciones<input data-p="instrucciones" value="${esc(p.instrucciones)}"></label></div>
+    <div class="grid"><label class="f">Título de la parte<input data-p="titulo" value="${esc(p.titulo)}"></label><div class="f" style="grid-column:span 2"><span class="row" style="justify-content:space-between">Instrucciones de la parte<button type="button" class="sm" data-ia="parte">✨ Redactar con IA</button></span><textarea data-p="instrucciones" rows="2">${esc(p.instrucciones)}</textarea></div></div>
     ${p.items.map((it,ii)=>itemEdHTML(p,it,ii)).join("")}
     ${p.tipo==="pareo"?`<label class="f" style="margin-top:8px">Opciones extra de la columna B que no corresponden a nada (una por línea, opcional)<textarea data-p="extras">${esc((p.extras||[]).join("\n"))}</textarea></label>`:""}
     <div class="row" style="margin-top:8px"><button class="sm" data-addi>＋ Agregar ${p.tipo==="pareo"?"par":"ítem"}</button><button class="sm" data-ptsall>Mismo puntaje a todos</button></div></div>`}
@@ -331,11 +331,37 @@ function ligarEditor(){const ex=ED.ex,ap=$("#app");
       const oa=box.querySelector("[data-oadd]");if(oa)oa.onclick=()=>{it.o.push("");sucio();pintarEditor()};
       box.querySelector("[data-idel]").onclick=()=>{p.items.splice(ii,1);sucio();pintarEditor()};
       box.querySelectorAll("[data-imov]").forEach(b=>b.onclick=()=>{const j=ii+ +b.dataset.imov;if(j<0||j>=p.items.length)return;[p.items[ii],p.items[j]]=[p.items[j],p.items[ii]];sucio();pintarEditor()})})});
+  ap.querySelectorAll("[data-ia]").forEach(b=>b.onclick=()=>{const card=b.closest("[data-pi]");redactarIA(card?ex.partes[+card.dataset.pi]:null,txt=>{
+      if(card){ex.partes[+card.dataset.pi].instrucciones=txt;card.querySelector('[data-p="instrucciones"]').value=txt}else{ex.instrucciones=txt;ap.querySelector('[data-g="instrucciones"]').value=txt}sucio()})});
   ap.querySelectorAll("[data-addp]").forEach(b=>b.onclick=()=>{ex.partes.push(nuevaParte(b.dataset.addp));sucio();pintarEditor();window.scrollTo(0,document.body.scrollHeight)});
   const g=async b=>{b.disabled=true;try{if(ex.publicado){const er=validar(ex);if(er.length&&!confirm("El examen publicado tiene pendientes:\n• "+er.join("\n• ")+"\n\n¿Guardar de todos modos?")){b.disabled=false;return}}
       await guardarExamen(ED);EDsucio=false;const i=S.exs.findIndex(x=>x.id===ED.id);if(i>-1)S.exs[i]={...ED,ex:clone(ED.ex)};else S.exs.unshift({...ED,ex:clone(ED.ex)});
       toast("💾 Guardado");if(location.hash!=="#/editar/"+ED.id)history.replaceState(null,"","#/editar/"+ED.id)}catch(e){alert("No se pudo guardar: "+(e.message||e))}b.disabled=false};
   $("#edGuardar").onclick=e=>g(e.currentTarget);$("#edGuardar2").onclick=e=>g(e.currentTarget)}
+// ── La IA redacta la instrucción que el docente le pide (general o de una parte). Solo propone. ──
+function redactarIA(parte,usar){const ex=ED.ex;
+  const titulo=parte?`✨ Instrucción de la parte «${parte.titulo}»`:"✨ Instrucciones generales del examen";
+  const ejemplo=parte?"Ej.: que marquen la opción correcta, que cada una vale 2 puntos y que deben abrir Liquidaciones para hacer el cálculo":"Ej.: que trabajen solos, que tienen 80 minutos, que lean todo antes de empezar, que no salgan de la pantalla y que usen las apps indicadas";
+  abrirDlg(titulo,`<label class="f">¿Qué quiere que diga la instrucción?<textarea id="iaPedido" rows="3" placeholder="${esc(ejemplo)}"></textarea></label>
+    <label class="row small" style="margin:6px 0"><input type="checkbox" id="iaActual" ${(parte?parte.instrucciones:ex.instrucciones)?"checked":""}> Partir del texto que ya tiene</label>
+    <div class="row" style="justify-content:flex-end"><button class="pri" id="iaGen">✨ Generar propuesta</button></div>
+    <div id="iaOut" class="hidden" style="margin-top:12px"><label class="f">Propuesta de la IA (puede editarla antes de usarla)<textarea id="iaTxt" rows="${parte?4:9}"></textarea></label>
+      <div class="row" style="justify-content:flex-end;margin-top:8px"><button id="iaOtra">↻ Otra versión</button><button class="pri" id="iaUsar">✓ Usar esta instrucción</button></div></div>
+    <p class="small muted" style="margin:8px 0 0">La IA solo propone: nada cambia en el examen hasta que toque «Usar esta instrucción» y luego «Guardar».</p>`);
+  const gen=async()=>{const b=$("#iaGen"),o=$("#iaOtra");const pedido=$("#iaPedido").value.trim();
+    const actual=$("#iaActual").checked?(parte?parte.instrucciones:ex.instrucciones):"";
+    if(!pedido&&!actual)return alert("Escriba qué quiere que diga la instrucción.");
+    [b,o].forEach(x=>{if(x){x.disabled=true}});b.textContent="Redactando…";
+    const resumen=p=>({titulo:p.titulo,tipo:p.tipo,items:p.items.length,pts:p.items.reduce((s,i)=>s+(+i.pts||0),0),app:(p.items.find(i=>i.app)||{}).app||""});
+    const body={pedido,actual,examen:{titulo:ex.titulo,seccion:nomMat(ex.materia_id),puntos:totalPts(ex),peso:ex.peso,duracion:ex.duracion,partes:ex.partes.map(resumen)}};
+    if(parte){const pts=parte.items.map(i=>+i.pts||0);body.parte={...resumen(parte),ptsItem:pts.length&&pts.every(x=>x===pts[0])?pts[0]:null,muestras:parte.items.slice(0,4).map(i=>parte.tipo==="pareo"?i.a+" → "+i.b:i.txt)}}
+    try{const r=await fetch("/api/redactar-instruccion-examen",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));
+      if(!r.ok||!d.texto)throw new Error(d.error||"No se pudo generar.");
+      $("#iaTxt").value=d.texto;$("#iaOut").classList.remove("hidden")}
+    catch(e){alert(e.message||e)}
+    [b,o].forEach(x=>{if(x)x.disabled=false});b.textContent="✨ Generar propuesta"};
+  $("#iaGen").onclick=gen;$("#iaOtra").onclick=gen;
+  $("#iaUsar").onclick=()=>{const t=$("#iaTxt").value.trim();if(!t)return;usar(t);dlg.close();toast("✓ Instrucción lista: toque «Guardar»")}}
 window.salirEditor=()=>{if(EDsucio&&!confirm("Hay cambios sin guardar. ¿Salir sin guardar?"))return;EDsucio=false;location.hash="#/"};
 
 // ── Vista previa (como estudiante, no guarda nada) ──
@@ -478,7 +504,7 @@ function pintarExamen(t,{previa,a,dp,resp}){const ex=t.ex,R=rng(dp.semilla||"x")
       else if(p.tipo==="corta")ctl=`<input data-resp="${it.id}" value="${esc(v??"")}" placeholder="Respuesta">`;
       else ctl=`<textarea data-resp="${it.id}" rows="6" placeholder="Escriba aquí su desarrollo">${esc(v??"")}</textarea>`;
       return `<div class="item"><p class="q">${k+1}. ${nl(it.txt)} <span class="muted small">(${fmtPts(it.pts)} pts)</span></p>${appHTML(it)}${ctl}</div>`}).join("");
-    return `<section class="parte"><h2>Parte ${pi+1}. ${esc(p.titulo)} <span class="muted small">(${fmtPts(p.items.reduce((s,i)=>s+(+i.pts||0),0))} pts)</span></h2><p class="muted" style="margin:0 0 6px"><i>${esc(p.instrucciones)}</i></p>${cuerpo}</section>`}).join("");
+    return `<section class="parte"><h2>Parte ${pi+1}. ${esc(p.titulo)} <span class="muted small">(${fmtPts(p.items.reduce((s,i)=>s+(+i.pts||0),0))} pts)</span></h2><p class="muted" style="margin:0 0 6px"><i>${nl(p.instrucciones)}</i></p>${cuerpo}</section>`}).join("");
   document.querySelector("header.top").classList.add("hidden");
   $("#app").innerHTML=`<div class="barra" style="margin:-16px -16px 14px">${previa?`<span class="chip warn">👁 Vista previa: así lo ven los estudiantes. No se guarda nada.</span>`:""}<b style="margin-right:auto">${esc(ex.titulo)}</b><span id="prog" class="small muted"></span>${fin?`<span class="reloj" id="reloj"></span>`:""}<span id="estGuard" class="small muted"></span>
      ${previa?`<button onclick="salirPrevia()">← Salir</button>`:""}<button class="pri" id="entregar">${previa?"Revisar como entregado":"📤 Entregar examen"}</button></div>
