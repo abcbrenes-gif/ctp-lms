@@ -375,7 +375,7 @@ function exDesdeJSON(J,materiaId){const meta=J.examen||{},reac=Array.isArray(J)?
     if(Array.isArray(ops)&&ops.length>=2)return"sel";if(!isNaN(parseNum(r.respuesta_correcta))||(ops&&ops.valor!=null))return"num";return"corta"};
   let cur=null;
   reac.forEach(r=>{const tp=tipoDe(r),pn=r.parte||TIPOS[tp].n;
-    if(!cur||cur._k!==pn||cur.tipo!==tp){cur={_k:pn,id:uid(),tipo:tp,titulo:String(pn).replace(/^parte\s*\d+\s*[.:·-]\s*/i,""),instrucciones:r.instrucciones_parte||TIPOS[tp].ins,items:[],extras:[]};ex.partes.push(cur)}
+    if(!cur||cur._k!==pn||cur.tipo!==tp){cur={_k:pn,id:uid(),tipo:tp,titulo:String(pn).replace(/^parte\s*(\d+|[ivxl]+)\s*[.:·-]\s*/i,""),instrucciones:r.instrucciones_parte||TIPOS[tp].ins,items:[],extras:[]};ex.partes.push(cur)}
     const it={id:uid(),txt:r.enunciado||"",pts:+r.puntos||+r.puntaje||1,app:r.herramienta_requerida&&norm(r.herramienta_requerida)!=="ninguna"?r.herramienta_requerida:"",accion:r.accion_en_herramienta||"",
       tema:r.tema||"",just:r.justificacion_pedagogica||"",fb_ok:r.feedback_exito||"",fb_err:r.feedback_error||"",rubrica:r.escala_calificacion||r.rubrica||""};
     const ops=r.opciones_o_valor_esperado,rc=String(r.respuesta_correcta??"").trim();
