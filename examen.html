@@ -522,20 +522,25 @@ function pintarEditor(){const ex=ED.ex;
    <div class="row" style="margin:0 0 8px"><label class="row small">Puntos preliminares (igual o mayor al porcentaje): <input type="number" min="1" id="edPre" value="${esc(ex.ptsPre||Math.max(Math.round(totalPts(ex)),Math.ceil(+ex.peso||0)))}" style="width:80px"></label><button class="sm" id="edTadd">＋ Aprendizaje</button></div>
    <div id="edTabla">${tablaEspHTML(ex,{editable:true})}</div></div>
   <div class="card" id="edMEP"></div>
+  <div class="row" style="margin:6px 0 8px"><h2 style="margin:0 auto 0 0">🧩 Partes del examen <span class="muted small">(${ex.partes.length} partes · ${itemsDe(ex).length} ejercicios · ${fmtPts(totalPts(ex))} pts)</span></h2><button class="sm" id="edAbrirT">▾ Abrir todas</button><button class="sm" id="edCerrarT">▸ Cerrar todas</button></div>
   ${ex.partes.map((p,pi)=>parteEdHTML(p,pi)).join("")}
   <div class="card"><h3>＋ Agregar una parte</h3><div class="row">${Object.entries(TIPOS).map(([k,v])=>`<button data-addp="${k}">${v.ic} ${v.n}</button>`).join("")}</div></div>
   <div class="row" style="justify-content:flex-end"><button class="pri" id="edGuardar2">💾 Guardar</button></div>`;
   ligarEditor()}
-function parteEdHTML(p,pi){const T=TIPOS[p.tipo];
-  return `<div class="card" data-pi="${pi}"><div class="row" style="margin:0 0 8px"><b style="margin-right:auto">Parte ${pi+1} · ${T.ic} ${T.n} <span class="muted small">(${fmtPts(p.items.reduce((s,i)=>s+(+i.pts||0),0))} pts)</span></b>
-    <button class="sm" data-pmov="-1" ${pi?"":"disabled"}>↑</button><button class="sm" data-pmov="1">↓</button><button class="sm danger" data-pdel>Quitar parte</button></div>
+// Partes plegables: se abren para editar y se cierran para ver el examen completo.
+const ABIERTAS=new Set();
+function parteEdHTML(p,pi){const T=TIPOS[p.tipo],pts=p.items.reduce((s,i)=>s+(+i.pts||0),0),ab=ABIERTAS.has(p.id);
+  return `<div class="card" data-pi="${pi}" id="parte-${esc(p.id)}"><div class="row" style="margin:0"><button class="sm" data-ptog style="min-width:110px">${ab?"▾ Cerrar":"✏️ Editar"}</button>
+    <b style="margin-right:auto;cursor:pointer" data-ptog>Parte ${pi+1}. ${esc(p.titulo||T.n)} <span class="muted small">· ${T.ic} ${T.n.split(" (")[0]} · ${p.items.length} ${p.items.length===1?"ejercicio":"ejercicios"} · ${fmtPts(pts)} pts</span></b>
+    <button class="sm" data-pmov="-1" ${pi?"":"disabled"} title="Subir parte">↑</button><button class="sm" data-pmov="1" title="Bajar parte">↓</button><button class="sm danger" data-pdel>🗑 Borrar parte</button></div>
+    <div ${ab?"":'class="hidden"'} style="margin-top:10px">
     <div class="grid"><label class="f">Título de la parte<input data-p="titulo" value="${esc(p.titulo)}"></label><div class="f" style="grid-column:span 2"><span class="row" style="justify-content:space-between">Instrucciones de la parte<button type="button" class="sm" data-ia="parte">✨ Redactar con IA</button></span><textarea data-p="instrucciones" rows="2">${esc(p.instrucciones)}</textarea></div>
       <label class="f" style="grid-column:1/-1">📂 Caso o enunciado principal de la parte (opcional): las preguntas de esta parte se basan en él<input data-p="casoTitulo" value="${esc(p.casoTitulo||"")}" placeholder="Título del caso (ej.: Caso Marcela)" style="margin-bottom:4px"><textarea data-p="caso" rows="${String(p.caso||"").split("\n").length>3?6:3}" placeholder="Escriba aquí los datos del caso. Se muestra una sola vez arriba de las preguntas de la parte.">${esc(p.caso||"")}</textarea></label></div>
     ${p.items.map((it,ii)=>itemEdHTML(p,it,ii)).join("")}
     ${p.tipo==="pareo"?`<label class="f" style="margin-top:8px">Opciones extra de la columna B que no corresponden a nada (una por línea, opcional)<textarea data-p="extras">${esc((p.extras||[]).join("\n"))}</textarea></label>`:""}
-    <div class="row" style="margin-top:8px"><button class="sm" data-addi>＋ Agregar ${p.tipo==="pareo"?"par":"ítem"}</button><button class="sm" data-ptsall>Mismo puntaje a todos</button></div></div>`}
+    <div class="row" style="margin-top:8px"><button class="sm" data-addi>＋ Agregar ${p.tipo==="pareo"?"relación":"ejercicio"}</button><button class="sm" data-ptsall>Mismo puntaje a todos</button></div></div></div>`}
 function itemEdHTML(p,it,ii){const pts=`<label class="f" style="max-width:110px">Puntos<input type="number" min="0" step="0.5" data-i="pts" value="${esc(it.pts)}"></label>`;
-  const ctl=`<div class="row"><b class="muted small" style="margin-right:auto">${ii+1}.</b><button class="sm" data-imov="-1" ${ii?"":"disabled"}>↑</button><button class="sm" data-imov="1">↓</button><button class="sm danger" data-idel>✕</button></div>`;
+  const ctl=`<div class="row"><b class="muted small" style="margin-right:auto">${ii+1}.</b><button class="sm" data-imov="-1" ${ii?"":"disabled"}>↑</button><button class="sm" data-imov="1">↓</button><button class="sm danger" data-idel>🗑 Borrar</button></div>`;
   let cuerpo="";
   if(p.tipo==="mp"){const emps=it.mp.empleados||[];cuerpo=`<label class="f">Enunciado<textarea data-i="txt" rows="3">${esc(it.txt)}</textarea></label>
     <div class="grid" style="margin:6px 0"><label class="f">Empresa<input data-mpe="empresa" value="${esc(it.mp.empresa||"")}"></label><label class="f">Puntos del ejercicio<input type="number" min="1" step="1" data-i="pts" value="${esc(it.pts)}"></label><label class="f">Puntos del machote de planilla<input type="number" min="0" step="1" data-mpe="ptsHoja" value="${esc(it.mp.ptsHoja)}"></label><label class="f">Puntos del asiento<input type="number" min="0" step="1" data-mpe="ptsAsiento" value="${esc(it.mp.ptsAsiento)}"></label></div>
@@ -580,7 +585,8 @@ function ligarEditor(){const ex=ED.ex,ap=$("#app");
     ex[k]=el.type==="checkbox"?el.checked:k==="inicio"||k==="cierre"?deLocal(el.value):k==="materia_id"?+el.value:k==="duracion"||k==="peso"?+el.value||0:el.value;sucio()});
   ap.querySelectorAll("[data-pi]").forEach(card=>{const p=ex.partes[+card.dataset.pi];
     card.querySelectorAll("[data-p]").forEach(el=>el.oninput=()=>{const k=el.dataset.p;p[k]=k==="extras"?el.value.split("\n").map(s=>s.trim()).filter(Boolean):el.value;sucio()});
-    card.querySelector("[data-pdel]").onclick=()=>{if(confirm("¿Quitar esta parte y sus ítems?")){ex.partes.splice(+card.dataset.pi,1);sucio();pintarEditor()}};
+    card.querySelectorAll("[data-ptog]").forEach(b=>b.onclick=()=>{ABIERTAS.has(p.id)?ABIERTAS.delete(p.id):ABIERTAS.add(p.id);pintarEditor();const c=document.getElementById("parte-"+p.id);if(c)c.scrollIntoView({block:"start"})});
+    card.querySelector("[data-pdel]").onclick=()=>{if(confirm(`¿Borrar la parte «${p.titulo}» con sus ${p.items.length} ejercicio(s)? Se borra al guardar.`)){ex.partes.splice(+card.dataset.pi,1);sucio();pintarEditor()}};
     card.querySelectorAll("[data-pmov]").forEach(b=>b.onclick=()=>{const i=+card.dataset.pi,j=i+ +b.dataset.pmov;if(j<0||j>=ex.partes.length)return;[ex.partes[i],ex.partes[j]]=[ex.partes[j],ex.partes[i]];sucio();pintarEditor()});
     card.querySelector("[data-addi]").onclick=()=>{p.items.push(nuevoItem(p.tipo));const u=p.items[p.items.length-2];if(u)p.items[p.items.length-1].pts=u.pts;sucio();pintarEditor()};
     card.querySelector("[data-ptsall]").onclick=()=>{const v=prompt("Puntos para cada ítem de esta parte:","1");if(v===null)return;p.items.forEach(i=>i.pts=+v||0);sucio();pintarEditor()};
@@ -597,11 +603,13 @@ function ligarEditor(){const ex=ED.ex,ap=$("#app");
       box.querySelectorAll("[data-r]").forEach(el=>el.onchange=()=>{it.r=+el.dataset.r;sucio()});
       box.querySelectorAll("[data-odel]").forEach(b=>b.onclick=()=>{const k=+b.dataset.odel;it.o.splice(k,1);if(it.r>=it.o.length||it.r===k)it.r=0;else if(it.r>k)it.r--;sucio();pintarEditor()});
       const oa=box.querySelector("[data-oadd]");if(oa)oa.onclick=()=>{it.o.push("");sucio();pintarEditor()};
-      box.querySelector("[data-idel]").onclick=()=>{p.items.splice(ii,1);sucio();pintarEditor()};
+      box.querySelector("[data-idel]").onclick=()=>{const t=String(it.txt||it.a||"").slice(0,70);if(!confirm(`¿Borrar el ejercicio ${ii+1}${t?` («${t}…»)`:""}? Se borra al guardar.`))return;p.items.splice(ii,1);sucio();pintarEditor()};
       box.querySelectorAll("[data-imov]").forEach(b=>b.onclick=()=>{const j=ii+ +b.dataset.imov;if(j<0||j>=p.items.length)return;[p.items[ii],p.items[j]]=[p.items[j],p.items[ii]];sucio();pintarEditor()})})});
   ap.querySelectorAll("[data-ia]").forEach(b=>b.onclick=()=>{const card=b.closest("[data-pi]");redactarIA(card?ex.partes[+card.dataset.pi]:null,txt=>{
       if(card){ex.partes[+card.dataset.pi].instrucciones=txt;card.querySelector('[data-p="instrucciones"]').value=txt}else{ex.instrucciones=txt;ap.querySelector('[data-g="instrucciones"]').value=txt}sucio()})});
-  ap.querySelectorAll("[data-addp]").forEach(b=>b.onclick=()=>{ex.partes.push(nuevaParte(b.dataset.addp));sucio();pintarEditor();window.scrollTo(0,document.body.scrollHeight)});
+  const at=$("#edAbrirT");if(at)at.onclick=()=>{ex.partes.forEach(p=>ABIERTAS.add(p.id));pintarEditor()};
+  const ct=$("#edCerrarT");if(ct)ct.onclick=()=>{ABIERTAS.clear();pintarEditor()};
+  ap.querySelectorAll("[data-addp]").forEach(b=>b.onclick=()=>{const np=nuevaParte(b.dataset.addp);ABIERTAS.add(np.id);ex.partes.push(np);sucio();pintarEditor();window.scrollTo(0,document.body.scrollHeight)});
   const g=async b=>{b.disabled=true;try{if(ex.publicado){const er=validar(ex);if(er.length&&!confirm("El examen publicado tiene pendientes:\n• "+er.join("\n• ")+"\n\n¿Guardar de todos modos?")){b.disabled=false;return}}
       await guardarExamen(ED);EDsucio=false;const i=S.exs.findIndex(x=>x.id===ED.id);if(i>-1)S.exs[i]={...ED,ex:clone(ED.ex)};else S.exs.unshift({...ED,ex:clone(ED.ex)});
       toast("💾 Guardado");if(location.hash!=="#/editar/"+ED.id)history.replaceState(null,"","#/editar/"+ED.id)}catch(e){alert("No se pudo guardar: "+(e.message||e))}b.disabled=false};
