@@ -8,6 +8,7 @@
 <script src="js/config.js?v=20261030i"></script>
 <script src="js/actividades.js?v=20261105e"></script>
 <script src="js/bitacora.js?v=20261105g"></script>
+<script src="js/liquidacion-calculo.js?v=20261109a"></script>
 <style>
 :root{--bg:#f4f6f8;--card:#fff;--tx:#17202a;--mut:#5d6b78;--line:#d9e0e6;--pri:#0e6e5c;--pri2:#e3f3ef;--bad:#c0392b;--bad2:#fbeaea;--warn:#a66a00;--warn2:#fff4dc;--ok:#1e8449;--ok2:#e7f6ec;--sh:0 1px 3px rgba(0,0,0,.08),0 4px 14px rgba(0,0,0,.05)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#11161b;--card:#1a2128;--tx:#e8edf1;--mut:#9aa8b4;--line:#2d3842;--pri:#38c2a3;--pri2:#173a33;--bad:#ff7b6b;--bad2:#3a1f1d;--warn:#f2b84b;--warn2:#3a2f17;--ok:#5fd38d;--ok2:#17331f;--sh:0 1px 3px rgba(0,0,0,.4)}}
@@ -57,6 +58,11 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 dialog .dh{position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;align-items:center;gap:8px}
 dialog .db{padding:14px 16px}
 .no-sel{user-select:none;-webkit-user-select:none}
+.no-sel input,.no-sel textarea{user-select:text;-webkit-user-select:text}
+table.sheet{font-size:.85rem}table.sheet input{min-width:96px;text-align:right;padding:5px 7px}
+table.sheet td.ok{background:var(--ok2)}table.sheet td.bad{background:var(--bad2)}
+.liq-parte{border:1px solid var(--line);border-left:5px solid var(--c,var(--pri));border-radius:10px;padding:10px 12px;margin:10px 0}
+.liq-paso{display:flex;gap:10px;align-items:center;justify-content:space-between;border-bottom:1px dashed var(--line);padding:6px 0}.liq-paso input{max-width:190px;text-align:right}
 .hidden{display:none!important}
 @media (max-width:600px){.wrap{padding:12px}.card{padding:12px}}
 @media print{header.top,.noprint{display:none!important}body{background:#fff;color:#000}.card{box-shadow:none;border:0}}
@@ -105,13 +111,16 @@ const TIPOS={
   corta:{ic:"✏️",n:"Respuesta corta",ins:"Escriba en forma breve lo que se solicita en cada enunciado."},
   num:{ic:"🔢",n:"Resolución de ejercicios",ins:"Resuelva cada ejercicio con los datos que se le brindan y anote el resultado."},
   des:{ic:"📝",n:"Respuesta restringida o resolución de problemas (se califica a mano)",ins:"Resuelva lo que se solicita. Se califica con la escala que acompaña cada ítem."},
-  fv:{ic:"✅",n:"Falso o verdadero (no está en los lineamientos del MEP)",ins:"Seleccione si el enunciado es verdadero o falso."}
+  fv:{ic:"✅",n:"Falso o verdadero (no está en los lineamientos del MEP)",ins:"Seleccione si el enunciado es verdadero o falso."},
+  mp:{ic:"🧾",n:"Machote de planilla (formato de Aula de Conta)",ins:"Complete el machote de la planilla y el machote del asiento igual que en Aula de Conta. Use dos decimales; se acepta una diferencia de ₡1 por redondeo."},
+  lq:{ic:"⚖️",n:"Liquidación laboral (formato de Liquidaciones laborales)",ins:"Con los datos del caso, escriba el resultado de cada paso igual que en Liquidaciones laborales."}
 };
 // Aplicaciones de la plataforma que un reto puede pedir abrir.
 const APPS={"Liquidaciones laborales":"liquidaciones.html","Aula de Conta":"aula-contable.html","Ruta Laboral CR":"laboral.html","Misión Seguros":"seguros.html","La Tiradera":"tiradera.html","Planilla Opoly":"planilla-opoly.html"};
 const urlApp=n=>{const k=Object.keys(APPS).find(x=>norm(x)===norm(n)||norm(n).includes(norm(x).split(" ")[0]));if(!k)return null;let u=APPS[k];if(k==="Aula de Conta"&&EST_ID)u+="?como_estudiante="+encodeURIComponent(EST_ID);return u};
 const appNombre=n=>Object.keys(APPS).find(x=>norm(x)===norm(n)||norm(n).includes(norm(x).split(" ")[0]))||n;
-const nuevoItem=t=>({id:uid(),txt:"",pts:1,...(t==="sel"?{o:["","",""],r:0}:t==="fv"?{r:true}:t==="pareo"?{a:"",b:""}:t==="corta"?{acepta:[""]}:t==="num"?{r:0,tol:0.01}:{guia:""})});
+const LQ_CASO=()=>({trabajador:"",tiempoModo:"directo",anios:1,meses:0,dias:0,mesesAguinaldo:6,motivo:"despido_responsabilidad",preavisoEstado:"no",preavisoDias:0,salarioModo:"mensual",salarioMensual:500000,vacDisfrutadas:0,vacAnteriores:0,salarios:[]});
+const nuevoItem=t=>t==="lq"?{id:uid(),txt:"Resuelva la liquidación del caso.",pts:10,lq:{caso:LQ_CASO(),partes:["salario","preaviso","cesantia","vacaciones","aguinaldo"]}}:({id:uid(),txt:"",pts:1,...(t==="sel"?{o:["","",""],r:0}:t==="fv"?{r:true}:t==="pareo"?{a:"",b:""}:t==="corta"?{acepta:[""]}:t==="num"?{r:0,tol:0.01}:{guia:""})});
 const nuevaParte=t=>({id:uid(),tipo:t,titulo:TIPOS[t].n,instrucciones:TIPOS[t].ins,items:[nuevoItem(t)],extras:[]});
 const ENC_DEF={institucion:"CTP Mercedes Norte",especialidad:"Contabilidad",subarea:"",unidad:"",nivel:"",docente:"",periodo:"II Período",tipo:"Prueba escrita",resultado:"",nota:""};
 const ENC_CAMPOS=[["institucion","Centro educativo"],["especialidad","Especialidad"],["subarea","Subárea o módulo"],["unidad","Unidad de estudio"],["nivel","Nivel"],["docente","Persona docente"],["periodo","Período"],["tipo","Tipo de prueba"]];
@@ -132,6 +141,46 @@ const nuevoEx=()=>({encabezado:{...ENC_DEF},materia_id:null,titulo:"",instruccio
 const itemsDe=ex=>(ex.partes||[]).flatMap(p=>(p.items||[]).map(it=>({p,it})));
 const totalPts=ex=>itemsDe(ex).reduce((s,{it})=>s+(+it.pts||0),0);
 
+// ═══ Machote de planilla (Aula de Conta) y liquidación (Liquidaciones laborales) ═══
+const money=n=>"₡ "+new Intl.NumberFormat("es-CR",{minimumFractionDigits:2,maximumFractionDigits:2}).format(+n||0);
+const hayValor=o=>Object.values(o||{}).some(x=>x&&typeof x==="object"?hayValor(x):String(x??"").trim()!=="");
+const cerca=(v,sol)=>!isNaN(v)&&Math.abs(v-sol)<=1.0001;
+// it.mp = {empresa, campos:[[q,etiqueta]], emps:[{nombre,datos,sol:{q:monto}}], asiento:[{code,name,d,c}], ptsHoja, ptsAsiento}
+function mpEval(it,v){const M=it.mp,V=v&&typeof v==="object"?v:{},H=V.h||{},A=V.a||{};let okH=0,totH=0,okA=0,totA=0;const celdas={},cuentas={};
+  M.emps.forEach((e,i)=>M.campos.forEach(([q])=>{totH++;const raw=(H[i]||{})[q],n=parseNum(raw),sol=e.sol[q],ok=cerca(q==="rebaus"?Math.abs(n):n,sol);if(ok)okH++;celdas[i+"|"+q]={ok,lleno:String(raw??"").trim()!==""}}));
+  M.asiento.forEach(l=>{totA++;const x=A[l.code]||{},d=String(x.d??"").trim()===""?0:parseNum(x.d),c=String(x.c??"").trim()===""?0:parseNum(x.c),ok=cerca(d,l.d)&&cerca(c,l.c);if(ok)okA++;cuentas[l.code]={ok}});
+  const ph=+M.ptsHoja||0,pa=+M.ptsAsiento||0,tot=+it.pts||0,esc=ph+pa?tot/(ph+pa):1;
+  return {okH,totH,okA,totA,celdas,cuentas,pts:Math.round(((totH?ph*okH/totH:0)+(totA?pa*okA/totA:0))*esc*100)/100}}
+const LQ_PARTES=[["salario","💰 Salario","#0369a1"],["preaviso","🔔 Preaviso","#b45309"],["cesantia","🛡️ Cesantía","#7c3aed"],["vacaciones","🏖️ Vacaciones","#0e7490"],["aguinaldo","🎄 Aguinaldo","#be123c"]];
+function lqPasos(it){if(typeof liqCalcularCaso!=="function")return {R:null,pasos:[]};const R=liqCalcularCaso(it.lq.caso);if(R.error)return {R,pasos:[]};const P=liqPasosPractica(R);
+  return {R,pasos:LQ_PARTES.filter(([k])=>(it.lq.partes||[]).includes(k)).flatMap(([k])=>(P[k]||[]).map(x=>({...x,parte:k})))}}
+function lqEval(it,v){const V=v&&typeof v==="object"?v:{},{pasos}=lqPasos(it);let ok=0;const res={};pasos.forEach(p=>{const r=liqRevisarPaso(p,V[p.k]);res[p.k]=r;if(r)ok++});
+  return {ok,tot:pasos.length,res,pts:pasos.length?Math.round((+it.pts||0)*ok/pasos.length*100)/100:0}}
+function lqDatosHTML(c){const mot=((typeof LIQ_MOTIVOS!=="undefined"?LIQ_MOTIVOS:[]).find(x=>x[0]===c.motivo)||[])[1]||c.motivo;
+  const pre={no:"No se le dio preaviso",completo:"Trabajó el preaviso completo",parcial:`Trabajó ${c.preavisoDias||0} días de preaviso`}[c.preavisoEstado]||"";
+  return `<div class="liq-parte" style="--c:var(--pri)"><b>📋 Datos del caso</b><div class="grid small" style="margin-top:6px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
+    ${c.trabajador?`<div>Persona trabajadora: <b>${esc(c.trabajador)}</b></div>`:""}<div>Tiempo laborado: <b>${c.anios} año(s), ${c.meses} mes(es), ${c.dias||0} día(s)</b></div>
+    <div>Motivo de salida: <b>${esc(mot)}</b></div><div>Preaviso: <b>${esc(pre)}</b></div><div>Salario mensual fijo: <b>${money(c.salarioMensual)}</b></div>
+    <div>Meses desde el 1 de diciembre: <b>${c.mesesAguinaldo}</b></div><div>Vacaciones disfrutadas del período: <b>${c.vacDisfrutadas||0} día(s)</b></div></div></div>`}
+function mpHTML(it,V,{ro,rev}={}){const M=it.mp,H=(V&&V.h)||{},A=(V&&V.a)||{},E=rev?mpEval(it,V):null;
+  const cls=(k,map)=>E?(map[k]&&map[k].ok?"ok":"bad"):"";
+  const codes=M.asiento.map(l=>l.code).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));const lin=c=>M.asiento.find(l=>l.code===c);
+  let D=0,C=0;codes.forEach(c=>{D+=parseNum((A[c]||{}).d)||0;C+=parseNum((A[c]||{}).c)||0});
+  return `<div class="small muted" style="margin:4px 0 6px">🧾 <b>Machote de planilla${M.empresa?" · "+esc(M.empresa):""}</b> — Calcule cada monto con los parámetros legales y escríbalo en su casilla. Use dos decimales. Se acepta una diferencia de ₡1 por redondeo.</div>
+   <div class="tbl"><table class="sheet"><thead><tr><th>Colaborador y datos del mes</th>${M.campos.map(([,l])=>`<th class="r">${esc(l)}</th>`).join("")}</tr></thead><tbody>
+   ${M.emps.map((e,i)=>`<tr><td style="min-width:200px"><b>${esc(e.nombre)}</b><br><small class="muted">${esc(e.datos)}</small></td>${M.campos.map(([q,l])=>`<td class="r ${E?cls(i+"|"+q,E.celdas):""}">${ro?`${esc((H[i]||{})[q]??"")}${rev?`<br><small class="muted">${money(e.sol[q])}</small>`:""}`:`<input data-mp="${it.id}|h|${i}|${q}" inputmode="decimal" placeholder="0,00" value="${esc((H[i]||{})[q]??"")}" aria-label="${esc(l)} de ${esc(e.nombre)}">`}</td>`).join("")}</tr>`).join("")}
+   </tbody></table></div>
+   <div class="small muted" style="margin:12px 0 6px">📒 <b>Machote del asiento</b> — Estas son las cuentas que intervienen. Para cada una decida si va al <b>Debe</b> o al <b>Haber</b> y calcule el monto con los datos de su planilla.</div>
+   <div class="tbl"><table class="sheet"><thead><tr><th>Cuenta</th><th class="r">Debe</th><th class="r">Haber</th></tr></thead><tbody>
+   ${codes.map(c=>{const l=lin(c),x=A[c]||{};return `<tr><td class="${E?cls(c,E.cuentas):""}"><b>${esc(c)}</b> · ${esc(l.name)}</td>${["d","c"].map(s=>`<td class="r">${ro?`${esc(x[s]??"")}${rev?`<br><small class="muted">${l[s]?money(l[s]):"—"}</small>`:""}`:`<input data-mp="${it.id}|a|${c}|${s}" inputmode="decimal" placeholder="0,00" value="${esc(x[s]??"")}">`}</td>`).join("")}</tr>`}).join("")}
+   <tr><td colspan="3" class="small muted"><i>p/r Registro de la planilla del mes · ${M.emps.length} colaborador(es)</i></td></tr>
+   <tr><th>Tus sumas</th><th class="r" data-mpd="${it.id}">${money(D)}</th><th class="r" data-mpc="${it.id}">${money(C)}</th></tr></tbody></table></div>
+   ${E?`<p class="small" style="margin:6px 0 0">Machote: <b>${E.okH} de ${E.totH}</b> casillas correctas · Asiento: <b>${E.okA} de ${E.totA}</b> cuentas correctas</p>`:""}`}
+function lqHTML(it,V,{ro,rev}={}){const {R,pasos}=lqPasos(it),Vv=V||{},E=rev?lqEval(it,Vv):null;
+  if(!R||R.error)return `<p class="bad-t">${esc((R&&R.error)||"No se pudo calcular el caso.")}</p>`;
+  return lqDatosHTML(it.lq.caso)+LQ_PARTES.filter(([k])=>(it.lq.partes||[]).includes(k)).map(([k,n,col])=>`<div class="liq-parte" style="--c:${col}"><b>${n}</b> <span class="small muted">· Escriba el resultado de cada paso</span>
+    ${pasos.filter(p=>p.parte===k).map(p=>`<div class="liq-paso"><span class="small">${esc(p.et)}</span>${ro?`<span class="small ${E?(E.res[p.k]?"ok-t":"bad-t"):""}">${esc(Vv[p.k]??"—")}${rev?` <span class="muted">(${p.tipo==="monto"?money(p.ok):fmtPts(p.ok)+" días"})</span>`:""}</span>`:`<input data-lq="${it.id}|${p.k}" inputmode="decimal" placeholder="${p.tipo==="monto"?"₡ 0,00":"días"}" value="${esc(Vv[p.k]??"")}">`}</div>`).join("")}</div>`).join("")+(E?`<p class="small" style="margin:6px 0 0">Pasos correctos: <b>${E.ok} de ${E.tot}</b></p>`:"")}
+
 // ── Corrección automática ──
 const norm=s=>String(s??"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^\w\s%]/g," ").replace(/\s+/g," ").trim();
 function parseNum(v){let s=String(v??"").replace(/[₡$\s]/g,"").replace(/[^\d.,-]/g,"");if(!s)return NaN;
@@ -140,10 +189,12 @@ function parseNum(v){let s=String(v??"").replace(/[₡$\s]/g,"").replace(/[^\d.,
   else if(lc>-1){s=/^-?\d{1,3}(,\d{3})+$/.test(s)?s.replace(/,/g,""):s.replace(",",".")}
   else if(lp>-1&&/^-?\d{1,3}(\.\d{3})+$/.test(s))s=s.replace(/\./g,"");
   return Number(s)}
-const respondido=v=>!(v===undefined||v===null||String(v).trim()==="");
+const respondido=v=>v&&typeof v==="object"?hayValor(v):!(v===undefined||v===null||String(v).trim()==="");
 // Devuelve los puntos automáticos de un ítem, o null si se califica a mano.
 function autoItem(p,it,v){const pts=+it.pts||0;
   if(!respondido(v))return 0;
+  if(p.tipo==="mp")return mpEval(it,v).pts;
+  if(p.tipo==="lq")return lqEval(it,v).pts;
   if(p.tipo==="des")return null;
   if(p.tipo==="sel")return +v===+it.r?pts:0;
   if(p.tipo==="fv")return (v==="V")===!!it.r?pts:0;
@@ -346,7 +397,7 @@ function revisarMEP(ex){const av=[],E=encDe(ex),its=itemsDe(ex);
   if(!E.subarea||!E.docente||!E.nivel)av.push("Encabezado: complete subárea o módulo, nivel y persona docente (parte administrativa).");
   if(!String(ex.instrucciones||"").trim())av.push("Faltan las instrucciones generales.");
   if(!ex.partes.some(p=>p.tipo==="sel"||p.tipo==="pareo"))av.push("Debe haber al menos un ítem de selección, identificación o correspondencia.");
-  if(!ex.partes.some(p=>["corta","num","des"].includes(p.tipo)))av.push("Debe haber al menos un ítem de respuesta construida (respuesta corta, restringida, ejercicios o problemas).");
+  if(!ex.partes.some(p=>["corta","num","des","mp","lq"].includes(p.tipo)))av.push("Debe haber al menos un ítem de respuesta construida (respuesta corta, restringida, ejercicios o problemas).");
   ex.partes.forEach((p,pi)=>{const n=`Parte ${pi+1} (${p.titulo})`;
     if(!String(p.instrucciones||"").trim())av.push(`${n}: faltan las instrucciones específicas con la puntuación.`);
     if(p.tipo==="fv")av.push(`${n}: el falso o verdadero no está entre los ítems de los lineamientos; conviene pasarlo a selección única.`);
@@ -458,7 +509,7 @@ function pintarEditor(){const ex=ED.ex;
    <div id="edTabla">${tablaEspHTML(ex,{editable:true})}</div></div>
   <div class="card" id="edMEP"></div>
   ${ex.partes.map((p,pi)=>parteEdHTML(p,pi)).join("")}
-  <div class="card"><h3>＋ Agregar una parte</h3><div class="row">${Object.entries(TIPOS).map(([k,v])=>`<button data-addp="${k}">${v.ic} ${v.n}</button>`).join("")}</div></div>
+  <div class="card"><h3>＋ Agregar una parte</h3><div class="row">${Object.entries(TIPOS).filter(([k])=>k!=="mp").map(([k,v])=>`<button data-addp="${k}">${v.ic} ${v.n}</button>`).join("")}</div></div>
   <div class="row" style="justify-content:flex-end"><button class="pri" id="edGuardar2">💾 Guardar</button></div>`;
   ligarEditor()}
 function parteEdHTML(p,pi){const T=TIPOS[p.tipo];
@@ -472,7 +523,15 @@ function parteEdHTML(p,pi){const T=TIPOS[p.tipo];
 function itemEdHTML(p,it,ii){const pts=`<label class="f" style="max-width:110px">Puntos<input type="number" min="0" step="0.5" data-i="pts" value="${esc(it.pts)}"></label>`;
   const ctl=`<div class="row"><b class="muted small" style="margin-right:auto">${ii+1}.</b><button class="sm" data-imov="-1" ${ii?"":"disabled"}>↑</button><button class="sm" data-imov="1">↓</button><button class="sm danger" data-idel>✕</button></div>`;
   let cuerpo="";
-  if(p.tipo==="pareo")cuerpo=`<div class="grid"><label class="f">Columna A (enunciado)<input data-i="a" value="${esc(it.a)}"></label><label class="f">Columna B (respuesta que le corresponde)<input data-i="b" value="${esc(it.b)}"></label>${pts}</div>`;
+  if(p.tipo==="mp")cuerpo=`<label class="f">Enunciado<textarea data-i="txt" rows="3">${esc(it.txt)}</textarea></label><div class="row" style="margin:6px 0"><label class="f" style="max-width:110px">Puntos<input type="number" min="1" step="1" data-i="pts" value="${esc(it.pts)}"></label><span class="small muted">Se reparte: machote de planilla ${esc(it.mp.ptsHoja)} y asiento ${esc(it.mp.ptsAsiento)} (proporcional a las casillas correctas). Calculado con Aula de Conta.</span></div><details><summary class="small" style="cursor:pointer;font-weight:700">👁 Ver el machote con la solución</summary>${mpHTML(it,{},{ro:true,rev:true})}</details>`;
+  else if(p.tipo==="lq"){const c=it.lq.caso,mot=(typeof LIQ_MOTIVOS!=="undefined"?LIQ_MOTIVOS:[]);
+    cuerpo=`<label class="f">Enunciado<textarea data-i="txt" rows="3">${esc(it.txt)}</textarea></label>
+    <div class="grid" style="margin-top:6px"><label class="f">Persona trabajadora<input data-lc="trabajador" value="${esc(c.trabajador||"")}"></label><label class="f">Años<input type="number" min="0" data-lc="anios" value="${esc(c.anios)}"></label><label class="f">Meses<input type="number" min="0" max="11" data-lc="meses" value="${esc(c.meses)}"></label><label class="f">Días<input type="number" min="0" max="30" data-lc="dias" value="${esc(c.dias||0)}"></label>
+      <label class="f">Meses desde el 1 de diciembre<input type="number" min="0" max="12" data-lc="mesesAguinaldo" value="${esc(c.mesesAguinaldo)}"></label><label class="f">Motivo<select data-lc="motivo">${mot.map(([k,n])=>`<option value="${k}" ${k===c.motivo?"selected":""}>${esc(n)}</option>`).join("")}</select></label>
+      <label class="f">Preaviso<select data-lc="preavisoEstado">${[["no","No se dio"],["parcial","Trabajó parte"],["completo","Trabajó completo"]].map(([k,n])=>`<option value="${k}" ${k===c.preavisoEstado?"selected":""}>${n}</option>`).join("")}</select></label><label class="f">Salario mensual fijo (₡)<input type="number" min="0" data-lc="salarioMensual" value="${esc(c.salarioMensual)}"></label><label class="f">Vacaciones disfrutadas (días)<input type="number" min="0" data-lc="vacDisfrutadas" value="${esc(c.vacDisfrutadas||0)}"></label><label class="f" style="max-width:110px">Puntos<input type="number" min="1" step="1" data-i="pts" value="${esc(it.pts)}"></label></div>
+    <div class="row small" style="margin:6px 0">Partes que se evalúan: ${LQ_PARTES.map(([k,n])=>`<label class="row"><input type="checkbox" data-lp="${k}" ${(it.lq.partes||[]).includes(k)?"checked":""}> ${n}</label>`).join("")}</div>
+    <details><summary class="small" style="cursor:pointer;font-weight:700">👁 Ver los pasos con la solución (calculada con Liquidaciones laborales)</summary>${lqHTML(it,{},{ro:true,rev:true})}</details>`}
+  else if(p.tipo==="pareo")cuerpo=`<div class="grid"><label class="f">Columna A (enunciado)<input data-i="a" value="${esc(it.a)}"></label><label class="f">Columna B (respuesta que le corresponde)<input data-i="b" value="${esc(it.b)}"></label>${pts}</div>`;
   else{cuerpo=`<label class="f">Enunciado<textarea data-i="txt" rows="2">${esc(it.txt)}</textarea></label><div class="row" style="align-items:flex-end;margin-top:6px">`;
     if(p.tipo==="sel")cuerpo+=`<div style="flex:1 1 400px">${it.o.map((o,k)=>`<div class="row" style="margin:3px 0;flex-wrap:nowrap"><input type="radio" name="r_${it.id}" data-r="${k}" ${+it.r===k?"checked":""} title="Correcta"><b class="small">${"abcdefgh"[k]})</b><input data-o="${k}" value="${esc(o)}" placeholder="Opción ${"abcdefgh"[k]}"><button class="sm" data-odel="${k}" ${it.o.length>2?"":"disabled"}>✕</button></div>`).join("")}<button class="sm" data-oadd ${it.o.length>=6?"disabled":""}>＋ Opción</button> <span class="small muted">Marque el círculo de la correcta.</span></div>`;
     if(p.tipo==="fv")cuerpo+=`<label class="f" style="max-width:180px">Respuesta correcta<select data-i="r"><option value="1" ${it.r?"selected":""}>Verdadero</option><option value="0" ${it.r?"":"selected"}>Falso</option></select></label>`;
@@ -510,6 +569,8 @@ function ligarEditor(){const ex=ED.ex,ap=$("#app");
     card.querySelectorAll("[data-ii]").forEach(box=>{const ii=+box.dataset.ii,it=p.items[ii];
       box.querySelectorAll("[data-i]").forEach(el=>el.oninput=el.onchange=()=>{const k=el.dataset.i;
         it[k]=k==="pts"?+el.value||0:k==="acepta"?el.value.split("\n"):k==="r"&&p.tipo==="fv"?el.value==="1":k==="r"||k==="tol"?parseNum(el.value)||0:el.value;sucio()});
+      box.querySelectorAll("[data-lc]").forEach(el=>el.onchange=()=>{const k=el.dataset.lc;it.lq.caso[k]=el.tagName==="SELECT"||k==="trabajador"?el.value:+el.value||0;sucio();pintarEditor()});
+      box.querySelectorAll("[data-lp]").forEach(el=>el.onchange=()=>{const k=el.dataset.lp;it.lq.partes=LQ_PARTES.map(([x])=>x).filter(x=>x===k?el.checked:(it.lq.partes||[]).includes(x));sucio();pintarEditor()});
       box.querySelectorAll("[data-o]").forEach(el=>el.oninput=()=>{it.o[+el.dataset.o]=el.value;sucio()});
       box.querySelectorAll("[data-r]").forEach(el=>el.onchange=()=>{it.r=+el.dataset.r;sucio()});
       box.querySelectorAll("[data-odel]").forEach(b=>b.onclick=()=>{const k=+b.dataset.odel;it.o.splice(k,1);if(it.r>=it.o.length||it.r===k)it.r=0;else if(it.r>k)it.r--;sucio();pintarEditor()});
@@ -597,8 +658,8 @@ function revisionHTML(ex,resp,dp,{editable,paraEst}={}){const man=(dp&&dp.manual
    ${p.items.map((it,ii)=>{const v=resp[it.id],a=autoItem(p,it,v),m=man[it.id],val=m!==undefined&&m!==null&&m!==""?+m:a,pts=+it.pts||0;
      const est=val===null?'<span class="chip bad">Por calificar</span>':val>=pts?'<span class="ok-t">✔</span>':val>0?'<span class="chip warn">Parcial</span>':'<span class="bad-t">✘</span>';
      return `<div class="item"><div class="row" style="align-items:flex-start"><p class="q" style="margin-right:auto;flex:1">${ii+1}. ${p.tipo==="pareo"?esc(it.a):nl(it.txt)}</p>${est}</div>
-      <div class="small"><b>Respuesta:</b> ${verResp(p,it,v)}</div>
-      ${paraEst&&p.tipo==="des"?"":`<div class="small"><b>${p.tipo==="des"?"Guía":"Correcta"}:</b> ${verCorrecta(p,it)}</div>`}
+      ${p.tipo==="mp"?mpHTML(it,v,{ro:true,rev:true}):p.tipo==="lq"?lqHTML(it,v,{ro:true,rev:true}):`<div class="small"><b>Respuesta:</b> ${verResp(p,it,v)}</div>
+      ${paraEst&&p.tipo==="des"?"":`<div class="small"><b>${p.tipo==="des"?"Guía":"Correcta"}:</b> ${verCorrecta(p,it)}</div>`}`}
       ${val!==null&&(val>=pts?it.fb_ok:it.fb_err)?`<div class="small" style="margin-top:4px">${val>=pts?"🎉":"🔍"} ${esc(val>=pts?it.fb_ok:it.fb_err)}</div>`:""}
       ${it.just?`<div class="small muted" style="margin-top:4px">💡 ${nl(it.just)}</div>`:""}
       <div class="row small" style="margin-top:6px">${editable?`<label class="row">Puntos: <input type="number" min="0" max="${pts}" step="0.25" data-man="${it.id}" value="${val===null?"":val}" style="width:90px"> / ${fmtPts(pts)}</label>${a!==null&&m!=null&&m!==""&&+m!==a?`<small class="muted">(automático: ${fmtPts(a)})</small>`:""}`:`<b>${val===null?"—":fmtPts(val)} / ${fmtPts(pts)} pts</b>`}</div></div>`}).join("")}</div>`).join("")}
@@ -627,6 +688,7 @@ function imprimir(t){const ex=t.ex,sol=confirm("¿Imprimir con las respuestas co
       cuerpo=`<table style="width:100%;border-collapse:collapse"><tr><td style="width:50%;vertical-align:top">${its.map((i,k)=>`<p>(${sol?"abcdefghijklmnopqrstuvwxyz"[B.indexOf(i.b)]:"&nbsp;&nbsp;&nbsp;"}) ${k+1}. ${esc(i.a)}</p>`).join("")}</td><td style="vertical-align:top">${B.map((b,k)=>`<p>${"abcdefghijklmnopqrstuvwxyz"[k]}. ${esc(b)}</p>`).join("")}</td></tr></table>`}
     else cuerpo=its.map((it,k)=>`<div style="margin:0 0 12px;page-break-inside:avoid"><p style="margin:0 0 4px"><b>${k+1}.</b> ${p.tipo==="fv"?`( ${sol?(it.r?"V":"F"):"&nbsp;&nbsp;"} ) `:""}${nl(it.txt)} <i>(${fmtPts(it.pts)} pts)</i></p>
       ${p.tipo==="sel"?it.o.map((o,j)=>`<p style="margin:2px 0 2px 18px">${sol&&j===+it.r?"<b>☒":"☐"} ${"abcdefgh"[j]}) ${esc(o)}${sol&&j===+it.r?"</b>":""}</p>`).join(""):""}
+      ${p.tipo==="mp"?mpHTML(it,{},{ro:true,rev:sol}):p.tipo==="lq"?lqHTML(it,{},{ro:true,rev:sol}):""}
       ${p.tipo==="corta"||p.tipo==="num"?`<p style="margin:4px 0 0 18px">${sol?"<b>R/ "+verCorrecta(p,it)+"</b>":"R/ _______________________________"}</p>`:""}
       ${p.tipo==="des"?(sol&&it.guia?`<p style="margin:4px 0 0 18px"><b>Guía:</b> ${nl(it.guia)}</p>`:'<div style="height:120px;border:1px solid #bbb;margin:6px 0 0 18px"></div>'):""}</div>`).join("");
     return `<h3 style="margin:18px 0 4px">Parte ${pi+1}. ${esc(p.titulo)} (${fmtPts(its.reduce((s,i)=>s+(+i.pts||0),0))} pts)</h3><p style="margin:0 0 8px"><i>${nl(p.instrucciones)}</i></p>${String(p.caso||"").trim()?`<div style="border:1px solid #888;padding:8px 10px;margin:0 0 10px;white-space:pre-wrap"><b>${esc(p.casoTitulo||"Caso")}</b><br>${esc(p.caso)}</div>`:""}${cuerpo}`}).join("");
@@ -687,6 +749,8 @@ function pintarExamen(t,{previa,a,dp,resp}){const ex=t.ex,R=rng(dp.semilla||"x")
       else if(p.tipo==="fv")ctl=`<div class="row">${["V","F"].map(x=>`<label class="opc ${v===x?"sel":""}" style="flex:0 0 auto"><input type="radio" name="o_${it.id}" data-resp="${it.id}" value="${x}" ${v===x?"checked":""}><span>${x==="V"?"Verdadero":"Falso"}</span></label>`).join("")}</div>`;
       else if(p.tipo==="num")ctl=`<input data-resp="${it.id}" inputmode="decimal" value="${esc(v??"")}" placeholder="Resultado" style="max-width:260px">`;
       else if(p.tipo==="corta")ctl=`<input data-resp="${it.id}" value="${esc(v??"")}" placeholder="Respuesta">`;
+      else if(p.tipo==="mp")ctl=mpHTML(it,v);
+      else if(p.tipo==="lq")ctl=lqHTML(it,v);
       else ctl=`${it.rubrica?`<div class="small" style="border:1px dashed var(--line);border-radius:8px;padding:6px 9px;margin:0 0 6px;white-space:pre-wrap"><b>📏 Escala de calificación:</b><br>${esc(it.rubrica)}</div>`:""}<textarea data-resp="${it.id}" rows="6" placeholder="Escriba aquí su respuesta">${esc(v??"")}</textarea>`;
       return `<div class="item"><p class="q">${k+1}. ${nl(it.txt)} <span class="muted small">(${fmtPts(it.pts)} pts)</span></p>${appHTML(it)}${ctl}</div>`}).join("");
     return `<section class="parte"><h2>Parte ${pi+1}. ${esc(p.titulo)} <span class="muted small">(${fmtPts(p.items.reduce((s,i)=>s+(+i.pts||0),0))} pts)</span></h2><p class="muted" style="margin:0 0 6px"><i>${nl(p.instrucciones)}</i></p>${casoHTML(p)}${cuerpo}</section>`}).join("");
@@ -701,6 +765,12 @@ function pintarExamen(t,{previa,a,dp,resp}){const ex=t.ex,R=rng(dp.semilla||"x")
       if(el.type==="radio"){if(!el.checked)return;resp[id]=el.value;$$(`input[name="${el.name}"]`).forEach(x=>x.closest(".opc").classList.toggle("sel",x.checked))}else resp[id]=el.value;
       prog();if(!previa)programarGuardado()};el.addEventListener(el.tagName==="SELECT"||el.type==="radio"?"change":"input",h)});
   $$("[data-app]").forEach(x=>x.addEventListener("click",()=>{if(RUN)RUN.appHasta=Date.now()+4000}));
+  // Machote de planilla y liquidación: guardan un objeto por ítem.
+  $$("[data-mp]").forEach(el=>el.addEventListener("input",()=>{const [id,zona,a,b]=el.dataset.mp.split("|");const o=resp[id]=resp[id]&&typeof resp[id]==="object"?resp[id]:{h:{},a:{}};
+    if(zona==="h"){o.h=o.h||{};(o.h[a]=o.h[a]||{})[b]=el.value}else{o.a=o.a||{};(o.a[a]=o.a[a]||{})[b]=el.value;
+      let D=0,C=0;Object.values(o.a).forEach(x=>{D+=parseNum(x.d)||0;C+=parseNum(x.c)||0});const d=$(`[data-mpd="${id}"]`),c=$(`[data-mpc="${id}"]`);if(d)d.textContent=money(D);if(c)c.textContent=money(C)}
+    prog();if(!previa)programarGuardado()}));
+  $$("[data-lq]").forEach(el=>el.addEventListener("input",()=>{const [id,k]=el.dataset.lq.split("|");const o=resp[id]=resp[id]&&typeof resp[id]==="object"?resp[id]:{};o[k]=el.value;prog();if(!previa)programarGuardado()}));
   if(!previa){document.addEventListener("contextmenu",bloq);document.addEventListener("copy",bloq);document.addEventListener("visibilitychange",salida)}
   const ent=()=>entregar();$("#entregar").onclick=ent;$("#entregar2").onclick=ent;
   if(fin){const tick=()=>{const ms=fin-Date.now(),el=$("#reloj");if(!el)return clearInterval(RUN.timer);
