@@ -9,7 +9,7 @@
 <script src="js/actividades.js?v=20261105e"></script>
 <script src="js/bitacora.js?v=20261105g"></script>
 <script src="js/liquidacion-calculo.js?v=20261109a"></script>
-<script src="js/planilla-calculo.js?v=20261109a"></script>
+<script src="js/planilla-calculo.js?v=20261109b"></script>
 <style>
 :root{--bg:#f4f6f8;--card:#fff;--tx:#17202a;--mut:#5d6b78;--line:#d9e0e6;--pri:#0e6e5c;--pri2:#e3f3ef;--bad:#c0392b;--bad2:#fbeaea;--warn:#a66a00;--warn2:#fff4dc;--ok:#1e8449;--ok2:#e7f6ec;--sh:0 1px 3px rgba(0,0,0,.08),0 4px 14px rgba(0,0,0,.05)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#11161b;--card:#1a2128;--tx:#e8edf1;--mut:#9aa8b4;--line:#2d3842;--pri:#38c2a3;--pri2:#173a33;--bad:#ff7b6b;--bad2:#3a1f1d;--warn:#f2b84b;--warn2:#3a2f17;--ok:#5fd38d;--ok2:#17331f;--sh:0 1px 3px rgba(0,0,0,.4)}}
@@ -151,7 +151,10 @@ const cerca=(v,sol)=>!isNaN(v)&&Math.abs(v-sol)<=1.0001;
 // it.mp = {empresa, campos:[[q,etiqueta]], emps:[{nombre,datos,sol:{q:monto}}], asiento:[{code,name,d,c}], ptsHoja, ptsAsiento}
 function mpEval(it,v){const M=it.mp,V=v&&typeof v==="object"?v:{},H=V.h||{},A=V.a||{};let okH=0,totH=0,okA=0,totA=0;const celdas={},cuentas={};
   M.emps.forEach((e,i)=>M.campos.forEach(([q])=>{totH++;const raw=(H[i]||{})[q],n=parseNum(raw),sol=e.sol[q],ok=cerca(q==="rebaus"?Math.abs(n):n,sol);if(ok)okH++;celdas[i+"|"+q]={ok,lleno:String(raw??"").trim()!==""}}));
-  M.asiento.forEach(l=>{totA++;const x=A[l.code]||{},d=String(x.d??"").trim()===""?0:parseNum(x.d),c=String(x.c??"").trim()===""?0:parseNum(x.c),ok=cerca(d,l.d)&&cerca(c,l.c);if(ok)okA++;cuentas[l.code]={ok}});
+  if(M.asientoLibre){const filas=(V.r||[]).map(f=>({cta:f.cta,d:String(f.d??"").trim()===""?0:parseNum(f.d),c:String(f.c??"").trim()===""?0:parseNum(f.c)})),usadas=new Set();
+    M.asiento.forEach(l=>{totA++;const j=filas.findIndex((f,k)=>!usadas.has(k)&&f.cta===l.code&&cerca(f.d,l.d)&&cerca(f.c,l.c));if(j>-1){usadas.add(j);okA++}cuentas[l.code]={ok:j>-1}});
+    filas.forEach((f,k)=>{cuentas["fila"+k]={ok:usadas.has(k)}})}
+  else M.asiento.forEach(l=>{totA++;const x=A[l.code]||{},d=String(x.d??"").trim()===""?0:parseNum(x.d),c=String(x.c??"").trim()===""?0:parseNum(x.c),ok=cerca(d,l.d)&&cerca(c,l.c);if(ok)okA++;cuentas[l.code]={ok}});
   const ph=+M.ptsHoja||0,pa=+M.ptsAsiento||0,tot=+it.pts||0,esc=ph+pa?tot/(ph+pa):1;
   return {okH,totH,okA,totA,celdas,cuentas,pts:Math.round(((totH?ph*okH/totH:0)+(totA?pa*okA/totA:0))*esc*100)/100}}
 const LQ_PARTES=[["salario","💰 Salario","#0369a1"],["preaviso","🔔 Preaviso","#b45309"],["cesantia","🛡️ Cesantía","#7c3aed"],["vacaciones","🏖️ Vacaciones","#0e7490"],["aguinaldo","🎄 Aguinaldo","#be123c"]];
@@ -173,12 +176,26 @@ function mpHTML(it,V,{ro,rev}={}){const M=it.mp,H=(V&&V.h)||{},A=(V&&V.a)||{},E=
    <div class="tbl"><table class="sheet"><thead><tr><th>Colaborador y datos del mes</th>${M.campos.map(([,l])=>`<th class="r">${esc(l)}</th>`).join("")}</tr></thead><tbody>
    ${M.emps.map((e,i)=>`<tr><td style="min-width:200px"><b>${esc(e.nombre)}</b><br><small class="muted">${esc(e.datos)}</small></td>${M.campos.map(([q,l])=>`<td class="r ${E?cls(i+"|"+q,E.celdas):""}">${ro?`${esc((H[i]||{})[q]??"")}${rev?`<br><small class="muted">${money(e.sol[q])}</small>`:""}`:`<input data-mp="${it.id}|h|${i}|${q}" inputmode="decimal" placeholder="0,00" value="${esc((H[i]||{})[q]??"")}" aria-label="${esc(l)} de ${esc(e.nombre)}">`}</td>`).join("")}</tr>`).join("")}
    </tbody></table></div>
-   <div class="small muted" style="margin:12px 0 6px">📒 <b>Machote del asiento</b> — Estas son las cuentas que intervienen. Para cada una decida si va al <b>Debe</b> o al <b>Haber</b> y calcule el monto con los datos de su planilla.</div>
+   ${M.asientoLibre?mpAsientoLibreHTML(it,V,{ro,rev,E}):`<div class="small muted" style="margin:12px 0 6px">📒 <b>Machote del asiento</b> — Estas son las cuentas que intervienen. Para cada una decida si va al <b>Debe</b> o al <b>Haber</b> y calcule el monto con los datos de su planilla.</div>
    <div class="tbl"><table class="sheet"><thead><tr><th>Cuenta</th><th class="r">Debe</th><th class="r">Haber</th></tr></thead><tbody>
    ${codes.map(c=>{const l=lin(c),x=A[c]||{};return `<tr><td class="${E?cls(c,E.cuentas):""}"><b>${esc(c)}</b> · ${esc(l.name)}</td>${["d","c"].map(s=>`<td class="r">${ro?`${esc(x[s]??"")}${rev?`<br><small class="muted">${l[s]?money(l[s]):"—"}</small>`:""}`:`<input data-mp="${it.id}|a|${c}|${s}" inputmode="decimal" placeholder="0,00" value="${esc(x[s]??"")}">`}</td>`).join("")}</tr>`}).join("")}
    <tr><td colspan="3" class="small muted"><i>p/r Registro de la planilla del mes · ${M.emps.length} colaborador(es)</i></td></tr>
-   <tr><th>Tus sumas</th><th class="r" data-mpd="${it.id}">${money(D)}</th><th class="r" data-mpc="${it.id}">${money(C)}</th></tr></tbody></table></div>
+   <tr><th>Tus sumas</th><th class="r" data-mpd="${it.id}">${money(D)}</th><th class="r" data-mpc="${it.id}">${money(C)}</th></tr></tbody></table></div>`}
    ${E?`<p class="small" style="margin:6px 0 0">Machote: <b>${E.okH} de ${E.totH}</b> casillas correctas · Asiento: <b>${E.okA} de ${E.totA}</b> cuentas correctas</p>`:""}`}
+// Cuentas que se ofrecen en la lista: las del asiento y las demás de planillas del catálogo de Aula de Conta, por nombre.
+function mpCuentasLista(it){const cat=(typeof PL_CUENTAS!=="undefined"?PL_CUENTAS:[]),m=new Map();[...it.mp.asiento.map(l=>({code:l.code,name:l.name})),...cat].forEach(x=>{if(!m.has(x.code))m.set(x.code,x.name)});
+  return [...m.entries()].map(([code,name])=>({code,name})).sort((a,b)=>a.name.localeCompare(b.name,"es"))}
+const mpNomCta=(it,code)=>(mpCuentasLista(it).find(x=>x.code===code)||{}).name||"";
+function mpAsientoLibreHTML(it,V,{ro,rev,E}){const filas=(V&&V.r)||[],n=Math.max(it.mp.asiento.length,filas.length),L=mpCuentasLista(it);
+  let D=0,C=0;filas.forEach(f=>{D+=parseNum(f.d)||0;C+=parseNum(f.c)||0});
+  return `<div class="small muted" style="margin:12px 0 6px">📒 <b>Asiento de la planilla</b> — Escoja de la lista cada cuenta que interviene y escriba su monto en el <b>Debe</b> o en el <b>Haber</b>. El orden de las líneas no importa.</div>
+   <div class="tbl"><table class="sheet"><thead><tr><th>Cuenta</th><th class="r">Debe</th><th class="r">Haber</th></tr></thead><tbody>
+   ${Array.from({length:n},(_,k)=>{const f=filas[k]||{},cl=E?((E.cuentas["fila"+k]||{}).ok?"ok":(f.cta||f.d||f.c?"bad":"")):"";
+     return `<tr><td class="${cl}" style="min-width:240px">${ro?esc(mpNomCta(it,f.cta)||"—"):`<select data-mpr="${it.id}|${k}|cta"><option value="">— Escoja la cuenta —</option>${L.map(x=>`<option value="${esc(x.code)}" ${x.code===f.cta?"selected":""}>${esc(x.name)}</option>`).join("")}</select>`}</td>
+       ${["d","c"].map(s=>`<td class="r">${ro?esc(f[s]??""):`<input data-mpr="${it.id}|${k}|${s}" inputmode="decimal" placeholder="0,00" value="${esc(f[s]??"")}">`}</td>`).join("")}</tr>`}).join("")}
+   <tr><td colspan="3" class="small muted"><i>p/r Registro de la planilla del mes · ${it.mp.emps.length} colaborador(es)</i></td></tr>
+   <tr><th>Tus sumas</th><th class="r" data-mpd="${it.id}">${money(D)}</th><th class="r" data-mpc="${it.id}">${money(C)}</th></tr></tbody></table></div>
+   ${rev?`<div class="small" style="margin-top:6px"><b>Asiento correcto:</b><div class="tbl"><table class="sheet"><tbody>${it.mp.asiento.map(l=>`<tr><td>${esc(l.name)}</td><td class="r">${l.d?money(l.d):""}</td><td class="r">${l.c?money(l.c):""}</td></tr>`).join("")}</tbody></table></div></div>`:""}`}
 function lqHTML(it,V,{ro,rev}={}){const {R,pasos}=lqPasos(it),Vv=V||{},E=rev?lqEval(it,Vv):null;
   if(!R||R.error)return `<p class="bad-t">${esc((R&&R.error)||"No se pudo calcular el caso.")}</p>`;
   return lqDatosHTML(it.lq.caso)+LQ_PARTES.filter(([k])=>(it.lq.partes||[]).includes(k)).map(([k,n,col])=>`<div class="liq-parte" style="--c:${col}"><b>${n}</b> <span class="small muted">· Escriba el resultado de cada paso</span>
@@ -545,6 +562,7 @@ function itemEdHTML(p,it,ii){const pts=`<label class="f" style="max-width:110px"
   let cuerpo="";
   if(p.tipo==="mp"){const emps=it.mp.empleados||[];cuerpo=`<label class="f">Enunciado<textarea data-i="txt" rows="3">${esc(it.txt)}</textarea></label>
     <div class="grid" style="margin:6px 0"><label class="f">Empresa<input data-mpe="empresa" value="${esc(it.mp.empresa||"")}"></label><label class="f">Puntos del ejercicio<input type="number" min="1" step="1" data-i="pts" value="${esc(it.pts)}"></label><label class="f">Puntos del machote de planilla<input type="number" min="0" step="1" data-mpe="ptsHoja" value="${esc(it.mp.ptsHoja)}"></label><label class="f">Puntos del asiento<input type="number" min="0" step="1" data-mpe="ptsAsiento" value="${esc(it.mp.ptsAsiento)}"></label></div>
+    <label class="row small" style="margin:0 0 6px"><input type="checkbox" data-mpe="asientoLibre" ${it.mp.asientoLibre?"checked":""}> En el asiento, el estudiante escoge cada cuenta de una lista (solo el nombre, sin número de cuenta)</label>
     <div class="tbl"><table><thead><tr><th>Colaborador</th><th class="r">Salario base mensual</th><th class="r">Horas extra</th><th class="r">Comisiones</th><th class="r">Días de ausencia</th><th class="r">Hijos</th><th>Cónyuge</th><th></th></tr></thead><tbody>
     ${emps.map((e,j)=>`<tr><td><input data-mpc="${j}|nombre" value="${esc(e.nombre)}"></td>${["base","horasExtra","comisiones","diasAusencia","hijos"].map(k=>`<td class="r"><input type="number" min="0" data-mpc="${j}|${k}" value="${esc(e[k]||0)}" style="width:${k==="base"||k==="comisiones"?120:70}px"></td>`).join("")}<td><input type="checkbox" data-mpc="${j}|conyuge" ${e.conyuge?"checked":""}></td><td><button class="sm" data-mpdel="${j}" ${emps.length>1?"":"disabled"}>✕</button></td></tr>`).join("")}</tbody></table></div>
     <div class="row" style="margin:6px 0"><button class="sm" data-mpadd>＋ Colaborador</button><span class="small muted">La solución se calcula con los mismos parámetros y el mismo machote de Aula de Conta (jornada diurna, pago mensual).</span></div><details><summary class="small" style="cursor:pointer;font-weight:700">👁 Ver el machote con la solución</summary>${mpHTML(it,{},{ro:true,rev:true})}</details>`}
@@ -595,7 +613,7 @@ function ligarEditor(){const ex=ED.ex,ap=$("#app");
     card.querySelectorAll("[data-ii]").forEach(box=>{const ii=+box.dataset.ii,it=p.items[ii];
       box.querySelectorAll("[data-i]").forEach(el=>el.oninput=el.onchange=()=>{const k=el.dataset.i;
         it[k]=k==="pts"?+el.value||0:k==="acepta"?el.value.split("\n"):k==="r"&&p.tipo==="fv"?el.value==="1":k==="r"||k==="tol"?parseNum(el.value)||0:el.value;sucio()});
-      box.querySelectorAll("[data-mpe]").forEach(el=>el.onchange=()=>{const k=el.dataset.mpe;it.mp[k]=k==="empresa"?el.value:+el.value||0;sucio();pintarEditor()});
+      box.querySelectorAll("[data-mpe]").forEach(el=>el.onchange=()=>{const k=el.dataset.mpe;it.mp[k]=k==="empresa"?el.value:k==="asientoLibre"?el.checked:+el.value||0;sucio();pintarEditor()});
       box.querySelectorAll("[data-mpc]").forEach(el=>el.onchange=()=>{const [j,k]=el.dataset.mpc.split("|");const e=it.mp.empleados[+j];e[k]=k==="nombre"?el.value:k==="conyuge"?el.checked:+el.value||0;mpArmar(it);sucio();pintarEditor()});
       box.querySelectorAll("[data-mpdel]").forEach(b=>b.onclick=()=>{it.mp.empleados.splice(+b.dataset.mpdel,1);mpArmar(it);sucio();pintarEditor()});
       const ma=box.querySelector("[data-mpadd]");if(ma)ma.onclick=()=>{it.mp.empleados.push({nombre:"Colaborador "+(it.mp.empleados.length+1),base:600000,horasExtra:0,comisiones:0,diasAusencia:0,hijos:0,conyuge:false});mpArmar(it);sucio();pintarEditor()};
@@ -802,6 +820,9 @@ function pintarExamen(t,{previa,a,dp,resp}){const ex=t.ex,R=rng(dp.semilla||"x")
     if(zona==="h"){o.h=o.h||{};(o.h[a]=o.h[a]||{})[b]=el.value}else{o.a=o.a||{};(o.a[a]=o.a[a]||{})[b]=el.value;
       let D=0,C=0;Object.values(o.a).forEach(x=>{D+=parseNum(x.d)||0;C+=parseNum(x.c)||0});const d=$(`[data-mpd="${id}"]`),c=$(`[data-mpc="${id}"]`);if(d)d.textContent=money(D);if(c)c.textContent=money(C)}
     prog();if(!previa)programarGuardado()}));
+  $$("[data-mpr]").forEach(el=>el.addEventListener(el.tagName==="SELECT"?"change":"input",()=>{const [id,k,campo]=el.dataset.mpr.split("|");const o=resp[id]=resp[id]&&typeof resp[id]==="object"?resp[id]:{h:{},r:[]};o.r=o.r||[];
+    while(o.r.length<=+k)o.r.push({});o.r[+k][campo]=el.value;let D=0,C=0;o.r.forEach(f=>{D+=parseNum(f.d)||0;C+=parseNum(f.c)||0});
+    const d=$(`[data-mpd="${id}"]`),c=$(`[data-mpc="${id}"]`);if(d)d.textContent=money(D);if(c)c.textContent=money(C);prog();if(!previa)programarGuardado()}));
   $$("[data-lq]").forEach(el=>el.addEventListener("input",()=>{const [id,k]=el.dataset.lq.split("|");const o=resp[id]=resp[id]&&typeof resp[id]==="object"?resp[id]:{};o[k]=el.value;prog();if(!previa)programarGuardado()}));
   if(!previa){document.addEventListener("contextmenu",bloq);document.addEventListener("copy",bloq);document.addEventListener("visibilitychange",salida)}
   const ent=()=>entregar();$("#entregar").onclick=ent;$("#entregar2").onclick=ent;

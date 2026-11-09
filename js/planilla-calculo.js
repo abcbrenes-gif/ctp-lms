@@ -140,5 +140,5 @@ function plArmarMachote(empleados,opc){const P=JSON.parse(JSON.stringify(PL_DEFA
   return {campos:F,emps:E.map((e,i)=>({nombre:e.nombre||("Colaborador "+(i+1)),datos:datos(e,P),sol:Object.fromEntries(F.map(([q])=>[q,plSol(ks[i],q)]))})),
     asiento:lines.map(l=>({code:l.code,name:nombreCuenta(l.code),d:l.d,c:l.c}))};
 }
-window.plArmarMachote=plArmarMachote;window.PL_PARAMETROS=PL_DEFAULT;
+window.plArmarMachote=plArmarMachote;window.PL_CUENTAS=PL_ACCOUNTS.map(x=>Array.isArray(x)?{code:x[0],name:x[1]}:{code:x.code,name:x.name});window.PL_PARAMETROS=PL_DEFAULT;
 })();
