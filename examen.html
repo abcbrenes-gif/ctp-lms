@@ -122,7 +122,8 @@ const urlApp=n=>{const k=Object.keys(APPS).find(x=>norm(x)===norm(n)||norm(n).in
 const appNombre=n=>Object.keys(APPS).find(x=>norm(x)===norm(n)||norm(n).includes(norm(x).split(" ")[0]))||n;
 const LQ_CASO=()=>({trabajador:"",tiempoModo:"directo",anios:1,meses:0,dias:0,mesesAguinaldo:6,motivo:"despido_responsabilidad",preavisoEstado:"no",preavisoDias:0,salarioModo:"mensual",salarioMensual:500000,vacDisfrutadas:0,vacAnteriores:0,salarios:[]});
 const MP_EMPS=()=>[{nombre:"Colaborador 1",base:650000,horasExtra:0,comisiones:0,diasAusencia:0,hijos:0,conyuge:false},{nombre:"Colaborador 2",base:1100000,horasExtra:0,comisiones:0,diasAusencia:0,hijos:0,conyuge:false}];
-const mpArmar=it=>{if(typeof plArmarMachote==="function")Object.assign(it.mp,plArmarMachote(it.mp.empleados||[]));return it};
+// Cada acierto vale 1 punto: casillas del machote + cuentas del asiento.
+const mpArmar=it=>{if(typeof plArmarMachote==="function"){Object.assign(it.mp,plArmarMachote(it.mp.empleados||[]));it.mp.ptsHoja=it.mp.emps.length*it.mp.campos.length;it.mp.ptsAsiento=it.mp.asiento.length;it.pts=it.mp.ptsHoja+it.mp.ptsAsiento}return it};
 const nuevoItem=t=>t==="mp"?mpArmar({id:uid(),txt:"Complete el machote de la planilla del mes y registre el asiento de la planilla (el neto se paga por Bancos).",pts:10,mp:{empresa:"",empleados:MP_EMPS(),ptsHoja:6,ptsAsiento:4}}):t==="lq"?{id:uid(),txt:"Resuelva la liquidación del caso.",pts:10,lq:{caso:LQ_CASO(),partes:["salario","preaviso","cesantia","vacaciones","aguinaldo"]}}:({id:uid(),txt:"",pts:1,...(t==="sel"?{o:["","",""],r:0}:t==="fv"?{r:true}:t==="pareo"?{a:"",b:""}:t==="corta"?{acepta:[""]}:t==="num"?{r:0,tol:0.01}:{guia:""})});
 const nuevaParte=t=>({id:uid(),tipo:t,titulo:TIPOS[t].n,instrucciones:TIPOS[t].ins,items:[nuevoItem(t)],extras:[]});
 const ENC_DEF={institucion:"CTP Mercedes Norte",especialidad:"Contabilidad",subarea:"",unidad:"",nivel:"",docente:"",periodo:"II Período",tipo:"Prueba escrita",resultado:"",nota:""};
