@@ -1,0 +1,709 @@
+{
+ "examen": {
+  "titulo": "Prueba escrita: legislación laboral, planillas y liquidaciones · 10-1",
+  "seccion": "10-1",
+  "materia_id": 1,
+  "peso": 20,
+  "duracion": 120,
+  "instrucciones": "• Lea con atención toda la prueba antes de comenzar; el tiempo de lectura no se cuenta.\n• Trabaje en forma individual. Sus respuestas se guardan solas y la prueba se entrega una sola vez con el botón «Entregar examen».\n• La prueba tiene 55 puntos y vale 20 % de la nota del período.\n• En la Parte III use Aula de Conta y Liquidaciones laborales con el botón «↗ Abrir» y anote aquí los resultados.\n• No salga de la pantalla salvo para usar las aplicaciones indicadas. ¡Éxitos!"
+ },
+ "reactivos": [
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte I. Selección única: conceptos",
+   "tema": "Preaviso y cesantía",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "Según el artículo 28 del Código de Trabajo, a una persona trabajadora con más de un año de laborar a la que despiden sin justa causa le corresponde un preaviso de",
+   "opciones_o_valor_esperado": [
+    "una semana de salario",
+    "un mes de salario",
+    "quince días de salario"
+   ],
+   "respuesta_correcta": "un mes de salario",
+   "justificacion_pedagogica": "Art. 28: de 3 a 6 meses, una semana; de 6 meses a 1 año, 15 días; después de 1 año, un mes.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Revise los plazos del art. 28 según el tiempo laborado.",
+   "id_pregunta": 1
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte I. Selección única: conceptos",
+   "tema": "Preaviso y cesantía",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "Si la persona trabajadora tiene entre seis meses y un año de laborar, el preaviso que le corresponde es de",
+   "opciones_o_valor_esperado": [
+    "siete días de salario",
+    "quince días de salario",
+    "un mes de salario"
+   ],
+   "respuesta_correcta": "quince días de salario",
+   "justificacion_pedagogica": "Art. 28 del Código de Trabajo: de 6 meses a 1 año, 15 días.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Ubique el tramo de 6 meses a 1 año en el art. 28.",
+   "id_pregunta": 2
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte I. Selección única: conceptos",
+   "tema": "Preaviso y cesantía",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "La cesantía se paga cuando la relación laboral termina por",
+   "opciones_o_valor_esperado": [
+    "renuncia de la persona trabajadora",
+    "despido por falta grave de la persona trabajadora",
+    "despido con responsabilidad patronal"
+   ],
+   "respuesta_correcta": "despido con responsabilidad patronal",
+   "justificacion_pedagogica": "Art. 29: la cesantía procede cuando el patrono despide sin justa causa, es decir, con responsabilidad patronal.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Piense en quién termina la relación y si hubo justa causa.",
+   "id_pregunta": 3
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte I. Selección única: conceptos",
+   "tema": "Preaviso y cesantía",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "Para calcular la cesantía, el Código de Trabajo establece un tope máximo de",
+   "opciones_o_valor_esperado": [
+    "cinco años laborados",
+    "ocho años laborados",
+    "diez años laborados"
+   ],
+   "respuesta_correcta": "ocho años laborados",
+   "justificacion_pedagogica": "Art. 29: la cesantía no puede abarcar más de los últimos 8 años de relación laboral.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Recuerde el límite que fija el art. 29.",
+   "id_pregunta": 4
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte I. Selección única: conceptos",
+   "tema": "Preaviso y cesantía",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "El preaviso y la cesantía se calculan con",
+   "opciones_o_valor_esperado": [
+    "el último salario recibido",
+    "el promedio de los salarios de los últimos seis meses",
+    "el promedio de los salarios de los últimos doce meses"
+   ],
+   "respuesta_correcta": "el promedio de los salarios de los últimos seis meses",
+   "justificacion_pedagogica": "Art. 30: se usa el promedio de los salarios devengados en los últimos 6 meses.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "No es el último salario: la ley pide un promedio.",
+   "id_pregunta": 5
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte I. Selección única: conceptos",
+   "tema": "Vacaciones y aguinaldo",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "El aguinaldo se calcula con los salarios devengados del",
+   "opciones_o_valor_esperado": [
+    "1 de enero al 31 de diciembre",
+    "1 de noviembre al 31 de octubre",
+    "1 de diciembre del año anterior al 30 de noviembre del año en curso"
+   ],
+   "respuesta_correcta": "1 de diciembre del año anterior al 30 de noviembre del año en curso",
+   "justificacion_pedagogica": "Ley 2412: el período va del 1 de diciembre al 30 de noviembre.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "El período del aguinaldo no coincide con el año calendario.",
+   "id_pregunta": 6
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte I. Selección única: conceptos",
+   "tema": "Vacaciones y aguinaldo",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "Según la Ley 2412, el aguinaldo debe pagarse",
+   "opciones_o_valor_esperado": [
+    "dentro de los primeros veinte días de diciembre",
+    "en la primera quincena de enero",
+    "a más tardar el 30 de noviembre"
+   ],
+   "respuesta_correcta": "dentro de los primeros veinte días de diciembre",
+   "justificacion_pedagogica": "Ley 2412: se paga dentro de los primeros 20 días de diciembre.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Piense en la fecha límite que fija la ley de aguinaldo.",
+   "id_pregunta": 7
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte I. Selección única: conceptos",
+   "tema": "Vacaciones y aguinaldo",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "Según el artículo 153 del Código de Trabajo, por cada cincuenta semanas de labores continuas la persona trabajadora tiene derecho a",
+   "opciones_o_valor_esperado": [
+    "una semana de vacaciones pagadas",
+    "un mes de vacaciones pagadas",
+    "dos semanas de vacaciones pagadas"
+   ],
+   "respuesta_correcta": "dos semanas de vacaciones pagadas",
+   "justificacion_pedagogica": "Art. 153: dos semanas de vacaciones remuneradas por cada 50 semanas de trabajo continuo.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Revise el art. 153 del Código de Trabajo.",
+   "id_pregunta": 8
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte I. Selección única: conceptos",
+   "tema": "Vacaciones y aguinaldo",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "Si la relación laboral termina antes de cumplir las cincuenta semanas, las vacaciones se pagan en forma",
+   "opciones_o_valor_esperado": [
+    "nula, porque no completó el período",
+    "completa, como si hubiera laborado todo el año",
+    "proporcional, a razón de un día por cada mes laborado"
+   ],
+   "respuesta_correcta": "proporcional, a razón de un día por cada mes laborado",
+   "justificacion_pedagogica": "Arts. 153 y 156: al terminar la relación se pagan las vacaciones proporcionales, un día por mes laborado.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Las vacaciones se acumulan mes a mes.",
+   "id_pregunta": 9
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte I. Selección única: conceptos",
+   "tema": "Jornadas laborales y horas extra",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "La jornada ordinaria diurna tiene un máximo de",
+   "opciones_o_valor_esperado": [
+    "6 horas diarias y 36 horas semanales",
+    "7 horas diarias y 42 horas semanales",
+    "8 horas diarias y 48 horas semanales"
+   ],
+   "respuesta_correcta": "8 horas diarias y 48 horas semanales",
+   "justificacion_pedagogica": "Art. 136: la jornada diurna (de 5 a. m. a 7 p. m.) es de máximo 8 horas diarias y 48 semanales.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Es la más larga de las tres jornadas ordinarias.",
+   "id_pregunta": 10
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte I. Selección única: conceptos",
+   "tema": "Jornadas laborales y horas extra",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "La jornada ordinaria nocturna tiene un máximo de",
+   "opciones_o_valor_esperado": [
+    "8 horas diarias y 48 horas semanales",
+    "7 horas diarias y 42 horas semanales",
+    "6 horas diarias y 36 horas semanales"
+   ],
+   "respuesta_correcta": "6 horas diarias y 36 horas semanales",
+   "justificacion_pedagogica": "Art. 136: la jornada nocturna (de 7 p. m. a 5 a. m.) es de máximo 6 horas diarias y 36 semanales.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Trabajar de noche es más pesado: es la jornada más corta.",
+   "id_pregunta": 11
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte I. Selección única: conceptos",
+   "tema": "Jornadas laborales y horas extra",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "La jornada ordinaria mixta tiene un máximo de",
+   "opciones_o_valor_esperado": [
+    "7 horas diarias y 42 horas semanales",
+    "6 horas diarias y 36 horas semanales",
+    "8 horas diarias y 48 horas semanales"
+   ],
+   "respuesta_correcta": "7 horas diarias y 42 horas semanales",
+   "justificacion_pedagogica": "Art. 138: la jornada mixta es de máximo 7 horas diarias y 42 semanales.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Es la jornada intermedia entre la diurna y la nocturna.",
+   "id_pregunta": 12
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte I. Selección única: conceptos",
+   "tema": "Jornadas laborales y horas extra",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "Según el artículo 139 del Código de Trabajo, cada hora extra se paga con",
+   "opciones_o_valor_esperado": [
+    "el mismo valor de la hora ordinaria",
+    "el doble del valor de la hora ordinaria",
+    "un 50 % más del valor de la hora ordinaria"
+   ],
+   "respuesta_correcta": "un 50 % más del valor de la hora ordinaria",
+   "justificacion_pedagogica": "Art. 139: la jornada extraordinaria se paga con un 50 % más («tiempo y medio»).",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Se le conoce como «tiempo y medio».",
+   "id_pregunta": 13
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte I. Selección única: conceptos",
+   "tema": "Planilla: cargas sociales e impuesto sobre la renta",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "El total de las cargas sociales que se rebajan al salario bruto de la persona trabajadora (SEM 5,50 %, IVM 4,33 % y Banco Popular 1 %) es de",
+   "opciones_o_valor_esperado": [
+    "26,83 %",
+    "9,25 %",
+    "10,83 %"
+   ],
+   "respuesta_correcta": "10,83 %",
+   "justificacion_pedagogica": "SEM 5,50 % + IVM 4,33 % + Banco Popular 1 % = 10,83 % (cargas obreras).",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "No confunda las cargas obreras con las patronales (26,83 %).",
+   "id_pregunta": 14
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte I. Selección única: conceptos",
+   "tema": "Planilla: cargas sociales e impuesto sobre la renta",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "Según los tramos del impuesto sobre la renta a los salarios de 2026, un salario mensual de hasta ₡918 000",
+   "opciones_o_valor_esperado": [
+    "está exento del impuesto",
+    "paga 15 % sobre todo el salario",
+    "paga 10 % sobre todo el salario"
+   ],
+   "respuesta_correcta": "está exento del impuesto",
+   "justificacion_pedagogica": "Tramos 2026: hasta ₡918 000 exento; de ₡918 000 a ₡1 347 000, 10 % sobre el exceso; de ₡1 347 000 a ₡2 364 000, 15 % sobre el exceso.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Revise el primer tramo de la tabla del impuesto al salario.",
+   "id_pregunta": 15
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte II. Selección única: cálculos",
+   "tema": "Liquidación laboral",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "Ana gana un salario mensual fijo de ₡540 000. ¿Cuál es su salario diario para calcular la liquidación?",
+   "opciones_o_valor_esperado": [
+    "₡17 000",
+    "₡20 000",
+    "₡18 000"
+   ],
+   "respuesta_correcta": "₡18 000",
+   "justificacion_pedagogica": "Salario diario = promedio mensual ÷ 30 = ₡540 000 ÷ 30 = ₡18 000.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Divida el salario mensual entre 30.",
+   "id_pregunta": 16
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte II. Selección única: cálculos",
+   "tema": "Preaviso y cesantía",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "Ana (salario de ₡540 000) trabajó 2 años y la despiden con responsabilidad patronal sin preaviso. ¿Cuánto le corresponde de preaviso?",
+   "opciones_o_valor_esperado": [
+    "₡540 000",
+    "₡270 000",
+    "₡126 000"
+   ],
+   "respuesta_correcta": "₡540 000",
+   "justificacion_pedagogica": "Más de 1 año: 1 mes = 30 × ₡18 000 = ₡540 000.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Con más de un año corresponde un mes de salario.",
+   "id_pregunta": 17
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte II. Selección única: cálculos",
+   "tema": "Preaviso y cesantía",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "Ana (salario de ₡540 000, 2 años laborados, despido con responsabilidad patronal). ¿Cuánto le corresponde de cesantía? Con 2 años corresponden 20 días por año.",
+   "opciones_o_valor_esperado": [
+    "₡702 000",
+    "₡720 000",
+    "₡1 080 000"
+   ],
+   "respuesta_correcta": "₡720 000",
+   "justificacion_pedagogica": "20 días × 2 años = 40 días × ₡18 000 = ₡720 000.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Multiplique días por año × años × salario diario.",
+   "id_pregunta": 18
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte II. Selección única: cálculos",
+   "tema": "Preaviso y cesantía",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "Luis gana ₡450 000 al mes, trabajó 8 meses y lo despiden con responsabilidad patronal sin preaviso. ¿Cuánto le corresponde de preaviso?",
+   "opciones_o_valor_esperado": [
+    "₡450 000",
+    "₡105 000",
+    "₡225 000"
+   ],
+   "respuesta_correcta": "₡225 000",
+   "justificacion_pedagogica": "De 6 meses a 1 año: 15 días × (₡450 000 ÷ 30 = ₡15 000) = ₡225 000.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Con 8 meses corresponde el tramo de 15 días.",
+   "id_pregunta": 19
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte II. Selección única: cálculos",
+   "tema": "Preaviso y cesantía",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "Luis (₡450 000 al mes, 8 meses laborados, despido con responsabilidad patronal). Con más de 6 meses y menos de un año corresponden 14 días de cesantía. ¿Cuánto recibe?",
+   "opciones_o_valor_esperado": [
+    "₡105 000",
+    "₡210 000",
+    "₡225 000"
+   ],
+   "respuesta_correcta": "₡210 000",
+   "justificacion_pedagogica": "14 días × ₡15 000 = ₡210 000.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Use 14 días y el salario diario de ₡15 000.",
+   "id_pregunta": 20
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte II. Selección única: cálculos",
+   "tema": "Preaviso y cesantía",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "Sofía trabajó 4 años con un salario promedio de ₡600 000 y la despiden con responsabilidad patronal. Con 4 años corresponden 21 días por año. ¿Cuál es su cesantía?",
+   "opciones_o_valor_esperado": [
+    "₡1 260 000",
+    "₡1 680 000",
+    "₡2 520 000"
+   ],
+   "respuesta_correcta": "₡1 680 000",
+   "justificacion_pedagogica": "Salario diario ₡20 000 × 21 días × 4 años = ₡1 680 000.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Calcule el diario (÷ 30) y multiplique por 21 × 4.",
+   "id_pregunta": 21
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte II. Selección única: cálculos",
+   "tema": "Preaviso y cesantía",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "Carlos trabajó 10 años con un salario promedio de ₡450 000. Con 10 años corresponden 21,5 días por año, con el tope de 8 años. ¿Cuál es su cesantía?",
+   "opciones_o_valor_esperado": [
+    "₡3 225 000",
+    "₡2 580 000",
+    "₡2 475 000"
+   ],
+   "respuesta_correcta": "₡2 580 000",
+   "justificacion_pedagogica": "21,5 días × 8 años (tope) = 172 días × ₡15 000 = ₡2 580 000.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Recuerde que solo se pagan 8 años como máximo.",
+   "id_pregunta": 22
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte II. Selección única: cálculos",
+   "tema": "Vacaciones y aguinaldo",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "María gana un salario fijo de ₡420 000 y trabajó del 1 de diciembre al 30 de noviembre completos. ¿Cuánto recibe de aguinaldo?",
+   "opciones_o_valor_esperado": [
+    "₡35 000",
+    "₡420 000",
+    "₡5 040 000"
+   ],
+   "respuesta_correcta": "₡420 000",
+   "justificacion_pedagogica": "Aguinaldo = (₡420 000 × 12) ÷ 12 = ₡420 000.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Sume lo devengado en el período y divídalo entre 12.",
+   "id_pregunta": 23
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte II. Selección única: cálculos",
+   "tema": "Vacaciones y aguinaldo",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "Pedro ganó ₡480 000 mensuales durante 5 meses desde el 1 de diciembre y luego renunció. ¿Cuánto le corresponde de aguinaldo proporcional?",
+   "opciones_o_valor_esperado": [
+    "₡200 000",
+    "₡240 000",
+    "₡480 000"
+   ],
+   "respuesta_correcta": "₡200 000",
+   "justificacion_pedagogica": "(₡480 000 × 5) ÷ 12 = ₡2 400 000 ÷ 12 = ₡200 000.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Sume los 5 meses y divida entre 12, no entre 5.",
+   "id_pregunta": 24
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte II. Selección única: cálculos",
+   "tema": "Vacaciones y aguinaldo",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "Desde el 1 de diciembre Karla devengó en total ₡5 400 000, incluidas horas extra y comisiones. ¿Cuál es su aguinaldo?",
+   "opciones_o_valor_esperado": [
+    "₡450 000",
+    "₡5 400 000",
+    "₡540 000"
+   ],
+   "respuesta_correcta": "₡450 000",
+   "justificacion_pedagogica": "Ley 2412: total devengado ÷ 12 = ₡5 400 000 ÷ 12 = ₡450 000.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "El aguinaldo es la doceava parte de todo lo devengado.",
+   "id_pregunta": 25
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte II. Selección única: cálculos",
+   "tema": "Vacaciones y aguinaldo",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "Jorge gana ₡450 000 al mes, laboró 6 meses del período de vacaciones y no las ha disfrutado. Al renunciar, ¿cuánto le pagan de vacaciones proporcionales?",
+   "opciones_o_valor_esperado": [
+    "₡90 000",
+    "₡225 000",
+    "₡180 000"
+   ],
+   "respuesta_correcta": "₡90 000",
+   "justificacion_pedagogica": "1 día por mes: 6 días × ₡15 000 = ₡90 000.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Cuente un día de vacaciones por cada mes laborado.",
+   "id_pregunta": 26
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte II. Selección única: cálculos",
+   "tema": "Jornadas laborales y horas extra",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "Rosa trabaja jornada diurna de 8 horas con un salario de ₡480 000 al mes. Su hora ordinaria vale ₡2 000. ¿Cuánto se le paga por 10 horas extra?",
+   "opciones_o_valor_esperado": [
+    "₡30 000",
+    "₡40 000",
+    "₡20 000"
+   ],
+   "respuesta_correcta": "₡30 000",
+   "justificacion_pedagogica": "Hora extra = ₡2 000 × 1,5 = ₡3 000; 10 horas × ₡3 000 = ₡30 000.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Cada hora extra vale tiempo y medio.",
+   "id_pregunta": 27
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte II. Selección única: cálculos",
+   "tema": "Jornadas laborales y horas extra",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "Un guarda trabaja en jornada nocturna y un día laboró 8 horas. ¿Cuántas horas extra trabajó ese día?",
+   "opciones_o_valor_esperado": [
+    "1 hora",
+    "No trabajó horas extra",
+    "2 horas"
+   ],
+   "respuesta_correcta": "2 horas",
+   "justificacion_pedagogica": "La jornada nocturna ordinaria es de 6 horas diarias: 8 − 6 = 2 horas extra.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Compare con el máximo de la jornada nocturna.",
+   "id_pregunta": 28
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte II. Selección única: cálculos",
+   "tema": "Planilla: cargas sociales e impuesto sobre la renta",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "Daniela tiene un salario bruto de ₡650 000. ¿Cuánto se le rebaja por cargas obreras (10,83 %)?",
+   "opciones_o_valor_esperado": [
+    "₡174 395",
+    "₡70 395",
+    "₡65 000"
+   ],
+   "respuesta_correcta": "₡70 395",
+   "justificacion_pedagogica": "₡650 000 × 10,83 % = ₡70 395.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Multiplique el salario bruto por 10,83 %.",
+   "id_pregunta": 29
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte II. Selección única: cálculos",
+   "tema": "Planilla: cargas sociales e impuesto sobre la renta",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "¿Cuál es el salario neto de Daniela (₡650 000 brutos)? No paga impuesto sobre la renta.",
+   "opciones_o_valor_esperado": [
+    "₡475 605",
+    "₡650 000",
+    "₡579 605"
+   ],
+   "respuesta_correcta": "₡579 605",
+   "justificacion_pedagogica": "₡650 000 − ₡70 395 = ₡579 605 (no supera ₡918 000).",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Neto = bruto − cargas obreras − renta.",
+   "id_pregunta": 30
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte II. Selección única: cálculos",
+   "tema": "Planilla: cargas sociales e impuesto sobre la renta",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "Andrés gana ₡1 100 000 brutos al mes, sin hijos ni cónyuge. ¿Cuánto se le retiene de impuesto sobre la renta?",
+   "opciones_o_valor_esperado": [
+    "₡18 200",
+    "₡110 000",
+    "₡27 300"
+   ],
+   "respuesta_correcta": "₡18 200",
+   "justificacion_pedagogica": "(₡1 100 000 − ₡918 000) × 10 % = ₡18 200.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "El 10 % se aplica solo sobre el exceso de ₡918 000.",
+   "id_pregunta": 31
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte II. Selección única: cálculos",
+   "tema": "Planilla: cargas sociales e impuesto sobre la renta",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "Valeria gana ₡1 500 000 brutos al mes, sin hijos ni cónyuge. ¿Cuánto se le retiene de impuesto sobre la renta?",
+   "opciones_o_valor_esperado": [
+    "₡65 850",
+    "₡150 000",
+    "₡87 300"
+   ],
+   "respuesta_correcta": "₡65 850",
+   "justificacion_pedagogica": "Tramo 10 %: (₡1 347 000 − ₡918 000) × 10 % = ₡42 900. Tramo 15 %: (₡1 500 000 − ₡1 347 000) × 15 % = ₡22 950. Total ₡65 850.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Calcule cada tramo por separado y súmelos.",
+   "id_pregunta": 32
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte II. Selección única: cálculos",
+   "tema": "Planilla: cargas sociales e impuesto sobre la renta",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "Andrés (₡1 100 000 brutos, renta de ₡18 200) tiene 2 hijos. El crédito fiscal es de ₡1 710 por hijo. ¿Cuánto paga de renta?",
+   "opciones_o_valor_esperado": [
+    "₡18 200",
+    "₡14 780",
+    "₡16 490"
+   ],
+   "respuesta_correcta": "₡14 780",
+   "justificacion_pedagogica": "₡18 200 − (2 × ₡1 710 = ₡3 420) = ₡14 780.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Reste los créditos fiscales al impuesto calculado.",
+   "id_pregunta": 33
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte II. Selección única: cálculos",
+   "tema": "Planilla: cargas sociales e impuesto sobre la renta",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "¿Cuál es el salario neto de un colaborador con ₡1 200 000 brutos, sin hijos ni cónyuge?",
+   "opciones_o_valor_esperado": [
+    "₡1 171 800",
+    "₡1 070 040",
+    "₡1 041 840"
+   ],
+   "respuesta_correcta": "₡1 041 840",
+   "justificacion_pedagogica": "Cargas obreras ₡129 960; renta (₡1 200 000 − ₡918 000) × 10 % = ₡28 200. Neto = ₡1 200 000 − ₡129 960 − ₡28 200 = ₡1 041 840.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Reste tanto las cargas obreras como la renta.",
+   "id_pregunta": 34
+  },
+  {
+   "tipo_pregunta": "seleccion_unica",
+   "parte": "Parte II. Selección única: cálculos",
+   "tema": "Planilla: cargas sociales e impuesto sobre la renta",
+   "puntos": 1,
+   "herramienta_requerida": "Ninguna",
+   "accion_en_herramienta": "",
+   "enunciado": "¿Cuánto paga el patrono por cargas sociales (26,83 %) sobre un salario de ₡700 000?",
+   "opciones_o_valor_esperado": [
+    "₡263 620",
+    "₡75 810",
+    "₡187 810"
+   ],
+   "respuesta_correcta": "₡187 810",
+   "justificacion_pedagogica": "₡700 000 × 26,83 % = ₡187 810.",
+   "feedback_exito": "¡Correcto! 🎯",
+   "feedback_error": "Use el porcentaje patronal, no el obrero.",
+   "id_pregunta": 35
+  },
+  {
+   "tipo_pregunta": "resolucion_problemas",
+   "parte": "Parte III. Resolución de problemas",
+   "tema": "Planilla: cargas sociales e impuesto sobre la renta",
+   "puntos": 10,
+   "herramienta_requerida": "Aula de Conta",
+   "accion_en_herramienta": "1) Abra Aula de Conta y cree (o abra) la empresa «Ferretería El Roble S.A.». 2) En 🧾 Planilla agregue a Daniela Mora (salario bruto ₡750 000) y a Andrés Solís (salario bruto ₡1 200 000, sin hijos ni cónyuge). 3) Llene el machote: cargas obreras, renta, salario neto y cargas patronales de cada uno. 4) Registre el asiento de la planilla y verifique que cuadre. 5) Anote aquí los resultados y el asiento.",
+   "enunciado": "Ferretería El Roble S.A. prepara la planilla del mes. Con los datos que se le brindan, resuelva en Aula de Conta y anote aquí:\na) Para Daniela (₡750 000) y Andrés (₡1 200 000): cargas obreras (10,83 %), impuesto sobre la renta, salario neto y cargas patronales (26,83 %).\nb) El asiento de diario de la planilla con las cuentas 6101 Salarios, 6102 Cargas sociales, 2107 CCSS por pagar, 2108 Banco Popular por pagar, 2109 FCL por pagar, 2110 Retención de renta sobre salarios por pagar y 2104 Salarios y cargas sociales por pagar.",
+   "opciones_o_valor_esperado": [],
+   "respuesta_correcta": "a) Daniela: cargas obreras ₡81 225; renta ₡0; neto ₡668 775; patronales ₡201 225. Andrés: cargas obreras ₡129 960; renta ₡28 200; neto ₡1 041 840; patronales ₡321 960.\nb) Debe: 6101 Salarios ₡1 950 000 · 6102 Cargas sociales ₡523 185. Haber: 2107 CCSS por pagar ₡675 870 (obrera SEM+IVM 9,83 % ₡191 685 + patronal 24,83 % ₡484 185) · 2108 Banco Popular por pagar ₡29 250 (1 % obrero ₡19 500 + 0,50 % patronal ₡9 750) · 2109 FCL por pagar ₡29 250 · 2110 Retención de renta por pagar ₡28 200 · 2104 Salarios por pagar ₡1 710 615. Totales: ₡2 473 185 = ₡2 473 185.",
+   "escala_calificacion": "Calcula correctamente las cargas obreras de las dos personas (2 pts)\nCalcula correctamente el impuesto sobre la renta (2 pts)\nCalcula correctamente los salarios netos (2 pts)\nCalcula correctamente las cargas patronales (2 pts)\nRegistra el asiento de la planilla con las cuentas correctas y cuadrado (2 pts)",
+   "justificacion_pedagogica": "La planilla genera gastos (salarios y cargas patronales) y pasivos laborales (CCSS, Banco Popular, FCL, renta retenida y salarios netos por pagar).",
+   "feedback_exito": "¡Planilla impecable! 📒",
+   "feedback_error": "Revise el machote en Aula de Conta: obrero 10,83 %, patronal 26,83 % y renta solo sobre el exceso de ₡918 000.",
+   "id_pregunta": 36
+  },
+  {
+   "tipo_pregunta": "resolucion_problemas",
+   "parte": "Parte III. Resolución de problemas",
+   "tema": "Liquidación laboral",
+   "puntos": 10,
+   "herramienta_requerida": "Liquidaciones laborales",
+   "accion_en_herramienta": "1) Abra Liquidaciones laborales → ＋ Caso propio. 2) Tiempo laborado: «Años, meses y días» = 5 años, 3 meses, 0 días; meses desde el 1 de diciembre: 10. 3) Motivo: despido con responsabilidad patronal; preaviso: no se dio. 4) Salario mensual fijo: ₡570 000; vacaciones disfrutadas del período: 0. 5) Revise cada pestaña y anote aquí los resultados.",
+   "enunciado": "Jorge Rojas trabajó 5 años y 3 meses en un taller con un salario mensual fijo de ₡570 000. Lo despidieron con responsabilidad patronal y sin preaviso. Tiene 3 meses de vacaciones del período actual sin disfrutar y lleva 10 meses desde el 1 de diciembre. Con 5 años corresponden 21,24 días de cesantía por año. Resuelva en Liquidaciones laborales y anote: salario diario, preaviso, cesantía, vacaciones, aguinaldo y total de la liquidación.",
+   "opciones_o_valor_esperado": [],
+   "respuesta_correcta": "Salario diario ₡19 000 (₡570 000 ÷ 30). Preaviso ₡570 000 (1 mes). Cesantía ₡2 017 800 (21,24 × 5 = 106,2 días × ₡19 000; la fracción de 3 meses no cuenta). Vacaciones ₡57 000 (3 días × ₡19 000). Aguinaldo ₡475 000 (₡570 000 × 10 ÷ 12). Total ₡3 119 800.",
+   "escala_calificacion": "Calcula el salario diario (1 pt)\nCalcula el preaviso (2 pts)\nCalcula la cesantía (3 pts)\nCalcula las vacaciones proporcionales (2 pts)\nCalcula el aguinaldo proporcional (1 pt)\nObtiene el total de la liquidación (1 pt)",
+   "justificacion_pedagogica": "Código de Trabajo arts. 28, 29, 30, 153 y 156 y Ley 2412: la liquidación suma preaviso, cesantía, vacaciones y aguinaldo.",
+   "feedback_exito": "¡Liquidación completa! 🎉",
+   "feedback_error": "Revise en la app cada pestaña: la cesantía usa 21,24 días por año y la fracción de 6 meses o menos no cuenta.",
+   "id_pregunta": 37
+  }
+ ]
+}
