@@ -100,27 +100,27 @@ const dlg=$("#dlg");$("#dlgX").onclick=()=>dlg.close();
 function abrirDlg(t,html){$("#dlgT").textContent=t;$("#dlgB").innerHTML=html;if(!dlg.open)dlg.showModal()}
 
 const TIPOS={
-  sel:{ic:"🔘",n:"Selección única",ins:"Marque con una X la opción correcta."},
-  fv:{ic:"✅",n:"Falso o verdadero",ins:"Escriba V si el enunciado es verdadero o F si es falso."},
-  pareo:{ic:"🔗",n:"Pareo",ins:"Asocie cada enunciado de la columna A con la opción correcta de la columna B."},
-  corta:{ic:"✏️",n:"Respuesta corta",ins:"Responda en forma breve."},
-  num:{ic:"🔢",n:"Respuesta numérica (cálculo)",ins:"Realice el cálculo y escriba el resultado."},
-  des:{ic:"📝",n:"Desarrollo (se califica a mano)",ins:"Resuelva en forma clara y ordenada."}
+  sel:{ic:"🔘",n:"Selección única",ins:"Lea cada enunciado y seleccione la opción correcta. Cada respuesta correcta vale 1 punto."},
+  pareo:{ic:"🔗",n:"Correspondencia",ins:"Relacione cada enunciado de la columna A con la respuesta de la columna B que le corresponde. Cada respuesta se utiliza una sola vez y hay respuestas que no se utilizan. Cada relación correcta vale 1 punto."},
+  corta:{ic:"✏️",n:"Respuesta corta",ins:"Escriba en forma breve lo que se solicita en cada enunciado."},
+  num:{ic:"🔢",n:"Resolución de ejercicios",ins:"Resuelva cada ejercicio con los datos que se le brindan y anote el resultado."},
+  des:{ic:"📝",n:"Respuesta restringida o resolución de problemas (se califica a mano)",ins:"Resuelva lo que se solicita. Se califica con la escala que acompaña cada ítem."},
+  fv:{ic:"✅",n:"Falso o verdadero (no está en los lineamientos del MEP)",ins:"Seleccione si el enunciado es verdadero o falso."}
 };
 // Aplicaciones de la plataforma que un reto puede pedir abrir.
 const APPS={"Liquidaciones laborales":"liquidaciones.html","Aula de Conta":"aula-contable.html","Ruta Laboral CR":"laboral.html","Misión Seguros":"seguros.html","La Tiradera":"tiradera.html","Planilla Opoly":"planilla-opoly.html"};
 const urlApp=n=>{const k=Object.keys(APPS).find(x=>norm(x)===norm(n)||norm(n).includes(norm(x).split(" ")[0]));if(!k)return null;let u=APPS[k];if(k==="Aula de Conta"&&EST_ID)u+="?como_estudiante="+encodeURIComponent(EST_ID);return u};
 const appNombre=n=>Object.keys(APPS).find(x=>norm(x)===norm(n)||norm(n).includes(norm(x).split(" ")[0]))||n;
-const nuevoItem=t=>({id:uid(),txt:"",pts:1,...(t==="sel"?{o:["","","",""],r:0}:t==="fv"?{r:true}:t==="pareo"?{a:"",b:""}:t==="corta"?{acepta:[""]}:t==="num"?{r:0,tol:0.01}:{guia:""})});
+const nuevoItem=t=>({id:uid(),txt:"",pts:1,...(t==="sel"?{o:["","",""],r:0}:t==="fv"?{r:true}:t==="pareo"?{a:"",b:""}:t==="corta"?{acepta:[""]}:t==="num"?{r:0,tol:0.01}:{guia:""})});
 const nuevaParte=t=>({id:uid(),tipo:t,titulo:TIPOS[t].n,instrucciones:TIPOS[t].ins,items:[nuevoItem(t)],extras:[]});
-const ENC_DEF={institucion:"CTP Mercedes Norte",especialidad:"Contabilidad",subarea:"",unidad:"",docente:"",periodo:"II Período",tipo:"Prueba escrita",resultado:"",nota:""};
-const ENC_CAMPOS=[["institucion","Institución"],["especialidad","Especialidad"],["subarea","Subárea"],["unidad","Unidad de estudio"],["docente","Docente"],["periodo","Período"],["tipo","Tipo de prueba"]];
+const ENC_DEF={institucion:"CTP Mercedes Norte",especialidad:"Contabilidad",subarea:"",unidad:"",nivel:"",docente:"",periodo:"II Período",tipo:"Prueba escrita",resultado:"",nota:""};
+const ENC_CAMPOS=[["institucion","Centro educativo"],["especialidad","Especialidad"],["subarea","Subárea o módulo"],["unidad","Unidad de estudio"],["nivel","Nivel"],["docente","Persona docente"],["periodo","Período"],["tipo","Tipo de prueba"]];
 const encDe=ex=>({...ENC_DEF,...(ex.encabezado||{})});
 // Encabezado del examen (lo ven el estudiante, la vista previa y la versión impresa).
 function encabezadoHTML(ex,{imprimir}={}){const E=encDe(ex),td=imprimir?' style="border:1px solid #888;padding:4px 8px"':"";
   const celdas=[...ENC_CAMPOS.filter(([k])=>!["institucion","especialidad","tipo","periodo"].includes(k)&&String(E[k]||"").trim()).map(([k,n])=>[n,esc(E[k])]),
     ["Sección",esc(nomMat(ex.materia_id))],["Fecha",esc(ex.fecha||"")],["Tiempo",ex.duracion?ex.duracion+" minutos":"—"],["Puntos totales",fmtPts(totalPts(ex))],["Porcentaje",fmtPts(ex.peso)+" %"]];
-  if(imprimir)celdas.unshift(["Nombre de la persona estudiante",""],["Puntos obtenidos",""],["Nota",""]);
+  if(imprimir)celdas.unshift(["Nombre de la persona estudiante",""],["Puntuación obtenida",""],["Calificación obtenida",""],["Porcentaje obtenido",""],["Firma de la persona encargada legal",""]);
   const filas=[];for(let i=0;i<celdas.length;i+=3)filas.push(`<tr>${celdas.slice(i,i+3).map(([n,v])=>`<td${td}><span class="small muted">${n}:</span> <b>${v}</b></td>`).join("")}</tr>`);
   return `<div style="text-align:center"><div style="font-weight:800;font-size:1.05rem">${esc(E.institucion)}</div>${E.especialidad?`<div>Especialidad de ${esc(E.especialidad)}</div>`:""}<h2 style="margin:6px 0 2px">${esc(ex.titulo)}</h2>${E.tipo?`<div class="small muted">${esc(E.tipo)}${E.periodo?" · "+esc(E.periodo):""}</div>`:""}</div>
     <div class="tbl" style="margin:10px 0"><table style="font-size:.88rem${imprimir?";border-collapse:collapse;width:100%":""}"><tbody>${filas.join("")}</tbody></table></div>
@@ -224,7 +224,8 @@ const APPS_DESC={"Liquidaciones laborales":"calcula paso a paso el salario prome
   "Ruta Laboral CR":"misiones sobre derechos laborales de Costa Rica: contrato de trabajo, aguinaldo, vacaciones, preaviso, cesantía y liquidación",
   "Misión Seguros":"misiones de contabilidad de seguros con el plan de cuentas SUGESE: emisión de pólizas, comisiones, provisiones técnicas, siniestros, IBNR y seguros de vida",
   "La Tiradera":"juego de retos en vivo (selección única, falso o verdadero, sopa de letras y crucigrama)"};
-const TIPOS_IA=[["seleccion_unica","🔘 Selección única",2],["falso_verdadero","✅ Falso o verdadero",1],["pareo","🔗 Pareo",1],["respuesta_corta","✏️ Respuesta corta",2],["caso_practico_con_app","🔢 Cálculo / caso con app",3],["desarrollo","📝 Desarrollo",5]];
+// Tipos de ítem de los lineamientos técnicos del MEP para la prueba escrita (puntos sugeridos por ítem).
+const TIPOS_IA=[["seleccion_unica","🔘 Selección única (3 opciones)",1],["correspondencia","🔗 Correspondencia (máx. 5 relaciones)",1],["respuesta_corta","✏️ Respuesta corta (1 a 5 pts)",2],["resolucion_ejercicios","🔢 Resolución de ejercicios",4],["respuesta_restringida","📝 Respuesta restringida",3],["resolucion_problemas","🧩 Resolución de problemas (con escala)",6]];
 const sinHtml=t=>String(t||"").replace(/<style[\s\S]*?<\/style>/gi," ").replace(/<[^>]+>/g," ").replace(/&nbsp;/g," ").replace(/&[a-z]+;/g," ").replace(/\s+/g," ").trim();
 let PL=null;
 async function todas(q){let out=[],o=0;for(;;){const {data,error}=await q().range(o,o+999);if(error)throw error;out=out.concat(data||[]);if(!data||data.length<1000)break;o+=1000}return out}
@@ -252,20 +253,23 @@ async function investigarTemas(mid){
   const appsTxt=cand.map(c=>c.titulo+" "+c.contenido).join(" ").toLowerCase();
   const CLAVE={"Liquidaciones laborales":/liquidaci/,"Aula de Conta":/aula\s*(de\s*)?cont/,"Ruta Laboral CR":/ruta laboral/,"Misión Seguros":/misi[oó]n seguros|sugese|aseguradora/,"La Tiradera":/tiradera/};
   const apps=Object.keys(APPS_DESC).filter(a=>cand.some(c=>c.app===a)||CLAVE[a].test(appsTxt));
-  cand.forEach(c=>{c.incluir=c.visto&&(c.trabajos>0||c.contenido.length>200);c.preguntas=0});
+  cand.forEach(c=>{c.incluir=c.visto&&(c.trabajos>0||c.contenido.length>200);c.preguntas=0;c.lecciones=Math.max(1,Math.min(12,(c.trabajos||0)+Math.ceil((c.subtemas||[]).length/2)))});
   return {temas:cand,apps}}
 function repartir(){const sel=PL.temas.filter(t=>t.incluir);if(!sel.length)return;const n=PL.n,base=Math.floor(n/sel.length);let resto=n-base*sel.length;
   sel.sort((a,b)=>(b.trabajos-a.trabajos)).forEach(t=>{t.preguntas=base+(resto>0?1:0);resto--});PL.temas.filter(t=>!t.incluir).forEach(t=>t.preguntas=0)}
-async function planear(){if(!PL||PL.listo)PL={mid:(S.mats[0]||{}).id,n:15,duracion:80,peso:20,titulo:"",indicaciones:"",tipos:Object.fromEntries(TIPOS_IA.map(([k,,p])=>[k,{on:k!=="respuesta_corta",pts:p}])),temas:null,apps:[],comentario:""};pintarPlan()}
+async function planear(){if(!PL||PL.listo)PL={mid:(S.mats[0]||{}).id,n:15,duracion:80,peso:20,titulo:"",indicaciones:"",ptsPre:30,tipos:Object.fromEntries(TIPOS_IA.map(([k,,p])=>[k,{on:true,pts:p}])),temas:null,apps:[],comentario:""};pintarPlan()}
 function pintarPlan(){const P=PL,asig=(P.temas||[]).reduce((s,t)=>s+(t.incluir?+t.preguntas||0:0),0);
+  const TE=P.temas?tablaMEP(P.temas.filter(t=>t.incluir).map(t=>({id:t.id,aprendizaje:t.titulo,lecciones:+t.lecciones||0})),+P.ptsPre||0):null;
+  if(TE)TE.filas.forEach(f=>{const t=P.temas.find(x=>x.id===f.id);if(t)t.puntosMEP=f.puntos});
   $("#app").innerHTML=`<div class="row" style="margin:4px 0 12px"><h1 style="margin-right:auto">🧭 Planear examen</h1><button onclick="location.hash='#/'">← Exámenes</button></div>
-  <div class="card"><h2>1️⃣ ¿Cuántas preguntas vamos a desarrollar?</h2><div class="grid">
+  <div class="card"><h2>1️⃣ Datos de la prueba</h2><p class="small muted" style="margin:0 0 8px">Se arma según los <b>lineamientos técnicos del MEP para la prueba escrita</b>: parte administrativa, tabla de especificaciones por lecciones, ítems permitidos y puntos enteros.</p><div class="grid">
     <label class="f">Sección<select id="plMat">${S.mats.map(m=>`<option value="${m.id}" ${+m.id===+P.mid?"selected":""}>${esc(nomMat(m.id))}</option>`).join("")}</select></label>
     <label class="f">Número de preguntas<input type="number" id="plN" min="1" max="80" value="${P.n}"></label>
     <label class="f">Duración (minutos)<input type="number" id="plDur" min="0" value="${P.duracion}"></label>
     <label class="f">Porcentaje (%)<input type="number" id="plPeso" min="0" step="0.5" value="${P.peso}"></label>
+    <label class="f">Puntos preliminares (igual o mayor al %)<input type="number" id="plPre" min="1" value="${P.ptsPre}"></label>
     <label class="f" style="grid-column:1/-1">Título (opcional)<input id="plTit" value="${esc(P.titulo)}" placeholder="Si lo deja vacío, se arma con los temas"></label></div>
-    <p style="margin:12px 0 4px;font-weight:700">Tipos de pregunta y puntos de cada una</p><div class="grid">${TIPOS_IA.map(([k,n])=>`<label class="row small" style="border:1px solid var(--line);border-radius:8px;padding:6px 8px"><input type="checkbox" data-tipo="${k}" ${P.tipos[k].on?"checked":""}> <span style="flex:1">${n}</span><input type="number" min="0" step="0.5" data-tpts="${k}" value="${P.tipos[k].pts}" style="width:64px"> pts</label>`).join("")}</div>
+    <p style="margin:12px 0 4px;font-weight:700">Tipos de ítem permitidos y puntos sugeridos por ítem</p><p class="small muted" style="margin:0 0 6px">Debe ir al menos uno de selección o correspondencia y al menos uno de respuesta construida. Los puntos de cada aprendizaje salen de la tabla de especificaciones.</p><div class="grid">${TIPOS_IA.map(([k,n])=>`<label class="row small" style="border:1px solid var(--line);border-radius:8px;padding:6px 8px"><input type="checkbox" data-tipo="${k}" ${P.tipos[k].on?"checked":""}> <span style="flex:1">${n}</span><input type="number" min="0" step="1" data-tpts="${k}" value="${P.tipos[k].pts}" style="width:64px"> pts</label>`).join("")}</div>
     <label class="f" style="margin-top:10px">Indicaciones para la IA (opcional)<textarea id="plInd" rows="2" placeholder="Ej.: casos de empresas de Mercedes Norte, nivel medio, dos cálculos con Liquidaciones">${esc(P.indicaciones)}</textarea></label>
     <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="pri" id="plInv">🔎 ${P.temas?"Volver a investigar":"Investigar los temas vistos"}</button></div></div>
   ${P.temas?`<div class="card"><h2>2️⃣ Temas vistos en la plataforma: ¿cuáles sí y cuáles no?</h2>
@@ -273,18 +277,21 @@ function pintarPlan(){const P=PL,asig=(P.temas||[]).reduce((s,t)=>s+(t.incluir?+
     ${P.comentario?`<div class="aviso ok">✨ ${esc(P.comentario)}</div>`:""}
     <div class="row" style="margin:0 0 8px"><button class="sm" id="plIA">✨ Sugerencia de la IA</button><button class="sm" id="plTodos">☑ Todos</button><button class="sm" id="plNing">☐ Ninguno</button><button class="sm" id="plRep">⚖️ Repartir ${P.n} preguntas</button>
       <span style="margin-left:auto" class="chip ${asig===P.n?"ok":"warn"}">${asig} de ${P.n} preguntas asignadas</span></div>
-    <div class="tbl"><table><thead><tr><th>Incluir</th><th>Tema</th><th>Evidencia en la plataforma</th><th>Sugerencia</th><th class="r">Preguntas</th></tr></thead><tbody>
+    <div class="tbl"><table><thead><tr><th>Incluir</th><th>Tema</th><th>Evidencia en la plataforma</th><th>Sugerencia</th><th class="r">Lecciones</th><th class="r">Puntos</th><th class="r">Preguntas</th></tr></thead><tbody>
     ${P.temas.length?P.temas.map((t,i)=>`<tr style="${t.incluir?"":"opacity:.6"}"><td><input type="checkbox" data-inc="${i}" ${t.incluir?"checked":""}></td>
       <td><b>${esc(t.titulo)}</b><br><span class="chip">${esc(t.origen)}</span>${t.subtemas.length?`<details class="small"><summary class="muted" style="cursor:pointer">${t.subtemas.length} subtemas / trabajos</summary>${t.subtemas.map(x=>"• "+esc(x)).join("<br>")}</details>`:""}</td>
       <td class="small">${t.visto?'<span class="chip ok">Publicado</span>':'<span class="chip bad">No publicado</span>'}<br>${t.trabajos} trabajo(s)${t.logro!=null?`<br>Logro: <b class="${t.logro<60?"bad-t":t.logro<85?"":"ok-t"}">${Math.round(t.logro)} %</b>`:""}${t.fecha?`<br><span class="muted">${esc(t.fecha)}</span>`:""}</td>
       <td class="small">${t.motivo?`${t.sugIA?"✅":"⛔"} ${esc(t.motivo)}`:'<span class="muted">—</span>'}</td>
-      <td class="r"><input type="number" min="0" data-npr="${i}" value="${t.incluir?t.preguntas||0:0}" style="width:64px" ${t.incluir?"":"disabled"}></td></tr>`).join(""):'<tr><td colspan="5">No encontré temas para esta sección.</td></tr>'}</tbody></table></div>
+      <td class="r"><input type="number" min="0" data-lec="${i}" value="${esc(t.lecciones)}" style="width:60px" ${t.incluir?"":"disabled"}></td>
+      <td class="r"><b>${t.incluir?t.puntosMEP||0:"—"}</b></td>
+      <td class="r"><input type="number" min="0" data-npr="${i}" value="${t.incluir?t.preguntas||0:0}" style="width:64px" ${t.incluir?"":"disabled"}></td></tr>`).join(""):'<tr><td colspan="7">No encontré temas para esta sección.</td></tr>'}</tbody></table></div>
+    ${TE&&TE.filas.length?`<p class="small" style="margin:8px 0 0">📋 <b>Tabla de especificaciones:</b> ${P.ptsPre} puntos preliminares ÷ ${TE.lecciones} lecciones = constante <b>${String(TE.constante).replace(".",",")}</b> → total de la prueba: <b>${TE.total} puntos</b>. <span class="muted">Las lecciones vienen estimadas por los trabajos; corríjalas con las lecciones que de verdad dedicó a cada aprendizaje.</span></p>`:""}
     ${P.apps.length?`<p class="small" style="margin:8px 0 0">🧰 Apps que pueden usar los retos: <b>${P.apps.map(esc).join(", ")}</b></p>`:""}</div>
   <div class="card"><h2>3️⃣ Generar el examen</h2><p class="small muted" style="margin:0 0 8px">La IA escribe las preguntas de cada tema marcado con el contenido que se vio en la plataforma. Queda como <b>borrador</b> para que usted lo revise y edite antes de publicar.</p>
     <div class="row"><button class="pri" id="plGen" ${asig?"":"disabled"}>✨ Generar examen con ${asig} preguntas</button><span id="plProg" class="small muted"></span></div></div>`:""}`;
-  const leer=()=>{P.mid=+$("#plMat").value;P.n=Math.max(1,+$("#plN").value||1);P.duracion=+$("#plDur").value||0;P.peso=+$("#plPeso").value||0;P.titulo=$("#plTit").value;P.indicaciones=$("#plInd").value;
+  const leer=()=>{P.ptsPre=Math.max(1,+$("#plPre").value||1);P.mid=+$("#plMat").value;P.n=Math.max(1,+$("#plN").value||1);P.duracion=+$("#plDur").value||0;P.peso=+$("#plPeso").value||0;P.titulo=$("#plTit").value;P.indicaciones=$("#plInd").value;
     $$("[data-tipo]").forEach(c=>P.tipos[c.dataset.tipo].on=c.checked);$$("[data-tpts]").forEach(c=>P.tipos[c.dataset.tpts].pts=+c.value||0)};
-  ["#plN","#plDur","#plPeso","#plTit","#plInd"].forEach(x=>$(x).onchange=leer);$$("[data-tipo],[data-tpts]").forEach(c=>c.onchange=leer);
+  ["#plN","#plDur","#plPeso","#plTit","#plInd"].forEach(x=>$(x).onchange=leer);$("#plPre").onchange=()=>{leer();if(P.temas)pintarPlan()};$$("[data-tipo],[data-tpts]").forEach(c=>c.onchange=leer);
   $("#plMat").onchange=()=>{leer();P.temas=null;pintarPlan()};
   $("#plInv").onclick=async e=>{leer();const b=e.currentTarget;b.disabled=true;b.textContent="🔎 Investigando…";
     try{const r=await investigarTemas(P.mid);P.temas=r.temas;P.apps=r.apps;P.comentario="";repartir();pintarPlan();sugerirIA()}catch(err){b.disabled=false;b.textContent="🔎 Investigar los temas vistos";alert("No se pudo investigar: "+(err.message||err))}};
@@ -294,6 +301,7 @@ function pintarPlan(){const P=PL,asig=(P.temas||[]).reduce((s,t)=>s+(t.incluir?+
   $("#plNing").onclick=()=>{P.temas.forEach(t=>{t.incluir=false;t.preguntas=0});pintarPlan()};
   $("#plRep").onclick=()=>{leer();repartir();pintarPlan()};
   $$("[data-inc]").forEach(c=>c.onchange=()=>{const t=P.temas[+c.dataset.inc];t.incluir=c.checked;if(c.checked&&!t.preguntas)t.preguntas=1;if(!c.checked)t.preguntas=0;pintarPlan()});
+  $$("[data-lec]").forEach(c=>c.onchange=()=>{P.temas[+c.dataset.lec].lecciones=Math.max(0,+c.value||0);pintarPlan()});
   $$("[data-npr]").forEach(c=>c.onchange=()=>{P.temas[+c.dataset.npr].preguntas=Math.max(0,+c.value||0);pintarPlan()});
   $("#plGen").onclick=generarExamenIA}
 async function sugerirIA(){const P=PL,b=$("#plIA");if(b){b.disabled=true;b.textContent="✨ Pensando…"}
@@ -309,32 +317,67 @@ async function generarExamenIA(){const P=PL,sel=P.temas.filter(t=>t.incluir&&+t.
   const b=$("#plGen"),pr=$("#plProg");b.disabled=true;const puntos=Object.fromEntries(tipos.map(k=>[k,P.tipos[k].pts]));const apps=P.apps.map(a=>({nombre:a,que:APPS_DESC[a]}));
   let reac=[],fallos=[];
   for(let i=0;i<sel.length;i++){const t=sel[i];pr.textContent=`✍️ Tema ${i+1} de ${sel.length}: ${t.titulo.slice(0,60)}…`;
-    let ok=false;for(let k=0;k<2&&!ok;k++){try{const r=await fetch("/api/generar-examen-ia",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({seccion:nomMat(P.mid),preguntas:+t.preguntas,tipos,puntos,apps,indicaciones:P.indicaciones,
+    let ok=false;for(let k=0;k<2&&!ok;k++){try{const r=await fetch("/api/generar-examen-ia",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({seccion:nomMat(P.mid),preguntas:+t.preguntas,puntos_objetivo:t.puntosMEP||null,tipos,puntos,apps,indicaciones:P.indicaciones,
         tema:{titulo:t.titulo,subtemas:t.subtemas,indicadores:t.indicadores,contenido:t.contenido}})});const d=await r.json().catch(()=>({}));
       if(r.ok&&d.reactivos){reac=reac.concat(d.reactivos.map(x=>({...x,tema:x.tema||t.titulo})));ok=true}else if(!d.reintentar)break}catch(e){}}
     if(!ok)fallos.push(t.titulo)}
   if(!reac.length){b.disabled=false;pr.textContent="";return alert("La IA no pudo generar las preguntas. Intente de nuevo en un momento.")}
-  const PARTES={seleccion_unica:"Selección única",falso_verdadero:"Falso o verdadero",pareo:"Pareo",respuesta_corta:"Respuesta corta",caso_practico_con_app:"Resolución de casos y cálculos",desarrollo:"Desarrollo"};
+  const PARTES={seleccion_unica:"Selección única",correspondencia:"Correspondencia",respuesta_corta:"Respuesta corta",resolucion_ejercicios:"Resolución de ejercicios",respuesta_restringida:"Respuesta restringida",resolucion_problemas:"Resolución de problemas"};
   const orden=Object.keys(PARTES);reac.sort((a,b)=>orden.indexOf(a.tipo_pregunta)-orden.indexOf(b.tipo_pregunta));reac.forEach((x,i)=>{x.id_pregunta=i+1;x.parte=PARTES[x.tipo_pregunta]});
   const titulo=P.titulo.trim()||`Examen de ${sel.slice(0,3).map(t=>t.titulo.replace(/^.*?:\s*/,"").split(" · ")[0]).join(", ").slice(0,90)}`;
   try{const ex=exDesdeJSON({examen:{titulo,peso:P.peso,duracion:P.duracion},reactivos:reac},P.mid);ex.plan={temas:sel.map(t=>({titulo:t.titulo,preguntas:+t.preguntas})),creado:new Date().toISOString()};
+    ex.ptsPre=+P.ptsPre||null;ex.tabla=sel.map(t=>({aprendizaje:t.titulo,lecciones:+t.lecciones||0}));
+    // Cada parte de la correspondencia lleva máximo 5 relaciones: se parte en bloques de 5.
+    const nuevas=[];ex.partes.forEach(p=>{if(p.tipo!=="pareo"||p.items.length<=5){nuevas.push(p);return}for(let k=0;k<p.items.length;k+=5)nuevas.push({...p,id:uid(),titulo:p.titulo+(k?" ("+(k/5+1)+")":""),items:p.items.slice(k,k+5)})});ex.partes=nuevas;
     const t=await guardarExamen({ex});PL.listo=true;toast(`✨ Borrador listo: ${itemsDe(ex).length} preguntas · ${fmtPts(totalPts(ex))} pts`);
     if(fallos.length)alert("No se pudieron generar las preguntas de: "+fallos.join("; ")+". Puede agregarlas a mano en el editor.");
     await cargarExamenes();location.hash="#/editar/"+t.id}
   catch(e){b.disabled=false;pr.textContent="";alert("No se pudo armar el examen: "+(e.message||e))}}
+
+// ═══════════ Lineamientos técnicos del MEP para la prueba escrita (DDC/DEVA) ═══════════
+// Tabla de especificaciones: constante = puntos preliminares ÷ lecciones (2 decimales);
+// puntos de cada aprendizaje = constante × lecciones, redondeado (0,50 o más hacia arriba).
+function tablaMEP(filas,ptsPre){const lec=filas.reduce((s,f)=>s+(+f.lecciones||0),0);const c=lec?Math.round(ptsPre/lec*100)/100:0;
+  const out=filas.map(f=>({...f,puntos:Math.floor(c*(+f.lecciones||0)+0.5+1e-9)}));return {filas:out,constante:c,lecciones:lec,total:out.reduce((s,f)=>s+f.puntos,0)}}
+const PROHIBIDAS=/todas las anteriores|ninguna de las anteriores|seg[uú]n su opini[oó]n|qu[eé] piensa usted|cite y explique|escriba y justifique|mencione y explique/i;
+function revisarMEP(ex){const av=[],E=encDe(ex),its=itemsDe(ex);
+  if(!E.subarea||!E.docente||!E.nivel)av.push("Encabezado: complete subárea o módulo, nivel y persona docente (parte administrativa).");
+  if(!String(ex.instrucciones||"").trim())av.push("Faltan las instrucciones generales.");
+  if(!ex.partes.some(p=>p.tipo==="sel"||p.tipo==="pareo"))av.push("Debe haber al menos un ítem de selección, identificación o correspondencia.");
+  if(!ex.partes.some(p=>["corta","num","des"].includes(p.tipo)))av.push("Debe haber al menos un ítem de respuesta construida (respuesta corta, restringida, ejercicios o problemas).");
+  ex.partes.forEach((p,pi)=>{const n=`Parte ${pi+1} (${p.titulo})`;
+    if(!String(p.instrucciones||"").trim())av.push(`${n}: faltan las instrucciones específicas con la puntuación.`);
+    if(p.tipo==="fv")av.push(`${n}: el falso o verdadero no está entre los ítems de los lineamientos; conviene pasarlo a selección única.`);
+    if(p.tipo==="pareo"){if(p.items.length>5)av.push(`${n}: la correspondencia lleva máximo 5 relaciones (5 puntos); tiene ${p.items.length}.`);if(p.items.some(i=>+i.pts!==1))av.push(`${n}: en correspondencia cada relación vale 1 punto.`)}
+    p.items.forEach((it,ii)=>{const k=`${n}, ítem ${ii+1}`;
+      if(!Number.isInteger(+it.pts))av.push(`${k}: la puntuación debe ser un número entero.`);
+      if(p.tipo==="sel"&&(it.o||[]).filter(o=>String(o).trim()).length>3)av.push(`${k}: selección única con máximo 3 opciones.`);
+      if(p.tipo==="corta"&&(+it.pts<1||+it.pts>5))av.push(`${k}: la respuesta corta vale de 1 a 5 puntos.`);
+      if(p.tipo==="des"&&!String(it.rubrica||"").trim())av.push(`${k}: agregue la escala de calificación visible para el estudiante.`);
+      if(PROHIBIDAS.test([it.txt,...(it.o||[])].join(" ")))av.push(`${k}: usa una expresión que los lineamientos no permiten («todas/ninguna de las anteriores», «según su opinión», «cite y explique»…).`)})});
+  if((ex.tabla||[]).length){const t=tablaMEP(ex.tabla,+ex.ptsPre||totalPts(ex));if(t.total!==totalPts(ex))av.push(`La tabla de especificaciones suma ${t.total} puntos y los ítems suman ${fmtPts(totalPts(ex))}.`)}
+  else av.push("Falta la tabla de especificaciones (aprendizaje esperado, lecciones, puntos y tipo de ítem).");
+  return av}
+function tablaEspHTML(ex,{editable}={}){const filas=ex.tabla||[],T=tablaMEP(filas,+ex.ptsPre||totalPts(ex)||0);
+  const real=t=>itemsDe(ex).filter(({it})=>norm(it.tema||"")===norm(t)).reduce((s,{it})=>s+(+it.pts||0),0);
+  const tipos=t=>[...new Set(itemsDe(ex).filter(({it})=>norm(it.tema||"")===norm(t)).map(({p})=>TIPOS[p.tipo].n.split(" (")[0]))].join(", ");
+  return `<div class="tbl"><table><thead><tr><th>Aprendizaje esperado</th><th class="r">Lecciones</th><th class="r">Puntos (tabla)</th>${editable?'<th class="r">En el examen</th>':""}<th>Tipo de ítem</th>${editable?"<th></th>":""}</tr></thead><tbody>
+    ${T.filas.map((f,i)=>`<tr><td>${editable?`<input data-ta="${i}" value="${esc(f.aprendizaje)}">`:esc(f.aprendizaje)}</td><td class="r">${editable?`<input type="number" min="0" data-tl="${i}" value="${esc(f.lecciones)}" style="width:70px">`:f.lecciones}</td><td class="r"><b>${f.puntos}</b></td>${editable?`<td class="r">${real(f.aprendizaje)!==f.puntos?`<span class="chip warn">${fmtPts(real(f.aprendizaje))}</span>`:`<span class="chip ok">${f.puntos}</span>`}</td>`:""}<td class="small">${esc(f.tipo||tipos(f.aprendizaje)||"")}</td>${editable?`<td><button class="sm" data-tdel="${i}">✕</button></td>`:""}</tr>`).join("")}
+    <tr><th>Total</th><th class="r">${T.lecciones}</th><th class="r">${T.total}</th>${editable?`<th class="r">${fmtPts(totalPts(ex))}</th>`:""}<th class="small">Constante: ${String(T.constante).replace(".",",")}</th>${editable?"<th></th>":""}</tr></tbody></table></div>`}
 
 // ── Importar un examen en JSON (reactivos con herramienta, enunciado, opciones, respuesta y retroalimentación) ──
 function exDesdeJSON(J,materiaId){const meta=J.examen||{},reac=Array.isArray(J)?J:(J.reactivos||J.preguntas||[]);if(!reac.length)throw new Error("El JSON no trae reactivos.");
   const ex={...nuevoEx(),titulo:meta.titulo||"Examen importado",instrucciones:meta.instrucciones||nuevoEx().instrucciones,peso:+meta.peso||20,duracion:+meta.duracion||80,
     materia_id:materiaId||(S.mats.find(m=>String(m.seccion||"").trim()===String(meta.seccion||"").trim())||{}).id||+meta.materia_id||null,partes:[]};
   const tipoDe=r=>{const t=norm(r.tipo_pregunta||"").replace(/ /g,"_"),ops=r.opciones_o_valor_esperado;
-    if(/falso|verdad/.test(t))return"fv";if(/pareo/.test(t))return"pareo";if(/desarrollo|abierta/.test(t))return"des";if(/corta/.test(t))return"corta";
+    if(/falso|verdad/.test(t))return"fv";if(/pareo|correspondencia/.test(t))return"pareo";if(/desarrollo|abierta|restringida|problema|produccion/.test(t))return"des";if(/corta/.test(t))return"corta";
+    if(/ejercicio/.test(t))return"num";
     if(Array.isArray(ops)&&ops.length>=2)return"sel";if(!isNaN(parseNum(r.respuesta_correcta))||(ops&&ops.valor!=null))return"num";return"corta"};
   let cur=null;
   reac.forEach(r=>{const tp=tipoDe(r),pn=r.parte||TIPOS[tp].n;
     if(!cur||cur._k!==pn||cur.tipo!==tp){cur={_k:pn,id:uid(),tipo:tp,titulo:String(pn).replace(/^parte\s*\d+\s*[.:·-]\s*/i,""),instrucciones:r.instrucciones_parte||TIPOS[tp].ins,items:[],extras:[]};ex.partes.push(cur)}
     const it={id:uid(),txt:r.enunciado||"",pts:+r.puntos||+r.puntaje||1,app:r.herramienta_requerida&&norm(r.herramienta_requerida)!=="ninguna"?r.herramienta_requerida:"",accion:r.accion_en_herramienta||"",
-      tema:r.tema||"",just:r.justificacion_pedagogica||"",fb_ok:r.feedback_exito||"",fb_err:r.feedback_error||""};
+      tema:r.tema||"",just:r.justificacion_pedagogica||"",fb_ok:r.feedback_exito||"",fb_err:r.feedback_error||"",rubrica:r.escala_calificacion||r.rubrica||""};
     const ops=r.opciones_o_valor_esperado,rc=String(r.respuesta_correcta??"").trim();
     if(tp==="sel"){it.o=ops.map(String);let k=it.o.findIndex(o=>norm(o)===norm(rc));if(k<0&&/^[a-h]\)?$/i.test(rc))k="abcdefgh".indexOf(rc[0].toLowerCase());if(k<0)throw new Error(`Reactivo ${r.id_pregunta}: la respuesta correcta no está entre las opciones.`);it.r=k}
     else if(tp==="fv")it.r=/^v/i.test(rc);
@@ -371,6 +414,7 @@ async function publicar(t,btn){const ex=t.ex;
   if(ex.publicado){if(!confirm("¿Ocultar el examen? Los estudiantes dejan de verlo. Las respuestas y notas que ya existan no se borran."))return;
     ex.publicado=false;btn.disabled=true;await guardarExamen(t);toast("🙈 Examen oculto");return listaProfe()}
   const er=validar(ex);if(er.length)return alert("Antes de publicar, corrija:\n\n• "+er.join("\n• "));
+  const mep=revisarMEP(ex);if(mep.length&&!confirm("Revisión según los lineamientos del MEP:\n\n• "+mep.slice(0,10).join("\n• ")+(mep.length>10?`\n… y ${mep.length-10} más`:"")+"\n\n¿Publicar de todos modos?"))return;
   if(!confirm(`¿Publicar «${ex.titulo}» en ${nomMat(ex.materia_id)}?\n\n• ${itemsDe(ex).length} ítems · ${fmtPts(totalPts(ex))} puntos · ${fmtPts(ex.peso)} %\n• Inicia: ${fmtFH(ex.inicio)}${ex.cierre?"\n• Cierra: "+fmtFH(ex.cierre):""}\n\nSe registra en «Pruebas» con sus puntos reales.`))return;
   btn.disabled=true;
   try{if(!ex.indicador_id){const {data:o}=await sb.from("indicadores").select("orden").eq("materia_id",ex.materia_id).eq("categoria","Pruebas").order("orden",{ascending:false}).limit(1);
@@ -407,6 +451,10 @@ function pintarEditor(){const ex=ED.ex;
     <label class="f" style="grid-column:1/-1">Resultado de aprendizaje (opcional)<textarea data-h="resultado" rows="2">${esc(encDe(ex).resultado)}</textarea></label>
     <label class="f" style="grid-column:1/-1">Nota o aviso adicional (opcional)<textarea data-h="nota" rows="2">${esc(encDe(ex).nota)}</textarea></label></div>
    <details style="margin-top:8px"><summary class="small" style="cursor:pointer;font-weight:700">👁 Ver cómo queda</summary><div class="card" id="encPrev" style="margin-top:8px">${encabezadoHTML(ex)}</div></details></div>
+  <div class="card"><h2>📋 Tabla de especificaciones</h2><p class="small muted" style="margin:0 0 8px">Según los lineamientos del MEP: puntos preliminares ÷ total de lecciones = constante; puntos de cada aprendizaje = constante × lecciones (0,50 o más se redondea hacia arriba). El tema de cada ítem («🧰 App, tema y retroalimentación») debe coincidir con el aprendizaje para comparar.</p>
+   <div class="row" style="margin:0 0 8px"><label class="row small">Puntos preliminares (igual o mayor al porcentaje): <input type="number" min="1" id="edPre" value="${esc(ex.ptsPre||Math.max(Math.round(totalPts(ex)),Math.ceil(+ex.peso||0)))}" style="width:80px"></label><button class="sm" id="edTadd">＋ Aprendizaje</button></div>
+   <div id="edTabla">${tablaEspHTML(ex,{editable:true})}</div></div>
+  <div class="card" id="edMEP"></div>
   ${ex.partes.map((p,pi)=>parteEdHTML(p,pi)).join("")}
   <div class="card"><h3>＋ Agregar una parte</h3><div class="row">${Object.entries(TIPOS).map(([k,v])=>`<button data-addp="${k}">${v.ic} ${v.n}</button>`).join("")}</div></div>
   <div class="row" style="justify-content:flex-end"><button class="pri" id="edGuardar2">💾 Guardar</button></div>`;
@@ -428,7 +476,7 @@ function itemEdHTML(p,it,ii){const pts=`<label class="f" style="max-width:110px"
     if(p.tipo==="fv")cuerpo+=`<label class="f" style="max-width:180px">Respuesta correcta<select data-i="r"><option value="1" ${it.r?"selected":""}>Verdadero</option><option value="0" ${it.r?"":"selected"}>Falso</option></select></label>`;
     if(p.tipo==="corta")cuerpo+=`<label class="f" style="flex:1 1 300px">Respuestas aceptadas (una por línea; no importan mayúsculas ni tildes)<textarea data-i="acepta" rows="2">${esc((it.acepta||[]).join("\n"))}</textarea></label>`;
     if(p.tipo==="num")cuerpo+=`<label class="f" style="max-width:200px">Resultado correcto<input data-i="r" inputmode="decimal" value="${esc(it.r)}"></label><label class="f" style="max-width:160px">Margen aceptado (±)<input data-i="tol" inputmode="decimal" value="${esc(it.tol)}"></label>`;
-    if(p.tipo==="des")cuerpo+=`<label class="f" style="flex:1 1 400px">Solución o guía para calificar (solo la ve el profe)<textarea data-i="guia" rows="2">${esc(it.guia)}</textarea></label>`;
+    if(p.tipo==="des")cuerpo+=`<label class="f" style="flex:1 1 400px">Escala de calificación que ve la persona estudiante (obligatoria en resolución de problemas y producción escrita)<textarea data-i="rubrica" rows="3" placeholder="Ej.: Registra la cuenta de gasto correcta (2 pts) · Registra los pasivos correctos (2 pts) · El asiento cuadra (2 pts)">${esc(it.rubrica||"")}</textarea></label><label class="f" style="flex:1 1 400px">Solución o guía para calificar (solo la ve el profe)<textarea data-i="guia" rows="2">${esc(it.guia)}</textarea></label>`;
     cuerpo+=pts+"</div>"}
   const extra=`<details style="margin-top:6px"${it.app||it.just||it.tema?" open":""}><summary class="small" style="cursor:pointer;font-weight:700">🧰 App, tema y retroalimentación ${it.app?`<span class="chip pri">${esc(appNombre(it.app))}</span>`:""}</summary><div class="grid" style="margin-top:6px">
     <label class="f">App que debe abrir<select data-i="app"><option value="">Ninguna</option>${Object.keys(APPS).map(k=>`<option ${appNombre(it.app||"")===k?"selected":""}>${k}</option>`).join("")}</select></label>
@@ -439,6 +487,15 @@ function itemEdHTML(p,it,ii){const pts=`<label class="f" style="max-width:110px"
   return `<div class="ed-item" data-ii="${ii}">${ctl}${cuerpo}${extra}</div>`}
 function ligarEditor(){const ex=ED.ex,ap=$("#app");
   const sucio=()=>{EDsucio=true;const t=$("#edTot");if(t)t.textContent=fmtPts(totalPts(ex))};
+  const pintaMEP=()=>{const av=revisarMEP(ex),c=$("#edMEP");if(c)c.innerHTML=`<h2>${av.length?"⚠️":"✅"} Revisión según los lineamientos del MEP</h2>${av.length?`<ul class="small" style="margin:0;padding-left:18px">${av.map(a=>`<li>${esc(a)}</li>`).join("")}</ul>`:'<p class="ok-t" style="margin:0">La prueba cumple los lineamientos técnicos que la plataforma puede revisar.</p>'}`};
+  const ligarTabla=()=>{const box=$("#edTabla");if(!box)return;box.innerHTML=tablaEspHTML(ex,{editable:true});
+    box.querySelectorAll("[data-ta]").forEach(i=>i.onchange=()=>{ex.tabla[+i.dataset.ta].aprendizaje=i.value;sucio();ligarTabla()});
+    box.querySelectorAll("[data-tl]").forEach(i=>i.onchange=()=>{ex.tabla[+i.dataset.tl].lecciones=+i.value||0;sucio();ligarTabla()});
+    box.querySelectorAll("[data-tdel]").forEach(b=>b.onclick=()=>{ex.tabla.splice(+b.dataset.tdel,1);sucio();ligarTabla()});pintaMEP()};
+  ligarTabla();
+  $("#edPre").onchange=e=>{ex.ptsPre=+e.target.value||0;sucio();ligarTabla()};
+  $("#edTadd").onclick=()=>{ex.tabla=ex.tabla||[];ex.tabla.push({aprendizaje:"",lecciones:1});sucio();ligarTabla()};
+  ap.addEventListener("change",()=>setTimeout(pintaMEP,0));
   ap.querySelectorAll("[data-h]").forEach(el=>el.oninput=()=>{ex.encabezado={...encDe(ex),[el.dataset.h]:el.value};const pv=$("#encPrev");if(pv)pv.innerHTML=encabezadoHTML(ex);sucio()});
   ap.querySelectorAll("[data-g]").forEach(el=>el.oninput=el.onchange=()=>{const k=el.dataset.g;
     ex[k]=el.type==="checkbox"?el.checked:k==="inicio"||k==="cierre"?deLocal(el.value):k==="materia_id"?+el.value:k==="duracion"||k==="peso"?+el.value||0:el.value;sucio()});
@@ -573,7 +630,8 @@ function imprimir(t){const ex=t.ex,sol=confirm("¿Imprimir con las respuestas co
     return `<h3 style="margin:18px 0 4px">Parte ${pi+1}. ${esc(p.titulo)} (${fmtPts(its.reduce((s,i)=>s+(+i.pts||0),0))} pts)</h3><p style="margin:0 0 8px"><i>${nl(p.instrucciones)}</i></p>${String(p.caso||"").trim()?`<div style="border:1px solid #888;padding:8px 10px;margin:0 0 10px;white-space:pre-wrap"><b>${esc(p.casoTitulo||"Caso")}</b><br>${esc(p.caso)}</div>`:""}${cuerpo}`}).join("");
   w.document.write(`<html><head><meta charset="utf-8"><title>${esc(ex.titulo)}${sol?" · Solucionario":""}</title><style>body{font:12pt/1.4 Arial,sans-serif;color:#000;padding:24px}table.h td{border:1px solid #888;padding:4px 8px}</style></head><body>
    ${encabezadoHTML(ex,{imprimir:true})}${sol?'<p style="text-align:center;font-weight:800">SOLUCIONARIO</p>':""}
-   <p><b>Instrucciones generales:</b> ${nl(ex.instrucciones)}</p>${partes}</body></html>`);w.document.close();setTimeout(()=>w.print(),400)}
+   <p><b>Instrucciones generales:</b> ${nl(ex.instrucciones)}</p>${partes}
+   ${sol&&(ex.tabla||[]).length?`<h3 style="margin-top:24px;page-break-before:always">Tabla de especificaciones</h3><style>td,th{border:1px solid #888;padding:4px 8px}</style>${tablaEspHTML(ex)}`:""}</body></html>`);w.document.close();setTimeout(()=>w.print(),400)}
 
 // ═══════════════════ ESTUDIANTE ═══════════════════
 function estadoEx(ex,a){const ahora=Date.now();
@@ -627,7 +685,7 @@ function pintarExamen(t,{previa,a,dp,resp}){const ex=t.ex,R=rng(dp.semilla||"x")
       else if(p.tipo==="fv")ctl=`<div class="row">${["V","F"].map(x=>`<label class="opc ${v===x?"sel":""}" style="flex:0 0 auto"><input type="radio" name="o_${it.id}" data-resp="${it.id}" value="${x}" ${v===x?"checked":""}><span>${x==="V"?"Verdadero":"Falso"}</span></label>`).join("")}</div>`;
       else if(p.tipo==="num")ctl=`<input data-resp="${it.id}" inputmode="decimal" value="${esc(v??"")}" placeholder="Resultado" style="max-width:260px">`;
       else if(p.tipo==="corta")ctl=`<input data-resp="${it.id}" value="${esc(v??"")}" placeholder="Respuesta">`;
-      else ctl=`<textarea data-resp="${it.id}" rows="6" placeholder="Escriba aquí su desarrollo">${esc(v??"")}</textarea>`;
+      else ctl=`${it.rubrica?`<div class="small" style="border:1px dashed var(--line);border-radius:8px;padding:6px 9px;margin:0 0 6px;white-space:pre-wrap"><b>📏 Escala de calificación:</b><br>${esc(it.rubrica)}</div>`:""}<textarea data-resp="${it.id}" rows="6" placeholder="Escriba aquí su respuesta">${esc(v??"")}</textarea>`;
       return `<div class="item"><p class="q">${k+1}. ${nl(it.txt)} <span class="muted small">(${fmtPts(it.pts)} pts)</span></p>${appHTML(it)}${ctl}</div>`}).join("");
     return `<section class="parte"><h2>Parte ${pi+1}. ${esc(p.titulo)} <span class="muted small">(${fmtPts(p.items.reduce((s,i)=>s+(+i.pts||0),0))} pts)</span></h2><p class="muted" style="margin:0 0 6px"><i>${nl(p.instrucciones)}</i></p>${casoHTML(p)}${cuerpo}</section>`}).join("");
   document.querySelector("header.top").classList.add("hidden");
