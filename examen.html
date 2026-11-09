@@ -122,9 +122,11 @@ function encabezadoHTML(ex,{imprimir}={}){const E=encDe(ex),td=imprimir?' style=
     ["Sección",esc(nomMat(ex.materia_id))],["Fecha",esc(ex.fecha||"")],["Tiempo",ex.duracion?ex.duracion+" minutos":"—"],["Puntos totales",fmtPts(totalPts(ex))],["Porcentaje",fmtPts(ex.peso)+" %"]];
   if(imprimir)celdas.unshift(["Nombre de la persona estudiante",""],["Puntuación obtenida",""],["Calificación obtenida",""],["Porcentaje obtenido",""],["Firma de la persona encargada legal",""]);
   const filas=[];for(let i=0;i<celdas.length;i+=3)filas.push(`<tr>${celdas.slice(i,i+3).map(([n,v])=>`<td${td}><span class="small muted">${n}:</span> <b>${v}</b></td>`).join("")}</tr>`);
-  return `<div style="text-align:center"><div style="font-weight:800;font-size:1.05rem">${esc(E.institucion)}</div>${E.especialidad?`<div>Especialidad de ${esc(E.especialidad)}</div>`:""}<h2 style="margin:6px 0 2px">${esc(ex.titulo)}</h2>${E.tipo?`<div class="small muted">${esc(E.tipo)}${E.periodo?" · "+esc(E.periodo):""}</div>`:""}</div>
+  return `<div style="text-align:center"><div style="font-weight:800;font-size:1.05rem">${esc(E.institucion)}</div>${E.especialidad?`<div>Especialidad de ${esc(E.especialidad)}</div>`:""}<h2 style="margin:6px 0 2px;text-transform:uppercase">${esc(E.tipo||"Prueba escrita")}</h2>${E.periodo?`<div class="small muted">${esc(E.periodo)}</div>`:""}</div>
     <div class="tbl" style="margin:10px 0"><table style="font-size:.88rem${imprimir?";border-collapse:collapse;width:100%":""}"><tbody>${filas.join("")}</tbody></table></div>
     ${E.resultado?`<p class="small" style="margin:4px 0"><b>Resultado de aprendizaje:</b> ${nl(E.resultado)}</p>`:""}${E.nota?`<p class="small" style="margin:4px 0">${nl(E.nota)}</p>`:""}`}
+// Lo que ve la persona estudiante como nombre de la prueba (el título interno no se muestra).
+const titEst=ex=>{const E=encDe(ex);return [E.tipo||"Prueba escrita",E.subarea,E.periodo].filter(x=>String(x||"").trim()).join(" · ")};
 const casoHTML=p=>String(p.caso||"").trim()?`<div class="aviso" style="background:var(--card);border-color:var(--line);border-left:4px solid var(--warn);white-space:pre-wrap;margin:6px 0 10px"><b>📂 ${esc(p.casoTitulo||"Caso")}</b><br>${esc(p.caso)}</div>`:"";
 const nuevoEx=()=>({encabezado:{...ENC_DEF},materia_id:null,titulo:"",instrucciones:"Lea con atención cada parte. Trabaje en forma individual. Al terminar, presione «Entregar examen».",fecha:hoyISO(),inicio:null,cierre:null,duracion:80,peso:20,mezclar:true,mostrar_resultados:false,publicado:false,indicador_id:null,partes:[]});
 const itemsDe=ex=>(ex.partes||[]).flatMap(p=>(p.items||[]).map(it=>({p,it})));
@@ -435,7 +437,7 @@ function pintarEditor(){const ex=ED.ex;
   $("#app").innerHTML=`<div class="row" style="margin:4px 0 12px"><h1 style="margin-right:auto">${ED.id?"✏️ Editar examen":"＋ Nuevo examen"}</h1><button onclick="salirEditor()">← Exámenes</button><button class="pri" id="edGuardar">💾 Guardar</button></div>
   ${ex.publicado?`<div class="aviso">📢 Este examen está <b>publicado</b>. Si cambia preguntas o puntos, las entregas que ya existan se recalculan con la versión nueva en 📊 Resultados.</div>`:""}
   <div class="card"><h2>Datos generales</h2><div class="grid">
-    <label class="f" style="grid-column:1/-1">Título<input data-g="titulo" value="${esc(ex.titulo)}" placeholder="Ej.: Prueba escrita de Gestión Contable · II Período"></label>
+    <label class="f" style="grid-column:1/-1">Nombre interno (solo lo ve usted en la lista; no sale en el examen)<input data-g="titulo" value="${esc(ex.titulo)}" placeholder="Ej.: Prueba escrita de Gestión Contable · II Período"></label>
     <label class="f">Sección<select data-g="materia_id">${S.mats.map(m=>`<option value="${m.id}" ${+m.id===+ex.materia_id?"selected":""}>${esc(nomMat(m.id))}</option>`).join("")}</select></label>
     <label class="f">Fecha de la prueba<input type="date" data-g="fecha" value="${esc(ex.fecha)}"></label>
     <label class="f">Inicia (fecha y hora)<input type="datetime-local" data-g="inicio" value="${aLocal(ex.inicio)}"></label>
@@ -628,7 +630,7 @@ function imprimir(t){const ex=t.ex,sol=confirm("¿Imprimir con las respuestas co
       ${p.tipo==="corta"||p.tipo==="num"?`<p style="margin:4px 0 0 18px">${sol?"<b>R/ "+verCorrecta(p,it)+"</b>":"R/ _______________________________"}</p>`:""}
       ${p.tipo==="des"?(sol&&it.guia?`<p style="margin:4px 0 0 18px"><b>Guía:</b> ${nl(it.guia)}</p>`:'<div style="height:120px;border:1px solid #bbb;margin:6px 0 0 18px"></div>'):""}</div>`).join("");
     return `<h3 style="margin:18px 0 4px">Parte ${pi+1}. ${esc(p.titulo)} (${fmtPts(its.reduce((s,i)=>s+(+i.pts||0),0))} pts)</h3><p style="margin:0 0 8px"><i>${nl(p.instrucciones)}</i></p>${String(p.caso||"").trim()?`<div style="border:1px solid #888;padding:8px 10px;margin:0 0 10px;white-space:pre-wrap"><b>${esc(p.casoTitulo||"Caso")}</b><br>${esc(p.caso)}</div>`:""}${cuerpo}`}).join("");
-  w.document.write(`<html><head><meta charset="utf-8"><title>${esc(ex.titulo)}${sol?" · Solucionario":""}</title><style>body{font:12pt/1.4 Arial,sans-serif;color:#000;padding:24px}table.h td{border:1px solid #888;padding:4px 8px}</style></head><body>
+  w.document.write(`<html><head><meta charset="utf-8"><title>${esc(titEst(ex))}${sol?" · Solucionario":""}</title><style>body{font:12pt/1.4 Arial,sans-serif;color:#000;padding:24px}table.h td{border:1px solid #888;padding:4px 8px}</style></head><body>
    ${encabezadoHTML(ex,{imprimir:true})}${sol?'<p style="text-align:center;font-weight:800">SOLUCIONARIO</p>':""}
    <p><b>Instrucciones generales:</b> ${nl(ex.instrucciones)}</p>${partes}
    ${sol&&(ex.tabla||[]).length?`<h3 style="margin-top:24px;page-break-before:always">Tabla de especificaciones</h3><style>td,th{border:1px solid #888;padding:4px 8px}</style>${tablaEspHTML(ex)}`:""}</body></html>`);w.document.close();setTimeout(()=>w.print(),400)}
@@ -643,7 +645,7 @@ async function listaEst(){$("#app").innerHTML='<p class="muted">Cargando…</p>'
   const mios=S.exs.filter(t=>t.habilitado&&t.ex.publicado&&S.mats.some(m=>+m.id===+t.ex.materia_id));
   const {data:ae}=mios.length?await sb.from("actividades_estudiante").select("trabajo_id,completado,puntaje,datos_prueba").eq("estudiante_id",EST_ID).in("trabajo_id",mios.map(t=>t.id)):{data:[]};
   $("#app").innerHTML=`<h1>📝 Mis exámenes</h1>${mios.length?mios.map(t=>{const ex=t.ex,a=(ae||[]).find(x=>x.trabajo_id===t.id),st=estadoEx(ex,a);
-    return `<div class="card"><div class="row"><div style="margin-right:auto"><h2 style="margin:0 0 4px">${esc(ex.titulo)}</h2><div class="row small"><span class="chip ${st.k==="entregado"?"ok":st.k==="abierto"?"pri":st.k==="cerrado"?"bad":"warn"}">${esc(st.t)}</span><span class="chip">${fmtPts(totalPts(ex))} pts</span><span class="chip">${fmtPts(ex.peso)} %</span>${ex.duracion?`<span class="chip">⏱ ${ex.duracion} min</span>`:""}</div>
+    return `<div class="card"><div class="row"><div style="margin-right:auto"><h2 style="margin:0 0 4px">${esc(titEst(ex))}</h2><div class="row small"><span class="chip ${st.k==="entregado"?"ok":st.k==="abierto"?"pri":st.k==="cerrado"?"bad":"warn"}">${esc(st.t)}</span><span class="chip">${fmtPts(totalPts(ex))} pts</span><span class="chip">${fmtPts(ex.peso)} %</span>${ex.duracion?`<span class="chip">⏱ ${ex.duracion} min</span>`:""}</div>
       ${st.k==="entregado"&&ex.mostrar_resultados&&a&&a.datos_prueba&&a.datos_prueba.puntos_obtenidos_total!=null?`<p style="margin:6px 0 0"><b>Resultado: ${fmtPts(a.datos_prueba.puntos_obtenidos_total)} / ${fmtPts(totalPts(ex))} pts</b></p>`:""}</div>
       ${st.k==="abierto"?`<button class="pri" onclick="location.hash='#/hacer/${t.id}'">${a?"▶ Continuar":"▶ Iniciar"}</button>`:st.k==="entregado"&&ex.mostrar_resultados?`<button onclick="location.hash='#/hacer/${t.id}'">👁 Ver revisión</button>`:""}</div></div>`}).join(""):'<div class="card"><p>No tiene exámenes publicados por ahora.</p></div>'}`}
 
@@ -653,11 +655,11 @@ async function hacer(id){await cargarExamenes();const t=S.exs.find(x=>x.id===id&
   const {data:a}=await sb.from("actividades_estudiante").select("*").eq("trabajo_id",t.id).eq("estudiante_id",EST_ID).limit(1).maybeSingle();
   const st=estadoEx(ex,a);
   if(st.k==="entregado"){const dp=a.datos_prueba||{};
-    $("#app").innerHTML=`<div class="card"><h1>${esc(ex.titulo)}</h1><div class="aviso ok">✅ Examen entregado el ${fmtFH(dp.entregado_ts||a.actualizado_en)}.</div>${ex.mostrar_resultados?`<h2>Resultado: ${fmtPts(dp.puntos_obtenidos_total??a.puntaje)} / ${fmtPts(totalPts(ex))} pts</h2>${calificar(ex,a.respuestas||{},dp.manual).pend.length?'<p class="muted">Algunos ítems todavía los está calificando el profe.</p>':""}${revisionHTML(ex,a.respuestas||{},dp,{paraEst:true})}`:'<p>Su profe le dará el resultado cuando lo revise.</p>'}<button onclick="location.hash='#/'">← Mis exámenes</button></div>`;return}
+    $("#app").innerHTML=`<div class="card"><h1>${esc(titEst(ex))}</h1><div class="aviso ok">✅ Examen entregado el ${fmtFH(dp.entregado_ts||a.actualizado_en)}.</div>${ex.mostrar_resultados?`<h2>Resultado: ${fmtPts(dp.puntos_obtenidos_total??a.puntaje)} / ${fmtPts(totalPts(ex))} pts</h2>${calificar(ex,a.respuestas||{},dp.manual).pend.length?'<p class="muted">Algunos ítems todavía los está calificando el profe.</p>':""}${revisionHTML(ex,a.respuestas||{},dp,{paraEst:true})}`:'<p>Su profe le dará el resultado cuando lo revise.</p>'}<button onclick="location.hash='#/'">← Mis exámenes</button></div>`;return}
   // Si ya había empezado y se le acabó la hora de cierre, se abre para que se entregue solo con lo guardado.
   const empezado=a&&(a.datos_prueba||{}).inicio_ts;
   if(st.k==="cerrado"&&empezado)return pintarExamen(t,{a,dp:a.datos_prueba,resp:{...(a.respuestas||{})}});
-  if(st.k!=="abierto")return $("#app").innerHTML=`<div class="card"><h1>${esc(ex.titulo)}</h1><p>${esc(st.t)}.</p><button onclick="location.hash='#/'">← Mis exámenes</button></div>`;
+  if(st.k!=="abierto")return $("#app").innerHTML=`<div class="card"><h1>${esc(titEst(ex))}</h1><p>${esc(st.t)}.</p><button onclick="location.hash='#/'">← Mis exámenes</button></div>`;
   if(!a||!(a.datos_prueba||{}).inicio_ts){
     $("#app").innerHTML=`<div class="card">${encabezadoHTML(ex)}<p><b>Instrucciones generales:</b><br>${nl(ex.instrucciones)}</p>
      <ul><li>${itemsDe(ex).length} ítems en ${ex.partes.length} partes · <b>${fmtPts(totalPts(ex))} puntos</b> · vale ${fmtPts(ex.peso)} % de la nota.</li>${ex.duracion?`<li>Tiene <b>${ex.duracion} minutos</b> desde que toque «Comenzar». Al terminarse el tiempo, el examen se entrega solo.</li>`:""}${ex.cierre?`<li>Cierra: <b>${fmtFH(ex.cierre)}</b>.</li>`:""}
@@ -689,7 +691,7 @@ function pintarExamen(t,{previa,a,dp,resp}){const ex=t.ex,R=rng(dp.semilla||"x")
       return `<div class="item"><p class="q">${k+1}. ${nl(it.txt)} <span class="muted small">(${fmtPts(it.pts)} pts)</span></p>${appHTML(it)}${ctl}</div>`}).join("");
     return `<section class="parte"><h2>Parte ${pi+1}. ${esc(p.titulo)} <span class="muted small">(${fmtPts(p.items.reduce((s,i)=>s+(+i.pts||0),0))} pts)</span></h2><p class="muted" style="margin:0 0 6px"><i>${nl(p.instrucciones)}</i></p>${casoHTML(p)}${cuerpo}</section>`}).join("");
   document.querySelector("header.top").classList.add("hidden");
-  $("#app").innerHTML=`<div class="barra" style="margin:-16px -16px 14px">${previa?`<span class="chip warn">👁 Vista previa: así lo ven los estudiantes. No se guarda nada.</span>`:""}<b style="margin-right:auto">${esc(ex.titulo)}</b><span id="prog" class="small muted"></span>${fin?`<span class="reloj" id="reloj"></span>`:""}<span id="estGuard" class="small muted"></span>
+  $("#app").innerHTML=`<div class="barra" style="margin:-16px -16px 14px">${previa?`<span class="chip warn">👁 Vista previa: así lo ven los estudiantes. No se guarda nada.</span>`:""}<b style="margin-right:auto">${esc(titEst(ex))}</b><span id="prog" class="small muted"></span>${fin?`<span class="reloj" id="reloj"></span>`:""}<span id="estGuard" class="small muted"></span>
      ${previa?`<button onclick="salirPrevia()">← Salir</button>`:""}<button class="pri" id="entregar">${previa?"Revisar como entregado":"📤 Entregar examen"}</button></div>
     <div class="card">${encabezadoHTML(ex)}<p style="margin:8px 0 0"><b>Instrucciones generales:</b><br>${nl(ex.instrucciones)}</p></div>
     <div class="card ${previa?"":"no-sel"}" id="cuerpo">${partesHTML}</div>
@@ -717,7 +719,7 @@ async function entregar(forzado){if(!RUN||RUN.entregado)return;const {t,ex,resp,
   const sin=itemsDe(ex).filter(({it})=>!respondido(resp[it.id])).length;
   if(!forzado&&!confirm((sin?`Le faltan ${sin} ítem(s) por responder.\n\n`:"")+(previa?"¿Ver la revisión como si se hubiera entregado?":"¿Entregar el examen? Ya no podrá cambiar sus respuestas.")))return;
   const c=calificar(ex,resp,{}),tot=totalPts(ex);
-  if(previa){RUN.entregado=true;clearInterval(RUN.timer);$("#app").innerHTML=`<div class="barra" style="margin:-16px -16px 14px"><span class="chip warn">👁 Vista previa</span><b style="margin-right:auto">${esc(ex.titulo)}</b><button onclick="salirPrevia()">← Salir</button></div>
+  if(previa){RUN.entregado=true;clearInterval(RUN.timer);$("#app").innerHTML=`<div class="barra" style="margin:-16px -16px 14px"><span class="chip warn">👁 Vista previa</span><b style="margin-right:auto">${esc(titEst(ex))}</b><button onclick="salirPrevia()">← Salir</button></div>
      <div class="card"><h2>Resultado automático: ${fmtPts(c.total)} / ${fmtPts(tot)} pts${c.pend.length?` · ${c.pend.length} ítem(s) se califican a mano`:""}</h2>${revisionHTML(ex,resp,{})}</div>`;window.scrollTo(0,0);return}
   RUN.entregado=true;clearInterval(RUN.timer);clearTimeout(tGuard);
   const b=$("#entregar");if(b){b.disabled=true;b.textContent="Entregando…"}
@@ -727,7 +729,7 @@ async function entregar(forzado){if(!RUN||RUN.entregado)return;const {t,ex,resp,
   if(!c.pend.length)await registrarNota(ex,EST_ID,c.total);
   try{localStorage.removeItem("examen_"+t.id+"_"+EST_ID)}catch(e){}
   document.removeEventListener("visibilitychange",salida);document.querySelector("header.top").classList.remove("hidden");
-  $("#app").innerHTML=`<div class="card"><h1>✅ Examen entregado</h1><p>${esc(ex.titulo)} · ${fmtFH(dp.entregado_ts)}</p>${ex.mostrar_resultados?`<h2>Resultado: ${fmtPts(c.total)} / ${fmtPts(tot)} pts</h2>${c.pend.length?'<p class="muted">Algunos ítems los califica su profe.</p>':""}`:'<p>Su profe le dará el resultado cuando lo revise.</p>'}<button onclick="location.hash='#/'">← Mis exámenes</button></div>`;window.scrollTo(0,0)}
+  $("#app").innerHTML=`<div class="card"><h1>✅ Examen entregado</h1><p>${esc(titEst(ex))} · ${fmtFH(dp.entregado_ts)}</p>${ex.mostrar_resultados?`<h2>Resultado: ${fmtPts(c.total)} / ${fmtPts(tot)} pts</h2>${c.pend.length?'<p class="muted">Algunos ítems los califica su profe.</p>':""}`:'<p>Su profe le dará el resultado cuando lo revise.</p>'}<button onclick="location.hash='#/'">← Mis exámenes</button></div>`;window.scrollTo(0,0)}
 window.salirPrevia=()=>{clearInterval(RUN&&RUN.timer);RUN=null;document.querySelector("header.top").classList.remove("hidden");location.hash="#/"};
 iniciar();
 </script>
