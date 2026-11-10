@@ -565,7 +565,7 @@ function supabaseTeacherStore(docenteId){
       const nombres={};
       if(ids.length){const {data:es}=await sb.from("estudiantes").select("id,nombre,apellido1,apellido2,seccion").in("id",ids);
         (es||[]).forEach(e=>{nombres[e.id]={n:[e.apellido1,e.apellido2,e.nombre].filter(Boolean).join(" "),sec:e.seccion||""}})}
-      return (data||[]).map(r=>({id:r.estudiante_id,nombre:(nombres[r.estudiante_id]||{}).n||r.estudiante_id,seccion:(nombres[r.estudiante_id]||{}).sec||"",companies:Array.isArray(r.companies)?r.companies:[],actualizado:r.actualizado_en}));
+      return (data||[]).filter(r=>!AULA_SIN_SECC.includes((nombres[r.estudiante_id]||{}).sec||"")).map(r=>({id:r.estudiante_id,nombre:(nombres[r.estudiante_id]||{}).n||r.estudiante_id,seccion:(nombres[r.estudiante_id]||{}).sec||"",companies:Array.isArray(r.companies)?r.companies:[],actualizado:r.actualizado_en}));
     },
     async deleteEntrega(id){
       await sb.from("aula_conta_entregas_empresas").delete().eq("entrega_id",id);
@@ -596,6 +596,8 @@ const CATS={evaluativa:{icon:"📝",nombre:"Práctica con valor evaluativo",cort
   tarea:{icon:"📌",nombre:"Tarea",corto:"Tarea",chip:"tG",una:true,practica:false,orden:2},
   casa:{icon:"😊",nombre:"Trabajo en casa",corto:"Trabajo en casa",chip:"tC",una:true,practica:false,orden:3}};
 const normCat=v=>CATS[v]?v:"practica";
+// Secciones que no usan Aula Contable: no aparecen en listas, reportes, materias ni al asignar prácticas.
+const AULA_SIN_SECC=["11-3"];
 const catDe=c=>normCat(c&&c.categoria);
 // Empresa que el profesor le asignó (práctica de clase, tarea…): el estudiante no la puede borrar.
 const esAsignada=c=>!!c&&(c.asignada===true||"nivelPractica" in c||"pdfInstrucciones" in c);
@@ -1011,7 +1013,8 @@ async function acSubirNotaIndicador(estudianteId,c){
 }
 async function cargarIndicadoresLms(){
   const [m,i]=await Promise.all([sb.from("materias").select("id,nombre,seccion").order("nombre"),sb.from("indicadores").select("id,materia_id,categoria,letra,descripcion,puntaje_maximo").order("orden")]);
-  APP.indData={materias:m.data||[],indicadores:i.data||[]};
+  const mats=(m.data||[]).filter(x=>!AULA_SIN_SECC.includes(x.seccion||""));
+  APP.indData={materias:mats,indicadores:(i.data||[]).filter(x=>mats.some(y=>y.id===x.materia_id))};
 }
 const IA_TIT=(c,n)=>({machote:`Calcula el machote de planilla: salario bruto, cuotas obreras, renta y salario neto (${n})`,asiento:`Elabora el asiento de diario de la planilla de salarios (${n})`,evaluacion:`Resuelve la evaluación de cálculo y registro de planilla (${n})`})[c];
 const IA_CTX={machote:"El estudiante completa en Aula Contable el machote de planilla de varios colaboradores: salario bruto, cuotas obreras (CCSS, Banco Popular), impuesto sobre la renta, otros rebajos y salario neto, con cálculos exactos.",asiento:"El estudiante registra en Aula Contable el asiento de diario de la planilla: gasto por salarios, cargas sociales, provisiones y cuentas por pagar, con débitos y créditos balanceados.",evaluacion:"El estudiante resuelve una evaluación de una sola oportunidad con los montos de la planilla y el asiento, sin pistas."};
@@ -1805,8 +1808,9 @@ async function crearPracticaParaClase({nombreEmpresa,cantidad,seccion,nivel:nive
   // 2) Misma empresa (y mismo PDF) para cada estudiante de la sección elegida, o todos
   let q=sb.from("estudiantes").select("id,nombre,apellido1,apellido2,seccion");
   if(seccion&&seccion!=="todas")q=q.eq("seccion",seccion);
-  const {data:estudiantes,error}=await q;
+  const {data:est0,error}=await q;
   if(error)throw error;
+  const estudiantes=(est0||[]).filter(e=>!AULA_SIN_SECC.includes(e.seccion||""));
   let ok=0;const fallidos=[];
   for(const est of (estudiantes||[])){
     try{
@@ -3087,7 +3091,7 @@ document.addEventListener("click",async e=>{
   if(a==="abrirCrearPractica"){
     if(!APP.seccionesDisponibles){
       const {data}=await sb.from("estudiantes").select("seccion");
-      APP.seccionesDisponibles=[...new Set((data||[]).map(x=>x.seccion).filter(Boolean))].sort();
+      APP.seccionesDisponibles=[...new Set((data||[]).map(x=>x.seccion).filter(x=>x&&!AULA_SIN_SECC.includes(x)))].sort();
     }
     APP.proximoNivelPractica=proximoNivelPractica();
     APP.plCrearPracticaAbierto=true;render();return;
@@ -3096,7 +3100,7 @@ document.addEventListener("click",async e=>{
   if(a==="abrirEliminarPractica"){
     if(!APP.seccionesDisponibles){
       const {data}=await sb.from("estudiantes").select("seccion");
-      APP.seccionesDisponibles=[...new Set((data||[]).map(x=>x.seccion).filter(Boolean))].sort();
+      APP.seccionesDisponibles=[...new Set((data||[]).map(x=>x.seccion).filter(x=>x&&!AULA_SIN_SECC.includes(x)))].sort();
     }
     APP.plEliminarPracticaAbierto=true;render();return;
   }
