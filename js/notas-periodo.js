@@ -101,6 +101,7 @@ async function renderNotasPeriodo() {
   wrap.innerHTML = `<h1>📄 Notas por período y nota anual</h1>
     <p style="color:var(--text-muted);margin-top:-0.6em">Calculando la nota del II Período con la Rúbrica de la plataforma…</p>`;
   const plat = {};
+  const bonos = ((await cargarAjustesNota(true)) || { contenido_actividad: {} }).contenido_actividad.bonos || {};
   await Promise.all(lista.map(async e => { plat[e.id] = await npNotaPlataforma(e.id, sel, categorias); }));
 
   function pintar() {
@@ -122,6 +123,11 @@ async function renderNotasPeriodo() {
         <span class="np-vis-tit">👁️ Lo que ven los estudiantes en su perfil:</span>
         <button class="np-sw ${C.visible_p1 ? "on" : ""}" id="np-vis1">${C.visible_p1 ? "✅ I Período: visible" : "🔒 I Período: solo el profe"}</button>
         <button class="np-sw ${C.visible_anual ? "on" : ""}" id="np-vis2">${C.visible_anual ? "✅ Nota anual: visible" : "🔒 Nota anual: solo el profe"}</button>
+      </div>
+      <div class="np-vis" id="np-bonos">
+        <span class="np-vis-tit">➕ Puntos adicionales a toda la sección:</span>
+        ${(categorias || []).filter(c => !["asistencia", "pruebas"].includes(c.nombre.trim().toLowerCase())).map(c => { const b = bonos[sel + "|" + c.nombre]; return `<label style="display:inline-flex;gap:.3rem;align-items:center">${npEsc(c.nombre)} (${npEsc(c.porcentaje)} %): +<input class="np-bono" type="number" min="0" max="${npEsc(c.porcentaje)}" step="0.5" data-cat="${npEsc(c.nombre)}" value="${b ? b.puntos : ""}" placeholder="0" style="width:4.5rem"> %</label>`; }).join("")}
+        <small style="flex-basis:100%;color:var(--text-muted)">Se suma al aporte del componente en la nota del período (por ejemplo, Proyectos 10 % → 12 %), sin pasar del valor del componente. Escriba 0 para quitarlo.</small>
       </div>
       <div id="np-imp" style="display:none" class="np-imp">
         <p style="margin:0 0 6px"><b>Pegue aquí el acta</b> (copie la tabla del PDF del MEP): cada línea con la cédula, el nombre y la nota.</p>
@@ -158,6 +164,15 @@ async function renderNotasPeriodo() {
       C[p] = C[p] || { notas: {} }; C[p].notas = { ...(C[p].notas || {}) };
       if (v == null) delete C[p].notas[inp.dataset.est]; else C[p].notas[inp.dataset.est] = Math.round(v * 100) / 100;
       await guardar(); pintar();
+    }));
+    wrap.querySelectorAll(".np-bono").forEach(inp => inp.addEventListener("change", async () => {
+      const cat = inp.dataset.cat, v = npNum(inp.value) || 0, pc = Number(((categorias || []).find(c => c.nombre === cat) || {}).porcentaje) || 0;
+      if (v < 0 || v > pc) { alert(`Debe estar entre 0 y ${pc}.`); inp.value = ""; return; }
+      const antes = (bonos[sel + "|" + cat] || {}).puntos || 0;
+      if (v === antes) return;
+      if (!confirm(v ? `Se suma ${v} % al aporte de ${cat} de los ${lista.length} estudiantes de la ${materia.seccion}${antes ? ` (antes: ${antes} %)` : ""}. ¿Seguir?` : `Se quita el adicional de ${cat} de la ${materia.seccion}. ¿Seguir?`)) { inp.value = antes || ""; return; }
+      try { await guardarBonoCategoria(sel, cat, v, "adicional del docente"); renderNotasPeriodo(); }
+      catch (er) { msg("❌ No se pudo guardar el adicional: " + er.message); }
     }));
     document.getElementById("np-vis1").onclick = async () => { C.visible_p1 = !C.visible_p1; await guardar(); pintar(); };
     document.getElementById("np-vis2").onclick = async () => {

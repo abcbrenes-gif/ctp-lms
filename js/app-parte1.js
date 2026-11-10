@@ -1662,6 +1662,44 @@ async function calcularNotaAsistenciaPeriodo(estudianteId, materiaId, fechaInici
   return { nota, impartidas, presentes, justificadas, tardias: tardias.length, porConversionTardias, ausentesInjustificadas, totalInjustificadas, detalleFaltas };
 }
 
+// ── Puntos adicionales por componente (p. ej. +2 % en Proyectos a toda la sección) ──
+// Se guardan en un registro de trabajos_cotidianos (habilitado:false) con
+// estrategia "ajustes_nota": C.bonos["<materia_id>|<categoría>"] = {puntos, motivo, fecha}.
+// «puntos» se suma al APORTE del componente en la nota del período
+// (10 % → 12 %), sin pasar del valor del componente.
+const AJ_ESTR = "ajustes_nota";
+let _ajustesProm = null, _catsProm = null;
+function cargarAjustesNota(forzar) {
+  if (forzar || !_ajustesProm) _ajustesProm = sb.from("trabajos_cotidianos").select("id, contenido_actividad").eq("contenido_actividad->>estrategia", AJ_ESTR).order("id").limit(1)
+    .then(({ data }) => (data || [])[0] || null).catch(() => null);
+  return _ajustesProm;
+}
+async function bonoCategoria(materiaId, categoria) {
+  const r = await cargarAjustesNota();
+  const b = r && ((r.contenido_actividad || {}).bonos || {})[materiaId + "|" + categoria];
+  return b && Number(b.puntos) ? b : null;
+}
+async function porcentajeCategoria(categoria) {
+  if (!_catsProm) _catsProm = sb.from("rubrica_categorias").select("*").then(({ data }) => data || []).catch(() => []);
+  const c = (await _catsProm).find(x => x.nombre === categoria);
+  return c ? Number(c.porcentaje) || 0 : 0;
+}
+// Nota 0-100 con el adicional: puntos de aporte → puntos de nota, tope 100.
+function notaConBono(nota, puntos, porcentaje) {
+  if (nota == null || !puntos || !porcentaje) return nota;
+  return Math.min(100, nota + Number(puntos) * 100 / porcentaje);
+}
+async function guardarBonoCategoria(materiaId, categoria, puntos, motivo) {
+  const r = await cargarAjustesNota(true);
+  const C = { ...((r && r.contenido_actividad) || {}), estrategia: AJ_ESTR };
+  C.bonos = { ...(C.bonos || {}) };
+  const k = materiaId + "|" + categoria;
+  if (!Number(puntos)) delete C.bonos[k]; else C.bonos[k] = { puntos: Number(puntos), motivo: motivo || "", fecha: new Date().toISOString().slice(0, 10) };
+  if (r) { const { error } = await sb.from("trabajos_cotidianos").update({ contenido_actividad: C }).eq("id", r.id); if (error) throw new Error(error.message); }
+  else { const { error } = await sb.from("trabajos_cotidianos").insert({ titulo: "Puntos adicionales por componente (registro del profe, no borrar)", tipo_actividad: "rubrica_directa", habilitado: false, contenido_actividad: C }); if (error) throw new Error(error.message); }
+  await cargarAjustesNota(true);
+}
+
 // Calcula la nota (0-100) de un estudiante en una categoría de una materia,
 // a partir de los Indicadores y Criterios de evaluación (si existen).
 async function calcularNotaIndicadores(estudianteId, materiaId, categoriaNombre, soloHabilitados) {
@@ -1695,8 +1733,10 @@ async function calcularNotaIndicadores(estudianteId, materiaId, categoriaNombre,
 
   const sumaMaxima = indicadores.reduce((a, i) => a + Number(i.puntaje_maximo), 0);
   const sumaObtenida = indicadores.reduce((a, i) => a + Number(porIndicador[i.id] || 0), 0);
-  const nota = sumaMaxima > 0 ? (sumaObtenida / sumaMaxima) * 100 : null;
-  return { nota, indicadores, porIndicador, sumaObtenida, sumaMaxima };
+  const notaSinBono = sumaMaxima > 0 ? (sumaObtenida / sumaMaxima) * 100 : null;
+  const bono = notaSinBono != null ? await bonoCategoria(materiaId, categoriaNombre) : null;
+  const nota = bono ? notaConBono(notaSinBono, bono.puntos, await porcentajeCategoria(categoriaNombre)) : notaSinBono;
+  return { nota, notaSinBono, bono, indicadores, porIndicador, sumaObtenida, sumaMaxima };
 }
 
 // Para la categoría "Pruebas": cada prueba puede tener su propio peso
@@ -2555,7 +2595,11 @@ async function generarReporteOficial(estudiante, materiaId, periodos) {
       (calificaciones || []).forEach(c => { porIndicador[c.indicador_id] = c.puntaje_obtenido; });
       const sumaMax = indicadores.reduce((a, i) => a + Number(i.puntaje_maximo), 0);
       const sumaObt = indicadores.reduce((a, i) => a + Number(porIndicador[i.id] || 0), 0);
-      const notaCat = sumaMax > 0 ? (sumaObt / sumaMax) * 100 : 0;
+      const notaBase = sumaMax > 0 ? (sumaObt / sumaMax) * 100 : 0;
+      // Puntos adicionales del componente: cuentan en el período en que se dieron.
+      const bonoCat = await bonoCategoria(materiaId, cat.nombre);
+      const bonoAplica = bonoCat && (!fechaInicio || bonoCat.fecha >= fechaInicio) && (!fechaFin || bonoCat.fecha <= fechaFin);
+      const notaCat = bonoAplica ? notaConBono(notaBase, bonoCat.puntos, Number(cat.porcentaje)) : notaBase;
       const contribucion = notaCat * cat.porcentaje / 100;
 
       const html = `
@@ -2564,6 +2608,7 @@ async function generarReporteOficial(estudiante, materiaId, periodos) {
           <thead><tr>${indicadores.map(i => `<th style="text-align:center;">${i.letra}</th>`).join("")}<th>Resultado de ${cat.nombre.toLowerCase()} (valor: ${cat.porcentaje}%)</th></tr></thead>
           <tbody><tr>${indicadores.map(i => `<td style="text-align:center;">${porIndicador[i.id] || 0}</td>`).join("")}<td style="text-align:center; font-weight:700;">${fmtPct(contribucion)}</td></tr></tbody>
         </table>
+        ${bonoAplica ? `<p style="font-size:0.85rem; margin:0.3rem 0;">Incluye ${bonoCat.puntos} % adicional otorgado a la sección${bonoCat.motivo ? " (" + bonoCat.motivo + ")" : ""}: ${fmtPct(notaBase * cat.porcentaje / 100)} + ${bonoCat.puntos} % = ${fmtPct(contribucion)} (máximo ${cat.porcentaje}%).</p>` : ""}
         <p style="font-weight:600; margin:0.8rem 0 0.3rem;">Indicadores evaluados y criterios de evaluación</p>
         <table>
           <thead><tr><th style="width:45%;">Indicador</th><th style="width:12%;">Puntaje máximo</th><th>Criterios</th></tr></thead>
