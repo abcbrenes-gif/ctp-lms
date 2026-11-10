@@ -1131,6 +1131,7 @@ async function igualarTipoEstudiantes(nombre,cat){
 }
 // Tipo que tiene esta práctica en la cuenta del profesor (si lo tiene y es distinto al del grupo).
 function tipoDelProfe(g){const p=(APP.companies||[]).find(c=>nomPractica(c)===nomPractica(g.rows[0]&&g.rows[0].c));return p&&p.categoria?catDe(p):null}
+document.addEventListener("toggle",e=>{const d=e.target;if(d&&d.dataset&&"resnotas" in d.dataset)APP.resNotasOpen=d.open},true);
 document.addEventListener("toggle",e=>{const d=e.target;if(!d||!d.dataset||!d.dataset.gkey)return;APP.revOpen=APP.revOpen||{};APP.revOpen[d.dataset.gkey]=d.open},true);
 // ───── Cierre de trabajos: cierra (horario terminado) y publica el solucionario de
 // varios trabajos a la vez, con prórroga para algunos estudiantes.
@@ -1243,6 +1244,7 @@ function viewPorEmpresa(){
    ${APP.revGeneral?viewRevisionGeneral(grupos):""}
    ${(()=>{const todos=[];for(const g of grupos)if(g.cat!=="practica")for(const r of g.rows)todos.push(r.c);const nPr=grupos.filter(g=>g.cat==="practica").length;
      return entCatBotones(todos,"emp")+(nPr?`<div class="row" style="margin:-4px 0 8px"><button type="button" class="btn sm ${APP.entCat==="practica"?"primary":""}" data-act="entCat" data-k="practica">🔄 Prácticas generales (${nPr})</button></div>`:"")})()}
+   ${resumenNotasHTML(grupos.filter(g=>g.cat===(APP.entCat||"evaluativa")),q)}
    ${grupos.filter(g=>g.cat===(APP.entCat||"evaluativa")).map(g=>{
      const rows=g.rows.filter(r=>!q||(r.w.nombre+" "+r.w.id).toLowerCase().includes(q)).sort((a,b)=>a.w.nombre.localeCompare(b.w.nombre));
      const entregadas=g.rows.filter(r=>r.c.entregado).length;
@@ -1334,6 +1336,28 @@ function entCatBotones(cs,donde){const sel=entCatSel(cs);
      <span class="entbar"><i style="width:${x.pct}%"></i></span>
      <span class="entcard-s">${x.prom!=null?`Resultado promedio <b>${x.prom} %</b>${k==="formativa"?" (sin nota)":""}`:"Resultado promedio —"}</span>
      <span class="entcard-s">${x.pend?`⏳ ${x.pend} pendiente${x.pend===1?"":"s"}`:""}${x.pend&&x.venc?" · ":""}${x.venc?`<span style="color:var(--bad)">❌ ${x.venc} no realizado${x.venc===1?"":"s"}</span>`:""}</span></button>`}).join("")}</div></div>`}
+// «📊 Resumen de notas»: nota final de cada estudiante en cada trabajo del tipo elegido.
+// La nota es la del informe: promedio solo de lo que pide cada ejercicio (machote, asiento, evaluaciones).
+function resumenNotasHTML(G,q){
+  if(!G.length)return "";
+  const est={};for(const g of G)for(const r of g.rows){if(q&&!(r.w.nombre+" "+r.w.id).toLowerCase().includes(q))continue;(est[r.w.id]=est[r.w.id]||{w:r.w,c:{}}).c[g.key]=r.c}
+  const L=Object.values(est).sort((a,b)=>(a.w.seccion||"").localeCompare(b.w.seccion||"")||a.w.nombre.localeCompare(b.w.nombre));
+  // Lo que pide el ejercicio: partes que se evalúan en él y que algún estudiante ya tiene calificadas.
+  const pide=g=>{const e=compsDe(g.rows[0].c),hay={};for(const r of g.rows){try{const R=resumenInforme(r.c);COMP_AC.forEach(([k])=>{if(R[k]!=null)hay[k]=1})}catch(x){}}
+    const ks=COMP_AC.filter(([k])=>e[k]&&hay[k]);return ks.length?ks.map(([,n])=>n).join(" + "):"Sin partes calificadas todavía"};
+  const nota=c=>{if(!c)return null;try{return resumenInforme(c).nota}catch(e){return null}};
+  const celda=c=>{if(!c)return '<td class="muted">—</td>';const n=nota(c),ley=leyendaNoRealizado(c);
+    if(n==null)return `<td>${ley?'<span style="color:var(--bad)">❌</span>':'<small class="muted">Sin nota</small>'}</td>`;
+    const col=n>=85?"var(--ok)":n>=60?"var(--pop)":"var(--bad)";const cf=c.evalCfg||{},ind=(cf.indicador&&cf.indicador.id)?cf.indicador:(cf.indicadores||[])[0],max=(ind&&ind.max)||3;
+    return `<td class="num"><b style="color:${col}">${n} %</b>${ind&&!esFormativa(c)?`<br><small class="muted">${puntajeIndicador(n,max)}/${max} pts</small>`:""}${c.entregado?"":'<br><small class="muted">sin entregar</small>'}</td>`};
+  const filas=L.map(x=>{const ns=G.map(g=>nota(x.c[g.key])).filter(v=>v!=null),pr=ns.length?Math.round(ns.reduce((a,b)=>a+b,0)/ns.length):null;
+    return `<tr><td><b>${esc(x.w.nombre)}</b> <small class="muted">${esc(x.w.seccion||"")}</small></td>${G.map(g=>celda(x.c[g.key])).join("")}<td class="num"><b>${pr!=null?pr+" %":"—"}</b></td></tr>`});
+  const prom=g=>{const ns=g.rows.map(r=>nota(r.c)).filter(v=>v!=null);return ns.length?Math.round(ns.reduce((a,b)=>a+b,0)/ns.length)+" %":"—"};
+  return `<details class="panel" style="margin:0 0 10px"${APP.resNotasOpen?" open":""} data-resnotas><summary style="cursor:pointer;font-weight:800">📊 Resumen de notas finales · ${esc((ENT_CATS.find(x=>x[0]===G[0].cat)||[,"Prácticas generales"])[1])}</summary>
+    <p class="muted" style="margin:6px 0;font-size:.85rem">Nota de cada trabajo según lo que pide ese ejercicio (se promedian solo sus partes evaluadas). Debajo, el puntaje del indicador ligado en la Rúbrica.${G[0].cat==="formativa"?" Las prácticas formativas no cuentan para la nota.":""}</p>
+    <div class="tbl"><table><thead><tr><th>Estudiante</th>${G.map((g,i)=>`<th title="${esc(g.name)}">${esc(g.name)}<br><small class="muted" style="font-weight:400">${esc(pide(g))}</small></th>`).join("")}<th>Promedio</th></tr></thead>
+    <tbody>${filas.join("")}<tr><td><b>Promedio del grupo</b></td>${G.map(g=>`<td class="num"><b>${prom(g)}</b></td>`).join("")}<td></td></tr></tbody></table></div></details>`;
+}
 function materialEntregadoHTML(){
   if(!APP.me)return "";
   const prof=isTeacher()||APP.comoEstudiante;
