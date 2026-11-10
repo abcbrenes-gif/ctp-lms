@@ -69,6 +69,7 @@ async function render() {
   if (hash === "#/asistencia/informe") return renderInformeAsistenciaSeccion();
   if (hash === "#/periodos") return renderPeriodos();
   if (hash === "#/notas-periodo") return renderNotasPeriodo();
+  if (hash === "#/boleta-notas") return renderBoletaNotas();
   if (hash === "#/bitacora") return renderBitacora();
   if (hash === "#/evaluacion") return renderEvaluacionInforme();
   const progUnidadMatch = hash.match(/^#\/programa\/(.+)$/);
@@ -273,6 +274,7 @@ async function renderHome() {
     { grupo: "estrategias", href: "examen.html", icono: "📝", titulo: "Exámenes", sub: "Arme la prueba como borrador, revísela como estudiante y publíquela en la sección (puntos reales y su propio %)", cta: "Abrir exámenes →" },
     { grupo: "estrategias", href: "#/evaluacion", icono: "📑", titulo: "Evaluación", sub: "Por sección: indicadores, trabajo que realizaron los estudiantes y notas, en PDF", cta: "Ver evaluación →" },
     { grupo: "estrategias", href: "#/notas-periodo", icono: "📄", titulo: "Notas por período", sub: "Acta del I Período, nota del II Período y nota anual según el MEP (50 % + 50 %), con PDF", cta: "Ver notas →" },
+    { grupo: "estrategias", href: "#/boleta-notas", icono: "🎓", titulo: "Boleta de notas", sub: "Revise y emita la nota del II Período y la anual; el estudiante abre su boleta con el sello Aprobado o Aplazado", cta: "Ver boleta →" },
     { grupo: "estrategias", href: "#/bitacora", icono: "🕓", titulo: "Bitácora de ingresos", sub: "Quién entró a la plataforma, cuándo, a qué módulo y desde qué dispositivo", cta: "Ver bitácora →" },
     { grupo: "juegos", href: AULA_CONTABLE_URL, icono: "🧮", titulo: "Aula de Conta", sub: "Simulador del ciclo contable (NIC/NIIF)", cta: "Abrir aula →" },
     { grupo: "juegos", href: "liquidaciones.html", icono: "📑", titulo: "Liquidaciones laborales", sub: "Preaviso, cesantía, vacaciones y aguinaldo: calculadora paso a paso y práctica", cta: "Abrir →" },
@@ -2347,6 +2349,7 @@ async function renderPerfil(id, isSelf) {
 
 
       <div id="bitacora-panel" style="margin-bottom:1rem;"></div>
+      <div id="boleta-panel" style="margin-bottom:1rem;"></div>
       <div id="notas-periodo-panel" style="margin-bottom:1rem;"></div>
       ${isSelf ? "" : `<div id="logros-panel" style="margin-bottom:1.3rem;"></div>`}
 
@@ -2370,6 +2373,7 @@ async function renderPerfil(id, isSelf) {
 
   pintarBitacoraPerfil(s, isSelf);
   if (typeof pintarNotasPeriodoPerfil === "function") pintarNotasPeriodoPerfil(s, isSelf).catch(e => console.error("notas por período:", e));
+  if (typeof pintarBoletaPerfil === "function") pintarBoletaPerfil(s, isSelf).catch(e => console.error("boleta:", e));
   ligarMenuEstudiante();
   const verComoBtn = document.getElementById("ver-como-estudiante");
   if (verComoBtn) verComoBtn.addEventListener("click", () => { previewEstudianteId = s.id; renderPerfil(s.id, true); });
