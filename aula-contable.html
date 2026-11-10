@@ -296,6 +296,14 @@ body.rail-collapsed #railWrap{display:none}
 }
 @media (max-width:640px){.steps .step .t{display:none}.steps .step{padding:8px}.steps .step.on .t{display:block;flex:none}.steps .step.on{flex:2 1 0}}
 @media (max-width:640px){.toast{left:16px;right:16px;max-width:none}.btn{min-height:48px}.btn.sm{min-height:42px}}
+.entres{display:grid;gap:10px;margin:10px 0}
+.entres-g{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:center;font-size:.9rem}.entres-g .entbar{grid-column:1/-1}
+.entcards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}@media(max-width:760px){.entcards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.entcard{display:flex;flex-direction:column;gap:3px;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);cursor:pointer;font:inherit;min-width:0}
+.entcard.on{border:2px solid var(--accent);box-shadow:var(--shadow)}.entcard:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.entcard-t{font-weight:700;font-size:.86rem}.entcard-n{font-size:1.6rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}.entcard-n small{font-size:.95rem;color:var(--muted);font-weight:600}
+.entcard-s{font-size:.78rem;color:var(--muted)}.entcard-s b{color:var(--ink)}
+.entbar{display:block;height:6px;border-radius:4px;background:var(--surface2);overflow:hidden}.entbar i{display:block;height:100%;background:var(--accent)}
 </style>
 
 <style>
@@ -1190,7 +1198,7 @@ function detallePill(k){
       const celdas=P.map(n=>{const c=cs.find(x=>String(x.name||"").trim()===n);if(!c)return '<td class="muted">—</td>';const [k]=estadoFormativa(c),v=notaPct(c);return `<td style="white-space:nowrap">${k==="ok"?"✅":k==="tarde"?"🟠":k==="no"?"❌":k==="atr"?"⏳":"—"}${c.entregado&&v!=null?" "+v+" %":""}</td>`}).join("");
       return `<tr><td>${nom(w)}</td><td class="num"><b>${cnt("ok")+cnt("tarde")}/${cs.length}</b></td><td class="num">${cnt("ok")}</td><td class="num">${cnt("tarde")}</td><td class="num">${cnt("no")+cnt("atr")}</td><td class="num">${ps.length?Math.round(ps.reduce((a,b)=>a+b,0)/ps.length)+" %":"—"}</td>${celdas}</tr>`});
     return caja("🧩 Reporte de prácticas formativas (sin nota)",["Estudiante","Hechas","A tiempo","Tarde","No hechas (vencidas)","Promedio",...P.map((n,i)=>`<span title="${esc(n)}">P${i+1}</span>`)],rows,`${P.map((n,i)=>`P${i+1}: ${esc(n)}`).join(" · ")||"Todavía no hay prácticas formativas."} · ✅ a tiempo · 🟠 tarde · ❌ no la hizo · ⏳ no la entregó · — pendiente. El % es su resultado, no cuenta para la nota.`)}
-  if(k==="entregados"){const todos=[];for(const w of L)for(const c of w.companies)if(unaEntrega(c)&&c.entregado)todos.push(c);const cat=entCatSel(todos),rows=[];
+  if(k==="entregados"){const todos=[];for(const w of L)for(const c of w.companies)if(unaEntrega(c))todos.push(c);const cat=entCatSel(todos),rows=[];
     for(const w of L)for(const c of w.companies)if(unaEntrega(c)&&c.entregado&&catDe(c)===cat)rows.push(`<tr><td>${nom(w)}</td><td>${chipCat(catDe(c))} ${esc(c.name)}</td><td>${fecha(c.entregadoFecha)}</td></tr>`);
     return caja("✅ Trabajos entregados",["Estudiante","Trabajo","Entregado el"],rows,"",entCatBotones(todos,"rep"))}
   if(k==="pendientes"){const rows=[];for(const w of L)for(const c of w.companies)if(unaEntrega(c)&&!c.entregado){const t=trabajo(c);rows.push(`<tr><td>${nom(w)}</td><td>${chipCat(catDe(c))} ${esc(c.name)}</td><td>${leyendaNoRealizado(c)?`<span class="chip" style="font-size:.7rem;background:var(--badbg);color:var(--bad)">❌ ${esc(leyendaNoRealizado(c))}</span>${noRealizado(c)==="avance"?` <button class="btn sm pop" data-act="finalizarEntrega" data-est="${esc(w.id)}" data-co="${esc(c.id)}">✅ Finalizar y marcar entregado</button>`:""}`:t?'<span class="chip tG" style="font-size:.7rem">En proceso</span>':'<span class="chip" style="font-size:.7rem">⏳ Sin empezar</span>'}</td><td>${fecha(w.actualizado)}</td></tr>`)}
@@ -1301,8 +1309,17 @@ function formativasEstudianteHTML(){
 // Cuatro botones para ver los trabajos por tipo (profe y estudiantes).
 const ENT_CATS=[["evaluativa","📝 Prácticas evaluativas"],["tarea","📌 Tareas"],["formativa","🧩 Prácticas formativas"],["casa","😊 Trabajo en casa"]];
 function entCatSel(cs){const n=k=>cs.filter(c=>catDe(c)===k).length;if(!APP.entCat||!ENT_CATS.some(([k])=>k===APP.entCat))APP.entCat=(ENT_CATS.find(([k])=>n(k))||ENT_CATS[0])[0];return APP.entCat}
-function entCatBotones(cs,donde){const sel=entCatSel(cs),n=k=>cs.filter(c=>catDe(c)===k).length;
-  return `<div class="row" role="tablist" aria-label="Tipo de trabajo" style="gap:6px;flex-wrap:wrap;margin:8px 0">${ENT_CATS.map(([k,t])=>`<button type="button" role="tab" aria-selected="${k===sel}" class="btn sm ${k===sel?"primary":""}" data-act="entCat" data-k="${k}" data-donde="${donde||""}">${t} <span style="opacity:.75">(${n(k)})</span></button>`).join("")}</div>`}
+// Tarjetas-botón con el resumen de avance de cada tipo: entregados / asignados, barra y resultado promedio.
+function entCatBotones(cs,donde){const sel=entCatSel(cs);
+  const st=k=>{const L=cs.filter(c=>catDe(c)===k),E=L.filter(c=>c.entregado),ps=E.map(notaPct).filter(x=>x!=null),venc=L.filter(c=>!c.entregado&&noRealizado(c)).length;
+    return {tot:L.length,ent:E.length,pct:L.length?Math.round(E.length*100/L.length):0,prom:ps.length?Math.round(ps.reduce((a,b)=>a+b,0)/ps.length):null,venc,pend:L.length-E.length-venc}};
+  const T=ENT_CATS.map(([k])=>st(k)),tot=T.reduce((a,x)=>a+x.tot,0),ent=T.reduce((a,x)=>a+x.ent,0),g=tot?Math.round(ent*100/tot):0;
+  return `<div class="entres"><div class="entres-g"><span>Avance general${donde==="rep"?" del grupo":""}</span><b>${ent} de ${tot} entregados · ${g} %</b><div class="entbar"><i style="width:${g}%"></i></div></div>
+   <div class="entcards" role="tablist" aria-label="Tipo de trabajo">${ENT_CATS.map(([k,t],i)=>{const x=T[i];return `<button type="button" role="tab" aria-selected="${k===sel}" class="entcard${k===sel?" on":""}" data-act="entCat" data-k="${k}">
+     <span class="entcard-t">${t}</span><span class="entcard-n">${x.ent}<small>/${x.tot}</small></span><span class="entcard-s">${x.tot?x.pct+" % entregado":"Sin trabajos"}</span>
+     <span class="entbar"><i style="width:${x.pct}%"></i></span>
+     <span class="entcard-s">${x.prom!=null?`Resultado promedio <b>${x.prom} %</b>${k==="formativa"?" (sin nota)":""}`:"Resultado promedio —"}</span>
+     <span class="entcard-s">${x.pend?`⏳ ${x.pend} pendiente${x.pend===1?"":"s"}`:""}${x.pend&&x.venc?" · ":""}${x.venc?`<span style="color:var(--bad)">❌ ${x.venc} no realizado${x.venc===1?"":"s"}</span>`:""}</span></button>`}).join("")}</div></div>`}
 function materialEntregadoHTML(){
   if(!APP.me)return "";
   const prof=isTeacher()||APP.comoEstudiante;
