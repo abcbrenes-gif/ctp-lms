@@ -349,10 +349,11 @@ async function listaProfe(){$("#app").innerHTML='<p class="muted">Cargando exám
       <div class="row small"><span class="chip ${ex.publicado?"ok":"warn"}">${ex.publicado?"📢 Publicado":"✏️ Borrador (los estudiantes no lo ven)"}</span><span class="chip">${esc(nomMat(ex.materia_id))}</span><span class="chip">${n} ítems · ${fmtPts(totalPts(ex))} pts</span><span class="chip">${fmtPts(ex.peso)} %</span></div>
       <p class="small muted" style="margin:6px 0 0">Inicia: ${fmtFH(ex.inicio)}${ex.cierre?" · Cierra: "+fmtFH(ex.cierre):""}${ex.duracion?" · "+ex.duracion+" min":""}${ex.publicado||c.e||c.c?` · <b>${c.e}</b> entregados${c.c?`, ${c.c} en curso`:""}`:""}</p></div>
       <div class="row"><button onclick="location.hash='#/editar/${t.id}'">✏️ Editar</button><button onclick="location.hash='#/previa/${t.id}'">👁 Ver como estudiante</button><button onclick="location.hash='#/resultados/${t.id}'">📊 Resultados</button>
-      <button class="${ex.publicado?"":"pri"}" data-pub="${t.id}">${ex.publicado?"🙈 Ocultar":"📢 Publicar"}</button><button data-print="${t.id}">🖨️ Imprimir</button><button data-dup="${t.id}">⧉ Duplicar</button>${!ex.publicado&&!ex.indicador_id&&!(c.e||c.c)?`<button class="danger" data-del="${t.id}">🗑</button>`:""}</div></div></div>`}).join(""):`<div class="card"><p>Todavía no hay exámenes. Toque <b>＋ Nuevo examen</b> para armar el primero.</p></div>`}`;
+      <button class="${ex.publicado?"":"pri"}" data-pub="${t.id}">${ex.publicado?"🙈 Ocultar":"📢 Publicar"}</button><button data-sol="${t.id}">🔑 Solucionario</button><button data-print="${t.id}">🖨️ Imprimir</button><button data-dup="${t.id}">⧉ Duplicar</button>${!ex.publicado&&!ex.indicador_id&&!(c.e||c.c)?`<button class="danger" data-del="${t.id}">🗑</button>`:""}</div></div></div>`}).join(""):`<div class="card"><p>Todavía no hay exámenes. Toque <b>＋ Nuevo examen</b> para armar el primero.</p></div>`}`;
   $("#impJson").onclick=importarJSON;
   $$("[data-pub]").forEach(b=>b.onclick=()=>publicar(S.exs.find(t=>t.id===+b.dataset.pub),b));
   $$("[data-print]").forEach(b=>b.onclick=()=>imprimir(S.exs.find(t=>t.id===+b.dataset.print)));
+  $$("[data-sol]").forEach(b=>b.onclick=()=>imprimir(S.exs.find(t=>t.id===+b.dataset.sol),true));
   $$("[data-dup]").forEach(b=>b.onclick=async()=>{const t=S.exs.find(x=>x.id===+b.dataset.dup);const ex=clone(t.ex);ex.titulo+=" (copia)";ex.publicado=false;ex.indicador_id=null;
     const sel=prompt("¿Para qué sección es la copia?\n"+S.mats.map((m,i)=>`${i+1}. ${nomMat(m.id)}`).join("\n"),"1");if(sel===null)return;const m=S.mats[(+sel||1)-1];if(m)ex.materia_id=m.id;
     try{await guardarExamen({ex});toast("Copia creada como borrador");listaProfe()}catch(e){alert("No se pudo: "+e.message)}});
@@ -816,7 +817,7 @@ function calificarEst(t,f){const ex=t.ex,resp=(f.a&&f.a.respuestas)||{},dp=f.dp|
     toast("💾 Calificación guardada");dlg.close();resultados(t.id)}}
 
 // ── Imprimir (versión en papel o solucionario) ──
-function imprimir(t){const ex=t.ex,sol=confirm("¿Imprimir con las respuestas correctas (solucionario)?\n\nAceptar = solucionario · Cancelar = examen para el estudiante");
+function imprimir(t,soloVer){const ex=t.ex,sol=soloVer?true:confirm("¿Imprimir con las respuestas correctas (solucionario)?\n\nAceptar = solucionario · Cancelar = examen para el estudiante");
   const w=open("","_blank");if(!w)return alert("Permita las ventanas emergentes para imprimir.");
   const partes=ex.partes.map((p,pi)=>{const its=p.items;
     let cuerpo="";
@@ -828,10 +829,10 @@ function imprimir(t){const ex=t.ex,sol=confirm("¿Imprimir con las respuestas co
       ${p.tipo==="corta"||p.tipo==="num"?`<p style="margin:4px 0 0 18px">${sol?"<b>R/ "+verCorrecta(p,it)+"</b>":"R/ _______________________________"}</p>`:""}
       ${p.tipo==="des"?(sol&&it.guia?`<p style="margin:4px 0 0 18px"><b>Guía:</b> ${nl(it.guia)}</p>`:'<div style="height:120px;border:1px solid #bbb;margin:6px 0 0 18px"></div>'):""}</div>`).join("");
     return `<h3 style="margin:18px 0 4px">Parte ${pi+1}. ${esc(p.titulo)} (${fmtPts(its.reduce((s,i)=>s+(+i.pts||0),0))} pts)</h3><p style="margin:0 0 8px"><i>${nl(p.instrucciones)}</i></p>${String(p.caso||"").trim()?`<div style="border:1px solid #888;padding:8px 10px;margin:0 0 10px;white-space:pre-wrap"><b>${esc(p.casoTitulo||"Caso")}</b><br>${esc(p.caso)}</div>`:""}${cuerpo}`}).join("");
-  w.document.write(`<html><head><meta charset="utf-8"><title>${esc(titEst(ex))}${sol?" · Solucionario":""}</title><style>body{font:12pt/1.4 Arial,sans-serif;color:#000;padding:24px}table.h td{border:1px solid #888;padding:4px 8px}</style></head><body>
+  w.document.write(`<html><head><meta charset="utf-8"><title>${esc(titEst(ex))}${sol?" · Solucionario":""}</title><style>@media print{button{display:none}}body{font:12pt/1.4 Arial,sans-serif;color:#000;padding:24px}table.h td{border:1px solid #888;padding:4px 8px}</style></head><body>
    ${encabezadoHTML(ex,{imprimir:true})}${sol?'<p style="text-align:center;font-weight:800">SOLUCIONARIO</p>':""}
    <p><b>Instrucciones generales:</b> ${nl(ex.instrucciones)}</p>${partes}
-   ${sol&&(ex.tabla||[]).length?`<h3 style="margin-top:24px;page-break-before:always">Tabla de especificaciones</h3><style>td,th{border:1px solid #888;padding:4px 8px}</style>${tablaEspHTML(ex)}`:""}</body></html>`);w.document.close();setTimeout(()=>w.print(),400)}
+   ${sol&&(ex.tabla||[]).length?`<h3 style="margin-top:24px;page-break-before:always">Tabla de especificaciones</h3><style>td,th{border:1px solid #888;padding:4px 8px}</style>${tablaEspHTML(ex)}`:""}</body></html>`);w.document.close();if(soloVer){const b=w.document.createElement("p");b.style.cssText="text-align:center";b.innerHTML='<button onclick="print()" style="font:inherit;padding:8px 14px;cursor:pointer">🖨️ Imprimir solucionario</button>';w.document.body.prepend(b)}else setTimeout(()=>w.print(),400)}
 
 // ═══════════════════ ESTUDIANTE ═══════════════════
 function estadoEx(ex,a){const ahora=Date.now();
