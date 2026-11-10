@@ -1721,7 +1721,15 @@ async function calcularNotaIndicadores(estudianteId, materiaId, categoriaNombre,
       [t.indicador_id, ...(((t.contenido_actividad || {}).indicadores_criterio) || [])].filter(x => x != null && idsConPosibleTrabajo.includes(Number(x)))
         .forEach(id => { habilitadoPorIndicador[id] = (habilitadoPorIndicador[id] || false) || t.habilitado !== false; });
     });
-    indicadores = indicadores.filter(i => !(i.id in habilitadoPorIndicador) || habilitadoPorIndicador[i.id]);
+    // Un trabajo CERRADO que ya se calificó sí cuenta: cerrar un trabajo después
+    // de hacerlo no lo esconde de la nota. Solo se ocultan los que están cerrados
+    // y que este estudiante todavía no tiene calificados (p. ej. una prueba en preparación).
+    const ocultos = indicadores.filter(i => (i.id in habilitadoPorIndicador) && !habilitadoPorIndicador[i.id]).map(i => i.id);
+    if (ocultos.length) {
+      const { data: yaCalif } = await sb.from("calificaciones_indicador").select("indicador_id").eq("estudiante_id", estudianteId).in("indicador_id", ocultos);
+      const conNota = new Set((yaCalif || []).map(c => c.indicador_id));
+      indicadores = indicadores.filter(i => !ocultos.includes(i.id) || conNota.has(i.id));
+    }
   }
 
   if (indicadores.length === 0) return null;
