@@ -1241,7 +1241,9 @@ function viewPorEmpresa(){
   return `<div class="row" style="align-items:flex-end;gap:10px"><div class="field" style="flex:0 1 200px"><label for="empSec">Sección</label><select id="empSec"><option value="">Todas</option>${secs.map(x=>`<option ${x===qs?"selected":""}>${esc(x)}</option>`).join("")}</select></div>
    <button class="btn ${APP.revGeneral?"primary":"pop"}" data-act="toggleRevGeneral">📊 Revisión general de prácticas</button><button class="btn pop" data-act="actualizarInforme">📈 Actualizar informe de notas (perfiles)</button></div>
    ${APP.revGeneral?viewRevisionGeneral(grupos):""}
-   ${grupos.map(g=>{
+   ${(()=>{const todos=[];for(const g of grupos)if(g.cat!=="practica")for(const r of g.rows)todos.push(r.c);const nPr=grupos.filter(g=>g.cat==="practica").length;
+     return entCatBotones(todos,"emp")+(nPr?`<div class="row" style="margin:-4px 0 8px"><button type="button" class="btn sm ${APP.entCat==="practica"?"primary":""}" data-act="entCat" data-k="practica">🔄 Prácticas generales (${nPr})</button></div>`:"")})()}
+   ${grupos.filter(g=>g.cat===(APP.entCat||"evaluativa")).map(g=>{
      const rows=g.rows.filter(r=>!q||(r.w.nombre+" "+r.w.id).toLowerCase().includes(q)).sort((a,b)=>a.w.nombre.localeCompare(b.w.nombre));
      const entregadas=g.rows.filter(r=>r.c.entregado).length;
      return `<details class="panel" data-gkey="${esc(g.key)}"${APP.revOpen&&APP.revOpen[g.key]?" open":""}><summary style="cursor:pointer;font-weight:700">${chipCat(g.cat)} ${esc(g.name)} <small class="muted" style="font-weight:400">· ${g.rows.length} estudiante(s)${CATS[g.cat].una?` · ${entregadas} entregaron`:""}</small>${g.cat==="formativa"?(g.rows.some(r=>finVentana(r.c))?' <small class="chip tI" style="font-size:.7rem">Sin nota · solución al entregar</small>':' <small class="chip" style="font-size:.7rem;background:var(--badbg);color:var(--bad)">⚠️ Falta la fecha de entrega</small>'):""}</summary>
@@ -1320,7 +1322,7 @@ function formativasEstudianteHTML(){
 }
 // Cuatro botones para ver los trabajos por tipo (profe y estudiantes).
 const ENT_CATS=[["evaluativa","📝 Prácticas evaluativas"],["tarea","📌 Tareas"],["formativa","🧩 Prácticas formativas"],["casa","😊 Trabajo en casa"]];
-function entCatSel(cs){const n=k=>cs.filter(c=>catDe(c)===k).length;if(!APP.entCat||!ENT_CATS.some(([k])=>k===APP.entCat))APP.entCat=(ENT_CATS.find(([k])=>n(k))||ENT_CATS[0])[0];return APP.entCat}
+function entCatSel(cs){const n=k=>cs.filter(c=>catDe(c)===k).length;if(APP.entCat==="practica")return "practica";if(!APP.entCat||!ENT_CATS.some(([k])=>k===APP.entCat))APP.entCat=(ENT_CATS.find(([k])=>n(k))||ENT_CATS[0])[0];return APP.entCat}
 // Tarjetas-botón con el resumen de avance de cada tipo: entregados / asignados, barra y resultado promedio.
 function entCatBotones(cs,donde){const sel=entCatSel(cs);
   const st=k=>{const L=cs.filter(c=>catDe(c)===k),E=L.filter(c=>c.entregado),ps=E.map(notaPct).filter(x=>x!=null),venc=L.filter(c=>!c.entregado&&noRealizado(c)).length;
