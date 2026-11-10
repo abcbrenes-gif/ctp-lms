@@ -626,6 +626,8 @@ const trabajoHecho=c=>{const p=(c&&c.payroll)||{};return !!((c.entries||[]).leng
 // «No realizó el trabajo en el tiempo asignado»: cerró y no entregó (tareas, evaluativas, en casa) o no trabajó nada (prácticas).
 function noRealizado(c){if(!c||!yaCerro(c))return null;if(unaEntrega(c)){if(c.entregado)return null;return trabajoHecho(c)?"avance":"nada"}return trabajoHecho(c)?null:"nada"}
 // Informe de ingresos (bitácora) para un trabajo no realizado: ¿entró a Aula de Conta en el tiempo asignado y cuándo?
+// La bitácora de ingresos empezó a registrar el 31 de octubre de 2026: antes no hay datos.
+const BITACORA_INICIO=Date.parse("2026-10-31T18:00:00Z");
 const MOD_NOM={aula_conta:"Aula de Conta",plataforma:"Plataforma",laboral:"Ruta Laboral",liquidaciones:"Liquidaciones",seguros:"Misión Seguros",examenes:"Exámenes",tiradera:"La Tiradera"};
 function ventanaDe(c){const cf=(c&&c.evalCfg)||{},fin=finVentana(c)||(cf.cierre&&cf.cierre.fecha?new Date(cf.cierre.fecha).getTime():null);
   const ini=cf.ventana&&cf.ventana.inicio?new Date(cf.ventana.inicio).getTime():c.asignadaEl?new Date(c.asignadaEl).getTime():fin?fin-14*864e5:null;return {ini,fin}}
@@ -636,8 +638,10 @@ function ingresoNR(estId,c){if(!estId||!noRealizado(c)||!(isTeacher()||APP.comoE
   const f=t=>new Date(t).toLocaleString("es-CR",{weekday:"short",day:"numeric",month:"short",hour:"numeric",minute:"2-digit"});
   const {ini,fin}=ventanaDe(c),den=d.filas.filter(x=>{const t=new Date(x.fecha).getTime();return (!ini||t>=ini)&&(!fin||t<=fin)}),aula=den.filter(x=>x.modulo==="aula_conta"),otras=den.length-aula.length;
   const despues=fin?d.filas.filter(x=>x.modulo==="aula_conta"&&new Date(x.fecha).getTime()>fin):[];
+  if(fin&&fin<BITACORA_INICIO)return `<div class="panel" style="margin-top:6px;padding:8px 10px;font-size:.82rem;max-width:440px;white-space:normal"><b>🕓 Sin registro de ingresos</b><br>Este trabajo cerró el ${esc(f(fin))}, antes de que la plataforma empezara a registrar los ingresos (31 de octubre).${despues.length?`<br><small class="muted">Después del cierre entró ${despues.length} ${despues.length===1?"vez":"veces"} a Aula de Conta (último: ${esc(f(despues[0].fecha))}).</small>`:""}</div>`;
+  const parcial=ini&&ini<BITACORA_INICIO;
   return `<div class="panel" style="margin-top:6px;padding:8px 10px;font-size:.82rem;max-width:440px;white-space:normal">
-    <b>🕓 Ingresos del ${ini?esc(f(ini)):"inicio"} al ${fin?esc(f(fin)):"cierre"}</b><br>
+    ${parcial?'<small class="muted">Solo hay registro desde el 31 de octubre.</small><br>':""}<b>🕓 Ingresos del ${ini?esc(f(ini)):"inicio"} al ${fin?esc(f(fin)):"cierre"}</b><br>
     ${aula.length?`<span style="color:var(--ok)">✅ Sí entró a Aula de Conta ${aula.length} ${aula.length===1?"vez":"veces"}</span>, pero no realizó el trabajo.`:`<span style="color:var(--bad)">❌ No entró a Aula de Conta en ese tiempo.</span>`}
     ${otras?`<br>Entró a otras partes de la plataforma ${otras} ${otras===1?"vez":"veces"}.`:den.length?"":"<br>Tampoco entró a la plataforma."}
     ${den.length?`<ul style="margin:4px 0 0 16px;padding:0">${den.slice(0,12).map(x=>`<li>${esc(f(x.fecha))} · ${esc(MOD_NOM[x.modulo]||x.modulo)}${x.dispositivo?` <small class="muted">(${esc(x.dispositivo)})</small>`:""}</li>`).join("")}${den.length>12?`<li class="muted">y ${den.length-12} más</li>`:""}</ul>`:""}
