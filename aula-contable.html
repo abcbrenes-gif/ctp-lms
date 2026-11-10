@@ -1182,7 +1182,7 @@ function detallePill(k){
   const filtro=`<div class="field" style="flex:0 1 180px;margin:0"><label for="pillSec">Sección</label><select id="pillSec"><option value="">Todas</option>${secs.map(x=>`<option ${x===qs?"selected":""}>${esc(x)}</option>`).join("")}</select></div>`;
   const trabajo=c=>{try{const R=plResumen([c]);return (c.entries||[]).length||R.casOk||R.asPlIntentos||R.evals||R.planillas}catch(e){return (c.entries||[]).length}};
   const fecha=v=>v?esc(fmtDate(v)):'<span class="muted">—</span>';
-  const caja=(titulo,head,rows,nota)=>`<div class="panel stack" style="margin:-4px 0 14px"><div class="row" style="align-items:flex-end;justify-content:space-between"><h3 style="margin:0">${titulo}</h3>${filtro}</div>${nota?`<p class="muted" style="margin:0;font-size:.86rem">${nota}</p>`:""}
+  const caja=(titulo,head,rows,nota,extra)=>`<div class="panel stack" style="margin:-4px 0 14px"><div class="row" style="align-items:flex-end;justify-content:space-between"><h3 style="margin:0">${titulo}</h3>${filtro}</div>${nota?`<p class="muted" style="margin:0;font-size:.86rem">${nota}</p>`:""}${extra||""}
     <div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.length?rows.join(""):`<tr><td colspan="${head.length}" class="muted">No hay.</td></tr>`}</tbody></table></div></div>`;
   const nom=w=>`<b>${esc(w.nombre)}</b> <small class="muted">${esc(w.seccion||"")}</small>`;
   if(k==="formativas"){const P=[];for(const w of L)for(const c of w.companies)if(esFormativa(c)){const n=String(c.name||"").trim();if(!P.includes(n))P.push(n)}
@@ -1190,8 +1190,9 @@ function detallePill(k){
       const celdas=P.map(n=>{const c=cs.find(x=>String(x.name||"").trim()===n);if(!c)return '<td class="muted">—</td>';const [k]=estadoFormativa(c),v=notaPct(c);return `<td style="white-space:nowrap">${k==="ok"?"✅":k==="tarde"?"🟠":k==="no"?"❌":k==="atr"?"⏳":"—"}${c.entregado&&v!=null?" "+v+" %":""}</td>`}).join("");
       return `<tr><td>${nom(w)}</td><td class="num"><b>${cnt("ok")+cnt("tarde")}/${cs.length}</b></td><td class="num">${cnt("ok")}</td><td class="num">${cnt("tarde")}</td><td class="num">${cnt("no")+cnt("atr")}</td><td class="num">${ps.length?Math.round(ps.reduce((a,b)=>a+b,0)/ps.length)+" %":"—"}</td>${celdas}</tr>`});
     return caja("🧩 Reporte de prácticas formativas (sin nota)",["Estudiante","Hechas","A tiempo","Tarde","No hechas (vencidas)","Promedio",...P.map((n,i)=>`<span title="${esc(n)}">P${i+1}</span>`)],rows,`${P.map((n,i)=>`P${i+1}: ${esc(n)}`).join(" · ")||"Todavía no hay prácticas formativas."} · ✅ a tiempo · 🟠 tarde · ❌ no la hizo · ⏳ no la entregó · — pendiente. El % es su resultado, no cuenta para la nota.`)}
-  if(k==="entregados"){const rows=[];for(const w of L)for(const c of w.companies)if(unaEntrega(c)&&c.entregado)rows.push(`<tr><td>${nom(w)}</td><td>${chipCat(catDe(c))} ${esc(c.name)}</td><td>${fecha(c.entregadoFecha)}</td></tr>`);
-    return caja("✅ Trabajos entregados",["Estudiante","Trabajo","Entregado el"],rows)}
+  if(k==="entregados"){const todos=[];for(const w of L)for(const c of w.companies)if(unaEntrega(c)&&c.entregado)todos.push(c);const cat=entCatSel(todos),rows=[];
+    for(const w of L)for(const c of w.companies)if(unaEntrega(c)&&c.entregado&&catDe(c)===cat)rows.push(`<tr><td>${nom(w)}</td><td>${chipCat(catDe(c))} ${esc(c.name)}</td><td>${fecha(c.entregadoFecha)}</td></tr>`);
+    return caja("✅ Trabajos entregados",["Estudiante","Trabajo","Entregado el"],rows,"",entCatBotones(todos,"rep"))}
   if(k==="pendientes"){const rows=[];for(const w of L)for(const c of w.companies)if(unaEntrega(c)&&!c.entregado){const t=trabajo(c);rows.push(`<tr><td>${nom(w)}</td><td>${chipCat(catDe(c))} ${esc(c.name)}</td><td>${leyendaNoRealizado(c)?`<span class="chip" style="font-size:.7rem;background:var(--badbg);color:var(--bad)">❌ ${esc(leyendaNoRealizado(c))}</span>${noRealizado(c)==="avance"?` <button class="btn sm pop" data-act="finalizarEntrega" data-est="${esc(w.id)}" data-co="${esc(c.id)}">✅ Finalizar y marcar entregado</button>`:""}`:t?'<span class="chip tG" style="font-size:.7rem">En proceso</span>':'<span class="chip" style="font-size:.7rem">⏳ Sin empezar</span>'}</td><td>${fecha(w.actualizado)}</td></tr>`)}
     return caja("⏳ Trabajos pendientes de entregar",["Estudiante","Trabajo","Avance","Último guardado del estudiante"],rows)}
   if(k==="practicas"){const by={};for(const w of L)for(const c of w.companies)if(!unaEntrega(c)){const n=String(c.name||"").trim();const g=by[n.toLowerCase()]=by[n.toLowerCase()]||{n,tot:0,con:[],sin:[]};g.tot++;(trabajo(c)?g.con:g.sin).push(w.nombre)}
@@ -1297,6 +1298,11 @@ function formativasEstudianteHTML(){
   return `<details class="panel" style="margin:8px 0" open><summary style="cursor:pointer;font-weight:800">🧩 Mis prácticas formativas <small class="muted" style="font-weight:400">· hiciste ${hechas.length} de ${cs.length}${prom!=null?` · promedio ${prom} %`:""} · no cuentan para la nota</small></summary>
     <div class="tbl" style="margin-top:8px"><table><thead><tr><th>Práctica</th><th>Fecha de entrega</th><th>Estado</th><th>Resultado</th><th>Solución</th></tr></thead><tbody>${cs.map(fila).join("")}</tbody></table></div></details>`;
 }
+// Cuatro botones para ver los trabajos por tipo (profe y estudiantes).
+const ENT_CATS=[["evaluativa","📝 Prácticas evaluativas"],["tarea","📌 Tareas"],["formativa","🧩 Prácticas formativas"],["casa","😊 Trabajo en casa"]];
+function entCatSel(cs){const n=k=>cs.filter(c=>catDe(c)===k).length;if(!APP.entCat||!ENT_CATS.some(([k])=>k===APP.entCat))APP.entCat=(ENT_CATS.find(([k])=>n(k))||ENT_CATS[0])[0];return APP.entCat}
+function entCatBotones(cs,donde){const sel=entCatSel(cs),n=k=>cs.filter(c=>catDe(c)===k).length;
+  return `<div class="row" role="tablist" aria-label="Tipo de trabajo" style="gap:6px;flex-wrap:wrap;margin:8px 0">${ENT_CATS.map(([k,t])=>`<button type="button" role="tab" aria-selected="${k===sel}" class="btn sm ${k===sel?"primary":""}" data-act="entCat" data-k="${k}" data-donde="${donde||""}">${t} <span style="opacity:.75">(${n(k)})</span></button>`).join("")}</div>`}
 function materialEntregadoHTML(){
   if(!APP.me)return "";
   const prof=isTeacher()||APP.comoEstudiante;
@@ -1307,7 +1313,7 @@ function materialEntregadoHTML(){
       <td>${pdf&&pdf.url?(verPdf?`<a class="btn sm primary" href="${esc(pdf.url)}" target="_blank" rel="noopener">📄 Abrir PDF</a><br><small class="muted">Guardado el ${esc(fmtDate(pdf.fecha))}${pdf.total?` · ${pdf.ok}/${pdf.total} casillas`:""}</small>`:'<small class="muted">🔒 Disponible cuando el profe habilite la descarga</small>'):'<small class="muted">Sin PDF (no guardó la planilla)</small>'}</td>
       <td><button class="btn sm" data-act="abrirComparacion" data-id="${esc(c.id)}">📋 Trabajo y solución</button></td></tr>`};
   return `<details class="panel" style="margin:8px 0"${APP.comoEstudiante?" open":""}><summary style="cursor:pointer;font-weight:800">📂 Material entregado${prof?" de "+esc(APP.me.nombre):""} <small class="muted" style="font-weight:400">· ${cs.filter(c=>c.entregado).length} entregado(s) · ${cs.filter(c=>c.payroll&&c.payroll.pdfResultados&&c.payroll.pdfResultados.url).length} PDF</small></summary>
-    ${cs.length?`<div class="tbl" style="margin-top:8px"><table><thead><tr><th>Trabajo</th><th>Estado</th><th>PDF de resultados</th><th></th></tr></thead><tbody>${cs.map(fila).join("")}</tbody></table></div>`:'<p class="muted" style="margin:8px 0 0">Todavía no hay trabajos asignados ni entregados.</p>'}</details>`;
+    ${cs.length?(()=>{const k=entCatSel(cs),ver=cs.filter(c=>catDe(c)===k);return entCatBotones(cs,"mat")+(ver.length?`<div class="tbl" style="margin-top:4px"><table><thead><tr><th>Trabajo</th><th>Estado</th><th>PDF de resultados</th><th></th></tr></thead><tbody>${ver.map(fila).join("")}</tbody></table></div>`:`<p class="muted" style="margin:4px 0 0">No hay ${esc((ENT_CATS.find(x=>x[0]===k)||[,""])[1].replace(/^\S+ /,"").toLowerCase())} en esta lista.</p>`)})():'<p class="muted" style="margin:8px 0 0">Todavía no hay trabajos asignados ni entregados.</p>'}</details>`;
 }
 // Vista «Trabajo vs. solución» de una empresa (se abre con ?comparar=<id de la empresa>,
 // desde el informe de Aula de Conta de la plataforma).
@@ -3359,6 +3365,7 @@ document.addEventListener("click",async e=>{
   if(a==="revTab"){APP.revTab=APP.revTab||{};APP.revTab[b.dataset.key]=b.dataset.t;if(b.dataset.t==="ind"&&!APP.indData){render();cargarIndicadoresLms().then(()=>render()).catch(()=>{APP.indData={materias:[],indicadores:[]};render()});return}APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
   if(a==="toggleRevPractica"){APP.revPrac=APP.revPrac||{};APP.revPrac[b.dataset.key]=!APP.revPrac[b.dataset.key];APP.revOpen=APP.revOpen||{};APP.revOpen[b.dataset.key]=true;render();return}
   if(a==="toggleRevGeneral"){APP.revGeneral=!APP.revGeneral;render();return}
+  if(a==="entCat"){APP.entCat=b.dataset.k;render();return}
   if(a==="abrirComparacion"){APP.activeId=b.dataset.id;APP.view="comparacion";render();window.scrollTo(0,0);return}
   if(a==="cierreToggle"){APP.cierreAbierto=!APP.cierreAbierto;if(!APP.cierreAbierto)APP.cierre=null;render();return}
   if(a==="ciExcQuitar"){delete APP.cierre.exc[b.dataset.k];render();return}
