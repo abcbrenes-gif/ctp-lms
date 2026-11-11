@@ -1700,6 +1700,33 @@ async function guardarBonoCategoria(materiaId, categoria, puntos, motivo) {
   await cargarAjustesNota(true);
 }
 
+// ── Ausencias justificadas ──
+// Un indicador justificado para un estudiante (faltó con justificación) no es
+// sumativo para él: sale de la sumatoria (ni sus puntos ni su máximo cuentan).
+// Se guarda en el mismo registro de ajustes: C.justificados["<estudiante>|<indicador>"] = {fecha}.
+async function justificadosDe(estudianteId) {
+  const r = await cargarAjustesNota();
+  const J = ((r && r.contenido_actividad) || {}).justificados || {};
+  const pre = String(estudianteId) + "|";
+  return new Set(Object.keys(J).filter(k => k.startsWith(pre)).map(k => Number(k.slice(pre.length))));
+}
+async function justificadosTodos() {
+  const r = await cargarAjustesNota();
+  return { ...((((r && r.contenido_actividad) || {}).justificados) || {}) };
+}
+// cambios: [{ est, ind, on }]
+async function guardarJustificaciones(cambios) {
+  if (!cambios.length) return;
+  const r = await cargarAjustesNota(true);
+  const C = { ...((r && r.contenido_actividad) || {}), estrategia: AJ_ESTR };
+  C.justificados = { ...(C.justificados || {}) };
+  const hoy = new Date().toISOString().slice(0, 10);
+  cambios.forEach(({ est, ind, on }) => { const k = est + "|" + ind; if (on) C.justificados[k] = C.justificados[k] || { fecha: hoy }; else delete C.justificados[k]; });
+  if (r) { const { error } = await sb.from("trabajos_cotidianos").update({ contenido_actividad: C }).eq("id", r.id); if (error) throw new Error(error.message); }
+  else { const { error } = await sb.from("trabajos_cotidianos").insert({ titulo: "Puntos adicionales por componente (registro del profe, no borrar)", tipo_actividad: "rubrica_directa", habilitado: false, contenido_actividad: C }); if (error) throw new Error(error.message); }
+  await cargarAjustesNota(true);
+}
+
 // Calcula la nota (0-100) de un estudiante en una categoría de una materia,
 // a partir de los Indicadores y Criterios de evaluación (si existen).
 async function calcularNotaIndicadores(estudianteId, materiaId, categoriaNombre, soloHabilitados) {
@@ -1739,12 +1766,15 @@ async function calcularNotaIndicadores(estudianteId, materiaId, categoriaNombre,
   const porIndicador = {};
   (calificaciones || []).forEach(c => { porIndicador[c.indicador_id] = c.puntaje_obtenido; });
 
-  const sumaMaxima = indicadores.reduce((a, i) => a + Number(i.puntaje_maximo), 0);
-  const sumaObtenida = indicadores.reduce((a, i) => a + Number(porIndicador[i.id] || 0), 0);
+  // Los justificados (ausencia justificada) no cuentan: ni puntos ni máximo.
+  const justificados = await justificadosDe(estudianteId);
+  const cuentan = indicadores.filter(i => !justificados.has(i.id));
+  const sumaMaxima = cuentan.reduce((a, i) => a + Number(i.puntaje_maximo), 0);
+  const sumaObtenida = cuentan.reduce((a, i) => a + Number(porIndicador[i.id] || 0), 0);
   const notaSinBono = sumaMaxima > 0 ? (sumaObtenida / sumaMaxima) * 100 : null;
   const bono = notaSinBono != null ? await bonoCategoria(materiaId, categoriaNombre) : null;
   const nota = bono ? notaConBono(notaSinBono, bono.puntos, await porcentajeCategoria(categoriaNombre)) : notaSinBono;
-  return { nota, notaSinBono, bono, indicadores, porIndicador, sumaObtenida, sumaMaxima };
+  return { nota, notaSinBono, bono, indicadores, porIndicador, sumaObtenida, sumaMaxima, justificados };
 }
 
 // Para la categoría "Pruebas": cada prueba puede tener su propio peso
@@ -2601,8 +2631,10 @@ async function generarReporteOficial(estudiante, materiaId, periodos) {
       const { data: calificaciones } = await sb.from("calificaciones_indicador").select("*").eq("estudiante_id", estudiante.id).in("indicador_id", indicadorIds);
       const porIndicador = {};
       (calificaciones || []).forEach(c => { porIndicador[c.indicador_id] = c.puntaje_obtenido; });
-      const sumaMax = indicadores.reduce((a, i) => a + Number(i.puntaje_maximo), 0);
-      const sumaObt = indicadores.reduce((a, i) => a + Number(porIndicador[i.id] || 0), 0);
+      const justif = await justificadosDe(estudiante.id);
+      const cuentanR = indicadores.filter(i => !justif.has(i.id));
+      const sumaMax = cuentanR.reduce((a, i) => a + Number(i.puntaje_maximo), 0);
+      const sumaObt = cuentanR.reduce((a, i) => a + Number(porIndicador[i.id] || 0), 0);
       const notaBase = sumaMax > 0 ? (sumaObt / sumaMax) * 100 : 0;
       // Puntos adicionales del componente: cuentan en el período en que se dieron.
       const bonoCat = await bonoCategoria(materiaId, cat.nombre);
@@ -2614,7 +2646,7 @@ async function generarReporteOficial(estudiante, materiaId, periodos) {
         <div class="titulo-principal" style="font-size:1rem; text-align:left; padding:0.5rem 0.8rem;">Evaluación de ${cat.nombre}</div>
         <table>
           <thead><tr>${indicadores.map(i => `<th style="text-align:center;">${i.letra}</th>`).join("")}<th>Resultado de ${cat.nombre.toLowerCase()} (valor: ${cat.porcentaje}%)</th></tr></thead>
-          <tbody><tr>${indicadores.map(i => `<td style="text-align:center;">${porIndicador[i.id] || 0}</td>`).join("")}<td style="text-align:center; font-weight:700;">${fmtPct(contribucion)}</td></tr></tbody>
+          <tbody><tr>${indicadores.map(i => `<td style="text-align:center;">${justif.has(i.id) ? '<span title="Ausencia justificada: no cuenta en la nota">J</span>' : (porIndicador[i.id] || 0)}</td>`).join("")}<td style="text-align:center; font-weight:700;">${fmtPct(contribucion)}</td></tr></tbody>
         </table>
         ${bonoAplica ? `<p style="font-size:0.85rem; margin:0.3rem 0;">Incluye ${bonoCat.puntos} % adicional otorgado a la sección${bonoCat.motivo ? " (" + bonoCat.motivo + ")" : ""}: ${fmtPct(notaBase * cat.porcentaje / 100)} + ${bonoCat.puntos} % = ${fmtPct(contribucion)} (máximo ${cat.porcentaje}%).</p>` : ""}
         <p style="font-weight:600; margin:0.8rem 0 0.3rem;">Indicadores evaluados y criterios de evaluación</p>
@@ -2628,7 +2660,8 @@ async function generarReporteOficial(estudiante, materiaId, periodos) {
             </tr>`).join("")}
           </tbody>
         </table>
-        ${cotejoCeros(indicadores, porIndicador, fechaInicio, fechaFin)}`;
+        ${justif.size && indicadores.some(i => justif.has(i.id)) ? `<p style="font-size:0.8rem; margin:0.3rem 0;">J = ausencia justificada: ese indicador no cuenta en la nota (ni sus puntos ni su máximo).</p>` : ""}
+        ${cotejoCeros(cuentanR, porIndicador, fechaInicio, fechaFin)}`;
       return { html, contribucion };
     }
 

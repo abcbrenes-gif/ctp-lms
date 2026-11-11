@@ -970,9 +970,11 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
       const ult = grupos[grupos.length - 1];
       if (ult && ult.tema === tema) ult.n++; else grupos.push({ tema, n: 1 });
     });
-    const totalMax = inds.reduce((a, i) => a + Number(i.puntaje_maximo || 0), 0);
-    const totalObt = inds.reduce((a, i) => a + Number(info.porIndicador[i.id] || 0), 0);
-    const calif = inds.filter(i => info.porIndicador[i.id] !== undefined);
+    const J = info.justificados || new Set();
+    const cuentan = inds.filter(i => !J.has(i.id));
+    const totalMax = cuentan.reduce((a, i) => a + Number(i.puntaje_maximo || 0), 0);
+    const totalObt = cuentan.reduce((a, i) => a + Number(info.porIndicador[i.id] || 0), 0);
+    const calif = cuentan.filter(i => info.porIndicador[i.id] !== undefined);
     const maxCalif = calif.reduce((a, i) => a + Number(i.puntaje_maximo || 0), 0);
     const pct = totalMax > 0 ? (totalObt / totalMax * 100) : 0;
     const catObj = (categorias || []).find(c => c.nombre === activa);
@@ -986,7 +988,7 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
           <span class="badge">Total acumulado: <strong>${totalObt}</strong> de ${totalMax} puntos</span>
           <span class="badge">Logro: <strong>${pct.toFixed(1)} %</strong></span>
           ${aporte !== null ? `<span class="badge">Aporte a la nota: <strong>${aporte.toFixed(2)} %</strong> de ${catObj.porcentaje} %</span>` : ""}
-          <span class="badge" style="font-weight:400;">${calif.length}/${inds.length} indicadores calificados${calif.length < inds.length ? ` (en los calificados: ${totalObt} de ${maxCalif})` : ""}</span>
+          <span class="badge" style="font-weight:400;">${calif.length}/${cuentan.length} indicadores calificados${calif.length < cuentan.length ? ` (en los calificados: ${totalObt} de ${maxCalif})` : ""}</span>${J.size && inds.some(i => J.has(i.id)) ? `<span class="badge" style="font-weight:400;">${inds.filter(i => J.has(i.id)).length} justificado(s): no cuentan</span>` : ""}
         </div>
         <div style="overflow-x:auto;">
           <table style="border-collapse:collapse; font-size:0.85rem; min-width:100%;">
@@ -1006,7 +1008,7 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
             <tbody>
               <tr>
                 <td style="${celda} text-align:left; font-weight:600;">Mis puntos</td>
-                ${inds.map(i => { const v = info.porIndicador[i.id]; return `<td style="${celda} font-weight:600;${v === undefined ? " color:var(--text-muted);" : Number(v) === 0 ? " color:#c0392b;" : ""}">${v === undefined ? "—" : v}</td>`; }).join("")}
+                ${inds.map(i => { const v = info.porIndicador[i.id]; if (J.has(i.id)) return `<td style="${celda} font-weight:700; color:var(--text-muted);" title="Ausencia justificada: no cuenta en la nota">J</td>`; return `<td style="${celda} font-weight:600;${v === undefined ? " color:var(--text-muted);" : Number(v) === 0 ? " color:#c0392b;" : ""}">${v === undefined ? "—" : v}</td>`; }).join("")}
                 <td style="${tot}">${totalObt}</td>
                 <td style="${tot}">${totalMax}</td>
               </tr>
@@ -1026,7 +1028,7 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
   function tablaIndicadores(m, info) {
     const categoriaObj = categorias.find(c => c.nombre === activa);
     const apPr = /^\s*pruebas\s*$/i.test(activa || "") ? aportePruebasPorMateria[m.id] : null;
-    const resultadoPct = apPr ? apPr.aporte.toFixed(1) : (categoriaObj ? (info.nota * categoriaObj.porcentaje / 100).toFixed(1) : info.nota.toFixed(1));
+    const resultadoPct = apPr ? apPr.aporte.toFixed(1) : (categoriaObj ? ((info.nota ?? 0) * categoriaObj.porcentaje / 100).toFixed(1) : (info.nota ?? 0).toFixed(1));
     const calificados = info.indicadores.filter(i => info.porIndicador[i.id] !== undefined).length;
     return `
       <h4 style="margin-top:1rem; display:flex; align-items:center; gap:0.6rem;">${m.nombre} <span class="badge" style="font-weight:400;">Progreso: ${calificados}/${info.indicadores.length} indicadores calificados</span></h4>
@@ -1042,6 +1044,7 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
             ${info.indicadores.map(i => {
               const obtenido = Number(info.porIndicador[i.id] || 0);
               const sinCalificar = info.porIndicador[i.id] === undefined;
+              const justificado = !!(info.justificados && info.justificados.has(i.id));
               const trabajoPrueba = isSelf ? trabajoPorIndNota[i.id] : null;
               const esPruebaPendiente = trabajoPrueba && trabajoPrueba.tipo_actividad === "prueba" && sinCalificar;
               const aunNoEsHora = esPruebaPendiente && trabajoPrueba.fecha_hora_inicio && new Date(trabajoPrueba.fecha_hora_inicio) > new Date();
@@ -1101,12 +1104,13 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
                   </div>` : ""}
                 </td>
                 <td class="num" style="text-align:center; font-weight:600;">
-                  ${sinCalificar ? `<span class="no-phone-note" style="margin:0;">Sin calificar aún</span>` : `${obtenido} / ${i.puntaje_maximo}`}
+                  ${justificado ? `<span class="badge" title="Ausencia justificada: no cuenta en la nota">J · Justificado</span>` : sinCalificar ? `<span class="no-phone-note" style="margin:0;">Sin calificar aún</span>` : `${obtenido} / ${i.puntaje_maximo}`}
                 </td>
                 ${!isSelf ? `
                 <td style="text-align:center;">
-                  <select data-calif-indicador="${i.id}" data-materia="${m.id}" style="width:4rem; text-align:center; border:1px solid var(--paper-line); border-radius:3px;">
-                    ${Array.from({ length: i.puntaje_maximo + 1 }, (_, p) => `<option value="${p}" ${obtenido === p ? "selected" : ""}>${p}</option>`).join("")}
+                  <select data-calif-indicador="${i.id}" data-materia="${m.id}" title="J = ausencia justificada (no cuenta en la nota)" style="width:4rem; text-align:center; border:1px solid var(--paper-line); border-radius:3px;">
+                    ${Array.from({ length: i.puntaje_maximo + 1 }, (_, p) => `<option value="${p}" ${!justificado && obtenido === p ? "selected" : ""}>${p}</option>`).join("")}
+                    <option value="J" ${justificado ? "selected" : ""}>J</option>
                   </select>
                 </td>` : ""}
               </tr>`;
@@ -1290,10 +1294,17 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
   if (!isSelf) {
     el.querySelectorAll("[data-calif-indicador]").forEach(sel => {
       sel.addEventListener("change", async () => {
-        await sb.from("calificaciones_indicador").upsert(
-          { indicador_id: sel.dataset.califIndicador, estudiante_id: s.id, puntaje_obtenido: Number(sel.value) },
-          { onConflict: "indicador_id,estudiante_id" }
-        );
+        try {
+          if (sel.value === "J") {
+            await guardarJustificaciones([{ est: s.id, ind: Number(sel.dataset.califIndicador), on: true }]);
+          } else {
+            await sb.from("calificaciones_indicador").upsert(
+              { indicador_id: sel.dataset.califIndicador, estudiante_id: s.id, puntaje_obtenido: Number(sel.value) },
+              { onConflict: "indicador_id,estudiante_id" }
+            );
+            await guardarJustificaciones([{ est: s.id, ind: Number(sel.dataset.califIndicador), on: false }]);
+          }
+        } catch (er) { alert("No se pudo guardar: " + er.message); }
         renderNotasInterno(el, s, isSelf, activa);
       });
     });
@@ -9237,8 +9248,10 @@ async function cargarCalificarTodos(materiaId, catNombre, indicadores) {
       if (!cuentan.length) return "—";
       return cuentan.reduce((a, i) => a + (Number(valorDe(i)) || 0) / Number(i.puntaje_maximo) * Number(i.peso_prueba), 0).toFixed(1);
     }
-    const sumaMax = indicadores.reduce((a, i) => a + Number(i.puntaje_maximo), 0);
-    const sumaObt = indicadores.reduce((a, i) => a + Number(valorDe(i) || 0), 0);
+    // «J» (ausencia justificada) no cuenta: ni puntos ni máximo.
+    const cuentan = indicadores.filter(i => valorDe(i) !== "J");
+    const sumaMax = cuentan.reduce((a, i) => a + Number(i.puntaje_maximo), 0);
+    const sumaObt = cuentan.reduce((a, i) => a + Number(valorDe(i) || 0), 0);
     return sumaMax > 0 ? ((sumaObt / sumaMax) * categoriaObj?.porcentaje).toFixed(1) : "—";
   };
   const holder = document.getElementById("calificar-todos-holder");
@@ -9254,6 +9267,10 @@ async function cargarCalificarTodos(materiaId, catNombre, indicadores) {
     : { data: [] };
   const mapa = {}; // "estudianteId-indicadorId" -> puntaje
   (calificaciones || []).forEach(c => { mapa[`${c.estudiante_id}-${c.indicador_id}`] = c.puntaje_obtenido; });
+  // Ausencias justificadas: la celda muestra «J» y no cuenta en la nota.
+  const justTodos = esPruebas ? {} : await justificadosTodos();
+  const esJ = (estId, indId) => !!justTodos[`${estId}|${indId}`];
+  Object.keys(justTodos).forEach(k => { const [e, i] = k.split("|"); if (indicadorIds.includes(Number(i))) mapa[`${e}-${i}`] = "J"; });
 
   const categoriaObj = (await sb.from("rubrica_categorias").select("*").eq("nombre", catNombre).maybeSingle()).data;
 
@@ -9347,7 +9364,7 @@ async function cargarCalificarTodos(materiaId, catNombre, indicadores) {
                   return `
                   <td style="text-align:center;">
                     <select data-cal-masiva="${i.id}" data-estudiante="${st.id}" style="width:4rem; text-align:center; border:1px solid var(--paper-line); border-radius:3px;">
-                      ${Array.from({ length: i.puntaje_maximo + 1 }, (_, p) => `<option value="${p}" ${criteriosPorPuntaje[p] ? `title="${String(criteriosPorPuntaje[p]).replace(/"/g, "&quot;")}"` : ""} ${Number(mapa[`${st.id}-${i.id}`] || 0) === p ? "selected" : ""}>${p}</option>`).join("")}
+                      ${Array.from({ length: i.puntaje_maximo + 1 }, (_, p) => `<option value="${p}" ${criteriosPorPuntaje[p] ? `title="${String(criteriosPorPuntaje[p]).replace(/"/g, "&quot;")}"` : ""} ${mapa[`${st.id}-${i.id}`] !== "J" && Number(mapa[`${st.id}-${i.id}`] || 0) === p ? "selected" : ""}>${p}</option>`).join("")}${esPruebas ? "" : `<option value="J" title="Ausencia justificada: no cuenta en la nota" ${esJ(st.id, i.id) ? "selected" : ""}>J</option>`}
                     </select>
                   </td>`;
                 }).join("")}
@@ -9385,15 +9402,16 @@ async function cargarCalificarTodos(materiaId, catNombre, indicadores) {
   document.getElementById("guardar-calificar-todos").addEventListener("click", async (e) => {
     const btn = e.target;
     btn.textContent = "Guardando…";
-    const filas = [];
+    const filas = [], cambiosJ = [];
     holder.querySelectorAll("[data-cal-masiva]").forEach(sel => {
-      filas.push({
-        indicador_id: sel.dataset.calMasiva,
-        estudiante_id: sel.dataset.estudiante,
-        puntaje_obtenido: Number(sel.value)
-      });
+      const est = sel.dataset.estudiante, ind = Number(sel.dataset.calMasiva);
+      if (sel.value === "J") { if (!esJ(est, ind)) cambiosJ.push({ est, ind, on: true }); return; }
+      if (esJ(est, ind)) cambiosJ.push({ est, ind, on: false });
+      filas.push({ indicador_id: sel.dataset.calMasiva, estudiante_id: est, puntaje_obtenido: Number(sel.value) });
     });
-    await sb.from("calificaciones_indicador").upsert(filas, { onConflict: "indicador_id,estudiante_id" });
+    if (filas.length) await sb.from("calificaciones_indicador").upsert(filas, { onConflict: "indicador_id,estudiante_id" });
+    try { await guardarJustificaciones(cambiosJ); cambiosJ.forEach(({ est, ind, on }) => { if (on) justTodos[`${est}|${ind}`] = {}; else delete justTodos[`${est}|${ind}`]; }); }
+    catch (er) { alert("Las notas se guardaron, pero no las justificaciones: " + er.message); }
     btn.textContent = "Guardado ✓";
     setTimeout(() => { btn.textContent = "Guardar todas las calificaciones"; }, 1500);
   });
