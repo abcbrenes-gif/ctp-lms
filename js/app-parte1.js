@@ -70,6 +70,7 @@ async function render() {
   if (hash === "#/periodos") return renderPeriodos();
   if (hash === "#/notas-periodo") return renderNotasPeriodo();
   if (hash === "#/boleta-notas") return renderBoletaNotas();
+  if (hash === "#/puntos-extra") return renderPuntosExtra();
   if (hash === "#/bitacora") return renderBitacora();
   if (hash === "#/evaluacion") return renderEvaluacionInforme();
   const progUnidadMatch = hash.match(/^#\/programa\/(.+)$/);
@@ -274,6 +275,7 @@ async function renderHome() {
     { grupo: "estrategias", href: "examen.html", icono: "📝", titulo: "Exámenes", sub: "Arme la prueba como borrador, revísela como estudiante y publíquela en la sección (puntos reales y su propio %)", cta: "Abrir exámenes →" },
     { grupo: "estrategias", href: "#/evaluacion", icono: "📑", titulo: "Evaluación", sub: "Por sección: indicadores, trabajo que realizaron los estudiantes y notas, en PDF", cta: "Ver evaluación →" },
     { grupo: "estrategias", href: "#/notas-periodo", icono: "📄", titulo: "Notas por período", sub: "Acta del I Período, nota del II Período y nota anual según el MEP (50 % + 50 %), con PDF", cta: "Ver notas →" },
+    { grupo: "estrategias", href: "#/puntos-extra", icono: "➕", titulo: "Puntos extra", sub: "Suba puntos por estudiante en Trabajo cotidiano, Tareas o Proyectos, con su motivo", cta: "Dar puntos →" },
     { grupo: "estrategias", href: "#/boleta-notas", icono: "🎓", titulo: "Boleta de notas", sub: "Revise y emita la nota del II Período y la anual; el estudiante abre su boleta con el sello Aprobado o Aplazado", cta: "Ver boleta →" },
     { grupo: "estrategias", href: "#/bitacora", icono: "🕓", titulo: "Bitácora de ingresos", sub: "Quién entró a la plataforma, cuándo, a qué módulo y desde qué dispositivo", cta: "Ver bitácora →" },
     { grupo: "juegos", href: AULA_CONTABLE_URL, icono: "🧮", titulo: "Aula de Conta", sub: "Simulador del ciclo contable (NIC/NIIF)", cta: "Abrir aula →" },
@@ -1727,6 +1729,33 @@ async function guardarJustificaciones(cambios) {
   await cargarAjustesNota(true);
 }
 
+// ── Puntos extra por estudiante ──
+// C.bonosEst["<estudiante>|<materia>|<categoría>"] = [{ puntos, motivo, fecha }]
+// Cada entrada suma puntos al APORTE de ese componente en la nota del período
+// (p. ej. Trabajo cotidiano 12 % → 13 %), sin pasar del valor del componente.
+async function bonosEstudiante(estudianteId, materiaId, categoria) {
+  const r = await cargarAjustesNota();
+  return ((((r && r.contenido_actividad) || {}).bonosEst || {})[`${estudianteId}|${materiaId}|${categoria}`] || []).slice();
+}
+async function bonosEstudianteTodos() {
+  const r = await cargarAjustesNota();
+  return { ...((((r && r.contenido_actividad) || {}).bonosEst) || {}) };
+}
+// accion: { est, materia, cat, agregar: {puntos, motivo} } o { est, materia, cat, quitar: índice }
+async function guardarBonoEstudiante(accion) {
+  const r = await cargarAjustesNota(true);
+  const C = { ...((r && r.contenido_actividad) || {}), estrategia: AJ_ESTR };
+  C.bonosEst = { ...(C.bonosEst || {}) };
+  const k = `${accion.est}|${accion.materia}|${accion.cat}`;
+  const L = (C.bonosEst[k] || []).slice();
+  if (accion.agregar) L.push({ puntos: Number(accion.agregar.puntos), motivo: String(accion.agregar.motivo || "").slice(0, 160), fecha: new Date().toISOString().slice(0, 10) });
+  if (accion.quitar != null) L.splice(accion.quitar, 1);
+  if (L.length) C.bonosEst[k] = L; else delete C.bonosEst[k];
+  if (r) { const { error } = await sb.from("trabajos_cotidianos").update({ contenido_actividad: C }).eq("id", r.id); if (error) throw new Error(error.message); }
+  else { const { error } = await sb.from("trabajos_cotidianos").insert({ titulo: "Puntos adicionales por componente (registro del profe, no borrar)", tipo_actividad: "rubrica_directa", habilitado: false, contenido_actividad: C }); if (error) throw new Error(error.message); }
+  await cargarAjustesNota(true);
+}
+
 // Calcula la nota (0-100) de un estudiante en una categoría de una materia,
 // a partir de los Indicadores y Criterios de evaluación (si existen).
 async function calcularNotaIndicadores(estudianteId, materiaId, categoriaNombre, soloHabilitados) {
@@ -1773,8 +1802,11 @@ async function calcularNotaIndicadores(estudianteId, materiaId, categoriaNombre,
   const sumaObtenida = cuentan.reduce((a, i) => a + Number(porIndicador[i.id] || 0), 0);
   const notaSinBono = sumaMaxima > 0 ? (sumaObtenida / sumaMaxima) * 100 : null;
   const bono = notaSinBono != null ? await bonoCategoria(materiaId, categoriaNombre) : null;
-  const nota = bono ? notaConBono(notaSinBono, bono.puntos, await porcentajeCategoria(categoriaNombre)) : notaSinBono;
-  return { nota, notaSinBono, bono, indicadores, porIndicador, sumaObtenida, sumaMaxima, justificados };
+  const extras = notaSinBono != null ? await bonosEstudiante(estudianteId, materiaId, categoriaNombre) : [];
+  const puntosExtra = extras.reduce((a, b) => a + (Number(b.puntos) || 0), 0);
+  const totalBono = (bono ? Number(bono.puntos) : 0) + puntosExtra;
+  const nota = totalBono ? notaConBono(notaSinBono, totalBono, await porcentajeCategoria(categoriaNombre)) : notaSinBono;
+  return { nota, notaSinBono, bono, extras, puntosExtra, indicadores, porIndicador, sumaObtenida, sumaMaxima, justificados };
 }
 
 // Para la categoría "Pruebas": cada prueba puede tener su propio peso
@@ -2639,7 +2671,11 @@ async function generarReporteOficial(estudiante, materiaId, periodos) {
       // Puntos adicionales del componente: cuentan en el período en que se dieron.
       const bonoCat = await bonoCategoria(materiaId, cat.nombre);
       const bonoAplica = bonoCat && (!fechaInicio || bonoCat.fecha >= fechaInicio) && (!fechaFin || bonoCat.fecha <= fechaFin);
-      const notaCat = bonoAplica ? notaConBono(notaBase, bonoCat.puntos, Number(cat.porcentaje)) : notaBase;
+      // Puntos extra del estudiante: cuentan en el período en que se dieron.
+      const extrasP = (await bonosEstudiante(estudiante.id, materiaId, cat.nombre)).filter(b => (!fechaInicio || b.fecha >= fechaInicio) && (!fechaFin || b.fecha <= fechaFin));
+      const ptsExtra = extrasP.reduce((a, b) => a + (Number(b.puntos) || 0), 0);
+      const totBono = (bonoAplica ? Number(bonoCat.puntos) : 0) + ptsExtra;
+      const notaCat = totBono ? notaConBono(notaBase, totBono, Number(cat.porcentaje)) : notaBase;
       const contribucion = notaCat * cat.porcentaje / 100;
 
       const html = `
@@ -2648,7 +2684,7 @@ async function generarReporteOficial(estudiante, materiaId, periodos) {
           <thead><tr>${indicadores.map(i => `<th style="text-align:center;">${i.letra}</th>`).join("")}<th>Resultado de ${cat.nombre.toLowerCase()} (valor: ${cat.porcentaje}%)</th></tr></thead>
           <tbody><tr>${indicadores.map(i => `<td style="text-align:center;">${justif.has(i.id) ? '<span title="Ausencia justificada: no cuenta en la nota">J</span>' : (porIndicador[i.id] || 0)}</td>`).join("")}<td style="text-align:center; font-weight:700;">${fmtPct(contribucion)}</td></tr></tbody>
         </table>
-        ${bonoAplica ? `<p style="font-size:0.85rem; margin:0.3rem 0;">Incluye ${bonoCat.puntos} % adicional otorgado a la sección${bonoCat.motivo ? " (" + bonoCat.motivo + ")" : ""}: ${fmtPct(notaBase * cat.porcentaje / 100)} + ${bonoCat.puntos} % = ${fmtPct(contribucion)} (máximo ${cat.porcentaje}%).</p>` : ""}
+        ${totBono ? `<p style="font-size:0.85rem; margin:0.3rem 0;">Incluye puntos adicionales: ${[bonoAplica ? `${bonoCat.puntos} % a la sección${bonoCat.motivo ? " (" + bonoCat.motivo + ")" : ""}` : "", ...extrasP.map(x => `${x.puntos} % extra${x.motivo ? " (" + x.motivo + ")" : ""}`)].filter(Boolean).join(" + ")}: ${fmtPct(notaBase * cat.porcentaje / 100)} + ${Math.round(totBono * 100) / 100} % = ${fmtPct(contribucion)} (máximo ${cat.porcentaje}%).</p>` : ""}
         <p style="font-weight:600; margin:0.8rem 0 0.3rem;">Indicadores evaluados y criterios de evaluación</p>
         <table>
           <thead><tr><th style="width:45%;">Indicador</th><th style="width:12%;">Puntaje máximo</th><th>Criterios</th></tr></thead>

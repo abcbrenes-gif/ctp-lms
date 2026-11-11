@@ -978,7 +978,10 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
     const maxCalif = calif.reduce((a, i) => a + Number(i.puntaje_maximo || 0), 0);
     const pct = totalMax > 0 ? (totalObt / totalMax * 100) : 0;
     const catObj = (categorias || []).find(c => c.nombre === activa);
-    const aporte = catObj && !/prueba/i.test(activa) ? (pct * Number(catObj.porcentaje) / 100) : null;
+    // info.nota ya trae los puntos adicionales (sección y por estudiante) y deja fuera los justificados.
+    const notaConExtra = info.nota != null ? Number(info.nota) : pct;
+    const aporte = catObj && !/prueba/i.test(activa) ? (notaConExtra * Number(catObj.porcentaje) / 100) : null;
+    const extraTxt = [info.bono ? `${info.bono.puntos} % a la sección` : "", ...((info.extras || []).map(x => `${x.puntos} % extra${x.motivo ? " (" + x.motivo + ")" : ""}`))].filter(Boolean).join(" + ");
     const celda = "text-align:center; padding:0.35rem 0.45rem; border-bottom:1px solid var(--paper-line); white-space:nowrap;";
     const tot = "text-align:center; padding:0.35rem 0.6rem; border-bottom:1px solid var(--paper-line); white-space:nowrap; background:var(--surface-soft); font-weight:700;";
     return `
@@ -988,6 +991,7 @@ async function renderNotasInterno(el, s, isSelf, categoriaActiva) {
           <span class="badge">Total acumulado: <strong>${totalObt}</strong> de ${totalMax} puntos</span>
           <span class="badge">Logro: <strong>${pct.toFixed(1)} %</strong></span>
           ${aporte !== null ? `<span class="badge">Aporte a la nota: <strong>${aporte.toFixed(2)} %</strong> de ${catObj.porcentaje} %</span>` : ""}
+          ${aporte !== null && extraTxt ? `<span class="badge" style="font-weight:400;">Incluye ${escAC(extraTxt)}</span>` : ""}
           <span class="badge" style="font-weight:400;">${calif.length}/${cuentan.length} indicadores calificados${calif.length < cuentan.length ? ` (en los calificados: ${totalObt} de ${maxCalif})` : ""}</span>${J.size && inds.some(i => J.has(i.id)) ? `<span class="badge" style="font-weight:400;">${inds.filter(i => J.has(i.id)).length} justificado(s): no cuentan</span>` : ""}
         </div>
         <div style="overflow-x:auto;">
