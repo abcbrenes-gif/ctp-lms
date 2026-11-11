@@ -102,6 +102,7 @@ table.sheet td.ok{background:var(--ok2)}table.sheet td.bad{background:var(--bad2
 const SES=(()=>{try{return JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")||"null")}catch(e){return null}})();
 const DOC=!!(SES&&SES.role&&SES.role!=="estudiante"),EST_ID=SES&&SES.role==="estudiante"?String(SES.id):null;
 const ESTR="examen_modulo";
+const EXAMENES_ESTUDIANTES=false;
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const nl=s=>esc(s).replace(/\n/g,"<br>");
@@ -335,6 +336,8 @@ async function ruta(){const h=location.hash.replace(/^#\/?/,"").split("/");
   if(RUN){clearInterval(RUN.timer);RUN=null}document.removeEventListener("visibilitychange",salida);document.querySelector("header.top").classList.remove("hidden");
   try{
     if(DOC){if(h[0]==="planear")return planear();if(h[0]==="nuevo")return editor(null);if(h[0]==="editar")return editor(+h[1]);if(h[0]==="previa")return previa(+h[1]);if(h[0]==="resultados")return resultados(+h[1]);return listaProfe()}
+    // Exámenes cerrados para estudiantes por pedido del docente (11-11-2026). Para volver a abrirlos: EXAMENES_ESTUDIANTES=true.
+    if(!EXAMENES_ESTUDIANTES){$("#app").innerHTML='<div class="card"><h2>📝 Exámenes</h2><p>Por ahora no hay exámenes disponibles.</p><a class="btn" href="index.html">← Volver a la plataforma</a></div>';return}
     if(h[0]==="hacer")return hacer(+h[1]);return listaEst()
   }catch(e){console.error(e);$("#app").innerHTML=`<div class="card"><b>No se pudo cargar.</b><p class="muted">${esc(e.message||e)}</p><button onclick="location.reload()">Reintentar</button></div>`}}
 

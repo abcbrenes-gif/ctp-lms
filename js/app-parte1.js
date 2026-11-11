@@ -2935,7 +2935,7 @@ async function actividadGuardadaDesde(desdeISO) {
 // (Mismo estilo que los Accesos rápidos del docente. Los grupos se pueden reorganizar aquí.)
 function gruposMenuEstudiante(s) {
   return [
-    { k: "notas", ic: "📝", t: "Mis notas", sub: "Trabajo cotidiano, notas, tareas, rúbrica y asistencia", items: [["link:examen.html", "📝", "Exámenes"], ["tc", "📋", "Trabajo cotidiano"], ["notas", "📝", "Notas y Tareas"], ["rubrica", "📊", "Rúbrica"], ["asistencia", "🗓️", "Asistencia"]] },
+    { k: "notas", ic: "📝", t: "Mis notas", sub: "Trabajo cotidiano, notas, tareas, rúbrica y asistencia", items: [["tc", "📋", "Trabajo cotidiano"], ["notas", "📝", "Notas y Tareas"], ["rubrica", "📊", "Rúbrica"], ["asistencia", "🗓️", "Asistencia"]] },
     { k: "materias", ic: "📚", t: "Mis materias", sub: "Temas, trabajos y material de clase", items: [["materias-est", "📚", "Materias"], ...(esSeccion113(s.seccion) ? [["infografias", "🖼️", "Mis infografías"]] : [])] },
     { k: "juegos", ic: "🎮", t: "Juegos y simuladores", sub: "Aula de Conta, ContaRed, Liquidaciones, La Tiradera, Planilla Opoly, Misión Seguros y Ruta Laboral CR", items: [
       ["link:" + AULA_CONTABLE_URL + "?como_estudiante=" + encodeURIComponent(s.id), "🧮", "Aula de Conta"],
