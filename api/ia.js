@@ -5,7 +5,8 @@ const FN = {
   "redactar-instruccion-examen": require("../lib/redactar-instruccion-examen.js"),
   "planear-examen": require("../lib/planear-examen.js"),
   "generar-examen-ia": require("../lib/generar-examen-ia.js"),
-  "revisar-ley-infografia": require("../lib/revisar-ley-infografia.js")
+  "revisar-ley-infografia": require("../lib/revisar-ley-infografia.js"),
+  "plan-practica-ia": require("../lib/plan-practica-ia.js")
 };
 module.exports = async (req, res) => {
   const fn = String((req.query && req.query.fn) || "");
