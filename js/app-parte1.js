@@ -1670,7 +1670,7 @@ async function calcularNotaAsistenciaPeriodo(estudianteId, materiaId, fechaInici
 const AJ_ESTR = "ajustes_nota";
 let _ajustesProm = null, _catsProm = null;
 function cargarAjustesNota(forzar) {
-  if (forzar || !_ajustesProm) _ajustesProm = sb.from("trabajos_cotidianos").select("id, contenido_actividad").eq("contenido_actividad->>estrategia", AJ_ESTR).order("id").limit(1)
+  if (forzar || !_ajustesProm) _ajustesProm = Promise.resolve(sb.from("trabajos_cotidianos").select("id, contenido_actividad").eq("contenido_actividad->>estrategia", AJ_ESTR).order("id").limit(1))
     .then(({ data }) => (data || [])[0] || null).catch(() => null);
   return _ajustesProm;
 }
@@ -1680,7 +1680,7 @@ async function bonoCategoria(materiaId, categoria) {
   return b && Number(b.puntos) ? b : null;
 }
 async function porcentajeCategoria(categoria) {
-  if (!_catsProm) _catsProm = sb.from("rubrica_categorias").select("*").then(({ data }) => data || []).catch(() => []);
+  if (!_catsProm) _catsProm = Promise.resolve(sb.from("rubrica_categorias").select("*")).then(({ data }) => data || []).catch(() => []);
   const c = (await _catsProm).find(x => x.nombre === categoria);
   return c ? Number(c.porcentaje) || 0 : 0;
 }
