@@ -71,6 +71,7 @@ async function render() {
   if (hash === "#/notas-periodo") return renderNotasPeriodo();
   if (hash === "#/boleta-notas") return renderBoletaNotas();
   if (hash === "#/puntos-extra") return renderPuntosExtra();
+  if (hash === "#/justificaciones") return renderJustificaciones();
   if (hash === "#/bitacora") return renderBitacora();
   if (hash === "#/evaluacion") return renderEvaluacionInforme();
   const progUnidadMatch = hash.match(/^#\/programa\/(.+)$/);
@@ -276,6 +277,7 @@ async function renderHome() {
     { grupo: "estrategias", href: "#/evaluacion", icono: "📑", titulo: "Evaluación", sub: "Por sección: indicadores, trabajo que realizaron los estudiantes y notas, en PDF", cta: "Ver evaluación →" },
     { grupo: "estrategias", href: "#/notas-periodo", icono: "📄", titulo: "Notas por período", sub: "Acta del I Período, nota del II Período y nota anual según el MEP (50 % + 50 %), con PDF", cta: "Ver notas →" },
     { grupo: "estrategias", href: "planeamiento.html", icono: "📘", titulo: "Planeamiento didáctico", sub: "Plan de práctica pedagógica por unidad de estudio (formato MEP · ETP), con estrategias D/ y E/ propuestas por la IA", cta: "Planificar →" },
+    { grupo: "estrategias", href: "#/justificaciones", icono: "👪", titulo: "Justificaciones", sub: "Los encargados justifican ausencias y tardías (enlace por WhatsApp o código al correo); usted aprueba", cta: "Revisar →" },
     { grupo: "estrategias", href: "#/puntos-extra", icono: "➕", titulo: "Puntos extra", sub: "Suba puntos por estudiante en Trabajo cotidiano, Tareas o Proyectos, con su motivo", cta: "Dar puntos →" },
     { grupo: "estrategias", href: "#/boleta-notas", icono: "🎓", titulo: "Boleta de notas", sub: "Revise y emita la nota del II Período y la anual; el estudiante abre su boleta con el sello Aprobado o Aplazado", cta: "Ver boleta →" },
     { grupo: "estrategias", href: "#/bitacora", icono: "🕓", titulo: "Bitácora de ingresos", sub: "Quién entró a la plataforma, cuándo, a qué módulo y desde qué dispositivo", cta: "Ver bitácora →" },

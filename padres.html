@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Portal de familias · CTP Mercedes Norte</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@600;800&family=Inter:wght@400;500;600;700&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js?v=20261030i"></script>
+<style>
+:root{--bg:#f4f7fb;--card:#fff;--ink:#14213d;--mut:#5b6b80;--line:#dbe3ee;--pri:#1d63e8;--pri2:#e7efff;--ok:#1f8f55;--okbg:#e5f6ec;--bad:#c2410c;--badbg:#fdeee5;--warnbg:#fff6dc}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,system-ui,sans-serif;padding:0 max(16px,env(safe-area-inset-left)) 40px max(16px,env(safe-area-inset-right))}
+.wrap{max-width:720px;margin:0 auto}
+header{display:flex;align-items:center;gap:12px;padding:22px 0 14px}
+.ic{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;color:#fff;background:linear-gradient(145deg,#4f8ef7,#1d63e8);flex:none}
+h1{font:800 1.6rem/1.1 Lexend,Inter,sans-serif;margin:0}
+.sub{color:var(--mut);margin:2px 0 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin:14px 0}
+label{display:block;font-weight:600;margin:10px 0 4px}
+input,select,textarea{width:100%;font:inherit;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+textarea{min-height:90px}
+button{font:600 1rem Inter,sans-serif;border:0;border-radius:12px;padding:12px 18px;cursor:pointer;background:var(--pri);color:#fff}
+button.sec{background:var(--pri2);color:var(--pri)}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #9cc0ff;outline-offset:2px}
+.msg{padding:10px 12px;border-radius:10px;margin:10px 0}.msg.ok{background:var(--okbg);color:var(--ok)}.msg.bad{background:var(--badbg);color:var(--bad)}
+.reg{display:flex;gap:10px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:12px;margin:6px 0;cursor:pointer}
+.reg input{width:auto;transform:scale(1.3)}
+.code{width:2.4rem;height:2.4rem;border-radius:10px;display:grid;place-items:center;font-weight:800;font-size:.8rem;flex:none}
+.reg small{color:var(--mut);display:block}
+.pill{font-size:.78rem;font-weight:700;padding:2px 9px;border-radius:999px}
+.muted{color:var(--mut)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><span class="ic"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+    <div><h1>Portal de familias</h1><p class="sub">CTP Mercedes Norte · Contabilidad · Justificación de ausencias y tardías</p></div></header>
+  <main id="app"><p class="muted">Cargando…</p></main>
+  <p class="muted" style="font-size:.82rem">Este portal es solo para madres, padres y encargados. Cada justificación la revisa y aprueba el docente; mientras tanto queda «pendiente».</p>
+</div>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const TIPO={ausente_injustificada:["A","Ausencia injustificada","#d4a015"],tardia_leve:["TI","Tardía injustificada (menos de 10 min)","#e5484d"],tardia_grave:["TI","Tardía injustificada (10 min o más)","#e5484d"],ausente_justificada:["AJ","Ausencia justificada","#30a46c"],tardia_justificada:["TJ","Tardía justificada","#3b82f6"]};
+const fFecha=f=>{const d=new Date(f+"T12:00:00");const t=d.toLocaleDateString("es-CR",{weekday:"long",day:"numeric",month:"long"});return t[0].toUpperCase()+t.slice(1)};
+const disp=()=>{const u=navigator.userAgent;return (/Mobi|Android|iPhone/i.test(u)?"Celular":"Computadora")+" · "+(/Edg/.test(u)?"Edge":/Chrome/.test(u)?"Chrome":/Safari/.test(u)?"Safari":/Firefox/.test(u)?"Firefox":"Navegador")};
+async function api(body){const r=await fetch("/api/padres",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});const j=await r.json().catch(()=>({error:"Sin respuesta del servidor"}));if(!r.ok)throw new Error(j.error||"Error");return j}
+let TOKEN=null;
+function leerToken(){const m=location.hash.match(/t=([\w.-]+)/);if(m){TOKEN=m[1];try{sessionStorage.setItem("padres_t",TOKEN)}catch(e){}history.replaceState(null,"",location.pathname);return}try{TOKEN=sessionStorage.getItem("padres_t")}catch(e){}}
+
+function vIngreso(msg){
+  $("#app").innerHTML=`<div class="card"><h2 style="margin-top:0">Ingresar con su correo</h2>
+    <p class="muted">Use la cédula del estudiante y el correo que usted dio al colegio. Le enviaremos un código de 6 dígitos. Si recibió un enlace por WhatsApp, ábralo directamente.</p>
+    ${msg?`<div class="msg bad">${esc(msg)}</div>`:""}
+    <label for="ced">Cédula del estudiante</label><input id="ced" inputmode="numeric" placeholder="4-0000-0000" autocomplete="off">
+    <label for="cor">Correo del encargado</label><input id="cor" type="email" autocomplete="email" placeholder="nombre@correo.com">
+    <div style="margin-top:14px"><button id="env">Enviar código</button></div>
+    <div id="paso2" hidden><label for="cod">Código recibido</label><input id="cod" inputmode="numeric" maxlength="6" placeholder="123456"><div style="margin-top:12px"><button id="ver">Entrar</button></div></div>
+    <div id="m"></div></div>`;
+  const m=t=>$("#m").innerHTML=t;
+  $("#env").onclick=async()=>{const est=$("#ced").value.trim(),correo=$("#cor").value.trim();if(!est||!correo)return m('<div class="msg bad">Escriba la cédula y el correo.</div>');
+    $("#env").disabled=true;try{await api({accion:"enviar_codigo",est,correo});$("#paso2").hidden=false;m('<div class="msg ok">Si el correo coincide con el registrado, le llegará el código en unos minutos (revise también «Spam»).</div>');$("#cod").focus()}
+    catch(e){m(`<div class="msg bad">${esc(e.message)}</div>`)}finally{$("#env").disabled=false}};
+  $("#ver").onclick=async()=>{try{const r=await api({accion:"verificar_codigo",est:$("#ced").value.trim(),correo:$("#cor").value.trim(),codigo:$("#cod").value.trim()});TOKEN=r.token;try{sessionStorage.setItem("padres_t",TOKEN)}catch(e){}vPortal()}
+    catch(e){m(`<div class="msg bad">${esc(e.message)}</div>`)}};
+}
+
+async function vPortal(okMsg){
+  $("#app").innerHTML='<p class="muted">Cargando…</p>';
+  let d;try{d=await api({accion:"ver",token:TOKEN})}catch(e){try{sessionStorage.removeItem("padres_t")}catch(x){}TOKEN=null;return vIngreso(e.message)}
+  const pend=new Set(d.solicitudes.filter(s=>s.estado==="pendiente").flatMap(s=>s.registros));
+  const porJustificar=d.registros.filter(r=>["ausente_injustificada","tardia_leve","tardia_grave"].includes(r.estado)&&!pend.has(r.id));
+  const chip=e=>{const t=TIPO[e]||["?",e,"#64748b"];return `<span class="code" style="color:${t[2]};background:${t[2]}22">${t[0]}</span>`};
+  $("#app").innerHTML=`${okMsg?`<div class="msg ok">${esc(okMsg)}</div>`:""}
+   <div class="card"><div class="muted">Estudiante</div><h2 style="margin:.1rem 0 0">${esc(d.estudiante.nombre)}</h2><div class="muted">Sección ${esc(d.estudiante.seccion||"")}${d.via==="wa"?" · enlace enviado por el docente":""}</div></div>
+   <div class="card"><h2 style="margin-top:0">Justificar</h2>
+    ${porJustificar.length?`<p class="muted">Marque las ausencias o tardías que va a justificar.</p>
+      ${porJustificar.map(r=>`<label class="reg"><input type="checkbox" value="${esc(r.id)}" checked>${chip(r.estado)}<span>${esc(fFecha(r.fecha))}<small>${esc((TIPO[r.estado]||[])[1]||r.estado)}</small></span></label>`).join("")}
+      <label for="mot">Motivo</label><select id="mot"><option>Cita médica</option><option>Enfermedad</option><option>Asunto familiar</option><option>Trámite o diligencia</option><option>Problema de transporte</option><option>Otro</option></select>
+      <label for="det">Detalle</label><textarea id="det" placeholder="Explique brevemente lo sucedido"></textarea>
+      <label for="nom">Nombre completo del encargado</label><input id="nom" autocomplete="name">
+      <label for="ced2">Cédula del encargado</label><input id="ced2" inputmode="numeric">
+      <label for="par">Parentesco</label><select id="par"><option>Madre</option><option>Padre</option><option>Encargado(a) legal</option><option>Abuelo(a)</option><option>Otro</option></select>
+      <label for="adj">Comprobante (opcional: foto o PDF de la cita, dictamen, etc.)</label><input id="adj" type="file" accept="image/*,application/pdf">
+      <div style="margin-top:14px"><button id="enviar">Enviar justificación</button></div><div id="m"></div>`
+      :'<p class="muted">No hay ausencias ni tardías por justificar. 🎉</p>'}
+   </div>
+   ${d.solicitudes.length?`<div class="card"><h2 style="margin-top:0">Solicitudes enviadas</h2>${d.solicitudes.map(s=>`<div class="reg" style="cursor:default"><span class="pill" style="background:${s.estado==="aprobada"?"var(--okbg);color:var(--ok)":s.estado==="rechazada"?"var(--badbg);color:var(--bad)":"var(--warnbg);color:#8a6100"}">${s.estado==="aprobada"?"Aprobada":s.estado==="rechazada"?"Rechazada":"Pendiente"}</span><span>${esc(s.motivo)}<small>${s.registros.length} registro(s) · enviada el ${esc(new Date(s.enviado).toLocaleDateString("es-CR"))}${s.respuesta?" · Docente: "+esc(s.respuesta):""}</small></span></div>`).join("")}</div>`:""}
+   <p><button class="sec" id="salir">Salir</button></p>`;
+  $("#salir").onclick=()=>{try{sessionStorage.removeItem("padres_t")}catch(e){}TOKEN=null;vIngreso()};
+  const b=$("#enviar");if(!b)return;
+  b.onclick=async()=>{const m=t=>$("#m").innerHTML=t;const regs=[...document.querySelectorAll(".reg input:checked")].map(x=>x.value);
+    const det=$("#det").value.trim(),nom=$("#nom").value.trim();
+    if(!regs.length)return m('<div class="msg bad">Marque al menos una ausencia o tardía.</div>');
+    if(det.length<5||nom.length<5)return m('<div class="msg bad">Escriba el detalle y su nombre completo.</div>');
+    b.disabled=true;m('<p class="muted">Enviando…</p>');
+    try{let adjunto="";const f=$("#adj").files[0];
+      if(f){if(f.size>8*1024*1024)throw new Error("El comprobante pesa más de 8 MB.");const ruta=`justificaciones/${Date.now()}-${Math.random().toString(36).slice(2,8)}-${f.name.replace(/[^\w.-]+/g,"_")}`;
+        const up=await sb.storage.from("materiales").upload(ruta,f,{upsert:false});if(up.error)throw new Error("No se pudo subir el comprobante: "+up.error.message);adjunto=ruta}
+      await api({accion:"justificar",token:TOKEN,registros:regs,motivo:$("#mot").value+": "+det,encargado:nom,cedula:$("#ced2").value.trim(),parentesco:$("#par").value,adjunto,dispositivo:disp()});
+      vPortal("✅ Justificación enviada. Queda pendiente hasta que el docente la apruebe.")}
+    catch(e){b.disabled=false;m(`<div class="msg bad">${esc(e.message)}</div>`)}};
+}
+leerToken();TOKEN?vPortal():vIngreso();
+</script>
+</body>
+</html>
