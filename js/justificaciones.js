@@ -27,7 +27,9 @@ async function renderJustificaciones() {
   const { data: estAll } = await sb.from("estudiantes").select("id, nombre, apellido1, apellido2, seccion").order("apellido1");
   const nom = id => { const e = (estAll || []).find(x => x.id === id); return e ? `${e.apellido1} ${e.apellido2 || ""}, ${e.nombre}`.replace(/\s+,/, ",") : id; };
   const tabs = [["solicitudes", "📥 Solicitudes"], ["encargados", "👪 Encargados"]];
-  const cab = `<h1>👪 Justificaciones de asistencia</h1>
+  let avisoCorreo = "";
+  try { const r = await fetch("/api/padres", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accion: "estado_correo" }) }); const j = await r.json(); if (j.correo === false) avisoCorreo = `<div class="card" style="padding:.8rem 1rem;border-left:4px solid var(--brick);margin:.6rem 0"><b>⚠ El envío de correos todavía no está configurado.</b> Sin eso, los encargados no reciben el código para entrar. En Vercel → ctp-lms → Settings → Environment Variables agregue <code>GMAIL_USER</code> (la cuenta de Gmail que envía) y <code>GMAIL_APP_PASSWORD</code> (una contraseña de aplicación de Google) y vuelva a desplegar.</div>`; } catch (e) { }
+  const cab = `<h1>👪 Justificaciones de asistencia</h1>${avisoCorreo}
     <p style="color:var(--text-muted);margin-top:-0.6em">Los encargados justifican desde el <b>Portal de familias</b> (${esc(portal)}): con la cédula del estudiante y un código que les llega al correo registrado. Nada cambia en la asistencia hasta que usted aprueba.</p>
     <div class="tabs" style="margin-bottom:1rem">${tabs.map(([k, t]) => `<button class="tab-btn ${k === tab ? "active" : ""}" data-jtab="${k}"><span class="tab-label">${t}</span></button>`).join("")}</div>`;
   const ligarTabs = () => wrap.querySelectorAll("[data-jtab]").forEach(b => b.onclick = () => { renderJustificaciones.tab = b.dataset.jtab; renderJustificaciones(); });
@@ -52,7 +54,7 @@ async function renderJustificaciones() {
         <div style="margin:.4rem 0">${(s.registros || []).map(id => { const r = R(id); return r ? `<span class="badge" style="margin:2px">${esc((JUS_TIPO[r.estado] || [r.estado])[0])} · ${esc(r.fecha)}</span>` : ""; }).join("")}</div>
         <div><b>Motivo:</b> ${esc(s.motivo)}</div>
         <div style="font-size:.88rem;color:var(--text-muted)">Encargado: ${esc(s.encargado)}${s.cedula ? " · céd. " + esc(s.cedula) : ""}${s.parentesco ? " · " + esc(s.parentesco) : ""} · por ${esc(s.via)} · ${esc(s.dispositivo || "")} · ${esc(new Date(s.enviado).toLocaleString("es-CR"))}</div>
-        ${s.adjunto ? `<div style="margin-top:.4rem"><button class="btn secondary small" data-jadj="${esc(s.adjunto)}">📎 Ver comprobante</button></div>` : ""}
+        ${(() => { const A = (s.adjuntos && s.adjuntos.length) ? s.adjuntos : s.adjunto ? [s.adjunto] : []; return A.length ? `<div style="margin-top:.4rem;display:flex;gap:.4rem;flex-wrap:wrap">${A.map(a => `<button class="btn secondary small" data-jadj="${esc(a)}">📎 ${esc(a.split("-").slice(2).join("-") || "Ver documento")}</button>`).join("")}</div>` : ""; })()}
         ${s.estado === "pendiente" ? `<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem;align-items:center"><input data-jresp="${s.id}" placeholder="Comentario para el encargado (opcional)" style="flex:1;min-width:14rem">
             <button class="btn small" data-japr="${s.id}">✅ Aprobar</button><button class="btn secondary small" data-jrec="${s.id}">❌ Rechazar</button></div>`
           : `<div style="margin-top:.5rem;font-size:.88rem"><b>${s.estado === "aprobada" ? "✅ Aprobada" : "❌ Rechazada"}</b>${s.revisado ? " el " + esc(new Date(s.revisado).toLocaleDateString("es-CR")) : ""}${s.respuesta ? " · " + esc(s.respuesta) : ""}</div>`}

@@ -85,7 +85,7 @@ async function vPortal(okMsg){
       <label for="nom">Nombre completo del encargado</label><input id="nom" autocomplete="name">
       <label for="ced2">Cédula del encargado</label><input id="ced2" inputmode="numeric">
       <label for="par">Parentesco</label><select id="par"><option>Madre</option><option>Padre</option><option>Encargado(a) legal</option><option>Abuelo(a)</option><option>Otro</option></select>
-      <label for="adj">Comprobante (opcional: foto o PDF de la cita, dictamen, etc.)</label><input id="adj" type="file" accept="image/*,application/pdf">
+      <label for="adj">Adjuntar documentos (opcional, hasta 3: foto, PDF o Word del dictamen, cita, constancia, etc.)</label><input id="adj" type="file" multiple accept="image/*,application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"><small class="muted" id="adj-lista"></small>
       <div style="margin-top:14px"><button id="enviar">Enviar justificación</button></div><div id="m"></div>`
       :'<p class="muted">No hay ausencias ni tardías por justificar. 🎉</p>'}
    </div>
@@ -93,15 +93,19 @@ async function vPortal(okMsg){
    <p><button class="sec" id="salir">Salir</button></p>`;
   $("#salir").onclick=()=>{try{sessionStorage.removeItem("padres_t")}catch(e){}TOKEN=null;vIngreso()};
   const b=$("#enviar");if(!b)return;
+  $("#adj").onchange=()=>{const fs=[...$("#adj").files];$("#adj-lista").textContent=fs.length?(fs.length>3?"⚠ Máximo 3 documentos. ":"")+fs.map(f=>"📎 "+f.name).join("  "):""};
   b.onclick=async()=>{const m=t=>$("#m").innerHTML=t;const regs=[...document.querySelectorAll(".reg input:checked")].map(x=>x.value);
     const det=$("#det").value.trim(),nom=$("#nom").value.trim();
     if(!regs.length)return m('<div class="msg bad">Marque al menos una ausencia o tardía.</div>');
     if(det.length<5||nom.length<5)return m('<div class="msg bad">Escriba el detalle y su nombre completo.</div>');
     b.disabled=true;m('<p class="muted">Enviando…</p>');
-    try{let adjunto="";const f=$("#adj").files[0];
-      if(f){if(f.size>8*1024*1024)throw new Error("El comprobante pesa más de 8 MB.");const ruta=`justificaciones/${Date.now()}-${Math.random().toString(36).slice(2,8)}-${f.name.replace(/[^\w.-]+/g,"_")}`;
-        const up=await sb.storage.from("materiales").upload(ruta,f,{upsert:false});if(up.error)throw new Error("No se pudo subir el comprobante: "+up.error.message);adjunto=ruta}
-      await api({accion:"justificar",token:TOKEN,registros:regs,motivo:$("#mot").value+": "+det,encargado:nom,cedula:$("#ced2").value.trim(),parentesco:$("#par").value,adjunto,dispositivo:disp()});
+    try{const adjuntos=[];const fs=[...$("#adj").files];
+      if(fs.length>3)throw new Error("Puede adjuntar hasta 3 documentos.");
+      for(const f of fs){if(f.size>8*1024*1024)throw new Error(`«${f.name}» pesa más de 8 MB.`)}
+      for(const [i,f] of fs.entries()){m(`<p class="muted">Subiendo documento ${i+1} de ${fs.length}…</p>`);const ruta=`justificaciones/${Date.now()}-${Math.random().toString(36).slice(2,8)}-${f.name.replace(/[^\w.-]+/g,"_")}`;
+        const up=await sb.storage.from("materiales").upload(ruta,f,{upsert:false});if(up.error)throw new Error("No se pudo subir «"+f.name+"»: "+up.error.message);adjuntos.push(ruta)}
+      m('<p class="muted">Enviando…</p>');
+      await api({accion:"justificar",token:TOKEN,registros:regs,motivo:$("#mot").value+": "+det,encargado:nom,cedula:$("#ced2").value.trim(),parentesco:$("#par").value,adjuntos,dispositivo:disp()});
       vPortal("✅ Justificación enviada. Queda pendiente hasta que el docente la apruebe.")}
     catch(e){b.disabled=false;m(`<div class="msg bad">${esc(e.message)}</div>`)}};
 }
