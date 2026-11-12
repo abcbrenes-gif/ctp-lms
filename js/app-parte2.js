@@ -160,6 +160,7 @@ async function renderTabContent(s, tab, isSelf) {
   if (tab === "programa") return renderProgramaEstudiante(el, s);
   if (tab === "rubrica") return renderRubricaEstudiante(el, s, isSelf);
   if (tab === "tc") return renderTrabajoCotidianoEstudiante(el, s, isSelf);
+  if (tab === "calif") return renderMisCalificaciones(el, s);
 
   if (tab === "asistencia") return renderAsistenciaEstudiante(el, s);
   if (tab === "avisos") return renderAvisosEstudiante(el, s);

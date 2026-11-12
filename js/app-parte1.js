@@ -2952,7 +2952,7 @@ const ICO_EST = {
 };
 function gruposMenuEstudiante(s) {
   return [
-    { k: "notas", ic: "📝", svg: ICO_EST.notas, color: "#5b8def", t: "Calificaciones", sub: "Trabajo cotidiano, notas, tareas, rúbrica y asistencia.", items: [["tc", "📋", "Trabajo cotidiano"], ["notas", "📝", "Notas y Tareas"], ["rubrica", "📊", "Rúbrica"], ["asistencia", "🗓️", "Asistencia"]] },
+    { k: "notas", ic: "📝", svg: ICO_EST.notas, color: "#5b8def", t: "Calificaciones", sub: "Trabajo cotidiano, notas, tareas, rúbrica y asistencia.", items: [["calif", "📈", "Mi calificación"], ["tc", "📋", "Trabajo cotidiano"], ["notas", "📝", "Notas y Tareas"], ["rubrica", "📊", "Rúbrica"], ["asistencia", "🗓️", "Asistencia"]] },
     { k: "materias", ic: "📚", svg: ICO_EST.materias, color: "#f07b7b", t: "Mis materias", sub: "Temas, trabajos y material de clase.", items: [["materias-est", "📚", "Materias"], ...(esSeccion113(s.seccion) ? [["infografias", "🖼️", "Mis infografías"]] : [])] },
     { k: "simuladores", ic: "🧮", svg: ICO_EST.simuladores, color: "#f5a04a", t: "Simuladores", sub: "Aula de Conta, Liquidaciones, Ruta Laboral CR y Misión Seguros.", items: [
       ["link:" + AULA_CONTABLE_URL + "?como_estudiante=" + encodeURIComponent(s.id), "🧮", "Aula de Conta"],
