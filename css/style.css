@@ -1134,3 +1134,21 @@ table.grades td.num.low { color: var(--danger-text); font-weight: 700; }
 .menu-est-v2 .menu-est-sub[hidden] { display: none; }
 @media (prefers-reduced-motion: reduce) { .est-card, .est-card-ic { transition: none; } }
 :root[data-theme="light"] .est-card-t { color: #111827; }
+
+/* Vista de un grupo del estudiante */
+a.est-card { text-decoration: none; }
+.est-grupo-bar { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; padding: .9rem 1rem; border-radius: 18px;
+  background: color-mix(in srgb, var(--c) 7%, var(--paper)); border: 1.5px solid color-mix(in srgb, var(--c) 35%, transparent); }
+.est-volver { display: inline-flex; align-items: center; gap: .3rem; padding: .55rem .95rem; border-radius: 12px; font-weight: 700; text-decoration: none;
+  color: var(--ink); background: var(--surface); border: 1px solid color-mix(in srgb, var(--c) 30%, transparent); }
+.est-volver:hover { border-color: var(--c); }
+.est-grupo-ic { width: 2.6rem; height: 2.6rem; border-radius: 12px; display: grid; place-items: center; color: #fff; flex: none;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--c) 70%, #fff), var(--c)); }
+.est-grupo-ic svg { width: 1.4rem; height: 1.4rem; }
+.est-grupo-t { margin: 0; font-family: "Lexend", var(--serif, system-ui), sans-serif; font-weight: 800; font-size: clamp(1.3rem, 2.4vw, 1.7rem); flex: 1 1 auto; color: var(--ink); }
+:root[data-theme="light"] .est-grupo-t { color: #111827; }
+.est-grupo-otro { display: inline-flex; align-items: center; gap: .35rem; padding: .4rem .7rem; border-radius: 999px; font-size: .82rem; font-weight: 600; text-decoration: none;
+  color: var(--text-muted); border: 1px solid color-mix(in srgb, var(--c) 30%, transparent); }
+.est-grupo-otro svg { width: 1rem; height: 1rem; color: var(--c); }
+.est-grupo-otro:hover { color: var(--ink); border-color: var(--c); }
+@media (max-width: 640px) { .est-grupo-otro span { display: none; } }

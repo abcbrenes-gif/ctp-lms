@@ -2423,7 +2423,13 @@ async function renderPerfil(id, isSelf) {
   const previewing = isSelf && session.role === "docente"; // el profesor viendo "como lo vería el estudiante"
   if (isSelf && session.role === "estudiante" && session.id !== s.id) { location.hash = "#/login"; return; } // seguridad extra
 
-  const activeTab = (location.hash.split("?tab=")[1]) || (isSelf ? "tc" : "notas");
+  let activeTab = (location.hash.split("?tab=")[1]) || (isSelf ? "tc" : "notas");
+  // Vista de un grupo del menú del estudiante (#/g/<grupo>): sin ?tab= abre su primera opción.
+  if (isSelf && typeof grupoEstDeHash === "function" && grupoEstDeHash() && !location.hash.includes("?tab=")) {
+    const gg = gruposMenuEstudiante({ id: id, seccion: "" }).find(x => x.k === grupoEstDeHash());
+    const primera = gg && gg.items.find(i => !i[0].startsWith("link:"));
+    if (primera) activeTab = primera[0];
+  }
 
   app.innerHTML = `
     ${topbar()}
@@ -2464,7 +2470,7 @@ async function renderPerfil(id, isSelf) {
       <div id="notas-periodo-panel" style="margin-bottom:1rem;"></div>
       ${isSelf ? "" : `<div id="logros-panel" style="margin-bottom:1.3rem;"></div>`}
 
-      ${isSelf ? `<div style="margin-bottom:0.8rem;"><a href="#/estrategias" class="btn secondary small">🧪 Cómo se evalúa cada tipo de trabajo</a></div>` : ""}
+      ${isSelf ? `<div id="est-como-evalua" style="margin-bottom:0.8rem;"><a href="#/estrategias" class="btn secondary small">🧪 Cómo se evalúa cada tipo de trabajo</a></div>` : ""}
       ${isSelf ? menuEstudianteHTML(s, activeTab) : `<div class="tabs">
         <button class="tab-btn ${(activeTab === "notas" || activeTab === "tareas") ? "active" : ""}" data-tab="notas"><span class="tab-icon">📝</span><span class="tab-label">Notas y Tareas</span></button>
         <button class="tab-btn ${activeTab === "rubrica" ? "active" : ""}" data-tab="rubrica"><span class="tab-icon">📊</span><span class="tab-label">Rúbrica</span></button>
@@ -2524,7 +2530,9 @@ async function renderPerfil(id, isSelf) {
     }
   }
 
-  renderTabContent(s, activeTab, isSelf);
+  // En el menú de tarjetas del estudiante no se carga contenido hasta que abra un grupo.
+  const vistaTarjetas = isSelf && document.querySelector('.menu-est-v2[data-est-vista="tarjetas"]');
+  if (!vistaTarjetas) renderTabContent(s, activeTab, isSelf);
 }
 
 async function mostrarSelectorReporteOficial(s) {
@@ -2957,31 +2965,41 @@ function gruposMenuEstudiante(s) {
       ["link:planilla-opoly.html", "🎲", "Planilla Opoly"]] }
   ];
 }
-// Tarjetas grandes en dos columnas; al tocar una, sus opciones aparecen debajo de las tarjetas.
+// Tarjetas grandes en dos columnas. Al tocar una se abre SOLA en pantalla (#/g/<grupo>):
+// se esconden las demás tarjetas y los paneles de arriba, y queda «← Volver» para regresar.
+// Así el botón Atrás del navegador o del celular regresa a las tarjetas sin salir de la plataforma.
+function grupoEstDeHash() { const m = location.hash.match(/^#\/g\/([a-z]+)/); return m ? m[1] : null; }
 function menuEstudianteHTML(s, activeTab) {
   const act = activeTab === "tareas" ? "notas" : activeTab;
   const G = gruposMenuEstudiante(s);
-  const abierto = (G.find(g => g.items.some(i => i[0] === act)) || G[0]).k;
+  const k = grupoEstDeHash() || (location.hash.includes("?tab=") ? (G.find(g => g.items.some(i => i[0] === act)) || {}).k : null);
+  const g = G.find(x => x.k === k);
   const item = ([tab, ic, t]) => tab.startsWith("link:")
     ? `<a class="tab-btn tab-enlace" href="${tab.slice(5)}"><span class="tab-icon">${ic}</span><span class="tab-label">${t}</span></a>`
     : `<button class="tab-btn ${tab === act ? "active" : ""}" data-tab="${tab}"><span class="tab-icon">${ic}</span><span class="tab-label">${t}</span></button>`;
-  return `<div class="menu-est menu-est-v2">
-    <div class="est-cards">${G.map(g => `<button type="button" class="est-card ${g.k === abierto ? "abierta" : ""}" data-egrupo="${g.k}" aria-expanded="${g.k === abierto}" style="--c:${g.color}">
+  if (!g) return `<div class="menu-est menu-est-v2" data-est-vista="tarjetas">
+    <div class="est-cards">${G.map(x => `<a class="est-card" href="#/g/${x.k}" style="--c:${x.color}">
       <span class="est-card-deco" aria-hidden="true"></span><span class="est-card-dot" aria-hidden="true"></span>
-      <span class="est-card-t">${g.t}</span><span class="est-card-s">${g.sub}</span>
-      <span class="est-card-ic">${g.svg}</span></button>`).join("")}</div>
-    ${G.map(g => `<div class="menu-est-sub" data-grupo-tira="${g.k}" style="--c:${g.color}" ${g.k === abierto ? "" : "hidden"}>${g.items.map(item).join("")}</div>`).join("")}
+      <span class="est-card-t">${x.t}</span><span class="est-card-s">${x.sub}</span>
+      <span class="est-card-ic">${x.svg}</span></a>`).join("")}</div></div>`;
+  return `<div class="menu-est menu-est-v2" data-est-vista="grupo" data-grupo="${g.k}" style="--c:${g.color}">
+    <div class="est-grupo-bar"><a class="est-volver" href="#/" aria-label="Volver al menú">← Volver</a>
+      <span class="est-grupo-ic">${g.svg}</span><h2 class="est-grupo-t">${g.t}</h2>
+      ${G.filter(x => x.k !== g.k).map(x => `<a class="est-grupo-otro" href="#/g/${x.k}" style="--c:${x.color}" title="${x.t}">${x.svg}<span>${x.t}</span></a>`).join("")}</div>
+    <div class="menu-est-sub">${g.items.map(item).join("")}</div>
   </div>`;
 }
 function ligarMenuEstudiante() {
-  document.querySelectorAll(".menu-est-v2 [data-egrupo]").forEach(b => b.addEventListener("click", () => {
-    const k = b.dataset.egrupo;
-    document.querySelectorAll(".menu-est-v2 [data-egrupo]").forEach(x => { const on = x.dataset.egrupo === k; x.classList.toggle("abierta", on); x.setAttribute("aria-expanded", on); });
-    document.querySelectorAll(".menu-est-v2 [data-grupo-tira]").forEach(t => { t.hidden = t.dataset.grupoTira !== k; });
-    // Al abrir un grupo se muestra su primera opción.
-    const tira = document.querySelector(`.menu-est-v2 [data-grupo-tira="${k}"]`);
-    const t = tira && tira.querySelector(".tab-btn[data-tab]");
-    if (t && !tira.querySelector(".tab-btn.active")) t.click();
-    if (tira) tira.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }));
+  const menu = document.querySelector(".menu-est-v2");
+  if (!menu) return;
+  const grupo = menu.dataset.estVista === "grupo";
+  // En la vista de un grupo se esconden los paneles de arriba para que el contenido quede a la vista.
+  ["bitacora-panel", "boleta-panel", "notas-periodo-panel", "est-como-evalua"].forEach(id => { const el = document.getElementById(id); if (el) el.hidden = grupo; });
+  const tc = document.getElementById("tab-content");
+  if (tc) tc.hidden = !grupo;
+  if (grupo) {
+    // Recuerda la opción elegida en el enlace (para recargar o volver con Atrás).
+    menu.querySelectorAll(".tab-btn[data-tab]").forEach(b => b.addEventListener("click", () => history.replaceState(null, "", `#/g/${menu.dataset.grupo}?tab=${b.dataset.tab}`)));
+    window.scrollTo({ top: Math.max(0, menu.getBoundingClientRect().top + window.scrollY - 12) });
+  }
 }
