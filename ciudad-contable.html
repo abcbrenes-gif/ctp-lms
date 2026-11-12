@@ -282,7 +282,7 @@ function edificio(e){
   const [c,r]=MAPA[e.id],x=bx(c),y=by(r),sel=SEL===e.id,n=S.docs.filter(d=>d.emisor===e.id||d.receptor===e.id).length,col=(PAL[e.id]||PAL[e.tipo])[0];
   return `<g class="lote ${sel?"sel":""}" data-emp="${e.id}" role="button" tabindex="0" aria-pressed="${sel}" aria-label="${esc(e.nombre)}, ${TIPO[e.tipo][0]}">
     <rect x="${x}" y="${y}" width="${BW}" height="${BH}" rx="5" fill="#82c45a"/>
-    <rect x="${x+3}" y="${y+3}" width="${BW-6}" height="${BH-6}" rx="4" fill="none" stroke="#9bd27a" stroke-width="2" stroke-dasharray="2 6"/>
+    <rect x="${x+4}" y="${y+4}" width="${BW-8}" height="${BH-8}" rx="4" fill="none" stroke="#dfe5ec" stroke-width="7"/>
     ${arbol(x+12,y+12,9)}${arbol(x+BW-12,y+BH-54,8)}${arbol(x+11,y+BH-58,7)}
     <g class="edif">${techo(e,x+22,y+14,BW-44,80)}</g>
     <g class="cartel"><rect x="${x+10}" y="${y+108}" width="${BW-20}" height="40" rx="10" fill="#fff" stroke="${col}" stroke-width="3"/>
@@ -320,9 +320,45 @@ function carros(){
     car("#fd7e14",`M ${vx(3)+9} -40 V ${MH+40}`,12,-3),car("#15aabf",`M ${MW+40} ${hy(3)-9} H -40`,14,-9));
   return C.join("");
 }
+function peatones(){
+  const P=[["ferre",22,0,"#e64980"],["libre",26,-9,"#1c7ed6"],["mayo",30,-4,"#f59f00"],["conta",24,-14,"#37b24d"],["mante",28,-6,"#7048e8"],
+    ["clien",20,-3,"#f76707"],["banco",27,-17,"#0ca678"],["hacie",25,-11,"#d6336c"],["publi",23,-8,"#228be6"],["equip",29,-20,"#fab005"]];
+  return P.map(([id,dur,beg,col],i)=>{const [c,r]=MAPA[id],x=bx(c)+4,y=by(r)+4,w=BW-8,h=BH-8,inv=i%2;
+    const path=inv?`M ${x} ${y} V ${y+h} H ${x+w} V ${y} Z`:`M ${x} ${y} H ${x+w} V ${y+h} H ${x} Z`;
+    const cuerpo=`<ellipse cx="1.5" cy="2" rx="7" ry="5.5" fill="rgba(0,0,0,.2)"/><ellipse cx="0" cy="0" rx="7" ry="5.5" fill="${col}" stroke="#fff" stroke-width="1.2"/><circle cx="0" cy="0" r="3.6" fill="#f3c48c" stroke="#5c3d1e" stroke-width="1"/>`;
+    if(reducido)return `<g transform="translate(${x+(i*37)%w},${y})">${cuerpo}</g>`;
+    return `<g>${cuerpo}<animateMotion dur="${dur}s" begin="${beg}s" repeatCount="indefinite" path="${path}"/></g>`;}).join("");
+}
+/* Animación al emitir: el documento viaja de quien vende a quien compra y las monedas vuelven con el monto. */
+function centroLote(id){const m=MAPA[id];return m?[bx(m[0])+BW/2,by(m[1])+56]:null}
+function animarTransaccion(doc,listo){
+  const svg=document.querySelector("svg.mapa"),A=centroLote(doc.emisor),B=centroLote(doc.receptor);
+  if(reducido||!svg||!A||!B){listo();return}
+  const NS="http://www.w3.org/2000/svg",capa=document.createElementNS(NS,"g");capa.setAttribute("pointer-events","none");svg.appendChild(capa);
+  const nc=doc.tipo==="NC",cred=doc.condicion==="credito";
+  const anillo=([x,y],col)=>{const c=document.createElementNS(NS,"circle");c.setAttribute("cx",x);c.setAttribute("cy",y);c.setAttribute("fill","none");c.setAttribute("stroke",col);c.setAttribute("stroke-width","6");capa.appendChild(c);return c};
+  const emoji=(t,size)=>{const e=document.createElementNS(NS,"text");e.textContent=t;e.setAttribute("font-size",size);e.setAttribute("text-anchor","middle");e.setAttribute("dominant-baseline","middle");capa.appendChild(e);return e};
+  const arco=(P,Q,t)=>{const mx=(P[0]+Q[0])/2,my=Math.min(P[1],Q[1])-110,u=1-t;return [u*u*P[0]+2*u*t*mx+t*t*Q[0],u*u*P[1]+2*u*t*my+t*t*Q[1]]};
+  const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+  const r1=anillo(A,"#ffd43b"),r2=anillo(B,"#ffd43b");
+  const papel=emoji(nc?"↩️":"🧾",40);
+  const monedas=[0,1,2,3,4].map(()=>emoji(cred?"⏳":"🪙",28));
+  const etiqueta=emoji("",22);etiqueta.setAttribute("font-weight","800");etiqueta.setAttribute("stroke","#14213d");etiqueta.setAttribute("stroke-width","5");etiqueta.setAttribute("paint-order","stroke");
+  // la factura va al comprador; el dinero (o la cuenta por cobrar) va al vendedor. En la nota de crédito, al revés.
+  const desdeDoc=A,haciaDoc=B,desdeDin=nc?A:B,haciaDin=nc?B:A;
+  etiqueta.textContent=(nc?"− ":cred?"Por cobrar ":"+ ")+fm(doc.calc.total);etiqueta.setAttribute("fill",nc?"#ff8787":cred?"#ffd43b":"#69db7c");
+  const T0=performance.now(),DUR=2300;
+  const paso=now=>{const t=(now-T0)/DUR;
+    [[r1,0],[r2,.35]].forEach(([r,d])=>{const k=Math.max(0,Math.min(1,(t-d)/.4));r.setAttribute("r",20+k*60);r.setAttribute("opacity",k?1-k:0)});
+    const kd=Math.max(0,Math.min(1,t/.45)),pd=arco(desdeDoc,haciaDoc,ease(kd));papel.setAttribute("x",pd[0]);papel.setAttribute("y",pd[1]);papel.setAttribute("opacity",kd<1?1:Math.max(0,1-(t-.45)*6));
+    monedas.forEach((m,i)=>{const k=Math.max(0,Math.min(1,(t-.42-i*.06)/.42)),pm=arco(desdeDin,haciaDin,ease(k));m.setAttribute("x",pm[0]+(i-2)*6);m.setAttribute("y",pm[1]);m.setAttribute("opacity",k>0&&k<1?1:0)});
+    const ke=Math.max(0,Math.min(1,(t-.8)/.2));etiqueta.setAttribute("x",haciaDin[0]);etiqueta.setAttribute("y",Math.max(26,haciaDin[1]-30-ke*30));etiqueta.setAttribute("opacity",t<.8?0:t>.97?Math.max(0,(1-t)/.03):1);
+    if(t<1)requestAnimationFrame(paso);else{capa.remove();listo()}};
+  requestAnimationFrame(paso);
+}
 function mapaHTML(){
   return `<svg class="mapa" viewBox="0 0 ${MW} ${MH}" role="group" aria-label="Mapa de la ciudad: toque un edificio para abrir la empresa" font-family="Inter, system-ui, sans-serif">
-    ${calles()}${plaza()}${S.empresas.filter(e=>MAPA[e.id]).map(edificio).join("")}${carros()}</svg>`;
+    ${calles()}${plaza()}${S.empresas.filter(e=>MAPA[e.id]).map(edificio).join("")}${peatones()}${carros()}</svg>`;
 }
 function pintar(){
   if(!DOCENTE){$("#app").innerHTML=`<div class="card" style="grid-column:1/-1"><h2>Solo para el profe</h2><p class="muted">Este prototipo se abre desde la plataforma, en <b>📅 2027</b>, con la sesión del docente.</p><a class="btn" href="index.html">Ir a la plataforma</a></div>`;return}
@@ -399,7 +435,7 @@ function editorFactura(){
         if(falta){$("#fMsg").innerHTML=`<div class="msg bad">No hay suficiente existencia de «${esc(falta.det)}» (quedan ${prod(falta.prod).stock}).</div>`;return}}
       const doc={id:"d"+Date.now(),tipo:"FE",emisor:E.id,receptor:html.rec,fecha:html.fecha||hoyISO(),condicion:html.cond,medio:html.medio,calc:calcular(lin)};
       Object.assign(doc,numerar(doc));
-      moverExistencias(doc,1);S.docs.push(doc);guardar();pintar();verDoc(doc.id,true);
+      moverExistencias(doc,1);S.docs.push(doc);guardar();$("#dlg").close();pintar();animarTransaccion(doc,()=>verDoc(doc.id,true));
     };
   };
   repintar();
@@ -438,7 +474,7 @@ function editorNC(){
       const lin=F.calc.lineas.map(l=>({prod:l.prod,det:l.det,cabys:l.cabys,precio:l.precio,tarifa:l.tarifa,clase:l.clase,costo:l.costo,descPct:l.descPct,cant:Math.min(+dev[l.prod]||0,l.cant-ya(l.prod))})).filter(l=>l.cant>0);
       if(!lin.length)return;
       const doc={id:"d"+Date.now(),tipo:"NC",ref:F.id,refConsec:F.consecutivo,motivo:$("#nMot").value,emisor:E.id,receptor:F.receptor,fecha:hoyISO(),condicion:F.condicion,medio:F.medio,calc:calcular(lin)};
-      Object.assign(doc,numerar(doc));moverExistencias(doc,1);S.docs.push(doc);guardar();pintar();verDoc(doc.id,true);
+      Object.assign(doc,numerar(doc));moverExistencias(doc,1);S.docs.push(doc);guardar();$("#dlg").close();pintar();animarTransaccion(doc,()=>verDoc(doc.id,true));
     };
   };
   repintar();
