@@ -67,8 +67,8 @@ h3{font:700 .98rem Lexend,Inter,sans-serif;margin:14px 0 8px}
 svg.mapa{display:block;width:100%;height:auto}
 .lote{cursor:pointer;outline:none}
 .lote .edif,.lote .cartel{transition:transform .18s ease}
-.lote:hover .edif,.lote:focus-visible .edif{transform:translateY(-4px)}
-.lote:focus-visible .cartel rect{stroke:#ffd43b;stroke-width:5}
+.lote:hover .edif,.lote:focus-visible .edif,.lote:hover .cartel{transform:translateY(-6px)}
+.lote:focus-visible .edif{filter:drop-shadow(0 0 6px #ffd43b)}
 .lote .marco{stroke-dasharray:14 8;animation:marcha 1.2s linear infinite}
 @keyframes marcha{to{stroke-dashoffset:-22}}
 @media (prefers-reduced-motion: reduce){.lote .marco{animation:none}.lote .edif,.lote .cartel{transition:none}}
@@ -260,45 +260,54 @@ const bx=c=>RD+c*(BW+RD),by=r=>RD+r*(BH+RD);
 const PAL={com:["#e8590c","#ff9a5c"],ser:["#7048e8","#a48bff"],ia:["#0b7285","#3bb6c6"],banco:["#d9a400","#ffd43b"],hacie:["#495057","#adb5bd"]};
 const corto=n=>n.replace(/ S\.A\.$/,"").replace(/ \(IA\)$/,"");
 const reducido=(()=>{try{return matchMedia("(prefers-reduced-motion: reduce)").matches}catch(e){return false}})();
-function arbol(x,y,r){return `<ellipse cx="${x+3}" cy="${y+4}" rx="${r}" ry="${r*.8}" fill="rgba(0,0,0,.18)"/><circle cx="${x}" cy="${y}" r="${r}" fill="#2b8a3e"/><circle cx="${x-r*.3}" cy="${y-r*.3}" r="${r*.55}" fill="#51cf66"/>`}
-function techo(e,x,y,w,h){
-  const [c1,c2]=PAL[e.id]||PAL[e.tipo]; let g=`<rect x="${x+6}" y="${y+7}" width="${w}" height="${h}" rx="4" fill="rgba(0,0,0,.28)"/>`;
-  if(e.id==="clien"){ // barrio de casitas
-    [[0,0],[52,6],[104,0]].forEach(([dx,dy],i)=>{const X=x+dx,Y=y+dy+6;g+=`<rect x="${X+4}" y="${Y+5}" width="44" height="40" rx="3" fill="rgba(0,0,0,.25)"/><polygon points="${X},${Y+20} ${X+22},${Y} ${X+44},${Y+20} ${X+44},${Y+40} ${X},${Y+40}" fill="${["#c92a2a","#e8590c","#5c7cfa"][i]}"/><line x1="${X+22}" y1="${Y}" x2="${X+22}" y2="${Y+40}" stroke="rgba(255,255,255,.35)" stroke-width="2"/>`});
-    return g+`<rect x="${x+8}" y="${y+60}" width="${w-16}" height="14" rx="7" fill="#e9ecef"/>`;
-  }
-  g+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" fill="${c1}"/><rect x="${x+6}" y="${y+6}" width="${w-12}" height="${h-12}" rx="3" fill="none" stroke="${c2}" stroke-width="2"/>`;
-  if(e.id==="hacie")g+=`<circle cx="${x+w/2}" cy="${y+h/2}" r="${h*.32}" fill="#ced4da" stroke="#868e96" stroke-width="3"/><circle cx="${x+w/2}" cy="${y+h/2}" r="${h*.12}" fill="#868e96"/>`;
-  else if(e.id==="banco")g+=`<rect x="${x+w/2-26}" y="${y+h/2-16}" width="52" height="32" rx="4" fill="#fff3bf"/><text x="${x+w/2}" y="${y+h/2+7}" text-anchor="middle" font-size="20" font-weight="800" fill="#b08900">₡</text>`;
-  else{ // equipos de aire en el techo y tragaluces
-    g+=`<rect x="${x+14}" y="${y+14}" width="18" height="14" rx="2" fill="#dee2e6" stroke="#868e96"/><rect x="${x+38}" y="${y+14}" width="18" height="14" rx="2" fill="#dee2e6" stroke="#868e96"/>`;
-    g+=`<rect x="${x+w-58}" y="${y+h-30}" width="44" height="16" rx="3" fill="${c2}" opacity=".85"/>`;
-  }
-  if(e.tipo==="com")for(let i=0;i<10;i++)g+=`<rect x="${x+i*w/10}" y="${y+h-2}" width="${w/10}" height="9" fill="${i%2?"#fff":c1}"/>`; // toldo de tienda
-  else{g+=`<rect x="${x}" y="${y+h-3}" width="${w}" height="10" rx="2" fill="${c1}" style="filter:brightness(.7)"/>`;for(let i=0;i<7;i++)g+=`<rect x="${x+8+i*(w-16)/7}" y="${y+h}" width="${(w-16)/7-6}" height="5" rx="1" fill="#fff3bf" opacity=".9"/>`;}
+/* ── Proyección isométrica (2.5D): el suelo se dibuja plano y se inclina con una matriz; los edificios se levantan como cajas. ── */
+const ISO=[.866,.5,-.866,.5];
+const proj=(x,y,z=0)=>[(x-y)*.866,(x+y)*.5-z];
+const pts=L=>L.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ");
+const ALTO={ferre:46,libre:42,conta:72,mante:58,mayo:52,trans:38,equip:62,publi:68,clien:0,banco:84,hacie:96};
+function oscurecer(hex,f){const n=parseInt(hex.slice(1),16),c=k=>Math.max(0,Math.min(255,Math.round(((n>>k)&255)*f)));return "#"+[16,8,0].map(k=>c(k).toString(16).padStart(2,"0")).join("")}
+function caja(x,y,w,h,H,col,opt){
+  opt=opt||{};const A=proj(x,y+h),B=proj(x+w,y+h),C=proj(x+w,y),At=proj(x,y+h,H),Bt=proj(x+w,y+h,H),Ct=proj(x+w,y,H),Dt=proj(x,y,H);
+  let g=`<polygon points="${pts([proj(x+8,y+8),proj(x+w+16,y+8),proj(x+w+16,y+h+16),proj(x+8,y+h+16)])}" fill="rgba(0,0,0,.22)"/>`;
+  g+=`<polygon points="${pts([A,B,Bt,At])}" fill="${oscurecer(col,.82)}"/><polygon points="${pts([B,C,Ct,Bt])}" fill="${oscurecer(col,.62)}"/>`;
+  const vent=(P,Q,cols,rows,fill)=>{let v="";for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const u0=(c+.2)/cols,u1=(c+.8)/cols,z0=H*(r+.3)/rows,z1=H*(r+.75)/rows;
+    const L=(u,z)=>[P[0]+(Q[0]-P[0])*u,P[1]+(Q[1]-P[1])*u-z];v+=`<polygon points="${pts([L(u0,z0),L(u1,z0),L(u1,z1),L(u0,z1)])}" fill="${fill}"/>`}return v};
+  if(H>=30){const rows=Math.max(1,Math.round(H/22));g+=vent(A,B,Math.round(w/26),rows,"#fff3bf")+vent(B,C,Math.round(h/26),rows,"#ffe8a1")}
+  if(opt.toldo){for(let i=0;i<8;i++){const u0=i/8,u1=(i+1)/8,L=(u,z)=>[A[0]+(B[0]-A[0])*u,A[1]+(B[1]-A[1])*u-z];g+=`<polygon points="${pts([L(u0,10),L(u1,10),L(u1,18),L(u0,18)])}" fill="${i%2?"#fff":col}"/>`}}
+  g+=`<polygon points="${pts([Dt,Ct,Bt,At])}" fill="${col}"/><polygon points="${pts([proj(x+8,y+8,H),proj(x+w-8,y+8,H),proj(x+w-8,y+h-8,H),proj(x+8,y+h-8,H)])}" fill="none" stroke="${oscurecer(col,1.25)}" stroke-width="2"/>`;
   return g;
 }
-function edificio(e){
-  const [c,r]=MAPA[e.id],x=bx(c),y=by(r),sel=SEL===e.id,n=S.docs.filter(d=>d.emisor===e.id||d.receptor===e.id).length,col=(PAL[e.id]||PAL[e.tipo])[0];
-  return `<g class="lote ${sel?"sel":""}" data-emp="${e.id}" role="button" tabindex="0" aria-pressed="${sel}" aria-label="${esc(e.nombre)}, ${TIPO[e.tipo][0]}">
-    <rect x="${x}" y="${y}" width="${BW}" height="${BH}" rx="5" fill="#82c45a"/>
-    <rect x="${x+4}" y="${y+4}" width="${BW-8}" height="${BH-8}" rx="4" fill="none" stroke="#dfe5ec" stroke-width="7"/>
-    ${arbol(x+12,y+12,9)}${arbol(x+BW-12,y+BH-54,8)}${arbol(x+11,y+BH-58,7)}
-    <g class="edif">${techo(e,x+22,y+14,BW-44,80)}</g>
-    <g class="cartel"><rect x="${x+10}" y="${y+108}" width="${BW-20}" height="40" rx="10" fill="#fff" stroke="${col}" stroke-width="3"/>
-      <text x="${x+22}" y="${y+134}" font-size="17">${e.ico}</text>
-      <text x="${x+46}" y="${y+126}" font-size="12.5" font-weight="700" fill="#14213d">${esc(corto(e.nombre))}</text>
-      <text x="${x+46}" y="${y+141}" font-size="10.5" font-weight="700" fill="${col}">${TIPO[e.tipo][0]}</text></g>
-    ${n?`<g><circle cx="${x+BW-8}" cy="${y+8}" r="13" fill="#e03131" stroke="#fff" stroke-width="3"/><text x="${x+BW-8}" y="${y+12.5}" text-anchor="middle" font-size="12" font-weight="800" fill="#fff">${n}</text></g>`:""}
-    ${sel?`<rect class="marco" x="${x-5}" y="${y-5}" width="${BW+10}" height="${BH+10}" rx="9" fill="none" stroke="#ffd43b" stroke-width="5"/>`:""}</g>`;
+function arbol(x,y,r){const [px,py]=proj(x,y);return {d:x+y,svg:`<ellipse cx="${px+4}" cy="${py+2}" rx="${r}" ry="${r*.5}" fill="rgba(0,0,0,.22)"/><rect x="${px-2}" y="${py-r}" width="4" height="${r}" fill="#7c4a1e"/><circle cx="${px}" cy="${py-r*1.5}" r="${r}" fill="#2b8a3e"/><circle cx="${px-r*.3}" cy="${py-r*1.8}" r="${r*.55}" fill="#51cf66"/>`}}
+function edificioIso(e,x,y,w,h){
+  const H=ALTO[e.id]||50,[c1]=PAL[e.id]||PAL[e.tipo];let g="";
+  if(e.id==="clien"){[[0,0],[46,10],[92,0]].forEach(([dx,dy],i)=>{const col=["#c92a2a","#e8590c","#5c7cfa"][i];g+=caja(x+dx,y+dy+8,36,36,18,"#f1f3f5");const t=proj(x+dx+18,y+dy+26,34);
+      g+=`<polygon points="${pts([proj(x+dx,y+dy+8,18),proj(x+dx+36,y+dy+8,18),t])}" fill="${oscurecer(col,.8)}"/><polygon points="${pts([proj(x+dx+36,y+dy+8,18),proj(x+dx+36,y+dy+44,18),t])}" fill="${oscurecer(col,.6)}"/><polygon points="${pts([proj(x+dx,y+dy+44,18),proj(x+dx+36,y+dy+44,18),t])}" fill="${col}"/>`});return g}
+  g+=caja(x,y,w,h,H,c1,{toldo:e.tipo==="com"});
+  const [tx,ty]=proj(x+w/2,y+h/2,H);
+  if(e.id==="hacie")g+=`<ellipse cx="${tx}" cy="${ty}" rx="34" ry="18" fill="#ced4da" stroke="#868e96" stroke-width="2"/><path d="M ${tx-34} ${ty} A 34 30 0 0 1 ${tx+34} ${ty}" fill="#dee2e6" stroke="#868e96" stroke-width="2"/><rect x="${tx-2}" y="${ty-46}" width="4" height="18" fill="#868e96"/><polygon points="${tx+2},${ty-46} ${tx+18},${ty-41} ${tx+2},${ty-36}" fill="#1c7ed6"/>`;
+  else if(e.id==="banco")g+=`<ellipse cx="${tx}" cy="${ty}" rx="26" ry="13" fill="#fff3bf" stroke="#b08900" stroke-width="2"/><text x="${tx}" y="${ty+6}" text-anchor="middle" font-size="18" font-weight="800" fill="#b08900">₡</text>`;
+  else{const u=proj(x+16,y+14,H),v=proj(x+40,y+14,H);g+=`<rect x="${u[0]-8}" y="${u[1]-9}" width="16" height="9" rx="2" fill="#dee2e6" stroke="#868e96"/><rect x="${v[0]-8}" y="${v[1]-9}" width="16" height="9" rx="2" fill="#dee2e6" stroke="#868e96"/>`}
+  return g;
 }
-function plaza(){
-  const x=bx(1),y=by(1),cx=x+BW/2,cy=y+BH/2;let g=`<rect x="${x}" y="${y}" width="${BW}" height="${BH}" rx="5" fill="#69b34c"/>`;
-  g+=`<circle cx="${cx}" cy="${cy}" r="58" fill="#e9dcc0"/><circle cx="${cx}" cy="${cy}" r="40" fill="#69b34c"/><circle cx="${cx}" cy="${cy}" r="22" fill="#4dabf7" stroke="#d0ebff" stroke-width="4"/><circle cx="${cx}" cy="${cy}" r="6" fill="#e7f5ff"/>`;
-  g+=`<rect x="${x}" y="${cy-7}" width="${BW}" height="14" fill="#e9dcc0"/><rect x="${cx-7}" y="${y}" width="14" height="${BH}" fill="#e9dcc0"/><circle cx="${cx}" cy="${cy}" r="22" fill="#4dabf7" stroke="#d0ebff" stroke-width="4"/>`;
-  [[18,18],[BW-18,18],[18,BH-18],[BW-18,BH-18],[45,35],[BW-45,BH-35],[45,BH-35],[BW-45,35]].forEach(([dx,dy],i)=>g+=arbol(x+dx,y+dy,i<4?11:8));
-  return g+`<text x="${cx}" y="${y+BH-6}" text-anchor="middle" font-size="11" font-weight="700" fill="#1b4332">Parque central</text>`;
-}
+/* Suelo de cada lote (plano, dentro del grupo inclinado) */
+function sueloLote(e){const [c,r]=MAPA[e.id],x=bx(c),y=by(r),sel=SEL===e.id;
+  return `<rect x="${x}" y="${y}" width="${BW}" height="${BH}" rx="5" fill="#82c45a"/><rect x="${x+4}" y="${y+4}" width="${BW-8}" height="${BH-8}" rx="4" fill="none" stroke="#dfe5ec" stroke-width="7"/>
+    <rect x="${x+120}" y="${y+108}" width="56" height="36" rx="3" fill="#868e96"/>${[0,1,2].map(i=>`<line x1="${x+120+i*18+18}" y1="${y+108}" x2="${x+120+i*18+18}" y2="${y+144}" stroke="#fff" stroke-width="2"/>`).join("")}
+    ${sel?`<rect class="marco" x="${x-6}" y="${y-6}" width="${BW+12}" height="${BH+12}" rx="9" fill="none" stroke="#ffd43b" stroke-width="7"/>`:""}`}
+function lote(e){const [c,r]=MAPA[e.id],x=bx(c),y=by(r);
+  return {d:x+y+BW/2+BH/2,svg:`<g class="lote ${SEL===e.id?"sel":""}" data-emp="${e.id}" role="button" tabindex="0" aria-pressed="${SEL===e.id}" aria-label="${esc(e.nombre)}, ${TIPO[e.tipo][0]}"><g class="edif">${edificioIso(e,x+28,y+20,BW-74,BH-62)}</g></g>`}}
+function cartel(e){const [c,r]=MAPA[e.id],x=bx(c),y=by(r),H=ALTO[e.id]||40,[px,py]=proj(x+BW/2-10,y+BH/2-10,H+(e.id==="hacie"?60:30)),col=(PAL[e.id]||PAL[e.tipo])[0],
+    n=S.docs.filter(d=>d.emisor===e.id||d.receptor===e.id).length,nom=corto(e.nombre),w=Math.max(120,nom.length*7.4+46);
+  return `<g class="lote cartel-g" data-emp="${e.id}" aria-hidden="true"><g class="cartel"><line x1="${px}" y1="${py+14}" x2="${px}" y2="${py+30}" stroke="${col}" stroke-width="3"/>
+    <rect x="${px-w/2}" y="${py-22}" width="${w}" height="38" rx="11" fill="#fff" stroke="${col}" stroke-width="3"/>
+    <text x="${px-w/2+10}" y="${py+3}" font-size="16">${e.ico}</text><text x="${px-w/2+32}" y="${py-6}" font-size="12.5" font-weight="800" fill="#14213d">${esc(nom)}</text>
+    <text x="${px-w/2+32}" y="${py+9}" font-size="10" font-weight="700" fill="${col}">${TIPO[e.tipo][0]}</text>
+    ${n?`<circle cx="${px+w/2-2}" cy="${py-20}" r="12" fill="#e03131" stroke="#fff" stroke-width="3"/><text x="${px+w/2-2}" y="${py-16}" text-anchor="middle" font-size="12" font-weight="800" fill="#fff">${n}</text>`:""}</g></g>`}
+function plazaSuelo(){const x=bx(1),y=by(1),cx=x+BW/2,cy=y+BH/2;
+  return `<rect x="${x}" y="${y}" width="${BW}" height="${BH}" rx="5" fill="#69b34c"/><circle cx="${cx}" cy="${cy}" r="58" fill="#e9dcc0"/><circle cx="${cx}" cy="${cy}" r="40" fill="#69b34c"/>
+    <rect x="${x}" y="${cy-7}" width="${BW}" height="14" fill="#e9dcc0"/><rect x="${cx-7}" y="${y}" width="14" height="${BH}" fill="#e9dcc0"/><circle cx="${cx}" cy="${cy}" r="24" fill="#4dabf7" stroke="#d0ebff" stroke-width="5"/><circle cx="${cx}" cy="${cy}" r="7" fill="#e7f5ff"/>`}
+function plazaObjetos(){const x=bx(1),y=by(1);
+  return [[18,18],[BW-18,18],[18,BH-18],[BW-18,BH-18],[45,35],[BW-45,BH-35],[45,BH-35],[BW-45,35]].map(([dx,dy],i)=>arbol(x+dx,y+dy,i<4?12:9));}
 function calles(){
   let g=`<rect width="${MW}" height="${MH}" fill="#4b5260"/>`;
   const hy=[0,1,2,3].map(r=>RD/2+r*(BH+RD)),vx=[0,1,2,3,4].map(c=>RD/2+c*(BW+RD));
@@ -330,7 +339,7 @@ function peatones(){
     return `<g>${cuerpo}<animateMotion dur="${dur}s" begin="${beg}s" repeatCount="indefinite" path="${path}"/></g>`;}).join("");
 }
 /* Animación al emitir: el documento viaja de quien vende a quien compra y las monedas vuelven con el monto. */
-function centroLote(id){const m=MAPA[id];return m?[bx(m[0])+BW/2,by(m[1])+56]:null}
+function centroLote(id){const m=MAPA[id];return m?proj(bx(m[0])+BW/2-10,by(m[1])+BH/2-10,(ALTO[id]||30)+10):null}
 function animarTransaccion(doc,listo){
   const svg=document.querySelector("svg.mapa"),A=centroLote(doc.emisor),B=centroLote(doc.receptor);
   if(reducido||!svg||!A||!B){listo();return}
@@ -357,8 +366,16 @@ function animarTransaccion(doc,listo){
   requestAnimationFrame(paso);
 }
 function mapaHTML(){
-  return `<svg class="mapa" viewBox="0 0 ${MW} ${MH}" role="group" aria-label="Mapa de la ciudad: toque un edificio para abrir la empresa" font-family="Inter, system-ui, sans-serif">
-    ${calles()}${plaza()}${S.empresas.filter(e=>MAPA[e.id]).map(edificio).join("")}${peatones()}${carros()}</svg>`;
+  const es=S.empresas.filter(e=>MAPA[e.id]);
+  const objetos=[...es.map(lote),...plazaObjetos(),...es.flatMap(e=>{const [c,r]=MAPA[e.id],x=bx(c),y=by(r);return [arbol(x+14,y+14,9),arbol(x+14,y+BH-20,8),arbol(x+BW-14,y+16,8)]})].sort((p,q)=>p.d-q.d);
+  return `<svg class="mapa" viewBox="-620 -125 1515 990" role="group" aria-label="Mapa de la ciudad en vista isométrica: toque un edificio para abrir la empresa" font-family="Inter, system-ui, sans-serif">
+    <defs><linearGradient id="cielo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fd3f5"/><stop offset="1" stop-color="#d7eefc"/></linearGradient></defs>
+    <rect x="-620" y="-125" width="1515" height="990" fill="url(#cielo)"/>
+    <polygon points="${pts([proj(-30,-30),proj(MW+30,-30),proj(MW+30,MH+30),proj(-30,MH+30)])}" fill="#5a9e3f"/>
+    <polygon points="${pts([proj(MW+30,MH+30),proj(MW+30,-30),proj(MW+30,-30,-22),proj(MW+30,MH+30,-22)])}" fill="#6b4a2b"/><polygon points="${pts([proj(-30,MH+30),proj(MW+30,MH+30),proj(MW+30,MH+30,-22),proj(-30,MH+30,-22)])}" fill="#8a5f37"/>
+    <g transform="matrix(${ISO.join(" ")} 0 0)">${calles()}${plazaSuelo()}${es.map(sueloLote).join("")}${peatones()}${carros()}</g>
+    ${objetos.map(o=>o.svg).join("")}
+    ${es.map(cartel).join("")}</svg>`;
 }
 function pintar(){
   if(!DOCENTE){$("#app").innerHTML=`<div class="card" style="grid-column:1/-1"><h2>Solo para el profe</h2><p class="muted">Este prototipo se abre desde la plataforma, en <b>📅 2027</b>, con la sesión del docente.</p><a class="btn" href="index.html">Ir a la plataforma</a></div>`;return}
