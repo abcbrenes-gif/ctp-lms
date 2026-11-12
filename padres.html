@@ -54,7 +54,7 @@ function leerToken(){const m=location.hash.match(/t=([\w.-]+)/);if(m){TOKEN=m[1]
 
 function vIngreso(msg){
   $("#app").innerHTML=`<div class="card"><h2 style="margin-top:0">Ingresar con su correo</h2>
-    <p class="muted">Use la cédula del estudiante y el correo que usted dio al colegio. Le enviaremos un código de 6 dígitos. Si recibió un enlace por WhatsApp, ábralo directamente.</p>
+    <p class="muted">Use la cédula del estudiante y el correo que usted dio al colegio. Le enviaremos un código de 6 dígitos.</p>
     ${msg?`<div class="msg bad">${esc(msg)}</div>`:""}
     <label for="ced">Cédula del estudiante</label><input id="ced" inputmode="numeric" placeholder="4-0000-0000" autocomplete="off">
     <label for="cor">Correo del encargado</label><input id="cor" type="email" autocomplete="email" placeholder="nombre@correo.com">
@@ -76,7 +76,7 @@ async function vPortal(okMsg){
   const porJustificar=d.registros.filter(r=>["ausente_injustificada","tardia_leve","tardia_grave"].includes(r.estado)&&!pend.has(r.id));
   const chip=e=>{const t=TIPO[e]||["?",e,"#64748b"];return `<span class="code" style="color:${t[2]};background:${t[2]}22">${t[0]}</span>`};
   $("#app").innerHTML=`${okMsg?`<div class="msg ok">${esc(okMsg)}</div>`:""}
-   <div class="card"><div class="muted">Estudiante</div><h2 style="margin:.1rem 0 0">${esc(d.estudiante.nombre)}</h2><div class="muted">Sección ${esc(d.estudiante.seccion||"")}${d.via==="wa"?" · enlace enviado por el docente":""}</div></div>
+   <div class="card"><div class="muted">Estudiante</div><h2 style="margin:.1rem 0 0">${esc(d.estudiante.nombre)}</h2><div class="muted">Sección ${esc(d.estudiante.seccion||"")}</div></div>
    <div class="card"><h2 style="margin-top:0">Justificar</h2>
     ${porJustificar.length?`<p class="muted">Marque las ausencias o tardías que va a justificar.</p>
       ${porJustificar.map(r=>`<label class="reg"><input type="checkbox" value="${esc(r.id)}" checked>${chip(r.estado)}<span>${esc(fFecha(r.fecha))}<small>${esc((TIPO[r.estado]||[])[1]||r.estado)}</small></span></label>`).join("")}

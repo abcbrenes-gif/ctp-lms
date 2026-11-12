@@ -77,15 +77,13 @@ async function renderRegistroFamilias() {
     <div class="card" style="padding:1rem;display:flex;gap:1.2rem;flex-wrap:wrap;align-items:center">
       <div style="width:170px;height:170px;background:#fff;border-radius:12px;padding:6px">${qr}</div>
       <div style="flex:1;min-width:16rem"><p style="margin:0 0 .4rem"><b>Enlace:</b> <a href="${esc(REG_URL)}" target="_blank" rel="noopener">${esc(REG_URL)}</a></p>
-        <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn small" id="rf-copiar">📋 Copiar enlace</button><button class="btn small" id="rf-wa">📲 Mensaje para WhatsApp</button><button class="btn small" id="rf-imp">🖨️ Imprimir hoja con QR</button></div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn small" id="rf-copiar">📋 Copiar enlace</button><button class="btn small" id="rf-imp">🖨️ Imprimir hoja con QR</button></div>
         <p id="rf-msg" style="color:var(--text-muted);margin:.4rem 0 0"></p></div></div>
     <div class="card" style="padding:1rem"><h2 style="margin-top:0">⏳ Pendientes (${pend.length})</h2>${tabla(pend, true)}</div>
     <div class="card" style="padding:1rem"><h2 style="margin-top:0">📁 Revisados (${resto.length})</h2>${tabla(resto, false)}</div>`;
   const msg = t => { document.getElementById("rf-msg").textContent = t; };
-  const texto = `Buenas. Soy el docente de Contabilidad del CTP Mercedes Norte. Para el curso lectivo 2027 le pido que registre sus datos de encargado en este enlace (toma unos 3 minutos): ${REG_URL}`;
   document.getElementById("rf-volver").onclick = () => { location.hash = "#/2027"; };
   document.getElementById("rf-copiar").onclick = async () => { try { await navigator.clipboard.writeText(REG_URL); msg("✅ Enlace copiado."); } catch (e) { msg(REG_URL); } };
-  document.getElementById("rf-wa").onclick = () => window.open("https://wa.me/?text=" + encodeURIComponent(texto), "_blank", "noopener");
   document.getElementById("rf-imp").onclick = () => {
     const w = window.open("", "_blank"); if (!w) { msg("Permita ventanas emergentes para imprimir."); return; }
     w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Registro de familias 2027</title><style>body{font-family:Arial,sans-serif;text-align:center;color:#14213d;padding:30px}h1{margin:0 0 4px;font-size:28px}.q{width:320px;height:320px;margin:24px auto}.q svg{width:100%;height:100%}p{font-size:17px;max-width:560px;margin:8px auto}.u{font-family:monospace;font-size:16px;background:#eef3fb;padding:8px 12px;border-radius:8px;display:inline-block}</style></head><body>

@@ -3,7 +3,7 @@
 //  · 📥 Solicitudes: las justificaciones que mandan los encargados; el docente
 //    las aprueba (la ausencia pasa a AJ y la tardía a TJ) o las rechaza.
 //  · 👪 Encargados: nombre, teléfono y correo del encargado de cada estudiante.
-//  · 📲 Enviar por WhatsApp: enlace personal (vence en 5 días) para el encargado.
+//  (WhatsApp se quitó el 2026-11-12: los encargados entran solo con el código al correo.)
 const JUS_ESTR = "justificacion_asistencia", ENC_ESTR = "encargados";
 const JUS_MAP = { ausente_injustificada: "ausente_justificada", tardia_leve: "tardia_justificada", tardia_grave: "tardia_justificada" };
 const JUS_TIPO = { ausente_injustificada: ["A", "Ausencia injustificada"], tardia_leve: ["TI", "Tardía < 10 min"], tardia_grave: ["TI", "Tardía ≥ 10 min"], ausente_justificada: ["AJ", "Ausencia justificada"], tardia_justificada: ["TJ", "Tardía justificada"], presente: ["P", "Presente"] };
@@ -14,7 +14,7 @@ async function jusCargarEncargados() {
 }
 async function renderJustificaciones() {
   if (session.role !== "docente") { location.hash = "#/"; return; }
-  const tab = renderJustificaciones.tab || "solicitudes";
+  const tab = renderJustificaciones.tab === "encargados" ? "encargados" : "solicitudes";
   app.innerHTML = `${topbar()}<div class="wrap" id="jus-wrap"><h1>👪 Justificaciones de asistencia</h1><p>Cargando…</p></div>`;
   bindTopbar();
   const wrap = document.getElementById("jus-wrap");
@@ -26,9 +26,9 @@ async function renderJustificaciones() {
   const ENC = { ...(((regEnc || {}).contenido_actividad || {}).datos || {}) };
   const { data: estAll } = await sb.from("estudiantes").select("id, nombre, apellido1, apellido2, seccion").order("apellido1");
   const nom = id => { const e = (estAll || []).find(x => x.id === id); return e ? `${e.apellido1} ${e.apellido2 || ""}, ${e.nombre}`.replace(/\s+,/, ",") : id; };
-  const tabs = [["solicitudes", "📥 Solicitudes"], ["encargados", "👪 Encargados"], ["whatsapp", "📲 Enviar por WhatsApp"]];
+  const tabs = [["solicitudes", "📥 Solicitudes"], ["encargados", "👪 Encargados"]];
   const cab = `<h1>👪 Justificaciones de asistencia</h1>
-    <p style="color:var(--text-muted);margin-top:-0.6em">Los encargados justifican desde el <b>Portal de familias</b> (${esc(portal)}): con el enlace que usted les manda por WhatsApp o con un código a su correo. Nada cambia en la asistencia hasta que usted aprueba.</p>
+    <p style="color:var(--text-muted);margin-top:-0.6em">Los encargados justifican desde el <b>Portal de familias</b> (${esc(portal)}): con la cédula del estudiante y un código que les llega al correo registrado. Nada cambia en la asistencia hasta que usted aprueba.</p>
     <div class="tabs" style="margin-bottom:1rem">${tabs.map(([k, t]) => `<button class="tab-btn ${k === tab ? "active" : ""}" data-jtab="${k}"><span class="tab-label">${t}</span></button>`).join("")}</div>`;
   const ligarTabs = () => wrap.querySelectorAll("[data-jtab]").forEach(b => b.onclick = () => { renderJustificaciones.tab = b.dataset.jtab; renderJustificaciones(); });
   const msgEl = () => document.getElementById("jus-msg");
@@ -86,7 +86,7 @@ async function renderJustificaciones() {
 
   if (tab === "encargados") {
     wrap.innerHTML = cab + `<div class="np-barra">${selSec}</div>
-      <p style="color:var(--text-muted)">El <b>correo</b> sirve para que el encargado entre al portal con un código; el <b>teléfono</b>, para mandarle el enlace por WhatsApp. Solo usted ve estos datos.</p>
+      <p style="color:var(--text-muted)">El <b>correo</b> sirve para que el encargado entre al portal con un código; el <b>teléfono</b>, para llamarlo cuando haga falta. Solo usted ve estos datos.</p>
       <div style="overflow-x:auto"><table class="grades"><thead><tr><th>Estudiante</th><th>Nombre del encargado</th><th>Teléfono</th><th>Correo</th></tr></thead><tbody>
       ${lista.map(e => { const x = ENC[e.id] || {}; return `<tr><td>${esc(nom(e.id))}</td><td><input data-enc="${esc(e.id)}|nombre" value="${esc(x.nombre || "")}"></td><td><input data-enc="${esc(e.id)}|telefono" inputmode="tel" value="${esc(x.telefono || "")}" placeholder="8888-8888" style="width:9rem"></td><td><input data-enc="${esc(e.id)}|correo" type="email" value="${esc(x.correo || "")}"></td></tr>`; }).join("")}
       </tbody></table></div><p><button class="btn" id="jus-guardar">💾 Guardar encargados</button> <span id="jus-msg" style="color:var(--text-muted)"></span></p>`;
@@ -104,37 +104,4 @@ async function renderJustificaciones() {
     };
     return;
   }
-
-  // 📲 WhatsApp
-  const ids = lista.map(e => e.id);
-  const { data: regs } = ids.length ? await sb.from("asistencia_lecciones").select("id, estudiante_id, fecha, estado").in("estudiante_id", ids).in("estado", Object.keys(JUS_MAP)).order("fecha", { ascending: false }) : { data: [] };
-  const { data: sols0 } = await sb.from("trabajos_cotidianos").select("contenido_actividad").eq("contenido_actividad->>estrategia", JUS_ESTR).eq("contenido_actividad->>estado", "pendiente");
-  const enTramite = new Set((sols0 || []).flatMap(x => (x.contenido_actividad.registros || []).map(String)));
-  wrap.innerHTML = cab + `<div class="np-barra">${selSec}</div>
-    <p style="color:var(--text-muted)">Cada enlace es personal, sirve solo para las ausencias y tardías de ese estudiante que aparecen aquí y vence en 5 días. Se abre WhatsApp con el mensaje listo; usted lo envía desde su teléfono.</p>
-    <div style="overflow-x:auto"><table class="grades"><thead><tr><th>Estudiante</th><th>Por justificar</th><th>Encargado</th><th></th></tr></thead><tbody>
-    ${lista.map(e => { const rs = (regs || []).filter(r => r.estudiante_id === e.id && !enTramite.has(String(r.id))), x = ENC[e.id] || {}, tel = String(x.telefono || "").replace(/\D/g, "");
-      return `<tr><td>${esc(nom(e.id))}</td><td>${rs.length ? rs.map(r => `<span class="badge" style="margin:1px">${esc(JUS_TIPO[r.estado][0])} · ${esc(r.fecha)}</span>`).join("") : '<span style="color:var(--text-muted)">—</span>'}</td>
-        <td>${esc(x.nombre || "")}${tel ? `<br><small>${esc(x.telefono)}</small>` : '<br><small style="color:var(--brick)">Sin teléfono</small>'}</td>
-        <td>${rs.length && tel ? `<button class="btn small" data-jwa="${esc(e.id)}">📲 Enviar al encargado</button>` : ""}</td></tr>`; }).join("")}
-    </tbody></table></div><p id="jus-msg" style="color:var(--text-muted)"></p>`;
-  ligarTabs();
-  document.getElementById("jus-sec").onchange = ev => { renderJustificaciones.sec = ev.target.value; renderJustificaciones(); };
-  wrap.querySelectorAll("[data-jwa]").forEach(b => b.onclick = async () => {
-    const id = b.dataset.jwa, x = ENC[id] || {}, rs = (regs || []).filter(r => r.estudiante_id === id && !enTramite.has(String(r.id)));
-    let pin = ""; try { pin = sessionStorage.getItem("jus_pin") || ""; } catch (e) { }
-    if (!pin) { pin = prompt("Para firmar el enlace, escriba su PIN de docente (se pide una vez por sesión):") || ""; if (!pin) return; }
-    b.disabled = true;
-    try {
-      const r = await fetch("/api/padres", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accion: "firmar_enlace", pin, est: id, registros: rs.map(r => String(r.id)), dias: 5 }) });
-      const j = await r.json(); if (!r.ok) throw new Error(j.error || "Error");
-      try { sessionStorage.setItem("jus_pin", pin); } catch (e) { }
-      const tel = String(x.telefono).replace(/\D/g, ""), num = tel.length === 8 ? "506" + tel : tel;
-      const e = (estAll || []).find(z => z.id === id) || {};
-      const texto = `Buenas, ${x.nombre || "encargado(a)"}. Le escribe el profesor de Contabilidad del CTP Mercedes Norte. ${e.nombre || "Su hijo(a)"} tiene ${rs.length} ausencia(s) o tardía(s) sin justificar. Si corresponde, puede justificarlas en este enlace personal (vence en 5 días): ${portal}#t=${j.token}`;
-      window.open(`https://wa.me/${num}?text=${encodeURIComponent(texto)}`, "_blank");
-      msg(`Enlace listo para ${nom(id)}.`);
-    } catch (er) { if (/PIN/.test(er.message)) { try { sessionStorage.removeItem("jus_pin"); } catch (e) { } } msg("❌ " + er.message); }
-    finally { b.disabled = false; }
-  });
 }

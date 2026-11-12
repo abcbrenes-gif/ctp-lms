@@ -280,7 +280,7 @@ async function renderHome() {
     { grupo: "estrategias", href: "#/notas-periodo", icono: "📄", titulo: "Notas por período", sub: "Acta del I Período, nota del II Período y nota anual según el MEP (50 % + 50 %), con PDF", cta: "Ver notas →" },
     { grupo: "2027", href: "#/2027", icono: "📅", titulo: "Curso lectivo 2027", sub: "Lo que vamos preparando para el próximo año, con su lista de pendientes", cta: "Abrir 2027 →" },
     { grupo: "estrategias", href: "planeamiento.html", icono: "📘", titulo: "Planeamiento didáctico", sub: "Plan de práctica pedagógica por unidad de estudio (formato MEP · ETP), con estrategias D/ y E/ propuestas por la IA", cta: "Planificar →" },
-    { grupo: "estrategias", href: "#/justificaciones", icono: "👪", titulo: "Justificaciones", sub: "Los encargados justifican ausencias y tardías (enlace por WhatsApp o código al correo); usted aprueba", cta: "Revisar →" },
+    { grupo: "estrategias", href: "#/justificaciones", icono: "👪", titulo: "Justificaciones", sub: "Los encargados justifican ausencias y tardías (con un código a su correo); usted aprueba", cta: "Revisar →" },
     { grupo: "estrategias", href: "#/puntos-extra", icono: "➕", titulo: "Puntos extra", sub: "Suba puntos por estudiante en Trabajo cotidiano, Tareas o Proyectos, con su motivo", cta: "Dar puntos →" },
     { grupo: "estrategias", href: "#/boleta-notas", icono: "🎓", titulo: "Boleta de notas", sub: "Revise y emita la nota del II Período y la anual; el estudiante abre su boleta con el sello Aprobado o Aplazado", cta: "Ver boleta →" },
     { grupo: "estrategias", href: "#/bitacora", icono: "🕓", titulo: "Bitácora de ingresos", sub: "Quién entró a la plataforma, cuándo, a qué módulo y desde qué dispositivo", cta: "Ver bitácora →" },
