@@ -18,8 +18,10 @@
   --com:#e8590c;--comBg:#fff1e7;--ser:#7048e8;--serBg:#f1edff;--ia:#0b7285;--iaBg:#e3f6f8;--ok:#1f8f55;--okBg:#e5f6ec;--bad:#c2410c;--badBg:#fdeee5;
   --road:#cfd8e3;--grass:#dff0d8}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,sans-serif}
-header{display:flex;align-items:center;gap:14px;padding:16px 20px;background:#fff;border-bottom:1px solid var(--line);flex-wrap:wrap}
+body{margin:0;background:radial-gradient(1200px 600px at 30% -10%,#26386b 0%,#0f1830 60%) fixed,#0f1830;color:var(--ink);font:15px/1.5 Inter,system-ui,sans-serif}
+header{display:flex;align-items:center;gap:14px;padding:14px 20px;background:rgba(10,16,34,.85);border-bottom:1px solid #26365e;flex-wrap:wrap;color:#fff;position:sticky;top:0;z-index:5;backdrop-filter:blur(6px)}
+header .sub{color:#b8c4dc}
+header button.ghost{color:#dbe4ff;border-color:#3a4c7d}
 header img{height:54px}
 h1{font:800 1.45rem/1.1 Lexend,Inter,sans-serif;margin:0}
 .sub{color:var(--mut);margin:2px 0 0;font-size:.9rem}
@@ -30,7 +32,7 @@ button.sec,.btn.sec{background:var(--pri2);color:var(--pri)}
 button.ghost{background:transparent;color:var(--mut);border:1px solid var(--line)}
 button:disabled{opacity:.45;cursor:default}
 button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #9cc0ff;outline-offset:2px}
-main{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px;padding:18px 20px 90px;max-width:1500px;margin:0 auto}
+main{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(0,1fr);gap:18px;padding:18px 20px 90px;max-width:1500px;margin:0 auto}
 @media(max-width:980px){main{grid-template-columns:minmax(0,1fr)}}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
 h2{font:700 1.08rem Lexend,Inter,sans-serif;margin:0 0 10px}
@@ -56,6 +58,20 @@ h3{font:700 .98rem Lexend,Inter,sans-serif;margin:14px 0 8px}
 .badge-n{position:absolute;top:8px;right:8px;background:var(--pri);color:#fff;border-radius:999px;font-size:.7rem;font-weight:700;padding:1px 7px}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.8rem;color:var(--mut);margin-top:6px}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.juego{background:#14213d;border-color:#26365e;color:#fff;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+.juego .nota,.juego .legend{color:#c5d0e0}
+.hud{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.hud-t{font:800 1.15rem Lexend,Inter,sans-serif;margin-right:6px}
+.hud-c{background:#22325a;border:1px solid #33467a;border-radius:999px;padding:3px 11px;font-size:.8rem;font-weight:700}
+.mapa-wrap{border-radius:14px;overflow:hidden;border:4px solid #0b1220;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+svg.mapa{display:block;width:100%;height:auto}
+.lote{cursor:pointer;outline:none}
+.lote .edif,.lote .cartel{transition:transform .18s ease}
+.lote:hover .edif,.lote:focus-visible .edif{transform:translateY(-4px)}
+.lote:focus-visible .cartel rect{stroke:#ffd43b;stroke-width:5}
+.lote .marco{stroke-dasharray:14 8;animation:marcha 1.2s linear infinite}
+@keyframes marcha{to{stroke-dashoffset:-22}}
+@media (prefers-reduced-motion: reduce){.lote .marco{animation:none}.lote .edif,.lote .cartel{transition:none}}
 /* ── Panel de empresa ── */
 .co-hd{display:flex;gap:12px;align-items:flex-start}
 .co-hd .ico{font-size:2rem}
@@ -237,23 +253,87 @@ function saldoDe(e){ // saldos rápidos que salen de los documentos (prototipo)
     if(d.receptor===e.id){ivaS+=s*T.iva;if(d.condicion==="credito")cxp+=s*T.total}});
   return {cxc:r2(cxc),cxp:r2(cxp),ivaP:r2(ivaP),ivaS:r2(ivaS),vent:r2(vent)};
 }
-function bldHTML(e){
-  const n=S.docs.filter(d=>d.emisor===e.id||d.receptor===e.id).length,s=lleva(e)?saldoDe(e):null;
-  return `<button type="button" class="bld ${TIPO[e.tipo][1]} ${SEL===e.id?"sel":""}" data-emp="${e.id}" aria-pressed="${SEL===e.id}">
-    <div class="roof"></div>${n?`<span class="badge-n" title="Documentos">${n}</span>`:""}
-    <div class="ico">${e.ico}</div><div class="nm">${esc(e.nombre)}</div><div class="tp">${TIPO[e.tipo][0]}</div>
-    ${s?`<div class="kp">Ventas ${fm(s.vent)}</div>`:`<div class="kp">${esc(e.giro)}</div>`}</button>`;
+/* ═══════════ Mapa de la ciudad tipo videojuego (vista desde arriba, dibujado en SVG) ═══════════ */
+const MAPA={ferre:[0,0],libre:[1,0],mayo:[2,0],trans:[3,0],conta:[0,1],mante:[2,1],equip:[3,1],clien:[0,2],banco:[1,2],hacie:[2,2],publi:[3,2]};
+const BW=190,BH=160,RD=40,MW=RD*5+BW*4,MH=RD*4+BH*3;
+const bx=c=>RD+c*(BW+RD),by=r=>RD+r*(BH+RD);
+const PAL={com:["#e8590c","#ff9a5c"],ser:["#7048e8","#a48bff"],ia:["#0b7285","#3bb6c6"],banco:["#d9a400","#ffd43b"],hacie:["#495057","#adb5bd"]};
+const corto=n=>n.replace(/ S\.A\.$/,"").replace(/ \(IA\)$/,"");
+const reducido=(()=>{try{return matchMedia("(prefers-reduced-motion: reduce)").matches}catch(e){return false}})();
+function arbol(x,y,r){return `<ellipse cx="${x+3}" cy="${y+4}" rx="${r}" ry="${r*.8}" fill="rgba(0,0,0,.18)"/><circle cx="${x}" cy="${y}" r="${r}" fill="#2b8a3e"/><circle cx="${x-r*.3}" cy="${y-r*.3}" r="${r*.55}" fill="#51cf66"/>`}
+function techo(e,x,y,w,h){
+  const [c1,c2]=PAL[e.id]||PAL[e.tipo]; let g=`<rect x="${x+6}" y="${y+7}" width="${w}" height="${h}" rx="4" fill="rgba(0,0,0,.28)"/>`;
+  if(e.id==="clien"){ // barrio de casitas
+    [[0,0],[52,6],[104,0]].forEach(([dx,dy],i)=>{const X=x+dx,Y=y+dy+6;g+=`<rect x="${X+4}" y="${Y+5}" width="44" height="40" rx="3" fill="rgba(0,0,0,.25)"/><polygon points="${X},${Y+20} ${X+22},${Y} ${X+44},${Y+20} ${X+44},${Y+40} ${X},${Y+40}" fill="${["#c92a2a","#e8590c","#5c7cfa"][i]}"/><line x1="${X+22}" y1="${Y}" x2="${X+22}" y2="${Y+40}" stroke="rgba(255,255,255,.35)" stroke-width="2"/>`});
+    return g+`<rect x="${x+8}" y="${y+60}" width="${w-16}" height="14" rx="7" fill="#e9ecef"/>`;
+  }
+  g+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" fill="${c1}"/><rect x="${x+6}" y="${y+6}" width="${w-12}" height="${h-12}" rx="3" fill="none" stroke="${c2}" stroke-width="2"/>`;
+  if(e.id==="hacie")g+=`<circle cx="${x+w/2}" cy="${y+h/2}" r="${h*.32}" fill="#ced4da" stroke="#868e96" stroke-width="3"/><circle cx="${x+w/2}" cy="${y+h/2}" r="${h*.12}" fill="#868e96"/>`;
+  else if(e.id==="banco")g+=`<rect x="${x+w/2-26}" y="${y+h/2-16}" width="52" height="32" rx="4" fill="#fff3bf"/><text x="${x+w/2}" y="${y+h/2+7}" text-anchor="middle" font-size="20" font-weight="800" fill="#b08900">₡</text>`;
+  else{ // equipos de aire en el techo y tragaluces
+    g+=`<rect x="${x+14}" y="${y+14}" width="18" height="14" rx="2" fill="#dee2e6" stroke="#868e96"/><rect x="${x+38}" y="${y+14}" width="18" height="14" rx="2" fill="#dee2e6" stroke="#868e96"/>`;
+    g+=`<rect x="${x+w-58}" y="${y+h-30}" width="44" height="16" rx="3" fill="${c2}" opacity=".85"/>`;
+  }
+  if(e.tipo==="com")for(let i=0;i<10;i++)g+=`<rect x="${x+i*w/10}" y="${y+h-2}" width="${w/10}" height="9" fill="${i%2?"#fff":c1}"/>`; // toldo de tienda
+  else{g+=`<rect x="${x}" y="${y+h-3}" width="${w}" height="10" rx="2" fill="${c1}" style="filter:brightness(.7)"/>`;for(let i=0;i<7;i++)g+=`<rect x="${x+8+i*(w-16)/7}" y="${y+h}" width="${(w-16)/7-6}" height="5" rx="1" fill="#fff3bf" opacity=".9"/>`;}
+  return g;
+}
+function edificio(e){
+  const [c,r]=MAPA[e.id],x=bx(c),y=by(r),sel=SEL===e.id,n=S.docs.filter(d=>d.emisor===e.id||d.receptor===e.id).length,col=(PAL[e.id]||PAL[e.tipo])[0];
+  return `<g class="lote ${sel?"sel":""}" data-emp="${e.id}" role="button" tabindex="0" aria-pressed="${sel}" aria-label="${esc(e.nombre)}, ${TIPO[e.tipo][0]}">
+    <rect x="${x}" y="${y}" width="${BW}" height="${BH}" rx="5" fill="#82c45a"/>
+    <rect x="${x+3}" y="${y+3}" width="${BW-6}" height="${BH-6}" rx="4" fill="none" stroke="#9bd27a" stroke-width="2" stroke-dasharray="2 6"/>
+    ${arbol(x+12,y+12,9)}${arbol(x+BW-12,y+BH-54,8)}${arbol(x+11,y+BH-58,7)}
+    <g class="edif">${techo(e,x+22,y+14,BW-44,80)}</g>
+    <g class="cartel"><rect x="${x+10}" y="${y+108}" width="${BW-20}" height="40" rx="10" fill="#fff" stroke="${col}" stroke-width="3"/>
+      <text x="${x+22}" y="${y+134}" font-size="17">${e.ico}</text>
+      <text x="${x+46}" y="${y+126}" font-size="12.5" font-weight="700" fill="#14213d">${esc(corto(e.nombre))}</text>
+      <text x="${x+46}" y="${y+141}" font-size="10.5" font-weight="700" fill="${col}">${TIPO[e.tipo][0]}</text></g>
+    ${n?`<g><circle cx="${x+BW-8}" cy="${y+8}" r="13" fill="#e03131" stroke="#fff" stroke-width="3"/><text x="${x+BW-8}" y="${y+12.5}" text-anchor="middle" font-size="12" font-weight="800" fill="#fff">${n}</text></g>`:""}
+    ${sel?`<rect class="marco" x="${x-5}" y="${y-5}" width="${BW+10}" height="${BH+10}" rx="9" fill="none" stroke="#ffd43b" stroke-width="5"/>`:""}</g>`;
+}
+function plaza(){
+  const x=bx(1),y=by(1),cx=x+BW/2,cy=y+BH/2;let g=`<rect x="${x}" y="${y}" width="${BW}" height="${BH}" rx="5" fill="#69b34c"/>`;
+  g+=`<circle cx="${cx}" cy="${cy}" r="58" fill="#e9dcc0"/><circle cx="${cx}" cy="${cy}" r="40" fill="#69b34c"/><circle cx="${cx}" cy="${cy}" r="22" fill="#4dabf7" stroke="#d0ebff" stroke-width="4"/><circle cx="${cx}" cy="${cy}" r="6" fill="#e7f5ff"/>`;
+  g+=`<rect x="${x}" y="${cy-7}" width="${BW}" height="14" fill="#e9dcc0"/><rect x="${cx-7}" y="${y}" width="14" height="${BH}" fill="#e9dcc0"/><circle cx="${cx}" cy="${cy}" r="22" fill="#4dabf7" stroke="#d0ebff" stroke-width="4"/>`;
+  [[18,18],[BW-18,18],[18,BH-18],[BW-18,BH-18],[45,35],[BW-45,BH-35],[45,BH-35],[BW-45,35]].forEach(([dx,dy],i)=>g+=arbol(x+dx,y+dy,i<4?11:8));
+  return g+`<text x="${cx}" y="${y+BH-6}" text-anchor="middle" font-size="11" font-weight="700" fill="#1b4332">Parque central</text>`;
+}
+function calles(){
+  let g=`<rect width="${MW}" height="${MH}" fill="#4b5260"/>`;
+  const hy=[0,1,2,3].map(r=>RD/2+r*(BH+RD)),vx=[0,1,2,3,4].map(c=>RD/2+c*(BW+RD));
+  hy.forEach(y=>g+=`<line x1="0" y1="${y}" x2="${MW}" y2="${y}" stroke="#f8d548" stroke-width="2" stroke-dasharray="16 12"/>`);
+  vx.forEach(x=>g+=`<line x1="${x}" y1="0" x2="${x}" y2="${MH}" stroke="#f8d548" stroke-width="2" stroke-dasharray="16 12"/>`);
+  vx.forEach(x=>hy.forEach(y=>{g+=`<rect x="${x-RD/2}" y="${y-RD/2}" width="${RD}" height="${RD}" fill="#4b5260"/>`;
+    for(let i=0;i<5;i++){const o=-RD/2+4+i*7.5;
+      g+=`<rect x="${x+o}" y="${y-RD/2-12}" width="4" height="10" fill="#f1f3f5"/><rect x="${x+o}" y="${y+RD/2+2}" width="4" height="10" fill="#f1f3f5"/>`;
+      g+=`<rect x="${x-RD/2-12}" y="${y+o}" width="10" height="4" fill="#f1f3f5"/><rect x="${x+RD/2+2}" y="${y+o}" width="10" height="4" fill="#f1f3f5"/>`;}}));
+  return g;
+}
+function carros(){
+  const hy=r=>RD/2+r*(BH+RD),vx=c=>RD/2+c*(BW+RD),C=[];
+  const car=(col,path,dur,beg)=>{const body=`<rect x="-13" y="-7" width="26" height="14" rx="4" fill="${col}"/><rect x="2" y="-5.5" width="7" height="11" rx="2" fill="#1c2a3a" opacity=".8"/><rect x="-10" y="-5.5" width="5" height="11" rx="2" fill="#1c2a3a" opacity=".55"/>`;
+    if(reducido){const m=path.match(/M\s*(-?[\d.]+)\s+(-?[\d.]+)/);return `<g transform="translate(${Math.max(30,Math.min(MW-30,+m[1]))},${Math.max(30,Math.min(MH-30,+m[2]))})">${body}</g>`}
+    return `<g>${body}<animateMotion dur="${dur}s" begin="${beg}s" repeatCount="indefinite" rotate="auto" path="${path}"/></g>`;};
+  C.push(car("#fa5252",`M -40 ${hy(1)+9} H ${MW+40}`,11,0),car("#228be6",`M ${MW+40} ${hy(1)-9} H -40`,13,-4),car("#fcc419",`M -40 ${hy(2)+9} H ${MW+40}`,9,-2),
+    car("#f1f3f5",`M ${MW+40} ${hy(0)-9+18} H -40`,15,-7),car("#40c057",`M ${vx(2)+9} -40 V ${MH+40}`,8,-1),car("#be4bdb",`M ${vx(1)-9} ${MH+40} V -40`,10,-5),
+    car("#fd7e14",`M ${vx(3)+9} -40 V ${MH+40}`,12,-3),car("#15aabf",`M ${MW+40} ${hy(3)-9} H -40`,14,-9));
+  return C.join("");
+}
+function mapaHTML(){
+  return `<svg class="mapa" viewBox="0 0 ${MW} ${MH}" role="group" aria-label="Mapa de la ciudad: toque un edificio para abrir la empresa" font-family="Inter, system-ui, sans-serif">
+    ${calles()}${plaza()}${S.empresas.filter(e=>MAPA[e.id]).map(edificio).join("")}${carros()}</svg>`;
 }
 function pintar(){
   if(!DOCENTE){$("#app").innerHTML=`<div class="card" style="grid-column:1/-1"><h2>Solo para el profe</h2><p class="muted">Este prototipo se abre desde la plataforma, en <b>📅 2027</b>, con la sesión del docente.</p><a class="btn" href="index.html">Ir a la plataforma</a></div>`;return}
-  const est=S.empresas.filter(e=>e.tipo!=="ia"),ia=S.empresas.filter(e=>e.tipo==="ia");
-  $("#app").innerHTML=`<section class="card"><h2>El mapa de la ciudad</h2>
-      <div class="city"><div class="zone">Empresas de los estudiantes</div><div class="blocks">${est.map(bldHTML).join("")}</div>
-      <div class="zone">Empresas manejadas por la IA</div><div class="blocks">${ia.map(bldHTML).join("")}</div></div>
-      <div class="legend"><span><i style="background:var(--com)"></i>Comercial</span><span><i style="background:var(--ser)"></i>Servicios</span><span><i style="background:var(--ia)"></i>IA (no lleva contabilidad)</span></div>
-      <p class="nota">Prototipo: aquí todavía no hay roles, días de juego ni Hacienda. Sirve para ver cómo se emite una factura o una nota de crédito y qué asientos produce en las dos empresas.</p></section>
+  const nEst=S.empresas.filter(e=>e.tipo!=="ia").length,nIA=S.empresas.filter(e=>e.tipo==="ia").length;
+  $("#app").innerHTML=`<section class="card juego">
+      <div class="hud"><span class="hud-t">🏙️ Ciudad de la 10-1</span><span class="hud-c">📅 Día 1</span><span class="hud-c">🏢 ${nEst} empresas de estudiantes</span><span class="hud-c">🤖 ${nIA} de la IA</span><span class="hud-c">🧾 ${S.docs.length} documentos</span></div>
+      <div class="mapa-wrap">${mapaHTML()}</div>
+      <div class="legend"><span><i style="background:var(--com)"></i>Comercial</span><span><i style="background:var(--ser)"></i>Servicios</span><span><i style="background:var(--ia)"></i>Empresa de la IA (no lleva contabilidad)</span><span>🔴 documentos de la empresa</span></div>
+      <p class="nota">Toque un edificio para abrir la empresa. Prototipo: todavía no hay roles, días de juego ni Hacienda.</p></section>
     <section class="card" id="panel">${panelHTML()}</section>`;
-  document.querySelectorAll("[data-emp]").forEach(b=>b.onclick=()=>{SEL=b.dataset.emp;pintar()});
+  document.querySelectorAll("[data-emp]").forEach(b=>{const ir=()=>{SEL=b.dataset.emp;TAB="emitidos";pintar();if(innerWidth<980)$("#panel").scrollIntoView({behavior:reducido?"auto":"smooth"})};b.onclick=ir;b.onkeydown=ev=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();ir()}}});
   ligarPanel();
 }
 function panelHTML(){
