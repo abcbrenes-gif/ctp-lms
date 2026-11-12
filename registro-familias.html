@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Registro de familias · CTP Mercedes Norte</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@600;800&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+:root{--bg:#f4f7fb;--card:#fff;--ink:#14213d;--mut:#5b6b80;--line:#dbe3ee;--pri:#1d63e8;--pri2:#e7efff;--ok:#1f8f55;--okbg:#e5f6ec;--bad:#c2410c;--badbg:#fdeee5}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,system-ui,sans-serif;padding:0 max(16px,env(safe-area-inset-left)) 40px max(16px,env(safe-area-inset-right))}
+.wrap{max-width:720px;margin:0 auto}
+header{display:flex;align-items:center;gap:12px;padding:22px 0 14px}
+.ic{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;color:#fff;background:linear-gradient(145deg,#34c47c,#1f8f55);flex:none}
+h1{font:800 1.6rem/1.1 Lexend,Inter,sans-serif;margin:0}
+h2{font:700 1.15rem Lexend,Inter,sans-serif;margin:0 0 6px}
+.sub{color:var(--mut);margin:2px 0 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin:14px 0}
+label{display:block;font-weight:600;margin:12px 0 4px}
+.opt{font-weight:400;color:var(--mut);font-size:.88rem}
+input,select{width:100%;font:inherit;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+.dos{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+@media(max-width:520px){.dos{grid-template-columns:1fr}}
+button{font:600 1rem Inter,sans-serif;border:0;border-radius:12px;padding:13px 20px;cursor:pointer;background:var(--pri);color:#fff;width:100%;margin-top:14px}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #9cc0ff;outline-offset:2px}
+.msg{padding:10px 12px;border-radius:10px;margin:10px 0}.msg.ok{background:var(--okbg);color:var(--ok)}.msg.bad{background:var(--badbg);color:var(--bad)}
+ol{padding-left:1.2rem;margin:6px 0}ol li{margin:4px 0}
+.acepto{display:flex;gap:10px;align-items:flex-start;font-weight:500;margin-top:14px;cursor:pointer}
+.acepto input{width:auto;transform:scale(1.35);margin-top:5px}
+.muted{color:var(--mut)}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><span class="ic"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg></span>
+    <div><h1>Registro de familias</h1><p class="sub">CTP Mercedes Norte · Contabilidad · Curso lectivo 2027</p></div></header>
+  <main id="app">
+    <div class="card">
+      <h2>¿Para qué es este registro?</h2>
+      <p style="margin:0">Con estos datos el docente podrá comunicarse con usted y usted podrá entrar al <b>Portal de familias</b> para ver la asistencia y justificar ausencias y tardías. Lo debe llenar la madre, el padre o el encargado legal, <b>no el estudiante</b>. El docente confirma cada registro antes de activarlo.</p>
+    </div>
+    <form id="f" class="card" novalidate>
+      <h2>1. Datos del estudiante</h2>
+      <label for="est">Cédula del estudiante</label><input id="est" inputmode="numeric" placeholder="4-0000-0000" autocomplete="off" required>
+      <label for="estNombre">Nombre completo del estudiante</label><input id="estNombre" autocomplete="off" required>
+      <label for="nivel">Nivel en 2027</label><select id="nivel" required><option value="">Elija…</option><option>10.°</option><option>11.°</option><option>12.°</option></select>
+
+      <h2 style="margin-top:22px">2. Datos del encargado</h2>
+      <label for="nombre">Su nombre completo</label><input id="nombre" autocomplete="name" required>
+      <div class="dos">
+        <div><label for="cedula">Su cédula</label><input id="cedula" inputmode="numeric" placeholder="1-0000-0000" autocomplete="off" required></div>
+        <div><label for="parentesco">Parentesco</label><select id="parentesco" required><option value="">Elija…</option><option>Madre</option><option>Padre</option><option>Encargado(a) legal</option><option>Abuelo(a)</option><option>Otro familiar</option></select></div>
+      </div>
+      <div class="dos">
+        <div><label for="telefono">Teléfono con WhatsApp</label><input id="telefono" inputmode="tel" placeholder="8888-8888" autocomplete="tel" required></div>
+        <div><label for="correo">Correo electrónico</label><input id="correo" type="email" placeholder="nombre@correo.com" autocomplete="email" required></div>
+      </div>
+
+      <h2 style="margin-top:22px">3. Segundo contacto <span class="opt">(opcional)</span></h2>
+      <p class="muted" style="margin:0">Otra persona a quien llamar si no lo localizamos a usted.</p>
+      <label for="nombre2">Nombre</label><input id="nombre2" autocomplete="off">
+      <div class="dos">
+        <div><label for="parentesco2">Parentesco</label><input id="parentesco2" autocomplete="off"></div>
+        <div><label for="telefono2">Teléfono</label><input id="telefono2" inputmode="tel" autocomplete="off"></div>
+      </div>
+      <div class="hp" aria-hidden="true"><label for="web">No llenar</label><input id="web" tabindex="-1" autocomplete="off"></div>
+
+      <h2 style="margin-top:22px">4. Responsabilidades del encargado</h2>
+      <ol>
+        <li>Mantener al día mi teléfono y correo, y avisar si cambian.</li>
+        <li>Guardar en privado mis enlaces y códigos de acceso; no dárselos al estudiante.</li>
+        <li>Justificar yo mismo las ausencias y tardías, con motivo real y comprobante cuando exista, dentro del plazo del reglamento.</li>
+        <li>Revisar con regularidad la asistencia y el avance de mi hijo o hija.</li>
+        <li>Leer los avisos del docente y responder cuando se me solicite.</li>
+        <li>Comunicarme con respeto y por los canales oficiales (portal, WhatsApp individual, correo o cita).</li>
+      </ol>
+      <p class="muted" style="font-size:.9rem">Sus datos solo los ve el docente y se usan únicamente para la comunicación sobre el curso (Ley 8968). Puede pedir que se corrijan o eliminen cuando quiera.</p>
+      <label class="acepto"><input type="checkbox" id="acepta"> <span>Soy el encargado del estudiante, leí y acepto estas responsabilidades y autorizo el uso de mis datos para estos fines.</span></label>
+      <div id="m"></div>
+      <button type="submit" id="b">Enviar registro</button>
+    </form>
+  </main>
+</div>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const disp=()=>{const u=navigator.userAgent;return (/Mobi|Android|iPhone/i.test(u)?"Celular":"Computadora")+" · "+(/Edg/.test(u)?"Edge":/Chrome/.test(u)?"Chrome":/Safari/.test(u)?"Safari":/Firefox/.test(u)?"Firefox":"Navegador")};
+$("#f").onsubmit=async ev=>{
+  ev.preventDefault();
+  const v=id=>$("#"+id).value.trim();
+  const body={accion:"registrar",est:v("est"),estNombre:v("estNombre"),nivel:v("nivel"),nombre:v("nombre"),cedula:v("cedula"),parentesco:v("parentesco"),telefono:v("telefono"),correo:v("correo"),nombre2:v("nombre2"),parentesco2:v("parentesco2"),telefono2:v("telefono2"),web:v("web"),acepta:$("#acepta").checked,dispositivo:disp()};
+  const err=t=>{$("#m").innerHTML=`<div class="msg bad">${esc(t)}</div>`};
+  if(!body.nivel)return err("Elija el nivel del estudiante en 2027.");
+  if(!body.acepta)return err("Marque la casilla de aceptación para enviar.");
+  $("#b").disabled=true;$("#b").textContent="Enviando…";
+  try{
+    const r=await fetch("/api/padres",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
+    const j=await r.json().catch(()=>({error:"Sin respuesta del servidor"}));
+    if(!r.ok)throw new Error(j.error||"Error");
+    $("#app").innerHTML=`<div class="card"><h2>✅ ¡Registro enviado!</h2><p>Gracias, ${esc(body.nombre.split(" ")[0])}. El docente revisará sus datos y, cuando los confirme, podrá usar el Portal de familias para ${esc(body.estNombre)}.</p><p class="muted">Si otro encargado del mismo estudiante desea registrarse, puede volver a abrir este enlace.</p></div>`;
+  }catch(e){err(e.message);$("#b").disabled=false;$("#b").textContent="Enviar registro";}
+};
+</script>
+</body>
+</html>

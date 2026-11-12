@@ -73,6 +73,7 @@ async function render() {
   if (hash === "#/puntos-extra") return renderPuntosExtra();
   if (hash === "#/justificaciones") return renderJustificaciones();
   if (hash === "#/2027") return renderAnio2027();
+  if (hash === "#/2027/familias") return renderRegistroFamilias();
   if (hash === "#/bitacora") return renderBitacora();
   if (hash === "#/evaluacion") return renderEvaluacionInforme();
   const progUnidadMatch = hash.match(/^#\/programa\/(.+)$/);
