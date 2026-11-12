@@ -63,8 +63,19 @@ h3{font:700 .98rem Lexend,Inter,sans-serif;margin:14px 0 8px}
 .hud{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
 .hud-t{font:800 1.15rem Lexend,Inter,sans-serif;margin-right:6px}
 .hud-c{background:#22325a;border:1px solid #33467a;border-radius:999px;padding:3px 11px;font-size:.8rem;font-weight:700}
-.mapa-wrap{border-radius:14px;overflow:hidden;border:4px solid #0b1220;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.mapa-wrap{position:relative;border-radius:14px;overflow:hidden;border:4px solid #0b1220;box-shadow:0 10px 30px rgba(0,0,0,.35)}
 svg.mapa{display:block;width:100%;height:auto}
+.pad{position:absolute;right:12px;bottom:12px;display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(3,44px);gap:4px}
+.pad button{padding:0;justify-content:center;font-size:1.1rem;background:rgba(20,33,61,.82);border:2px solid #fff;border-radius:12px;touch-action:none;user-select:none}
+.pad [data-pad="0,-1"]{grid-column:2;grid-row:1}.pad [data-pad="-1,0"]{grid-column:1;grid-row:2}.pad [data-pad="1,0"]{grid-column:3;grid-row:2}.pad [data-pad="0,1"]{grid-column:2;grid-row:3}
+.colores{position:absolute;left:12px;top:12px;display:flex;gap:6px;background:rgba(20,33,61,.75);padding:6px 8px;border-radius:999px}
+.colores button{width:22px;height:22px;padding:0;border-radius:50%;border:2px solid #fff}
+.colores button[aria-pressed="true"]{outline:3px solid #ffd43b;outline-offset:1px}
+.aviso{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);max-width:min(560px,70%);display:flex;gap:10px;align-items:center;background:#fff;color:#14213d;border:3px solid #ffd43b;border-radius:14px;padding:8px 10px 8px 14px;font-size:.88rem;box-shadow:0 8px 20px rgba(0,0,0,.3)}
+.aviso[hidden]{display:none}
+.aviso button{white-space:nowrap;flex:none}
+.aviso kbd{background:#14213d;color:#fff;border-radius:5px;padding:0 5px;font-size:.75rem;margin-left:4px}
+@media(max-width:700px){.pad{grid-template-columns:repeat(3,38px);grid-template-rows:repeat(3,38px)}.aviso{max-width:58%;font-size:.78rem;left:12px;transform:none}}
 .lote{cursor:pointer;outline:none}
 .lote .edif,.lote .cartel{transition:transform .18s ease}
 .lote:hover .edif,.lote:focus-visible .edif,.lote:hover .cartel{transform:translateY(-6px)}
@@ -306,8 +317,22 @@ function cartel(e){const [c,r]=MAPA[e.id],x=bx(c),y=by(r),H=ALTO[e.id]||40,[px,p
 function plazaSuelo(){const x=bx(1),y=by(1),cx=x+BW/2,cy=y+BH/2;
   return `<rect x="${x}" y="${y}" width="${BW}" height="${BH}" rx="5" fill="#69b34c"/><circle cx="${cx}" cy="${cy}" r="58" fill="#e9dcc0"/><circle cx="${cx}" cy="${cy}" r="40" fill="#69b34c"/>
     <rect x="${x}" y="${cy-7}" width="${BW}" height="14" fill="#e9dcc0"/><rect x="${cx-7}" y="${y}" width="14" height="${BH}" fill="#e9dcc0"/><circle cx="${cx}" cy="${cy}" r="24" fill="#4dabf7" stroke="#d0ebff" stroke-width="5"/><circle cx="${cx}" cy="${cy}" r="7" fill="#e7f5ff"/>`}
+function carrito(x,y,col,ico,nom){const [px,py]=proj(x+8,y+5,30);
+  return {d:x+y+10,svg:caja(x,y,16,10,12,"#f8f9fa")+`<ellipse cx="${px}" cy="${py+6}" rx="20" ry="9" fill="${col}"/><ellipse cx="${px}" cy="${py+6}" rx="20" ry="9" fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="6 6"/><line x1="${px}" y1="${py+6}" x2="${px}" y2="${py+22}" stroke="#868e96" stroke-width="2"/><text x="${px}" y="${py-6}" text-anchor="middle" font-size="16">${ico}</text>`,zona:{x:x-14,y:y-14,w:44,h:38,ico,nom}}}
+function kioscoParque(x,y){const t=proj(x+15,y+15,38),b=[proj(x,y,14),proj(x+30,y,14),proj(x+30,y+30,14),proj(x,y+30,14)];
+  let g=caja(x,y,30,30,3,"#e9dcc0");[[x+3,y+3],[x+27,y+3],[x+27,y+27],[x+3,y+27]].forEach(([a,c])=>{const p0=proj(a,c),p1=proj(a,c,14);g+=`<line x1="${p0[0]}" y1="${p0[1]}" x2="${p1[0]}" y2="${p1[1]}" stroke="#fff" stroke-width="3"/>`});
+  g+=`<polygon points="${pts([b[3],b[2],t])}" fill="#e03131"/><polygon points="${pts([b[2],b[1],t])}" fill="#a61e1e"/><polygon points="${pts([b[0],b[3],t])}" fill="#f03e3e"/>`;
+  return {d:x+y+30,svg:g,zona:{x:x-12,y:y-12,w:54,h:54,ico:"🎶",nom:"Kiosco del parque"}}}
 function plazaObjetos(){const x=bx(1),y=by(1);
-  return [[18,18],[BW-18,18],[18,BH-18],[BW-18,BH-18],[45,35],[BW-45,BH-35],[45,BH-35],[BW-45,35]].map(([dx,dy],i)=>arbol(x+dx,y+dy,i<4?12:9));}
+  return [...[[18,18],[BW-18,18],[18,BH-18],[BW-18,BH-18]].map(([dx,dy])=>arbol(x+dx,y+dy,12)),
+    kioscoParque(x+30,y+26),carrito(x+BW-52,y+30,"#f783ac","🍧","Carrito de copos"),carrito(x+BW-50,y+BH-42,"#fcc419","🌽","Carrito de elotes"),
+    {d:x+40+y+BH-40,svg:(()=>{const p=proj(x+40,y+BH-40);return `<g transform="translate(${p[0]},${p[1]})"><polygon points="-14,0 0,-7 14,0 0,7" fill="#ffe066"/><line x1="-8" y1="-2" x2="-8" y2="-22" stroke="#e8590c" stroke-width="3"/><line x1="8" y1="-2" x2="8" y2="-22" stroke="#e8590c" stroke-width="3"/><line x1="-8" y1="-22" x2="8" y2="-22" stroke="#e8590c" stroke-width="3"/><line x1="-2" y1="-22" x2="-2" y2="-8" stroke="#495057"/><rect x="-5" y="-9" width="6" height="3" fill="#1c7ed6"/><text x="0" y="-28" text-anchor="middle" font-size="14">🛝</text></g>`})(),zona:{x:x+22,y:y+BH-58,w:36,h:36,ico:"🛝",nom:"Juegos infantiles"}}];}
+/* Mini comercios en la esquina de cada cuadra (decorativos por ahora: en el juego serán clientes y proveedores pequeños) */
+const MINI={ferre:["☕","Soda La Esquina","#e03131"],libre:["🍦","Heladería Polo","#f06595"],mayo:["🌮","Tacos Don Pepe","#f59f00"],trans:["⛽","Gasolinera Ruta 1","#37b24d"],
+  conta:["📰","Revistas y Lotería","#1c7ed6"],mante:["🥤","Frescos Naturales","#20c997"],equip:["🔑","Llaves y Cerrajería","#868e96"],clien:["🛒","Pulpería La Bendición","#fd7e14"],
+  banco:["🏧","Cajero automático","#fab005"],hacie:["🖨️","Copias y Trámites","#7950f2"],publi:["💐","Floristería Primavera","#e64980"]};
+function miniComercio(id){const [c,r]=MAPA[id],x=bx(c)+6,y=by(r)+BH-38,[ico,nom,col]=MINI[id],[px,py]=proj(x+13,y+13,44);
+  return {d:x+y+26,svg:caja(x,y,26,26,20,col,{toldo:true})+`<circle cx="${px}" cy="${py}" r="13" fill="#fff" stroke="${col}" stroke-width="3"/><text x="${px}" y="${py+5}" text-anchor="middle" font-size="14">${ico}</text>`,zona:{x:x-12,y:y-12,w:50,h:50,ico,nom}}}
 function calles(){
   let g=`<rect width="${MW}" height="${MH}" fill="#4b5260"/>`;
   const hy=[0,1,2,3].map(r=>RD/2+r*(BH+RD)),vx=[0,1,2,3,4].map(c=>RD/2+c*(BW+RD));
@@ -365,29 +390,101 @@ function animarTransaccion(doc,listo){
     if(t<1)requestAnimationFrame(paso);else{capa.remove();listo()}};
   requestAnimationFrame(paso);
 }
+let ZONAS=[];
 function mapaHTML(){
   const es=S.empresas.filter(e=>MAPA[e.id]);
-  const objetos=[...es.map(lote),...plazaObjetos(),...es.flatMap(e=>{const [c,r]=MAPA[e.id],x=bx(c),y=by(r);return [arbol(x+14,y+14,9),arbol(x+14,y+BH-20,8),arbol(x+BW-14,y+16,8)]})].sort((p,q)=>p.d-q.d);
-  return `<svg class="mapa" viewBox="-620 -125 1515 990" role="group" aria-label="Mapa de la ciudad en vista isométrica: toque un edificio para abrir la empresa" font-family="Inter, system-ui, sans-serif">
+  const minis=es.filter(e=>MINI[e.id]).map(e=>miniComercio(e.id)),parque=plazaObjetos();
+  ZONAS=[...minis,...parque].filter(o=>o.zona).map(o=>o.zona);
+  const objetos=[...es.map(lote),...parque,...minis,...es.flatMap(e=>{const [c,r]=MAPA[e.id],x=bx(c),y=by(r);return [arbol(x+14,y+14,9),arbol(x+BW-14,y+16,8)]})].sort((p,q)=>p.d-q.d);
+  return `<svg class="mapa" viewBox="-620 -125 1515 990" role="group" aria-label="Mapa de la ciudad en vista isométrica: camine con las flechas o toque un edificio para abrir la empresa" font-family="Inter, system-ui, sans-serif">
     <defs><linearGradient id="cielo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fd3f5"/><stop offset="1" stop-color="#d7eefc"/></linearGradient></defs>
     <rect x="-620" y="-125" width="1515" height="990" fill="url(#cielo)"/>
     <polygon points="${pts([proj(-30,-30),proj(MW+30,-30),proj(MW+30,MH+30),proj(-30,MH+30)])}" fill="#5a9e3f"/>
     <polygon points="${pts([proj(MW+30,MH+30),proj(MW+30,-30),proj(MW+30,-30,-22),proj(MW+30,MH+30,-22)])}" fill="#6b4a2b"/><polygon points="${pts([proj(-30,MH+30),proj(MW+30,MH+30),proj(MW+30,MH+30,-22),proj(-30,MH+30,-22)])}" fill="#8a5f37"/>
-    <g transform="matrix(${ISO.join(" ")} 0 0)">${calles()}${plazaSuelo()}${es.map(sueloLote).join("")}${peatones()}${carros()}</g>
-    ${objetos.map(o=>o.svg).join("")}
+    <g transform="matrix(${ISO.join(" ")} 0 0)">${calles()}${plazaSuelo()}${bancas()}${es.map(sueloLote).join("")}${peatones()}${carros()}</g>
+    <g id="capaObjetos">${objetos.map(o=>`<g class="obj" data-d="${o.d}">${o.svg}</g>`).join("")}${avatarSVG()}</g>
     ${es.map(cartel).join("")}</svg>`;
+}
+function bancas(){const x=bx(1),y=by(1),cx=x+BW/2,cy=y+BH/2;return [[-46,-14],[34,-14],[-46,10],[34,10]].map(([dx,dy])=>`<rect x="${cx+dx}" y="${cy+dy}" width="12" height="4" rx="1" fill="#8d5524"/>`).join("")}
+
+/* ═══════════ El muñequito: el estudiante camina por la ciudad ═══════════
+   Flechas o W A S D para caminar · E o Enter para entrar a la empresa que tiene enfrente. */
+const AV={x:bx(1)+BW/2,y:by(1)-20,col:(()=>{try{return localStorage.getItem("ciudad_av_col")||"#1c7ed6"}catch(e){return "#1c7ed6"}})(),fase:0,mueve:false,mira:1};
+const TECLAS=new Set(),PAD={x:0,y:0};let ZONA=null,ultimoT=0;
+function avatarSVG(){return `<g id="avatar" aria-hidden="true"><ellipse cx="0" cy="0" rx="10" ry="5" fill="rgba(0,0,0,.28)"/>
+  <rect id="av-pi" x="-6" y="-14" width="5" height="14" rx="2" fill="#343a40"/><rect id="av-pd" x="1" y="-14" width="5" height="14" rx="2" fill="#343a40"/>
+  <rect id="av-cu" x="-9" y="-32" width="18" height="20" rx="6" fill="${AV.col}" stroke="#fff" stroke-width="1.5"/>
+  <circle cx="0" cy="-40" r="9" fill="#f3c48c" stroke="#5c3d1e" stroke-width="1"/><path d="M -9 -42 Q 0 -54 9 -42 Q 4 -47 0 -46 Q -4 -47 -9 -42 Z" fill="#3b2314"/>
+  <circle id="av-o1" cx="-3" cy="-40" r="1.4" fill="#212529"/><circle id="av-o2" cx="3" cy="-40" r="1.4" fill="#212529"/>
+  <g transform="translate(0,-66)"><rect x="-14" y="-10" width="28" height="16" rx="8" fill="#ffd43b" stroke="#14213d" stroke-width="2"/><text x="0" y="3" text-anchor="middle" font-size="10" font-weight="800" fill="#14213d">TÚ</text></g></g>`}
+function chocaCon(x,y){
+  if(x<-18||y<-18||x>MW+18||y>MH+18)return true;
+  for(const e of S.empresas){const m=MAPA[e.id];if(!m)continue;const X=bx(m[0])+28,Y=by(m[1])+20;if(x>X-4&&x<X+BW-74+4&&y>Y-4&&y<Y+BH-62+4)return true}
+  const pc=[bx(1)+BW/2,by(1)+BH/2];if(Math.hypot(x-pc[0],y-pc[1])<30)return true; // la fuente
+  for(const z of ZONAS)if(x>z.x+12&&x<z.x+z.w-12&&y>z.y+12&&y<z.y+z.h-12)return true;
+  return false;
+}
+function zonaCercana(){
+  for(const z of ZONAS)if(AV.x>z.x-4&&AV.x<z.x+z.w+4&&AV.y>z.y-4&&AV.y<z.y+z.h+4)return z;
+  for(const e of S.empresas){const m=MAPA[e.id];if(!m)continue;const X=bx(m[0])+28,Y=by(m[1])+20;if(AV.x>X-26&&AV.x<X+BW-74+26&&AV.y>Y-26&&AV.y<Y+BH-62+26)return {emp:e.id,ico:e.ico,nom:e.nombre}}
+  return null;
+}
+function ponerAvatar(){
+  const av=document.getElementById("avatar"),capa=document.getElementById("capaObjetos");if(!av||!capa)return;
+  const [px,py]=proj(AV.x,AV.y);av.setAttribute("transform",`translate(${px.toFixed(1)},${py.toFixed(1)}) scale(${1.7*AV.mira},1.7)`);
+  const sw=AV.mueve&&!reducido?Math.sin(AV.fase)*5:0;
+  document.getElementById("av-pi").setAttribute("transform",`translate(0,${-Math.max(0,sw)})`);document.getElementById("av-pd").setAttribute("transform",`translate(0,${-Math.max(0,-sw)})`);
+  document.getElementById("av-cu").setAttribute("y",-32-(AV.mueve&&!reducido?Math.abs(Math.sin(AV.fase))*1.5:0));
+  const d=AV.x+AV.y;let antes=null;for(const o of capa.querySelectorAll(":scope > g.obj")){if(+o.dataset.d>d){antes=o;break}}
+  if(antes){if(av.nextSibling!==antes)capa.insertBefore(av,antes)}else if(capa.lastChild!==av)capa.appendChild(av);
+}
+function avisoZona(){
+  const z=zonaCercana(),box=document.getElementById("aviso");if(!box)return;const k=z?(z.emp||z.nom):"";if(k===ZONA)return;ZONA=k;
+  if(!z){box.hidden=true;return}
+  box.hidden=false;box.innerHTML=z.emp?`<span>${z.ico} Está frente a <b>${esc(z.nom)}</b></span><button type="button" id="entrar">🚪 Entrar <kbd>E</kbd></button>`
+    :`<span>${z.ico} <b>${esc(z.nom)}</b> · mini comercio de la ciudad. En el juego podrá comprarle y venderle.</span>`;
+  const b=document.getElementById("entrar");if(b)b.onclick=entrar;
+}
+function entrar(){const z=zonaCercana();if(!z||!z.emp)return;SEL=z.emp;TAB="emitidos";ZONA=null;pintar();if(innerWidth<980)$("#panel").scrollIntoView({behavior:reducido?"auto":"smooth"})}
+function tick(t){
+  const dt=Math.min(.05,(t-(ultimoT||t))/1000);ultimoT=t;
+  let sx=(TECLAS.has("r")?1:0)-(TECLAS.has("l")?1:0)+PAD.x,sy=(TECLAS.has("d")?1:0)-(TECLAS.has("u")?1:0)+PAD.y;
+  // de la pantalla al suelo isométrico: derecha = (x+, y−), abajo = (x+, y+)
+  let vx=sx+sy,vy=-sx+sy;const L=Math.hypot(vx,vy);AV.mueve=L>0;
+  if(L){vx/=L;vy/=L;const sp=150*dt,nx=AV.x+vx*sp,ny=AV.y+vy*sp;if(!chocaCon(nx,AV.y))AV.x=nx;if(!chocaCon(AV.x,ny))AV.y=ny;AV.fase+=dt*14;if(sx)AV.mira=sx>0?1:-1;}
+  if(document.getElementById("avatar")){ponerAvatar();avisoZona()}
+  requestAnimationFrame(tick);
+}
+const DIR={ArrowUp:"u",KeyW:"u",ArrowDown:"d",KeyS:"d",ArrowLeft:"l",KeyA:"l",ArrowRight:"r",KeyD:"r"};
+document.addEventListener("keydown",ev=>{
+  if($("#dlg").open||/INPUT|SELECT|TEXTAREA/.test((ev.target&&ev.target.tagName)||""))return;
+  if(DIR[ev.code]){TECLAS.add(DIR[ev.code]);ev.preventDefault()}
+  else if((ev.code==="KeyE"||ev.key==="Enter")&&!(ev.target&&ev.target.closest&&ev.target.closest("[data-emp],button,a"))){const z=zonaCercana();if(z&&z.emp){ev.preventDefault();entrar()}}
+});
+document.addEventListener("keyup",ev=>{if(DIR[ev.code])TECLAS.delete(DIR[ev.code])});
+addEventListener("blur",()=>TECLAS.clear());
+function controlesHTML(){
+  const col=["#1c7ed6","#e03131","#37b24d","#f59f00","#7048e8","#e64980"];
+  return `<div class="pad" aria-label="Controles del muñequito"><button type="button" data-pad="0,-1" aria-label="Arriba">▲</button><button type="button" data-pad="-1,0" aria-label="Izquierda">◀</button><button type="button" data-pad="1,0" aria-label="Derecha">▶</button><button type="button" data-pad="0,1" aria-label="Abajo">▼</button></div>
+    <div class="colores" role="group" aria-label="Color de la camisa">${col.map(c=>`<button type="button" data-col="${c}" style="background:${c}" aria-label="Camisa color ${c}" aria-pressed="${AV.col===c}"></button>`).join("")}</div>
+    <div class="aviso" id="aviso" hidden></div>`;
+}
+function ligarControles(){
+  document.querySelectorAll("[data-pad]").forEach(b=>{const [x,y]=b.dataset.pad.split(",").map(Number),on=ev=>{ev.preventDefault();PAD.x=x;PAD.y=y;b.setPointerCapture&&ev.pointerId!=null&&b.setPointerCapture(ev.pointerId)},off=()=>{PAD.x=0;PAD.y=0};
+    b.onpointerdown=on;b.onpointerup=off;b.onpointercancel=off;b.onpointerleave=off;});
+  document.querySelectorAll("[data-col]").forEach(b=>b.onclick=()=>{AV.col=b.dataset.col;try{localStorage.setItem("ciudad_av_col",AV.col)}catch(e){}const c=document.getElementById("av-cu");if(c)c.setAttribute("fill",AV.col);document.querySelectorAll("[data-col]").forEach(x=>x.setAttribute("aria-pressed",x===b))});
 }
 function pintar(){
   if(!DOCENTE){$("#app").innerHTML=`<div class="card" style="grid-column:1/-1"><h2>Solo para el profe</h2><p class="muted">Este prototipo se abre desde la plataforma, en <b>📅 2027</b>, con la sesión del docente.</p><a class="btn" href="index.html">Ir a la plataforma</a></div>`;return}
   const nEst=S.empresas.filter(e=>e.tipo!=="ia").length,nIA=S.empresas.filter(e=>e.tipo==="ia").length;
   $("#app").innerHTML=`<section class="card juego">
       <div class="hud"><span class="hud-t">🏙️ Ciudad de la 10-1</span><span class="hud-c">📅 Día 1</span><span class="hud-c">🏢 ${nEst} empresas de estudiantes</span><span class="hud-c">🤖 ${nIA} de la IA</span><span class="hud-c">🧾 ${S.docs.length} documentos</span></div>
-      <div class="mapa-wrap">${mapaHTML()}</div>
+      <div class="mapa-wrap">${mapaHTML()}${controlesHTML()}</div>
       <div class="legend"><span><i style="background:var(--com)"></i>Comercial</span><span><i style="background:var(--ser)"></i>Servicios</span><span><i style="background:var(--ia)"></i>Empresa de la IA (no lleva contabilidad)</span><span>🔴 documentos de la empresa</span></div>
-      <p class="nota">Toque un edificio para abrir la empresa. Prototipo: todavía no hay roles, días de juego ni Hacienda.</p></section>
+      <p class="nota">Camine con las <b>flechas</b> o <b>W A S D</b> (o los botones ▲◀▶▼) y toque <b>E</b> para entrar a la empresa que tiene enfrente. También puede tocar un edificio. Prototipo: todavía no hay roles, días de juego ni Hacienda.</p></section>
     <section class="card" id="panel">${panelHTML()}</section>`;
   document.querySelectorAll("[data-emp]").forEach(b=>{const ir=()=>{SEL=b.dataset.emp;TAB="emitidos";pintar();if(innerWidth<980)$("#panel").scrollIntoView({behavior:reducido?"auto":"smooth"})};b.onclick=ir;b.onkeydown=ev=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();ir()}}});
-  ligarPanel();
+  ligarPanel();ligarControles();ZONA=null;
 }
 function panelHTML(){
   const e=emp(SEL),s=lleva(e)?saldoDe(e):null;
@@ -533,7 +630,7 @@ function verDoc(id,recien){
 
 $("#reiniciar").onclick=()=>{if(!confirm("¿Reiniciar la ciudad del prototipo? Se borran los documentos de prueba de este navegador."))return;
   try{localStorage.removeItem(KEY)}catch(e){} S=ciudadInicial();SEL="ferre";TAB="emitidos";pintar()};
-pintar();
+pintar();requestAnimationFrame(tick);
 </script>
 <script src="js/volver-plataforma.js?v=20261112b"></script>
 </body>
