@@ -146,12 +146,27 @@ function liqCalcularCaso(c) {
   }
   const cesantia = { aplica: pagaCes && cDias > 0, aniosContados: cAnios, tarifa: cTarifa, dias: cDias, tramo: cTramo, promedio: prom6, divisor: divCes, diario: diarioCes, monto: pagaCes ? liqR(cDias * diarioCes) : 0 };
 
-  // 5) Vacaciones (art. 153: 1 día por cada mes del período sin disfrutar)
-  const mesesPeriodo = ant.anios >= 1 ? ant.meses + ant.dias / 30 : mesesTot;
-  const acum = liqR(Math.min(12, mesesPeriodo) + (+c.vacAnteriores || 0));
-  const disf = +c.vacDisfrutadas || 0, pend = Math.max(0, liqR(acum - disf));
-  if (disf > acum) adv.push("Los días disfrutados superan los acumulados: no se rebaja de más.");
-  const vacaciones = { mesesPeriodo: liqR(Math.min(12, mesesPeriodo)), anteriores: +c.vacAnteriores || 0, acumulados: acum, disfrutados: disf, pendientes: pend, promedio: prom12, diario: diarioVac, monto: liqR(pend * diarioVac) };
+  // 5) Vacaciones (arts. 153 y 156; pago según Poder Judicial / MTSS)
+  //  · Cada período completo de 50 semanas da 2 semanas = 14 días (salario mensual ÷ 30 × 14).
+  //    Un período se tiene por completo con 1 año o con 50 semanas (350 días) trabajadas.
+  //  · Si la relación termina antes de completar el período: 1 día por cada MES COMPLETO.
+  //  · Se suman solos los períodos completos; se rebajan los días que ya disfrutó en total.
+  const VAC_DIAS_PERIODO = 14, VAC_DIAS_50_SEM = 350;
+  const diasPerActual = ant.meses * 30 + ant.dias;           // días del período en curso
+  const actualCompleto = diasPerActual >= VAC_DIAS_50_SEM;  // ya cumplió 50 semanas en este período
+  const periodos = ant.anios + (actualCompleto ? 1 : 0);
+  const mesesCompletos = actualCompleto ? 0 : ant.meses;
+  const diasPeriodos = periodos * VAC_DIAS_PERIODO, diasProp = mesesCompletos;
+  const acum = diasPeriodos + diasProp;
+  // Días disfrutados en total. Casos viejos traen «disfrutados en el período actual» y
+  // «pendientes de períodos anteriores»: equivale a haber gozado los períodos completos menos esos pendientes.
+  const disfTotal = c.vacDisfrutadasTotal !== undefined && c.vacDisfrutadasTotal !== null
+    ? Math.max(0, +c.vacDisfrutadasTotal || 0)
+    : Math.max(0, diasPeriodos - Math.min(diasPeriodos, +c.vacAnteriores || 0)) + (+c.vacDisfrutadas || 0);
+  const disf = liqR(disfTotal), pend = Math.max(0, liqR(acum - disf));
+  if (disf > acum) adv.push("Los días de vacaciones disfrutados superan los acumulados: no se rebaja de más.");
+  const vacaciones = { periodos, diasPorPeriodo: VAC_DIAS_PERIODO, diasPeriodos, mesesCompletos, diasProporcionales: diasProp, diasPeriodoActual: diasPerActual, actualCompleto,
+    acumulados: acum, disfrutados: disf, pendientes: pend, promedio: prom12, diario: diarioVac, monto: liqR(pend * diarioVac) };
 
   // 6) Aguinaldo (Ley 2412): lo devengado del 1 de diciembre al 30 de noviembre ÷ 12
   let agTotal = 0, agMeses = 0, agPeriodo = "";
@@ -202,6 +217,8 @@ function liqPasosPractica(R) {
       { k: "ces_monto", et: "Monto de la cesantía", tipo: "monto", ok: c.aplica ? c.monto : 0 }
     ],
     vacaciones: [
+      { k: "vac_periodos", et: "Días por períodos completos (14 días por cada 50 semanas)", tipo: "dias", ok: v.diasPeriodos, ayuda: "Cada año (o 50 semanas) completo da 2 semanas = 14 días. Si no completó ninguno, escriba 0." },
+      { k: "vac_prop", et: "Días proporcionales del período actual (1 por mes completo)", tipo: "dias", ok: v.diasProporcionales, ayuda: "Solo meses completos desde el último aniversario; los días sueltos no suman." },
       { k: "vac_acum", et: "Días de vacaciones acumulados", tipo: "dias", ok: v.acumulados },
       { k: "vac_pend", et: "Días pendientes de disfrutar", tipo: "dias", ok: v.pendientes },
       { k: "vac_diario", et: "Salario diario para vacaciones", tipo: "monto", ok: v.diario },
@@ -232,14 +249,16 @@ function liqCasoAleatorio() {
   const c = { trabajador: nombres[r(0, nombres.length - 1)], tiempoModo: "fechas", fechaIngreso: liqIsoF(ingreso), fechaSalida: liqIsoF(salida),
     motivo: ["despido_responsabilidad", "despido_responsabilidad", "renuncia", "despido_justa_causa"][r(0, 3)], preavisoEstado: ["no", "no", "parcial", "completo"][r(0, 3)], preavisoDias: r(2, 6),
     salarioModo: modo, salarioMensual: base, quincena: Math.round(base / 2), semana: Math.round(base / LIQ_SEMANAS_MES), actividad: r(0, 1) ? "comercial" : "no_comercial",
-    valorHora: Math.round(base / (48 * LIQ_SEMANAS_MES)), horasSemana: 48, vacDisfrutadas: r(0, 3), vacAnteriores: 0, salarios: [] };
+    valorHora: Math.round(base / (48 * LIQ_SEMANAS_MES)), horasSemana: 48, vacDisfrutadas: 0, vacAnteriores: 0, salarios: [] };
+  // Vacaciones disfrutadas en total: casi siempre gozó los períodos completos; a veces le queda uno pendiente.
+  { const a = liqAntig(ingreso, salida), pend = a.anios && !r(0, 2) ? r(2, 14) : 0; c.vacDisfrutadasTotal = Math.max(0, a.anios * 14 - pend) + (a.meses ? r(0, Math.min(3, a.meses)) : 0); }
   c.salarios = liqMeses12(c.fechaSalida).map(mes => ({ mes, extra: r(0, 2) ? 0 : r(1, 6) * 5000, incap: false }));
   return c;
 }
 function liqCasoVacio() {
   const hoy = new Date().toISOString().slice(0, 10);
   return { trabajador: "", tiempoModo: "fechas", fechaIngreso: "", fechaSalida: hoy, anios: 0, meses: 0, dias: 0, mesesAguinaldo: 0, motivo: "despido_responsabilidad", preavisoEstado: "no", preavisoDias: 0,
-    salarioModo: "mensual", salarioMensual: 0, quincena: 0, semana: 0, actividad: "comercial", valorHora: 0, horasSemana: 48, vacDisfrutadas: 0, vacAnteriores: 0,
+    salarioModo: "mensual", salarioMensual: 0, quincena: 0, semana: 0, actividad: "comercial", valorHora: 0, horasSemana: 48, vacDisfrutadas: 0, vacAnteriores: 0, vacDisfrutadasTotal: 0,
     salarios: liqMeses12(hoy).map(mes => ({ mes, ordinario: 0, extra: 0, incap: false })) };
 }
 

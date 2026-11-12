@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="js/config.js?v=20261030i"></script>
 <script src="js/actividades.js?v=20261104g"></script>
-<script src="js/liquidacion-calculo.js?v=20261105f"></script>
+<script src="js/liquidacion-calculo.js?v=20261112a"></script>
 <script src="js/bitacora.js?v=20261031a"></script>
 <script>document.addEventListener("DOMContentLoaded",()=>{try{bitacoraRegistrar("liquidaciones")}catch(e){}});</script>
 <script src="js/hoja-calculo.js?v=20261030i"></script>
@@ -352,7 +352,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
       <h3>3. Preaviso y vacaciones</h3>
       <div class="grid">${sel("preavisoEstado", "¿Trabajó el preaviso?", [["no", "No lo trabajó"], ["parcial", "Una parte"], ["completo", "Completo"]])}
         ${c.preavisoEstado === "parcial" ? campo("preavisoDias", "Días de preaviso que trabajó") : ""}
-        ${campo("vacDisfrutadas", "Días de vacaciones disfrutados en el período actual")}${campo("vacAnteriores", "Días pendientes de períodos anteriores")}</div>
+        ${c.vacDisfrutadasTotal === undefined && (+c.vacDisfrutadas || +c.vacAnteriores) ? campo("vacDisfrutadas", "Días de vacaciones disfrutados en el período actual") + campo("vacAnteriores", "Días pendientes de períodos anteriores") : campo("vacDisfrutadasTotal", "Días de vacaciones disfrutados en total (desde que ingresó)")}</div>
     </section>`;
   }
   function ligarDatos() {
@@ -381,7 +381,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
   const TEXTO_LEY = {
     preaviso: `<b>Código de Trabajo, art. 28.</b> Quien termina un contrato por tiempo indefinido sin justa causa debe avisar con anticipación: <b>1 semana</b> después de 3 meses de trabajo, <b>15 días</b> después de 6 meses y <b>1 mes</b> después de 1 año. Si el patrono despide con responsabilidad y no da el preaviso, lo paga: <b>(días de preaviso − días que trabajó) × salario diario</b>. El salario diario sale del <b>promedio de los últimos 6 meses ÷ 30</b> (art. 30). En renuncia lo da el trabajador; en despido con justa causa no hay preaviso.`,
     cesantia: `<b>Código de Trabajo, art. 29.</b> En despido con responsabilidad patronal (y en pensión o fallecimiento), se paga cesantía: <b>7 días</b> de 3 a 6 meses, <b>14 días</b> de 6 meses a 1 año y, con 1 año o más, los <b>días por año</b> de la tabla según los años laborados, hasta un <b>máximo de 8 años</b>. Una fracción de más de 6 meses cuenta como un año más. Salario diario = <b>promedio de los últimos 6 meses ÷ 30</b> (÷ 26 si el pago es semanal en actividad no comercial). No se paga en renuncia ni en despido con justa causa.`,
-    vacaciones: `<b>Código de Trabajo, arts. 153 y 157.</b> Corresponden 2 semanas por cada 50 semanas de trabajo; al terminar la relación antes de completar el período se paga <b>1 día por cada mes</b> laborado. Se pagan los días acumulados que no disfrutó: <b>días pendientes × salario diario</b>, con el promedio de lo devengado en las últimas 50 semanas (12 meses) ÷ 30. Se paga en cualquier motivo de salida.`,
+    vacaciones: `<b>Código de Trabajo, arts. 153, 156 y 157.</b> Por cada <b>50 semanas</b> de trabajo corresponden <b>2 semanas = 14 días</b> (salario mensual ÷ 30 × 14). Si la relación termina antes de completar el período, se paga <b>1 día por cada mes completo</b> trabajado desde el último aniversario (los días sueltos no suman). Se suman los períodos completos y se rebajan los días que ya disfrutó: <b>días pendientes × salario diario</b>, con el promedio de lo devengado en las últimas 50 semanas (12 meses) ÷ 30. Se paga en cualquier motivo de salida.`,
     salario: `<b>Código de Trabajo, art. 30.</b> El preaviso y la cesantía se calculan con el <b>promedio de los salarios ordinarios y extraordinarios devengados en los últimos 6 meses</b>; las vacaciones, con el promedio de las últimas 50 semanas (12 meses); el aguinaldo, con lo devengado desde el 1 de diciembre. El <b>salario diario</b> es el promedio mensual ÷ 30. Calculá lo que ganó cada mes con las fechas del caso (un mes incompleto se paga por sus días: salario ÷ 30 × días) y no cuentes los meses con incapacidad. Podés usar la <b>hoja de cálculo</b> como quieras; en cada respuesta podés escribir el número o la celda donde está (por ejemplo <span class="num">=D14</span>).`,
     aguinaldo: `<b>Ley 2412.</b> El aguinaldo es la doceava parte de los salarios ordinarios y extraordinarios devengados del <b>1 de diciembre</b> del año anterior al <b>30 de noviembre</b> (o hasta la salida): <b>total devengado ÷ 12</b>. Se paga en cualquier motivo de salida y no paga cargas sociales.`
   };
@@ -420,8 +420,9 @@ tr.hl td{background:#fff7d6; font-weight:700}
       ["Salario promedio mensual", prom, m(c.promedio)], ["Salario diario", `${m(c.promedio)} ÷ ${c.divisor}`, m(c.diario)],
       ["Cesantía", c.aplica ? `${d(c.dias)} días × ${m(c.diario)}` : "No se paga con este motivo de salida", m(c.aplica ? c.monto : 0)]]; }
     if (k === "vacaciones") { const v = R.vacaciones; return [
-      ["Meses del período actual", A.anios >= 1 ? `desde el último aniversario: ${A.meses} mes(es) y ${Math.round(A.dias)} día(s)` : tiempo, d(v.mesesPeriodo) + " meses"],
-      ["Días acumulados", `1 día por mes${v.anteriores ? ` + ${d(v.anteriores)} de períodos anteriores` : ""}`, d(v.acumulados) + " días"],
+      ["Períodos completos", `${A.anios} año(s)${v.actualCompleto ? " + el período actual (ya cumplió 50 semanas)" : ""} × 14 días`, d(v.diasPeriodos) + " días"],
+      ["Período actual", v.actualCompleto ? "completo (contado arriba)" : `${A.meses} mes(es) completo(s) y ${Math.round(A.dias)} día(s) sueltos → 1 día por mes completo`, d(v.diasProporcionales) + " días"],
+      ["Días acumulados", `${d(v.diasPeriodos)} + ${d(v.diasProporcionales)}`, d(v.acumulados) + " días"],
       ["Días pendientes", `${d(v.acumulados)} − ${d(v.disfrutados)} disfrutados`, d(v.pendientes) + " días"],
       ["Salario diario", s.modo === "meses" ? `promedio de los 12 meses (total ÷ ${String(s.usados12).replace(".", ",")} meses laborados) = ${m(v.promedio)} ÷ 30` : `${m(v.promedio)} ÷ 30`, m(v.diario)],
       ["Vacaciones", `${d(v.pendientes)} días × ${m(v.diario)}`, m(v.monto)]]; }
@@ -450,7 +451,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
     }
     return `<section class="card" style="--c:${col}">
       <h2>${nombre}</h2>
-      <div class="dos" style="margin-top:8px"><div class="ley" style="--c:${col}">${TEXTO_LEY[k]}</div><div>${(!formulasOcultasParaMi() && tablaLey(k, R)) || `<div class="ley" style="--c:${col}"><b>Datos que usa:</b> ${k === "salario" ? "fecha de ingreso y de salida, salario mensual, horas extra o comisiones e incapacidades (pestaña Datos)." : k === "vacaciones" ? "meses del período actual, días disfrutados y el promedio de los últimos 12 meses." : "lo devengado (ordinario + extraordinario) desde el 1 de diciembre hasta la salida."}</div>`}</div></div>
+      <div class="dos" style="margin-top:8px"><div class="ley" style="--c:${col}">${TEXTO_LEY[k]}</div><div>${(!formulasOcultasParaMi() && tablaLey(k, R)) || `<div class="ley" style="--c:${col}"><b>Datos que usa:</b> ${k === "salario" ? "fecha de ingreso y de salida, salario mensual, horas extra o comisiones e incapacidades (pestaña Datos)." : k === "vacaciones" ? "años completos y meses completos trabajados (por las fechas), días de vacaciones disfrutados en total y el promedio de los últimos 12 meses." : "lo devengado (ordinario + extraordinario) desde el 1 de diciembre hasta la salida."}</div>`}</div></div>
       ${noAplica ? `<p class="noaplica" style="margin-top:10px">Con el motivo «${esc((LIQ_MOTIVOS.find(x => x[0] === S.caso.motivo) || [])[1])}» no se paga ${k === "preaviso" ? "preaviso" : "cesantía"}${R.antiguedad.mesesTotales < 3 ? " (además tiene menos de 3 meses)" : ""}.${practica ? " En la práctica, escribí 0 en los montos." : ""}</p>` : ""}
       ${k === "salario" && S.asignado && !S.partesEval.includes("salario") ? `<p class="muted" style="font-size:.84rem">En este trabajo el salario no se califica aparte: usá la hoja para tus cálculos.</p>` : ""}
       ${k === "salario" && practica ? hojaHTML() : ""}
@@ -632,7 +633,7 @@ tr.hl td{background:#fff7d6; font-weight:700}
   function enunciadoDe(c) {
     const mot = (LIQ_MOTIVOS.find(x => x[0] === c.motivo) || [])[1] || "";
     const sal = c.salarioModo === "meses" ? `su salario mensual era de ${m(c.salarioMensual)} (los últimos 12 meses, con horas extra e incapacidades, están en la tabla de datos)` : `su salario mensual era de ${m(c.salarioMensual)}`;
-    return `Ingresó el ${c.fechaIngreso} y salió el ${c.fechaSalida}. Motivo: ${mot.toLowerCase()}. ${sal[0].toUpperCase() + sal.slice(1)}. ${c.preavisoEstado === "completo" ? "Trabajó el preaviso completo." : c.preavisoEstado === "parcial" ? `Trabajó ${c.preavisoDias} días del preaviso.` : "No trabajó el preaviso."} Disfrutó ${c.vacDisfrutadas} día(s) de vacaciones en el período actual.`;
+    return `Ingresó el ${c.fechaIngreso} y salió el ${c.fechaSalida}. Motivo: ${mot.toLowerCase()}. ${sal[0].toUpperCase() + sal.slice(1)}. ${c.preavisoEstado === "completo" ? "Trabajó el preaviso completo." : c.preavisoEstado === "parcial" ? `Trabajó ${c.preavisoDias} días del preaviso.` : "No trabajó el preaviso."} ${c.vacDisfrutadasTotal !== undefined && c.vacDisfrutadasTotal !== null ? `Desde que ingresó disfrutó ${c.vacDisfrutadasTotal} día(s) de vacaciones en total.` : `Disfrutó ${c.vacDisfrutadas || 0} día(s) de vacaciones en el período actual${+c.vacAnteriores ? ` y le quedaron ${c.vacAnteriores} día(s) pendientes de períodos anteriores` : ""}.`}`;
   }
   function abrirPracticaIA() {
     $("#modalCaja").innerHTML = `<h2>🤖 Práctica con IA</h2>
