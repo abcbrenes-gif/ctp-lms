@@ -60,7 +60,7 @@ async function mcMateria(s, m, categorias, docente) {
       const cu = g.inds.filter(i => !J.has(i.id)), max = cu.reduce((a, i) => a + Number(i.puntaje_maximo || 0), 0);
       const obt = cu.reduce((a, i) => a + Number(info.porIndicador[i.id] || 0), 0), calif = cu.some(i => info.porIndicador[i.id] !== undefined);
       return { titulo: g.titulo, desc: g.desc, orden: g.orden, fecha: g.fecha,
-        inds: g.inds.map(i => ({ letra: i.letra, desc: i.descripcion, v: J.has(i.id) ? "J" : info.porIndicador[i.id], max: Number(i.puntaje_maximo || 0) })),
+        inds: g.inds.slice().sort((x, y) => String(x.letra).localeCompare(String(y.letra), "es", { numeric: true })).map(i => ({ letra: i.letra, desc: i.descripcion, v: J.has(i.id) ? "J" : info.porIndicador[i.id], max: Number(i.puntaje_maximo || 0) })),
         sub: `${g.inds.length} indicador${g.inds.length === 1 ? "" : "es"}`, obt, max, nota: max ? obt / max * 100 : null,
         maxPct: totMax ? max / totMax * pc : 0, aporte: totMax ? obt / totMax * pc : 0, sinNota: !calif, justificado: !cu.length };
     }); // en el orden de los indicadores de la Rúbrica
