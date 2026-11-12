@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ciudad Contable · prototipo</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="img/logo-ctp-mercedes-norte.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@500;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* ═══════════ Ciudad Contable · prototipo 2027 (solo docente) ═══════════
+   Empresas de estudiantes y de la IA que transan con documentos comerciales
+   (factura y nota de crédito). Calcula descuento e IVA por línea y arma los
+   asientos del vendedor y del comprador (inventario perpetuo).
+   Prototipo: los datos viven en este navegador (localStorage). */
+:root{--bg:#eef3f8;--card:#fff;--ink:#14213d;--mut:#5b6b80;--line:#d9e2ee;--pri:#1d63e8;--pri2:#e7efff;
+  --com:#e8590c;--comBg:#fff1e7;--ser:#7048e8;--serBg:#f1edff;--ia:#0b7285;--iaBg:#e3f6f8;--ok:#1f8f55;--okBg:#e5f6ec;--bad:#c2410c;--badBg:#fdeee5;
+  --road:#cfd8e3;--grass:#dff0d8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,sans-serif}
+header{display:flex;align-items:center;gap:14px;padding:16px 20px;background:#fff;border-bottom:1px solid var(--line);flex-wrap:wrap}
+header img{height:54px}
+h1{font:800 1.45rem/1.1 Lexend,Inter,sans-serif;margin:0}
+.sub{color:var(--mut);margin:2px 0 0;font-size:.9rem}
+.pill{display:inline-block;font-size:.72rem;font-weight:700;padding:2px 9px;border-radius:999px;background:#fff6dc;color:#8a6100;margin-left:6px;vertical-align:middle}
+.hdr-btns{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+button,.btn{font:600 .9rem Inter,sans-serif;border:0;border-radius:10px;padding:9px 14px;cursor:pointer;background:var(--pri);color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+button.sec,.btn.sec{background:var(--pri2);color:var(--pri)}
+button.ghost{background:transparent;color:var(--mut);border:1px solid var(--line)}
+button:disabled{opacity:.45;cursor:default}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #9cc0ff;outline-offset:2px}
+main{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px;padding:18px 20px 90px;max-width:1500px;margin:0 auto}
+@media(max-width:980px){main{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+h2{font:700 1.08rem Lexend,Inter,sans-serif;margin:0 0 10px}
+h3{font:700 .98rem Lexend,Inter,sans-serif;margin:14px 0 8px}
+.muted{color:var(--mut)}
+/* ── Mapa de la ciudad ── */
+.city{position:relative;border-radius:14px;overflow:hidden;background:var(--grass);padding:14px;
+  background-image:linear-gradient(var(--road),var(--road)),linear-gradient(var(--road),var(--road));
+  background-size:100% 18px,18px 100%;background-position:0 50%,50% 0;background-repeat:no-repeat}
+.zone{font:700 .72rem Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#3b5249;margin:2px 4px 6px}
+.blocks{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:22px}
+.bld{position:relative;text-align:left;background:#fff;color:var(--ink);border:2px solid transparent;border-radius:12px;padding:10px 10px 9px;
+  box-shadow:0 2px 0 rgba(20,33,61,.08);display:block;width:100%;font-weight:500}
+.bld:hover{transform:translateY(-1px)}
+.bld.sel{border-color:var(--pri);box-shadow:0 0 0 3px #cfe0ff}
+.bld .roof{height:8px;border-radius:6px 6px 0 0;margin:-10px -10px 8px}
+.bld.com .roof{background:var(--com)} .bld.ser .roof{background:var(--ser)} .bld.ia .roof{background:var(--ia)}
+.bld .ico{font-size:1.5rem;line-height:1}
+.bld .nm{font:700 .9rem/1.2 Lexend,Inter,sans-serif;margin:4px 0 2px}
+.bld .tp{font-size:.72rem;font-weight:700}
+.bld.com .tp{color:var(--com)} .bld.ser .tp{color:var(--ser)} .bld.ia .tp{color:var(--ia)}
+.bld .kp{font-size:.74rem;color:var(--mut);margin-top:4px;font-variant-numeric:tabular-nums}
+.badge-n{position:absolute;top:8px;right:8px;background:var(--pri);color:#fff;border-radius:999px;font-size:.7rem;font-weight:700;padding:1px 7px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.8rem;color:var(--mut);margin-top:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+/* ── Panel de empresa ── */
+.co-hd{display:flex;gap:12px;align-items:flex-start}
+.co-hd .ico{font-size:2rem}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin:12px 0}
+.kv div{background:#f6f9fc;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.kv b{display:block;font-variant-numeric:tabular-nums}
+.kv small{color:var(--mut);font-size:.72rem}
+table{width:100%;border-collapse:collapse;font-size:.86rem}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:.74rem;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+td.r,th.r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td.mono{white-space:nowrap}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.dlg-hd{flex-wrap:wrap}
+@media(max-width:600px){header{padding:12px 16px}main{padding:14px 16px 90px}.hdr-btns{margin-left:0}.card{padding:12px}.dlg{padding:14px}}
+.docrow{cursor:pointer} .docrow:hover td{background:#f6f9fc}
+.chip{font-size:.7rem;font-weight:700;padding:1px 8px;border-radius:999px;white-space:nowrap}
+.chip.fe{background:var(--pri2);color:var(--pri)} .chip.nc{background:var(--badBg);color:var(--bad)}
+.tabs{display:flex;gap:6px;margin:10px 0}
+.tabs button{background:#f1f5f9;color:var(--ink);padding:6px 12px}
+.tabs button.on{background:var(--ink);color:#fff}
+/* ── Editor y comprobante ── */
+dialog{border:0;border-radius:18px;padding:0;width:min(980px,calc(100vw - 16px));max-width:calc(100vw - 16px);max-height:92vh;box-shadow:0 30px 80px rgba(20,33,61,.35)}
+dialog::backdrop{background:rgba(20,33,61,.45)}
+.dlg{padding:18px 20px;overflow:auto;max-height:92vh}
+.dlg-hd{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.dlg-hd h2{margin:0}
+.dlg-hd .x{margin-left:auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+label{display:block;font-size:.8rem;font-weight:600;color:var(--mut)}
+select,input{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);margin-top:3px}
+.lines td input,.lines td select{margin:0;padding:6px 8px}
+.tot{margin-left:auto;width:min(340px,100%);margin-top:10px}
+.tot div{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:3px 0;font-variant-numeric:tabular-nums}
+.tot .big{font:800 1.1rem Lexend,Inter,sans-serif;border-top:2px solid var(--ink);margin-top:4px;padding-top:6px}
+.msg{padding:9px 12px;border-radius:10px;margin:10px 0;font-size:.88rem}
+.msg.bad{background:var(--badBg);color:var(--bad)} .msg.ok{background:var(--okBg);color:var(--ok)}
+.comp{border:1px solid #b9c6d6;border-radius:12px;padding:16px;background:#fff;font-size:.86rem}
+.comp-hd{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:8px;margin-bottom:10px}
+.comp-hd .t{font:800 1.15rem Lexend,Inter,sans-serif}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.74rem;word-break:break-all}
+.water{font-size:.72rem;font-weight:700;color:var(--bad);text-transform:uppercase;letter-spacing:.06em}
+.partes{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px}
+@media(max-width:620px){.partes{grid-template-columns:1fr}}
+.partes div{background:#f6f9fc;border-radius:8px;padding:8px 10px}
+.asientos{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+@media(max-width:760px){.asientos{grid-template-columns:1fr}}
+.asiento{border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.asiento h4{margin:0 0 6px;font:700 .9rem Lexend,Inter,sans-serif}
+.asiento td.hab{padding-left:26px}
+.nota{font-size:.78rem;color:var(--mut);margin-top:6px}
+@media print{header,.hdr-btns,main,.no-print,#volver-plataforma{display:none!important}dialog{box-shadow:none;width:100%;max-height:none}.dlg{max-height:none}}
+</style>
+</head>
+<body>
+<header>
+  <img src="img/logo-ctp-mercedes-norte.png" alt="Escudo del CTP Mercedes Norte" width="38" height="54">
+  <div><h1>🏙️ Ciudad Contable <span class="pill">Prototipo 2027 · solo profe</span></h1>
+    <p class="sub">Empresas de estudiantes y de la IA que compran y venden con documentos comerciales</p></div>
+  <div class="hdr-btns"><button class="ghost" id="reiniciar" type="button">↺ Reiniciar ciudad</button><a class="btn sec" href="index.html#/2027">← 2027</a></div>
+</header>
+<main id="app"><p class="muted">Cargando…</p></main>
+<dialog id="dlg"><div class="dlg" id="dlgBody"></div></dialog>
+
+<script>
+const SES=(()=>{try{return JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")||"null")}catch(e){return null}})();
+const DOCENTE=!!(SES&&SES.role==="docente");
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const r2=n=>Math.round((+n||0)*100)/100;
+const fm=n=>"₡"+r2(n).toLocaleString("es-CR",{minimumFractionDigits:2,maximumFractionDigits:2});
+const hoyISO=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+
+/* ═══════════ Catálogo de cuentas (mismos códigos que Aula Contable) ═══════════ */
+const CTA={"1101":"Caja general","1102":"Bancos","1103":"Cuentas por cobrar comerciales","1105":"Inventario de mercadería","1106":"IVA soportado (crédito fiscal)",
+  "1203":"Mobiliario y equipo","1204":"Vehículos","2101":"Cuentas por pagar comerciales","2102":"IVA por pagar","4101":"Ventas","4102":"Devoluciones y descuentos sobre ventas",
+  "4201":"Ingresos por servicios","5101":"Costo de ventas","6106":"Publicidad","6112":"Suministros y materiales","6113":"Fletes y acarreos","6114":"Servicios profesionales y técnicos"};
+
+/* ═══════════ La ciudad inicial (10.°: 2 comerciales + 2 de servicios, y las empresas de la IA) ═══════════
+   clase de cada producto: mercaderia | servicio | flete | activo_eq | activo_veh | publicidad */
+function ciudadInicial(){
+  return {version:1,consec:{},docs:[],empresas:[
+   {id:"ferre",tipo:"com",ico:"🔨",nombre:"Ferretería El Clavo S.A.",ced:"3-101-700101",giro:"Venta de materiales y herramientas",bancos:3000000,
+    prods:[{id:"f1",det:"Martillo de uña 16 oz",cabys:"4621001000100",tarifa:13,precio:6500,costo:4200,clase:"mercaderia",stock:40},
+           {id:"f2",det:"Caja de tornillos 1\" (100 u)",cabys:"4621002000200",tarifa:13,precio:3200,costo:1900,clase:"mercaderia",stock:60},
+           {id:"f3",det:"Saco de cemento 50 kg",cabys:"4621003000300",tarifa:13,precio:7800,costo:6100,clase:"mercaderia",stock:30}]},
+   {id:"libre",tipo:"com",ico:"📚",nombre:"Librería La Pluma S.A.",ced:"3-101-700202",giro:"Venta de útiles y libros",bancos:2500000,
+    prods:[{id:"l1",det:"Resma de papel carta",cabys:"4649001000100",tarifa:13,precio:3900,costo:2700,clase:"mercaderia",stock:80},
+           {id:"l2",det:"Libro de texto de Contabilidad",cabys:"4761001000200",tarifa:0,precio:12000,costo:8000,clase:"mercaderia",stock:25,exento:"Libro exento de IVA en este caso de práctica"},
+           {id:"l3",det:"Caja de lapiceros (12 u)",cabys:"4649002000300",tarifa:13,precio:2400,costo:1500,clase:"mercaderia",stock:50}]},
+   {id:"conta",tipo:"ser",ico:"🧮",nombre:"Conta Express S.A.",ced:"3-101-700303",giro:"Servicios de contabilidad",bancos:1800000,
+    prods:[{id:"c1",det:"Servicio de contabilidad mensual",cabys:"8211001000100",tarifa:13,precio:85000,clase:"servicio"},
+           {id:"c2",det:"Declaración de IVA",cabys:"8211002000200",tarifa:13,precio:30000,clase:"servicio"}]},
+   {id:"mante",tipo:"ser",ico:"🛠️",nombre:"Mantenimiento Total S.A.",ced:"3-101-700404",giro:"Mantenimiento de edificios",bancos:1600000,
+    prods:[{id:"m1",det:"Mantenimiento eléctrico (visita)",cabys:"4321001000100",tarifa:13,precio:45000,clase:"servicio"},
+           {id:"m2",det:"Pintura de local (por día)",cabys:"4334001000200",tarifa:13,precio:60000,clase:"servicio"}]},
+   {id:"mayo",tipo:"ia",ico:"🏭",nombre:"Mayorista del Norte (IA)",ced:"3-101-900001",giro:"Venta al por mayor de mercadería",
+    prods:[{id:"y1",det:"Martillo de uña 16 oz (mayoreo)",cabys:"4621001000100",tarifa:13,precio:4200,clase:"mercaderia",para:"ferre",ref:"f1"},
+           {id:"y2",det:"Saco de cemento 50 kg (mayoreo)",cabys:"4621003000300",tarifa:13,precio:6100,clase:"mercaderia",para:"ferre",ref:"f3"},
+           {id:"y3",det:"Resma de papel carta (mayoreo)",cabys:"4649001000100",tarifa:13,precio:2700,clase:"mercaderia",para:"libre",ref:"l1"},
+           {id:"y4",det:"Libro de texto de Contabilidad (mayoreo)",cabys:"4761001000200",tarifa:0,precio:8000,clase:"mercaderia",para:"libre",ref:"l2"}]},
+   {id:"trans",tipo:"ia",ico:"🚚",nombre:"Transportes Rápidos (IA)",ced:"3-101-900002",giro:"Transporte de carga",
+    prods:[{id:"t1",det:"Flete de mercadería (por viaje)",cabys:"4923001000100",tarifa:13,precio:25000,clase:"flete"}]},
+   {id:"equip",tipo:"ia",ico:"🖥️",nombre:"Equipos y Más (IA)",ced:"3-101-900003",giro:"Venta de mobiliario, equipo y vehículos",
+    prods:[{id:"e1",det:"Computadora de escritorio",cabys:"4651001000100",tarifa:13,precio:450000,clase:"activo_eq"},
+           {id:"e2",det:"Escritorio de oficina",cabys:"4659001000200",tarifa:13,precio:120000,clase:"activo_eq"},
+           {id:"e3",det:"Motocicleta de reparto",cabys:"4540001000300",tarifa:13,precio:1800000,clase:"activo_veh"}]},
+   {id:"publi",tipo:"ia",ico:"📣",nombre:"Publicidad Creativa (IA)",ced:"3-101-900004",giro:"Servicios de publicidad",
+    prods:[{id:"p1",det:"Campaña en redes sociales (mes)",cabys:"7310001000100",tarifa:13,precio:70000,clase:"publicidad"}]},
+   {id:"clien",tipo:"ia",ico:"👥",nombre:"Clientes de la ciudad (IA)",ced:"",giro:"Personas y negocios que compran a las empresas",prods:[]},
+   {id:"banco",tipo:"ia",ico:"🏦",nombre:"Banco de la Ciudad (IA)",ced:"4-000-900005",giro:"Depósitos y préstamos (próxima etapa)",prods:[]},
+   {id:"hacie",tipo:"ia",ico:"🏛️",nombre:"Hacienda (IA)",ced:"",giro:"Revisa documentos y audita (próxima etapa)",prods:[]}
+  ]};
+}
+const TIPO={com:["Comercial","com"],ser:["Servicios","ser"],ia:["Empresa de la IA","ia"]};
+const KEY="ciudad_contable_proto_v1";
+let S=null; try{S=JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){S=null}
+if(!S||S.version!==1)S=ciudadInicial();
+const guardar=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const emp=id=>S.empresas.find(e=>e.id===id);
+const lleva=e=>e&&e.tipo!=="ia";   // las empresas de la IA no llevan contabilidad en el juego
+let SEL="ferre", TAB="emitidos";
+
+/* ═══════════ Cálculo de un documento ═══════════
+   Por línea: cantidad × precio = monto; − descuento = subtotal; subtotal × tarifa = IVA; subtotal + IVA = total. */
+function calcular(lineas){
+  const L=lineas.map(l=>{const monto=r2(l.cant*l.precio),desc=r2(monto*(l.descPct||0)/100),sub=r2(monto-desc),iva=r2(sub*l.tarifa/100);return {...l,monto,desc,sub,iva,total:r2(sub+iva)}});
+  const s=k=>r2(L.reduce((t,x)=>t+x[k],0));
+  return {lineas:L,monto:s("monto"),desc:s("desc"),sub:s("sub"),iva:s("iva"),total:s("total"),
+    gravado:r2(L.filter(x=>x.tarifa>0).reduce((t,x)=>t+x.sub,0)),exento:r2(L.filter(x=>!x.tarifa).reduce((t,x)=>t+x.sub,0))};
+}
+
+/* ═══════════ Asientos que salen de cada documento ═══════════ */
+function ctaCompra(clase,comprador){
+  if(clase==="mercaderia")return comprador.tipo==="com"?"1105":"6112";
+  if(clase==="flete")return comprador.tipo==="com"?"1105":"6113";   // NIC 2: el flete de la mercadería es parte del costo
+  if(clase==="activo_eq")return "1203";
+  if(clase==="activo_veh")return "1204";
+  if(clase==="publicidad")return "6106";
+  return "6114";
+}
+const ctaVenta=clase=>clase==="mercaderia"?"4101":"4201";
+function agrupar(L){const m={};L.forEach(([c,d,h])=>{const k=c+(d?"D":"H");m[k]=m[k]||[c,0,0];m[k][1]+=d;m[k][2]+=h});
+  return Object.values(m).map(([c,d,h])=>[c,r2(d),r2(h)]).filter(x=>x[1]||x[2]).sort((a,b)=>(b[1]?1:0)-(a[1]?1:0));}
+function asientos(doc){
+  const V=emp(doc.emisor),C=emp(doc.receptor),T=doc.calc,cred=doc.condicion==="credito",nc=doc.tipo==="NC",out={};
+  const cobro=cred?"1103":"1102",pago=cred?"2101":"1102";
+  if(lleva(V)){
+    const L=[];
+    if(!nc){L.push([cobro,T.total,0]);T.lineas.forEach(l=>L.push([ctaVenta(l.clase),0,l.sub]));if(T.iva)L.push(["2102",0,T.iva]);}
+    else{T.lineas.forEach(l=>L.push(["4102",l.sub,0]));if(T.iva)L.push(["2102",T.iva,0]);L.push([cobro,0,T.total]);}
+    const costo=r2(T.lineas.filter(l=>l.clase==="mercaderia").reduce((t,l)=>t+l.cant*(l.costo||0),0));
+    const out2=costo?(nc?[["1105",costo,0],["5101",0,costo]]:[["5101",costo,0],["1105",0,costo]]):null;
+    out.vendedor={emp:V,lineas:agrupar(L),costo:out2,costoMonto:costo};
+  }
+  if(lleva(C)){
+    const L=[];
+    if(!nc){T.lineas.forEach(l=>L.push([ctaCompra(l.clase,C),l.sub,0]));if(T.iva)L.push(["1106",T.iva,0]);L.push([pago,0,T.total]);}
+    else{L.push([pago,T.total,0]);T.lineas.forEach(l=>L.push([ctaCompra(l.clase,C),0,l.sub]));if(T.iva)L.push(["1106",0,T.iva]);}
+    out.comprador={emp:C,lineas:agrupar(L)};
+  }
+  return out;
+}
+
+/* ═══════════ Clave y consecutivo (formato de práctica, inspirado en la versión 4.4) ═══════════ */
+function numerar(doc){
+  const t=doc.tipo==="NC"?"03":"01";S.consec[doc.emisor+t]=(S.consec[doc.emisor+t]||0)+1;
+  const consecutivo="001"+"00001"+t+String(S.consec[doc.emisor+t]).padStart(10,"0");
+  const [y,m,d]=doc.fecha.split("-"),ced=(emp(doc.emisor).ced||"").replace(/\D/g,"").padStart(12,"0");
+  let h=0;for(const ch of doc.emisor+consecutivo+doc.fecha)h=(h*31+ch.charCodeAt(0))>>>0;
+  return {consecutivo,clave:"506"+d+m+y.slice(2)+ced+consecutivo+"1"+String(h%1e8).padStart(8,"0")};
+}
+
+/* ═══════════ Vista principal ═══════════ */
+function saldoDe(e){ // saldos rápidos que salen de los documentos (prototipo)
+  let cxc=0,cxp=0,ivaP=0,ivaS=0,vent=0;
+  S.docs.forEach(d=>{const s=d.tipo==="NC"?-1:1,T=d.calc;
+    if(d.emisor===e.id){vent+=s*T.sub;ivaP+=s*T.iva;if(d.condicion==="credito")cxc+=s*T.total}
+    if(d.receptor===e.id){ivaS+=s*T.iva;if(d.condicion==="credito")cxp+=s*T.total}});
+  return {cxc:r2(cxc),cxp:r2(cxp),ivaP:r2(ivaP),ivaS:r2(ivaS),vent:r2(vent)};
+}
+function bldHTML(e){
+  const n=S.docs.filter(d=>d.emisor===e.id||d.receptor===e.id).length,s=lleva(e)?saldoDe(e):null;
+  return `<button type="button" class="bld ${TIPO[e.tipo][1]} ${SEL===e.id?"sel":""}" data-emp="${e.id}" aria-pressed="${SEL===e.id}">
+    <div class="roof"></div>${n?`<span class="badge-n" title="Documentos">${n}</span>`:""}
+    <div class="ico">${e.ico}</div><div class="nm">${esc(e.nombre)}</div><div class="tp">${TIPO[e.tipo][0]}</div>
+    ${s?`<div class="kp">Ventas ${fm(s.vent)}</div>`:`<div class="kp">${esc(e.giro)}</div>`}</button>`;
+}
+function pintar(){
+  if(!DOCENTE){$("#app").innerHTML=`<div class="card" style="grid-column:1/-1"><h2>Solo para el profe</h2><p class="muted">Este prototipo se abre desde la plataforma, en <b>📅 2027</b>, con la sesión del docente.</p><a class="btn" href="index.html">Ir a la plataforma</a></div>`;return}
+  const est=S.empresas.filter(e=>e.tipo!=="ia"),ia=S.empresas.filter(e=>e.tipo==="ia");
+  $("#app").innerHTML=`<section class="card"><h2>El mapa de la ciudad</h2>
+      <div class="city"><div class="zone">Empresas de los estudiantes</div><div class="blocks">${est.map(bldHTML).join("")}</div>
+      <div class="zone">Empresas manejadas por la IA</div><div class="blocks">${ia.map(bldHTML).join("")}</div></div>
+      <div class="legend"><span><i style="background:var(--com)"></i>Comercial</span><span><i style="background:var(--ser)"></i>Servicios</span><span><i style="background:var(--ia)"></i>IA (no lleva contabilidad)</span></div>
+      <p class="nota">Prototipo: aquí todavía no hay roles, días de juego ni Hacienda. Sirve para ver cómo se emite una factura o una nota de crédito y qué asientos produce en las dos empresas.</p></section>
+    <section class="card" id="panel">${panelHTML()}</section>`;
+  document.querySelectorAll("[data-emp]").forEach(b=>b.onclick=()=>{SEL=b.dataset.emp;pintar()});
+  ligarPanel();
+}
+function panelHTML(){
+  const e=emp(SEL),s=lleva(e)?saldoDe(e):null;
+  const em=S.docs.filter(d=>d.emisor===e.id).slice().reverse(),re=S.docs.filter(d=>d.receptor===e.id).slice().reverse();
+  const L=TAB==="emitidos"?em:re;
+  return `<div class="co-hd"><div class="ico">${e.ico}</div><div><h2 style="margin:0">${esc(e.nombre)}</h2>
+      <div class="muted" style="font-size:.85rem">${esc(e.giro)}${e.ced?` · Cédula jurídica ${esc(e.ced)}`:""}</div>
+      <div class="tp" style="font-size:.75rem;font-weight:700;color:var(--${TIPO[e.tipo][1]})">${TIPO[e.tipo][0]}</div></div></div>
+    ${s?`<div class="kv"><div><small>Ventas netas</small><b>${fm(s.vent)}</b></div><div><small>Por cobrar</small><b>${fm(s.cxc)}</b></div><div><small>Por pagar</small><b>${fm(s.cxp)}</b></div><div><small>IVA por pagar</small><b>${fm(s.ivaP)}</b></div><div><small>IVA soportado</small><b>${fm(s.ivaS)}</b></div></div>`:`<p class="muted" style="font-size:.86rem">Las empresas de la IA venden y compran, pero no llevan contabilidad: sus documentos solo los registra la otra empresa.</p>`}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 4px">${e.prods.length?`<button type="button" id="nuevaFE">🧾 Emitir factura</button>`:""}
+      ${em.some(d=>d.tipo==="FE")?`<button type="button" class="sec" id="nuevaNC">↩️ Nota de crédito</button>`:""}</div>
+    ${e.prods.length?`<h3>Catálogo</h3><div class="scroll"><table><thead><tr><th>Detalle</th><th>CABYS</th><th class="r">IVA</th><th class="r">Precio</th>${e.tipo==="com"?'<th class="r">Costo</th><th class="r">Existencia</th>':""}</tr></thead><tbody>
+      ${e.prods.map(p=>`<tr><td>${esc(p.det)}</td><td class="mono">${esc(p.cabys)}</td><td class="r">${p.tarifa?p.tarifa+" %":"Exento"}</td><td class="r">${fm(p.precio)}</td>${e.tipo==="com"?`<td class="r">${fm(p.costo)}</td><td class="r">${p.stock}</td>`:""}</tr>`).join("")}</tbody></table></div>`:""}
+    <h3>Documentos</h3><div class="tabs" role="tablist"><button type="button" role="tab" class="${TAB==="emitidos"?"on":""}" data-tab="emitidos">Emitidos (${em.length})</button><button type="button" role="tab" class="${TAB==="recibidos"?"on":""}" data-tab="recibidos">Recibidos (${re.length})</button></div>
+    ${L.length?`<div class="scroll"><table><thead><tr><th>Documento</th><th>${TAB==="emitidos"?"Cliente":"Proveedor"}</th><th>Fecha</th><th class="r">Total</th></tr></thead><tbody>
+      ${L.map(d=>`<tr class="docrow" data-doc="${d.id}" tabindex="0"><td><span class="chip ${d.tipo==="NC"?"nc":"fe"}">${d.tipo==="NC"?"Nota de crédito":"Factura"}</span> <span class="mono">…${d.consecutivo.slice(-4)}</span></td><td>${esc(emp(TAB==="emitidos"?d.receptor:d.emisor).nombre)}</td><td>${d.fecha}</td><td class="r">${fm(d.calc.total)}</td></tr>`).join("")}</tbody></table></div>`
+      :`<p class="muted" style="font-size:.88rem">Todavía no hay documentos ${TAB}. ${e.prods.length&&TAB==="emitidos"?"Toque «Emitir factura» para hacer la primera.":""}</p>`}`;
+}
+function ligarPanel(){
+  const p=$("#panel");
+  p.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{TAB=b.dataset.tab;p.innerHTML=panelHTML();ligarPanel()});
+  p.querySelectorAll("[data-doc]").forEach(r=>{const f=()=>verDoc(r.dataset.doc);r.onclick=f;r.onkeydown=ev=>{if(ev.key==="Enter")f()}});
+  const fe=$("#nuevaFE");if(fe)fe.onclick=()=>editorFactura();
+  const nc=$("#nuevaNC");if(nc)nc.onclick=()=>editorNC();
+}
+const abrir=html=>{$("#dlgBody").innerHTML=html;const d=$("#dlg");if(!d.open)d.showModal();const x=$("#dlgBody .x");if(x)x.onclick=()=>d.close()};
+
+/* ═══════════ Editor de factura ═══════════ */
+function editorFactura(){
+  const E=emp(SEL);
+  const receptores=S.empresas.filter(x=>x.id!==E.id&&x.id!=="hacie"&&x.id!=="banco");
+  const sugerido=E.tipo==="ia"?(receptores.find(x=>x.tipo!=="ia"&&E.prods.some(p=>p.para===x.id))||receptores.find(x=>x.tipo!=="ia")):emp("clien");
+  let L=[{prod:E.prods[0].id,cant:1,descPct:0}];
+  const prod=id=>E.prods.find(p=>p.id===id);
+  const html=()=>{
+    const lin=L.map(l=>{const p=prod(l.prod);return {...l,det:p.det,cabys:p.cabys,precio:p.precio,tarifa:p.tarifa,clase:p.clase,costo:p.costo}}),T=calcular(lin);
+    return `<div class="dlg-hd"><span style="font-size:1.6rem">🧾</span><h2>Factura electrónica · ${esc(E.nombre)}</h2><button type="button" class="ghost x">Cerrar ✕</button></div>
+      <div class="grid"><label>Cliente (receptor)<select id="fRec">${receptores.map(x=>`<option value="${x.id}" ${x.id===(html.rec||sugerido.id)?"selected":""}>${esc(x.nombre)}</option>`).join("")}</select></label>
+        <label>Fecha<input id="fFecha" type="date" value="${html.fecha||hoyISO()}"></label>
+        <label>Condición de venta<select id="fCond"><option value="contado" ${html.cond!=="credito"?"selected":""}>Contado</option><option value="credito" ${html.cond==="credito"?"selected":""}>Crédito a 30 días</option></select></label>
+        <label>Medio de pago<select id="fMedio">${["Transferencia","SINPE Móvil","Efectivo","Tarjeta"].map(m=>`<option ${m===html.medio?"selected":""}>${m}</option>`).join("")}</select></label></div>
+      <h3>Líneas</h3><div style="overflow-x:auto"><table class="lines"><thead><tr><th style="min-width:220px">Producto o servicio</th><th class="r" style="width:80px">Cant.</th><th class="r">Precio</th><th class="r" style="width:90px">Desc. %</th><th class="r">Subtotal</th><th class="r">IVA</th><th class="r">Total</th><th></th></tr></thead><tbody>
+      ${T.lineas.map((l,i)=>`<tr><td><select data-l="${i}" data-k="prod">${E.prods.map(p=>`<option value="${p.id}" ${p.id===l.prod?"selected":""}>${esc(p.det)}</option>`).join("")}</select><div class="nota">CABYS ${esc(l.cabys)} · ${l.tarifa?"IVA "+l.tarifa+" %":"Exento"}</div></td>
+        <td><input data-l="${i}" data-k="cant" type="number" min="1" step="1" value="${l.cant}" inputmode="numeric" style="text-align:right"></td><td class="r">${fm(l.precio)}</td>
+        <td><input data-l="${i}" data-k="descPct" type="number" min="0" max="100" step="any" value="${l.descPct}" inputmode="decimal" style="text-align:right"></td>
+        <td class="r">${fm(l.sub)}</td><td class="r">${fm(l.iva)}</td><td class="r"><b>${fm(l.total)}</b></td><td>${L.length>1?`<button type="button" class="ghost" data-del="${i}" aria-label="Quitar línea">✕</button>`:""}</td></tr>`).join("")}</tbody></table></div>
+      <button type="button" class="sec" id="fAdd" style="margin-top:8px">＋ Agregar línea</button>
+      <div class="tot"><div><span>Monto</span><span>${fm(T.monto)}</span></div><div><span>Descuentos</span><span>− ${fm(T.desc)}</span></div><div><span>Subtotal neto</span><span>${fm(T.sub)}</span></div>
+        <div class="muted"><span>Gravado · Exento</span><span>${fm(T.gravado)} · ${fm(T.exento)}</span></div><div><span>IVA</span><span>${fm(T.iva)}</span></div><div class="big"><span>Total</span><span>${fm(T.total)}</span></div></div>
+      <div id="fMsg"></div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px"><button type="button" id="fEmitir">✅ Emitir factura</button></div>`;
+  };
+  const leer=()=>{html.rec=$("#fRec").value;html.fecha=$("#fFecha").value;html.cond=$("#fCond").value;html.medio=$("#fMedio").value};
+  const repintar=()=>{abrir(html());ligar()};
+  const ligar=()=>{
+    document.querySelectorAll("#dlgBody [data-l]").forEach(inp=>inp.onchange=()=>{leer();const l=L[+inp.dataset.l],k=inp.dataset.k;l[k]=k==="prod"?inp.value:Math.max(0,+inp.value||0);if(k==="descPct")l[k]=Math.min(100,l[k]);if(k==="cant")l[k]=Math.max(1,Math.round(l[k]));repintar()});
+    document.querySelectorAll("#dlgBody [data-del]").forEach(b=>b.onclick=()=>{leer();L.splice(+b.dataset.del,1);repintar()});
+    ["#fRec","#fFecha","#fCond","#fMedio"].forEach(s=>$(s).onchange=leer);
+    $("#fAdd").onclick=()=>{leer();L.push({prod:E.prods[0].id,cant:1,descPct:0});repintar()};
+    $("#fEmitir").onclick=()=>{leer();
+      const lin=L.map(l=>{const p=prod(l.prod);return {prod:p.id,det:p.det,cabys:p.cabys,precio:p.precio,tarifa:p.tarifa,clase:p.clase,costo:p.costo||0,cant:l.cant,descPct:l.descPct||0}});
+      if(E.tipo==="com"){const falta=lin.find(l=>{const p=prod(l.prod);return l.clase==="mercaderia"&&lin.filter(x=>x.prod===l.prod).reduce((t,x)=>t+x.cant,0)>p.stock});
+        if(falta){$("#fMsg").innerHTML=`<div class="msg bad">No hay suficiente existencia de «${esc(falta.det)}» (quedan ${prod(falta.prod).stock}).</div>`;return}}
+      const doc={id:"d"+Date.now(),tipo:"FE",emisor:E.id,receptor:html.rec,fecha:html.fecha||hoyISO(),condicion:html.cond,medio:html.medio,calc:calcular(lin)};
+      Object.assign(doc,numerar(doc));
+      moverExistencias(doc,1);S.docs.push(doc);guardar();pintar();verDoc(doc.id,true);
+    };
+  };
+  repintar();
+}
+/* Inventario perpetuo: la venta saca existencias del vendedor; la compra de mercadería al mayorista las suma al comprador. */
+function moverExistencias(doc,signo){
+  const V=emp(doc.emisor),C=emp(doc.receptor),nc=doc.tipo==="NC"?-1:1;
+  doc.calc.lineas.forEach(l=>{if(l.clase!=="mercaderia")return;
+    if(V.tipo==="com"){const p=V.prods.find(x=>x.id===l.prod);if(p)p.stock-=nc*signo*l.cant}
+    if(C&&C.tipo==="com"){const src=V.prods.find(x=>x.id===l.prod),p=src&&src.ref?C.prods.find(x=>x.id===src.ref):null;if(p)p.stock+=nc*signo*l.cant}});
+}
+
+/* ═══════════ Nota de crédito (devolución sobre una factura) ═══════════ */
+function editorNC(){
+  const E=emp(SEL),facts=S.docs.filter(d=>d.emisor===E.id&&d.tipo==="FE");
+  let F=facts[facts.length-1],dev={};
+  const html=()=>{
+    const ya=id=>S.docs.filter(d=>d.tipo==="NC"&&d.ref===F.id).reduce((t,d)=>t+(d.calc.lineas.find(x=>x.prod===id)||{cant:0}).cant,0);
+    const lin=F.calc.lineas.map(l=>({...l,cant:Math.min(+dev[l.prod]||0,l.cant-ya(l.prod))})).filter(l=>l.cant>0);
+    const T=calcular(lin);
+    return `<div class="dlg-hd"><span style="font-size:1.6rem">↩️</span><h2>Nota de crédito · ${esc(E.nombre)}</h2><button type="button" class="ghost x">Cerrar ✕</button></div>
+      <div class="grid"><label>Factura que se corrige<select id="nFac">${facts.map(d=>`<option value="${d.id}" ${d.id===F.id?"selected":""}>…${d.consecutivo.slice(-6)} · ${esc(emp(d.receptor).nombre)} · ${fm(d.calc.total)}</option>`).join("")}</select></label>
+        <label>Motivo<select id="nMot"><option>Devolución de mercadería</option><option>Servicio no prestado completo</option><option>Error en la factura</option></select></label></div>
+      <h3>¿Cuánto se devuelve o se rebaja?</h3><div class="scroll"><table><thead><tr><th>Línea de la factura</th><th class="r">Facturado</th><th class="r">Ya devuelto</th><th class="r" style="width:110px">Cantidad</th></tr></thead><tbody>
+      ${F.calc.lineas.map(l=>`<tr><td>${esc(l.det)}<div class="nota">${fm(l.precio)} c/u${l.descPct?` · desc. ${l.descPct} %`:""} · ${l.tarifa?"IVA "+l.tarifa+" %":"Exento"}</div></td><td class="r">${l.cant}</td><td class="r">${ya(l.prod)}</td>
+        <td><input data-dev="${l.prod}" type="number" min="0" max="${l.cant-ya(l.prod)}" step="1" value="${dev[l.prod]||0}" inputmode="numeric" style="text-align:right"></td></tr>`).join("")}</tbody></table></div>
+      <p class="nota">La nota de crédito usa el mismo precio, descuento y tarifa de IVA de la factura original, en la proporción devuelta.</p>
+      <div class="tot"><div><span>Subtotal neto</span><span>${fm(T.sub)}</span></div><div><span>IVA</span><span>${fm(T.iva)}</span></div><div class="big"><span>Total de la nota</span><span>${fm(T.total)}</span></div></div>
+      <div id="nMsg"></div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px"><button type="button" id="nEmitir" ${T.total?"":"disabled"}>✅ Emitir nota de crédito</button></div>`;
+  };
+  const repintar=()=>{abrir(html());
+    $("#nFac").onchange=ev=>{F=facts.find(d=>d.id===ev.target.value);dev={};repintar()};
+    document.querySelectorAll("#dlgBody [data-dev]").forEach(i=>i.onchange=()=>{dev[i.dataset.dev]=Math.max(0,Math.min(+i.max,Math.round(+i.value||0)));repintar()});
+    $("#nEmitir").onclick=()=>{
+      const ya=id=>S.docs.filter(d=>d.tipo==="NC"&&d.ref===F.id).reduce((t,d)=>t+(d.calc.lineas.find(x=>x.prod===id)||{cant:0}).cant,0);
+      const lin=F.calc.lineas.map(l=>({prod:l.prod,det:l.det,cabys:l.cabys,precio:l.precio,tarifa:l.tarifa,clase:l.clase,costo:l.costo,descPct:l.descPct,cant:Math.min(+dev[l.prod]||0,l.cant-ya(l.prod))})).filter(l=>l.cant>0);
+      if(!lin.length)return;
+      const doc={id:"d"+Date.now(),tipo:"NC",ref:F.id,refConsec:F.consecutivo,motivo:$("#nMot").value,emisor:E.id,receptor:F.receptor,fecha:hoyISO(),condicion:F.condicion,medio:F.medio,calc:calcular(lin)};
+      Object.assign(doc,numerar(doc));moverExistencias(doc,1);S.docs.push(doc);guardar();pintar();verDoc(doc.id,true);
+    };
+  };
+  repintar();
+}
+
+/* ═══════════ Ver el comprobante y sus asientos ═══════════ */
+function tablaAsiento(L){
+  const td=r2(L.reduce((t,x)=>t+x[1],0)),th=r2(L.reduce((t,x)=>t+x[2],0));
+  return `<div class="scroll"><table><thead><tr><th>Cuenta</th><th class="r">Debe</th><th class="r">Haber</th></tr></thead><tbody>
+    ${L.map(([c,d,h])=>`<tr><td class="${h?"hab":""}">${c} ${esc(CTA[c]||"")}</td><td class="r">${d?fm(d):""}</td><td class="r">${h?fm(h):""}</td></tr>`).join("")}
+    <tr><td><b>Sumas iguales</b></td><td class="r"><b>${fm(td)}</b></td><td class="r"><b>${fm(th)}</b></td></tr></tbody></table></div>`;
+}
+function verDoc(id,recien){
+  const d=S.docs.find(x=>x.id===id),V=emp(d.emisor),C=emp(d.receptor),T=d.calc,A=asientos(d),nc=d.tipo==="NC";
+  abrir(`<div class="dlg-hd no-print"><span style="font-size:1.6rem">${nc?"↩️":"🧾"}</span><h2>${nc?"Nota de crédito":"Factura"} emitida</h2><button type="button" class="sec" id="imp">🖨️ Imprimir</button><button type="button" class="ghost x">Cerrar ✕</button></div>
+    ${recien?`<div class="msg ok no-print">✅ ${nc?"Nota de crédito":"Factura"} emitida. Abajo están los asientos que le tocan a cada empresa.</div>`:""}
+    <div class="comp"><div class="comp-hd"><div><div class="t">${nc?"NOTA DE CRÉDITO ELECTRÓNICA":"FACTURA ELECTRÓNICA"}</div><div class="water">Documento didáctico · sin validez tributaria</div></div>
+      <div style="text-align:right"><div><b>Consecutivo</b> <span class="mono">${d.consecutivo}</span></div><div><b>Fecha</b> ${d.fecha}</div></div></div>
+      <div class="mono" style="margin-bottom:10px"><b>Clave:</b> ${d.clave}</div>
+      <div class="partes"><div><small class="muted">EMISOR</small><br><b>${esc(V.nombre)}</b><br>Cédula jurídica ${esc(V.ced)}<br>${esc(V.giro)}</div>
+        <div><small class="muted">RECEPTOR</small><br><b>${esc(C.nombre)}</b><br>${C.ced?"Cédula jurídica "+esc(C.ced):"Consumidor final"}</div></div>
+      ${nc?`<div style="margin-bottom:8px"><b>Referencia:</b> factura <span class="mono">${d.refConsec}</span> · <b>Motivo:</b> ${esc(d.motivo)}</div>`:""}
+      <div style="margin-bottom:8px"><b>Condición:</b> ${d.condicion==="credito"?"Crédito a 30 días":"Contado"} · <b>Medio de pago:</b> ${esc(d.medio)}</div>
+      <div style="overflow-x:auto"><table><thead><tr><th>Cant.</th><th>Detalle</th><th>CABYS</th><th class="r">Precio</th><th class="r">Desc.</th><th class="r">Subtotal</th><th class="r">IVA</th><th class="r">Total</th></tr></thead><tbody>
+        ${T.lineas.map(l=>`<tr><td>${l.cant}</td><td>${esc(l.det)}</td><td class="mono">${esc(l.cabys)}</td><td class="r">${fm(l.precio)}</td><td class="r">${l.desc?fm(l.desc):""}</td><td class="r">${fm(l.sub)}</td><td class="r">${l.tarifa?fm(l.iva)+` <small class="muted">(${l.tarifa} %)</small>`:"Exento"}</td><td class="r">${fm(l.total)}</td></tr>`).join("")}</tbody></table></div>
+      <div class="tot"><div><span>Total gravado</span><span>${fm(T.gravado)}</span></div><div><span>Total exento</span><span>${fm(T.exento)}</span></div><div><span>Total descuentos</span><span>${fm(T.desc)}</span></div><div><span>Total IVA</span><span>${fm(T.iva)}</span></div><div class="big"><span>Total del comprobante</span><span>${fm(T.total)}</span></div></div></div>
+    <h3>Asientos contables</h3>
+    <div class="asientos">
+      ${A.vendedor?`<div class="asiento"><h4>${esc(V.nombre)} · ${nc?"devolución sobre venta":"venta"}</h4>${tablaAsiento(A.vendedor.lineas)}
+        ${A.vendedor.costo?`<div class="nota">Inventario perpetuo: ${nc?"vuelve al inventario":"sale del inventario"} el costo de la mercadería (${fm(A.vendedor.costoMonto)}).</div>${tablaAsiento(A.vendedor.costo)}`:""}</div>`
+        :`<div class="asiento"><h4>${esc(V.nombre)}</h4><p class="muted" style="font-size:.86rem">Empresa de la IA: no lleva contabilidad en el juego.</p></div>`}
+      ${A.comprador?`<div class="asiento"><h4>${esc(C.nombre)} · ${nc?"devolución sobre compra":"compra"}</h4>${tablaAsiento(A.comprador.lineas)}
+        ${T.lineas.some(l=>l.clase==="flete")&&C.tipo==="com"?'<div class="nota">El flete se suma al costo del inventario (NIC 2).</div>':""}
+        ${T.lineas.some(l=>l.clase.startsWith("activo"))?'<div class="nota">El activo se registra sin el IVA, que se recupera como crédito fiscal (NIC 16).</div>':""}</div>`
+        :`<div class="asiento"><h4>${esc(C.nombre)}</h4><p class="muted" style="font-size:.86rem">${C.id==="clien"?"Clientes de la ciudad: no llevan contabilidad.":"Empresa de la IA: no lleva contabilidad en el juego."}</p></div>`}
+    </div>`);
+  $("#imp").onclick=()=>window.print();
+}
+
+$("#reiniciar").onclick=()=>{if(!confirm("¿Reiniciar la ciudad del prototipo? Se borran los documentos de prueba de este navegador."))return;
+  try{localStorage.removeItem(KEY)}catch(e){} S=ciudadInicial();SEL="ferre";TAB="emitidos";pintar()};
+pintar();
+</script>
+<script src="js/volver-plataforma.js?v=20261112b"></script>
+</body>
+</html>
