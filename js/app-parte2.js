@@ -1881,50 +1881,52 @@ async function renderAvisosEstudiante(el, s) {
 
 // --- Récord de asistencia del estudiante (visible para profesor y el propio estudiante) ---
 
-async function renderAsistenciaEstudiante(el, s) {
+// Asistencia del estudiante: encabezado, selector de período y tarjetas por tipo
+// de registro (código de color como en la boleta del MEP), más el detalle día por día.
+// Períodos: I = antes del 1 de julio · II = desde el 1 de julio (Decreto 45509-MEP: dos períodos).
+const AST_TIPOS = [
+  { k: "TI", l: "Tardía injustificada", est: ["tardia_leve", "tardia_grave"], c: "#e5484d" },
+  { k: "AJ", l: "Ausencia justificada", est: ["ausente_justificada"], c: "#30a46c" },
+  { k: "A", l: "Ausencia injustificada", est: ["ausente_injustificada"], c: "#d4a015" },
+  { k: "TJ", l: "Tardía justificada", est: ["tardia_justificada"], c: "#3b82f6" },
+  { k: "P", l: "Presente", est: ["presente"], c: "#8e4ec6" }
+];
+async function renderAsistenciaEstudiante(el, s, opc) {
+  opc = opc || renderAsistenciaEstudiante.opc || {};
   el.innerHTML = "Cargando…";
-  const { data: asignadas } = await sb.from("estudiante_materias").select("materia_id, materias(id, nombre)").eq("estudiante_id", s.id);
-  const materiasAsignadas = (asignadas || []).map(a => a.materias).filter(Boolean);
-
-  if (materiasAsignadas.length === 0) {
-    el.innerHTML = `<p class="empty">Todavía no tienes materias asignadas.</p>`;
-    return;
-  }
-
-  let html = `<p style="font-size:0.85rem; color:var(--text-muted);">Récord de asistencia por materia, según el artículo 31° del REA (ausencias y tardías injustificadas).</p>`;
-
-  for (const m of materiasAsignadas) {
-    const { data: lecciones } = await sb.from("lecciones").select("id").eq("materia_id", m.id);
-    const leccionIds = (lecciones || []).map(l => l.id);
-    const { data: registros } = leccionIds.length
-      ? await sb.from("asistencia_lecciones").select("*").in("leccion_id", leccionIds).eq("estudiante_id", s.id).order("fecha", { ascending: false })
-      : { data: [] };
-
-    const conteos = {};
-    ESTADOS_ASISTENCIA.forEach(e => { conteos[e.v] = 0; });
-    (registros || []).forEach(r => { conteos[r.estado] = (conteos[r.estado] || 0) + 1; });
-
-    const resultado = await calcularNotaAsistencia(s.id, m.id);
-
-    html += `
-      <h3 style="margin-top:1.4rem;">${m.nombre}</h3>
-      <div class="roster" style="margin-bottom:0.8rem;">
-        <div class="roster-row"><span class="name">% de asistencia (nota)</span><span class="badge" style="${resultado && resultado.nota < 70 ? "color:var(--brick); border-color:var(--brick);" : ""}">${resultado ? resultado.nota.toFixed(1) + "%" : "Sin datos todavía"}</span></div>
-        ${resultado ? `<div class="roster-row"><span class="name">Lecciones impartidas</span><span class="badge">${resultado.impartidas}</span></div>` : ""}
-        ${ESTADOS_ASISTENCIA.map(e => `<div class="roster-row"><span class="name">${e.l}</span><span class="badge" style="opacity:${conteos[e.v] > 0 ? 1 : 0.4};">${conteos[e.v]}</span></div>`).join("")}
-      </div>
-      <details>
-        <summary style="font-size:0.82rem; color:var(--text-muted); cursor:pointer;">Ver el detalle día por día</summary>
-        <table class="grades" style="margin-top:0.6rem;">
-          <thead><tr><th>Fecha</th><th>Estado</th></tr></thead>
-          <tbody>
-            ${(registros || []).map(r => `<tr><td>${r.fecha}</td><td>${ESTADOS_ASISTENCIA.find(e => e.v === r.estado)?.l || r.estado}</td></tr>`).join("") || '<tr><td colspan="2" class="empty">Sin registros todavía.</td></tr>'}
-          </tbody>
-        </table>
-      </details>`;
-  }
-
-  el.innerHTML = html;
+  const { data: asignadas } = await sb.from("estudiante_materias").select("materia_id, materias(id, nombre, seccion)").eq("estudiante_id", s.id);
+  const materias = (asignadas || []).map(a => a.materias).filter(Boolean);
+  if (!materias.length) { el.innerHTML = `<p class="empty">Todavía no tienes materias asignadas.</p>`; return; }
+  const mat = materias.find(m => String(m.id) === String(opc.materia)) || materias[0];
+  const anio = new Date().getFullYear(), corte = `${anio}-07-01`;
+  const per = opc.periodo || (new Date().toISOString().slice(0, 10) >= corte ? "II" : "I");
+  const { data: lecciones } = await sb.from("lecciones").select("id").eq("materia_id", mat.id);
+  const ids = (lecciones || []).map(l => l.id);
+  const { data: regs0 } = ids.length ? await sb.from("asistencia_lecciones").select("*").in("leccion_id", ids).eq("estudiante_id", s.id).order("fecha", { ascending: false }) : { data: [] };
+  const regs = (regs0 || []).filter(r => per === "todo" ? true : per === "I" ? String(r.fecha) < corte : String(r.fecha) >= corte);
+  const n = t => regs.filter(r => t.est.includes(r.estado)).length;
+  const resultado = await calcularNotaAsistencia(s.id, mat.id);
+  const ico = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>';
+  const tipoDe = r => AST_TIPOS.find(t => t.est.includes(r.estado));
+  el.innerHTML = `<div class="ast">
+    <div class="ast-head"><span class="ast-ic">${ico}</span><div><h2 class="ast-t">Asistencia</h2><p class="ast-s">Registro de asistencia del estudiante</p></div></div>
+    <div class="ast-barra">
+      ${materias.length > 1 ? `<label>Materia <select id="ast-mat">${materias.map(m => `<option value="${m.id}" ${m.id === mat.id ? "selected" : ""}>${escAC(String(m.nombre).trim())}${m.seccion ? " · " + escAC(m.seccion) : ""}</option>`).join("")}</select></label>` : `<span class="ast-mat">${escAC(String(mat.nombre).trim())}</span>`}
+      <label>Período <select id="ast-per"><option value="I" ${per === "I" ? "selected" : ""}>I Período</option><option value="II" ${per === "II" ? "selected" : ""}>II Período</option><option value="todo" ${per === "todo" ? "selected" : ""}>Todo el curso</option></select></label>
+    </div>
+    <div class="ast-cards">
+      ${AST_TIPOS.map(t => `<div class="ast-card" style="--c:${t.c}"><span class="ast-code">${t.k}</span><span class="ast-lbl">${t.l}</span><b class="ast-n">${n(t)}</b></div>`).join("")}
+      <div class="ast-card ast-nota" style="--c:${resultado && resultado.nota < 70 ? "#e5484d" : "#0ea5a4"}"><span class="ast-code">%</span><span class="ast-lbl">Nota de asistencia del curso${resultado ? ` · ${resultado.impartidas} lecciones` : ""}</span><b class="ast-n">${resultado ? resultado.nota.toFixed(1) : "—"}</b></div>
+    </div>
+    <p class="ast-pie">La nota sigue el artículo 31 del REA: cuentan las ausencias y tardías injustificadas sobre el total de lecciones impartidas. Las tardías injustificadas de menos de 10 minutos valen media ausencia.</p>
+    <div class="ast-det"><h3>Detalle día por día</h3>
+      ${regs.length ? `<div class="ast-lista">${regs.map(r => { const t = tipoDe(r) || { k: "?", l: r.estado, c: "#64748b" }; const f = new Date(r.fecha + "T12:00:00");
+        return `<div class="ast-dia" style="--c:${t.c}"><span class="ast-code sm">${t.k}</span><span class="ast-fecha">${f.toLocaleDateString("es-CR", { weekday: "long", day: "numeric", month: "long" })}</span><span class="ast-est">${escAC(ESTADOS_ASISTENCIA.find(e => e.v === r.estado)?.l || r.estado)}</span></div>`; }).join("")}</div>`
+        : `<p class="empty">Sin registros en este período.</p>`}
+    </div></div>`;
+  const re = () => renderAsistenciaEstudiante(el, s, renderAsistenciaEstudiante.opc = { materia: document.getElementById("ast-mat") ? document.getElementById("ast-mat").value : mat.id, periodo: document.getElementById("ast-per").value });
+  document.getElementById("ast-per").onchange = re;
+  const sm = document.getElementById("ast-mat"); if (sm) sm.onchange = re;
 }
 
 // --- Apartado de un resultado de aprendizaje: introducción + trabajos cotidianos ---
