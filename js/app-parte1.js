@@ -72,6 +72,7 @@ async function render() {
   if (hash === "#/boleta-notas") return renderBoletaNotas();
   if (hash === "#/puntos-extra") return renderPuntosExtra();
   if (hash === "#/justificaciones") return renderJustificaciones();
+  if (hash === "#/2027") return renderAnio2027();
   if (hash === "#/bitacora") return renderBitacora();
   if (hash === "#/evaluacion") return renderEvaluacionInforme();
   const progUnidadMatch = hash.match(/^#\/programa\/(.+)$/);
@@ -276,6 +277,7 @@ async function renderHome() {
     { grupo: "estrategias", href: "examen.html", icono: "📝", titulo: "Exámenes", sub: "Arme la prueba como borrador, revísela como estudiante y publíquela en la sección (puntos reales y su propio %)", cta: "Abrir exámenes →" },
     { grupo: "estrategias", href: "#/evaluacion", icono: "📑", titulo: "Evaluación", sub: "Por sección: indicadores, trabajo que realizaron los estudiantes y notas, en PDF", cta: "Ver evaluación →" },
     { grupo: "estrategias", href: "#/notas-periodo", icono: "📄", titulo: "Notas por período", sub: "Acta del I Período, nota del II Período y nota anual según el MEP (50 % + 50 %), con PDF", cta: "Ver notas →" },
+    { grupo: "2027", href: "#/2027", icono: "📅", titulo: "Curso lectivo 2027", sub: "Lo que vamos preparando para el próximo año, con su lista de pendientes", cta: "Abrir 2027 →" },
     { grupo: "estrategias", href: "planeamiento.html", icono: "📘", titulo: "Planeamiento didáctico", sub: "Plan de práctica pedagógica por unidad de estudio (formato MEP · ETP), con estrategias D/ y E/ propuestas por la IA", cta: "Planificar →" },
     { grupo: "estrategias", href: "#/justificaciones", icono: "👪", titulo: "Justificaciones", sub: "Los encargados justifican ausencias y tardías (enlace por WhatsApp o código al correo); usted aprueba", cta: "Revisar →" },
     { grupo: "estrategias", href: "#/puntos-extra", icono: "➕", titulo: "Puntos extra", sub: "Suba puntos por estudiante en Trabajo cotidiano, Tareas o Proyectos, con su motivo", cta: "Dar puntos →" },
@@ -304,7 +306,7 @@ async function renderHome() {
       </div>
     </a>`;
   // Tres botones en vertical; al tocar uno se abren sus accesos en horizontal.
-  const GRUPOS_ACCESO = [["estrategias", "🧪", "Estrategias", "Evaluación, mediación, rúbrica y bitácora"], ["juegos", "🎮", "Juegos de clase", "Aula de Conta, Liquidaciones, La Tiradera, Planilla Opoly y ContaRed"], ["material", "📚", "Material de clase", "Materias y programa"]];
+  const GRUPOS_ACCESO = [["estrategias", "🧪", "Estrategias", "Evaluación, mediación, rúbrica y bitácora"], ["juegos", "🎮", "Juegos de clase", "Aula de Conta, Liquidaciones, La Tiradera, Planilla Opoly y ContaRed"], ["material", "📚", "Material de clase", "Materias y programa"], ["2027", "📅", "2027", "Preparación del curso lectivo 2027 (solo docente)"]];
   let grupoAbierto = null; try { grupoAbierto = localStorage.getItem("accesos_grupo"); } catch (e) {}
   const accesosHTML = `<div class="accesos-grupos">${GRUPOS_ACCESO.map(([k, ic, t, sub]) => {
     const lista = accesos.filter(a => a.grupo === k), abierto = grupoAbierto === k;
