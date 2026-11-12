@@ -54,16 +54,16 @@ async function mcMateria(s, m, categorias, docente) {
     // Agrupa los indicadores por trabajo (los que no tienen trabajo van solos).
     const grupos = [];
     info.indicadores.forEach(i => { const t = porT[i.id], key = t ? "t" + t.id : "i" + i.id;
-      let g = grupos.find(x => x.key === key); if (!g) grupos.push(g = { key, titulo: t ? t.titulo : `${i.letra}. ${i.descripcion || ""}`, fecha: (t && t.fecha) || i.fecha_evaluacion || "", inds: [] });
+      let g = grupos.find(x => x.key === key); if (!g) grupos.push(g = { key, orden: grupos.length, titulo: t ? t.titulo : `Indicador ${i.letra}`, desc: t ? "" : (i.descripcion || ""), fecha: (t && t.fecha) || i.fecha_evaluacion || "", inds: [] });
       g.inds.push(i); });
     const items = grupos.map(g => {
       const cu = g.inds.filter(i => !J.has(i.id)), max = cu.reduce((a, i) => a + Number(i.puntaje_maximo || 0), 0);
       const obt = cu.reduce((a, i) => a + Number(info.porIndicador[i.id] || 0), 0), calif = cu.some(i => info.porIndicador[i.id] !== undefined);
-      return { titulo: g.titulo, fecha: g.fecha,
+      return { titulo: g.titulo, desc: g.desc, orden: g.orden, fecha: g.fecha,
         inds: g.inds.map(i => ({ letra: i.letra, desc: i.descripcion, v: J.has(i.id) ? "J" : info.porIndicador[i.id], max: Number(i.puntaje_maximo || 0) })),
         sub: `${g.inds.length} indicador${g.inds.length === 1 ? "" : "es"}`, obt, max, nota: max ? obt / max * 100 : null,
         maxPct: totMax ? max / totMax * pc : 0, aporte: totMax ? obt / totMax * pc : 0, sinNota: !calif, justificado: !cu.length };
-    }).sort((a, b) => String(a.fecha || "").localeCompare(String(b.fecha || "")));
+    }); // en el orden de los indicadores de la Rúbrica
     const base = items.reduce((a, x) => a + x.aporte, 0), aporte = info.nota != null ? info.nota * pc / 100 : base;
     const extra = Math.round((aporte - base) * 100) / 100;
     if (extra > 0) items.push({ titulo: "Puntos adicionales", sub: [info.bono ? `${info.bono.puntos} % a la sección` : "", ...((info.extras || []).map(x => `${x.puntos} % ${x.motivo || "extra"}`))].filter(Boolean).join(" · "), extra: true, aporte: extra, maxPct: null });
@@ -77,6 +77,7 @@ function mcHTML(d, idx) {
   const fin = d.total, col = fin >= 70 ? "var(--mc-ok)" : "var(--mc-bad)";
   const itemHTML = (c, it) => it.extra ? `<div class="mc-ev"><div class="mc-ev-top"><b>➕ ${escAC(it.titulo)}</b><span class="mc-ev-n" style="color:${c.color}">+${mcF(it.aporte)} pts</span></div><div class="mc-ev-meta">${escAC(it.sub)}</div></div>`
     : `<div class="mc-ev"><div class="mc-ev-top"><b>${escAC(it.titulo)}</b><span class="mc-ev-n" style="color:${c.color}">${it.justificado ? "Justificado" : it.sinNota ? "Sin calificar" : it.max != null ? `${mcF(it.obt)}/${mcF(it.max)}` : mcF(it.nota) + "/100"}</span></div>
+      ${it.desc ? `<div class="mc-ev-meta">${escAC(it.desc)}</div>` : ""}
       ${it.inds && it.inds.length ? `<div class="mc-inds">${it.inds.map(i => `<span class="mc-ind" title="${escAC(i.desc || "")}">${escAC(i.letra)} <b>${i.v === "J" ? "J" : i.v === undefined ? "—" : mcF(i.v).replace(/,00$/, "")}</b>/${i.max}</span>`).join("")}</div>` : `<div class="mc-ev-meta">${escAC(it.sub || "")}</div>`}
       <div class="mc-ev-row"><span>Nota: <span class="mc-chip" style="--c:${c.color}">${it.nota == null || it.sinNota || it.justificado ? "—" : mcF(it.nota)}</span></span><span>Máximo: <b>${it.maxPct == null ? "—" : mcF(it.maxPct) + " %"}</b></span><span>Aporte: <b>${mcF(it.aporte)} pts</b></span></div>
       <div class="mc-bar"><i style="width:${Math.max(0, Math.min(100, it.nota || 0))}%;background:${c.color}"></i></div></div>`;
