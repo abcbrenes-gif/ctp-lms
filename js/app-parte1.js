@@ -2933,40 +2933,55 @@ async function actividadGuardadaDesde(desdeISO) {
 
 // ───── Menú del estudiante: botones en vertical que abren sus opciones en horizontal ─────
 // (Mismo estilo que los Accesos rápidos del docente. Los grupos se pueden reorganizar aquí.)
+// Íconos de línea (blanco sobre fondo de color) para las tarjetas del menú del estudiante.
+const ICO_EST = {
+  notas: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>',
+  materias: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9.5 12 5l10 4.5L12 14 2 9.5Z"/><path d="M6 11.5v4.2c0 1.4 2.7 2.8 6 2.8s6-1.4 6-2.8v-4.2"/><path d="M22 9.5v5"/></svg>',
+  simuladores: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M8.5 7h7"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01M8.5 14.5h.01M12 14.5h.01M15.5 14.5h.01M8.5 18h.01M12 18h.01M15.5 18h.01"/></svg>',
+  juegos: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h10a4.5 4.5 0 0 1 4.4 5.4l-.7 3.4a2.5 2.5 0 0 1-4.3 1.2L14.5 16h-5l-1.9 2a2.5 2.5 0 0 1-4.3-1.2l-.7-3.4A4.5 4.5 0 0 1 7 8Z"/><path d="M8 11v3M6.5 12.5h3"/><path d="M15.5 12h.01M17.5 13.5h.01"/></svg>'
+};
 function gruposMenuEstudiante(s) {
   return [
-    { k: "notas", ic: "📝", t: "Mis notas", sub: "Trabajo cotidiano, notas, tareas, rúbrica y asistencia", items: [["tc", "📋", "Trabajo cotidiano"], ["notas", "📝", "Notas y Tareas"], ["rubrica", "📊", "Rúbrica"], ["asistencia", "🗓️", "Asistencia"]] },
-    { k: "materias", ic: "📚", t: "Mis materias", sub: "Temas, trabajos y material de clase", items: [["materias-est", "📚", "Materias"], ...(esSeccion113(s.seccion) ? [["infografias", "🖼️", "Mis infografías"]] : [])] },
-    { k: "juegos", ic: "🎮", t: "Juegos y simuladores", sub: "Aula de Conta, ContaRed, Liquidaciones, La Tiradera, Planilla Opoly, Misión Seguros y Ruta Laboral CR", items: [
+    { k: "notas", ic: "📝", svg: ICO_EST.notas, color: "#5b8def", t: "Calificaciones", sub: "Trabajo cotidiano, notas, tareas, rúbrica y asistencia.", items: [["tc", "📋", "Trabajo cotidiano"], ["notas", "📝", "Notas y Tareas"], ["rubrica", "📊", "Rúbrica"], ["asistencia", "🗓️", "Asistencia"]] },
+    { k: "materias", ic: "📚", svg: ICO_EST.materias, color: "#f07b7b", t: "Mis materias", sub: "Temas, trabajos y material de clase.", items: [["materias-est", "📚", "Materias"], ...(esSeccion113(s.seccion) ? [["infografias", "🖼️", "Mis infografías"]] : [])] },
+    { k: "simuladores", ic: "🧮", svg: ICO_EST.simuladores, color: "#f5a04a", t: "Simuladores", sub: "Aula de Conta, Liquidaciones, Ruta Laboral CR y Misión Seguros.", items: [
       ["link:" + AULA_CONTABLE_URL + "?como_estudiante=" + encodeURIComponent(s.id), "🧮", "Aula de Conta"],
-      ["link:" + SIMULADOR_B2B_URL, "🏆", "ContaRed"],
       ["link:liquidaciones.html", "📑", "Liquidaciones"],
-      ["link:tiradera.html?nombre=" + encodeURIComponent(`${s.nombre || ""} ${s.apellido1 || ""} ${s.apellido2 || ""}`.replace(/\s+/g, " ").trim()) + "&est=" + encodeURIComponent(s.id), "⚡", "La Tiradera"],
-      ["link:planilla-opoly.html", "🎲", "Planilla Opoly"],
-      ["link:seguros.html", "🛡️", "Misión Seguros"],
       ["link:laboral.html", "⚖️", "Ruta Laboral CR"],
+      ["link:seguros.html", "🛡️", "Misión Seguros"],
       ["aula-informe", "📈", "Informe de Aula de Conta"],
-      ["ac-material", "📂", "Material entregado"]] }
+      ["ac-material", "📂", "Material entregado"]] },
+    { k: "juegos", ic: "🎮", svg: ICO_EST.juegos, color: "#3fbf7f", t: "Juegos de clase", sub: "La Tiradera, ContaRed y Planilla Opoly.", items: [
+      ["link:tiradera.html?nombre=" + encodeURIComponent(`${s.nombre || ""} ${s.apellido1 || ""} ${s.apellido2 || ""}`.replace(/\s+/g, " ").trim()) + "&est=" + encodeURIComponent(s.id), "⚡", "La Tiradera"],
+      ["link:" + SIMULADOR_B2B_URL, "🏆", "ContaRed"],
+      ["link:planilla-opoly.html", "🎲", "Planilla Opoly"]] }
   ];
 }
+// Tarjetas grandes en dos columnas; al tocar una, sus opciones aparecen debajo de las tarjetas.
 function menuEstudianteHTML(s, activeTab) {
   const act = activeTab === "tareas" ? "notas" : activeTab;
   const G = gruposMenuEstudiante(s);
   const abierto = (G.find(g => g.items.some(i => i[0] === act)) || G[0]).k;
-  return `<div class="accesos-grupos menu-est">${G.map(g => `<div class="acceso-fila ${g.k === abierto ? "abierta" : ""}" data-grupo-fila="${g.k}">
-      <button type="button" class="acceso-btn" data-egrupo="${g.k}" aria-expanded="${g.k === abierto}"><span class="acceso-ic">${g.ic}</span><span class="acceso-tx"><b>${g.t}</b><small>${g.sub}</small></span><span class="acceso-flecha">${g.k === abierto ? "◀" : "▶"}</span></button>
-      <div class="acceso-tira menu-est-sub" ${g.k === abierto ? "" : "hidden"}>${g.items.map(([tab, ic, t]) => tab.startsWith("link:") ? `<a class="tab-btn tab-enlace" href="${tab.slice(5)}"><span class="tab-icon">${ic}</span><span class="tab-label">${t}</span></a>` : `<button class="tab-btn ${tab === act ? "active" : ""}" data-tab="${tab}"><span class="tab-icon">${ic}</span><span class="tab-label">${t}</span></button>`).join("")}</div>
-    </div>`).join("")}</div>`;
+  const item = ([tab, ic, t]) => tab.startsWith("link:")
+    ? `<a class="tab-btn tab-enlace" href="${tab.slice(5)}"><span class="tab-icon">${ic}</span><span class="tab-label">${t}</span></a>`
+    : `<button class="tab-btn ${tab === act ? "active" : ""}" data-tab="${tab}"><span class="tab-icon">${ic}</span><span class="tab-label">${t}</span></button>`;
+  return `<div class="menu-est menu-est-v2">
+    <div class="est-cards">${G.map(g => `<button type="button" class="est-card ${g.k === abierto ? "abierta" : ""}" data-egrupo="${g.k}" aria-expanded="${g.k === abierto}" style="--c:${g.color}">
+      <span class="est-card-deco" aria-hidden="true"></span><span class="est-card-dot" aria-hidden="true"></span>
+      <span class="est-card-t">${g.t}</span><span class="est-card-s">${g.sub}</span>
+      <span class="est-card-ic">${g.svg}</span></button>`).join("")}</div>
+    ${G.map(g => `<div class="menu-est-sub" data-grupo-tira="${g.k}" style="--c:${g.color}" ${g.k === abierto ? "" : "hidden"}>${g.items.map(item).join("")}</div>`).join("")}
+  </div>`;
 }
 function ligarMenuEstudiante() {
-  document.querySelectorAll("[data-egrupo]").forEach(b => b.addEventListener("click", () => {
-    const fila = b.closest(".acceso-fila"), abrir = !fila.classList.contains("abierta");
-    document.querySelectorAll(".menu-est .acceso-fila").forEach(f => {
-      const on = abrir && f === fila;
-      f.classList.toggle("abierta", on); f.querySelector(".acceso-tira").hidden = !on;
-      const bt = f.querySelector(".acceso-btn"); bt.setAttribute("aria-expanded", on); bt.querySelector(".acceso-flecha").textContent = on ? "◀" : "▶";
-    });
+  document.querySelectorAll(".menu-est-v2 [data-egrupo]").forEach(b => b.addEventListener("click", () => {
+    const k = b.dataset.egrupo;
+    document.querySelectorAll(".menu-est-v2 [data-egrupo]").forEach(x => { const on = x.dataset.egrupo === k; x.classList.toggle("abierta", on); x.setAttribute("aria-expanded", on); });
+    document.querySelectorAll(".menu-est-v2 [data-grupo-tira]").forEach(t => { t.hidden = t.dataset.grupoTira !== k; });
     // Al abrir un grupo se muestra su primera opción.
-    if (abrir) { const t = fila.querySelector(".tab-btn[data-tab]"); if (t && !fila.querySelector(".tab-btn.active")) t.click(); }
+    const tira = document.querySelector(`.menu-est-v2 [data-grupo-tira="${k}"]`);
+    const t = tira && tira.querySelector(".tab-btn[data-tab]");
+    if (t && !tira.querySelector(".tab-btn.active")) t.click();
+    if (tira) tira.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }));
 }
