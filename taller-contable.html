@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Taller del Ciclo Contable</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="img/logo-ctp-mercedes-norte.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --bg:#F5F7FB;--surface:#fff;--surface2:#F1F4F9;--ink:#0F172A;--muted:#5B6B80;--line:#DCE3EE;
+  --accent:#4F46E5;--accent2:#7C3AED;--accent-soft:#EEF0FF;
+  --debe:#2457B8;--haber:#C2501C;--ok:#1E8A4C;--okbg:#E3F7EA;--bad:#C23A3A;--badbg:#FDECEC;--warn:#A86F00;--warnbg:#FFF6DB;
+  --m1:#4F46E5;--m2:#0E8A7E;--m3:#C2501C;--m4:#7C3AED;
+  --f:"Plus Jakarta Sans",Inter,"Segoe UI",system-ui,sans-serif;--fn:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  --shadow:0 6px 20px rgba(15,23,42,.08);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0B1020;--surface:#121A30;--surface2:#182340;--ink:#E8EDFB;--muted:#9AA9CC;--line:#26324F;--accent-soft:#1E2550;
+  --debe:#7FA6F0;--haber:#F08A5A;--ok:#5ACB89;--okbg:#173A28;--bad:#F07A7A;--badbg:#3E1C1C;--warn:#E0B048;--warnbg:#3A2E10;--shadow:0 6px 20px rgba(0,0,0,.4);color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0B1020;--surface:#121A30;--surface2:#182340;--ink:#E8EDFB;--muted:#9AA9CC;--line:#26324F;--accent-soft:#1E2550;
+  --debe:#7FA6F0;--haber:#F08A5A;--ok:#5ACB89;--okbg:#173A28;--bad:#F07A7A;--badbg:#3E1C1C;--warn:#E0B048;--warnbg:#3A2E10;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--f);padding-bottom:80px}
+.wrap{max-width:1240px;margin:0 auto;padding:0 max(16px,env(safe-area-inset-left)) 0 max(16px,env(safe-area-inset-right))}
+h1,h2,h3,h4{margin:0;line-height:1.2}
+.num,input.n{font-family:var(--fn);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+button,.btn{font:600 .9rem var(--f);border:0;border-radius:10px;padding:9px 14px;cursor:pointer;background:var(--accent);color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+button.sec,.btn.sec{background:var(--surface2);color:var(--ink);border:1px solid var(--line)}
+button.ghost{background:transparent;color:var(--muted);border:1px dashed var(--line)}
+button.sm{padding:5px 10px;font-size:.8rem}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 40%,transparent);outline-offset:1px}
+input,select{font:inherit;color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:8px;padding:6px 8px;min-width:0;width:100%}
+input.n{text-align:right}
+input.ok,select.ok{border-color:var(--ok);background:var(--okbg)}
+input.bad,select.bad{border-color:var(--bad);background:var(--badbg)}
+/* barra superior */
+.top{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+.top .wrap{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;padding-block:10px}
+@media(max-width:700px){.top{position:static}.mod .i{display:none}}
+.brand{display:flex;gap:10px;align-items:center;margin-right:auto}
+.brand img{height:44px;width:auto}
+.brand b{font-size:1.2rem;font-weight:800;display:block}
+.brand small{color:var(--muted);font-size:.8rem}
+.caso{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.caso label{font-size:.78rem;color:var(--muted);display:flex;flex-direction:column;gap:2px}
+.caso select{width:auto}.caso input{width:110px}
+/* módulos */
+.mods{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:16px 0}
+@media(max-width:820px){.mods{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.mod{background:var(--surface);border:2px solid var(--line);border-radius:16px;padding:12px 14px;text-align:left;color:var(--ink);display:block;cursor:pointer;box-shadow:var(--shadow);transition:transform .15s}
+.mod:hover{transform:translateY(-2px)}
+.mod.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 8%,var(--surface))}
+.mod .t{display:flex;gap:8px;align-items:center;font-weight:800;font-size:1rem}
+.mod .i{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--c);color:#fff;font-size:1.1rem;flex:none}
+.mod small{display:block;color:var(--muted);font-size:.78rem;margin-top:4px}
+.bar{height:6px;border-radius:9px;background:var(--surface2);margin-top:8px;overflow:hidden}.bar i{display:block;height:100%;background:var(--c);border-radius:9px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
+.card h3{font-size:1.05rem;margin-bottom:6px}
+.empresa{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;margin-bottom:10px}
+.empresa b{font-size:1.05rem}
+.chip{display:inline-block;font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--surface2);color:var(--muted)}
+.chip.A{background:#e0f2f1;color:#0f766e}.chip.P{background:#fdeee5;color:#c2410c}.chip.PT{background:#f3e8ff;color:#7e22ce}.chip.I{background:#e5f6ec;color:#1f8f55}.chip.C{background:#fff4d6;color:#a16207}.chip.G{background:#fde7ef;color:#be185d}
+table{border-collapse:collapse;width:100%}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700}
+td.r,th.r{text-align:right}
+.scroll{overflow-x:auto}
+.fb{border-radius:10px;padding:10px 12px;margin-top:10px;font-size:.9rem}
+.fb.ok{background:var(--okbg);color:var(--ok)}.fb.bad{background:var(--badbg);color:var(--bad)}.fb.warn{background:var(--warnbg);color:var(--warn)}
+.fb ul{margin:4px 0 0;padding-left:1.2rem}
+.acc{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.sol{margin-top:12px;border:2px dashed var(--accent);border-radius:12px;padding:10px 12px;background:var(--accent-soft)}
+.sol h4{font-size:.9rem;margin-bottom:6px}
+/* módulo 1 */
+.m1{display:grid;grid-template-columns:250px minmax(0,1fr);gap:14px}
+@media(max-width:860px){.m1{grid-template-columns:minmax(0,1fr)}}
+.tlist{display:flex;flex-direction:column;gap:6px;max-height:70vh;overflow:auto}
+@media(max-width:860px){.tlist{flex-direction:row;max-height:none;overflow-x:auto;padding-bottom:4px}.tlist button{flex:none}}
+.tlist button{background:var(--surface);color:var(--ink);border:1.5px solid var(--line);justify-content:flex-start;text-align:left;font-weight:600}
+.tlist button.on{border-color:var(--m1);background:var(--accent-soft)}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--line);flex:none}.dot.ok{background:var(--ok)}.dot.bad{background:var(--bad)}
+.trx{font-size:1.02rem;background:var(--surface2);border-left:4px solid var(--m1);border-radius:10px;padding:12px 14px;margin:8px 0 12px}
+.lines td{padding:4px}.lines td.x{width:36px}
+.tots{display:flex;gap:16px;justify-content:flex-end;font-weight:700;margin-top:6px;font-size:.9rem}
+.tots .d{color:var(--debe)}.tots .h{color:var(--haber)}
+details.catal summary{cursor:pointer;font-weight:700;color:var(--accent)}
+.catal-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:2px 16px;font-size:.84rem;margin-top:8px}
+/* T de mayor */
+.tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:12px}
+.tcard{border:2px solid var(--line);border-radius:14px;background:var(--surface);padding:10px}
+.tcard.ok{border-color:var(--ok)}.tcard.bad{border-color:var(--bad)}
+.tcard h4{font-size:.92rem;text-align:center;border-bottom:3px solid var(--ink);padding-bottom:6px;margin-bottom:4px}
+.tcols{display:grid;grid-template-columns:1fr 1fr}
+.tcols>div{padding:4px}.tcols>div:first-child{border-right:3px solid var(--ink)}
+.tcols .hd{font-size:.72rem;font-weight:800;text-align:center;text-transform:uppercase}
+.tcols .hd.d{color:var(--debe)}.tcols .hd.h{color:var(--haber)}
+.tl{display:grid;grid-template-columns:44px minmax(0,1fr) 22px;gap:3px;margin-bottom:3px;align-items:center}
+.tl input{padding:4px 5px;font-size:.84rem}
+.tl button{padding:0;width:22px;height:22px;justify-content:center;background:transparent;color:var(--muted);font-size:.8rem}
+.tfoot{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;border-top:1px solid var(--line);padding-top:6px;font-size:.78rem}
+.tfoot label{display:flex;flex-direction:column;gap:2px;color:var(--muted)}
+.tfoot input,.tfoot select{padding:4px 6px;font-size:.84rem}
+.tmsg{font-size:.78rem;margin-top:6px}.tmsg.ok{color:var(--ok)}.tmsg.bad{color:var(--bad)}
+.tro .tl{grid-template-columns:30px minmax(0,1fr)}
+.tro .v{font-family:var(--fn);font-size:.84rem;text-align:right}
+.tro .ref{font-size:.74rem;color:var(--muted)}
+details.ver{margin-bottom:12px}
+details.ver>summary{cursor:pointer;font-weight:700;padding:8px 0}
+/* estados financieros */
+.subtabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.subtabs button{background:var(--surface2);color:var(--ink);border:1.5px solid var(--line)}
+.subtabs button.on{background:var(--m4);color:#fff;border-color:var(--m4)}
+.ef{max-width:760px;margin:0 auto;border:1px solid var(--line);border-radius:14px;padding:16px 18px;background:var(--surface)}
+.ef-hd{text-align:center;margin-bottom:12px}.ef-hd b{display:block;font-size:1.05rem}.ef-hd span{display:block;color:var(--muted);font-size:.86rem}
+.sec{margin:10px 0 4px;font-weight:800;font-size:.92rem}
+.row{display:grid;grid-template-columns:minmax(0,1fr) minmax(90px,160px) 30px;gap:6px;margin:4px 0;align-items:center}
+.row.tot{grid-template-columns:minmax(0,1fr) 160px 30px;font-weight:800}
+.row.tot span{text-align:right;padding-right:6px}
+.row.tot.gran{border-top:2px solid var(--ink);padding-top:6px}
+.row button{padding:0;width:28px;height:28px;justify-content:center;background:transparent;color:var(--muted)}
+.ecp td input{min-width:110px}
+.side{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px}
+@media(max-width:900px){.side{grid-template-columns:minmax(0,1fr)}}
+.ayuda{font-size:.86rem;color:var(--muted)}
+.pill{display:inline-block;font-size:.72rem;font-weight:800;background:#fff3bf;color:#7a5a00;border-radius:999px;padding:2px 10px;vertical-align:middle}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1f2937;color:#fff;padding:10px 16px;border-radius:12px;z-index:50;box-shadow:var(--shadow);font-weight:600}
+@media print{.top,.mods,.acc,#volver-plataforma{display:none!important}}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <div class="brand"><img src="img/logo-ctp-mercedes-norte.png" alt="Escudo del CTP Mercedes Norte" width="31" height="44">
+    <div><b>Taller del Ciclo Contable <span class="pill">Prototipo 2027</span></b><small>Asientos · Mayorización · Balanza de comprobación · Estados financieros</small></div></div>
+  <div class="caso" id="caso"></div>
+</div></header>
+<main class="wrap" id="app"><p class="muted">Cargando…</p></main>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════
+   Taller del Ciclo Contable: 4 módulos independientes que practican cada paso
+   del ciclo con el MISMO caso (una empresa comercial y un mes de operaciones):
+     1. Asientos de diario   2. Mayorización (cuentas T)
+     3. Balanza de comprobación   4. Estados financieros (ER, ECP, ESF y Flujo de efectivo)
+   Cada caso sale de un código (semilla): el docente puede dar el mismo código a todo
+   el grupo o cada estudiante pide uno nuevo. Todo se revisa solo.
+   ══════════════════════════════════════════════════════════════════════ */
+const SES=(()=>{try{return JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")||"null")}catch(e){return null}})();
+const DOCENTE=!!(SES&&SES.role==="docente");
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+const NF=new Intl.NumberFormat("es-CR",{maximumFractionDigits:2});
+const fm=n=>(n<0?"(":"")+"₡"+NF.format(Math.abs(n))+(n<0?")":"");
+const fn=n=>n==null?"":(n<0?"(":"")+NF.format(Math.abs(n))+(n<0?")":"");
+const r2=n=>Math.round((+n||0)*100)/100;
+const igual=(a,b)=>a!=null&&b!=null&&Math.abs(a-b)<.5;
+function monto(v){if(v==null)return null;let s=String(v).trim();if(!s)return null;let neg=/^\(.*\)$/.test(s)||/^-/.test(s);
+  s=s.replace(/[₡\s()+-]/g,"").replace(/\./g,"").replace(",",".");if(!s||isNaN(+s))return NaN;return neg?-(+s):+s}
+const montoO0=v=>{const x=monto(v);return x==null?0:x};
+
+/* ── Catálogo de cuentas (empresa comercial, NIIF para PYMES) ──
+   tipo: A activo, P pasivo, PT patrimonio, I ingreso, C costo, G gasto · grupo para los estados */
+const CAT=[
+ ["1101","Caja","A","AC"],["1102","Bancos","A","AC"],["1103","Cuentas por cobrar","A","AC"],["1104","Inventario de mercadería","A","AC"],["1105","Seguros pagados por adelantado","A","AC"],
+ ["1201","Mobiliario y equipo","A","ANC"],["1202","Depreciación acumulada de mobiliario y equipo","A","ANC",1],
+ ["2101","Cuentas por pagar","P","PC"],["2102","Salarios por pagar","P","PC"],["2201","Préstamo bancario por pagar (largo plazo)","P","PNC"],
+ ["3101","Capital social","PT","PAT"],["3102","Utilidades retenidas","PT","PAT"],["3103","Dividendos","PT","DIV",1],
+ ["4101","Ventas","I","ING"],["4201","Ingresos por intereses","I","OI"],
+ ["5101","Costo de ventas","C","CV"],
+ ["6101","Gasto de salarios","G","GO"],["6102","Gasto de alquiler","G","GO"],["6103","Gasto de servicios públicos","G","GO"],["6104","Gasto de publicidad","G","GO"],["6105","Gasto de depreciación","G","GO"],["6106","Gasto de seguros","G","GO"],["6201","Gasto por intereses","G","OG"]
+].map(([c,n,t,g,contra])=>({c,n,t,g,contra:!!contra,nat:(["A","C","G"].includes(t)?!contra:(t==="PT"&&contra))?"D":"A"}));
+const CTA=Object.fromEntries(CAT.map(a=>[a.c,a]));
+const TIPO={A:"Activo",P:"Pasivo",PT:"Patrimonio",I:"Ingreso",C:"Costo",G:"Gasto"};
+const nom=c=>c==="UR_FIN"?"Utilidades retenidas (al cierre del período)":(CTA[c]?CTA[c].n:c);
+
+/* ── Generador de casos ── */
+function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const EMPRESAS=["Comercial La Esquina S.A.","Distribuidora El Roble S.A.","Bazar Mercedes Norte S.A.","Almacén Los Guayabos S.A.","Comercializadora Tico S.A.","Importadora La Ceiba S.A.","Depósito El Cafetal S.A.","Tienda La Sabana S.A."];
+const MES="marzo",ANIO=2027,DIAS_MES=31;
+function generarCaso(seed,nivel){for(let k=0;k<60;k++){const c=intentoCaso(seed+k*7919,nivel);if(c){c.seed=seed;return c}}throw new Error("No se pudo generar el caso")}
+function intentoCaso(seed,nivel){
+  const R=rng(seed),m=(a,b,st=5000)=>Math.round((a+R()*(b-a))/st)*st;
+  const empresa=EMPRESAS[Math.floor(R()*EMPRESAS.length)];
+  const ini={"1101":m(50e3,200e3),"1102":m(1.6e6,3e6,10e3),"1103":m(300e3,800e3),"1104":m(900e3,1.8e6,10e3),"1201":m(1.5e6,3e6,50e3),"1202":m(150e3,450e3),"2101":m(300e3,700e3)};
+  if(nivel>=2)ini["2201"]=m(1e6,2e6,50e3);
+  const act=ini["1101"]+ini["1102"]+ini["1103"]+ini["1104"]+ini["1201"]-ini["1202"],pas=ini["2101"]+(ini["2201"]||0),neto=act-pas;
+  ini["3101"]=Math.floor(neto*.7/100000)*100000;ini["3102"]=neto-ini["3101"];if(ini["3102"]<=0)return null;
+  const T=[],dia=(d)=>`${ANIO}-03-${String(d).padStart(2,"0")}`;
+  const add=(d,desc,lines,tipo)=>T.push({fecha:dia(d),dia:d,desc,lines,tipo});
+  const venta=(precio,pctCosto)=>Math.round(precio*pctCosto/1000)*1000;
+  // Operaciones del mes (todas por medio del banco)
+  const aporte=m(300e3,900e3,50e3);add(2,`Los socios hacen un aporte adicional de capital de ${fm(aporte)}, que se deposita en la cuenta bancaria de la empresa.`,[["1102",aporte,0],["3101",0,aporte]]);
+  const cc=m(400e3,900e3,10e3);add(3,`Compra mercadería al contado por ${fm(cc)} y la paga con transferencia bancaria.`,[["1104",cc,0],["1102",0,cc]]);
+  if(nivel>=2){const mob=m(300e3,800e3,10e3);add(4,`Compra un mueble exhibidor para la tienda por ${fm(mob)}, pagado con transferencia bancaria.`,[["1201",mob,0],["1102",0,mob]],"mob")}
+  const cr=m(500e3,1.1e6,10e3);add(5,`Compra mercadería a crédito a 30 días por ${fm(cr)}.`,[["1104",cr,0],["2101",0,cr]]);
+  let prima=0;if(nivel>=2){prima=(12+Math.floor(R()*13))*12000;add(6,`Paga por adelantado la póliza de seguro del local para los próximos 12 meses: ${fm(prima)} con transferencia bancaria.`,[["1105",prima,0],["1102",0,prima]])}
+  const v1=m(700e3,1.4e6,10e3),c1=venta(v1,.55+R()*.15);add(8,`Vende mercadería al contado por ${fm(v1)}; el dinero se deposita en el banco. El costo de la mercadería vendida es ${fm(c1)} (inventario permanente).`,[["1102",v1,0],["4101",0,v1],["5101",c1,0],["1104",0,c1]]);
+  if(nivel>=2){const pub=m(80e3,250e3);add(9,`Recibe la factura de una campaña de publicidad en redes sociales por ${fm(pub)}, a pagar en 30 días.`,[["6104",pub,0],["2101",0,pub]])}
+  const v2=m(600e3,1.3e6,10e3),c2=venta(v2,.55+R()*.15);add(11,`Vende mercadería a crédito por ${fm(v2)}. El costo de la mercadería vendida es ${fm(c2)}.`,[["1103",v2,0],["4101",0,v2],["5101",c2,0],["1104",0,c2]]);
+  const cob=Math.round((ini["1103"]+v2)*(.4+R()*.3)/5000)*5000;add(14,`Cobra a varios clientes ${fm(cob)} de facturas pendientes; el dinero se deposita en el banco.`,[["1102",cob,0],["1103",0,cob]]);
+  const pp=Math.round((ini["2101"]+cr)*(.35+R()*.3)/5000)*5000;add(16,`Paga a proveedores ${fm(pp)} de facturas pendientes, con transferencia bancaria.`,[["2101",pp,0],["1102",0,pp]]);
+  const alq=m(250e3,450e3);add(18,`Paga el alquiler del local del mes de ${MES}: ${fm(alq)}.`,[["6102",alq,0],["1102",0,alq]]);
+  let int=0,amort=0;if(nivel>=2){int=Math.round(ini["2201"]*.01/1000)*1000;amort=m(60e3,150e3);add(20,`Paga la cuota mensual del préstamo bancario: ${fm(amort+int)}, de los cuales ${fm(amort)} son amortización del principal y ${fm(int)} son intereses.`,[["2201",amort,0],["6201",int,0],["1102",0,amort+int]])}
+  const sp=m(60e3,160e3);add(22,`Paga los servicios públicos del mes (electricidad, agua e internet): ${fm(sp)}.`,[["6103",sp,0],["1102",0,sp]]);
+  if(nivel>=2){const ig=m(5e3,25e3,1000);add(24,`El banco le deposita ${fm(ig)} por intereses ganados en la cuenta de ahorros.`,[["1102",ig,0],["4201",0,ig]]);
+    const dv=m(100e3,300e3,10e3);add(26,`La asamblea de socios acuerda y paga dividendos por ${fm(dv)} con transferencia bancaria.`,[["3103",dv,0],["1102",0,dv]])}
+  const sal=m(500e3,900e3,10e3);add(28,`Paga los salarios del mes al personal: ${fm(sal)} con transferencia bancaria.`,[["6101",sal,0],["1102",0,sal]]);
+  if(nivel>=2){const baseDep=ini["1201"]+(T.find(t=>t.tipo==="mob")||{lines:[[0,0]]}).lines[0][1],dep=Math.round(baseDep*.10/12/1000)*1000;
+    add(31,`Ajuste: registra la depreciación del mes del mobiliario y equipo (línea recta, 10 % anual sobre ${fm(baseDep)}): ${fm(dep)}.`,[["6105",dep,0],["1202",0,dep]],"aj");
+    add(31,`Ajuste: registra el seguro consumido en el mes (1 de los 12 meses pagados por adelantado): ${fm(prima/12)}.`,[["6106",prima/12,0],["1105",0,prima/12]],"aj");
+    const sa=m(80e3,200e3,10e3);add(31,`Ajuste: quedan pendientes de pago salarios de la última semana del mes por ${fm(sa)}.`,[["6101",sa,0],["2102",0,sa]],"aj")}
+  T.sort((a,b)=>a.dia-b.dia);
+  // Validar saldos (banco e inventario nunca negativos)
+  const s={...ini};for(const t of T){for(const [c,d,h] of t.lines){const a=CTA[c];s[c]=(s[c]||0)+(a.nat==="D"?d-h:h-d)}if(s["1102"]<50000||s["1104"]<0||s["2101"]<0||s["1103"]<0)return null}
+  return armar(empresa,ini,T,nivel);
+}
+function armar(empresa,ini,T,nivel){
+  // Libro diario: asiento 1 = apertura con los saldos iniciales
+  const ap=Object.keys(ini).sort().filter(c=>ini[c]).map(c=>CTA[c].nat==="D"?[c,ini[c],0]:[c,0,ini[c]]);
+  const diario=[{n:1,fecha:`${ANIO}-03-01`,desc:"Asiento de apertura: saldos iniciales del período",lines:ap,apertura:true}].concat(T.map((t,i)=>({...t,n:i+2})));
+  // Mayor
+  const mayor={};for(const a of diario)for(const [c,d,h] of a.lines){const x=mayor[c]||(mayor[c]={c,d:[],h:[]});if(d)x.d.push({n:a.n,m:d});if(h)x.h.push({n:a.n,m:h})}
+  Object.values(mayor).forEach(x=>{x.td=r2(x.d.reduce((s,y)=>s+y.m,0));x.th=r2(x.h.reduce((s,y)=>s+y.m,0));const dif=r2(x.td-x.th);x.saldo=Math.abs(dif);x.tipo=dif>0?"D":dif<0?"A":"0"});
+  const cods=Object.keys(mayor).sort();
+  const bal=cods.map(c=>{const x=mayor[c];return {c,sd:x.td,sh:x.th,ad:x.tipo==="D"?x.saldo:0,aa:x.tipo==="A"?x.saldo:0}});
+  const tot={sd:r2(bal.reduce((s,b)=>s+b.sd,0)),sh:r2(bal.reduce((s,b)=>s+b.sh,0)),ad:r2(bal.reduce((s,b)=>s+b.ad,0)),aa:r2(bal.reduce((s,b)=>s+b.aa,0))};
+  const S=c=>mayor[c]?(CTA[c].nat==="D"?mayor[c].td-mayor[c].th:mayor[c].th-mayor[c].td):0;
+  // Estado de resultados
+  const lista=g=>cods.filter(c=>CTA[c].g===g&&S(c)).map(c=>[c,S(c)]);
+  const ventas=S("4101"),cv=S("5101"),ub=ventas-cv,go=lista("GO"),tgo=go.reduce((s,x)=>s+x[1],0),uo=ub-tgo,oi=lista("OI"),og=lista("OG");
+  const un=uo+oi.reduce((s,x)=>s+x[1],0)-og.reduce((s,x)=>s+x[1],0);
+  const ER={rows:{ing:lista("ING"),cv:lista("CV"),go,oi,og},f:{ub,tgo,uo,un}};
+  // Estado de cambios en el patrimonio
+  const aporte=T.filter(t=>t.lines.some(l=>l[0]==="3101"&&l[2])).reduce((s,t)=>s+t.lines.find(l=>l[0]==="3101")[2],0),div=S("3103");
+  const cap0=ini["3101"],ur0=ini["3102"],capF=cap0+aporte,urF=ur0+un-div;
+  const ECP={si:[cap0,ur0,cap0+ur0],ap:[aporte,0,aporte],un:[0,un,un],dv:[0,-div,-div],sf:[capF,urF,capF+urF]};
+  // Estado de situación financiera
+  const bl=g=>cods.filter(c=>CTA[c].g===g&&S(c)).map(c=>[c,CTA[c].contra?-S(c):S(c)]);
+  const ac=bl("AC"),anc=bl("ANC"),pc=bl("PC"),pnc=bl("PNC"),pat=[["3101",capF],["UR_FIN",urF]];
+  const sm=a=>a.reduce((s,x)=>s+x[1],0),tac=sm(ac),tanc=sm(anc),tpc=sm(pc),tpnc=sm(pnc),tpat=sm(pat);
+  const ESF={rows:{ac,anc,pc,pnc,pat},f:{tac,tanc,ta:tac+tanc,tpc,tpnc,tp:tpc+tpnc,tpat,tpp:tpc+tpnc+tpat}};
+  // Flujo de efectivo (método indirecto, NIIF para PYMES sección 7)
+  const fin=c=>S(c),i0=c=>ini[c]||0,cambioA=c=>-(fin(c)-i0(c)),cambioP=c=>fin(c)-i0(c);
+  const mob=T.filter(t=>t.tipo==="mob").reduce((s,t)=>s+t.lines[0][1],0),pagoPr=T.reduce((s,t)=>s+t.lines.filter(l=>l[0]==="2201"&&l[1]).reduce((a,l)=>a+l[1],0),0);
+  const F={un,dep:S("6105"),dcxc:cambioA("1103"),dinv:cambioA("1104"),dseg:cambioA("1105"),dcxp:cambioP("2101"),dsal:cambioP("2102")};
+  F.fop=F.un+F.dep+F.dcxc+F.dinv+F.dseg+F.dcxp+F.dsal;F.cmob=-mob;F.finv=F.cmob;F.apo=aporte;F.rpr=0;F.ppr=-pagoPr;F.div=-div;F.ffin=F.apo+F.rpr+F.ppr+F.div;
+  F.var=F.fop+F.finv+F.ffin;F.ei=i0("1101")+i0("1102");F.ef=F.ei+F.var;
+  if(Math.abs(F.ef-(fin("1101")+fin("1102")))>.5)console.error("El flujo no cuadra con el efectivo final",F);
+  if(Math.abs(ESF.f.ta-ESF.f.tpp)>.5)console.error("El balance no cuadra",ESF.f);
+  return {empresa,nivel,ini,trans:T,diario,mayor,cods,bal,tot,ER,ECP,ESF,F,datos:{aporte,div,mob,pagoPr}};
+}
+
+/* ── Estado del estudiante (en este navegador) ── */
+const KEY="taller_ciclo_contable_v1";
+const nuevaSemilla=()=>100000+Math.floor(Math.random()*900000);
+const estadoNuevo=(seed,nivel)=>({v:1,seed,nivel,mod:"m1",m1:{sel:0,r:{}},m2:{r:{}},m3:{r:{},tot:{}},m4:{tab:"er",er:{rows:{},f:{}},ecp:{},esf:{rows:{},f:{}},fl:{}},nota:{},sol:{}});
+let ST=null;try{ST=JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){}
+const qsCaso=+new URLSearchParams(location.search).get("caso")||0,qsNivel=+new URLSearchParams(location.search).get("nivel")||0;
+if(!ST||ST.v!==1)ST=estadoNuevo(qsCaso||nuevaSemilla(),qsNivel||1);
+else if(qsCaso&&qsCaso!==ST.seed)ST=estadoNuevo(qsCaso,qsNivel||ST.nivel);
+let CASO=generarCaso(ST.seed,ST.nivel),RES={};
+let tGuardar=null;const guardar=()=>{clearTimeout(tGuardar);tGuardar=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(ST))}catch(e){}},300)};
+function setPath(o,p,v){const k=p.split(".");let x=o;for(let i=0;i<k.length-1;i++){x=x[k[i]]??(x[k[i]]=/^\d+$/.test(k[i+1])?[]:{})}x[k[k.length-1]]=v}
+function getPath(o,p){return p.split(".").reduce((x,k)=>x==null?x:x[k],o)}
+function toast(t){const d=document.createElement("div");d.className="toast";d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),2600)}
+const inp=(p,cls="n",ph="")=>`<input class="${cls}" data-p="${p}" value="${esc(getPath(ST,p)??"")}" inputmode="decimal" placeholder="${ph}" autocomplete="off">`;
+
+/* ── Cabecera: caso y nivel ── */
+function pintarCaso(){
+  $("#caso").innerHTML=`<label>Nivel<select id="nivel"><option value="1" ${ST.nivel===1?"selected":""}>1 · Básico (10 operaciones)</option><option value="2" ${ST.nivel===2?"selected":""}>2 · Completo con ajustes (18)</option></select></label>
+    <label>Código del caso<input id="codigo" class="num" value="${ST.seed}" inputmode="numeric" aria-describedby="codAyuda"></label>
+    <button type="button" class="sec" id="cargar" title="Cargar el caso de ese código">Abrir</button><button type="button" id="nuevo">🎲 Caso nuevo</button>`;
+  const cambiar=(seed,nivel)=>{const hay=JSON.stringify(ST.m1.r)!=="{}"||JSON.stringify(ST.m2.r)!=="{}"||JSON.stringify(ST.m3.r)!=="{}";
+    if(hay&&!confirm("Se empieza un caso nuevo y se borra lo que lleva en este caso. ¿Continuar?")){pintarCaso();return}
+    const mod=ST.mod;ST=estadoNuevo(seed,nivel);ST.mod=mod;CASO=generarCaso(seed,nivel);RES={};guardar();pintar()};
+  $("#nivel").onchange=e=>cambiar(ST.seed,+e.target.value);
+  $("#nuevo").onclick=()=>cambiar(nuevaSemilla(),ST.nivel);
+  $("#cargar").onclick=()=>{const v=+$("#codigo").value;if(!(v>0)){toast("Escriba un código válido");return}if(v!==ST.seed)cambiar(v,ST.nivel)};
+}
+
+/* ── Módulos ── */
+const MODS=[["m1","✍️","Asientos de diario","Registra cada operación con partida doble","var(--m1)"],["m2","📒","Mayorización","Traslada el diario a las cuentas T","var(--m2)"],["m3","⚖️","Balanza de comprobación","Sumas y saldos de cada cuenta","var(--m3)"],["m4","📊","Estados financieros","ER · Patrimonio · Situación · Flujo","var(--m4)"]];
+function pintar(){
+  if(!DOCENTE){$("#app").innerHTML=`<div class="card" style="margin-top:20px"><h3>Solo para el profe por ahora</h3><p class="muted">Este taller es un prototipo para 2027. Se abre desde la plataforma, en <b>📅 2027</b>, con la sesión del docente.</p><a class="btn" href="index.html">Ir a la plataforma</a></div>`;$("#caso").innerHTML="";return}
+  pintarCaso();
+  const nota=ST.nota||{};
+  const tabs=MODS.map(([k,i,t,s,c])=>`<button type="button" class="mod ${ST.mod===k?"on":""}" data-mod="${k}" style="--c:${c}" aria-pressed="${ST.mod===k}"><span class="t"><span class="i">${i}</span>${t}</span><small>${s}</small><div class="bar" title="Avance de la última revisión"><i style="width:${nota[k]||0}%"></i></div></button>`).join("");
+  const C=CASO;
+  $("#app").innerHTML=`<nav class="mods" aria-label="Módulos del taller">${tabs}</nav>
+    <div class="card"><div class="empresa"><b>🏪 ${esc(C.empresa)}</b><span class="muted">Empresa comercial · inventario permanente · moneda: colones</span><span class="muted">Período: 1 al ${DIAS_MES} de ${MES} de ${ANIO}</span><span class="chip">Caso ${C.seed} · nivel ${C.nivel}</span></div>
+      <div class="ayuda">Los cuatro módulos usan el mismo caso. Puede hacerlos en orden o practicar uno solo: cada módulo ya trae resuelto el paso anterior.</div></div>
+    <div id="mod"></div>`;
+  $$("[data-mod]").forEach(b=>b.onclick=()=>{ST.mod=b.dataset.mod;guardar();pintar()});
+  ({m1:pintarM1,m2:pintarM2,m3:pintarM3,m4:pintarM4})[ST.mod]();
+}
+const solBtn=(k,txt="👁️ Ver solución")=>`<button type="button" class="ghost" data-sol="${k}">${ST.sol[k]?"🙈 Ocultar solución":txt}</button>`;
+function ponerNota(k,pct){ST.nota[k]=Math.round(pct);guardar();const b=$(`[data-mod="${k}"] .bar i`);if(b)b.style.width=ST.nota[k]+"%"}
+
+/* ══════════ MÓDULO 1 · Asientos ══════════ */
+function opcionesCuentas(sel,incluir){const g={};CAT.forEach(a=>{(g[a.t]=g[a.t]||[]).push(a)});
+  return `<option value="">— Cuenta —</option>`+Object.entries(g).map(([t,L])=>`<optgroup label="${TIPO[t]}">${L.map(a=>`<option value="${a.c}" ${a.c===sel?"selected":""}>${a.c} · ${esc(a.n)}</option>`).join("")}</optgroup>`).join("")+(incluir||"")}
+function r1(i){return ST.m1.r[i]||(ST.m1.r[i]={lines:[{c:"",d:"",h:""},{c:"",d:"",h:""}],int:0,ok:false,pri:null})}
+function tablaAsiento(lines){return `<table><thead><tr><th>Cuenta</th><th class="r">Debe</th><th class="r">Haber</th></tr></thead><tbody>${lines.map(([c,d,h])=>`<tr><td style="${h?"padding-left:28px":""}">${c} · ${esc(nom(c))}</td><td class="r num">${d?fn(d):""}</td><td class="r num">${h?fn(h):""}</td></tr>`).join("")}</tbody></table>`}
+function pintarM1(){
+  const T=CASO.trans,i=Math.min(ST.m1.sel||0,T.length-1),t=T[i],r=r1(i),res=RES["m1."+i];
+  const hechos=T.filter((_,k)=>ST.m1.r[k]&&ST.m1.r[k].ok).length,pri=T.filter((_,k)=>ST.m1.r[k]&&ST.m1.r[k].pri===true).length;
+  $("#mod").innerHTML=`<div class="m1">
+    <div><div class="card" style="padding:12px"><h3>Operaciones</h3><p class="muted" style="font-size:.82rem;margin:0 0 8px">${hechos}/${T.length} correctos · ${pri} al primer intento</p>
+      <div class="tlist">${T.map((x,k)=>{const q=ST.m1.r[k];return `<button type="button" class="sm ${k===i?"on":""}" data-t="${k}"><span class="dot ${q&&q.ok?"ok":q&&q.int?"bad":""}"></span>${k+1}. ${x.dia} de ${MES}${x.tipo==="aj"?" · ajuste":""}</button>`}).join("")}</div></div></div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><h3>Operación ${i+1} de ${T.length}</h3><span class="muted">${t.dia} de ${MES} de ${ANIO}</span></div>
+      <div class="trx">${esc(t.desc)}</div>
+      <div class="scroll"><table class="lines"><thead><tr><th>Cuenta</th><th class="r" style="width:22%">Debe</th><th class="r" style="width:22%">Haber</th><th></th></tr></thead><tbody>
+        ${r.lines.map((l,j)=>`<tr><td><select data-p="m1.r.${i}.lines.${j}.c" aria-label="Cuenta de la línea ${j+1}">${opcionesCuentas(l.c)}</select></td><td>${inp(`m1.r.${i}.lines.${j}.d`)}</td><td>${inp(`m1.r.${i}.lines.${j}.h`)}</td><td class="x"><button type="button" class="ghost sm" data-quitar="${j}" aria-label="Quitar línea ${j+1}" ${r.lines.length<=2?"disabled":""}>✕</button></td></tr>`).join("")}
+      </tbody></table></div>
+      <div class="tots"><span class="d">Debe: <span class="num" id="totD">₡0</span></span><span class="h">Haber: <span class="num" id="totH">₡0</span></span></div>
+      <div class="acc"><button type="button" class="sec" id="mas">＋ Línea</button><button type="button" id="rev1">✔ Revisar asiento</button>
+        ${r.int>=1&&!r.ok?`<button type="button" class="sec" id="pista">💡 Pista</button>`:""}${r.int>=2||r.ok?solBtn("m1."+i):""}
+        <span style="flex:1"></span>${i>0?`<button type="button" class="sec" data-t="${i-1}">← Anterior</button>`:""}${i<T.length-1?`<button type="button" class="sec" data-t="${i+1}">Siguiente →</button>`:""}</div>
+      <div id="fb1">${res?res.html:r.ok?`<div class="fb ok">✅ Este asiento ya está correcto${r.pri?" (al primer intento)":""}.</div>`:""}</div>
+      ${ST.sol["m1."+i]?`<div class="sol"><h4>Solución</h4>${tablaAsiento(t.lines)}</div>`:""}
+      <details class="catal" style="margin-top:14px"><summary>📖 Catálogo de cuentas</summary><div class="catal-g">${CAT.map(a=>`<div>${a.c} · ${esc(a.n)} <span class="chip ${a.t}">${TIPO[a.t]}</span> <small class="muted">${a.nat==="D"?"deudora":"acreedora"}</small></div>`).join("")}</div></details>
+    </div></div>`;
+  $$("[data-t]").forEach(b=>b.onclick=()=>{ST.m1.sel=+b.dataset.t;guardar();pintarM1()});
+  $("#mas").onclick=()=>{r.lines.push({c:"",d:"",h:""});guardar();pintarM1()};
+  $$("[data-quitar]").forEach(b=>b.onclick=()=>{r.lines.splice(+b.dataset.quitar,1);delete RES["m1."+i];guardar();pintarM1()});
+  $("#rev1").onclick=()=>{revisarM1(i);pintarM1()};
+  const pi=$("#pista");if(pi)pi.onclick=()=>{$("#fb1").insertAdjacentHTML("beforeend",`<div class="fb warn">💡 En este asiento intervienen ${t.lines.length} líneas con estas cuentas: ${[...new Set(t.lines.map(l=>nom(l[0])))].map(esc).join(", ")}. Recuerde: aumentos de activo, costo y gasto van al Debe; aumentos de pasivo, patrimonio e ingreso van al Haber.</div>`);pi.disabled=true};
+  ligarSol(pintarM1);totalesM1(i);
+}
+function totalesM1(i){const r=r1(i);let d=0,h=0;r.lines.forEach(l=>{d+=montoO0(l.d)||0;h+=montoO0(l.h)||0});const a=$("#totD"),b=$("#totH");if(a){a.textContent=fm(d);b.textContent=fm(h);a.style.color=b.style.color=Math.abs(d-h)<.5&&d>0?"var(--ok)":""}}
+function revisarM1(i){
+  const t=CASO.trans[i],r=r1(i),msgs=[];const exp={},stu={};
+  t.lines.forEach(([c,d,h])=>{const x=exp[c]||(exp[c]={d:0,h:0});x.d+=d;x.h+=h});
+  let malNum=false,sinCuenta=false;
+  r.lines.forEach(l=>{const d=monto(l.d),h=monto(l.h);if(Number.isNaN(d)||Number.isNaN(h))malNum=true;if(!l.c){if(d||h)sinCuenta=true;return}const x=stu[l.c]||(stu[l.c]={d:0,h:0});x.d+=d||0;x.h+=h||0});
+  if(malNum)msgs.push("Hay montos que no son números. Escríbalos sin letras, por ejemplo 125000.");
+  if(sinCuenta)msgs.push("Hay líneas con monto pero sin cuenta.");
+  const td=Object.values(stu).reduce((s,x)=>s+x.d,0),th=Object.values(stu).reduce((s,x)=>s+x.h,0);
+  if(!Object.keys(stu).length)msgs.push("Todavía no ha escrito el asiento.");
+  else if(Math.abs(td-th)>.5)msgs.push(`No cumple la partida doble: el Debe suma ${fm(td)} y el Haber ${fm(th)}.`);
+  const falt=Object.keys(exp).filter(c=>!stu[c]),sobra=Object.keys(stu).filter(c=>!exp[c]);
+  if(falt.length)msgs.push(`Falta${falt.length>1?"n":""} ${falt.length} cuenta${falt.length>1?"s":""} en el asiento.`);
+  sobra.forEach(c=>msgs.push(`La cuenta «${nom(c)}» no interviene en esta operación.`));
+  Object.keys(exp).filter(c=>stu[c]).forEach(c=>{const e=exp[c],s=stu[c];if(!igual(e.d,s.d)||!igual(e.h,s.h)){
+    const lado=(e.d&&!s.d&&s.h)||(e.h&&!s.h&&s.d);msgs.push(lado?`«${nom(c)}» está en el lado equivocado: piense si la cuenta aumenta o disminuye y cuál es su naturaleza.`:`El monto de «${nom(c)}» no es correcto.`)}});
+  const ok=!msgs.length;r.int++;if(r.pri===null)r.pri=ok;if(ok)r.ok=true;
+  RES["m1."+i]={html:ok?`<div class="fb ok">✅ ¡Correcto! El asiento cumple la partida doble y usa las cuentas y montos correctos.</div>`:`<div class="fb bad">❌ Revise:<ul>${msgs.map(m=>`<li>${esc(m)}</li>`).join("")}</ul></div>`};
+  const T=CASO.trans;ponerNota("m1",100*T.filter((_,k)=>ST.m1.r[k]&&ST.m1.r[k].ok).length/T.length);guardar();
+}
+
+/* ══════════ MÓDULO 2 · Mayorización ══════════ */
+function diarioHTML(){return `<div class="scroll"><table><thead><tr><th>N.º</th><th>Fecha</th><th>Cuenta y detalle</th><th class="r">Debe</th><th class="r">Haber</th></tr></thead><tbody>${CASO.diario.map(a=>a.lines.map(([c,d,h],k)=>`<tr${k===a.lines.length-1?' style="border-bottom:2px solid var(--line)"':""}><td>${k?"":"<b>"+a.n+"</b>"}</td><td>${k?"":a.fecha.slice(8)+"/03"}</td><td style="${h?"padding-left:28px":""}">${c} · ${esc(nom(c))}</td><td class="r num">${d?fn(d):""}</td><td class="r num">${h?fn(h):""}</td></tr>`).join("")+`<tr><td></td><td></td><td colspan="3" class="muted" style="font-size:.8rem;font-style:italic;padding-bottom:10px">${esc(a.desc)}</td></tr>`).join("")}</tbody></table></div>`}
+function r2m(c){return ST.m2.r[c]||(ST.m2.r[c]={d:[{n:"",m:""}],h:[{n:"",m:""}],td:"",th:"",s:"",t:""})}
+function pintarM2(){
+  const cods=CASO.cods;
+  $("#mod").innerHTML=`<div class="card"><h3>📒 Mayorización</h3><p class="ayuda" style="margin:0 0 8px">Traslade cada línea del libro diario a su cuenta T: los montos del Debe a la izquierda y los del Haber a la derecha, con el número de asiento. Luego sume cada lado y calcule el saldo (deudor si el Debe es mayor, acreedor si el Haber es mayor).</p>
+    <details class="ver" open><summary>📓 Libro diario (${CASO.diario.length} asientos)</summary>${diarioHTML()}</details></div>
+    <div class="tgrid">${cods.map(c=>{const r=r2m(c),res=RES["m2."+c],x=CASO.mayor[c];return `<div class="tcard ${res?res.ok?"ok":"bad":""}"><h4>${c} · ${esc(nom(c))}</h4>
+      <div class="tcols">${["d","h"].map(L=>`<div><div class="hd ${L}">${L==="d"?"Debe":"Haber"}</div>${r[L].map((y,j)=>`<div class="tl"><input data-p="m2.r.${c}.${L}.${j}.n" value="${esc(y.n)}" placeholder="N.º" aria-label="Número de asiento" inputmode="numeric"><input class="n" data-p="m2.r.${c}.${L}.${j}.m" value="${esc(y.m)}" inputmode="decimal" aria-label="Monto"><button type="button" data-tq="${c}|${L}|${j}" aria-label="Quitar">✕</button></div>`).join("")}<button type="button" class="ghost sm" data-ta="${c}|${L}" style="width:100%;justify-content:center">＋</button></div>`).join("")}</div>
+      <div class="tfoot"><label>Total Debe${inp(`m2.r.${c}.td`)}</label><label>Total Haber${inp(`m2.r.${c}.th`)}</label><label>Saldo${inp(`m2.r.${c}.s`)}</label><label>Tipo de saldo<select data-p="m2.r.${c}.t"><option value="">—</option><option value="D" ${r.t==="D"?"selected":""}>Deudor</option><option value="A" ${r.t==="A"?"selected":""}>Acreedor</option><option value="0" ${r.t==="0"?"selected":""}>Sin saldo</option></select></label></div>
+      ${res?`<div class="tmsg ${res.ok?"ok":"bad"}">${res.ok?"✅ Correcta":"❌ "+res.msgs.map(esc).join(" ")}</div>`:""}
+      ${ST.sol.m2?`<div class="sol tro"><div class="tcols">${["d","h"].map(L=>`<div>${x[L].map(y=>`<div class="tl"><span class="ref">(${y.n})</span><span class="v">${fn(y.m)}</span></div>`).join("")}</div>`).join("")}</div><div class="tfoot"><span>Total: <b class="num">${fn(x.td)}</b></span><span>Total: <b class="num">${fn(x.th)}</b></span><span>Saldo: <b class="num">${fn(x.saldo)}</b></span><span><b>${{D:"Deudor",A:"Acreedor","0":"Sin saldo"}[x.tipo]}</b></span></div></div>`:""}
+    </div>`}).join("")}</div>
+    <div class="card acc" style="position:sticky;bottom:0;z-index:5;justify-content:flex-end"><button type="button" id="rev2">✔ Revisar el mayor</button>${solBtn("m2")}<span class="muted" id="res2">${RES.m2tot||""}</span></div>`;
+  $$("[data-ta]").forEach(b=>b.onclick=()=>{const [c,L]=b.dataset.ta.split("|");r2m(c)[L].push({n:"",m:""});guardar();pintarM2()});
+  $$("[data-tq]").forEach(b=>b.onclick=()=>{const [c,L,j]=b.dataset.tq.split("|"),r=r2m(c);r[L].splice(+j,1);if(!r[L].length)r[L].push({n:"",m:""});guardar();pintarM2()});
+  $("#rev2").onclick=()=>{revisarM2();pintarM2()};ligarSol(pintarM2);
+}
+function revisarM2(){let bien=0;
+  CASO.cods.forEach(c=>{const x=CASO.mayor[c],r=r2m(c),msgs=[];
+    ["d","h"].forEach(L=>{const e=x[L].map(y=>y.m).sort((a,b)=>a-b),s=r[L].map(y=>monto(y.m)).filter(v=>v!=null).sort((a,b)=>a-b);
+      const okM=e.length===s.length&&e.every((v,k)=>igual(v,s[k]));if(!okM)msgs.push(`Los movimientos del ${L==="d"?"Debe":"Haber"} no están completos o tienen montos equivocados.`);
+      else{const refMal=r[L].some(y=>monto(y.m)!=null&&y.n&&!x[L].some(z=>String(z.n)===String(y.n).trim()&&igual(z.m,monto(y.m))));if(refMal)msgs.push(`Revise los números de asiento del ${L==="d"?"Debe":"Haber"}.`)}});
+    if(!igual(monto(r.td),x.td))msgs.push("Total Debe incorrecto.");if(!igual(monto(r.th),x.th))msgs.push("Total Haber incorrecto.");
+    if(!igual(monto(r.s)??(x.saldo===0?0:null),x.saldo)||(r.t||"")!==x.tipo)msgs.push("Revise el saldo y su tipo.");
+    RES["m2."+c]={ok:!msgs.length,msgs};if(!msgs.length)bien++});
+  const n=CASO.cods.length;RES.m2tot=`${bien} de ${n} cuentas correctas`;ponerNota("m2",100*bien/n);if(bien===n)toast("🎉 ¡Mayor completo y correcto!")}
+
+/* ══════════ MÓDULO 3 · Balanza de comprobación ══════════ */
+function mayorSoloLectura(){return `<div class="tgrid">${CASO.cods.map(c=>{const x=CASO.mayor[c];return `<div class="tcard tro"><h4>${c} · ${esc(nom(c))}</h4><div class="tcols">${["d","h"].map(L=>`<div><div class="hd ${L}">${L==="d"?"Debe":"Haber"}</div>${x[L].map(y=>`<div class="tl"><span class="ref">(${y.n})</span><span class="v">${fn(y.m)}</span></div>`).join("")}</div>`).join("")}</div></div>`}).join("")}</div>`}
+function pintarM3(){
+  const res=RES.m3||{},cl=k=>res[k]===undefined?"":res[k]?"ok":"bad";
+  $("#mod").innerHTML=`<div class="card"><h3>⚖️ Balanza de comprobación de sumas y saldos</h3><p class="ayuda" style="margin:0 0 8px">Con el mayor de abajo, sume el Debe y el Haber de cada cuenta (columnas de <b>sumas</b>) y anote su saldo en la columna que corresponde (<b>deudor</b> o <b>acreedor</b>). Al final, los totales de sumas deben ser iguales entre sí, y también los de saldos.</p>
+    <details class="ver"><summary>📒 Libro mayor (cuentas T)</summary>${mayorSoloLectura()}</details>
+    <div class="ef-hd"><b>${esc(CASO.empresa)}</b><span>Balanza de comprobación de sumas y saldos</span><span>Al ${DIAS_MES} de ${MES} de ${ANIO} · en colones</span></div>
+    <div class="scroll"><table><thead><tr><th>Código</th><th>Cuenta</th><th class="r">Sumas Debe</th><th class="r">Sumas Haber</th><th class="r">Saldo deudor</th><th class="r">Saldo acreedor</th></tr></thead><tbody>
+      ${CASO.bal.map(b=>`<tr><td class="num">${b.c}</td><td>${esc(nom(b.c))}</td>${["sd","sh","ad","aa"].map(k=>`<td style="min-width:120px">${inp(`m3.r.${b.c}.${k}`,"n "+cl(b.c+"."+k))}</td>`).join("")}</tr>`).join("")}
+      <tr><td></td><td><b>Totales</b></td>${["sd","sh","ad","aa"].map(k=>`<td>${inp(`m3.tot.${k}`,"n "+cl("tot."+k))}</td>`).join("")}</tr>
+    </tbody></table></div>
+    ${ST.sol.m3?`<div class="sol"><h4>Solución</h4><div class="scroll"><table><thead><tr><th>Cuenta</th><th class="r">Sumas Debe</th><th class="r">Sumas Haber</th><th class="r">Saldo deudor</th><th class="r">Saldo acreedor</th></tr></thead><tbody>${CASO.bal.map(b=>`<tr><td>${b.c} · ${esc(nom(b.c))}</td>${["sd","sh","ad","aa"].map(k=>`<td class="r num">${b[k]?fn(b[k]):""}</td>`).join("")}</tr>`).join("")}<tr><td><b>Totales</b></td>${["sd","sh","ad","aa"].map(k=>`<td class="r num"><b>${fn(CASO.tot[k])}</b></td>`).join("")}</tr></tbody></table></div></div>`:""}
+    <div class="acc"><button type="button" id="rev3">✔ Revisar balanza</button>${solBtn("m3")}</div><div>${RES.m3html||""}</div></div>`;
+  $("#rev3").onclick=()=>{revisarM3();pintarM3()};ligarSol(pintarM3);
+}
+function revisarM3(){const res={};let bien=0,n=0;
+  CASO.bal.forEach(b=>["sd","sh","ad","aa"].forEach(k=>{const v=montoO0(getPath(ST,`m3.r.${b.c}.${k}`));res[b.c+"."+k]=igual(v,b[k]);n++;if(res[b.c+"."+k])bien++}));
+  ["sd","sh","ad","aa"].forEach(k=>{const v=monto(getPath(ST,`m3.tot.${k}`));res["tot."+k]=igual(v,CASO.tot[k]);n++;if(res["tot."+k])bien++});
+  const st=k=>montoO0(getPath(ST,`m3.tot.${k}`)),cuadra=igual(st("sd"),st("sh"))&&igual(st("ad"),st("aa"))&&st("sd")>0;
+  RES.m3=res;RES.m3html=bien===n?`<div class="fb ok">✅ ¡Balanza correcta! Sumas: ${fm(CASO.tot.sd)} = ${fm(CASO.tot.sh)} · Saldos: ${fm(CASO.tot.ad)} = ${fm(CASO.tot.aa)}.</div>`
+    :`<div class="fb bad">❌ ${bien} de ${n} casillas correctas (las rojas están mal).${cuadra?" Sus totales cuadran entre sí, pero alguna cuenta tiene un error que se compensa con otro.":" Sus totales todavía no cuadran."} Recuerde: el saldo es la diferencia entre las sumas y va en la columna del lado mayor.</div>`;
+  ponerNota("m3",100*bien/n)}
+
+/* ══════════ MÓDULO 4 · Estados financieros ══════════ */
+const SUBT=[["er","Estado de resultados"],["ecp","Cambios en el patrimonio"],["esf","Situación financiera"],["fl","Flujos de efectivo"]];
+function balanzaLectura(){return `<div class="scroll"><table><thead><tr><th>Cuenta</th><th class="r">Saldo deudor</th><th class="r">Saldo acreedor</th></tr></thead><tbody>${CASO.bal.map(b=>`<tr><td>${b.c} · ${esc(nom(b.c))}</td><td class="r num">${b.ad?fn(b.ad):""}</td><td class="r num">${b.aa?fn(b.aa):""}</td></tr>`).join("")}<tr><td><b>Totales</b></td><td class="r num"><b>${fn(CASO.tot.ad)}</b></td><td class="r num"><b>${fn(CASO.tot.aa)}</b></td></tr></tbody></table></div>`}
+function inicialesLectura(){const I=CASO.ini;return `<div class="scroll"><table><thead><tr><th>Saldos al 1 de ${MES}</th><th class="r">Monto</th></tr></thead><tbody>${Object.keys(I).sort().map(c=>`<tr><td>${c} · ${esc(nom(c))}</td><td class="r num">${fn(I[c])}</td></tr>`).join("")}</tbody></table></div>
+  <p class="ayuda" style="margin:8px 0 0"><b>Datos adicionales del mes:</b> aportes de capital ${fm(CASO.datos.aporte)} · dividendos pagados ${fm(CASO.datos.div)} · compra de mobiliario y equipo al contado ${fm(CASO.datos.mob)} · amortización del préstamo ${fm(CASO.datos.pagoPr)} · no hubo préstamos nuevos. No se calcula impuesto sobre la renta en este caso.</p>`}
+function pintarM4(){
+  const tab=ST.m4.tab||"er";
+  $("#mod").innerHTML=`<div class="side"><div class="card"><div class="subtabs" role="tablist">${SUBT.map(([k,t],i)=>`<button type="button" role="tab" aria-selected="${tab===k}" class="${tab===k?"on":""}" data-sub="${k}">${i+1}. ${t}${ST.nota["m4"+k]!=null?` · ${ST.nota["m4"+k]} %`:""}</button>`).join("")}</div><div id="ef"></div></div>
+    <div><div class="card"><h3>⚖️ Balanza de comprobación</h3>${balanzaLectura()}</div><div class="card"><h3>📌 Saldos iniciales y datos</h3>${inicialesLectura()}</div></div></div>`;
+  $$("[data-sub]").forEach(b=>b.onclick=()=>{ST.m4.tab=b.dataset.sub;guardar();pintarM4()});
+  ({er:pintarER,ecp:pintarECP,esf:pintarESF,fl:pintarFL})[tab]();
+}
+const efHd=t=>`<div class="ef-hd"><b>${esc(CASO.empresa)}</b><span>${t}</span><span>${t.startsWith("Estado de situación")?`Al ${DIAS_MES} de ${MES} de ${ANIO}`:`Del 1 al ${DIAS_MES} de ${MES} de ${ANIO}`} · en colones</span></div>`;
+// Sección con filas «cuenta + monto» que el estudiante arma
+function seccion(tab,sec,titulo,exp,extraOpc){const rows=ST.m4[tab].rows[sec]||(ST.m4[tab].rows[sec]=Array.from({length:Math.max(1,exp.length)},()=>({c:"",m:""})));const res=RES["m4."+tab]||{};
+  return `<div class="sec">${titulo}</div>${rows.map((r,j)=>{const k=`${sec}.${j}`;const cl=res[k]===undefined?"":res[k]?"ok":"bad";return `<div class="row"><select class="${cl}" data-p="m4.${tab}.rows.${sec}.${j}.c" aria-label="${esc(titulo)}: cuenta ${j+1}">${opcionesCuentas(r.c,extraOpc?extraOpc(r.c):"")}</select>${inp(`m4.${tab}.rows.${sec}.${j}.m`,"n "+cl)}<button type="button" data-rq="${tab}|${sec}|${j}" aria-label="Quitar fila">✕</button></div>`}).join("")}
+    <button type="button" class="ghost sm" data-ra="${tab}|${sec}">＋ cuenta</button>${res["sec."+sec]?`<div class="tmsg bad">${esc(res["sec."+sec])}</div>`:""}`}
+function campo(tab,k,et,gran){const res=RES["m4."+tab]||{},cl=res["f."+k]===undefined?"":res["f."+k]?"ok":"bad";return `<div class="row tot ${gran?"gran":""}"><span>${et}</span>${inp(`m4.${tab}.f.${k}`,"n "+cl)}<span></span></div>`}
+function pieEF(tab,solHTML){return `<div class="acc"><button type="button" id="revEF">✔ Revisar</button>${solBtn("m4"+tab)}</div><div>${(RES["m4."+tab]||{}).html||""}</div>${ST.sol["m4"+tab]?`<div class="sol"><h4>Solución</h4>${solHTML}</div>`:""}`}
+function ligarEF(tab,pintarFn,revisar){$$("[data-ra]").forEach(b=>b.onclick=()=>{const [t,s]=b.dataset.ra.split("|");ST.m4[t].rows[s].push({c:"",m:""});guardar();pintarFn()});
+  $$("[data-rq]").forEach(b=>b.onclick=()=>{const [t,s,j]=b.dataset.rq.split("|");ST.m4[t].rows[s].splice(+j,1);if(!ST.m4[t].rows[s].length)ST.m4[t].rows[s].push({c:"",m:""});guardar();pintarFn()});
+  $("#revEF").onclick=()=>{revisar();pintarM4()};ligarSol(pintarM4)}
+function revisarSecciones(tab,secs,campos){const res={};let bien=0,n=0;
+  Object.entries(secs).forEach(([sec,exp])=>{const rows=ST.m4[tab].rows[sec]||[],usados=new Set();let faltan=exp.length;
+    rows.forEach((r,j)=>{if(!r.c&&monto(r.m)==null)return;n++;const e=exp.find(x=>x[0]===r.c);const ok=!!e&&!usados.has(r.c)&&igual(monto(r.m),e[1]);if(e&&!usados.has(r.c)){usados.add(r.c);faltan--}res[`${sec}.${j}`]=ok;if(ok)bien++});
+    if(faltan>0){n+=faltan;res["sec."+sec]=`Falta${faltan>1?"n":""} ${faltan} cuenta${faltan>1?"s":""} en esta sección.`}});
+  Object.entries(campos).forEach(([k,v])=>{n++;const ok=igual(montoO0(getPath(ST,`m4.${tab}.f.${k}`)),v);res["f."+k]=ok;if(ok)bien++});
+  res.html=bien===n?`<div class="fb ok">✅ ¡Estado correcto!</div>`:`<div class="fb bad">❌ ${bien} de ${n} partes correctas. Las cuentas en rojo no van en esa sección o tienen el monto equivocado; los totales en rojo están mal calculados.</div>`;
+  RES["m4."+tab]=res;ponerNota("m4"+tab,100*bien/Math.max(1,n));notaM4()}
+function notaM4(){const v=SUBT.map(([k])=>ST.nota["m4"+k]||0);ponerNota("m4",v.reduce((a,b)=>a+b,0)/4)}
+const filaSol=(c,v,sangria)=>`<div class="row" style="grid-template-columns:minmax(0,1fr) 160px"><span style="${sangria?"padding-left:18px":""}">${esc(nom(c))}</span><span class="num" style="text-align:right">${fn(v)}</span></div>`;
+const totSol=(t,v,gran)=>`<div class="row tot ${gran?"gran":""}" style="grid-template-columns:minmax(0,1fr) 160px"><span style="text-align:left">${t}</span><span class="num">${fn(v)}</span></div>`;
+/* Estado de resultados */
+function pintarER(){const E=CASO.ER;
+  $("#ef").innerHTML=`<div class="ef">${efHd("Estado de resultados")}
+    ${seccion("er","ing","Ingresos de operación",E.rows.ing)}${seccion("er","cv","Costo de ventas",E.rows.cv)}${campo("er","ub","Utilidad bruta",1)}
+    ${seccion("er","go","Gastos de operación",E.rows.go)}${campo("er","tgo","Total gastos de operación")}${campo("er","uo","Utilidad de operación",1)}
+    ${seccion("er","oi","Otros ingresos",E.rows.oi)}${seccion("er","og","Otros gastos",E.rows.og)}${campo("er","un","Utilidad neta del período",1)}
+    <p class="ayuda">Escriba los gastos y el costo en positivo; la resta se hace en los totales. Si una sección no lleva cuentas, deje su fila vacía.</p>
+    ${pieEF("er",`<div class="sec">Ingresos de operación</div>${E.rows.ing.map(x=>filaSol(...x,1)).join("")}<div class="sec">Costo de ventas</div>${E.rows.cv.map(x=>filaSol(...x,1)).join("")}${totSol("Utilidad bruta",E.f.ub,1)}<div class="sec">Gastos de operación</div>${E.rows.go.map(x=>filaSol(...x,1)).join("")}${totSol("Total gastos de operación",E.f.tgo)}${totSol("Utilidad de operación",E.f.uo,1)}${E.rows.oi.length?`<div class="sec">Otros ingresos</div>${E.rows.oi.map(x=>filaSol(...x,1)).join("")}`:""}${E.rows.og.length?`<div class="sec">Otros gastos</div>${E.rows.og.map(x=>filaSol(...x,1)).join("")}`:""}${totSol("Utilidad neta del período",E.f.un,1)}`)}</div>`;
+  ligarEF("er",pintarER,()=>revisarSecciones("er",E.rows,E.f))}
+/* Estado de cambios en el patrimonio */
+const ECP_F=[["si","Saldo al 1 de "+MES],["ap","Aportes de capital"],["un","Utilidad neta del período"],["dv","Dividendos"],["sf",`Saldo al ${DIAS_MES} de ${MES}`]],ECP_C=["Capital social","Utilidades retenidas","Total patrimonio"];
+function pintarECP(){const E=CASO.ECP,res=RES["m4.ecp"]||{};
+  $("#ef").innerHTML=`<div class="ef">${efHd("Estado de cambios en el patrimonio")}
+    <div class="scroll"><table class="ecp"><thead><tr><th></th>${ECP_C.map(c=>`<th class="r">${c}</th>`).join("")}</tr></thead><tbody>${ECP_F.map(([k,t])=>`<tr${k==="sf"?' style="border-top:2px solid var(--ink)"':""}><td><b>${t}</b></td>${[0,1,2].map(j=>`<td>${inp(`m4.ecp.${k}.${j}`,"n "+(res[k+j]===undefined?"":res[k+j]?"ok":"bad"),"0")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+    <p class="ayuda">Los saldos iniciales están en la tabla de la derecha. Los dividendos disminuyen el patrimonio: escríbalos en negativo, por ejemplo -150000 o (150000). Deje en blanco las casillas que no llevan monto.</p>
+    ${pieEF("ecp",`<div class="scroll"><table><thead><tr><th></th>${ECP_C.map(c=>`<th class="r">${c}</th>`).join("")}</tr></thead><tbody>${ECP_F.map(([k,t])=>`<tr><td>${t}</td>${E[k].map(v=>`<td class="r num">${v?fn(v):"—"}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`)}</div>`;
+  ligarEF("ecp",pintarECP,()=>{const r={};let b=0,n=0;ECP_F.forEach(([k])=>[0,1,2].forEach(j=>{n++;const ok=igual(montoO0(getPath(ST,`m4.ecp.${k}.${j}`)),E[k][j]);r[k+j]=ok;if(ok)b++}));
+    r.html=b===n?`<div class="fb ok">✅ ¡Estado correcto! Las utilidades retenidas al cierre (${fm(E.sf[1])}) pasan al estado de situación financiera.</div>`:`<div class="fb bad">❌ ${b} de ${n} casillas correctas. Recuerde: saldo final = saldo inicial + aportes + utilidad − dividendos, en cada columna.</div>`;
+    RES["m4.ecp"]=r;ponerNota("m4ecp",100*b/n);notaM4()})}
+/* Estado de situación financiera */
+function pintarESF(){const E=CASO.ESF,ur=sel=>`<optgroup label="Del estado de cambios en el patrimonio"><option value="UR_FIN" ${sel==="UR_FIN"?"selected":""}>Utilidades retenidas (al cierre del período)</option></optgroup>`;
+  $("#ef").innerHTML=`<div class="ef">${efHd("Estado de situación financiera")}
+    <div class="sec" style="font-size:1rem">ACTIVO</div>${seccion("esf","ac","Activo corriente",E.rows.ac)}${campo("esf","tac","Total activo corriente")}${seccion("esf","anc","Activo no corriente",E.rows.anc)}${campo("esf","tanc","Total activo no corriente")}${campo("esf","ta","TOTAL ACTIVO",1)}
+    <div class="sec" style="font-size:1rem;margin-top:16px">PASIVO</div>${seccion("esf","pc","Pasivo corriente",E.rows.pc)}${campo("esf","tpc","Total pasivo corriente")}${seccion("esf","pnc","Pasivo no corriente",E.rows.pnc)}${campo("esf","tpnc","Total pasivo no corriente")}${campo("esf","tp","TOTAL PASIVO",1)}
+    <div class="sec" style="font-size:1rem;margin-top:16px">PATRIMONIO</div>${seccion("esf","pat","Patrimonio",E.rows.pat,ur)}${campo("esf","tpat","TOTAL PATRIMONIO",1)}${campo("esf","tpp","TOTAL PASIVO Y PATRIMONIO",1)}
+    <p class="ayuda">La depreciación acumulada se resta del mobiliario: escríbala en negativo. En patrimonio use el capital al cierre y las utilidades retenidas al cierre (salen del estado de cambios en el patrimonio).</p>
+    ${pieEF("esf",["ACTIVO",["Activo corriente","ac","tac"],["Activo no corriente","anc","tanc"],["TOTAL ACTIVO",null,"ta"],"PASIVO",["Pasivo corriente","pc","tpc"],["Pasivo no corriente","pnc","tpnc"],["TOTAL PASIVO",null,"tp"],"PATRIMONIO",["Patrimonio","pat","tpat"],["TOTAL PASIVO Y PATRIMONIO",null,"tpp"]].map(x=>typeof x==="string"?`<div class="sec">${x}</div>`:x[1]?(E.rows[x[1]].length?`<div class="sec" style="font-weight:600">${x[0]}</div>${E.rows[x[1]].map(y=>filaSol(...y,1)).join("")}${totSol("Total "+x[0].toLowerCase(),E.f[x[2]])}`:""):totSol(x[0],E.f[x[2]],1)).join(""))}</div>`;
+  ligarEF("esf",pintarESF,()=>revisarSecciones("esf",E.rows,E.f))}
+/* Estado de flujos de efectivo (método indirecto) */
+const FL=[["h","Actividades de operación"],["un","Utilidad neta del período"],["dep","(+) Gasto de depreciación (no usa efectivo)"],["dcxc","(Aumento) disminución en cuentas por cobrar"],["dinv","(Aumento) disminución en inventario de mercadería"],["dseg","(Aumento) disminución en seguros pagados por adelantado"],["dcxp","Aumento (disminución) en cuentas por pagar"],["dsal","Aumento (disminución) en salarios por pagar"],["fop","Efectivo neto de las actividades de operación",1],
+  ["h","Actividades de inversión"],["cmob","Compra de mobiliario y equipo"],["finv","Efectivo neto de las actividades de inversión",1],
+  ["h","Actividades de financiamiento"],["apo","Aportes de capital de los socios"],["rpr","Préstamos recibidos"],["ppr","Pagos del principal de préstamos"],["div","Dividendos pagados"],["ffin","Efectivo neto de las actividades de financiamiento",1],
+  ["var","Aumento (disminución) neto del efectivo",2],["ei",`Efectivo al 1 de ${MES} (caja y bancos)`],["ef",`Efectivo al ${DIAS_MES} de ${MES} (caja y bancos)`,2]];
+function pintarFL(){const F=CASO.F,res=RES["m4.fl"]||{};
+  $("#ef").innerHTML=`<div class="ef">${efHd("Estado de flujos de efectivo (método indirecto)")}
+    ${FL.map(([k,t,tot])=>k==="h"?`<div class="sec">${t}</div>`:`<div class="row ${tot?"tot":""} ${tot===2?"gran":""}"><span style="${tot?"":"padding-left:14px;font-weight:400;text-align:left"}">${t}</span>${inp(`m4.fl.${k}`,"n "+(res[k]===undefined?"":res[k]?"ok":"bad"),"0")}<span></span></div>`).join("")}
+    <p class="ayuda">Compare cada cuenta con su saldo inicial: si un activo corriente <b>aumenta</b>, se resta; si un pasivo corriente <b>aumenta</b>, se suma. Las salidas de efectivo van en negativo. El efectivo final debe ser igual a Caja + Bancos de la balanza.</p>
+    ${pieEF("fl",FL.map(([k,t,tot])=>k==="h"?`<div class="sec">${t}</div>`:tot?totSol(t,F[k],tot===2):`<div class="row" style="grid-template-columns:minmax(0,1fr) 160px"><span style="padding-left:14px">${t}</span><span class="num" style="text-align:right">${fn(F[k])}</span></div>`).join(""))}</div>`;
+  ligarEF("fl",pintarFL,()=>{const r={};let b=0,n=0;FL.filter(x=>x[0]!=="h").forEach(([k])=>{n++;const ok=igual(montoO0(getPath(ST,`m4.fl.${k}`)),F[k]);r[k]=ok;if(ok)b++});
+    r.html=b===n?`<div class="fb ok">✅ ¡Flujo correcto! El efectivo final (${fm(F.ef)}) coincide con Caja + Bancos.</div>`:`<div class="fb bad">❌ ${b} de ${n} líneas correctas. Revise los signos: las salidas de efectivo y los aumentos de activos corrientes van en negativo.</div>`;
+    RES["m4.fl"]=r;ponerNota("m4fl",100*b/n);notaM4()})}
+
+/* ── Soluciones y entrada de datos ── */
+function ligarSol(rep){$$("[data-sol]").forEach(b=>b.onclick=()=>{const k=b.dataset.sol;ST.sol[k]=!ST.sol[k];guardar();rep()})}
+document.addEventListener("input",e=>{const p=e.target.dataset&&e.target.dataset.p;if(!p)return;setPath(ST,p,e.target.value);e.target.classList.remove("ok","bad");guardar();if(p.startsWith("m1."))totalesM1(ST.m1.sel||0)});
+document.addEventListener("change",e=>{const p=e.target.dataset&&e.target.dataset.p;if(!p||e.target.tagName!=="SELECT")return;setPath(ST,p,e.target.value);guardar()});
+pintar();
+</script>
+<script src="js/volver-plataforma.js?v=20261112b"></script>
+</body>
+</html>

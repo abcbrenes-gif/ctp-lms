@@ -19,7 +19,7 @@ async function renderAnio2027() {
     wrap.innerHTML = `<h1>📅 Curso lectivo 2027</h1>
       <p style="color:var(--text-muted);margin-top:-0.6em">Aquí vamos armando lo del próximo año. Solo lo ve usted: nada de esta sección aparece a los estudiantes.</p>
       <div class="card" style="padding:1rem;margin:1rem 0"><h2 style="margin-top:0">🧰 Herramientas 2027</h2>
-        <div style="display:flex;gap:.6rem;flex-wrap:wrap"><a class="btn" href="ciudad-contable.html">🏙️ Ciudad Contable (prototipo)</a><button class="btn" id="a27-fam">👪 Registro de familias</button><button class="btn" id="a27-jus">📝 Justificaciones de ausencias y tardías</button><a class="btn secondary" href="/padres" target="_blank" rel="noopener">👀 Ver el Portal de familias</a></div></div>
+        <div style="display:flex;gap:.6rem;flex-wrap:wrap"><a class="btn" href="ciudad-contable.html">🏙️ Ciudad Contable (prototipo)</a><a class="btn" href="taller-contable.html">🧮 Taller del Ciclo Contable (prototipo)</a><button class="btn" id="a27-fam">👪 Registro de familias</button><button class="btn" id="a27-jus">📝 Justificaciones de ausencias y tardías</button><a class="btn secondary" href="/padres" target="_blank" rel="noopener">👀 Ver el Portal de familias</a></div></div>
       <div class="card" style="padding:1rem"><h2 style="margin-top:0">📝 Pendientes e ideas para 2027</h2>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap"><input id="a27-txt" placeholder="Escriba una idea o pendiente para 2027" style="flex:1;min-width:16rem"><button class="btn" id="a27-add">＋ Agregar</button></div>
         <ul style="list-style:none;padding:0;margin:1rem 0 0">${items.map((x, i) => `<li style="display:flex;gap:.6rem;align-items:center;padding:.5rem 0;border-bottom:1px solid var(--paper-line)">
