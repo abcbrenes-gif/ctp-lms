@@ -157,6 +157,14 @@ body.dentro #volver-plataforma{display:none!important}
 #gps text{font-family:Inter,sans-serif}
 @media(max-width:700px){.mm-wrap{width:36%}.joy{width:96px;height:96px}.correr{right:122px;width:46px;height:46px}}
 @media (prefers-reduced-motion: reduce){.ruta,.meta-a,#mm-yo,.pm-b{animation:none}}
+/* ── Detalles de los edificios ── */
+.humo circle{fill:rgba(220,224,232,.75);animation:humo 2.8s ease-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes humo{0%{transform:translate(0,0) scale(.4);opacity:0}15%{opacity:.85}100%{transform:translate(14px,-46px) scale(2.2);opacity:0}}
+.sem-r{animation:semR 8s steps(1) infinite}.sem-v{animation:semV 8s steps(1) infinite}.fase2{animation-delay:-4s}
+@keyframes semR{0%{opacity:1}50%{opacity:.15}}@keyframes semV{0%{opacity:.15}50%{opacity:1}}
+.bandera{animation:ondea 1.6s ease-in-out infinite;transform-box:fill-box;transform-origin:left center}
+@keyframes ondea{50%{transform:skewY(-6deg) scaleX(.94)}}
+@media (prefers-reduced-motion: reduce){.humo circle,.sem-r,.sem-v,.bandera{animation:none}}
 /* ── Modo noche ── */
 .neon{filter:drop-shadow(0 0 4px var(--n)) drop-shadow(0 0 10px var(--n));animation:neon 3.2s ease-in-out infinite}
 @keyframes neon{0%,100%{opacity:1}46%{opacity:1}48%{opacity:.55}50%{opacity:1}}
@@ -419,7 +427,7 @@ function ladosVisibles(x,y,w,h){const P=[[x,y],[x+w,y],[x+w,y+h],[x,y+h]];return
 function piramide(x,y,w,h,z0,z1,col){const P=[[x,y],[x+w,y],[x+w,y+h],[x,y+h]],t=proj(x+w/2,y+h/2,z1);
   return LADOS.map(([i,j,n])=>{const [nx,ny]=rotV(...n),m=[(P[i][0]+P[j][0])/2,(P[i][1]+P[j][1])/2];return {d:prof(...m),svg:`<polygon points="${pts([proj(...P[i],z0),proj(...P[j],z0),t])}" fill="${nx+ny>.01?(Math.abs(nx)<.01?oscurecer(col,.85):oscurecer(col,.62)):col}"/>`}}).sort((a,b)=>a.d-b.d).map(f=>f.svg).join("")}
 const pts=L=>L.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ");
-const ALTO={ferre:46,super:50,libre:42,conta:72,mante:58,mayo:52,trans:38,equip:62,publi:68,clien:0,banco:84,hacie:96};
+const ALTO={ferre:62,super:40,libre:58,conta:112,mante:36,mayo:58,trans:34,equip:52,publi:100,clien:0,banco:64,hacie:100};
 function oscurecer(hex,f){const n=parseInt(hex.slice(1),16),c=k=>Math.max(0,Math.min(255,Math.round(((n>>k)&255)*f)));return "#"+[16,8,0].map(k=>c(k).toString(16).padStart(2,"0")).join("")}
 function caja(x,y,w,h,H,col,opt){
   opt=opt||{};const colOrig=col;col=noct(col);
@@ -434,16 +442,68 @@ function caja(x,y,w,h,H,col,opt){
   g+=`<polygon points="${pts([proj(x,y,H),proj(x+w,y,H),proj(x+w,y+h,H),proj(x,y+h,H)])}" fill="${col}"/><polygon points="${pts([proj(x+8,y+8,H),proj(x+w-8,y+8,H),proj(x+w-8,y+h-8,H),proj(x+8,y+h-8,H)])}" fill="none" stroke="${oscurecer(col,1.25)}" stroke-width="2"/>`;
   return g;
 }
-function arbol(x,y,r){const [px,py]=proj(x,y);return {d:prof(x,y),svg:`<ellipse cx="${px+4}" cy="${py+2}" rx="${r}" ry="${r*.5}" fill="rgba(0,0,0,.22)"/><rect x="${px-2}" y="${py-r}" width="4" height="${r}" fill="#7c4a1e"/><circle cx="${px}" cy="${py-r*1.5}" r="${r}" fill="#2b8a3e"/><circle cx="${px-r*.3}" cy="${py-r*1.8}" r="${r*.55}" fill="#51cf66"/>`}}
+function arbol(x,y,r){const [px,py]=proj(x,y),t=Math.abs(Math.round(x*7+y*13))%5,sh=`<ellipse cx="${px+4}" cy="${py+2}" rx="${r}" ry="${r*.5}" fill="rgba(0,0,0,.22)"/>`;
+  if(t===1)return {d:prof(x,y),svg:sh+`<rect x="${px-2}" y="${py-r*.8}" width="4" height="${r*.8}" fill="#7c4a1e"/><polygon points="${px-r},${py-r*.6} ${px+r},${py-r*.6} ${px},${py-r*2.4}" fill="#1e6b3a"/><polygon points="${px-r*.75},${py-r*1.4} ${px+r*.75},${py-r*1.4} ${px},${py-r*2.9}" fill="#2f9e44"/>`};
+  if(t===2)return {d:prof(x,y),svg:sh+`<path d="M ${px} ${py} Q ${px+3} ${py-r*1.4} ${px+1} ${py-r*2.6}" stroke="#8d5524" stroke-width="3" fill="none"/>${[-60,-20,20,60,100,140].map(a=>`<path d="M ${px+1} ${py-r*2.6} q ${Math.cos(a*Math.PI/180)*r*.9} ${-r*.5} ${Math.cos(a*Math.PI/180)*r*1.7} ${Math.sin(a*Math.PI/180)*r*.4+r*.4}" stroke="#2f9e44" stroke-width="3" fill="none" stroke-linecap="round"/>`).join("")}`};
+  return {d:prof(x,y),svg:sh+`<rect x="${px-2}" y="${py-r}" width="4" height="${r}" fill="#7c4a1e"/><circle cx="${px}" cy="${py-r*1.5}" r="${r}" fill="${t===3?"#2b8a3e":t===4?"#5c940d":"#2b8a3e"}"/><circle cx="${px-r*.3}" cy="${py-r*1.8}" r="${r*.55}" fill="${t===4?"#94d82d":"#51cf66"}"/>${t===3?`<circle cx="${px+r*.4}" cy="${py-r*1.2}" r="2" fill="#ff8787"/><circle cx="${px-r*.5}" cy="${py-r*1.1}" r="2" fill="#ffd43b"/>`:""}`}}
+/* ═══════════ Arquitectura de cada edificio ═══════════
+   Ayudantes para dibujar sobre las caras (sirven en los 4 giros): la «frente» es la cara que mira a la cámara por la izquierda. */
+function caraInfo(x,y,w,h,lado){const P=[[x,y],[x+w,y],[x+w,y+h],[x,y+h]],[i,j,n]=LADOS[lado],[nx,ny]=rotV(...n);return {a:P[i],b:P[j],vis:nx+ny>.01,frente:Math.abs(nx)<.01&&ny>0}}
+function ladoFrente(x,y,w,h){for(let k=0;k<4;k++){if(caraInfo(x,y,w,h,k).frente)return k}return 2}
+function ladoLateral(x,y,w,h){for(let k=0;k<4;k++){const c=caraInfo(x,y,w,h,k);if(c.vis&&!c.frente)return k}return 1}
+function enCara(x,y,w,h,lado,u0,u1,z0,z1,fill,extra){const c=caraInfo(x,y,w,h,lado);if(!c.vis)return "";const A=proj(...c.a),B=proj(...c.b),L=(u,z)=>[A[0]+(B[0]-A[0])*u,A[1]+(B[1]-A[1])*u-z];
+  return `<polygon points="${pts([L(u0,z0),L(u1,z0),L(u1,z1),L(u0,z1)])}" fill="${fill}" ${extra||""}/>`}
+function rayas(x,y,w,h,lado,u0,u1,z0,z1,n,col){let g="";for(let i=1;i<n;i++){const z=z0+(z1-z0)*i/n;g+=enCara(x,y,w,h,lado,u0,u1,z,z+1.2,col)}return g}
+function vidrio(x,y,w,h,lado,u0,u1,z0,z1){return enCara(x,y,w,h,lado,u0,u1,z0,z1,NOCHE?"#ffe08a":"#8fd3ff",NOCHE?'stroke="#ffcf5c" stroke-opacity=".4" stroke-width="4"':'')+enCara(x,y,w,h,lado,u0+.05,u0+.12,z0+2,z1-2,"#fff",'opacity=".55"')+enCara(x,y,w,h,lado,u0+.18,u0+.21,z0+2,z1-2,"#fff",'opacity=".4"')}
+function techoDosAguas(x,y,w,h,H,alto,col){const largoX=w>=h,R0=largoX?[x,y+h/2]:[x+w/2,y],R1=largoX?[x+w,y+h/2]:[x+w/2,y+h],P=[[x,y],[x+w,y],[x+w,y+h],[x,y+h]];
+  const r0=proj(...R0,H+alto),r1=proj(...R1,H+alto),q=k=>proj(...P[k],H);
+  const caras=largoX?[[[q(0),q(1),r1,r0],[0,-1]],[[q(3),q(2),r1,r0],[0,1]],[[q(0),q(3),r0],[-1,0]],[[q(1),q(2),r1],[1,0]]]
+    :[[[q(0),q(3),r1,r0],[-1,0]],[[q(1),q(2),r1,r0],[1,0]],[[q(0),q(1),r0],[0,-1]],[[q(3),q(2),r1],[0,1]]];
+  return caras.map(([pp,n])=>{const [nx,ny]=rotV(...n);return {d:nx+ny,svg:`<polygon points="${pts(pp)}" fill="${nx+ny>.01?(Math.abs(nx)<.01?oscurecer(col,.9):oscurecer(col,.7)):oscurecer(col,1.08)}" stroke="${oscurecer(col,.6)}" stroke-width="1"/>`}}).sort((a,b)=>a.d-b.d).map(f=>f.svg).join("")}
+function tanque(x,y,H){const [px,py]=proj(x,y,H);return `<rect x="${px-8}" y="${py-18}" width="16" height="18" fill="${NOCHE?"#4a5578":"#adb5bd"}"/><ellipse cx="${px}" cy="${py}" rx="8" ry="4" fill="${NOCHE?"#3b4566":"#868e96"}"/><ellipse cx="${px}" cy="${py-18}" rx="8" ry="4" fill="${NOCHE?"#5b6688":"#dee2e6"}"/>`}
+function solares(x,y,w,h,H){let g="";for(let i=0;i<3;i++)for(let j=0;j<2;j++){const x0=x+8+i*(w-16)/3,y0=y+8+j*(h-16)/2,ww=(w-16)/3-5,hh=(h-16)/2-5;g+=`<polygon points="${pts([proj(x0,y0,H+1),proj(x0+ww,y0,H+1),proj(x0+ww,y0+hh,H+1),proj(x0,y0+hh,H+1)])}" fill="#1c3d78" stroke="#5c7cfa" stroke-width="1"/>`}return g}
+function jardinTecho(x,y,w,h,H){let g=`<polygon points="${pts([proj(x+8,y+8,H+1),proj(x+w-8,y+8,H+1),proj(x+w-8,y+h-8,H+1),proj(x+8,y+h-8,H+1)])}" fill="${NOCHE?"#2f5a3e":"#69b34c"}"/>`;
+  [[.25,.3],[.7,.35],[.4,.7],[.75,.75]].forEach(([u,v])=>{const [px,py]=proj(x+w*u,y+h*v,H);g+=`<circle cx="${px}" cy="${py-6}" r="6" fill="${NOCHE?"#2f8f5a":"#2b8a3e"}"/>`});return g}
+function antena(x,y,H,alto){const [px,py]=proj(x,y,H);return `<line x1="${px}" y1="${py}" x2="${px}" y2="${py-alto}" stroke="#adb5bd" stroke-width="2"/><circle cx="${px}" cy="${py-alto}" r="3" fill="#ff6b6b" class="${NOCHE?"titila":""}"/>`}
+function humo(x,y,H){const [px,py]=proj(x,y,H);return `<g class="humo">${[0,1,2,3].map(i=>`<circle cx="${px}" cy="${py}" r="${6+i*2}" style="animation-delay:${i*.7}s"/>`).join("")}</g>`}
+function rotulo(x,y,w,h,lado,H,txt,col){const c=caraInfo(x,y,w,h,lado);if(!c.vis)return "";let A=proj(...c.a,H-6),B=proj(...c.b,H-6);if(B[0]<A[0])[A,B]=[B,A];const m=[(A[0]+B[0])/2,(A[1]+B[1])/2];
+  return enCara(x,y,w,h,lado,.18,.82,H-14,H-3,NOCHE?"#0d1030":"#fff",`stroke="${col}" stroke-width="2"`)+`<text x="${m[0]}" y="${m[1]+2}" text-anchor="middle" font-size="8.5" font-weight="900" fill="${NOCHE?col:"#14213d"}" transform="rotate(${(Math.atan2(B[1]-A[1],B[0]-A[0])*180/Math.PI).toFixed(1)} ${m[0]} ${m[1]})">${esc(txt)}</text>`}
 function edificioIso(e,x,y,w,h){
-  const H=ALTO[e.id]||50,[c1]=PAL[e.id]||PAL[e.tipo];let g="";
+  const [c1]=PAL[e.id]||PAL[e.tipo];let g="";
   if(e.id==="clien")return casitas(x,y,["#c92a2a","#e8590c","#5c7cfa"]);
-  g+=caja(x,y,w,h,H,c1,{toldo:e.tipo==="com"});
-  if(NOCHE&&e.tipo!=="ia"){const [nx,ny]=proj(x+w-26,y+h-22,H);g+=`<g class="neon" style="--n:${c1}"><rect x="${nx-20}" y="${ny-34}" width="40" height="30" rx="8" fill="#0d1030" stroke="${c1}" stroke-width="3"/><text x="${nx}" y="${ny-12}" text-anchor="middle" font-size="18">${e.ico}</text></g>`}
-  const [tx,ty]=proj(x+w/2,y+h/2,H);
-  if(e.id==="hacie")g+=`<ellipse cx="${tx}" cy="${ty}" rx="34" ry="18" fill="#ced4da" stroke="#868e96" stroke-width="2"/><path d="M ${tx-34} ${ty} A 34 30 0 0 1 ${tx+34} ${ty}" fill="#dee2e6" stroke="#868e96" stroke-width="2"/><rect x="${tx-2}" y="${ty-46}" width="4" height="18" fill="#868e96"/><polygon points="${tx+2},${ty-46} ${tx+18},${ty-41} ${tx+2},${ty-36}" fill="#1c7ed6"/>`;
-  else if(e.id==="banco")g+=`<ellipse cx="${tx}" cy="${ty}" rx="26" ry="13" fill="#fff3bf" stroke="#b08900" stroke-width="2"/><text x="${tx}" y="${ty+6}" text-anchor="middle" font-size="18" font-weight="800" fill="#b08900">₡</text>`;
-  else{const u=proj(x+16,y+14,H),v=proj(x+40,y+14,H);g+=`<rect x="${u[0]-8}" y="${u[1]-9}" width="16" height="9" rx="2" fill="#dee2e6" stroke="#868e96"/><rect x="${v[0]-8}" y="${v[1]-9}" width="16" height="9" rx="2" fill="#dee2e6" stroke="#868e96"/>`}
+  const F=(X,Y,W,Hh)=>ladoFrente(X,Y,W,Hh),La=(X,Y,W,Hh)=>ladoLateral(X,Y,W,Hh);
+  const neon=(X,Y,H)=>{if(!NOCHE||e.tipo==="ia")return "";const [nx,ny]=proj(X,Y,H);return `<g class="neon" style="--n:${c1}"><rect x="${nx-20}" y="${ny-34}" width="40" height="30" rx="8" fill="#0d1030" stroke="${c1}" stroke-width="3"/><text x="${nx}" y="${ny-12}" text-anchor="middle" font-size="18">${e.ico}</text></g>`};
+  switch(e.id){
+    case "ferre":{const H=38;g+=caja(x,y,w,h,H,c1);const f=F(x,y,w,h);g+=enCara(x,y,w,h,f,.28,.72,0,28,"#868e96")+rayas(x,y,w,h,f,.28,.72,0,28,7,"#495057")+rotulo(x,y,w,h,f,H,"FERRETERÍA",c1);
+      g+=techoDosAguas(x,y,w,h,H,24,"#a8461a")+neon(x+w/2,y+h/2,H+24);
+      const [px,py]=proj(x-10,y+h-14);g+=`<g transform="translate(${px},${py})"><rect x="-10" y="-14" width="20" height="14" fill="#adb5bd"/><rect x="-8" y="-24" width="16" height="10" fill="#ced4da"/></g>`;break}
+    case "super":{const H=36;g+=caja(x-6,y,w+12,h,H,c1);const f=F(x-6,y,w+12,h);g+=vidrio(x-6,y,w+12,h,f,.06,.94,3,27)+rotulo(x-6,y,w+12,h,f,H,"SUPERMERCADO",c1);
+      g+=solares(x-6,y,w+12,h,H)+neon(x+w-10,y+h-14,H);
+      [[-18,h+6],[-4,h+10],[10,h+6]].forEach(([dx,dy])=>{const [px,py]=proj(x+dx,y+dy);g+=`<g transform="translate(${px},${py})"><rect x="-6" y="-8" width="12" height="7" rx="1" fill="none" stroke="${NOCHE?"#c9cde0":"#868e96"}" stroke-width="1.5"/><circle cx="-4" cy="0" r="1.6" fill="#495057"/><circle cx="4" cy="0" r="1.6" fill="#495057"/></g>`});break}
+    case "libre":{const H=34,W2=w-20;g+=caja(x+10,y+6,W2,h-12,H,"#f3a683");const f=F(x+10,y+6,W2,h-12);g+=vidrio(x+10,y+6,W2,h-12,f,.1,.55,3,20)+enCara(x+10,y+6,W2,h-12,f,.65,.85,0,22,"#7c4a1e");
+      g+=enCara(x+10,y+6,W2,h-12,f,.1,.9,22,24,"#fff")+rotulo(x+10,y+6,W2,h-12,f,H,"LIBRERÍA",c1)+piramide(x+10,y+6,W2,h-12,H,H+26,"#c0392b")+neon(x+W2-6,y+h-24,H+10);break}
+    case "conta":{const X=x+18,Y=y+10,W=w-36,D=h-22,H=104;g+=caja(X,Y,W,D,H,c1);const f=F(X,Y,W,D),l=La(X,Y,W,D);
+      for(let k=0;k<5;k++)g+=enCara(X,Y,W,D,f,.04,.96,10+k*19,24+k*19,NOCHE?"#ffe08a":"#b8c8ff",'opacity=".35"')+enCara(X,Y,W,D,l,.04,.96,10+k*19,24+k*19,NOCHE?"#ffd66b":"#9fb4ff",'opacity=".3"');
+      g+=jardinTecho(X,Y,W,D,H)+antena(X+W-8,Y+8,H,26)+neon(X+W/2,Y+D/2,H);break}
+    case "mante":{const H=32;g+=caja(x,y,w,h,H,c1);const f=F(x,y,w,h);[[.08,.44],[.56,.92]].forEach(([u0,u1])=>{g+=enCara(x,y,w,h,f,u0,u1,0,22,"#adb5bd")+rayas(x,y,w,h,f,u0,u1,0,22,6,"#868e96")});
+      g+=rotulo(x,y,w,h,f,H,"TALLER · MANTENIMIENTO",c1)+tanque(x+20,y+18,H)+neon(x+w-24,y+h-22,H);break}
+    case "mayo":{const H=40;g+=caja(x-8,y,w+16,h,H,c1);const f=F(x-8,y,w+16,h),l=La(x-8,y,w+16,h);[.15,.45,.75].forEach(u=>{g+=enCara(x-8,y,w+16,h,l,u-.1,u+.1,0,22,"#495057")+rayas(x-8,y,w+16,h,l,u-.1,u+.1,0,22,5,"#343a40")});
+      for(let k=0;k<3;k++){const X=x-8+k*(w+16)/3;g+=techoDosAguas(X,y,(w+16)/3,h,H,14,"#0b7285")}
+      g+=caja(x+w-12,y+6,12,12,78,"#868e96")+humo(x+w-6,y+12,78)+rotulo(x-8,y,w+16,h,f,H,"MAYORISTA",c1);break}
+    case "trans":{const H=30;g+=caja(x,y,w,h-30,H,c1);const f=F(x,y,w,h-30);g+=enCara(x,y,w,h-30,f,.1,.9,0,24,"#495057")+rayas(x,y,w,h-30,f,.1,.9,0,24,6,"#343a40")+rotulo(x,y,w,h-30,f,H,"TRANSPORTES",c1);
+      [[x+10,y+h-22],[x+60,y+h-22]].forEach(([X,Y])=>{g+=caja(X,Y,36,16,14,"#f1f3f5")+caja(X+36,Y+1,12,14,12,"#e03131")});break}
+    case "equip":{const H=48;g+=caja(x,y,w,h,H,c1);const f=F(x,y,w,h),l=La(x,y,w,h);g+=vidrio(x,y,w,h,f,.05,.95,3,40)+vidrio(x,y,w,h,l,.05,.6,3,40)+antena(x+12,y+12,H,22)+rotulo(x,y,w,h,f,H,"EQUIPOS Y MÁS",c1);break}
+    case "publi":{const H=58;g+=caja(x+10,y+10,w-20,h-20,H,c1);let [p0,p1]=[proj(x+12,y+h/2,H+6),proj(x+w-12,y+h/2,H+6)];if(p1[0]<p0[0])[p0,p1]=[p1,p0];const q0=[p0[0],p0[1]-40],q1=[p1[0],p1[1]-40];
+      g+=`<line x1="${p0[0]}" y1="${p0[1]}" x2="${p0[0]}" y2="${p0[1]-6}" stroke="#495057" stroke-width="3"/><line x1="${p1[0]}" y1="${p1[1]}" x2="${p1[0]}" y2="${p1[1]-6}" stroke="#495057" stroke-width="3"/>
+        <polygon points="${pts([[p0[0],p0[1]-6],[p1[0],p1[1]-6],q1,q0])}" fill="url(#cartelera)" stroke="#fff" stroke-width="2"/><text x="${(p0[0]+p1[0])/2}" y="${(p0[1]+p1[1])/2-20}" text-anchor="middle" font-size="12" font-weight="900" fill="#fff" transform="rotate(${(Math.atan2(p1[1]-p0[1],p1[0]-p0[0])*180/Math.PI).toFixed(1)} ${(p0[0]+p1[0])/2} ${(p0[1]+p1[1])/2-20})">¡Anúnciese aquí!</text>`;break}
+    case "banco":{const H=56;[0,1,2].forEach(k=>{g+=caja(x-6-k*0,y+h+2+k*5,w+12,6,6-k*2,"#dee2e6")});g+=caja(x,y,w,h,H,"#e9d8a6");const f=F(x,y,w,h);
+      for(let k=0;k<6;k++)g+=enCara(x,y,w,h,f,.08+k*.16,.14+k*.16,4,H-10,NOCHE?"#c9b98a":"#fff8e1");
+      g+=enCara(x,y,w,h,f,.02,.98,H-10,H-2,"#d9a400")+rotulo(x,y,w,h,f,H+10,"BANCO",c1);const [tx,ty]=proj(x+w/2,y+h/2,H);g+=`<ellipse cx="${tx}" cy="${ty}" rx="26" ry="13" fill="#fff3bf" stroke="#b08900" stroke-width="2"/><text x="${tx}" y="${ty+6}" text-anchor="middle" font-size="18" font-weight="800" fill="#b08900">₡</text>`;break}
+    case "hacie":{const H=60;g+=caja(x,y,w,h,H,"#ced4da");const f=F(x,y,w,h);for(let k=0;k<5;k++)g+=enCara(x,y,w,h,f,.1+k*.18,.16+k*.18,4,H-12,NOCHE?"#9aa3b5":"#f8f9fa");
+      const [tx,ty]=proj(x+w/2,y+h/2,H);g+=`<ellipse cx="${tx}" cy="${ty}" rx="34" ry="18" fill="#adb5bd" stroke="#868e96" stroke-width="2"/><path d="M ${tx-34} ${ty} A 34 30 0 0 1 ${tx+34} ${ty}" fill="${NOCHE?"#8d96ad":"#dee2e6"}" stroke="#868e96" stroke-width="2"/><rect x="${tx-2}" y="${ty-52}" width="4" height="22" fill="#868e96"/>
+        <g class="bandera"><rect x="${tx+2}" y="${ty-52}" width="22" height="4" fill="#1c3f94"/><rect x="${tx+2}" y="${ty-48}" width="22" height="3" fill="#fff"/><rect x="${tx+2}" y="${ty-45}" width="22" height="4" fill="#e03131"/><rect x="${tx+2}" y="${ty-41}" width="22" height="3" fill="#fff"/><rect x="${tx+2}" y="${ty-38}" width="22" height="4" fill="#1c3f94"/></g>`;break}
+    default:{const H=ALTO[e.id]||50;g+=caja(x,y,w,h,H,c1)}
+  }
   return g;
 }
 function casitas(x,y,cols){return [[0,0],[46,10],[92,0]].map(([dx,dy],i)=>({d:prof(x+dx+18,y+dy+26),svg:caja(x+dx,y+dy+8,36,36,18,"#f1f3f5")+piramide(x+dx,y+dy+8,36,36,18,34,cols[i%cols.length])})).sort((a,b)=>a.d-b.d).map(o=>o.svg).join("")}
@@ -456,7 +516,8 @@ function sueloLugar(L){const [c,r]=L.pos,x=bx(c),y=by(r);let g=`<rect x="${x}" y
   return g}
 function objetoLugar(L){const [c,r]=L.pos,x=bx(c),y=by(r);let g="";
   if(L.kind==="casas"){g=casitas(x+22,y+14,["#c92a2a","#5c7cfa","#2f9e44"])+casitas(x+22,y+78,["#e8590c","#f59f00","#ae3ec9"]);}
-  else if(L.kind==="colegio"){g=caja(x+20,y+16,150,84,40,"#1971c2");const t=proj(x+30,y+24,40);g+=`<line x1="${t[0]}" y1="${t[1]}" x2="${t[0]}" y2="${t[1]-34}" stroke="#495057" stroke-width="3"/><rect x="${t[0]}" y="${t[1]-34}" width="22" height="5" fill="#1c7ed6"/><rect x="${t[0]}" y="${t[1]-29}" width="22" height="5" fill="#fff"/><rect x="${t[0]}" y="${t[1]-24}" width="22" height="6" fill="#e03131"/>`;}
+  else if(L.kind==="colegio"){g=caja(x+20,y+16,150,60,40,"#1971c2")+(()=>{const f=ladoFrente(x+20,y+16,150,60);return rotulo(x+20,y+16,150,60,f,40,"CTP MERCEDES NORTE","#1971c2")+enCara(x+20,y+16,150,60,f,.42,.58,0,20,"#495057")})();
+    [[x+40,y+86],[x+150,y+86],[x+40,y+138],[x+150,y+138]].forEach(([X,Y])=>{const p0=proj(X,Y),p1=proj(X,Y,26);g+=`<line x1="${p0[0]}" y1="${p0[1]}" x2="${p1[0]}" y2="${p1[1]}" stroke="#adb5bd" stroke-width="3"/>`});g+=techoDosAguas(x+36,y+82,118,60,26,12,"#4dabf7");const t=proj(x+30,y+24,40);g+=`<line x1="${t[0]}" y1="${t[1]}" x2="${t[0]}" y2="${t[1]-34}" stroke="#495057" stroke-width="3"/><rect x="${t[0]}" y="${t[1]-34}" width="22" height="5" fill="#1c7ed6"/><rect x="${t[0]}" y="${t[1]-29}" width="22" height="5" fill="#fff"/><rect x="${t[0]}" y="${t[1]-24}" width="22" height="6" fill="#e03131"/>`;}
   else if(L.kind==="hospital"){g=caja(x+28,y+20,116,98,64,"#e9ecef");const [tx,ty]=proj(x+86,y+69,64);g+=`<rect x="${tx-6}" y="${ty-16}" width="12" height="32" fill="#e03131"/><rect x="${tx-16}" y="${ty-6}" width="32" height="12" fill="#e03131"/>`;}
   else if(L.kind==="buses"){g=caja(x+20,y+16,150,34,26,"#5c7cfa")+caja(x+34,y+84,26,60,14,"#fab005")+caja(x+106,y+84,26,60,14,"#fab005");}
   else if(L.kind==="cancha"){g=caja(x+30,y+BH-10,130,8,10,"#adb5bd");}
@@ -511,6 +572,12 @@ function calles(){
   return g;
 }
 const FAROLES=()=>{const L=[];for(let c=0;c<=COLS;c++)for(let r=0;r<=FILAS;r++)if((c+r)%2===0)L.push([RD/2+c*(BW+RD)+22,RD/2+r*(BH+RD)+22]);return L};
+function mobiliario(){const L=[];for(let c=0;c<=COLS;c++)for(let r=0;r<=FILAS;r++){const X=RD/2+c*(BW+RD),Y=RD/2+r*(BH+RD),k=(c*3+r*5)%4;
+    if((c+r)%2===1){const [px,py]=proj(X-22,Y-22);L.push({d:prof(X-22,Y-22),svg:`<line x1="${px}" y1="${py}" x2="${px}" y2="${py-30}" stroke="#495057" stroke-width="3"/><rect x="${px-5}" y="${py-46}" width="10" height="20" rx="3" fill="#212529"/><circle cx="${px}" cy="${py-41}" r="2.6" class="sem-r ${k%2?"fase2":""}" fill="#fa5252"/><circle cx="${px}" cy="${py-36}" r="2.6" fill="#fab005" opacity=".35"/><circle cx="${px}" cy="${py-31}" r="2.6" class="sem-v ${k%2?"fase2":""}" fill="#40c057"/>`})}
+    if(k===0&&c<COLS&&r<FILAS){const [px,py]=proj(X+22,Y-24);L.push({d:prof(X+22,Y-24),svg:`<rect x="${px-3}" y="${py-10}" width="6" height="10" rx="2" fill="#e03131"/><rect x="${px-5}" y="${py-7}" width="10" height="2.5" rx="1" fill="#c92a2a"/>`})}
+    if(k===2&&c>0){const [px,py]=proj(X-24,Y+22);L.push({d:prof(X-24,Y+22),svg:`<rect x="${px-4}" y="${py-11}" width="8" height="11" rx="2" fill="#2f9e44"/><rect x="${px-5}" y="${py-12}" width="10" height="2.5" rx="1" fill="#2b8a3e"/>`})}
+    if(k===3&&r>0){const [px,py]=proj(X+24,Y+24);L.push({d:prof(X+24,Y+24),svg:`<polygon points="${px-10},${py-6} ${px+6},${py-12} ${px+10},${py-10} ${px-6},${py-4}" fill="#a0522d"/><line x1="${px-8}" y1="${py-5}" x2="${px-8}" y2="${py}" stroke="#495057" stroke-width="2"/><line x1="${px+8}" y1="${py-11}" x2="${px+8}" y2="${py-6}" stroke="#495057" stroke-width="2"/>`})}}
+  return L}
 function farolesSuelo(){return NOCHE?FAROLES().map(([x,y])=>`<circle cx="${x}" cy="${y}" r="46" fill="url(#charco)"/>`).join(""):""}
 function farolesObj(){return FAROLES().map(([x,y])=>{const [px,py]=proj(x,y);return {d:prof(x,y),svg:`<line x1="${px}" y1="${py}" x2="${px}" y2="${py-34}" stroke="${NOCHE?"#5b6378":"#495057"}" stroke-width="3"/><path d="M ${px} ${py-34} q 6 -6 12 -2" stroke="${NOCHE?"#5b6378":"#495057"}" stroke-width="3" fill="none"/>
   ${NOCHE?`<circle cx="${px+12}" cy="${py-34}" r="14" fill="url(#halo)"/><circle cx="${px+12}" cy="${py-34}" r="4" fill="#fff4c2"/>`:`<circle cx="${px+12}" cy="${py-34}" r="3.5" fill="#f1f3f5"/>`}`}})}
@@ -575,12 +642,13 @@ function mapaHTML(){
   const minis=es.filter(e=>MINI[e.id]).map(e=>miniComercio(e.id)),parque=plazaObjetos();
   ZONAS=[...minis,...parque].filter(o=>o.zona).map(o=>o.zona).concat(LUGARES.map(zonaLugar));
   const objetos=[...es.map(lote),...parque,...minis,...LUGARES.map(objetoLugar),...es.flatMap(e=>{const [c,r]=MAPA[e.id],x=bx(c),y=by(r);return [arbol(x+14,y+14,9),arbol(x+BW-14,y+16,8)]}),
-    ...LUGARES.filter(L=>L.kind!=="buses").flatMap(L=>{const [c,r]=L.pos,x=bx(c),y=by(r);return [arbol(x+12,y+BH-14,8),arbol(x+BW-12,y+BH-14,8)]}),...farolesObj()].sort((p,q)=>p.d-q.d).map(o=>({d:o.d,svg:deNoche(o.svg)}));
+    ...LUGARES.filter(L=>L.kind!=="buses").flatMap(L=>{const [c,r]=L.pos,x=bx(c),y=by(r);return [arbol(x+12,y+BH-14,8),arbol(x+BW-12,y+BH-14,8)]}),...farolesObj(),...mobiliario()].sort((p,q)=>p.d-q.d).map(o=>({d:o.d,svg:deNoche(o.svg)}));
   return `<svg class="mapa" viewBox="${VB.join(" ")}" role="group" aria-label="Mapa de la ciudad en vista isométrica: camine con las flechas o toque un edificio para abrir la empresa" font-family="Inter, system-ui, sans-serif">
     <defs>${NOCHE?`<linearGradient id="cielo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#070b26"/><stop offset=".55" stop-color="#1d1d5c"/><stop offset="1" stop-color="#4b2f7d"/></linearGradient>
       <radialGradient id="sol" cx="78%" cy="6%" r="80%"><stop offset="0" stop-color="#8f7cff" stop-opacity=".22"/><stop offset=".5" stop-color="#5b4bd6" stop-opacity=".08"/><stop offset="1" stop-color="#5b4bd6" stop-opacity="0"/></radialGradient>`
       :`<linearGradient id="cielo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8ccaf2"/><stop offset=".6" stop-color="#cfe9fb"/><stop offset="1" stop-color="#ffe8c7"/></linearGradient>
       <radialGradient id="sol" cx="22%" cy="8%" r="75%"><stop offset="0" stop-color="#ffd9a0" stop-opacity=".38"/><stop offset=".45" stop-color="#ffc078" stop-opacity=".12"/><stop offset="1" stop-color="#ffc078" stop-opacity="0"/></radialGradient>`}
+      <linearGradient id="cartelera" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f06595"/><stop offset=".5" stop-color="#7950f2"/><stop offset="1" stop-color="#15aabf"/></linearGradient>
       <radialGradient id="charco"><stop offset="0" stop-color="#ffc861" stop-opacity=".55"/><stop offset=".5" stop-color="#ffb347" stop-opacity=".18"/><stop offset="1" stop-color="#ffb347" stop-opacity="0"/></radialGradient>
       <radialGradient id="halo"><stop offset="0" stop-color="#fff1b8" stop-opacity=".95"/><stop offset=".4" stop-color="#ffd166" stop-opacity=".45"/><stop offset="1" stop-color="#ffd166" stop-opacity="0"/></radialGradient>
       <linearGradient id="faro" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff3bf" stop-opacity=".7"/><stop offset="1" stop-color="#fff3bf" stop-opacity="0"/></linearGradient>
