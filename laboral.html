@@ -304,11 +304,11 @@ function jugar(mi){
 // Motor de cada misión. modo: "libre" (juego), "diaria" (práctica del profe, con
 // pistas) o "evaluativa" (trabajo cotidiano: una sola respuesta por paso, sin pistas).
 function jugarMision(m,ctx){
-  const st=ctx.st,mi=ctx.mi,EVAL=ctx.modo==="evaluativa";let intentos=0,resuelto=false,tries=[];
+  const st=ctx.st,mi=ctx.mi,EVAL=ctx.modo==="evaluativa"||ctx.modo==="examen",EXAM=ctx.modo==="examen";let intentos=0,resuelto=false,tries=[];
   const pinta=()=>{
     const p=m.pasos[st.paso];if(!p)return fin();
     intentos=0;tries=[];resuelto=p.k==="intro";
-    $("#app").innerHTML=`<div class="actions" style="margin:0 0 12px"><button class="sec" onclick="irA('${ctx.back}')">← Volver</button><span class="chip">${m.ic} ${ctx.titulo}</span>${EVAL?'<span class="chip" style="color:var(--amber)">📝 Trabajo cotidiano · una sola respuesta por paso</span>':""}</div>
+    $("#app").innerHTML=`<div class="actions" style="margin:0 0 12px"><button class="sec" onclick="irA('${ctx.back}')">← Volver</button><span class="chip">${m.ic} ${ctx.titulo}</span>${EVAL?`<span class="chip" style="color:var(--amber)">${EXAM?"🎯 Práctica de examen":"📝 Trabajo cotidiano"} · una sola respuesta por paso</span>`:""}</div>
     <div class="scene"><div class="avatar"><div class="face" aria-hidden="true">${m.pj.f}</div><div><b>${m.pj.n}</b><small>${m.pj.r}</small></div></div>
     <div class="card bubble"><div class="stepbar" aria-hidden="true">${m.pasos.map((_,i)=>`<i class="${i<=st.paso?"on":""}"></i>`).join("")}</div>
       <div class="kicker">${p.k==="intro"?"Historia":p.k==="num"?"Calcula":p.k==="tf"?"Verdadero o falso":"Decide"} · ${st.paso+1}/${m.pasos.length}</div>
@@ -339,7 +339,7 @@ function jugarMision(m,ctx){
   const leerNum=v=>{let s=String(v).replace(/[₡\s]/g,"");if(/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s))s=s.replace(/\./g,"").replace(",",".");else if(/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(s))s=s.replace(/,/g,"");else s=s.replace(",",".");return Number(s)};
   const activar=p=>{
     if(EVAL){
-      const lista=()=>{resuelto=true;$("#sig").disabled=false;$("#sig").focus();sfx("clic");fb("tip","📌 Respuesta registrada. Tu profe verá el resultado cuando entregues el trabajo.","Respuesta registrada.")};
+      const lista=()=>{resuelto=true;$("#sig").disabled=false;$("#sig").focus();sfx("clic");fb("tip",EXAM?"📌 Respuesta registrada. Verás tu resultado y la solución al final.":"📌 Respuesta registrada. Tu profe verá el resultado cuando entregues el trabajo.","Respuesta registrada.")};
       if(p.k==="mc"||p.k==="tf")document.querySelectorAll("#zona .opt").forEach(b=>b.onclick=()=>{if(resuelto)return;
         const v=p.k==="mc"?+b.dataset.o:b.dataset.tf==="1",ok=p.k==="mc"?v===p.r:v===p.r;b.style.borderColor="var(--amber)";b.style.background="rgba(255,210,122,.12)";
         document.querySelectorAll("#zona .opt").forEach(x=>x.disabled=true);registrar({v,ok});lista()});
@@ -457,6 +457,104 @@ const PAQ_LAB=[
   T.mc("Si a Esteban lo hubieran despedido <b>con justa causa</b>, ¿qué le pagarían?",["Todo igual","Solo aguinaldo y vacaciones proporcionales","Solo cesantía","Preaviso y cesantía"],1,"caso","Sin responsabilidad patronal solo corresponden aguinaldo y vacaciones proporcionales.","MTSS · Compendio de dudas")]}
 ];
 
+// ═══ Prácticas de examen (sin nota): una respuesta por pregunta, como en el examen;
+// al final ve su resultado por tipo de pregunta y la solución con sus respuestas. ═══
+const PAQ_EXA=[
+ {tipo:"examen",titulo:"Práctica de examen 1 · Contrato, jornada y salario",ic:"🎯",pj:{n:"Valeria",r:"Dependiente en una farmacia (pago mensual)",f:"👩🏻‍⚕️"},desc:"Contrato de trabajo, período de prueba, tipos de jornada, salario diario y por hora, horas extra y descanso semanal.",pasos:[
+  T.intro("¡Hola! Soy Valeria y trabajo en una farmacia. Esta es una <b>práctica de examen</b>: cada pregunta se responde <b>una sola vez</b>, sin pistas, como en el examen. Al final verás tu resultado y la solución."),
+  T.mc("¿Cuáles son los tres elementos que hacen que exista un contrato de trabajo?",["Firma, sello y fecha","Prestación personal del servicio, salario y subordinación","Horario, uniforme y gafete","Título, experiencia y recomendación"],1,"concepto","Prestación personal del servicio, salario y dependencia o subordinación jurídica.","Código de Trabajo, art. 18"),
+  T.tf("Verdadero o falso: el contrato de trabajo oral tiene los mismos derechos y obligaciones que el escrito.",true,"concepto","Verdadero. La ley permite el contrato oral.","MTSS · Manual básico"),
+  T.mc("Un diseñador hace logos para varias empresas, sin horario ni jefe, y cobra por cada trabajo. ¿Qué tipo de relación es?",["Contrato de trabajo por tiempo indefinido","Contrato por servicios profesionales: no hay subordinación","Contrato a plazo fijo","Contrato por obra determinada"],1,"caso","Sin subordinación jurídica (dirección, horario, órdenes) no hay contrato de trabajo.","MTSS · Manual básico"),
+  T.mc("¿Cuánto dura el período de prueba?",["El primer mes","Los primeros 3 meses","Los primeros 6 meses","El primer año"],1,"concepto","Durante los primeros tres meses no hay obligación de dar preaviso: es el período de prueba.","MTSS · Preaviso y cesantía"),
+  T.mc("A Valeria la contrataron a plazo fijo por 6 meses, pero al vencer el plazo el puesto sigue siendo permanente. ¿Qué pasa con su contrato?",["Termina automáticamente","Se tiene como contrato por tiempo indefinido","Pasa a ser por servicios profesionales","Debe firmar uno nuevo cada mes"],1,"caso","Si subsisten las causas o el trabajo es permanente, se tiene como contrato por tiempo indefinido.","Código de Trabajo, art. 26"),
+  T.mc("¿Cuál es el máximo de la jornada ordinaria <b>diurna</b>?",["6 horas diarias y 36 semanales","7 horas diarias y 42 semanales","8 horas diarias y 48 semanales","10 horas diarias y 60 semanales"],2,"concepto","La jornada ordinaria diurna no puede ser mayor de ocho horas diarias ni de cuarenta y ocho semanales.","Código de Trabajo, art. 136"),
+  T.mc("¿Cuál es el máximo de la jornada ordinaria <b>nocturna</b>?",["6 horas diarias y 36 semanales","7 horas diarias y 42 semanales","8 horas diarias y 48 semanales","12 horas diarias"],0,"concepto","La jornada nocturna no puede exceder de seis horas diarias ni de treinta y seis semanales.","Código de Trabajo, art. 136"),
+  T.mc("¿Cuál es el máximo de la jornada ordinaria <b>mixta</b>?",["6 horas diarias","7 horas diarias y 42 semanales","8 horas diarias","9 horas diarias"],1,"concepto","La jornada mixta (parte de día y parte de noche) no puede pasar de siete horas diarias ni de cuarenta y dos semanales.","Código de Trabajo, art. 138"),
+  T.tf("Verdadero o falso: la jornada ordinaria más las horas extra no pueden pasar de 12 horas en un día.",true,"concepto","Verdadero. Salvo siniestro o peligro inminente, la suma no puede exceder de doce horas.","Código de Trabajo, art. 140"),
+  T.num("Valeria gana ₡450 000 por mes. ¿Cuál es su <b>salario diario</b>?",15000,"calculo",{datos:["Pago mensual: ÷ 30"],sol:"₡450 000 ÷ 30 = ₡15 000"}),
+  T.num("Trabaja jornada diurna de 8 horas. ¿Cuánto vale su <b>hora ordinaria</b>?",1875,"calculo",{datos:["₡15 000 ÷ 8 horas"],sol:"₡1 875"}),
+  T.num("Las horas extra se pagan un 50 % más. ¿Cuánto vale una <b>hora extra</b> de Valeria?",2812.5,"calculo",{datos:["₡1 875 × 1,5"],sol:"₡2 812,50"}),
+  T.num("Esta quincena hizo <b>6 horas extra</b>. ¿Cuánto debe recibir por ellas?",16875,"calculo",{datos:["6 × ₡2 812,50"],sol:"₡16 875"}),
+  T.mc("¿Cada cuánto como máximo se le debe pagar el salario a una persona que hace trabajo manual?",["Cada semana sin excepción","Cada quincena como máximo","Cada mes","Cuando el patrono decida"],1,"concepto","El plazo de pago nunca puede ser mayor de una quincena para trabajadores manuales ni de un mes para trabajadores intelectuales y servidores domésticos.","Código de Trabajo, art. 168"),
+  T.tf("Verdadero o falso: después de seis días de trabajo continuo, Valeria tiene derecho a un día de descanso absoluto.",true,"caso","Verdadero. Todo trabajador tiene derecho a un día de descanso absoluto después de cada semana o de cada seis días de trabajo continuo.","Código de Trabajo, art. 152"),
+  T.num("La farmacia tiene <b>3 trabajadores</b>. Si Valeria tuviera que probar su contrato oral con compañeros, ¿cuántos testigos necesita?",2,"calculo",{u:"testigos",sol:"Con un patrono de cuatro trabajadores o menos bastan 2 testigos."})]},
+ {tipo:"examen",titulo:"Práctica de examen 2 · Aguinaldo y vacaciones",ic:"🎯",pj:{n:"Mauricio",r:"Bodeguero en un almacén (pago mensual)",f:"👨🏽‍🏭"},desc:"Plazo y período del aguinaldo, rebajos, aguinaldo completo y proporcional, días y pago de vacaciones, vacaciones proporcionales y reglas de disfrute.",pasos:[
+  T.intro("Soy Mauricio, bodeguero. Esta <b>práctica de examen</b> repasa el aguinaldo y las vacaciones. Una sola respuesta por pregunta; al final ves tu resultado y la solución."),
+  T.mc("¿Hasta cuándo tiene plazo el patrono para pagar el aguinaldo?",["Hasta el 31 de diciembre","Dentro de los primeros 20 días de diciembre","Hasta el 30 de noviembre","Hasta el 15 de enero"],1,"concepto","Dentro de los primeros veinte días de diciembre.","Ley 2412"),
+  T.mc("¿Qué período de salarios se suma para el aguinaldo?",["Del 1 de enero al 31 de diciembre","Del 1 de diciembre del año anterior al 30 de noviembre","Los últimos 6 meses","Solo el salario de noviembre"],1,"concepto","Salarios ordinarios y extraordinarios del 1 de diciembre al 30 de noviembre.","Ley 2412"),
+  T.tf("Verdadero o falso: al aguinaldo se le rebajan las cargas sociales de la CCSS.",false,"concepto","Falso. No se le aplican cargas sociales.","Ley 2412"),
+  T.mc("¿Cuál es el <b>único</b> rebajo que se le puede hacer al aguinaldo?",["El impuesto de renta","La pensión alimentaria","El Banco Popular","Los adelantos de salario"],1,"concepto","Solo se le puede rebajar la pensión alimentaria.","Ley 2412"),
+  T.num("Estos son los salarios de Mauricio del período. ¿Cuánto suman?",5040000,"calculo",{tabla:[["Diciembre a febrero (₡400 000 × 3)",1200000],["Marzo a agosto (₡420 000 × 6)",2520000],["Septiembre a noviembre (₡440 000 × 3)",1320000]],sol:"1 200 000 + 2 520 000 + 1 320 000 = ₡5 040 000"}),
+  T.num("¿Cuánto es el <b>aguinaldo</b> de Mauricio?",420000,"calculo",{datos:["Total ₡5 040 000 ÷ 12"],sol:"₡420 000"}),
+  T.num("Una compañera ganó ₡300 000 todos los meses del período y además ₡240 000 en comisiones. ¿Cuánto es su <b>aguinaldo</b>?",320000,"calculo",{datos:["12 × ₡300 000 + ₡240 000","÷ 12"],sol:"₡3 840 000 ÷ 12 = ₡320 000"}),
+  T.num("Un compañero entró el <b>1 de agosto</b> y gana ₡350 000 por mes. ¿Cuánto aguinaldo proporcional le toca al 30 de noviembre?",1400000/12,"calculo",{datos:["Agosto a noviembre: 4 meses","Se divide entre 12, no entre 4"],tol:1,sol:"₡1 400 000 ÷ 12 = ₡116 666,67"}),
+  T.tf("Verdadero o falso: si Mauricio renuncia en octubre, pierde el aguinaldo.",false,"caso","Falso. Recibe el aguinaldo proporcional a lo que ganó desde el 1 de diciembre.","Ley 2412"),
+  T.mc("¿Cuántas vacaciones se ganan como mínimo y por cuánto tiempo de trabajo?",["1 semana por cada 6 meses","2 semanas por cada 50 semanas de labores continuas","1 mes por año","15 días por cada 12 meses"],1,"concepto","Dos semanas por cada cincuenta semanas de labores continuas con el mismo patrono.","Código de Trabajo, art. 153"),
+  T.mc("Con pago mensual, ¿cuántos días de vacaciones se pagan?",["12 días","14 días","15 días","10 días"],1,"concepto","Con pago mensual o quincenal son 14 días; con pago semanal, 12.","MTSS · Vacaciones"),
+  T.num("El promedio mensual de Mauricio de las últimas 50 semanas es ₡510 000. ¿Cuál es su <b>salario diario</b> para vacaciones?",17000,"calculo",{datos:["₡510 000 ÷ 30"],sol:"₡17 000"}),
+  T.num("¿Cuánto le pagan por sus <b>14 días</b> de vacaciones?",238000,"calculo",{datos:["₡17 000 × 14"],sol:"₡238 000"}),
+  T.num("A un operario de fábrica le pagan por semana ₡84 000. ¿Cuánto le pagan por sus <b>12 días</b> de vacaciones?",168000,"calculo",{datos:["Pago semanal: ÷ 6 × 12"],sol:"₡84 000 ÷ 6 = ₡14 000 · × 12 = ₡168 000"}),
+  T.num("Una compañera renunció a los <b>5 meses</b>. Su salario diario es ₡14 000. ¿Cuánto le pagan de vacaciones proporcionales?",70000,"calculo",{datos:["1 día por cada mes trabajado"],sol:"5 × ₡14 000 = ₡70 000"}),
+  T.mc("¿En cuántas partes se pueden dividir las vacaciones como máximo?",["En las que el trabajador quiera","En dos, si lo acuerdan patrono y trabajador","En cuatro","No se pueden dividir"],1,"concepto","Por excepción se pueden dividir en dos fracciones como máximo, por acuerdo de las partes.","MTSS · Vacaciones"),
+  T.tf("Verdadero o falso: el patrono puede pagar las vacaciones en dinero, en lugar del descanso, cuando él quiera.",false,"caso","Falso. Son incompensables, salvo al terminar la relación laboral y otras excepciones de ley.","Código de Trabajo, art. 156")]},
+ {tipo:"examen",titulo:"Práctica de examen 3 · Preaviso, cesantía y terminación",ic:"🎯",pj:{n:"Karina",r:"Secretaria en una empresa constructora (pago mensual)",f:"👩🏽‍💼"},desc:"Preaviso según la antigüedad, promedio de 6 meses, tabla de cesantía, tope de 8 años, causas de despido y de renuncia con responsabilidad patronal.",pasos:[
+  T.intro("Soy Karina. Trabajé <b>4 años y 3 meses</b> con contrato por tiempo indefinido y me despidieron <b>sin justa causa y sin preaviso</b>. Una sola respuesta por pregunta; al final ves tu resultado y la solución."),
+  T.mc("¿Qué es el preaviso?",["Una multa por despedir","El aviso previo de quien termina la relación sin justa causa","El pago de las vacaciones","Una carta de recomendación"],1,"concepto","Es el aviso que da quien termina un contrato por tiempo indefinido sin justa causa: el trabajador si renuncia o el patrono si despide.","Código de Trabajo, art. 28"),
+  T.mc("Con 4 años y 3 meses, ¿cuánto preaviso le correspondía a Karina?",["1 semana","15 días","1 mes","Nada"],2,"caso","Después de un año de trabajo continuo corresponde un mes de preaviso.","Código de Trabajo, art. 28"),
+  T.num("¿Cuál es su <b>promedio mensual</b> de los últimos 6 meses?",560000,"calculo",{tabla:[["Mes 1",540000],["Mes 2",540000],["Mes 3",560000],["Mes 4",560000],["Mes 5",580000],["Mes 6",580000]],sol:"₡3 360 000 ÷ 6 = ₡560 000"}),
+  T.num("¿Cuál es su <b>salario diario</b>?",560000/30,"calculo",{datos:["₡560 000 ÷ 30"],tol:1,sol:"₡18 666,67"}),
+  T.num("¿Cuánto se le debe pagar de <b>preaviso</b>? (1 mes = 30 días)",560000,"calculo",{datos:["₡18 666,67 × 30"],tol:2,sol:"₡560 000"}),
+  T.mc("Según la tabla del art. 29, con 4 años de antigüedad, ¿cuántos días por año le corresponden?",["20","20,5","21","22"],2,"concepto","La tabla da 21 días por año cuando la antigüedad es de 4 años. La fracción de 3 meses no cuenta porque no supera seis meses.","Código de Trabajo, art. 29"),
+  T.num("¿Cuántos <b>días de cesantía</b> le corresponden en total?",84,"calculo",{u:"días",tol:.01,sol:"4 × 21 = 84 días"}),
+  T.num("¿Cuánto es la <b>cesantía</b> de Karina?",1568000,"calculo",{datos:["84 días × ₡18 666,67"],tol:3,sol:"₡1 568 000"}),
+  T.mc("¿Cuántos años como máximo se indemnizan con cesantía?",["5 años","8 años","10 años","Todos"],1,"concepto","Nunca se indemnizan más de los últimos ocho años de relación laboral.","Código de Trabajo, art. 29"),
+  T.mc("A un compañero lo despiden sin justa causa a los <b>4 meses</b>. ¿Cuántos días de cesantía le tocan?",["Ninguno","7 días","14 días","19,5 días"],1,"caso","De 3 a 6 meses: 7 días · de 6 meses a 1 año: 14 días.","Código de Trabajo, art. 29"),
+  T.num("Otra compañera tenía <b>10 meses</b> y un salario diario de ₡12 000 cuando la despidieron sin justa causa. ¿Cuánto es su <b>cesantía</b>?",168000,"calculo",{datos:["Más de 6 meses y menos de 1 año: 14 días"],sol:"14 × ₡12 000 = ₡168 000"}),
+  T.mc("Si Karina hubiera <b>renunciado</b> sin dar el preaviso, ¿qué puede hacer el patrono?",["Rebajarlo de sus vacaciones","Reclamarlo en vía judicial dentro de los 30 días siguientes","Quitarle el aguinaldo","Nada"],1,"caso","No lo puede rebajar de las prestaciones: solo reclamarlo judicialmente en los 30 días siguientes.","MTSS · Preaviso y cesantía"),
+  T.tf("Verdadero o falso: si despiden a una persona por faltar dos días seguidos sin permiso ni justificación, no le corresponde cesantía.",true,"caso","Verdadero. Es una causa de despido sin responsabilidad patronal (art. 81): no hay preaviso ni cesantía.","Código de Trabajo, art. 81"),
+  T.mc("¿Cuál de estas permite al trabajador dar por terminado el contrato <b>con responsabilidad patronal</b>?",["Querer cambiar de trabajo","Que el patrono no le pague el salario en la fecha acordada","Mudarse de casa","Estar de vacaciones"],1,"concepto","La falta de pago del salario completo en la fecha y lugar acordados es causa del art. 83.","Código de Trabajo, art. 83"),
+  T.tf("Verdadero o falso: a la cesantía no se le rebajan cargas sociales.",true,"concepto","Verdadero.","MTSS · Preaviso y cesantía"),
+  T.mc("Durante el plazo del preaviso, ¿qué derecho tiene la persona trabajadora?",["Salir 2 horas antes cada día","Un día libre pagado por semana para buscar trabajo","No trabajar más","Cobrar doble"],1,"concepto","Un día de asueto por semana con goce de salario, de común acuerdo con el patrono.","Código de Trabajo, art. 28"),
+  T.tf("Verdadero o falso: al terminar el contrato, el patrono debe darle a Karina un certificado de conclusión si ella lo pide.",true,"concepto","Verdadero, cualquiera que sea la causa de terminación.","Código de Trabajo, art. 35")]},
+ {tipo:"examen",titulo:"Práctica de examen 4 · Horas extra, feriados y derechos especiales",ic:"🎯",pj:{n:"Diego",r:"Cocinero en un restaurante (pago mensual, jornada diurna)",f:"👨🏻‍🍳"},desc:"Cálculo de horas extra, límite de 12 horas, feriados de pago obligatorio, maternidad y lactancia, trabajo de personas adolescentes y jornada nocturna.",pasos:[
+  T.intro("Soy Diego, cocinero. Gano ₡480 000 al mes en jornada diurna de 8 horas. Esta <b>práctica de examen</b> mezcla cálculos y derechos especiales. Una sola respuesta por pregunta."),
+  T.mc("¿Cómo se pagan las horas extra?",["Igual que las ordinarias","Con un 50 % más del salario (tiempo y medio)","Con el doble","No se pagan, se compensan con tiempo"],1,"concepto","El trabajo en tiempo extraordinario se paga con un cincuenta por ciento más del salario.","Código de Trabajo, art. 139"),
+  T.num("¿Cuál es el <b>salario diario</b> de Diego?",16000,"calculo",{datos:["₡480 000 ÷ 30"],sol:"₡16 000"}),
+  T.num("¿Cuánto vale su <b>hora ordinaria</b>?",2000,"calculo",{datos:["₡16 000 ÷ 8 horas"],sol:"₡2 000"}),
+  T.num("¿Cuánto vale una <b>hora extra</b>?",3000,"calculo",{datos:["₡2 000 × 1,5"],sol:"₡3 000"}),
+  T.num("Este mes trabajó <b>10 horas extra</b>. ¿Cuánto debe recibir por ellas?",30000,"calculo",{datos:["10 × ₡3 000"],sol:"₡30 000"}),
+  T.mc("Un día le piden a Diego trabajar sus 8 horas ordinarias y <b>5 horas extra</b>. ¿Es permitido?",["Sí, si se las pagan","No: la jornada ordinaria más la extraordinaria no puede pasar de 12 horas","Sí, una vez por semana","Solo con permiso de la CCSS"],1,"caso","8 + 5 = 13 horas: supera el límite de 12 horas diarias.","Código de Trabajo, art. 140"),
+  T.mc("Si Diego trabaja en un feriado de pago obligatorio, ¿cómo se le paga ese día?",["Normal","Doble","Con un 25 % más","No se le paga"],1,"concepto","Si se trabaja un feriado de pago obligatorio, ese día se paga doble.","Código de Trabajo, arts. 148 y 152"),
+  T.num("Diego trabajó el feriado del 25 de julio. ¿Cuánto debe recibir <b>en total</b> por ese día?",32000,"calculo",{datos:["Salario diario ₡16 000","Pago doble"],sol:"₡16 000 × 2 = ₡32 000"}),
+  T.mc("¿Cuál de estas fechas es un <b>feriado de pago obligatorio</b> en Costa Rica?",["14 de febrero","25 de julio, Anexión del Partido de Nicoya","Día del Padre","2 de noviembre"],1,"concepto","El 25 de julio está entre los feriados de pago obligatorio del art. 148.","Código de Trabajo, art. 148"),
+  T.mc("¿Cuánto dura la licencia por maternidad?",["1 mes","1 mes antes y 3 meses después del parto","6 semanas después del parto","6 meses"],1,"concepto","La trabajadora embarazada tiene derecho a una licencia de un mes antes y tres meses después del parto.","Código de Trabajo, art. 95"),
+  T.tf("Verdadero o falso: el pago de la licencia por maternidad lo cubren por partes iguales la CCSS y el patrono.",true,"concepto","Verdadero. La remuneración se paga por partes iguales entre la CCSS y el patrono.","Código de Trabajo, art. 95"),
+  T.mc("Durante la lactancia, ¿qué tiempo tiene la madre para alimentar a su bebé?",["Una hora al final del día","Quince minutos cada tres horas o media hora dos veces al día","No tiene tiempo especial","Solo el tiempo de almuerzo"],1,"concepto","Quince minutos cada tres horas o, si lo prefiere, media hora dos veces al día.","Código de Trabajo, art. 97"),
+  T.mc("Una compañera embarazada comete una falta. ¿Cómo la pueden despedir?",["Como a cualquier trabajador","Solo por falta grave y con autorización de la Dirección Nacional de Inspección de Trabajo","Nunca, bajo ninguna circunstancia","Con el permiso de su jefe directo"],1,"caso","Está protegida: solo por falta grave del art. 81 y tramitando antes la gestión ante la Dirección Nacional e Inspección General de Trabajo.","Código de Trabajo, art. 94"),
+  T.mc("¿Cuál es la edad mínima para trabajar en Costa Rica?",["12 años","15 años","16 años","18 años"],1,"concepto","Se prohíbe el trabajo de personas menores de quince años.","Código de la Niñez y la Adolescencia, art. 92"),
+  T.mc("El restaurante contrata a un muchacho de 16 años. ¿Cuál es su jornada máxima?",["8 horas diarias y 48 semanales","6 horas diarias y 36 semanales","10 horas diarias","4 horas diarias"],1,"caso","La jornada de las personas adolescentes no puede exceder de seis horas diarias ni de treinta y seis semanales.","Código de la Niñez y la Adolescencia, art. 95"),
+  T.tf("Verdadero o falso: el trabajo nocturno es el que se realiza entre las 7 de la noche y las 5 de la mañana.",true,"concepto","Verdadero. Trabajo diurno: entre las 5 a. m. y las 7 p. m.; nocturno: entre las 7 p. m. y las 5 a. m.","Código de Trabajo, art. 138")]},
+ {tipo:"examen",titulo:"Práctica de examen 5 · Examen integral: la liquidación de Gabriela",ic:"🎯",pj:{n:"Gabriela",r:"Administradora de una tienda (pago mensual)",f:"👩🏻‍💼"},desc:"Caso integral: derechos por tipo de terminación, preaviso, cesantía, vacaciones y aguinaldo proporcionales, total de la liquidación y plazos.",pasos:[
+  T.intro("Soy Gabriela. Entré a la tienda el <b>1 de junio de 2023</b> y me despidieron <b>sin justa causa el 31 de agosto de 2026</b>: <b>3 años y 3 meses</b>, sin preaviso. Ya disfruté mis vacaciones de los períodos completos. Arma mi liquidación: una sola respuesta por pregunta."),
+  T.mc("Por un despido sin justa causa, ¿qué le corresponde a Gabriela?",["Solo el aguinaldo","Preaviso, cesantía, vacaciones y aguinaldo proporcionales","Solo cesantía","Nada, porque la despidieron"],1,"caso","Con responsabilidad patronal corresponden preaviso, cesantía, vacaciones y aguinaldo proporcionales.","MTSS · Compendio de dudas"),
+  T.num("¿Cuál es su <b>promedio mensual</b> de los últimos 6 meses (marzo a agosto)?",620000,"calculo",{tabla:[["Marzo",600000],["Abril",600000],["Mayo",600000],["Junio",630000],["Julio",630000],["Agosto",660000]],sol:"₡3 720 000 ÷ 6 = ₡620 000"}),
+  T.num("¿Cuál es su <b>salario diario</b> para preaviso y cesantía?",620000/30,"calculo",{datos:["₡620 000 ÷ 30"],tol:1,sol:"₡20 666,67"}),
+  T.mc("Con 3 años y 3 meses, ¿cuánto preaviso le correspondía?",["1 semana","15 días","1 mes","Nada"],2,"caso","Más de un año de trabajo: un mes.","Código de Trabajo, art. 28"),
+  T.num("¿Cuánto es el <b>preaviso</b> (30 días)?",620000,"calculo",{tol:2,sol:"₡20 666,67 × 30 = ₡620 000"}),
+  T.mc("Según la tabla del art. 29, con 3 años de antigüedad, ¿cuántos días por año le corresponden?",["19,5","20","20,5","21"],2,"concepto","Año 3: 20,5 días por año. La fracción de 3 meses no cuenta.","Código de Trabajo, art. 29"),
+  T.num("¿Cuántos <b>días de cesantía</b> le corresponden?",61.5,"calculo",{u:"días",tol:.01,sol:"3 × 20,5 = 61,5 días"}),
+  T.num("¿Cuánto es su <b>cesantía</b>?",1271000,"calculo",{datos:["61,5 × ₡20 666,67"],tol:3,sol:"₡1 271 000"}),
+  T.num("<b>Vacaciones proporcionales:</b> desde que cumplió su último período (1 de junio) lleva 3 meses. Su salario diario para vacaciones es ₡20 000. ¿Cuánto se le paga?",60000,"calculo",{datos:["1 día por mes: 3 días"],sol:"3 × ₡20 000 = ₡60 000"}),
+  T.num("Para el aguinaldo: ¿cuánto ganó del 1 de diciembre al 31 de agosto?",5460000,"calculo",{tabla:[["Diciembre a febrero (₡580 000 × 3)",1740000],["Marzo a agosto",3720000]],sol:"1 740 000 + 3 720 000 = ₡5 460 000"}),
+  T.num("¿Cuánto es su <b>aguinaldo proporcional</b>?",455000,"calculo",{datos:["₡5 460 000 ÷ 12"],sol:"₡455 000"}),
+  T.num("¿Cuál es el <b>total</b> de la liquidación de Gabriela?",2406000,"calculo",{tabla:[["Preaviso",620000],["Cesantía",1271000],["Vacaciones proporcionales",60000],["Aguinaldo proporcional",455000]],tol:3,sol:"₡2 406 000"}),
+  T.mc("Si Gabriela hubiera <b>renunciado</b>, ¿qué le pagarían?",["Todo igual","Solo vacaciones y aguinaldo proporcionales","Cesantía y aguinaldo","Nada"],1,"caso","Al renunciar no hay preaviso ni cesantía a su favor; sí vacaciones y aguinaldo proporcionales.","MTSS · Compendio de dudas"),
+  T.num("En ese caso de renuncia, ¿cuánto recibiría en total?",515000,"calculo",{datos:["Vacaciones ₡60 000 + aguinaldo ₡455 000"],sol:"₡515 000"}),
+  T.mc("¿Cuándo debe la tienda pagarle la liquidación?",["En los próximos 3 meses","El mismo día en que termina la relación laboral","En diciembre","Cuando tenga dinero"],1,"concepto","Las prestaciones se liquidan el mismo día en que termina la relación laboral.","MTSS · Preaviso y cesantía"),
+  T.tf("Verdadero o falso: Gabriela tiene un año, desde que terminó la relación, para reclamar sus derechos.",true,"concepto","Verdadero. Los derechos laborales se pueden reclamar dentro del año siguiente a la terminación.","MTSS · Preaviso y cesantía"),
+  T.tf("Verdadero o falso: a su aguinaldo proporcional se le rebaja la CCSS.",false,"caso","Falso. Al aguinaldo solo se le puede rebajar la pensión alimentaria.","Ley 2412")]}
+];
+
 const ACT={lista:null,mats:[],mis:[],mias:{},nombres:{}};
 const escH=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 // ═══ Respuestas del juego libre (las 6 misiones del mapa) ═══
@@ -516,15 +614,15 @@ function hubHTML(){
   if(!DOC&&!L.length)return "";
   const fila=t=>{const C=t.contenido_actividad||{},n=(C.lab_pasos||[]).length,mi=ACT.mias[t.id],pr=progDe(t),hechos=Object.keys(pr.resp||{}).length,ev=C.lab_tipo==="evaluativa";
     const est=DOC?(t.habilitado===false?'<span class="chip" style="color:var(--mut)">⏸️ Cerrada</span>':'<span class="chip" style="color:var(--mint)">🟢 Abierta</span>')
-      :mi&&mi.completado?`<span class="chip" style="color:var(--mint)">✅ ${ev?"Entregado"+(mi.puntaje!=null?" · nota "+mi.puntaje+"/3":""):"Completada"}</span>`:hechos?`<span class="chip" style="color:var(--amber)">⏳ ${hechos} respuestas</span>`:'<span class="chip">🆕 Pendiente</span>';
+      :mi&&mi.completado?`<span class="chip" style="color:var(--mint)">✅ ${ev?"Entregado"+(mi.puntaje!=null?" · nota "+mi.puntaje+"/3":""):"Completada"+(C.lab_tipo==="examen"&&mi.porcentaje!=null?" · "+Math.round(mi.porcentaje)+" %":"")}</span>`:hechos?`<span class="chip" style="color:var(--amber)">⏳ ${hechos} respuestas</span>`:'<span class="chip">🆕 Pendiente</span>';
     return `<div class="actrow"><div style="flex:1;min-width:210px"><b>${C.lab_ic||""} ${escH(t.titulo)}</b><div style="color:var(--mut);font-size:.84rem">${n-1} pasos${DOC?" · "+escH(nomMat(C.materia_id)):""} · ${escH(C.lab_desc||"")}</div></div>${est}
       <div class="actions" style="margin:0">${ev&&DOC?`<button class="sec" data-insv="${t.id}">📋 Evaluación</button>`:""}<button ${DOC?'class="sec"':""} onclick="irA('#/a/${t.id}')">${DOC?"👁️ Ver y probar":mi&&mi.completado?"👁️ Ver":hechos?"▶ Seguir":"▶ Empezar"}</button>
       ${DOC?`<button class="${t.habilitado===false?"ok":"sec"}" data-hab="${t.id}">${t.habilitado===false?"▶ Abrir":"⏸️ Cerrar"}</button><button class="sec" data-ent="${t.id}">📥 Entregas</button>`:""}</div></div>`};
   const grupo=(k,et,d)=>{const G=L.filter(t=>((t.contenido_actividad||{}).lab_tipo||"evaluativa")===k);if(!DOC&&!G.length)return "";
     return `<h4 style="margin:14px 0 6px;color:var(--cyan)">${et} <small style="color:var(--mut);font-weight:600">· ${d}</small></h4>${G.map(fila).join("")||'<p class="sub" style="margin:0">Todavía no hay.</p>'}`};
-  return `<section class="card" style="margin-bottom:18px;border-color:rgba(122,240,255,.35)"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b style="font-size:1.15rem;margin-right:auto">📚 Actividades del profe</b>${DOC?`<button class="sec" id="verRL">👥 Respuestas del juego libre</button>`:""}${DOC&&!ACT.lista.length?`<button class="pink" id="crearPaq">✨ Crear 4 prácticas y 3 trabajos cotidianos</button>`:""}</div>
+  return `<section class="card" style="margin-bottom:18px;border-color:rgba(122,240,255,.35)"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b style="font-size:1.15rem;margin-right:auto">📚 Actividades del profe</b>${DOC?`<button class="sec" id="verRL">👥 Respuestas del juego libre</button>`:""}${DOC&&!ACT.lista.length?`<button class="pink" id="crearPaq">✨ Crear 4 prácticas y 3 trabajos cotidianos</button>`:""}${DOC&&!ACT.lista.some(t=>(t.contenido_actividad||{}).lab_tipo==="examen")?`<button class="pink" id="crearExa">🎯 Crear las 5 prácticas de examen</button>`:""}</div>
     <p class="sub" style="margin:6px 0 0;font-size:.9rem">${DOC?"Se crean cerradas: ábralas una por una con <b>▶ Abrir</b>. Los trabajos cotidianos tienen su indicador en la Rúbrica, muestran la evaluación en formato MEP antes de empezar y la nota se pone sola al entregar.":"Estas son las actividades que tu profe abrió. Las prácticas no llevan nota; los trabajos cotidianos sí."}</p>
-    ${grupo("diaria","🟢 Prácticas interactivas","sin nota: con pistas, narrador y XP")}${grupo("evaluativa","📝 Trabajos cotidianos","con nota en la Rúbrica: una sola respuesta por paso, sin pistas")}</section>`}
+    ${grupo("diaria","🟢 Prácticas interactivas","sin nota: con pistas, narrador y XP")}${grupo("examen","🎯 Prácticas de examen","sin nota: una respuesta por pregunta, como en el examen; resultado y solución al final")}${grupo("evaluativa","📝 Trabajos cotidianos","con nota en la Rúbrica: una sola respuesta por paso, sin pistas")}</section>`}
 function activarHub(){
   if(HAY_BD()&&!ACT.lista)cargarActs().then(()=>{if(!location.hash||location.hash==="#/"||location.hash==="#")mapa()});
   document.querySelectorAll("[data-hab]").forEach(b=>b.onclick=async()=>{const t=ACT.lista.find(x=>x.id===+b.dataset.hab);b.disabled=true;
@@ -533,7 +631,8 @@ function activarHub(){
   document.querySelectorAll("[data-ent]").forEach(b=>b.onclick=()=>verEntregas(ACT.lista.find(x=>x.id===+b.dataset.ent)));
   document.querySelectorAll("[data-insv]").forEach(b=>b.onclick=()=>verInstrumento(ACT.lista.find(x=>x.id===+b.dataset.insv)));
   const rl=$("#verRL");if(rl)rl.onclick=()=>verRespuestasLibre();
-  const cp=$("#crearPaq");if(cp)cp.onclick=()=>crearPaqueteLab(cp)}
+  const cp=$("#crearPaq");if(cp)cp.onclick=()=>crearPaqueteLab(cp);
+  const ce=$("#crearExa");if(ce)ce.onclick=()=>crearPaqueteLab(ce,null,PAQ_EXA)}
 async function crearIndicador(materiaId,desc,fecha,letraFija,nivelesTxt){
   const {data:ex}=await sb.from("indicadores").select("id,letra").eq("materia_id",materiaId).eq("categoria","Trabajo cotidiano");
   const us=new Set((ex||[]).map(e=>String(e.letra||"").trim().toUpperCase()));let i=0,letra="";
@@ -542,10 +641,10 @@ async function crearIndicador(materiaId,desc,fecha,letraFija,nivelesTxt){
   if(error||!data)throw new Error(error?error.message:"no se pudo crear el indicador");
   try{await sb.from("criterios_indicador").insert((nivelesTxt||[[0,"Sin evidencia","No realiza el trabajo o logra menos del 35 % de los criterios."],[1,"Inicial","Logra entre el 35 % y el 59 % de los conceptos, casos y cálculos."],[2,"Intermedio","Logra entre el 60 % y el 84 % de los conceptos, casos y cálculos."],[3,"Avanzado","Logra el 85 % o más de los conceptos, casos y cálculos."]]).map(([puntaje,nivel,descripcion])=>({indicador_id:data.id,puntaje,nivel,descripcion})))}catch(e){}
   return data}
-async function crearPaqueteLab(btn,materiaId){
+async function crearPaqueteLab(btn,materiaId,lista){lista=lista||PAQ_LAB;
   if(!materiaId){const ops=ACT.mats.map(m=>`${m.id} = ${m.nombre.trim()}${m.seccion?" · "+m.seccion:""}`).join("\n");const r=prompt("¿En qué materia se crean? Escriba el número:\n"+ops,String((ACT.mats.find(m=>/contable/i.test(m.nombre))||ACT.mats[0]||{}).id||""));if(!r)return;materiaId=Number(r)}
   if(btn)btn.disabled=true;const hoy=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10),ids=[];
-  try{for(const P of PAQ_LAB){const ev=P.tipo==="evaluativa";// Trabajo cotidiano: un indicador por criterio (conceptos, casos, cálculos): X1, X2, X3.
+  try{for(const P of lista){const ev=P.tipo==="evaluativa";// Trabajo cotidiano: un indicador por criterio (conceptos, casos, cálculos): X1, X2, X3.
     let ind=null,indsCrit=[];
     if(ev){const que=["las preguntas de concepto","los casos","los cálculos"],tema=P.desc.replace(/\.$/,"");
       const descs=[`Identifica los conceptos y las reglas del Código de Trabajo y del MTSS en ${que[0]} de «${P.titulo}» (${tema}).`,`Aplica la normativa laboral para decidir los derechos de la persona trabajadora en ${que[1]} de «${P.titulo}» (${tema}).`,`Calcula los montos y los días según los procedimientos del MTSS en ${que[2]} de «${P.titulo}» (${tema}).`];
@@ -557,7 +656,7 @@ async function crearPaqueteLab(btn,materiaId){
       P._indTxt=descs.map((d,k)=>`${base}${k+1}: ${d}`).join("\n")}
     const C={estrategia:ESTR,lab_tipo:P.tipo,...(indsCrit.length?{indicadores_criterio:indsCrit}:{}),materia_id:materiaId,lab_desc:P.desc,lab_ic:P.ic,lab_pj:P.pj,lab_pasos:P.pasos,
       criterios:ev?(P._crit||LAB_CRIT.map(c=>({...c,niveles:typeof tiraderaNivelesDe==="function"?tiraderaNivelesDe(c):undefined}))):[],
-      lab_instrumento:{componente:ev?"Trabajo cotidiano":"Práctica",tipo:"Escala de desempeño",subarea:"",unidad:"Legislación laboral: contratos, aguinaldo, vacaciones, preaviso y cesantía",resultado:"",indicador:P._indTxt||P.desc}};
+      lab_instrumento:{componente:ev?"Trabajo cotidiano":P.tipo==="examen"?"Práctica de examen (sin nota)":"Práctica",tipo:"Escala de desempeño",subarea:"",unidad:"Legislación laboral: contratos, aguinaldo, vacaciones, preaviso y cesantía",resultado:"",indicador:P._indTxt||P.desc}};
     const {data,error}=await sb.from("trabajos_cotidianos").insert({titulo:P.titulo,fecha:hoy,tipo_actividad:"rubrica_directa",habilitado:false,indicador_id:ind?ind.id:null,contenido_actividad:C}).select("id").maybeSingle();
     if(error||!data){for(const x of indsCrit)await sb.from("indicadores").delete().eq("id",x);throw new Error(error?error.message:"sin respuesta")}ids.push(data.id)}}
   catch(e){alert("No se pudo crear todo: "+(e.message||e))}
@@ -628,19 +727,19 @@ async function paginaAct(id,jugarYa){
   $("#app").innerHTML='<p class="sub">Cargando actividad…</p>';await cargarActs();
   let t=(ACT.lista||[]).find(x=>x.id===id);
   if(!t){$("#app").innerHTML='<p class="sub">No se encontró la actividad (entra desde la plataforma).</p><button onclick="irA(\'#/\')">← Mapa</button>';return}
-  const C=t.contenido_actividad||{},ev=C.lab_tipo==="evaluativa",M=misionDe(t),mi=ACT.mias[t.id];
+  const C=t.contenido_actividad||{},ev=C.lab_tipo==="evaluativa",ex=C.lab_tipo==="examen",M=misionDe(t),mi=ACT.mias[t.id];
   let prog=EST_ID?progDe(t):(ACT.prueba&&ACT.prueba.id===t.id?ACT.prueba.prog:(ACT.prueba={id:t.id,prog:{paso:0,resp:{}}}).prog);
   prog.resp=prog.resp||{};prog.fallos=prog.fallos||0;prog.paso=prog.paso||0;
   if(!DOC&&t.habilitado===false&&!(mi&&mi.completado)){$("#app").innerHTML=`<div class="card"><h3>${escH(t.titulo)}</h3><p>Esta actividad todavía no está abierta (o ya se cerró). Consulta con tu profe.</p><button onclick="irA('#/')">← Mapa</button></div>`;return}
   const entregado=!!(mi&&mi.completado);
   if(jugarYa&&!(entregado&&ev)){
-    if(prog.paso>=M.pasos.length&&!ev){prog.paso=0;}
-    jugarMision(M,{modo:ev?"evaluativa":"diaria",st:prog,titulo:t.titulo,back:"#/a/"+t.id,
+    if(prog.paso>=M.pasos.length&&!ev){prog.paso=0;if(ex){prog.resp={};prog.intento=(prog.intento||1)+1}}
+    jugarMision(M,{modo:ev?"evaluativa":ex?"examen":"diaria",st:prog,titulo:t.titulo,back:"#/a/"+t.id,
       onRes:(i,rec)=>{prog.resp[i]=rec;guardarProg(t,prog)},
       onAvance:async st=>{await guardarProg(t,st)},
       onFin:async st=>{
         if(!ev){const P=M.pasos.filter(p=>p.k!=="intro").length,prim=Object.values(st.resp).filter(r=>r.ok).length,pct=P?Math.round(100*prim/P):0;
-          await guardarProg(t,st,EST_ID?{completado:true,puntaje:null,porcentaje:pct}:null);sfx("nivel");confeti();toast("🏆 ¡Práctica completada!")}
+          await guardarProg(t,st,EST_ID?{completado:true,puntaje:null,porcentaje:pct}:null);sfx("nivel");confeti();toast(ex?`🎯 Resultado: ${prim} de ${P} (${pct} %)`:"🏆 ¡Práctica completada!")}
         irA("#/a/"+t.id)}});
     return}
   if(ev&&EST_ID&&!entregado&&!prog.vio_instrumento){
@@ -649,17 +748,21 @@ async function paginaAct(id,jugarYa){
     $("#insOk").onclick=async()=>{$("#insOk").disabled=true;prog.vio_instrumento=new Date().toISOString();await guardarProg(t,prog);irA("#/a/"+t.id+"/jugar")};return}
   const P=M.pasos.filter(p=>p.k!=="intro").length,hechos=Object.keys(prog.resp).length,pct=P?Math.round(100*hechos/P):0;
   const met=ev&&(entregado||DOC)?(prog.metricas||metricasDe(t,prog)):null,terminado=prog.paso>=M.pasos.length;
-  $("#app").innerHTML=`<div class="actions" style="margin:0 0 12px"><button class="sec" onclick="irA('#/')">← Mapa</button><span class="chip">${ev?"📝 Trabajo cotidiano":"🟢 Práctica interactiva"}${t.indicador_id?" · con indicador":" · sin nota"}</span>${ev?'<button class="sec" id="verIns">📋 Evaluación (formato MEP)</button>':""}${ev&&DOC?`<button class="sec" id="verSol">📖 Ver solución</button><button class="${solPublicada(t)?"sec":"ok"}" id="pubSol">${solPublicada(t)?"🙈 Ocultar solución":"📢 Publicar solución"}</button>`:""}${ev&&!DOC&&solVisibleEst(t,mi)?'<button class="ok" id="verSol">📖 Ver solución</button>':""}</div>
+  $("#app").innerHTML=`<div class="actions" style="margin:0 0 12px"><button class="sec" onclick="irA('#/')">← Mapa</button><span class="chip">${ev?"📝 Trabajo cotidiano":ex?"🎯 Práctica de examen":"🟢 Práctica interactiva"}${t.indicador_id?" · con indicador":" · sin nota"}</span>${ev?'<button class="sec" id="verIns">📋 Evaluación (formato MEP)</button>':""}${ev&&DOC?`<button class="sec" id="verSol">📖 Ver solución</button><button class="${solPublicada(t)?"sec":"ok"}" id="pubSol">${solPublicada(t)?"🙈 Ocultar solución":"📢 Publicar solución"}</button>`:""}${ev&&!DOC&&solVisibleEst(t,mi)?'<button class="ok" id="verSol">📖 Ver solución</button>':""}</div>
    ${ev&&DOC?`<div class="fb ${solPublicada(t)?"ok":"tip"}" style="margin:0 0 12px">${solPublicada(t)?"📢 La solución está <b>publicada</b>: la ven los estudiantes que ya entregaron (y todos cuando el trabajo esté cerrado).":"🔒 La solución está <b>oculta</b> para los estudiantes."}</div>`:""}
    <div class="card"><div style="display:flex;gap:14px;align-items:center"><div class="ic" style="width:64px;height:64px;border-radius:20px;display:grid;place-items:center;font-size:2rem;background:rgba(255,255,255,.06)">${M.ic}</div><div><h2 style="margin:0">${escH(t.titulo)}</h2><p class="sub" style="margin:4px 0 0">${escH(C.lab_desc||"")}</p></div></div>
     ${DOC?'<div class="fb tip">🧪 Vista del profe: puede resolverla para probarla; no se guarda nada.</div>':""}
-    <p style="margin:14px 0 6px">${ev?"<b>Reglas:</b> cada paso se responde <b>una sola vez</b>, sin pistas ni ver si está bien. Al final toca <b>📤 Entregar</b>: la nota se calcula sola con el % de conceptos, casos y cálculos correctos (85 % o más = 3 · 60–84 % = 2 · 35–59 % = 1).":"<b>Práctica sin nota:</b> tienes pistas, varios intentos, narrador y XP. Termínala para completarla."}</p>
+    <p style="margin:14px 0 6px">${ex?"<b>Práctica de examen (sin nota):</b> como en el examen, cada pregunta se responde <b>una sola vez</b>, sin pistas ni ver si está bien. Al final ves tu resultado por tipo de pregunta (concepto, caso y cálculo) y la solución con tus respuestas. La puedes repetir.":ev?"<b>Reglas:</b> cada paso se responde <b>una sola vez</b>, sin pistas ni ver si está bien. Al final toca <b>📤 Entregar</b>: la nota se calcula sola con el % de conceptos, casos y cálculos correctos (85 % o más = 3 · 60–84 % = 2 · 35–59 % = 1).":"<b>Práctica sin nota:</b> tienes pistas, varios intentos, narrador y XP. Termínala para completarla."}</p>
     <div class="prog"><span style="width:${entregado?100:pct}%"></span></div><small class="sub">${hechos}/${P} pasos respondidos</small>
     ${met?`<div class="grid" style="margin-top:14px">${LAB_CRIT.filter(c=>met[c.auto]!=null).map(c=>`<div class="card" style="padding:12px"><b style="font-size:1.4rem;color:var(--cyan)">${Math.round(met[c.auto])} %</b><br><small>${escH(c.nombre)}</small></div>`).join("")}</div>`:""}
     ${entregado&&ev?`<p style="font-size:1.2rem;font-weight:900;margin:14px 0 0">Nota del indicador: ${mi.puntaje!=null?mi.puntaje+" / 3":"—"} ${mi.porcentaje!=null?`(${Math.round(mi.porcentaje)} %)`:""}</p>`:""}
-    ${entregado&&!ev?'<p style="font-weight:900;color:var(--mint)">🏆 Práctica completada</p>':""}
-    <div class="actions">${entregado&&ev?"":`<button class="pink" onclick="sfx('clic');irA('#/a/${t.id}/jugar')">${entregado?"🔁 Repetir la práctica":terminado&&ev?"👁️ Revisar":hechos?"▶ Seguir":"▶ Empezar"}</button>`}${ev&&EST_ID&&!entregado?`<button class="ok" id="entregar">📤 Entregar trabajo</button>`:""}</div></div>`;
+    ${ex&&terminado?(()=>{const P2=M.pasos.filter(p=>p.k!=="intro").length,ok=Object.values(prog.resp).filter(r=>r.ok).length,m3=metricasDe(t,prog);
+      return `<div class="fb ${ok/P2>=.85?"ok":ok/P2>=.6?"tip":"bad"}" style="margin-top:14px"><b style="font-size:1.25rem">🎯 Resultado: ${ok} de ${P2} correctas (${Math.round(100*ok/P2)} %)</b>${prog.intento>1?` · intento ${prog.intento}`:""}</div>
+      <div class="grid" style="margin-top:10px">${LAB_CRIT.filter(c=>m3[c.auto]!=null).map(c=>`<div class="card" style="padding:12px"><b style="font-size:1.4rem;color:var(--cyan)">${Math.round(m3[c.auto])} %</b><br><small>${CAT_NOM[c.cat]}s</small></div>`).join("")}</div>`})():""}
+    ${entregado&&!ev&&!ex?'<p style="font-weight:900;color:var(--mint)">🏆 Práctica completada</p>':""}
+    <div class="actions">${ex&&terminado?`<button class="ok" id="exSol">📖 Ver solución y mis respuestas</button>`:""}${entregado&&ev?"":`<button class="pink" onclick="sfx('clic');irA('#/a/${t.id}/jugar')">${entregado||(ex&&terminado)?ex?"🔁 Repetir la práctica de examen":"🔁 Repetir la práctica":terminado&&ev?"👁️ Revisar":hechos?"▶ Seguir":"▶ Empezar"}</button>`}${ev&&EST_ID&&!entregado?`<button class="ok" id="entregar">📤 Entregar trabajo</button>`:""}</div></div>`;
   const vi=$("#verIns");if(vi)vi.onclick=()=>verInstrumento(t);
+  const xs=$("#exSol");if(xs)xs.onclick=()=>verSolucion(t,prog);
   const vs=$("#verSol");if(vs)vs.onclick=()=>verSolucion(t,EST_ID?prog:null);
   const ps=$("#pubSol");if(ps)ps.onclick=()=>{const si=!solPublicada(t);if(si&&!confirm("¿Publicar la solución? La verán los estudiantes que ya entregaron este trabajo (y todos cuando lo cierre)."))return;ps.disabled=true;publicarSolucion(t,si)};
   const eb=$("#entregar");if(eb)eb.onclick=async()=>{const falt=P-hechos;
