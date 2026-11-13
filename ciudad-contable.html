@@ -157,6 +157,14 @@ body.dentro #volver-plataforma{display:none!important}
 #gps text{font-family:Inter,sans-serif}
 @media(max-width:700px){.mm-wrap{width:36%}.joy{width:96px;height:96px}.correr{right:122px;width:46px;height:46px}}
 @media (prefers-reduced-motion: reduce){.ruta,.meta-a,#mm-yo,.pm-b{animation:none}}
+/* ── Modo noche ── */
+.neon{filter:drop-shadow(0 0 4px var(--n)) drop-shadow(0 0 10px var(--n));animation:neon 3.2s ease-in-out infinite}
+@keyframes neon{0%,100%{opacity:1}46%{opacity:1}48%{opacity:.55}50%{opacity:1}}
+body.noche .cartel rect,body.noche .cartel-lugar rect{filter:drop-shadow(0 0 6px rgba(255,214,107,.55))}
+body.noche .juego{background:#0b1030;border-color:#2b2f6b}
+.titila{animation:titila 2.4s ease-in-out infinite}
+@keyframes titila{50%{opacity:.15}}
+@media (prefers-reduced-motion: reduce){.neon,.titila{animation:none}}
 /* ── Panel de empresa ── */
 .co-hd{display:flex;gap:12px;align-items:flex-start}
 .co-hd .ico{font-size:2rem}
@@ -412,6 +420,13 @@ const reducido=(()=>{try{return matchMedia("(prefers-reduced-motion: reduce)").m
 /* ── Proyección isométrica (2.5D): el suelo se dibuja plano y se inclina con una matriz; los edificios se levantan como cajas. ── */
 const ISO=[.866,.5,-.866,.5];
 /* Giro de la ciudad: el mundo rota 0°, 90°, 180° o 270° alrededor de su centro antes de proyectarse. */
+let NOCHE=(()=>{try{const v=localStorage.getItem("ciudad_noche");return v===null?true:v==="1"}catch(e){return true}})();
+function mezclar(hex,con,t){const a=parseInt(hex.slice(1),16),b=parseInt(con.slice(1),16),m=k=>Math.round(((a>>k)&255)*(1-t)+((b>>k)&255)*t);return "#"+[16,8,0].map(k=>m(k).toString(16).padStart(2,"0")).join("")}
+const noct=c=>NOCHE&&/^#[0-9a-f]{6}$/i.test(c)?mezclar(c,"#1b1f4a",.42):c;
+/* De noche, el suelo y la vegetación cambian a tonos de crepúsculo */
+const PAL_NOCHE={"#82c45a":"#2f5a3e","#69b34c":"#2c5338","#5a9e3f":"#24452f","#4b5260":"#20242f","#dfe5ec":"#465068","#e9dcc0":"#5f5677","#f8d548":"#b8952a",
+  "#2b8a3e":"#1d5a37","#51cf66":"#2f8f5a","#868e96":"#384056","#40a02b":"#2b6b2a","#8a5f37":"#3d2a22","#6b4a2b":"#2c1e18","#4dabf7":"#4c8fd6","#adb5bd":"#5b6378","#5c7cfa":"#4c5fc4","#fab005":"#c98a04"};
+const deNoche=html=>NOCHE?html.replace(/#[0-9a-f]{6}\b/gi,m=>PAL_NOCHE[m.toLowerCase()]||m):html;
 let ROT=(()=>{try{return (+localStorage.getItem("ciudad_rot")||0)%4}catch(e){return 0}})();
 const CS=()=>[[1,0],[0,1],[-1,0],[0,-1]][ROT];
 const rot=(x,y)=>{const [c,s]=CS(),cx=MW/2,cy=MH/2;return [cx+c*(x-cx)-s*(y-cy),cy+s*(x-cx)+c*(y-cy)]};
@@ -430,14 +445,15 @@ const pts=L=>L.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ");
 const ALTO={ferre:46,super:50,libre:42,conta:72,mante:58,mayo:52,trans:38,equip:62,publi:68,clien:0,banco:84,hacie:96};
 function oscurecer(hex,f){const n=parseInt(hex.slice(1),16),c=k=>Math.max(0,Math.min(255,Math.round(((n>>k)&255)*f)));return "#"+[16,8,0].map(k=>c(k).toString(16).padStart(2,"0")).join("")}
 function caja(x,y,w,h,H,col,opt){
-  opt=opt||{};
+  opt=opt||{};const colOrig=col;col=noct(col);
   let g=`<polygon points="${pts([proj(x+6,y+6),proj(x+w+22,y+6),proj(x+w+22,y+h+22),proj(x+6,y+h+22)])}" fill="rgba(40,20,0,.12)"/><polygon points="${pts([proj(x+8,y+8),proj(x+w+12,y+8),proj(x+w+12,y+h+12),proj(x+8,y+h+12)])}" fill="rgba(40,20,0,.16)"/>`;
   const vent=(P,Q,cols,rows,fill)=>{let v="";for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const u0=(c+.2)/cols,u1=(c+.8)/cols,z0=H*(r+.3)/rows,z1=H*(r+.75)/rows;
-    const L=(u,z)=>[P[0]+(Q[0]-P[0])*u,P[1]+(Q[1]-P[1])*u-z];v+=`<polygon points="${pts([L(u0,z0),L(u1,z0),L(u1,z1),L(u0,z1)])}" fill="${fill}"/>`}return v};
+    const L=(u,z)=>[P[0]+(Q[0]-P[0])*u,P[1]+(Q[1]-P[1])*u-z],apagada=NOCHE&&((r*7+c*3+cols+Math.round(x))%5===0);
+    v+=`<polygon points="${pts([L(u0,z0),L(u1,z0),L(u1,z1),L(u0,z1)])}" fill="${apagada?"#2a2f55":fill}"${NOCHE&&!apagada?' stroke="#ffcf5c" stroke-opacity=".35" stroke-width="4" stroke-linejoin="round"':""}/>`}return v};
   ladosVisibles(x,y,w,h).forEach(l=>{const A=proj(...l.a),B=proj(...l.b),At=proj(...l.a,H),Bt=proj(...l.b,H),largo=Math.hypot(l.b[0]-l.a[0],l.b[1]-l.a[1]),k=l.frente?.82:.62;
     g+=`<polygon points="${pts([A,B,Bt,At])}" fill="${oscurecer(col,k)}"/>`;
-    if(H>=30)g+=vent(A,B,Math.max(1,Math.round(largo/26)),Math.max(1,Math.round(H/22)),l.frente?"#fff3bf":"#ffe8a1");
-    if(opt.toldo&&l.frente)for(let i=0;i<8;i++){const u0=i/8,u1=(i+1)/8,L=(u,z)=>[A[0]+(B[0]-A[0])*u,A[1]+(B[1]-A[1])*u-z];g+=`<polygon points="${pts([L(u0,10),L(u1,10),L(u1,18),L(u0,18)])}" fill="${i%2?"#fff":col}"/>`}});
+    if(H>=30)g+=vent(A,B,Math.max(1,Math.round(largo/26)),Math.max(1,Math.round(H/22)),NOCHE?(l.frente?"#ffd66b":"#ffc94a"):(l.frente?"#fff3bf":"#ffe8a1"));
+    if(opt.toldo&&l.frente){if(NOCHE)g+=`<polygon points="${pts([A,B,[B[0],B[1]-9],[A[0],A[1]-9]])}" fill="#ffd66b" opacity=".85"/>`;for(let i=0;i<8;i++){const u0=i/8,u1=(i+1)/8,L=(u,z)=>[A[0]+(B[0]-A[0])*u,A[1]+(B[1]-A[1])*u-z];g+=`<polygon points="${pts([L(u0,10),L(u1,10),L(u1,18),L(u0,18)])}" fill="${i%2?(NOCHE?"#c9cde0":"#fff"):col}"/>`}}});
   g+=`<polygon points="${pts([proj(x,y,H),proj(x+w,y,H),proj(x+w,y+h,H),proj(x,y+h,H)])}" fill="${col}"/><polygon points="${pts([proj(x+8,y+8,H),proj(x+w-8,y+8,H),proj(x+w-8,y+h-8,H),proj(x+8,y+h-8,H)])}" fill="none" stroke="${oscurecer(col,1.25)}" stroke-width="2"/>`;
   return g;
 }
@@ -446,6 +462,7 @@ function edificioIso(e,x,y,w,h){
   const H=ALTO[e.id]||50,[c1]=PAL[e.id]||PAL[e.tipo];let g="";
   if(e.id==="clien")return casitas(x,y,["#c92a2a","#e8590c","#5c7cfa"]);
   g+=caja(x,y,w,h,H,c1,{toldo:e.tipo==="com"});
+  if(NOCHE&&e.tipo!=="ia"){const [nx,ny]=proj(x+w-26,y+h-22,H);g+=`<g class="neon" style="--n:${c1}"><rect x="${nx-20}" y="${ny-34}" width="40" height="30" rx="8" fill="#0d1030" stroke="${c1}" stroke-width="3"/><text x="${nx}" y="${ny-12}" text-anchor="middle" font-size="18">${e.ico}</text></g>`}
   const [tx,ty]=proj(x+w/2,y+h/2,H);
   if(e.id==="hacie")g+=`<ellipse cx="${tx}" cy="${ty}" rx="34" ry="18" fill="#ced4da" stroke="#868e96" stroke-width="2"/><path d="M ${tx-34} ${ty} A 34 30 0 0 1 ${tx+34} ${ty}" fill="#dee2e6" stroke="#868e96" stroke-width="2"/><rect x="${tx-2}" y="${ty-46}" width="4" height="18" fill="#868e96"/><polygon points="${tx+2},${ty-46} ${tx+18},${ty-41} ${tx+2},${ty-36}" fill="#1c7ed6"/>`;
   else if(e.id==="banco")g+=`<ellipse cx="${tx}" cy="${ty}" rx="26" ry="13" fill="#fff3bf" stroke="#b08900" stroke-width="2"/><text x="${tx}" y="${ty+6}" text-anchor="middle" font-size="18" font-weight="800" fill="#b08900">₡</text>`;
@@ -516,9 +533,13 @@ function calles(){
       g+=`<rect x="${x-RD/2-12}" y="${y+o}" width="10" height="4" fill="#f1f3f5"/><rect x="${x+RD/2+2}" y="${y+o}" width="10" height="4" fill="#f1f3f5"/>`;}}));
   return g;
 }
+const FAROLES=()=>{const L=[];for(let c=0;c<=COLS;c++)for(let r=0;r<=FILAS;r++)if((c+r)%2===0)L.push([RD/2+c*(BW+RD)+22,RD/2+r*(BH+RD)+22]);return L};
+function farolesSuelo(){return NOCHE?FAROLES().map(([x,y])=>`<circle cx="${x}" cy="${y}" r="46" fill="url(#charco)"/>`).join(""):""}
+function farolesObj(){return FAROLES().map(([x,y])=>{const [px,py]=proj(x,y);return {d:prof(x,y),svg:`<line x1="${px}" y1="${py}" x2="${px}" y2="${py-34}" stroke="${NOCHE?"#5b6378":"#495057"}" stroke-width="3"/><path d="M ${px} ${py-34} q 6 -6 12 -2" stroke="${NOCHE?"#5b6378":"#495057"}" stroke-width="3" fill="none"/>
+  ${NOCHE?`<circle cx="${px+12}" cy="${py-34}" r="14" fill="url(#halo)"/><circle cx="${px+12}" cy="${py-34}" r="4" fill="#fff4c2"/>`:`<circle cx="${px+12}" cy="${py-34}" r="3.5" fill="#f1f3f5"/>`}`}})}
 function carros(){
   const hy=r=>RD/2+r*(BH+RD),vx=c=>RD/2+c*(BW+RD),C=[];
-  const car=(col,path,dur,beg)=>{const body=`<rect x="-13" y="-7" width="26" height="14" rx="4" fill="${col}"/><rect x="2" y="-5.5" width="7" height="11" rx="2" fill="#1c2a3a" opacity=".8"/><rect x="-10" y="-5.5" width="5" height="11" rx="2" fill="#1c2a3a" opacity=".55"/>`;
+  const car=(col,path,dur,beg)=>{const body=(NOCHE?`<polygon points="13,-6 64,-22 64,22 13,6" fill="url(#faro)"/><rect x="-14" y="-6" width="3" height="4" rx="1" fill="#ff4d4d"/><rect x="-14" y="2" width="3" height="4" rx="1" fill="#ff4d4d"/><circle cx="13" cy="-4" r="2.2" fill="#fff9db"/><circle cx="13" cy="4" r="2.2" fill="#fff9db"/>`:"")+`<rect x="-13" y="-7" width="26" height="14" rx="4" fill="${col}"/><rect x="2" y="-5.5" width="7" height="11" rx="2" fill="#1c2a3a" opacity=".8"/><rect x="-10" y="-5.5" width="5" height="11" rx="2" fill="#1c2a3a" opacity=".55"/>`;
     if(reducido){const m=path.match(/M\s*(-?[\d.]+)\s+(-?[\d.]+)/);return `<g transform="translate(${Math.max(30,Math.min(MW-30,+m[1]))},${Math.max(30,Math.min(MH-30,+m[2]))})">${body}</g>`}
     return `<g>${body}<animateMotion dur="${dur}s" begin="${beg}s" repeatCount="indefinite" rotate="auto" path="${path}"/></g>`;};
   C.push(car("#fa5252",`M -40 ${hy(1)+9} H ${MW+40}`,11,0),car("#228be6",`M ${MW+40} ${hy(1)-9} H -40`,13,-4),car("#fcc419",`M -40 ${hy(2)+9} H ${MW+40}`,9,-2),
@@ -577,14 +598,19 @@ function mapaHTML(){
   const minis=es.filter(e=>MINI[e.id]).map(e=>miniComercio(e.id)),parque=plazaObjetos();
   ZONAS=[...minis,...parque].filter(o=>o.zona).map(o=>o.zona).concat(LUGARES.map(zonaLugar));
   const objetos=[...es.map(lote),...parque,...minis,...LUGARES.map(objetoLugar),...es.flatMap(e=>{const [c,r]=MAPA[e.id],x=bx(c),y=by(r);return [arbol(x+14,y+14,9),arbol(x+BW-14,y+16,8)]}),
-    ...LUGARES.filter(L=>L.kind!=="buses").flatMap(L=>{const [c,r]=L.pos,x=bx(c),y=by(r);return [arbol(x+12,y+BH-14,8),arbol(x+BW-12,y+BH-14,8)]})].sort((p,q)=>p.d-q.d);
+    ...LUGARES.filter(L=>L.kind!=="buses").flatMap(L=>{const [c,r]=L.pos,x=bx(c),y=by(r);return [arbol(x+12,y+BH-14,8),arbol(x+BW-12,y+BH-14,8)]}),...farolesObj()].sort((p,q)=>p.d-q.d).map(o=>({d:o.d,svg:deNoche(o.svg)}));
   return `<svg class="mapa" viewBox="${VB.join(" ")}" role="group" aria-label="Mapa de la ciudad en vista isométrica: camine con las flechas o toque un edificio para abrir la empresa" font-family="Inter, system-ui, sans-serif">
-    <defs><linearGradient id="cielo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8ccaf2"/><stop offset=".6" stop-color="#cfe9fb"/><stop offset="1" stop-color="#ffe8c7"/></linearGradient>
-      <radialGradient id="sol" cx="22%" cy="8%" r="75%"><stop offset="0" stop-color="#ffd9a0" stop-opacity=".38"/><stop offset=".45" stop-color="#ffc078" stop-opacity=".12"/><stop offset="1" stop-color="#ffc078" stop-opacity="0"/></radialGradient>
-      <radialGradient id="vineta" cx="50%" cy="50%" r="72%"><stop offset=".62" stop-color="#0b1220" stop-opacity="0"/><stop offset="1" stop-color="#0b1220" stop-opacity=".35"/></radialGradient></defs>
-    <rect x="${VB[0]}" y="${VB[1]}" width="${VB[2]}" height="${VB[3]}" fill="url(#cielo)"/>
-    ${terreno()}
-    <g transform="matrix(${matrizSuelo()})">${calles()}${plazaSuelo()}${bancas()}${es.map(sueloLote).join("")}${LUGARES.map(sueloLugar).join("")}${carros()}
+    <defs>${NOCHE?`<linearGradient id="cielo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#070b26"/><stop offset=".55" stop-color="#1d1d5c"/><stop offset="1" stop-color="#4b2f7d"/></linearGradient>
+      <radialGradient id="sol" cx="78%" cy="6%" r="80%"><stop offset="0" stop-color="#8f7cff" stop-opacity=".22"/><stop offset=".5" stop-color="#5b4bd6" stop-opacity=".08"/><stop offset="1" stop-color="#5b4bd6" stop-opacity="0"/></radialGradient>`
+      :`<linearGradient id="cielo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8ccaf2"/><stop offset=".6" stop-color="#cfe9fb"/><stop offset="1" stop-color="#ffe8c7"/></linearGradient>
+      <radialGradient id="sol" cx="22%" cy="8%" r="75%"><stop offset="0" stop-color="#ffd9a0" stop-opacity=".38"/><stop offset=".45" stop-color="#ffc078" stop-opacity=".12"/><stop offset="1" stop-color="#ffc078" stop-opacity="0"/></radialGradient>`}
+      <radialGradient id="charco"><stop offset="0" stop-color="#ffc861" stop-opacity=".55"/><stop offset=".5" stop-color="#ffb347" stop-opacity=".18"/><stop offset="1" stop-color="#ffb347" stop-opacity="0"/></radialGradient>
+      <radialGradient id="halo"><stop offset="0" stop-color="#fff1b8" stop-opacity=".95"/><stop offset=".4" stop-color="#ffd166" stop-opacity=".45"/><stop offset="1" stop-color="#ffd166" stop-opacity="0"/></radialGradient>
+      <linearGradient id="faro" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff3bf" stop-opacity=".7"/><stop offset="1" stop-color="#fff3bf" stop-opacity="0"/></linearGradient>
+      <radialGradient id="vineta" cx="50%" cy="50%" r="72%"><stop offset=".62" stop-color="#0b1220" stop-opacity="0"/><stop offset="1" stop-color="#0b1220" stop-opacity="${NOCHE?.55:.35}"/></radialGradient></defs>
+    <rect x="${VB[0]}" y="${VB[1]}" width="${VB[2]}" height="${VB[3]}" fill="url(#cielo)"/>${NOCHE?cieloNoche():""}
+    ${deNoche(terreno())}
+    <g transform="matrix(${matrizSuelo()})">${deNoche(calles()+plazaSuelo()+bancas()+es.map(sueloLote).join("")+LUGARES.map(sueloLugar).join(""))}${farolesSuelo()}${carros()}
       <polyline id="ruta" class="ruta" points="" fill="none"/><g id="meta" opacity="0"><circle r="16" class="meta-a"/><circle r="6" fill="#ffd43b"/></g></g>
     <g id="polvo"></g>
     <g id="gps" opacity="0" pointer-events="none"><g class="gps-f"><path d="M 30 -9 L 52 0 L 30 9 Z" fill="#ffd43b" stroke="#14213d" stroke-width="3"/></g><text y="44" text-anchor="middle" font-size="13" font-weight="800" fill="#14213d" stroke="#fff" stroke-width="4" paint-order="stroke"></text></g>
@@ -596,6 +622,8 @@ function mapaHTML(){
       <text x="-34" y="-4" font-size="11" font-weight="800" fill="#fff">Entrar</text><text class="pmn" x="-34" y="9" font-size="9" font-weight="600" fill="#ffd43b"></text><path d="M -8 14 L 0 24 L 8 14 Z" fill="#14213d"/></g></g>
     <rect x="${VB[0]-VB[2]}" y="${VB[1]-VB[3]}" width="${VB[2]*3}" height="${VB[3]*3}" fill="url(#vineta)" pointer-events="none"/></svg>`;
 }
+function cieloNoche(){let g="";semilla=99;for(let i=0;i<90;i++){const x=VB[0]+azar()*VB[2],y=VB[1]+azar()*VB[3]*.5,r=azar()<.12?1.8:1;g+=`<circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="${r}" fill="#fff" opacity="${(.35+azar()*.6).toFixed(2)}"${azar()<.2?' class="titila"':""}/>`}
+  const mx=VB[0]+VB[2]*.86,my=VB[1]+VB[3]*.09;return g+`<circle cx="${mx}" cy="${my}" r="70" fill="#fff6d5" opacity=".08"/><circle cx="${mx}" cy="${my}" r="34" fill="#fff6d5"/><circle cx="${mx+12}" cy="${my-8}" r="30" fill="#1d1d5c" opacity=".55"/>`}
 /* ═══════════ Los compañeros: 17 estudiantes que caminan solos por las aceras ═══════════ */
 const ix=c=>RD/2+c*(BW+RD),iy=r=>RD/2+r*(BH+RD);
 let semilla=7;const azar=()=>{semilla=(semilla*16807)%2147483647;return (semilla-1)/2147483646};
@@ -860,7 +888,7 @@ function controlesHTML(){
     <button type="button" class="correr" id="correr" aria-pressed="false" aria-label="Correr">🏃</button>
     ${minimapaHTML()}
     <div class="colores" role="group" aria-label="Color de la camisa">${col.map(c=>`<button type="button" data-col="${c}" style="background:${c}" aria-label="Camisa color ${c}" aria-pressed="${AV.col===c}"></button>`).join("")}</div>
-    <div class="zoom"><button type="button" id="zMas" aria-label="Acercar">＋</button><span id="zNivel" class="znivel">100 %</span><button type="button" id="zMenos" aria-label="Alejar">－</button><button type="button" id="gIzq" aria-label="Girar la ciudad a la izquierda (tecla Q)">⟲</button><button type="button" id="gDer" aria-label="Girar la ciudad a la derecha (tecla R)">⟳</button><button type="button" id="zYo" aria-label="Centrar la cámara en mi muñequito">🎯</button><button type="button" id="zTodo" aria-label="Ver toda la ciudad">🗺️</button><button type="button" id="sonido" aria-pressed="${SND.on}" aria-label="Sonidos de la interfaz">${SND.on?"🔊":"🔇"}</button></div>
+    <div class="zoom"><button type="button" id="zMas" aria-label="Acercar">＋</button><span id="zNivel" class="znivel">100 %</span><button type="button" id="zMenos" aria-label="Alejar">－</button><button type="button" id="gIzq" aria-label="Girar la ciudad a la izquierda (tecla Q)">⟲</button><button type="button" id="gDer" aria-label="Girar la ciudad a la derecha (tecla R)">⟳</button><button type="button" id="zYo" aria-label="Centrar la cámara en mi muñequito">🎯</button><button type="button" id="zTodo" aria-label="Ver toda la ciudad">🗺️</button><button type="button" id="nocheBtn" aria-pressed="${NOCHE}" aria-label="Cambiar entre día y noche">${NOCHE?"☀️":"🌙"}</button><button type="button" id="sonido" aria-pressed="${SND.on}" aria-label="Sonidos de la interfaz">${SND.on?"🔊":"🔇"}</button></div>
     <div class="aviso" id="aviso" hidden></div>`;
 }
 function ligarControles(){
@@ -874,6 +902,7 @@ function ligarControles(){
   document.querySelectorAll("[data-pad]").forEach(b=>{const [x,y]=b.dataset.pad.split(",").map(Number),on=ev=>{ev.preventDefault();PAD.x=x;PAD.y=y;b.setPointerCapture&&ev.pointerId!=null&&b.setPointerCapture(ev.pointerId)},off=()=>{PAD.x=0;PAD.y=0};
     b.onpointerdown=on;b.onpointerup=off;b.onpointercancel=off;b.onpointerleave=off;});
   $("#zMas").onclick=()=>{zoomEn(.7);sonar("clic")};$("#zMenos").onclick=()=>{zoomEn(1/.7);sonar("clic")};
+  $("#nocheBtn").onclick=()=>{NOCHE=!NOCHE;try{localStorage.setItem("ciudad_noche",NOCHE?"1":"0")}catch(e){}document.body.classList.toggle("noche",NOCHE);const w=$(".mapa-wrap");if(w&&!reducido){w.classList.remove("gira");void w.offsetWidth;w.classList.add("gira")}setTimeout(pintar,reducido?0:140);sonar("clic")};
   $("#gIzq").onclick=()=>girar(-1);$("#gDer").onclick=()=>girar(1);
   $("#zYo").onclick=()=>{MODO="sigue";OBJ=centrarEn(...proj(AV.x,AV.y,40),VB[2]/2.4);sonar("clic")};$("#zTodo").onclick=()=>{MODO="libre";OBJ=VB.slice();sonar("clic")};
   $("#sonido").onclick=ev=>{SND.on=!SND.on;try{localStorage.setItem("ciudad_snd",SND.on?"1":"0")}catch(e){}ev.currentTarget.textContent=SND.on?"🔊":"🔇";ev.currentTarget.setAttribute("aria-pressed",SND.on);sonar("ok")};
@@ -1132,7 +1161,7 @@ function verDoc(id,recien,volver){
 
 $("#reiniciar").onclick=()=>{if(!confirm("¿Reiniciar la ciudad del prototipo? Se borran los documentos de prueba de este navegador."))return;
   try{localStorage.removeItem(KEY)}catch(e){} S=ciudadInicial();SEL="ferre";TAB="emitidos";pintar()};
-pintar();requestAnimationFrame(tick);
+document.body.classList.toggle("noche",NOCHE);pintar();requestAnimationFrame(tick);
 </script>
 <script src="js/volver-plataforma.js?v=20261112b"></script>
 </body>
