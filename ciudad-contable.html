@@ -85,6 +85,51 @@ svg.mapa{display:block;width:100%;height:auto}
 .lote .marco{stroke-dasharray:14 8;animation:marcha 1.2s linear infinite}
 @keyframes marcha{to{stroke-dashoffset:-22}}
 @media (prefers-reduced-motion: reduce){.lote .marco{animation:none}.lote .edif,.lote .cartel{transition:none}}
+/* ── Cámara, luz, misiones y microinteracciones ── */
+svg.mapa{cursor:grab;touch-action:none;user-select:none}
+svg.mapa.arrastra{cursor:grabbing}
+.zoom{align-items:center}
+.zoom button{min-width:40px;font-size:1rem}
+.znivel{background:rgba(20,33,61,.85);color:#fff;border-radius:10px;padding:6px 8px;font:700 .78rem Inter,sans-serif;min-width:52px;text-align:center}
+.mision-b{animation:flota 1.6s ease-in-out infinite;filter:drop-shadow(0 0 6px #ffd43b) drop-shadow(0 0 14px rgba(255,212,59,.7))}
+@keyframes flota{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+button{transition:transform .12s ease,box-shadow .2s ease,filter .2s ease}
+button:not(:disabled):hover{filter:brightness(1.08);box-shadow:0 6px 16px rgba(29,99,232,.25)}
+button:not(:disabled):active{transform:scale(.95)}
+/* Iris: círculo que se cierra y se abre al entrar o salir de una empresa */
+.iris{position:fixed;inset:0;z-index:40;pointer-events:none;background:radial-gradient(circle at center,transparent 0,transparent var(--r,150vmax),var(--c,#14213d) calc(var(--r,150vmax) + 1px));--r:150vmax;opacity:0}
+.iris.cierra{opacity:1;animation:irisCierra .42s ease-in forwards}
+.iris.abre{opacity:1;animation:irisAbre .52s ease-out forwards}
+@property --r{syntax:"<length>";inherits:false;initial-value:150vmax}
+@keyframes irisCierra{from{--r:150vmax}to{--r:0vmax}}
+@keyframes irisAbre{from{--r:0vmax}to{--r:150vmax}}
+/* Vista interior */
+.interior{position:fixed;inset:0;z-index:30;overflow:auto;background:linear-gradient(180deg,color-mix(in srgb,var(--c) 22%,#0f1830) 0,#0f1830 420px);padding-bottom:90px}
+.interior[hidden]{display:none}
+body.dentro{overflow:hidden}
+body.dentro #volver-plataforma{display:none!important}
+.int-escena{max-width:1200px;margin:0 auto;padding:18px 18px 0}
+.int-escena svg{display:block;width:100%;height:auto;border-radius:20px;box-shadow:0 20px 50px rgba(0,0,0,.45);border:4px solid #fff}
+.staff{animation:aparece .5s ease-out both;animation-delay:var(--d)}
+@keyframes aparece{from{opacity:0;transform:translateY(16px)}}
+.int-cuerpo{max-width:1200px;margin:0 auto;padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+.misiones{display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,#fff3bf,#ffe8cc);border:3px solid #ffd43b;border-radius:16px;padding:12px 16px;box-shadow:0 0 0 0 rgba(255,212,59,.6);animation:pulso 2.2s infinite}
+.misiones.lista{background:linear-gradient(90deg,#d3f9d8,#c3fae8);border-color:#69db7c;animation:none}
+.misiones b{display:block}.misiones small{color:#5b6b80}
+.mi-ico{font-size:1.8rem}
+.mi-go{margin-left:auto;background:#14213d}
+@keyframes pulso{0%{box-shadow:0 0 0 0 rgba(255,212,59,.55)}70%{box-shadow:0 0 0 14px rgba(255,212,59,0)}100%{box-shadow:0 0 0 0 rgba(255,212,59,0)}}
+.interior .card{border-radius:20px;box-shadow:0 14px 40px rgba(0,0,0,.25)}
+.interior .tabs button{padding:9px 14px;border-radius:999px;font-weight:700}
+.interior .tabs button.on{background:var(--c);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 30%,transparent)}
+.regresar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:35;background:linear-gradient(135deg,#ffd43b,#fab005);color:#14213d;font:800 1rem Lexend,Inter,sans-serif;padding:13px 22px;border-radius:999px;border:3px solid #fff;box-shadow:0 12px 30px rgba(0,0,0,.4),0 0 24px rgba(255,212,59,.55)}
+.regresar:not(:disabled):hover{transform:translateX(-50%) translateY(-2px)}
+.regresar:not(:disabled):active{transform:translateX(-50%) scale(.95)}
+.regresar kbd{background:#14213d;color:#fff;border-radius:6px;padding:1px 6px;font-size:.72rem;margin-left:6px}
+.confeti{position:fixed;inset:0;pointer-events:none;z-index:60;overflow:hidden}
+.confeti span{position:absolute;top:-40px;font-size:1.6rem;animation:cae 1.4s ease-in forwards}
+@keyframes cae{to{transform:translateY(105vh) rotate(540deg);opacity:.2}}
+@media (prefers-reduced-motion: reduce){.mision-b,.misiones,.staff{animation:none}.iris.cierra,.iris.abre{animation:none;opacity:0}button{transition:none}}
 /* ── Panel de empresa ── */
 .co-hd{display:flex;gap:12px;align-items:flex-start}
 .co-hd .ico{font-size:2rem}
@@ -167,6 +212,8 @@ select,input{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--lin
   <div class="hdr-btns"><button class="ghost" id="reiniciar" type="button">↺ Reiniciar ciudad</button><a class="btn sec" href="index.html#/2027">← 2027</a></div>
 </header>
 <main id="app"><p class="muted">Cargando…</p></main>
+<div id="interior" class="interior" hidden role="region" aria-label="Interior de la empresa"></div>
+<div id="iris" class="iris" aria-hidden="true"></div>
 <dialog id="dlg"><div class="dlg" id="dlgBody"></div></dialog>
 
 <script>
@@ -328,6 +375,10 @@ const BW=190,BH=160,RD=40,COLS=5,FILAS=4,MW=RD*(COLS+1)+BW*COLS,MH=RD*(FILAS+1)+
 const bx=c=>RD+c*(BW+RD),by=r=>RD+r*(BH+RD);
 const PAL={com:["#e8590c","#ff9a5c"],ser:["#7048e8","#a48bff"],ia:["#0b7285","#3bb6c6"],banco:["#d9a400","#ffd43b"],hacie:["#495057","#adb5bd"]};
 const corto=n=>n.replace(/ S\.A\.$/,"").replace(/ \(IA\)$/,"");
+const SND={on:(()=>{try{return localStorage.getItem("ciudad_snd")==="1"}catch(e){return false}})(),ctx:null};
+function sonar(tipo){if(!SND.on)return;try{SND.ctx=SND.ctx||new (window.AudioContext||window.webkitAudioContext)();const c=SND.ctx,t=c.currentTime;
+  const notas={clic:[[660,.05]],entrar:[[523,.08],[659,.08],[784,.12]],salir:[[784,.08],[659,.08],[523,.12]],moneda:[[988,.06],[1319,.14]],ok:[[659,.08],[880,.16]],error:[[220,.12],[185,.18]]}[tipo]||[[600,.05]];
+  let d=0;notas.forEach(([f,len])=>{const o=c.createOscillator(),g=c.createGain();o.type=tipo==="error"?"sawtooth":"triangle";o.frequency.value=f;g.gain.setValueAtTime(0,t+d);g.gain.linearRampToValueAtTime(.12,t+d+.01);g.gain.exponentialRampToValueAtTime(.0001,t+d+len);o.connect(g).connect(c.destination);o.start(t+d);o.stop(t+d+len+.02);d+=len*.8})}catch(e){}}
 const reducido=(()=>{try{return matchMedia("(prefers-reduced-motion: reduce)").matches}catch(e){return false}})();
 /* ── Proyección isométrica (2.5D): el suelo se dibuja plano y se inclina con una matriz; los edificios se levantan como cajas. ── */
 const ISO=[.866,.5,-.866,.5];
@@ -337,7 +388,7 @@ const ALTO={ferre:46,super:50,libre:42,conta:72,mante:58,mayo:52,trans:38,equip:
 function oscurecer(hex,f){const n=parseInt(hex.slice(1),16),c=k=>Math.max(0,Math.min(255,Math.round(((n>>k)&255)*f)));return "#"+[16,8,0].map(k=>c(k).toString(16).padStart(2,"0")).join("")}
 function caja(x,y,w,h,H,col,opt){
   opt=opt||{};const A=proj(x,y+h),B=proj(x+w,y+h),C=proj(x+w,y),At=proj(x,y+h,H),Bt=proj(x+w,y+h,H),Ct=proj(x+w,y,H),Dt=proj(x,y,H);
-  let g=`<polygon points="${pts([proj(x+8,y+8),proj(x+w+16,y+8),proj(x+w+16,y+h+16),proj(x+8,y+h+16)])}" fill="rgba(0,0,0,.22)"/>`;
+  let g=`<polygon points="${pts([proj(x+6,y+6),proj(x+w+22,y+6),proj(x+w+22,y+h+22),proj(x+6,y+h+22)])}" fill="rgba(40,20,0,.12)"/><polygon points="${pts([proj(x+8,y+8),proj(x+w+12,y+8),proj(x+w+12,y+h+12),proj(x+8,y+h+12)])}" fill="rgba(40,20,0,.16)"/>`;
   g+=`<polygon points="${pts([A,B,Bt,At])}" fill="${oscurecer(col,.82)}"/><polygon points="${pts([B,C,Ct,Bt])}" fill="${oscurecer(col,.62)}"/>`;
   const vent=(P,Q,cols,rows,fill)=>{let v="";for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const u0=(c+.2)/cols,u1=(c+.8)/cols,z0=H*(r+.3)/rows,z1=H*(r+.75)/rows;
     const L=(u,z)=>[P[0]+(Q[0]-P[0])*u,P[1]+(Q[1]-P[1])*u-z];v+=`<polygon points="${pts([L(u0,z0),L(u1,z0),L(u1,z1),L(u0,z1)])}" fill="${fill}"/>`}return v};
@@ -389,7 +440,9 @@ function cartel(e){const [c,r]=MAPA[e.id],x=bx(c),y=by(r),H=ALTO[e.id]||40,[px,p
     <rect x="${px-w/2}" y="${py-22}" width="${w}" height="38" rx="11" fill="#fff" stroke="${col}" stroke-width="3"/>
     <text x="${px-w/2+10}" y="${py+3}" font-size="16">${e.ico}</text><text x="${px-w/2+32}" y="${py-6}" font-size="12.5" font-weight="800" fill="#14213d">${esc(nom)}</text>
     <text x="${px-w/2+32}" y="${py+9}" font-size="10" font-weight="700" fill="${col}">${TIPO[e.tipo][0]}</text>
-    ${n?`<circle cx="${px+w/2-2}" cy="${py-20}" r="12" fill="#e03131" stroke="#fff" stroke-width="3"/><text x="${px+w/2-2}" y="${py-16}" text-anchor="middle" font-size="12" font-weight="800" fill="#fff">${n}</text>`:""}</g></g>`}
+    ${n?`<circle cx="${px+w/2-2}" cy="${py-20}" r="12" fill="#e03131" stroke="#fff" stroke-width="3"/><text x="${px+w/2-2}" y="${py-16}" text-anchor="middle" font-size="12" font-weight="800" fill="#fff">${n}</text>`:""}</g>
+    ${lleva(e)&&pendientes(e.id).length?`<g class="mision" transform="translate(${px},${py-46})"><g class="mision-b"><circle r="17" fill="#ffd43b" stroke="#fff" stroke-width="3"/><text y="6" text-anchor="middle" font-size="18" font-weight="900" fill="#14213d">!</text><text x="24" y="5" font-size="11" font-weight="800" fill="#14213d" stroke="#fff" stroke-width="4" paint-order="stroke">${pendientes(e.id).length} por registrar</text></g></g>`
+      :YO().emp===e.id?`<g class="mision" transform="translate(${px},${py-44})"><g class="mision-b"><circle r="15" fill="#fff" stroke="#ffd43b" stroke-width="3"/><text y="6" text-anchor="middle" font-size="15">⭐</text></g></g>`:""}</g>`}
 function plazaSuelo(){const x=bx(PZ[0]),y=by(PZ[1]),cx=x+BW/2,cy=y+BH/2;
   return `<rect x="${x}" y="${y}" width="${BW}" height="${BH}" rx="5" fill="#69b34c"/><circle cx="${cx}" cy="${cy}" r="58" fill="#e9dcc0"/><circle cx="${cx}" cy="${cy}" r="40" fill="#69b34c"/>
     <rect x="${x}" y="${cy-7}" width="${BW}" height="14" fill="#e9dcc0"/><rect x="${cx-7}" y="${y}" width="14" height="${BH}" fill="#e9dcc0"/><circle cx="${cx}" cy="${cy}" r="24" fill="#4dabf7" stroke="#d0ebff" stroke-width="5"/><circle cx="${cx}" cy="${cy}" r="7" fill="#e7f5ff"/>`}
@@ -441,7 +494,10 @@ function peatones(){
 }
 /* Animación al emitir: el documento viaja de quien vende a quien compra y las monedas vuelven con el monto. */
 function centroLote(id){const m=MAPA[id];return m?proj(bx(m[0])+BW/2-10,by(m[1])+BH/2-10,(ALTO[id]||30)+10):null}
+function confeti(){if(reducido)return;const box=document.createElement("div");box.className="confeti";box.setAttribute("aria-hidden","true");
+  box.innerHTML=Array.from({length:18},(_,i)=>`<span style="left:${5+i*5.2}%;animation-delay:${(i%6)*.07}s">${["🪙","✨","🧾"][i%3]}</span>`).join("");document.body.appendChild(box);setTimeout(()=>box.remove(),1600)}
 function animarTransaccion(doc,listo){
+  if(INT){confeti();setTimeout(listo,reducido?0:700);return}
   const svg=document.querySelector("svg.mapa"),A=centroLote(doc.emisor),B=centroLote(doc.receptor);
   if(reducido||!svg||!A||!B){listo();return}
   const NS="http://www.w3.org/2000/svg",capa=document.createElementNS(NS,"g");capa.setAttribute("pointer-events","none");svg.appendChild(capa);
@@ -475,13 +531,17 @@ function mapaHTML(){
   const objetos=[...es.map(lote),...parque,...minis,...LUGARES.map(objetoLugar),...es.flatMap(e=>{const [c,r]=MAPA[e.id],x=bx(c),y=by(r);return [arbol(x+14,y+14,9),arbol(x+BW-14,y+16,8)]}),
     ...LUGARES.filter(L=>L.kind!=="buses").flatMap(L=>{const [c,r]=L.pos,x=bx(c),y=by(r);return [arbol(x+12,y+BH-14,8),arbol(x+BW-12,y+BH-14,8)]})].sort((p,q)=>p.d-q.d);
   return `<svg class="mapa" viewBox="${VB.join(" ")}" role="group" aria-label="Mapa de la ciudad en vista isométrica: camine con las flechas o toque un edificio para abrir la empresa" font-family="Inter, system-ui, sans-serif">
-    <defs><linearGradient id="cielo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fd3f5"/><stop offset="1" stop-color="#d7eefc"/></linearGradient></defs>
+    <defs><linearGradient id="cielo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8ccaf2"/><stop offset=".6" stop-color="#cfe9fb"/><stop offset="1" stop-color="#ffe8c7"/></linearGradient>
+      <radialGradient id="sol" cx="22%" cy="8%" r="75%"><stop offset="0" stop-color="#ffd9a0" stop-opacity=".38"/><stop offset=".45" stop-color="#ffc078" stop-opacity=".12"/><stop offset="1" stop-color="#ffc078" stop-opacity="0"/></radialGradient>
+      <radialGradient id="vineta" cx="50%" cy="50%" r="72%"><stop offset=".62" stop-color="#0b1220" stop-opacity="0"/><stop offset="1" stop-color="#0b1220" stop-opacity=".35"/></radialGradient></defs>
     <rect x="${VB[0]}" y="${VB[1]}" width="${VB[2]}" height="${VB[3]}" fill="url(#cielo)"/>
     <polygon points="${pts([proj(-30,-30),proj(MW+30,-30),proj(MW+30,MH+30),proj(-30,MH+30)])}" fill="#5a9e3f"/>
     <polygon points="${pts([proj(MW+30,MH+30),proj(MW+30,-30),proj(MW+30,-30,-22),proj(MW+30,MH+30,-22)])}" fill="#6b4a2b"/><polygon points="${pts([proj(-30,MH+30),proj(MW+30,MH+30),proj(MW+30,MH+30,-22),proj(-30,MH+30,-22)])}" fill="#8a5f37"/>
     <g transform="matrix(${ISO.join(" ")} 0 0)">${calles()}${plazaSuelo()}${bancas()}${es.map(sueloLote).join("")}${LUGARES.map(sueloLugar).join("")}${carros()}</g>
     <g id="capaObjetos">${objetos.map(o=>`<g class="obj" data-d="${o.d}">${o.svg}</g>`).join("")}${NPCS.map(npcSVG).join("")}${avatarSVG()}</g>
-    ${LUGARES.map(cartelLugar).join("")}${es.map(cartel).join("")}</svg>`;
+    <rect class="luz" x="${VB[0]-VB[2]}" y="${VB[1]-VB[3]}" width="${VB[2]*3}" height="${VB[3]*3}" fill="url(#sol)" pointer-events="none"/>
+    ${LUGARES.map(cartelLugar).join("")}${es.map(cartel).join("")}
+    <rect x="${VB[0]-VB[2]}" y="${VB[1]-VB[3]}" width="${VB[2]*3}" height="${VB[3]*3}" fill="url(#vineta)" pointer-events="none"/></svg>`;
 }
 /* ═══════════ Los compañeros: 17 estudiantes que caminan solos por las aceras ═══════════ */
 const ix=c=>RD/2+c*(BW+RD),iy=r=>RD/2+r*(BH+RD);
@@ -548,26 +608,105 @@ function avisoZona(){
     :z.lugar?`<span>${z.ico} <b>${esc(z.nom)}</b> · lugar de la ciudad.</span>`:`<span>${z.ico} <b>${esc(z.nom)}</b> · mini comercio de la ciudad. En el juego podrá comprarle y venderle.</span>`;
   const b=document.getElementById("entrar");if(b)b.onclick=entrar;
 }
-function entrar(){const z=zonaCercana();if(!z||!z.emp)return;SEL=z.emp;TAB=lleva(emp(z.emp))?"diario":"productos";ZONA=null;pintar();$("#panel").scrollIntoView({behavior:reducido?"auto":"smooth",block:"start"})}
-let ZOOM=1,CAM=null;
+function entrar(){const z=zonaCercana();if(!z||!z.emp)return;entrarEmpresa(z.emp)}
+let INT=null,CAM_ANTES=null;
+function puerta(id){const m=MAPA[id];return proj(bx(m[0])+28+(BW-74)/2,by(m[1])+20+(BH-62),18)} // centro de la fachada que da a la calle
+function entrarEmpresa(id){
+  if(INT||MODO==="cine")return;sonar("entrar");SEL=id;TAB=lleva(emp(id))?"diario":"productos";
+  CAM_ANTES={obj:OBJ?OBJ.slice():VB.slice(),modo:MODO==="cine"?"libre":MODO};MODO="cine";
+  const [px,py]=puerta(id);OBJ=centrarEn(px,py,VB[2]/6);
+  const iris=$("#iris"),e=emp(id);iris.style.setProperty("--c",(PAL[e.id]||PAL[e.tipo])[0]);
+  const espera=reducido?0:650;
+  setTimeout(()=>{iris.classList.add("cierra");setTimeout(()=>{INT=id;renderInterior();$("#interior").hidden=false;document.body.classList.add("dentro");
+    iris.classList.remove("cierra");iris.classList.add("abre");setTimeout(()=>iris.classList.remove("abre"),reducido?0:520);const b=$("#regresar");if(b)b.focus()},reducido?0:420)},espera);
+}
+function salirEmpresa(){
+  if(!INT)return;sonar("salir");const iris=$("#iris");iris.classList.add("cierra");
+  setTimeout(()=>{$("#interior").hidden=true;document.body.classList.remove("dentro");INT=null;iris.classList.remove("cierra");iris.classList.add("abre");
+    MODO="cine";setTimeout(()=>{OBJ=CAM_ANTES?CAM_ANTES.obj:VB.slice();setTimeout(()=>{MODO=CAM_ANTES?CAM_ANTES.modo:"libre"},reducido?0:900)},60);
+    setTimeout(()=>iris.classList.remove("abre"),reducido?0:520);pintar()},reducido?0:420);
+}
+document.addEventListener("keydown",ev=>{if(ev.key==="Escape"&&INT&&!$("#dlg").open){ev.preventDefault();salirEmpresa()}});
+/* La vista interior: mostrador u oficina dibujados en SVG, el equipo detrás del mostrador y el panel de trabajo. */
+function escenaInterior(e){
+  const col=(PAL[e.id]||PAL[e.tipo])[0],claro=(PAL[e.id]||PAL[e.tipo])[1],M=miembros(e.id),com=e.tipo==="com",prods=(e.prods||[]).slice(0,8),n=M.length;
+  const persona=(x,m,i)=>{const yo=m.id===YO().id,piel=["#f3c48c","#c68642","#8d5524","#e0ac69"][i%4];
+    return `<g transform="translate(${x},0)"><g class="staff" style="--d:${i*.15}s"><rect x="-22" y="196" width="44" height="58" rx="16" fill="${col}"/><rect x="-6" y="198" width="12" height="18" fill="#fff" opacity=".8"/>
+      <circle cx="0" cy="176" r="20" fill="${piel}"/><path d="M -20 172 Q 0 148 20 172 Q 8 162 0 164 Q -8 162 -20 172 Z" fill="${["#3b2314","#212529","#7c4a1e","#e8c07d"][i%4]}"/><circle cx="-7" cy="176" r="2.4" fill="#212529"/><circle cx="7" cy="176" r="2.4" fill="#212529"/><path d="M -6 186 Q 0 191 6 186" stroke="#212529" stroke-width="2" fill="none"/>
+      <rect x="-52" y="122" width="104" height="30" rx="15" fill="${yo?"#ffd43b":"#fff"}" stroke="${col}" stroke-width="2"/><text y="136" text-anchor="middle" font-size="11" font-weight="800" fill="#14213d">${esc(yo?"Tú":m.nombre)}</text><text y="147" text-anchor="middle" font-size="8.5" font-weight="700" fill="${col}">${esc(m.rol||"")}</text></g></g>`};
+  const iconos=({ferre:["🔨","🔩","🧱","🪛"],super:["🍚","🥛","🧼","🥤"],libre:["📄","📕","🖊️","📓"]}[e.id]||["📦","📦","📦","📦"]);
+  const fondo=com?[0,1].map(f=>`<rect x="660" y="${58+f*50}" width="300" height="7" rx="3" fill="#8d5524"/>${[0,1,2,3].map(i=>`<text x="${690+i*76}" y="${54+f*50}" font-size="26" text-anchor="middle">${iconos[(f*2+i)%4]}</text>`).join("")}`).join("")
+    :`<rect x="660" y="24" width="300" height="96" rx="10" fill="#f8f9fa" stroke="${claro}" stroke-width="3"/><text x="810" y="50" text-anchor="middle" font-size="13" font-weight="800" fill="${col}">Nuestros servicios</text>${(e.prods||[]).slice(0,3).map((p,i)=>`<text x="810" y="${72+i*16}" text-anchor="middle" font-size="10.5" fill="#495057">• ${esc(p.det)}</text>`).join("")}`;
+  return `<svg class="escena" viewBox="0 0 1000 320" role="img" aria-label="Interior de ${esc(e.nombre)}">
+    <defs><linearGradient id="pared" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${claro}" stop-opacity=".35"/><stop offset="1" stop-color="#fff8ef"/></linearGradient>
+      <radialGradient id="lamp" cx="50%" cy="0%" r="70%"><stop offset="0" stop-color="#fff3bf" stop-opacity=".7"/><stop offset="1" stop-color="#fff3bf" stop-opacity="0"/></radialGradient></defs>
+    <rect width="1000" height="320" fill="url(#pared)"/><rect y="262" width="1000" height="58" fill="#d9c3a5"/>
+    <rect x="34" y="24" width="190" height="104" rx="8" fill="#a5d8ff" stroke="#fff" stroke-width="8"/><line x1="129" y1="24" x2="129" y2="128" stroke="#fff" stroke-width="6"/><circle cx="76" cy="56" r="13" fill="#ffe066"/>
+    <text x="256" y="66" font-size="38">${e.ico}</text><text x="304" y="56" font-size="22" font-weight="900" fill="#14213d">${esc(corto(e.nombre))}</text><text x="304" y="76" font-size="12" font-weight="700" fill="${col}">${TIPO[e.tipo][0]} · ${esc(e.giro)}</text>
+    ${fondo}<ellipse cx="500" cy="0" rx="420" ry="200" fill="url(#lamp)"/>
+    ${n?M.map((m,i)=>persona(500+(i-(n-1)/2)*124,m,i)).join(""):`<text x="500" y="200" text-anchor="middle" font-size="15" font-weight="700" fill="#868e96">Todavía no hay estudiantes en esta empresa</text>`}
+    <rect x="70" y="252" width="860" height="18" rx="6" fill="${col}"/><rect x="70" y="268" width="860" height="52" fill="${claro}" opacity=".95"/>
+    <rect x="${n?500+((n-1)/2)*124+70:640}" y="220" width="64" height="32" rx="6" fill="#343a40"/><rect x="${n?500+((n-1)/2)*124+78:648}" y="226" width="48" height="12" rx="2" fill="#69db7c"/>
+    <text x="500" y="302" text-anchor="middle" font-size="16" font-weight="900" fill="#fff" stroke="${col}" stroke-width="5" paint-order="stroke">${com?"MOSTRADOR":"ATENCIÓN AL CLIENTE"}</text></svg>`;
+}
+function renderInterior(){
+  const box=$("#interior"),e=emp(INT);if(!box||!e)return;const P=lleva(e)?pendientes(e.id).length:0,col=(PAL[e.id]||PAL[e.tipo])[0];
+  box.style.setProperty("--c",col);
+  box.innerHTML=`<div class="int-escena">${escenaInterior(e)}</div>
+    <div class="int-cuerpo">${lleva(e)?`<div class="misiones ${P?"":"lista"}"><span class="mi-ico">${P?"🎯":"🏆"}</span><div><b>${P?`Misión: registrar ${P} documento${P===1?"":"s"} en el diario`:"¡Todo al día! No hay documentos pendientes."}</b><small>${P?"Cada asiento correcto suma puntos para la empresa.":"Puede emitir facturas o revisar la balanza."}</small></div>${P?`<button type="button" class="mi-go" data-ir="diario">Ir al diario →</button>`:""}</div>`:""}
+      <section class="card" id="panel">${panelHTML()}</section></div>
+    <button type="button" id="regresar" class="regresar">🏙️ Regresar a la ciudad <kbd>Esc</kbd></button>`;
+  ligarPanel();$("#regresar").onclick=salirEmpresa;
+  const ir=box.querySelector("[data-ir]");if(ir)ir.onclick=()=>{TAB="diario";renderInterior();sonar("clic")};
+}
+/* ═══════════ Cámara: la vista es el viewBox del SVG ═══════════
+   CAM = lo que se ve ahora; OBJ = a dónde va. Cada cuadro CAM se acerca a OBJ (lerp exponencial),
+   así el zoom, el paneo y las transiciones salen suaves y no dependen de los cuadros por segundo.
+   Modos: "sigue" (centra al muñequito), "libre" (el usuario arrastró o hizo zoom) y "cine" (transición). */
+let CAM=null,OBJ=null,MODO="libre",ZW=0;
+const ZMIN=()=>VB[2]/5,ZMAX=()=>VB[2];
+function limitar(v){let [x,y,w,h]=v;w=Math.max(ZMIN(),Math.min(ZMAX(),w));h=w*VB[3]/VB[2];
+  x=Math.max(VB[0]-w*.15,Math.min(VB[0]+VB[2]-w*.85,x));y=Math.max(VB[1]-h*.15,Math.min(VB[1]+VB[3]-h*.85,y));return [x,y,w,h]}
+function centrarEn(px,py,w){const h=w*VB[3]/VB[2];return limitar([px-w/2,py-h/2,w,h])}
 function camara(dt){const svg=document.querySelector("svg.mapa");if(!svg)return;
-  const w=VB[2]/ZOOM,h=VB[3]/ZOOM,[px,py]=proj(AV.x,AV.y,40);
-  let x=Math.max(VB[0],Math.min(VB[0]+VB[2]-w,px-w/2)),y=Math.max(VB[1],Math.min(VB[1]+VB[3]-h,py-h/2));
-  if(!CAM)CAM=[VB[0],VB[1],VB[2],VB[3]];const k=reducido?1:Math.min(1,dt*6);
-  CAM=[CAM[0]+(x-CAM[0])*k,CAM[1]+(y-CAM[1])*k,CAM[2]+(w-CAM[2])*k,CAM[3]+(h-CAM[3])*k];
-  svg.setAttribute("viewBox",CAM.map(v=>v.toFixed(1)).join(" "));}
+  if(!CAM){CAM=VB.slice();OBJ=VB.slice()}
+  if(MODO==="sigue"){const [px,py]=proj(AV.x,AV.y,40);OBJ=centrarEn(px,py,OBJ[2])}
+  const k=reducido?1:1-Math.exp(-dt*(MODO==="cine"?5:9));
+  CAM=CAM.map((v,i)=>v+(OBJ[i]-v)*k);
+  svg.setAttribute("viewBox",CAM.map(v=>v.toFixed(1)).join(" "));
+  const z=document.getElementById("zNivel");if(z){const n=Math.round(VB[2]/CAM[2]*100);if(n!==ZW){ZW=n;z.textContent=n+" %"}}}
+function zoomEn(f,px,py){ // f<1 acerca. (px,py) = punto del mapa que queda quieto bajo el cursor
+  MODO=MODO==="cine"?"cine":"libre";const [x,y,w,h]=OBJ,nw=Math.max(ZMIN(),Math.min(ZMAX(),w*f)),r=nw/w;
+  if(px==null){px=x+w/2;py=y+h/2}OBJ=limitar([px-(px-x)*r,py-(py-y)*r,nw,nw*VB[3]/VB[2]])}
+function aMapa(svg,cx,cy){const r=svg.getBoundingClientRect();return [CAM[0]+(cx-r.left)/r.width*CAM[2],CAM[1]+(cy-r.top)/r.height*CAM[3]]}
+let ARRASTRO=false;
+function ligarCamara(){
+  const svg=$("svg.mapa");if(!svg)return;const P=new Map();let ini=null,dist0=0,w0=0,movido=0;
+  svg.addEventListener("wheel",ev=>{if(MODO==="cine")return;ev.preventDefault();const [mx,my]=aMapa(svg,ev.clientX,ev.clientY);zoomEn(Math.exp(Math.max(-120,Math.min(120,ev.deltaY))*.0012),mx,my)},{passive:false});
+  svg.addEventListener("pointerdown",ev=>{if(MODO==="cine"||ev.button>0)return;P.set(ev.pointerId,[ev.clientX,ev.clientY]);movido=0;ARRASTRO=false;
+    if(P.size===1)ini={x:ev.clientX,y:ev.clientY,o:OBJ.slice()};if(P.size===2){const [a,b]=[...P.values()];dist0=Math.hypot(a[0]-b[0],a[1]-b[1]);w0=OBJ[2]}});
+  svg.addEventListener("pointermove",ev=>{if(!P.has(ev.pointerId))return;P.set(ev.pointerId,[ev.clientX,ev.clientY]);const r=svg.getBoundingClientRect();
+    if(P.size===2){const [a,b]=[...P.values()],d=Math.hypot(a[0]-b[0],a[1]-b[1]);if(dist0){const [mx,my]=aMapa(svg,(a[0]+b[0])/2,(a[1]+b[1])/2),nw=w0*dist0/d;zoomEn(nw/OBJ[2],mx,my);ARRASTRO=true}return}
+    if(!ini)return;const dx=ev.clientX-ini.x,dy=ev.clientY-ini.y;movido=Math.max(movido,Math.hypot(dx,dy));
+    if(movido>6){if(!ARRASTRO){ARRASTRO=true;svg.setPointerCapture(ev.pointerId);svg.classList.add("arrastra")}MODO="libre";
+      OBJ=limitar([ini.o[0]-dx/r.width*CAM[2],ini.o[1]-dy/r.height*CAM[3],OBJ[2],OBJ[3]]);CAM=OBJ.slice()}});
+  const fin=ev=>{P.delete(ev.pointerId);if(P.size<2)dist0=0;if(!P.size){ini=null;svg.classList.remove("arrastra");setTimeout(()=>ARRASTRO=false,0)}};
+  svg.addEventListener("pointerup",fin);svg.addEventListener("pointercancel",fin);
+  // un clic que en realidad fue un arrastre no debe abrir la empresa
+  svg.addEventListener("click",ev=>{if(ARRASTRO){ev.stopPropagation();ev.preventDefault()}},true);
+}
 function tick(t){
   const dt=Math.min(.05,(t-(ultimoT||t))/1000);ultimoT=t;
   let sx=(TECLAS.has("r")?1:0)-(TECLAS.has("l")?1:0)+PAD.x,sy=(TECLAS.has("d")?1:0)-(TECLAS.has("u")?1:0)+PAD.y;
   // de la pantalla al suelo isométrico: derecha = (x+, y−), abajo = (x+, y+)
   let vx=sx+sy,vy=-sx+sy;const L=Math.hypot(vx,vy);AV.mueve=L>0;
-  if(L){vx/=L;vy/=L;const sp=150*dt,nx=AV.x+vx*sp,ny=AV.y+vy*sp;if(!chocaCon(nx,AV.y))AV.x=nx;if(!chocaCon(AV.x,ny))AV.y=ny;AV.fase+=dt*14;if(sx)AV.mira=sx>0?1:-1;}
+  if(L){if(MODO==="libre"&&OBJ&&OBJ[2]<VB[2]*.95)MODO="sigue";vx/=L;vy/=L;const sp=150*dt,nx=AV.x+vx*sp,ny=AV.y+vy*sp;if(!chocaCon(nx,AV.y))AV.x=nx;if(!chocaCon(AV.x,ny))AV.y=ny;AV.fase+=dt*14;if(sx)AV.mira=sx>0?1:-1;}
   if(document.getElementById("avatar")){moverNPCS(reducido?0:dt);ponerAvatar();avisoZona();camara(dt)}
   requestAnimationFrame(tick);
 }
 const DIR={ArrowUp:"u",KeyW:"u",ArrowDown:"d",KeyS:"d",ArrowLeft:"l",KeyA:"l",ArrowRight:"r",KeyD:"r"};
 document.addEventListener("keydown",ev=>{
-  if($("#dlg").open||/INPUT|SELECT|TEXTAREA/.test((ev.target&&ev.target.tagName)||""))return;
+  if(INT||$("#dlg").open||/INPUT|SELECT|TEXTAREA/.test((ev.target&&ev.target.tagName)||""))return;
   if(DIR[ev.code]){TECLAS.add(DIR[ev.code]);ev.preventDefault()}
   else if((ev.code==="KeyE"&&!(ev.target&&ev.target.closest&&ev.target.closest("#panel")))||(ev.key==="Enter"&&!(ev.target&&ev.target.closest&&ev.target.closest("[data-emp],button,a")))){const z=zonaCercana();if(z&&z.emp){ev.preventDefault();entrar()}}
 });
@@ -577,13 +716,15 @@ function controlesHTML(){
   const col=["#1c7ed6","#e03131","#37b24d","#f59f00","#7048e8","#e64980"];
   return `<div class="pad" aria-label="Controles del muñequito"><button type="button" data-pad="0,-1" aria-label="Arriba">▲</button><button type="button" data-pad="-1,0" aria-label="Izquierda">◀</button><button type="button" data-pad="1,0" aria-label="Derecha">▶</button><button type="button" data-pad="0,1" aria-label="Abajo">▼</button></div>
     <div class="colores" role="group" aria-label="Color de la camisa">${col.map(c=>`<button type="button" data-col="${c}" style="background:${c}" aria-label="Camisa color ${c}" aria-pressed="${AV.col===c}"></button>`).join("")}</div>
-    <div class="zoom"><button type="button" id="zMas" aria-label="Acercar la cámara">🔍＋</button><button type="button" id="zMenos" aria-label="Ver toda la ciudad">🔍－</button></div>
+    <div class="zoom"><button type="button" id="zMas" aria-label="Acercar">＋</button><span id="zNivel" class="znivel">100 %</span><button type="button" id="zMenos" aria-label="Alejar">－</button><button type="button" id="zYo" aria-label="Centrar la cámara en mi muñequito">🎯</button><button type="button" id="zTodo" aria-label="Ver toda la ciudad">🗺️</button><button type="button" id="sonido" aria-pressed="${SND.on}" aria-label="Sonidos de la interfaz">${SND.on?"🔊":"🔇"}</button></div>
     <div class="aviso" id="aviso" hidden></div>`;
 }
 function ligarControles(){
   document.querySelectorAll("[data-pad]").forEach(b=>{const [x,y]=b.dataset.pad.split(",").map(Number),on=ev=>{ev.preventDefault();PAD.x=x;PAD.y=y;b.setPointerCapture&&ev.pointerId!=null&&b.setPointerCapture(ev.pointerId)},off=()=>{PAD.x=0;PAD.y=0};
     b.onpointerdown=on;b.onpointerup=off;b.onpointercancel=off;b.onpointerleave=off;});
-  $("#zMas").onclick=()=>{ZOOM=Math.min(3,ZOOM===1?1.8:ZOOM+.6)};$("#zMenos").onclick=()=>{ZOOM=Math.max(1,ZOOM-.6<1.2?1:ZOOM-.6)};
+  $("#zMas").onclick=()=>{zoomEn(.7);sonar("clic")};$("#zMenos").onclick=()=>{zoomEn(1/.7);sonar("clic")};
+  $("#zYo").onclick=()=>{MODO="sigue";OBJ=centrarEn(...proj(AV.x,AV.y,40),VB[2]/2.4);sonar("clic")};$("#zTodo").onclick=()=>{MODO="libre";OBJ=VB.slice();sonar("clic")};
+  $("#sonido").onclick=ev=>{SND.on=!SND.on;try{localStorage.setItem("ciudad_snd",SND.on?"1":"0")}catch(e){}ev.currentTarget.textContent=SND.on?"🔊":"🔇";ev.currentTarget.setAttribute("aria-pressed",SND.on);sonar("ok")};
   document.querySelectorAll("[data-col]").forEach(b=>b.onclick=()=>{AV.col=b.dataset.col;try{localStorage.setItem("ciudad_av_col",AV.col)}catch(e){}const c=document.getElementById("av-cu");if(c)c.setAttribute("fill",AV.col);document.querySelectorAll("[data-col]").forEach(x=>x.setAttribute("aria-pressed",x===b))});
 }
 function pintar(){
@@ -594,11 +735,11 @@ function pintar(){
         <button type="button" class="hud-b" id="elegir">${mia?`${mia.ico} Tu empresa: ${esc(corto(mia.nombre))} · ${esc(yo.rol)}`:"🧑‍🎓 Escoger mi empresa"}</button></div>
       <div class="mapa-wrap">${mapaHTML()}${controlesHTML()}</div>
       <div class="legend"><span><i style="background:var(--com)"></i>Comercial</span><span><i style="background:var(--ser)"></i>Servicios</span><span><i style="background:var(--ia)"></i>Empresa de la IA (no lleva contabilidad)</span><span>👕 el color de la camisa es la empresa de cada estudiante</span></div>
-      <p class="nota">Camine con las <b>flechas</b> o <b>W A S D</b> (o los botones ▲◀▶▼) y toque <b>E</b> para entrar a la empresa que tiene enfrente. También puede tocar un edificio. Pase el mouse sobre un compañero para ver su nombre, empresa y rol.</p></section>
-    <section class="card" id="panel">${panelHTML()}</section>`;
-  document.querySelectorAll("[data-emp]").forEach(b=>{const ir=()=>{SEL=b.dataset.emp;TAB=lleva(emp(SEL))?"diario":"productos";pintar();$("#panel").scrollIntoView({behavior:reducido?"auto":"smooth",block:"start"})};b.onclick=ir;b.onkeydown=ev=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();ir()}}});
-  $("#elegir").onclick=elegirEmpresa;
-  ligarPanel();ligarControles();ZONA=null;if(CAM)$("svg.mapa").setAttribute("viewBox",CAM.join(" "));
+      <p class="nota">🖱️ Arrastre para mover la ciudad y use la rueda (o pellizque) para acercar. Camine con las <b>flechas</b> o <b>W A S D</b> y toque <b>E</b> para entrar a la empresa que tiene enfrente, o toque un edificio. Los <b>!</b> amarillos son misiones: documentos por registrar.</p></section>`;
+  document.querySelectorAll("[data-emp]").forEach(b=>{const ir=()=>entrarEmpresa(b.dataset.emp);b.onclick=ir;b.onkeydown=ev=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();ir()}}});
+  $("#elegir").onclick=()=>{sonar("clic");elegirEmpresa()};
+  ligarControles();ligarCamara();ZONA=null;if(CAM)$("svg.mapa").setAttribute("viewBox",CAM.join(" "));
+  if(INT)renderInterior();
 }
 
 /* ═══════════ Escoger empresa (lo que verá cada estudiante) ═══════════ */
@@ -638,7 +779,7 @@ function panelHTML(){
   const M=miembros(e.id);
   return `<div class="co-hd"><div class="ico">${e.ico}</div><div style="flex:1"><h2 style="margin:0">${esc(e.nombre)}</h2>
       <div class="muted" style="font-size:.85rem">${esc(e.giro)}${e.ced?` · Cédula jurídica ${esc(e.ced)}`:""}</div>
-      <div class="tp" style="font-size:.75rem;font-weight:700;color:var(--${TIPO[e.tipo][1]})">${TIPO[e.tipo][0]}</div></div><button type="button" class="sec" id="alMapa">⬆ Volver a la ciudad</button></div>
+      <div class="tp" style="font-size:.75rem;font-weight:700;color:var(--${TIPO[e.tipo][1]})">${TIPO[e.tipo][0]}</div></div></div>
     ${cont?`<div class="equipo">${M.length?M.map(m=>`<span><b>${esc(m.id===YO().id?"Tú":m.nombre)}</b> ${esc(m.rol)}</span>`).join(""):'<span class="muted">Todavía sin estudiantes</span>'}</div>`:""}
     ${s?`<div class="kv"><div><small>Ventas netas</small><b>${fm(s.vent)}</b></div><div><small>Por cobrar</small><b>${fm(s.cxc)}</b></div><div><small>Por pagar</small><b>${fm(s.cxp)}</b></div><div><small>IVA por pagar</small><b>${fm(s.ivaP)}</b></div><div><small>IVA soportado</small><b>${fm(s.ivaS)}</b></div></div>`:`<p class="muted" style="font-size:.86rem">Las empresas de la IA venden y compran, pero no llevan contabilidad: sus documentos solo los registra la otra empresa.</p>`}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 4px">${e.prods.length?`<button type="button" id="nuevaFE">🧾 Emitir factura</button>`:""}
@@ -677,7 +818,7 @@ function ligarPanel(){
   p.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{if(!confirm("¿Eliminar este asiento del diario?"))return;S.diario[e.id]=diarioDe(e.id).filter(x=>x.id!==b.dataset.del);guardar();p.innerHTML=panelHTML();ligarPanel()});
   const fe=$("#nuevaFE");if(fe)fe.onclick=()=>editorFactura();
   const nc=$("#nuevaNC");if(nc)nc.onclick=()=>editorNC();
-  const am=$("#alMapa");if(am)am.onclick=()=>$(".juego").scrollIntoView({behavior:reducido?"auto":"smooth",block:"start"});
+
 }
 
 /* ═══════════ Registrar un asiento en el diario (lo hace el contador) ═══════════ */
@@ -711,7 +852,7 @@ function editorAsiento(e,doc,previo){
       if(doc){a.docId=doc.id;const mal=revisar(lin,esperado(e,doc));a.estado=mal.length?"revisar":"correcto";a.mal=mal}
       const D=diarioDe(e.id),k=D.findIndex(x=>x.id===a.id);if(k>=0)D[k]=a;else D.push(a);guardar();
       $("#dlg").close();TAB="diario";pintar();
-      if(doc){const box=document.createElement("div");box.className="toast "+(a.estado==="correcto"?"ok":"bad");box.textContent=a.estado==="correcto"?"✅ ¡Asiento correcto!":`❌ Hay ${a.mal.length} cuenta${a.mal.length===1?"":"s"} por revisar. Use «Corregir».`;document.body.appendChild(box);setTimeout(()=>box.remove(),3500)}};
+      if(doc){sonar(a.estado==="correcto"?"ok":"error");if(a.estado==="correcto")confeti();const box=document.createElement("div");box.className="toast "+(a.estado==="correcto"?"ok":"bad");box.textContent=a.estado==="correcto"?"✅ ¡Asiento correcto!":`❌ Hay ${a.mal.length} cuenta${a.mal.length===1?"":"s"} por revisar. Use «Corregir».`;document.body.appendChild(box);setTimeout(()=>box.remove(),3500)}};
   };
   pinta();
 }
@@ -754,7 +895,7 @@ function editorFactura(){
         if(falta){$("#fMsg").innerHTML=`<div class="msg bad">No hay suficiente existencia de «${esc(falta.det)}» (quedan ${prod(falta.prod).stock}).</div>`;return}}
       const doc={id:"d"+Date.now(),tipo:"FE",emisor:E.id,receptor:html.rec,fecha:html.fecha||hoyISO(),condicion:html.cond,medio:html.medio,calc:calcular(lin)};
       Object.assign(doc,numerar(doc));
-      moverExistencias(doc,1);S.docs.push(doc);guardar();$("#dlg").close();pintar();animarTransaccion(doc,()=>verDoc(doc.id,true));
+      moverExistencias(doc,1);S.docs.push(doc);guardar();$("#dlg").close();sonar("moneda");pintar();animarTransaccion(doc,()=>verDoc(doc.id,true));
     };
   };
   repintar();
@@ -793,7 +934,7 @@ function editorNC(){
       const lin=F.calc.lineas.map(l=>({prod:l.prod,det:l.det,cabys:l.cabys,precio:l.precio,tarifa:l.tarifa,clase:l.clase,costo:l.costo,descPct:l.descPct,cant:Math.min(+dev[l.prod]||0,l.cant-ya(l.prod))})).filter(l=>l.cant>0);
       if(!lin.length)return;
       const doc={id:"d"+Date.now(),tipo:"NC",ref:F.id,refConsec:F.consecutivo,motivo:$("#nMot").value,emisor:E.id,receptor:F.receptor,fecha:hoyISO(),condicion:F.condicion,medio:F.medio,calc:calcular(lin)};
-      Object.assign(doc,numerar(doc));moverExistencias(doc,1);S.docs.push(doc);guardar();$("#dlg").close();pintar();animarTransaccion(doc,()=>verDoc(doc.id,true));
+      Object.assign(doc,numerar(doc));moverExistencias(doc,1);S.docs.push(doc);guardar();$("#dlg").close();sonar("moneda");pintar();animarTransaccion(doc,()=>verDoc(doc.id,true));
     };
   };
   repintar();
