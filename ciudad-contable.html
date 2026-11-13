@@ -130,6 +130,30 @@ body.dentro #volver-plataforma{display:none!important}
 .confeti span{position:absolute;top:-40px;font-size:1.6rem;animation:cae 1.4s ease-in forwards}
 @keyframes cae{to{transform:translateY(105vh) rotate(540deg);opacity:.2}}
 @media (prefers-reduced-motion: reduce){.mision-b,.misiones,.staff{animation:none}.iris.cierra,.iris.abre{animation:none;opacity:0}button{transition:none}}
+/* ── Caminar: palanca, minimapa, ruta, polvo, brújula y edificio cercano ── */
+.pad{display:none}
+.joy{position:absolute;right:18px;bottom:18px;width:118px;height:118px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.18),rgba(20,33,61,.55));border:3px solid rgba(255,255,255,.75);backdrop-filter:blur(4px);touch-action:none;box-shadow:0 10px 24px rgba(0,0,0,.35)}
+.joy::before{content:"";position:absolute;inset:26px;border-radius:50%;border:2px dashed rgba(255,255,255,.35)}
+.joy-k{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#ffd43b 60%,#f08c00);box-shadow:0 6px 14px rgba(0,0,0,.35);transition:transform .15s ease}
+.joy.activa .joy-k{transition:none}
+.correr{position:absolute;right:146px;bottom:30px;width:54px;height:54px;border-radius:50%;padding:0;justify-content:center;font-size:1.5rem;background:rgba(20,33,61,.8);border:3px solid #fff}
+.correr[aria-pressed="true"]{background:#ffd43b;box-shadow:0 0 18px #ffd43b}
+.minimapa{position:absolute;left:12px;top:56px;width:min(230px,28%);height:auto;border-radius:14px;border:3px solid #fff;box-shadow:0 10px 24px rgba(0,0,0,.35);cursor:crosshair;opacity:.95}
+.minimapa:hover{opacity:1}
+#mm-yo{animation:latido 1.2s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes latido{50%{transform:scale(1.35)}}
+.ruta{stroke:#ffd43b;stroke-width:6;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1 14;animation:hormigas .6s linear infinite;filter:drop-shadow(0 0 3px rgba(0,0,0,.4))}
+@keyframes hormigas{to{stroke-dashoffset:-15}}
+.meta-a{fill:none;stroke:#ffd43b;stroke-width:4;animation:onda 1.1s ease-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes onda{from{transform:scale(.4);opacity:1}to{transform:scale(1.6);opacity:0}}
+.pv{fill:rgba(255,255,255,.75);animation:polvo .6s ease-out forwards;transform-box:fill-box;transform-origin:center}
+@keyframes polvo{to{transform:scale(2.6) translateY(-3px);opacity:0}}
+.lote.cerca .edif{filter:drop-shadow(0 0 10px #ffd43b) drop-shadow(0 0 22px rgba(255,212,59,.6));transform:translateY(-6px)}
+#promptMundo{transition:opacity .18s ease}
+.pm-b{animation:flota 1.4s ease-in-out infinite}
+#gps text{font-family:Inter,sans-serif}
+@media(max-width:700px){.minimapa{width:38%}.joy{width:96px;height:96px}.correr{right:122px;width:46px;height:46px}}
+@media (prefers-reduced-motion: reduce){.ruta,.meta-a,#mm-yo,.pm-b{animation:none}}
 /* ── Panel de empresa ── */
 .co-hd{display:flex;gap:12px;align-items:flex-start}
 .co-hd .ico{font-size:2rem}
@@ -537,10 +561,16 @@ function mapaHTML(){
     <rect x="${VB[0]}" y="${VB[1]}" width="${VB[2]}" height="${VB[3]}" fill="url(#cielo)"/>
     <polygon points="${pts([proj(-30,-30),proj(MW+30,-30),proj(MW+30,MH+30),proj(-30,MH+30)])}" fill="#5a9e3f"/>
     <polygon points="${pts([proj(MW+30,MH+30),proj(MW+30,-30),proj(MW+30,-30,-22),proj(MW+30,MH+30,-22)])}" fill="#6b4a2b"/><polygon points="${pts([proj(-30,MH+30),proj(MW+30,MH+30),proj(MW+30,MH+30,-22),proj(-30,MH+30,-22)])}" fill="#8a5f37"/>
-    <g transform="matrix(${ISO.join(" ")} 0 0)">${calles()}${plazaSuelo()}${bancas()}${es.map(sueloLote).join("")}${LUGARES.map(sueloLugar).join("")}${carros()}</g>
+    <g transform="matrix(${ISO.join(" ")} 0 0)">${calles()}${plazaSuelo()}${bancas()}${es.map(sueloLote).join("")}${LUGARES.map(sueloLugar).join("")}${carros()}
+      <polyline id="ruta" class="ruta" points="" fill="none"/><g id="meta" opacity="0"><circle r="16" class="meta-a"/><circle r="6" fill="#ffd43b"/></g></g>
+    <g id="polvo"></g>
+    <g id="gps" opacity="0" pointer-events="none"><g class="gps-f"><path d="M 30 -9 L 52 0 L 30 9 Z" fill="#ffd43b" stroke="#14213d" stroke-width="3"/></g><text y="44" text-anchor="middle" font-size="13" font-weight="800" fill="#14213d" stroke="#fff" stroke-width="4" paint-order="stroke"></text></g>
     <g id="capaObjetos">${objetos.map(o=>`<g class="obj" data-d="${o.d}">${o.svg}</g>`).join("")}${NPCS.map(npcSVG).join("")}${avatarSVG()}</g>
     <rect class="luz" x="${VB[0]-VB[2]}" y="${VB[1]-VB[3]}" width="${VB[2]*3}" height="${VB[3]*3}" fill="url(#sol)" pointer-events="none"/>
     ${LUGARES.map(cartelLugar).join("")}${es.map(cartel).join("")}
+    <g id="promptMundo" opacity="0" style="pointer-events:none;cursor:pointer" role="button" aria-label="Entrar a la empresa"><g class="pm-b"><rect x="-74" y="-22" width="148" height="36" rx="18" fill="#14213d" stroke="#ffd43b" stroke-width="3"/>
+      <rect x="-64" y="-15" width="22" height="22" rx="6" fill="#ffd43b"/><text x="-53" y="1" text-anchor="middle" font-size="13" font-weight="900" fill="#14213d">E</text>
+      <text x="-34" y="-4" font-size="11" font-weight="800" fill="#fff">Entrar</text><text class="pmn" x="-34" y="9" font-size="9" font-weight="600" fill="#ffd43b"></text><path d="M -8 14 L 0 24 L 8 14 Z" fill="#14213d"/></g></g>
     <rect x="${VB[0]-VB[2]}" y="${VB[1]-VB[3]}" width="${VB[2]*3}" height="${VB[3]*3}" fill="url(#vineta)" pointer-events="none"/></svg>`;
 }
 /* ═══════════ Los compañeros: 17 estudiantes que caminan solos por las aceras ═══════════ */
@@ -574,7 +604,7 @@ function bancas(){const x=bx(PZ[0]),y=by(PZ[1]),cx=x+BW/2,cy=y+BH/2;return [[-46
 
 /* ═══════════ El muñequito: el estudiante camina por la ciudad ═══════════
    Flechas o W A S D para caminar · E o Enter para entrar a la empresa que tiene enfrente. */
-const AV={x:bx(PZ[0])+BW/2,y:by(PZ[1])-20,col:(()=>{try{return localStorage.getItem("ciudad_av_col")||"#1c7ed6"}catch(e){return "#1c7ed6"}})(),fase:0,mueve:false,mira:1};
+const AV={x:bx(PZ[0])+BW/2,y:by(PZ[1])-20,col:(()=>{try{return localStorage.getItem("ciudad_av_col")||"#1c7ed6"}catch(e){return "#1c7ed6"}})(),fase:0,mueve:false,mira:1,vx:0,vy:0,ruta:[],alLlegar:null,polvo:0,corre:false};
 const TECLAS=new Set(),PAD={x:0,y:0};let ZONA=null,ultimoT=0;
 function avatarSVG(){return `<g id="avatar" aria-hidden="true"><ellipse cx="0" cy="0" rx="10" ry="5" fill="rgba(0,0,0,.28)"/>
   <rect id="av-pi" x="-6" y="-14" width="5" height="14" rx="2" fill="#343a40"/><rect id="av-pd" x="1" y="-14" width="5" height="14" rx="2" fill="#343a40"/>
@@ -612,7 +642,7 @@ function entrar(){const z=zonaCercana();if(!z||!z.emp)return;entrarEmpresa(z.emp
 let INT=null,CAM_ANTES=null;
 function puerta(id){const m=MAPA[id];return proj(bx(m[0])+28+(BW-74)/2,by(m[1])+20+(BH-62),18)} // centro de la fachada que da a la calle
 function entrarEmpresa(id){
-  if(INT||MODO==="cine")return;sonar("entrar");SEL=id;TAB=lleva(emp(id))?"diario":"productos";
+  if(INT||MODO==="cine")return;AV.ruta=[];AV.alLlegar=null;AV.vx=AV.vy=0;ponerRuta();sonar("entrar");SEL=id;TAB=lleva(emp(id))?"diario":"productos";
   CAM_ANTES={obj:OBJ?OBJ.slice():VB.slice(),modo:MODO==="cine"?"libre":MODO};MODO="cine";
   const [px,py]=puerta(id);OBJ=centrarEn(px,py,VB[2]/6);
   const iris=$("#iris"),e=emp(id);iris.style.setProperty("--c",(PAL[e.id]||PAL[e.tipo])[0]);
@@ -670,7 +700,7 @@ function limitar(v){let [x,y,w,h]=v;w=Math.max(ZMIN(),Math.min(ZMAX(),w));h=w*VB
 function centrarEn(px,py,w){const h=w*VB[3]/VB[2];return limitar([px-w/2,py-h/2,w,h])}
 function camara(dt){const svg=document.querySelector("svg.mapa");if(!svg)return;
   if(!CAM){CAM=VB.slice();OBJ=VB.slice()}
-  if(MODO==="sigue"){const [px,py]=proj(AV.x,AV.y,40);OBJ=centrarEn(px,py,OBJ[2])}
+  if(MODO==="sigue"){const [px,py]=proj(AV.x+AV.vx*.45,AV.y+AV.vy*.45,40);OBJ=centrarEn(px,py,OBJ[2])}
   const k=reducido?1:1-Math.exp(-dt*(MODO==="cine"?5:9));
   CAM=CAM.map((v,i)=>v+(OBJ[i]-v)*k);
   svg.setAttribute("viewBox",CAM.map(v=>v.toFixed(1)).join(" "));
@@ -695,31 +725,123 @@ function ligarCamara(){
   // un clic que en realidad fue un arrastre no debe abrir la empresa
   svg.addEventListener("click",ev=>{if(ARRASTRO){ev.stopPropagation();ev.preventDefault()}},true);
 }
+/* ═══════════ Navegación: rejilla de 16 × 16 sobre el suelo, A* con 8 direcciones y ruta suavizada ═══════════ */
+const NAV={c:16,cols:0,rows:0,ok:null};
+const libre=(x,y)=>!(chocaCon(x,y)||chocaCon(x-6,y-6)||chocaCon(x+6,y+6)||chocaCon(x-6,y+6)||chocaCon(x+6,y-6));
+function navConstruir(){NAV.cols=Math.ceil((MW+40)/NAV.c);NAV.rows=Math.ceil((MH+40)/NAV.c);NAV.ok=new Uint8Array(NAV.cols*NAV.rows);
+  for(let r=0;r<NAV.rows;r++)for(let c=0;c<NAV.cols;c++){const [x,y]=centroCelda(c,r);NAV.ok[r*NAV.cols+c]=libre(x,y)?1:0}}
+const celdaDe=(x,y)=>[Math.max(0,Math.min(NAV.cols-1,Math.floor((x+20)/NAV.c))),Math.max(0,Math.min(NAV.rows-1,Math.floor((y+20)/NAV.c)))];
+const centroCelda=(c,r)=>[-20+c*NAV.c+NAV.c/2,-20+r*NAV.c+NAV.c/2];
+const abierta=(c,r)=>c>=0&&r>=0&&c<NAV.cols&&r<NAV.rows&&NAV.ok[r*NAV.cols+c]===1;
+function celdaLibreCerca(c,r){if(abierta(c,r))return [c,r];for(let d=1;d<14;d++)for(let i=-d;i<=d;i++)for(const [a,b] of [[c+i,r-d],[c+i,r+d],[c-d,r+i],[c+d,r+i]])if(abierta(a,b))return [a,b];return null}
+function aEstrella(x0,y0,x1,y1){
+  if(!NAV.ok)navConstruir();const A=celdaLibreCerca(...celdaDe(x0,y0)),B=celdaLibreCerca(...celdaDe(x1,y1));if(!A||!B)return null;
+  const W=NAV.cols,idx=(c,r)=>r*W+c,g=new Float32Array(W*NAV.rows).fill(Infinity),de=new Int32Array(W*NAV.rows).fill(-1),cerrada=new Uint8Array(W*NAV.rows);
+  const h=(c,r)=>{const dx=Math.abs(c-B[0]),dy=Math.abs(r-B[1]);return (dx+dy)+(1.4142-2)*Math.min(dx,dy)};
+  const heap=[];const push=(f,i)=>{heap.push([f,i]);let k=heap.length-1;while(k){const p=(k-1)>>1;if(heap[p][0]<=heap[k][0])break;[heap[p],heap[k]]=[heap[k],heap[p]];k=p}};
+  const pop=()=>{const top=heap[0],last=heap.pop();if(heap.length){heap[0]=last;let k=0;for(;;){const l=2*k+1,r=l+1;let m=k;if(l<heap.length&&heap[l][0]<heap[m][0])m=l;if(r<heap.length&&heap[r][0]<heap[m][0])m=r;if(m===k)break;[heap[m],heap[k]]=[heap[k],heap[m]];k=m}}return top};
+  const s0=idx(...A),meta=idx(...B);g[s0]=0;push(h(...A),s0);
+  while(heap.length){const [,i]=pop();if(i===meta)break;if(cerrada[i])continue;cerrada[i]=1;const c=i%W,r=(i/W)|0;
+    for(const [dc,dr] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]){const nc=c+dc,nr=r+dr;if(!abierta(nc,nr))continue;if(dc&&dr&&(!abierta(c+dc,r)||!abierta(c,r+dr)))continue;
+      const j=idx(nc,nr),ng=g[i]+(dc&&dr?1.4142:1);if(ng<g[j]){g[j]=ng;de[j]=i;push(ng+h(nc,nr),j)}}}
+  if(g[meta]===Infinity)return null;const L=[];for(let i=meta;i!==-1;i=de[i])L.push(centroCelda(i%W,(i/W)|0));L.reverse();L.push([x1,y1]);
+  // suavizado: desde cada punto, saltar al punto visible más lejano
+  const vista=(a,b)=>{const d=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.ceil(d/6);for(let k=1;k<n;k++){const t=k/n;if(!libre(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t))return false}return true};
+  const R=[[x0,y0]];let k=0;while(k<L.length-1){let j=L.length-1;while(j>k+1&&!vista(R[R.length-1],L[j]))j--;R.push(L[j]);k=j}
+  if(!libre(x1,y1))R[R.length-1]=centroCelda(...B);
+  return R.slice(1);
+}
+function irA(x,y,alLlegar){const R=aEstrella(AV.x,AV.y,x,y);if(!R||!R.length){aviso("🚧 No se puede llegar ahí");sonar("error");return false}
+  AV.ruta=R;AV.alLlegar=alLlegar||null;ponerRuta();if(MODO!=="cine"){MODO="sigue";if(OBJ&&OBJ[2]>VB[2]*.6)OBJ=centrarEn(...proj(AV.x,AV.y,40),VB[2]/2.3)}sonar("clic");return true}
+function puertaMundo(id){const m=MAPA[id];return [bx(m[0])+28+(BW-74)/2,by(m[1])+20+(BH-62)+16]}
+function caminarA(id){const z=zonaCercana();if(z&&z.emp===id){entrarEmpresa(id);return}const [x,y]=puertaMundo(id);irA(x,y,()=>entrarEmpresa(id))}
+function aMundo(px,py){const a=px/.866,b=py/.5;return [(a+b)/2,(b-a)/2]}
+function aviso(t){const b=document.createElement("div");b.className="toast bad";b.textContent=t;document.body.appendChild(b);setTimeout(()=>b.remove(),1800)}
+/* Línea punteada de la ruta y anillo de destino, en el suelo */
+function ponerRuta(){const pl=document.getElementById("ruta"),m=document.getElementById("meta");if(!pl||!m)return;
+  if(!AV.ruta.length){pl.setAttribute("points","");m.setAttribute("opacity","0");return}
+  pl.setAttribute("points",[[AV.x,AV.y],...AV.ruta].map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" "));const f=AV.ruta[AV.ruta.length-1];m.setAttribute("transform",`translate(${f[0]},${f[1]})`);m.setAttribute("opacity","1")}
+/* Misión más cercana: la empresa del estudiante si tiene pendientes; si no, la que tenga más */
+function misionActual(){const yo=YO();if(yo.emp&&pendientes(yo.emp).length)return yo.emp;let best=null,n=0;S.empresas.forEach(e=>{if(lleva(e)){const k=pendientes(e.id).length;if(k>n){n=k;best=e.id}}});return best}
+function polvo(dt){const g=document.getElementById("polvo");if(!g)return;
+  if(!reducido&&Math.hypot(AV.vx,AV.vy)>70){AV.polvo-=dt;if(AV.polvo<=0){AV.polvo=AV.corre?.06:.11;const [px,py]=proj(AV.x,AV.y),c=document.createElementNS("http://www.w3.org/2000/svg","circle");
+    c.setAttribute("cx",(px+(Math.random()-.5)*10).toFixed(1));c.setAttribute("cy",(py+(Math.random()-.5)*4).toFixed(1));c.setAttribute("r","4");c.setAttribute("class","pv");g.appendChild(c);setTimeout(()=>c.remove(),600);
+    while(g.childNodes.length>16)g.firstChild.remove()}}}
+let CERCA=null;
+function resaltarCercana(){const z=zonaCercana(),id=z&&z.emp?z.emp:null,pm=document.getElementById("promptMundo");
+  if(id!==CERCA){document.querySelectorAll(".lote.cerca").forEach(n=>n.classList.remove("cerca"));if(id){const n=document.querySelector(`.lote[data-emp="${id}"]:not(.cartel-g)`);if(n)n.classList.add("cerca")}CERCA=id;
+    if(pm){if(id){const [x,y]=puertaMundo(id),[px,py]=proj(x,y,(ALTO[id]||30)*.5+26);pm.setAttribute("transform",`translate(${px.toFixed(1)},${py.toFixed(1)})`);pm.setAttribute("opacity","1");pm.style.pointerEvents="auto";pm.querySelector("text.pmn").textContent=corto(emp(id).nombre)}else{pm.setAttribute("opacity","0");pm.style.pointerEvents="none"}}}}
+function brujula(){const g=document.getElementById("gps");if(!g)return;const id=misionActual();if(!id||INT){g.setAttribute("opacity","0");return}
+  const [tx,ty]=puertaMundo(id),d=Math.hypot(tx-AV.x,ty-AV.y);if(d<140){g.setAttribute("opacity","0");return}
+  const [ax,ay]=proj(AV.x,AV.y),[bx2,by2]=proj(tx,ty),ang=Math.atan2(by2-ay,bx2-ax)*180/Math.PI;
+  g.setAttribute("opacity","1");g.setAttribute("transform",`translate(${ax.toFixed(1)},${ay.toFixed(1)})`);g.querySelector(".gps-f").setAttribute("transform",`scale(1,.55) rotate(${ang.toFixed(1)})`);
+  g.querySelector("text").textContent=`${emp(id).ico} ${Math.round(d/10)} m`;}
+/* Minimapa (vista desde arriba): empresas, misión, compañeros y usted. Tocar = ir ahí. */
+function minimapaHTML(){
+  const lote=(x,y,col,op)=>`<rect x="${x+6}" y="${y+6}" width="${BW-12}" height="${BH-12}" rx="10" fill="${col}" opacity="${op||1}"/>`;
+  return `<svg class="minimapa" viewBox="-20 -20 ${MW+40} ${MH+40}" role="button" tabindex="0" aria-label="Minimapa: toque un lugar para caminar hasta ahí">
+    <rect x="-20" y="-20" width="${MW+40}" height="${MH+40}" rx="30" fill="#2b3245"/>
+    ${S.empresas.filter(e=>MAPA[e.id]).map(e=>{const [c,r]=MAPA[e.id];return `<g data-mm="${e.id}">${lote(bx(c),by(r),(PAL[e.id]||PAL[e.tipo])[0])}<text x="${bx(c)+BW/2}" y="${by(r)+BH/2+26}" text-anchor="middle" font-size="70">${e.ico}</text></g>`}).join("")}
+    ${LUGARES.map(L=>lote(bx(L.pos[0]),by(L.pos[1]),"#5c6f5c",.8)).join("")}${lote(bx(PZ[0]),by(PZ[1]),"#40c057")}
+    <circle id="mm-mision" r="70" fill="none" stroke="#ffd43b" stroke-width="18" opacity="0"/>
+    ${NPCS.map(n=>`<circle id="mm-n${n.i}" r="14" fill="#fff" opacity=".85"/>`).join("")}
+    <circle id="mm-yo" r="26" fill="#ffd43b" stroke="#14213d" stroke-width="8"/></svg>`;
+}
+function minimapaTick(){const yo=document.getElementById("mm-yo");if(!yo)return;yo.setAttribute("cx",AV.x.toFixed(0));yo.setAttribute("cy",AV.y.toFixed(0));
+  NPCS.forEach(n=>{const c=document.getElementById("mm-n"+n.i);if(c){c.setAttribute("cx",n.x.toFixed(0));c.setAttribute("cy",n.y.toFixed(0))}});
+  const m=document.getElementById("mm-mision"),id=misionActual();if(m){if(id){const [c,r]=MAPA[id];m.setAttribute("cx",bx(c)+BW/2);m.setAttribute("cy",by(r)+BH/2);m.setAttribute("opacity","1")}else m.setAttribute("opacity","0")}}
+function ligarMinimapa(){const mm=$(".minimapa");if(!mm)return;
+  mm.onclick=ev=>{const r=mm.getBoundingClientRect(),x=-20+(ev.clientX-r.left)/r.width*(MW+40),y=-20+(ev.clientY-r.top)/r.height*(MH+40);
+    const lot=ev.target.closest&&ev.target.closest("[data-mm]");if(lot){caminarA(lot.dataset.mm);return}irA(x,y)};
+  mm.onkeydown=ev=>{if(ev.key==="Enter"){const id=misionActual();if(id)caminarA(id)}};}
 function tick(t){
   const dt=Math.min(.05,(t-(ultimoT||t))/1000);ultimoT=t;
-  let sx=(TECLAS.has("r")?1:0)-(TECLAS.has("l")?1:0)+PAD.x,sy=(TECLAS.has("d")?1:0)-(TECLAS.has("u")?1:0)+PAD.y;
-  // de la pantalla al suelo isométrico: derecha = (x+, y−), abajo = (x+, y+)
-  let vx=sx+sy,vy=-sx+sy;const L=Math.hypot(vx,vy);AV.mueve=L>0;
-  if(L){if(MODO==="libre"&&OBJ&&OBJ[2]<VB[2]*.95)MODO="sigue";vx/=L;vy/=L;const sp=150*dt,nx=AV.x+vx*sp,ny=AV.y+vy*sp;if(!chocaCon(nx,AV.y))AV.x=nx;if(!chocaCon(AV.x,ny))AV.y=ny;AV.fase+=dt*14;if(sx)AV.mira=sx>0?1:-1;}
-  if(document.getElementById("avatar")){moverNPCS(reducido?0:dt);ponerAvatar();avisoZona();camara(dt)}
+  // Entrada: teclado o palanca (en ejes de la pantalla); se pasa al suelo isométrico: derecha = (x+, y−), abajo = (x+, y+)
+  const kx=(TECLAS.has("r")?1:0)-(TECLAS.has("l")?1:0),ky=(TECLAS.has("d")?1:0)-(TECLAS.has("u")?1:0);
+  let sx=kx+PAD.x,sy=ky+PAD.y,fuerza=Math.min(1,Math.hypot(sx,sy));
+  let dx=sx+sy,dy=-sx+sy,L=Math.hypot(dx,dy);
+  if(L&&!INT){if(AV.ruta.length){AV.ruta=[];AV.alLlegar=null;ponerRuta()}
+    if(MODO==="libre"){MODO="sigue";if(OBJ&&OBJ[2]>VB[2]*.6)OBJ=centrarEn(...proj(AV.x,AV.y,40),VB[2]/2.3)}dx/=L;dy/=L}
+  else if(AV.ruta.length&&!INT){const [wx,wy]=AV.ruta[0],ex=wx-AV.x,ey=wy-AV.y,d=Math.hypot(ex,ey);
+    if(d<9){AV.ruta.shift();if(!AV.ruta.length){const cb=AV.alLlegar;AV.alLlegar=null;AV.vx*=.3;AV.vy*=.3;ponerRuta();if(cb)cb()}else ponerRuta()}
+    if(AV.ruta.length){dx=ex/d;dy=ey/d;fuerza=1;L=1}else{dx=dy=0;L=0}}
+  else{dx=dy=0;L=0}
+  const restante=AV.ruta.reduce((t,p,i,a)=>t+(i?Math.hypot(p[0]-a[i-1][0],p[1]-a[i-1][1]):Math.hypot(p[0]-AV.x,p[1]-AV.y)),0);
+  AV.corre=(TECLAS.has("shift")||restante>380)&&L>0;
+  const vmax=(AV.corre?250:150)*(L?Math.max(.35,fuerza):0),acel=L?9:12,k=Math.min(1,dt*acel);
+  AV.vx+=(dx*vmax-AV.vx)*k;AV.vy+=(dy*vmax-AV.vy)*k;
+  const sp=Math.hypot(AV.vx,AV.vy);AV.mueve=sp>8;
+  if(AV.mueve){const nx=AV.x+AV.vx*dt,ny=AV.y+AV.vy*dt;if(!chocaCon(nx,AV.y))AV.x=nx;else AV.vx=0;if(!chocaCon(AV.x,ny))AV.y=ny;else AV.vy=0;
+    AV.fase+=dt*(6+sp*.06);const scrx=AV.vx-AV.vy;if(Math.abs(scrx)>4)AV.mira=scrx>0?1:-1;if(AV.ruta.length)ponerRuta()}
+  if(document.getElementById("avatar")){moverNPCS(reducido?0:dt);ponerAvatar();avisoZona();resaltarCercana();brujula();polvo(dt);minimapaTick();camara(dt)}
   requestAnimationFrame(tick);
 }
 const DIR={ArrowUp:"u",KeyW:"u",ArrowDown:"d",KeyS:"d",ArrowLeft:"l",KeyA:"l",ArrowRight:"r",KeyD:"r"};
 document.addEventListener("keydown",ev=>{
   if(INT||$("#dlg").open||/INPUT|SELECT|TEXTAREA/.test((ev.target&&ev.target.tagName)||""))return;
+  if(ev.key==="Shift")TECLAS.add("shift");
   if(DIR[ev.code]){TECLAS.add(DIR[ev.code]);ev.preventDefault()}
   else if((ev.code==="KeyE"&&!(ev.target&&ev.target.closest&&ev.target.closest("#panel")))||(ev.key==="Enter"&&!(ev.target&&ev.target.closest&&ev.target.closest("[data-emp],button,a")))){const z=zonaCercana();if(z&&z.emp){ev.preventDefault();entrar()}}
 });
-document.addEventListener("keyup",ev=>{if(DIR[ev.code])TECLAS.delete(DIR[ev.code])});
+document.addEventListener("keyup",ev=>{if(DIR[ev.code])TECLAS.delete(DIR[ev.code]);if(ev.key==="Shift")TECLAS.delete("shift")});
 addEventListener("blur",()=>TECLAS.clear());
 function controlesHTML(){
   const col=["#1c7ed6","#e03131","#37b24d","#f59f00","#7048e8","#e64980"];
-  return `<div class="pad" aria-label="Controles del muñequito"><button type="button" data-pad="0,-1" aria-label="Arriba">▲</button><button type="button" data-pad="-1,0" aria-label="Izquierda">◀</button><button type="button" data-pad="1,0" aria-label="Derecha">▶</button><button type="button" data-pad="0,1" aria-label="Abajo">▼</button></div>
+  return `<div class="joy" aria-label="Palanca para caminar (también flechas o W A S D; Shift para correr)"><div class="joy-k"></div></div>
+    <button type="button" class="correr" id="correr" aria-pressed="false" aria-label="Correr">🏃</button>
+    ${minimapaHTML()}
     <div class="colores" role="group" aria-label="Color de la camisa">${col.map(c=>`<button type="button" data-col="${c}" style="background:${c}" aria-label="Camisa color ${c}" aria-pressed="${AV.col===c}"></button>`).join("")}</div>
     <div class="zoom"><button type="button" id="zMas" aria-label="Acercar">＋</button><span id="zNivel" class="znivel">100 %</span><button type="button" id="zMenos" aria-label="Alejar">－</button><button type="button" id="zYo" aria-label="Centrar la cámara en mi muñequito">🎯</button><button type="button" id="zTodo" aria-label="Ver toda la ciudad">🗺️</button><button type="button" id="sonido" aria-pressed="${SND.on}" aria-label="Sonidos de la interfaz">${SND.on?"🔊":"🔇"}</button></div>
     <div class="aviso" id="aviso" hidden></div>`;
 }
 function ligarControles(){
+  const joy=$(".joy"),kn=$(".joy-k");if(joy){let id=null;const mover=ev=>{const r=joy.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,R=r.width/2-18;let x=ev.clientX-cx,y=ev.clientY-cy;const d=Math.hypot(x,y);if(d>R){x*=R/d;y*=R/d}
+      kn.style.transform=`translate(${x}px,${y}px)`;PAD.x=x/R;PAD.y=y/R};
+    joy.onpointerdown=ev=>{ev.preventDefault();id=ev.pointerId;joy.setPointerCapture(id);joy.classList.add("activa");mover(ev)};
+    joy.onpointermove=ev=>{if(ev.pointerId===id)mover(ev)};
+    joy.onpointerup=joy.onpointercancel=()=>{id=null;PAD.x=0;PAD.y=0;kn.style.transform="";joy.classList.remove("activa")}}
+  const co=$("#correr");if(co)co.onclick=()=>{const on=!TECLAS.has("shift");if(on)TECLAS.add("shift");else TECLAS.delete("shift");co.setAttribute("aria-pressed",on);sonar("clic")};
+  ligarMinimapa();
   document.querySelectorAll("[data-pad]").forEach(b=>{const [x,y]=b.dataset.pad.split(",").map(Number),on=ev=>{ev.preventDefault();PAD.x=x;PAD.y=y;b.setPointerCapture&&ev.pointerId!=null&&b.setPointerCapture(ev.pointerId)},off=()=>{PAD.x=0;PAD.y=0};
     b.onpointerdown=on;b.onpointerup=off;b.onpointercancel=off;b.onpointerleave=off;});
   $("#zMas").onclick=()=>{zoomEn(.7);sonar("clic")};$("#zMenos").onclick=()=>{zoomEn(1/.7);sonar("clic")};
@@ -735,8 +857,11 @@ function pintar(){
         <button type="button" class="hud-b" id="elegir">${mia?`${mia.ico} Tu empresa: ${esc(corto(mia.nombre))} · ${esc(yo.rol)}`:"🧑‍🎓 Escoger mi empresa"}</button></div>
       <div class="mapa-wrap">${mapaHTML()}${controlesHTML()}</div>
       <div class="legend"><span><i style="background:var(--com)"></i>Comercial</span><span><i style="background:var(--ser)"></i>Servicios</span><span><i style="background:var(--ia)"></i>Empresa de la IA (no lleva contabilidad)</span><span>👕 el color de la camisa es la empresa de cada estudiante</span></div>
-      <p class="nota">🖱️ Arrastre para mover la ciudad y use la rueda (o pellizque) para acercar. Camine con las <b>flechas</b> o <b>W A S D</b> y toque <b>E</b> para entrar a la empresa que tiene enfrente, o toque un edificio. Los <b>!</b> amarillos son misiones: documentos por registrar.</p></section>`;
-  document.querySelectorAll("[data-emp]").forEach(b=>{const ir=()=>entrarEmpresa(b.dataset.emp);b.onclick=ir;b.onkeydown=ev=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();ir()}}});
+      <p class="nota">👆 <b>Toque el suelo</b> para caminar hasta ahí o <b>toque un edificio</b> para ir a su puerta y entrar. También: flechas o <b>W A S D</b>, la palanca, y <b>Shift</b> o 🏃 para correr. 🗺️ El minimapa lleva a cualquier lugar y la flecha amarilla apunta a la misión. Arrastre para mover la ciudad y use la rueda para acercar.</p></section>`;
+  document.querySelectorAll("[data-emp]").forEach(b=>{b.onclick=ev=>{ev.stopPropagation();caminarA(b.dataset.emp)};b.onkeydown=ev=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();entrarEmpresa(b.dataset.emp)}}});
+  $("svg.mapa").addEventListener("click",ev=>{if(ARRASTRO||MODO==="cine"||ev.target.closest("[data-emp]"))return;if(ev.target.closest("#promptMundo")){entrar();return}const [mx,my]=aMapa($("svg.mapa"),ev.clientX,ev.clientY),[wx,wy]=aMundo(mx,my);
+    if(wx<-20||wy<-20||wx>MW+20||wy>MH+20)return;irA(wx,wy)});
+  if(!NAV.ok)navConstruir();ponerRuta();CERCA=null;
   $("#elegir").onclick=()=>{sonar("clic");elegirEmpresa()};
   ligarControles();ligarCamara();ZONA=null;if(CAM)$("svg.mapa").setAttribute("viewBox",CAM.join(" "));
   if(INT)renderInterior();
