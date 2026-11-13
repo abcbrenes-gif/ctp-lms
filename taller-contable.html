@@ -90,6 +90,21 @@ td.r,th.r{text-align:right}
 .tots .d{color:var(--debe)}.tots .h{color:var(--haber)}
 details.catal summary{cursor:pointer;font-weight:700;color:var(--accent)}
 .catal-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:2px 16px;font-size:.84rem;margin-top:8px}
+/* asiento estilo SAP Business One */
+.sap{border:1px solid #b9c6d6;border-radius:10px;overflow:hidden;background:var(--surface)}
+.sap-tit{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(#f4f7fb,#e3eaf3);border-bottom:1px solid #b9c6d6;padding:8px 12px;font-weight:800;color:#1c3d6e}
+:root[data-theme="dark"] .sap-tit{background:var(--surface2);color:var(--ink)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .sap-tit{background:var(--surface2);color:var(--ink)}}
+.sap-n{font-weight:600;font-size:.9rem}
+.sap-hd{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 12px;padding:10px 12px;border-bottom:1px solid var(--line)}
+@media(max-width:700px){.sap-hd{grid-template-columns:minmax(0,1fr)}}
+.sap-hd label{display:flex;flex-direction:column;gap:3px;font-size:.78rem;font-weight:700;color:var(--muted)}
+.sap-hd small{font-weight:400}
+.sap-hd .sap-com{grid-column:1/-1}
+.sap-grid th{background:var(--surface2)}
+.sap-grid td.nm{font-size:.88rem}
+.sap-pie{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;padding:8px 12px;border-top:1px solid var(--line);background:var(--surface2);font-size:.86rem}
+.sap-pie .dif{padding:3px 10px;border-radius:8px;background:var(--surface)}.sap-pie .dif.ok{background:var(--okbg);color:var(--ok)}.sap-pie .dif.bad{background:var(--badbg);color:var(--bad)}
 /* T de mayor */
 .tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:12px}
 .tcard{border:2px solid var(--line);border-radius:14px;background:var(--surface);padding:10px}
@@ -191,6 +206,7 @@ function intentoCaso(seed,nivel){
   ini["3101"]=Math.floor(neto*.7/100000)*100000;ini["3102"]=neto-ini["3101"];if(ini["3102"]<=0)return null;
   const T=[],dia=(d)=>`${ANIO}-03-${String(d).padStart(2,"0")}`;
   const add=(d,desc,lines,tipo)=>T.push({fecha:dia(d),dia:d,desc,lines,tipo});
+  const RF=rng(seed^0x5f3759df),num=n=>String(Math.floor(RF()*9*10**(n-1))+10**(n-1));
   const venta=(precio,pctCosto)=>Math.round(precio*pctCosto/1000)*1000;
   // Operaciones del mes (todas por medio del banco)
   const aporte=m(300e3,900e3,50e3);add(2,`Los socios hacen un aporte adicional de capital de ${fm(aporte)}, que se deposita en la cuenta bancaria de la empresa.`,[["1102",aporte,0],["3101",0,aporte]]);
@@ -214,6 +230,11 @@ function intentoCaso(seed,nivel){
     add(31,`Ajuste: registra el seguro consumido en el mes (1 de los 12 meses pagados por adelantado): ${fm(prima/12)}.`,[["6106",prima/12,0],["1105",0,prima/12]],"aj");
     const sa=m(80e3,200e3,10e3);add(31,`Ajuste: quedan pendientes de pago salarios de la última semana del mes por ${fm(sa)}.`,[["6101",sa,0],["2102",0,sa]],"aj")}
   T.sort((a,b)=>a.dia-b.dia);
+  // Documento de respaldo de cada operación (lo que se anota en «Referencia» del asiento)
+  let fe=100+Math.floor(RF()*800),aj=0;
+  T.forEach(t=>{const c=t.lines.map(l=>l[0]),deb=t.lines.filter(l=>l[1]).map(l=>l[0]),cre=t.lines.filter(l=>l[2]).map(l=>l[0]);
+    t.ref=t.tipo==="aj"?`AJ-${String(++aj).padStart(2,"0")}`:c.includes("4101")?`FE-${String(++fe).padStart(5,"0")}`:c.includes("3101")?`DEP-${num(4)}`:c.includes("4201")?`NB-${num(4)}`:deb.includes("1102")&&cre.includes("1103")?`REC-${num(4)}`:(cre.includes("2101")||deb.includes("1105")||deb.includes("1201")||(deb.includes("1104")&&cre.includes("1102")))?`FC-${num(5)}`:`TRF-${num(6)}`;
+    t.desc+=` Documento de respaldo: ${t.ref}.`});
   // Validar saldos (banco e inventario nunca negativos)
   const s={...ini};for(const t of T){for(const [c,d,h] of t.lines){const a=CTA[c];s[c]=(s[c]||0)+(a.nat==="D"?d-h:h-d)}if(s["1102"]<50000||s["1104"]<0||s["2101"]<0||s["1103"]<0)return null}
   return armar(empresa,ini,T,nivel);
@@ -303,54 +324,75 @@ function ponerNota(k,pct){ST.nota[k]=Math.round(pct);guardar();const b=$(`[data-
 /* ══════════ MÓDULO 1 · Asientos ══════════ */
 function opcionesCuentas(sel,incluir){const g={};CAT.forEach(a=>{(g[a.t]=g[a.t]||[]).push(a)});
   return `<option value="">— Cuenta —</option>`+Object.entries(g).map(([t,L])=>`<optgroup label="${TIPO[t]}">${L.map(a=>`<option value="${a.c}" ${a.c===sel?"selected":""}>${a.c} · ${esc(a.n)}</option>`).join("")}</optgroup>`).join("")+(incluir||"")}
-function r1(i){return ST.m1.r[i]||(ST.m1.r[i]={lines:[{c:"",d:"",h:""},{c:"",d:"",h:""}],int:0,ok:false,pri:null})}
-function tablaAsiento(lines){return `<table><thead><tr><th>Cuenta</th><th class="r">Debe</th><th class="r">Haber</th></tr></thead><tbody>${lines.map(([c,d,h])=>`<tr><td style="${h?"padding-left:28px":""}">${c} · ${esc(nom(c))}</td><td class="r num">${d?fn(d):""}</td><td class="r num">${h?fn(h):""}</td></tr>`).join("")}</tbody></table>`}
+function r1(i){const r=ST.m1.r[i]||(ST.m1.r[i]={lines:[{c:"",d:"",h:""},{c:"",d:"",h:""}],int:0,ok:false,pri:null});r.hdr=r.hdr||{fc:"",fd:"",ref:"",com:""};return r}
+const codigoDe=v=>(String(v||"").match(/^\s*(\d{4})/)||[])[1]||"";
+const fechaCR=iso=>iso?iso.slice(8,10)+"/"+iso.slice(5,7)+"/"+iso.slice(0,4):"";
+function tablaAsiento(lines){return `<table><thead><tr><th>Cta. mayor</th><th>Nombre de la cuenta</th><th class="r">Débito</th><th class="r">Crédito</th></tr></thead><tbody>${lines.map(([c,d,h])=>`<tr><td class="num">${c}</td><td>${esc(nom(c))}</td><td class="r num">${d?fn(d):""}</td><td class="r num">${h?fn(h):""}</td></tr>`).join("")}</tbody></table>`}
 function pintarM1(){
-  const T=CASO.trans,i=Math.min(ST.m1.sel||0,T.length-1),t=T[i],r=r1(i),res=RES["m1."+i];
+  const T=CASO.trans,i=Math.min(ST.m1.sel||0,T.length-1),t=T[i],r=r1(i),H=r.hdr,res=RES["m1."+i]||{},cl=k=>res[k]===undefined?"":res[k]?"ok":"bad";
   const hechos=T.filter((_,k)=>ST.m1.r[k]&&ST.m1.r[k].ok).length,pri=T.filter((_,k)=>ST.m1.r[k]&&ST.m1.r[k].pri===true).length;
   $("#mod").innerHTML=`<div class="m1">
-    <div><div class="card" style="padding:12px"><h3>Operaciones</h3><p class="muted" style="font-size:.82rem;margin:0 0 8px">${hechos}/${T.length} correctos · ${pri} al primer intento</p>
+    <div><div class="card" style="padding:12px"><h3>Operaciones</h3><p class="muted" style="font-size:.82rem;margin:0 0 8px">${hechos}/${T.length} contabilizados · ${pri} al primer intento</p>
       <div class="tlist">${T.map((x,k)=>{const q=ST.m1.r[k];return `<button type="button" class="sm ${k===i?"on":""}" data-t="${k}"><span class="dot ${q&&q.ok?"ok":q&&q.int?"bad":""}"></span>${k+1}. ${x.dia} de ${MES}${x.tipo==="aj"?" · ajuste":""}</button>`}).join("")}</div></div></div>
     <div class="card">
-      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><h3>Operación ${i+1} de ${T.length}</h3><span class="muted">${t.dia} de ${MES} de ${ANIO}</span></div>
-      <div class="trx">${esc(t.desc)}</div>
-      <div class="scroll"><table class="lines"><thead><tr><th>Cuenta</th><th class="r" style="width:22%">Debe</th><th class="r" style="width:22%">Haber</th><th></th></tr></thead><tbody>
-        ${r.lines.map((l,j)=>`<tr><td><select data-p="m1.r.${i}.lines.${j}.c" aria-label="Cuenta de la línea ${j+1}">${opcionesCuentas(l.c)}</select></td><td>${inp(`m1.r.${i}.lines.${j}.d`)}</td><td>${inp(`m1.r.${i}.lines.${j}.h`)}</td><td class="x"><button type="button" class="ghost sm" data-quitar="${j}" aria-label="Quitar línea ${j+1}" ${r.lines.length<=2?"disabled":""}>✕</button></td></tr>`).join("")}
-      </tbody></table></div>
-      <div class="tots"><span class="d">Debe: <span class="num" id="totD">₡0</span></span><span class="h">Haber: <span class="num" id="totH">₡0</span></span></div>
-      <div class="acc"><button type="button" class="sec" id="mas">＋ Línea</button><button type="button" id="rev1">✔ Revisar asiento</button>
+      <div class="trx"><b>Operación ${i+1} de ${T.length} · ${t.dia} de ${MES} de ${ANIO}</b><br>${esc(t.desc)}</div>
+      <div class="sap">
+        <div class="sap-tit"><span>📘 Asiento</span><span class="sap-n">N.º <b>${i+2}</b></span></div>
+        <div class="sap-hd">
+          <label>Fecha de contabilización<input type="date" class="${cl("fc")}" data-p="m1.r.${i}.hdr.fc" value="${esc(H.fc)}" min="${ANIO}-03-01" max="${ANIO}-03-31"></label>
+          <label>Fecha del documento<input type="date" class="${cl("fd")}" data-p="m1.r.${i}.hdr.fd" value="${esc(H.fd)}" min="${ANIO}-03-01" max="${ANIO}-03-31"></label>
+          <label>Referencia 1 <small>(documento de respaldo)</small><input class="${cl("ref")}" data-p="m1.r.${i}.hdr.ref" value="${esc(H.ref)}" placeholder="FE-00105" autocomplete="off"></label>
+          <label class="sap-com">Comentarios<input class="${cl("com")}" data-p="m1.r.${i}.hdr.com" value="${esc(H.com)}" placeholder="Ej.: Venta de mercadería al contado" maxlength="120" autocomplete="off"></label>
+        </div>
+        <div class="scroll"><table class="lines sap-grid"><thead><tr><th style="width:4%">#</th><th style="width:16%">Cta. mayor</th><th>Nombre de la cuenta</th><th class="r" style="width:19%">Débito</th><th class="r" style="width:19%">Crédito</th><th></th></tr></thead><tbody>
+          ${r.lines.map((l,j)=>`<tr><td class="muted num">${j+1}</td><td><input class="num ${cl("c"+j)}" list="ctas" data-p="m1.r.${i}.lines.${j}.c" value="${esc(l.c)}" placeholder="1102" inputmode="numeric" autocomplete="off" aria-label="Cuenta de mayor, línea ${j+1}"></td><td class="nm" id="nm${j}">${CTA[codigoDe(l.c)]?esc(CTA[codigoDe(l.c)].n):'<span class="muted">—</span>'}</td><td>${inp(`m1.r.${i}.lines.${j}.d`)}</td><td>${inp(`m1.r.${i}.lines.${j}.h`)}</td><td class="x"><button type="button" class="ghost sm" data-quitar="${j}" aria-label="Quitar línea ${j+1}" ${r.lines.length<=2?"disabled":""}>✕</button></td></tr>`).join("")}
+        </tbody></table></div>
+        <datalist id="ctas">${CAT.map(a=>`<option value="${a.c}">${esc(a.n)}</option>`).join("")}</datalist>
+        <div class="sap-pie"><button type="button" class="sec sm" id="mas">＋ Línea</button><span style="flex:1"></span>
+          <span>Total débito <b class="num" id="totD">0</b></span><span>Total crédito <b class="num" id="totH">0</b></span><span class="dif" id="dif">Diferencia <b class="num">0</b></span></div>
+      </div>
+      <div class="acc"><button type="button" id="rev1">✔ Contabilizar</button>
         ${r.int>=1&&!r.ok?`<button type="button" class="sec" id="pista">💡 Pista</button>`:""}${r.int>=2||r.ok?solBtn("m1."+i):""}
         <span style="flex:1"></span>${i>0?`<button type="button" class="sec" data-t="${i-1}">← Anterior</button>`:""}${i<T.length-1?`<button type="button" class="sec" data-t="${i+1}">Siguiente →</button>`:""}</div>
-      <div id="fb1">${res?res.html:r.ok?`<div class="fb ok">✅ Este asiento ya está correcto${r.pri?" (al primer intento)":""}.</div>`:""}</div>
-      ${ST.sol["m1."+i]?`<div class="sol"><h4>Solución</h4>${tablaAsiento(t.lines)}</div>`:""}
+      <div id="fb1">${res.html?res.html:r.ok?`<div class="fb ok">✅ Asiento contabilizado${r.pri?" al primer intento":""}.</div>`:""}</div>
+      ${ST.sol["m1."+i]?`<div class="sol"><h4>Solución · Asiento N.º ${i+2}</h4><p style="margin:0 0 6px;font-size:.86rem">Fecha de contabilización y del documento: <b>${fechaCR(t.fecha)}</b> · Referencia 1: <b>${esc(t.ref)}</b></p>${tablaAsiento(t.lines)}</div>`:""}
       <details class="catal" style="margin-top:14px"><summary>📖 Catálogo de cuentas</summary><div class="catal-g">${CAT.map(a=>`<div>${a.c} · ${esc(a.n)} <span class="chip ${a.t}">${TIPO[a.t]}</span> <small class="muted">${a.nat==="D"?"deudora":"acreedora"}</small></div>`).join("")}</div></details>
     </div></div>`;
   $$("[data-t]").forEach(b=>b.onclick=()=>{ST.m1.sel=+b.dataset.t;guardar();pintarM1()});
   $("#mas").onclick=()=>{r.lines.push({c:"",d:"",h:""});guardar();pintarM1()};
   $$("[data-quitar]").forEach(b=>b.onclick=()=>{r.lines.splice(+b.dataset.quitar,1);delete RES["m1."+i];guardar();pintarM1()});
-  $("#rev1").onclick=()=>{revisarM1(i);pintarM1()};
-  const pi=$("#pista");if(pi)pi.onclick=()=>{$("#fb1").insertAdjacentHTML("beforeend",`<div class="fb warn">💡 En este asiento intervienen ${t.lines.length} líneas con estas cuentas: ${[...new Set(t.lines.map(l=>nom(l[0])))].map(esc).join(", ")}. Recuerde: aumentos de activo, costo y gasto van al Debe; aumentos de pasivo, patrimonio e ingreso van al Haber.</div>`);pi.disabled=true};
+  $("#rev1").onclick=()=>{if(revisarM1(i))pintarM1()};
+  const pi=$("#pista");if(pi)pi.onclick=()=>{$("#fb1").insertAdjacentHTML("beforeend",`<div class="fb warn">💡 En este asiento intervienen ${t.lines.length} líneas con estas cuentas: ${[...new Set(t.lines.map(l=>l[0]+" "+nom(l[0])))].map(esc).join(", ")}. Recuerde: aumentos de activo, costo y gasto van al Débito; aumentos de pasivo, patrimonio e ingreso van al Crédito. La referencia es el documento de respaldo que trae la operación.</div>`);pi.disabled=true};
   ligarSol(pintarM1);totalesM1(i);
 }
-function totalesM1(i){const r=r1(i);let d=0,h=0;r.lines.forEach(l=>{d+=montoO0(l.d)||0;h+=montoO0(l.h)||0});const a=$("#totD"),b=$("#totH");if(a){a.textContent=fm(d);b.textContent=fm(h);a.style.color=b.style.color=Math.abs(d-h)<.5&&d>0?"var(--ok)":""}}
+function totalesM1(i){const r=r1(i);let d=0,h=0;r.lines.forEach((l,j)=>{d+=montoO0(l.d)||0;h+=montoO0(l.h)||0;const nm=$("#nm"+j),c=CTA[codigoDe(l.c)];if(nm)nm.innerHTML=c?esc(c.n):(l.c?'<span style="color:var(--bad)">Cuenta no existe</span>':'<span class="muted">—</span>')});
+  const a=$("#totD"),b=$("#totH"),df=$("#dif");if(!a)return;a.textContent=fn(d)||"0";b.textContent=fn(h)||"0";const dif=r2(d-h);df.innerHTML=`Diferencia <b class="num">${fn(Math.abs(dif))||"0"}</b>`;df.className="dif "+(d>0&&Math.abs(dif)<.5?"ok":dif?"bad":"")}
 function revisarM1(i){
-  const t=CASO.trans[i],r=r1(i),msgs=[];const exp={},stu={};
+  const t=CASO.trans[i],r=r1(i),H=r.hdr,msgs=[],res={};const exp={},stu={};
   t.lines.forEach(([c,d,h])=>{const x=exp[c]||(exp[c]={d:0,h:0});x.d+=d;x.h+=h});
-  let malNum=false,sinCuenta=false;
-  r.lines.forEach(l=>{const d=monto(l.d),h=monto(l.h);if(Number.isNaN(d)||Number.isNaN(h))malNum=true;if(!l.c){if(d||h)sinCuenta=true;return}const x=stu[l.c]||(stu[l.c]={d:0,h:0});x.d+=d||0;x.h+=h||0});
-  if(malNum)msgs.push("Hay montos que no son números. Escríbalos sin letras, por ejemplo 125000.");
-  if(sinCuenta)msgs.push("Hay líneas con monto pero sin cuenta.");
+  let malNum=false,sinCuenta=false,ctaMala=false;
+  r.lines.forEach((l,j)=>{const d=monto(l.d),h=monto(l.h),c=codigoDe(l.c);if(Number.isNaN(d)||Number.isNaN(h))malNum=true;if(!l.c){if(d||h)sinCuenta=true;return}if(!CTA[c]){ctaMala=true;res["c"+j]=false;return}const x=stu[c]||(stu[c]={d:0,h:0});x.d+=d||0;x.h+=h||0;res["c"+j]=!!exp[c]});
   const td=Object.values(stu).reduce((s,x)=>s+x.d,0),th=Object.values(stu).reduce((s,x)=>s+x.h,0);
-  if(!Object.keys(stu).length)msgs.push("Todavía no ha escrito el asiento.");
-  else if(Math.abs(td-th)>.5)msgs.push(`No cumple la partida doble: el Debe suma ${fm(td)} y el Haber ${fm(th)}.`);
+  // Como SAP: no deja contabilizar un asiento descuadrado o sin líneas (no cuenta como intento)
+  if(!Object.keys(stu).length||Math.abs(td-th)>.5||malNum||sinCuenta||ctaMala){
+    const m=[];if(!Object.keys(stu).length)m.push("El asiento no tiene líneas.");if(malNum)m.push("Hay montos que no son números (escríbalos sin letras, por ejemplo 125000).");if(sinCuenta)m.push("Hay líneas con monto pero sin cuenta.");if(ctaMala)m.push("Hay un código de cuenta que no existe en el catálogo.");
+    if(Object.keys(stu).length&&Math.abs(td-th)>.5)m.push(`El asiento no cuadra: diferencia de ${fm(Math.abs(td-th))} entre débito y crédito.`);
+    RES["m1."+i]={html:`<div class="fb warn">⛔ No se puede contabilizar todavía:<ul>${m.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`};return true}
+  res.fc=H.fc===t.fecha;res.fd=H.fd===t.fecha;res.ref=String(H.ref||"").trim().toUpperCase().replace(/\s+/g,"")===t.ref;res.com=String(H.com||"").trim().length>=5;
+  if(!res.fc)msgs.push("La fecha de contabilización no corresponde a la fecha de la operación.");
+  if(!res.fd)msgs.push("La fecha del documento no es la del documento de respaldo.");
+  if(!res.ref)msgs.push("La Referencia 1 debe ser el número del documento de respaldo.");
+  if(!res.com)msgs.push("Escriba en Comentarios una explicación corta de la operación.");
   const falt=Object.keys(exp).filter(c=>!stu[c]),sobra=Object.keys(stu).filter(c=>!exp[c]);
   if(falt.length)msgs.push(`Falta${falt.length>1?"n":""} ${falt.length} cuenta${falt.length>1?"s":""} en el asiento.`);
-  sobra.forEach(c=>msgs.push(`La cuenta «${nom(c)}» no interviene en esta operación.`));
+  sobra.forEach(c=>msgs.push(`La cuenta ${c} «${nom(c)}» no interviene en esta operación.`));
   Object.keys(exp).filter(c=>stu[c]).forEach(c=>{const e=exp[c],s=stu[c];if(!igual(e.d,s.d)||!igual(e.h,s.h)){
-    const lado=(e.d&&!s.d&&s.h)||(e.h&&!s.h&&s.d);msgs.push(lado?`«${nom(c)}» está en el lado equivocado: piense si la cuenta aumenta o disminuye y cuál es su naturaleza.`:`El monto de «${nom(c)}» no es correcto.`)}});
+    const lado=(e.d&&!s.d&&s.h)||(e.h&&!s.h&&s.d);msgs.push(lado?`La cuenta ${c} «${nom(c)}» está en la columna equivocada: piense si aumenta o disminuye y cuál es su naturaleza.`:`El monto de la cuenta ${c} «${nom(c)}» no es correcto.`);
+    r.lines.forEach((l,j)=>{if(codigoDe(l.c)===c)res["c"+j]=false})}});
   const ok=!msgs.length;r.int++;if(r.pri===null)r.pri=ok;if(ok)r.ok=true;
-  RES["m1."+i]={html:ok?`<div class="fb ok">✅ ¡Correcto! El asiento cumple la partida doble y usa las cuentas y montos correctos.</div>`:`<div class="fb bad">❌ Revise:<ul>${msgs.map(m=>`<li>${esc(m)}</li>`).join("")}</ul></div>`};
-  const T=CASO.trans;ponerNota("m1",100*T.filter((_,k)=>ST.m1.r[k]&&ST.m1.r[k].ok).length/T.length);guardar();
+  res.html=ok?`<div class="fb ok">✅ ¡Asiento contabilizado! Encabezado, cuentas y montos correctos, y cuadra: débito ${fm(td)} = crédito ${fm(th)}.</div>`:`<div class="fb bad">❌ Revise:<ul>${msgs.map(m=>`<li>${esc(m)}</li>`).join("")}</ul></div>`;
+  RES["m1."+i]=res;
+  const T=CASO.trans;ponerNota("m1",100*T.filter((_,k)=>ST.m1.r[k]&&ST.m1.r[k].ok).length/T.length);guardar();return true;
 }
 
 /* ══════════ MÓDULO 2 · Mayorización ══════════ */
