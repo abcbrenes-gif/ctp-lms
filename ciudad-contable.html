@@ -32,7 +32,7 @@ button.sec,.btn.sec{background:var(--pri2);color:var(--pri)}
 button.ghost{background:transparent;color:var(--mut);border:1px solid var(--line)}
 button:disabled{opacity:.45;cursor:default}
 button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #9cc0ff;outline-offset:2px}
-main{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(0,1fr);gap:18px;padding:18px 20px 90px;max-width:1500px;margin:0 auto}
+main{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;padding:18px 20px 90px;max-width:1500px;margin:0 auto}
 @media(max-width:980px){main{grid-template-columns:minmax(0,1fr)}}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
 h2{font:700 1.08rem Lexend,Inter,sans-serif;margin:0 0 10px}
@@ -68,6 +68,8 @@ svg.mapa{display:block;width:100%;height:auto}
 .pad{position:absolute;right:12px;bottom:12px;display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(3,44px);gap:4px}
 .pad button{padding:0;justify-content:center;font-size:1.1rem;background:rgba(20,33,61,.82);border:2px solid #fff;border-radius:12px;touch-action:none;user-select:none}
 .pad [data-pad="0,-1"]{grid-column:2;grid-row:1}.pad [data-pad="-1,0"]{grid-column:1;grid-row:2}.pad [data-pad="1,0"]{grid-column:3;grid-row:2}.pad [data-pad="0,1"]{grid-column:2;grid-row:3}
+.zoom{position:absolute;right:12px;top:12px;display:flex;gap:6px}
+.zoom button{background:rgba(20,33,61,.85);border:2px solid #fff;border-radius:12px;padding:6px 12px}
 .colores{position:absolute;left:12px;top:12px;display:flex;gap:6px;background:rgba(20,33,61,.75);padding:6px 8px;border-radius:999px}
 .colores button{width:22px;height:22px;padding:0;border-radius:50%;border:2px solid #fff}
 .colores button[aria-pressed="true"]{outline:3px solid #ffd43b;outline-offset:1px}
@@ -104,6 +106,26 @@ td.mono{white-space:nowrap}
 .tabs{display:flex;gap:6px;margin:10px 0}
 .tabs button{background:#f1f5f9;color:var(--ink);padding:6px 12px}
 .tabs button.on{background:var(--ink);color:#fff}
+.hud-b{margin-left:auto;background:#ffd43b;color:#14213d;border-radius:999px;padding:6px 14px;font-weight:800}
+.tipos{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.tipo-card{border:2px solid var(--c);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.tipo-card p{margin:0;font-size:.86rem}
+.tc-hd{display:flex;gap:10px;align-items:center}.tc-ico{font-size:1.8rem}.tc-t{font-size:.75rem;font-weight:700;color:var(--c)}
+.tc-p{color:var(--mut);font-size:.78rem!important}
+.tc-m{display:flex;flex-wrap:wrap;gap:4px;font-size:.74rem;margin-top:auto}.tc-m span{background:#f1f5f9;border-radius:999px;padding:1px 8px}
+.equipo{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0}.equipo span{background:#f1f5f9;border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:.78rem}
+.equipo b{margin-right:4px}
+.tabs{flex-wrap:wrap}
+.chip.ok{background:var(--okBg);color:var(--ok)}
+tr.grupo td{background:#f1f5f9;font-weight:700;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em;color:var(--mut)}
+tr.tot-r td{border-top:2px solid var(--ink)}
+.pend{background:#fff9db;border:1px solid #ffe066;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.pend-r{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:.86rem}
+.as-hd{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px;font-size:.88rem}
+button.mini{padding:3px 9px;font-size:.76rem}
+#panel .asiento{margin-bottom:10px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:50;padding:12px 18px;border-radius:14px;font-weight:800;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+.toast.ok{background:var(--okBg);color:var(--ok)}.toast.bad{background:var(--badBg);color:var(--bad)}
 /* ── Editor y comprobante ── */
 dialog{border:0;border-radius:18px;padding:0;width:min(980px,calc(100vw - 16px));max-width:calc(100vw - 16px);max-height:92vh;box-shadow:0 30px 80px rgba(20,33,61,.35)}
 dialog::backdrop{background:rgba(20,33,61,.45)}
@@ -156,32 +178,55 @@ const r2=n=>Math.round((+n||0)*100)/100;
 const fm=n=>"₡"+r2(n).toLocaleString("es-CR",{minimumFractionDigits:2,maximumFractionDigits:2});
 const hoyISO=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
 
-/* ═══════════ Catálogo de cuentas (mismos códigos que Aula Contable) ═══════════ */
-const CTA={"1101":"Caja general","1102":"Bancos","1103":"Cuentas por cobrar comerciales","1105":"Inventario de mercadería","1106":"IVA soportado (crédito fiscal)",
-  "1203":"Mobiliario y equipo","1204":"Vehículos","2101":"Cuentas por pagar comerciales","2102":"IVA por pagar","4101":"Ventas","4102":"Devoluciones y descuentos sobre ventas",
-  "4201":"Ingresos por servicios","5101":"Costo de ventas","6106":"Publicidad","6112":"Suministros y materiales","6113":"Fletes y acarreos","6114":"Servicios profesionales y técnicos"};
+/* ═══════════ Catálogo de cuentas (mismos códigos que Aula Contable) ═══════════
+   [código, nombre, naturaleza (D deudora / A acreedora), grupo, solo para (com|ser|ambas)] */
+const CATALOGO=[
+  ["1101","Caja general","D","Activo"],["1102","Bancos","D","Activo"],["1103","Cuentas por cobrar comerciales","D","Activo"],
+  ["1105","Inventario de mercadería","D","Activo","com"],["1106","IVA soportado (crédito fiscal)","D","Activo"],
+  ["1203","Mobiliario y equipo","D","Activo"],["1204","Vehículos","D","Activo"],
+  ["2101","Cuentas por pagar comerciales","A","Pasivo"],["2102","IVA por pagar","A","Pasivo"],
+  ["3101","Capital social","A","Patrimonio"],
+  ["4101","Ventas","A","Ingresos","com"],["4102","Devoluciones y descuentos sobre ventas","D","Ingresos"],["4201","Ingresos por servicios","A","Ingresos","ser"],
+  ["5101","Costo de ventas","D","Costos","com"],
+  ["6106","Publicidad","D","Gastos"],["6112","Suministros y materiales","D","Gastos"],["6113","Fletes y acarreos","D","Gastos","ser"],["6114","Servicios profesionales y técnicos","D","Gastos"]];
+const CTA=Object.fromEntries(CATALOGO.map(c=>[c[0],c[1]]));
+const catalogoDe=e=>CATALOGO.filter(c=>!c[4]||c[4]===e.tipo);
 
-/* ═══════════ La ciudad inicial (10.°: 2 comerciales + 2 de servicios, y las empresas de la IA) ═══════════
-   clase de cada producto: mercaderia | servicio | flete | activo_eq | activo_veh | publicidad */
+/* ═══════════ Los 5 tipos de empresa que pueden escoger los estudiantes ═══════════
+   3 comerciales y 2 de servicios. Clase de cada producto: mercaderia | servicio | flete | activo_eq | activo_veh | publicidad */
+const TIPOS_EMPRESA=[
+ {id:"ferre",tipo:"com",ico:"🔨",nombre:"Ferretería El Clavo S.A.",ced:"3-101-700101",giro:"Venta de materiales y herramientas",bancos:3000000,
+  prods:[{id:"f1",det:"Martillo de uña 16 oz",cabys:"4621001000100",tarifa:13,precio:6500,costo:4200,clase:"mercaderia",stock:40},
+         {id:"f2",det:"Caja de tornillos 1\" (100 u)",cabys:"4621002000200",tarifa:13,precio:3200,costo:1900,clase:"mercaderia",stock:60},
+         {id:"f3",det:"Saco de cemento 50 kg",cabys:"4621003000300",tarifa:13,precio:7800,costo:6100,clase:"mercaderia",stock:30}]},
+ {id:"super",tipo:"com",ico:"🛒",nombre:"Supermercado La Canasta S.A.",ced:"3-101-700505",giro:"Venta de abarrotes y productos de limpieza",bancos:3500000,
+  prods:[{id:"s1",det:"Arroz 2 kg",cabys:"2316001000100",tarifa:0,precio:2300,costo:1700,clase:"mercaderia",stock:120,exento:"Exento en este caso de práctica"},
+         {id:"s2",det:"Leche 1 litro",cabys:"2211001000200",tarifa:0,precio:1050,costo:800,clase:"mercaderia",stock:150,exento:"Exento en este caso de práctica"},
+         {id:"s3",det:"Jabón en polvo 1 kg",cabys:"3531001000300",tarifa:13,precio:2900,costo:2000,clase:"mercaderia",stock:80},
+         {id:"s4",det:"Refresco 2,5 litros",cabys:"2392001000400",tarifa:13,precio:1800,costo:1150,clase:"mercaderia",stock:90}]},
+ {id:"libre",tipo:"com",ico:"📚",nombre:"Librería La Pluma S.A.",ced:"3-101-700202",giro:"Venta de útiles y libros",bancos:2500000,
+  prods:[{id:"l1",det:"Resma de papel carta",cabys:"4649001000100",tarifa:13,precio:3900,costo:2700,clase:"mercaderia",stock:80},
+         {id:"l2",det:"Libro de texto de Contabilidad",cabys:"4761001000200",tarifa:0,precio:12000,costo:8000,clase:"mercaderia",stock:25,exento:"Exento en este caso de práctica"},
+         {id:"l3",det:"Caja de lapiceros (12 u)",cabys:"4649002000300",tarifa:13,precio:2400,costo:1500,clase:"mercaderia",stock:50}]},
+ {id:"conta",tipo:"ser",ico:"🧮",nombre:"Conta Express S.A.",ced:"3-101-700303",giro:"Servicios de contabilidad",bancos:1800000,
+  prods:[{id:"c1",det:"Servicio de contabilidad mensual",cabys:"8211001000100",tarifa:13,precio:85000,clase:"servicio"},
+         {id:"c2",det:"Declaración de IVA",cabys:"8211002000200",tarifa:13,precio:30000,clase:"servicio"}]},
+ {id:"mante",tipo:"ser",ico:"🛠️",nombre:"Mantenimiento Total S.A.",ced:"3-101-700404",giro:"Limpieza y mantenimiento de locales",bancos:1600000,
+  prods:[{id:"m1",det:"Mantenimiento eléctrico (visita)",cabys:"4321001000100",tarifa:13,precio:45000,clase:"servicio"},
+         {id:"m2",det:"Limpieza profunda de local (por día)",cabys:"8121001000200",tarifa:13,precio:38000,clase:"servicio"},
+         {id:"m3",det:"Pintura de local (por día)",cabys:"4334001000200",tarifa:13,precio:60000,clase:"servicio"}]}];
+const ROLES=["Gerente","Facturador","Comprador y tesorero","Contador"];
 function ciudadInicial(){
-  return {version:1,consec:{},docs:[],empresas:[
-   {id:"ferre",tipo:"com",ico:"🔨",nombre:"Ferretería El Clavo S.A.",ced:"3-101-700101",giro:"Venta de materiales y herramientas",bancos:3000000,
-    prods:[{id:"f1",det:"Martillo de uña 16 oz",cabys:"4621001000100",tarifa:13,precio:6500,costo:4200,clase:"mercaderia",stock:40},
-           {id:"f2",det:"Caja de tornillos 1\" (100 u)",cabys:"4621002000200",tarifa:13,precio:3200,costo:1900,clase:"mercaderia",stock:60},
-           {id:"f3",det:"Saco de cemento 50 kg",cabys:"4621003000300",tarifa:13,precio:7800,costo:6100,clase:"mercaderia",stock:30}]},
-   {id:"libre",tipo:"com",ico:"📚",nombre:"Librería La Pluma S.A.",ced:"3-101-700202",giro:"Venta de útiles y libros",bancos:2500000,
-    prods:[{id:"l1",det:"Resma de papel carta",cabys:"4649001000100",tarifa:13,precio:3900,costo:2700,clase:"mercaderia",stock:80},
-           {id:"l2",det:"Libro de texto de Contabilidad",cabys:"4761001000200",tarifa:0,precio:12000,costo:8000,clase:"mercaderia",stock:25,exento:"Libro exento de IVA en este caso de práctica"},
-           {id:"l3",det:"Caja de lapiceros (12 u)",cabys:"4649002000300",tarifa:13,precio:2400,costo:1500,clase:"mercaderia",stock:50}]},
-   {id:"conta",tipo:"ser",ico:"🧮",nombre:"Conta Express S.A.",ced:"3-101-700303",giro:"Servicios de contabilidad",bancos:1800000,
-    prods:[{id:"c1",det:"Servicio de contabilidad mensual",cabys:"8211001000100",tarifa:13,precio:85000,clase:"servicio"},
-           {id:"c2",det:"Declaración de IVA",cabys:"8211002000200",tarifa:13,precio:30000,clase:"servicio"}]},
-   {id:"mante",tipo:"ser",ico:"🛠️",nombre:"Mantenimiento Total S.A.",ced:"3-101-700404",giro:"Mantenimiento de edificios",bancos:1600000,
-    prods:[{id:"m1",det:"Mantenimiento eléctrico (visita)",cabys:"4321001000100",tarifa:13,precio:45000,clase:"servicio"},
-           {id:"m2",det:"Pintura de local (por día)",cabys:"4334001000200",tarifa:13,precio:60000,clase:"servicio"}]},
+  // 18 estudiantes: el 1 es «Tú» (sin empresa, para probar la elección); los otros 17 ya están repartidos.
+  const est=Array.from({length:18},(_,i)=>({id:"e"+(i+1),nombre:i?`Estudiante ${i+1}`:"Tú (Estudiante 1)",emp:null,rol:null}));
+  const rep=[["ferre",4],["super",4],["libre",3],["conta",3],["mante",3]];let k=1;
+  rep.forEach(([id,n])=>{for(let j=0;j<n;j++){est[k].emp=id;est[k].rol=ROLES[j%4];k++}});
+  const empresas=JSON.parse(JSON.stringify(TIPOS_EMPRESA)).concat([
    {id:"mayo",tipo:"ia",ico:"🏭",nombre:"Mayorista del Norte (IA)",ced:"3-101-900001",giro:"Venta al por mayor de mercadería",
     prods:[{id:"y1",det:"Martillo de uña 16 oz (mayoreo)",cabys:"4621001000100",tarifa:13,precio:4200,clase:"mercaderia",para:"ferre",ref:"f1"},
            {id:"y2",det:"Saco de cemento 50 kg (mayoreo)",cabys:"4621003000300",tarifa:13,precio:6100,clase:"mercaderia",para:"ferre",ref:"f3"},
+           {id:"y5",det:"Arroz 2 kg (mayoreo)",cabys:"2316001000100",tarifa:0,precio:1700,clase:"mercaderia",para:"super",ref:"s1"},
+           {id:"y6",det:"Jabón en polvo 1 kg (mayoreo)",cabys:"3531001000300",tarifa:13,precio:2000,clase:"mercaderia",para:"super",ref:"s3"},
            {id:"y3",det:"Resma de papel carta (mayoreo)",cabys:"4649001000100",tarifa:13,precio:2700,clase:"mercaderia",para:"libre",ref:"l1"},
            {id:"y4",det:"Libro de texto de Contabilidad (mayoreo)",cabys:"4761001000200",tarifa:0,precio:8000,clase:"mercaderia",para:"libre",ref:"l2"}]},
    {id:"trans",tipo:"ia",ico:"🚚",nombre:"Transportes Rápidos (IA)",ced:"3-101-900002",giro:"Transporte de carga",
@@ -194,17 +239,24 @@ function ciudadInicial(){
     prods:[{id:"p1",det:"Campaña en redes sociales (mes)",cabys:"7310001000100",tarifa:13,precio:70000,clase:"publicidad"}]},
    {id:"clien",tipo:"ia",ico:"👥",nombre:"Clientes de la ciudad (IA)",ced:"",giro:"Personas y negocios que compran a las empresas",prods:[]},
    {id:"banco",tipo:"ia",ico:"🏦",nombre:"Banco de la Ciudad (IA)",ced:"4-000-900005",giro:"Depósitos y préstamos (próxima etapa)",prods:[]},
-   {id:"hacie",tipo:"ia",ico:"🏛️",nombre:"Hacienda (IA)",ced:"",giro:"Revisa documentos y audita (próxima etapa)",prods:[]}
-  ]};
+   {id:"hacie",tipo:"ia",ico:"🏛️",nombre:"Hacienda (IA)",ced:"",giro:"Revisa documentos y audita (próxima etapa)",prods:[]}]);
+  const C={version:2,consec:{},docs:[],estudiantes:est,empresas,diario:{}};
+  // Asiento de apertura de cada empresa de estudiantes: Bancos (+ inventario inicial) contra Capital social.
+  empresas.filter(e=>e.tipo!=="ia").forEach(e=>{const inv=r2((e.prods||[]).reduce((t,p)=>t+(p.stock||0)*(p.costo||0),0)),L=[["1102",e.bancos,0]];
+    if(inv)L.push(["1105",inv,0]);L.push(["3101",0,r2(e.bancos+inv)]);
+    C.diario[e.id]=[{id:"ap-"+e.id,fecha:hoyISO(),desc:"Asiento de apertura: aporte de los socios"+(inv?" en efectivo y mercadería":" en efectivo"),lineas:L,apertura:true,estado:"correcto"}]});
+  return C;
 }
 const TIPO={com:["Comercial","com"],ser:["Servicios","ser"],ia:["Empresa de la IA","ia"]};
-const KEY="ciudad_contable_proto_v1";
+const KEY="ciudad_contable_proto_v2";
 let S=null; try{S=JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){S=null}
-if(!S||S.version!==1)S=ciudadInicial();
+if(!S||S.version!==2)S=ciudadInicial();
 const guardar=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const emp=id=>S.empresas.find(e=>e.id===id);
 const lleva=e=>e&&e.tipo!=="ia";   // las empresas de la IA no llevan contabilidad en el juego
-let SEL="ferre", TAB="emitidos";
+const miembros=id=>S.estudiantes.filter(x=>x.emp===id);
+const YO=()=>S.estudiantes[0];
+let SEL="ferre", TAB="productos";
 
 /* ═══════════ Cálculo de un documento ═══════════
    Por línea: cantidad × precio = monto; − descuento = subtotal; subtotal × tarifa = IVA; subtotal + IVA = total. */
@@ -265,8 +317,14 @@ function saldoDe(e){ // saldos rápidos que salen de los documentos (prototipo)
   return {cxc:r2(cxc),cxp:r2(cxp),ivaP:r2(ivaP),ivaS:r2(ivaS),vent:r2(vent)};
 }
 /* ═══════════ Mapa de la ciudad tipo videojuego (vista desde arriba, dibujado en SVG) ═══════════ */
-const MAPA={ferre:[0,0],libre:[1,0],mayo:[2,0],trans:[3,0],conta:[0,1],mante:[2,1],equip:[3,1],clien:[0,2],banco:[1,2],hacie:[2,2],publi:[3,2]};
-const BW=190,BH=160,RD=40,MW=RD*5+BW*4,MH=RD*4+BH*3;
+/* Ciudad de 5 × 4 cuadras: 5 empresas de estudiantes, 7 de la IA, el parque y 7 lugares de la ciudad. */
+const MAPA={ferre:[0,0],super:[1,0],libre:[2,0],mayo:[3,0],trans:[4,0],conta:[1,1],mante:[3,1],equip:[4,1],clien:[0,2],banco:[1,2],hacie:[3,2],publi:[4,2]};
+const PZ=[2,1];
+const LUGARES=[{id:"casasA",pos:[0,1],ico:"🏡",nombre:"Barrio Los Laureles",kind:"casas"},{id:"colegio",pos:[2,2],ico:"🏫",nombre:"CTP Mercedes Norte",kind:"colegio"},
+  {id:"casasB",pos:[0,3],ico:"🏡",nombre:"Residencial El Roble",kind:"casas"},{id:"buses",pos:[1,3],ico:"🚌",nombre:"Terminal de buses",kind:"buses"},
+  {id:"cancha",pos:[2,3],ico:"⚽",nombre:"Cancha municipal",kind:"cancha"},{id:"casasC",pos:[3,3],ico:"🏡",nombre:"Barrio San José",kind:"casas"},
+  {id:"hospi",pos:[4,3],ico:"🏥",nombre:"Clínica de la ciudad",kind:"hospital"}];
+const BW=190,BH=160,RD=40,COLS=5,FILAS=4,MW=RD*(COLS+1)+BW*COLS,MH=RD*(FILAS+1)+BH*FILAS;
 const bx=c=>RD+c*(BW+RD),by=r=>RD+r*(BH+RD);
 const PAL={com:["#e8590c","#ff9a5c"],ser:["#7048e8","#a48bff"],ia:["#0b7285","#3bb6c6"],banco:["#d9a400","#ffd43b"],hacie:["#495057","#adb5bd"]};
 const corto=n=>n.replace(/ S\.A\.$/,"").replace(/ \(IA\)$/,"");
@@ -275,7 +333,7 @@ const reducido=(()=>{try{return matchMedia("(prefers-reduced-motion: reduce)").m
 const ISO=[.866,.5,-.866,.5];
 const proj=(x,y,z=0)=>[(x-y)*.866,(x+y)*.5-z];
 const pts=L=>L.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ");
-const ALTO={ferre:46,libre:42,conta:72,mante:58,mayo:52,trans:38,equip:62,publi:68,clien:0,banco:84,hacie:96};
+const ALTO={ferre:46,super:50,libre:42,conta:72,mante:58,mayo:52,trans:38,equip:62,publi:68,clien:0,banco:84,hacie:96};
 function oscurecer(hex,f){const n=parseInt(hex.slice(1),16),c=k=>Math.max(0,Math.min(255,Math.round(((n>>k)&255)*f)));return "#"+[16,8,0].map(k=>c(k).toString(16).padStart(2,"0")).join("")}
 function caja(x,y,w,h,H,col,opt){
   opt=opt||{};const A=proj(x,y+h),B=proj(x+w,y+h),C=proj(x+w,y),At=proj(x,y+h,H),Bt=proj(x+w,y+h,H),Ct=proj(x+w,y,H),Dt=proj(x,y,H);
@@ -291,8 +349,7 @@ function caja(x,y,w,h,H,col,opt){
 function arbol(x,y,r){const [px,py]=proj(x,y);return {d:x+y,svg:`<ellipse cx="${px+4}" cy="${py+2}" rx="${r}" ry="${r*.5}" fill="rgba(0,0,0,.22)"/><rect x="${px-2}" y="${py-r}" width="4" height="${r}" fill="#7c4a1e"/><circle cx="${px}" cy="${py-r*1.5}" r="${r}" fill="#2b8a3e"/><circle cx="${px-r*.3}" cy="${py-r*1.8}" r="${r*.55}" fill="#51cf66"/>`}}
 function edificioIso(e,x,y,w,h){
   const H=ALTO[e.id]||50,[c1]=PAL[e.id]||PAL[e.tipo];let g="";
-  if(e.id==="clien"){[[0,0],[46,10],[92,0]].forEach(([dx,dy],i)=>{const col=["#c92a2a","#e8590c","#5c7cfa"][i];g+=caja(x+dx,y+dy+8,36,36,18,"#f1f3f5");const t=proj(x+dx+18,y+dy+26,34);
-      g+=`<polygon points="${pts([proj(x+dx,y+dy+8,18),proj(x+dx+36,y+dy+8,18),t])}" fill="${oscurecer(col,.8)}"/><polygon points="${pts([proj(x+dx+36,y+dy+8,18),proj(x+dx+36,y+dy+44,18),t])}" fill="${oscurecer(col,.6)}"/><polygon points="${pts([proj(x+dx,y+dy+44,18),proj(x+dx+36,y+dy+44,18),t])}" fill="${col}"/>`});return g}
+  if(e.id==="clien")return casitas(x,y,["#c92a2a","#e8590c","#5c7cfa"]);
   g+=caja(x,y,w,h,H,c1,{toldo:e.tipo==="com"});
   const [tx,ty]=proj(x+w/2,y+h/2,H);
   if(e.id==="hacie")g+=`<ellipse cx="${tx}" cy="${ty}" rx="34" ry="18" fill="#ced4da" stroke="#868e96" stroke-width="2"/><path d="M ${tx-34} ${ty} A 34 30 0 0 1 ${tx+34} ${ty}" fill="#dee2e6" stroke="#868e96" stroke-width="2"/><rect x="${tx-2}" y="${ty-46}" width="4" height="18" fill="#868e96"/><polygon points="${tx+2},${ty-46} ${tx+18},${ty-41} ${tx+2},${ty-36}" fill="#1c7ed6"/>`;
@@ -300,6 +357,25 @@ function edificioIso(e,x,y,w,h){
   else{const u=proj(x+16,y+14,H),v=proj(x+40,y+14,H);g+=`<rect x="${u[0]-8}" y="${u[1]-9}" width="16" height="9" rx="2" fill="#dee2e6" stroke="#868e96"/><rect x="${v[0]-8}" y="${v[1]-9}" width="16" height="9" rx="2" fill="#dee2e6" stroke="#868e96"/>`}
   return g;
 }
+function casitas(x,y,cols){let g="";[[0,0],[46,10],[92,0]].forEach(([dx,dy],i)=>{const col=cols[i%cols.length];g+=caja(x+dx,y+dy+8,36,36,18,"#f1f3f5");const t=proj(x+dx+18,y+dy+26,34);
+  g+=`<polygon points="${pts([proj(x+dx,y+dy+8,18),proj(x+dx+36,y+dy+8,18),t])}" fill="${oscurecer(col,.8)}"/><polygon points="${pts([proj(x+dx+36,y+dy+8,18),proj(x+dx+36,y+dy+44,18),t])}" fill="${oscurecer(col,.6)}"/><polygon points="${pts([proj(x+dx,y+dy+44,18),proj(x+dx+36,y+dy+44,18),t])}" fill="${col}"/>`});return g}
+/* ── Lugares de la ciudad (no son empresas: barrios, colegio, terminal, cancha y clínica) ── */
+function sueloLugar(L){const [c,r]=L.pos,x=bx(c),y=by(r);let g=`<rect x="${x}" y="${y}" width="${BW}" height="${BH}" rx="5" fill="#82c45a"/>`;
+  if(L.kind==="cancha")g+=`<rect x="${x+12}" y="${y+12}" width="${BW-24}" height="${BH-24}" rx="3" fill="#40a02b" stroke="#fff" stroke-width="3"/><line x1="${x+BW/2}" y1="${y+12}" x2="${x+BW/2}" y2="${y+BH-12}" stroke="#fff" stroke-width="3"/><circle cx="${x+BW/2}" cy="${y+BH/2}" r="20" fill="none" stroke="#fff" stroke-width="3"/><rect x="${x+12}" y="${y+BH/2-22}" width="22" height="44" fill="none" stroke="#fff" stroke-width="3"/><rect x="${x+BW-34}" y="${y+BH/2-22}" width="22" height="44" fill="none" stroke="#fff" stroke-width="3"/>`;
+  else if(L.kind==="buses")g+=`<rect x="${x+8}" y="${y+8}" width="${BW-16}" height="${BH-16}" rx="4" fill="#868e96"/>${[0,1,2,3].map(i=>`<line x1="${x+40+i*36}" y1="${y+70}" x2="${x+40+i*36}" y2="${y+BH-12}" stroke="#fff" stroke-width="2"/>`).join("")}`;
+  else if(L.kind==="colegio")g+=`<rect x="${x+20}" y="${y+112}" width="${BW-40}" height="34" rx="3" fill="#e9dcc0"/>`;
+  else g+=`<rect x="${x+4}" y="${y+4}" width="${BW-8}" height="${BH-8}" rx="4" fill="none" stroke="#dfe5ec" stroke-width="7"/>`;
+  return g}
+function objetoLugar(L){const [c,r]=L.pos,x=bx(c),y=by(r);let g="";
+  if(L.kind==="casas"){g=casitas(x+22,y+14,["#c92a2a","#5c7cfa","#2f9e44"])+casitas(x+22,y+78,["#e8590c","#f59f00","#ae3ec9"]);}
+  else if(L.kind==="colegio"){g=caja(x+20,y+16,150,84,40,"#1971c2");const t=proj(x+30,y+24,40);g+=`<line x1="${t[0]}" y1="${t[1]}" x2="${t[0]}" y2="${t[1]-34}" stroke="#495057" stroke-width="3"/><rect x="${t[0]}" y="${t[1]-34}" width="22" height="5" fill="#1c7ed6"/><rect x="${t[0]}" y="${t[1]-29}" width="22" height="5" fill="#fff"/><rect x="${t[0]}" y="${t[1]-24}" width="22" height="6" fill="#e03131"/>`;}
+  else if(L.kind==="hospital"){g=caja(x+28,y+20,116,98,64,"#e9ecef");const [tx,ty]=proj(x+86,y+69,64);g+=`<rect x="${tx-6}" y="${ty-16}" width="12" height="32" fill="#e03131"/><rect x="${tx-16}" y="${ty-6}" width="32" height="12" fill="#e03131"/>`;}
+  else if(L.kind==="buses"){g=caja(x+20,y+16,150,34,26,"#5c7cfa")+caja(x+34,y+84,26,60,14,"#fab005")+caja(x+106,y+84,26,60,14,"#fab005");}
+  else if(L.kind==="cancha"){g=caja(x+30,y+BH-10,130,8,10,"#adb5bd");}
+  return {d:x+y+BW/2+BH/2,svg:g};}
+function cartelLugar(L){const [c,r]=L.pos,x=bx(c),y=by(r),z={casas:44,colegio:70,hospital:94,buses:50,cancha:24}[L.kind],[px,py]=proj(x+BW/2-10,y+BH/2-10,z),w=Math.max(110,L.nombre.length*7+40);
+  return `<g class="cartel-lugar" aria-hidden="true"><rect x="${px-w/2}" y="${py-16}" width="${w}" height="26" rx="13" fill="rgba(255,255,255,.92)" stroke="#adb5bd" stroke-width="2"/><text x="${px-w/2+10}" y="${py+2}" font-size="13">${L.ico}</text><text x="${px-w/2+30}" y="${py+2}" font-size="11.5" font-weight="700" fill="#495057">${esc(L.nombre)}</text></g>`}
+const zonaLugar=L=>{const [c,r]=L.pos;return {x:bx(c)+10,y:by(r)+10,w:BW-20,h:BH-20,ico:L.ico,nom:L.nombre,lugar:true}};
 /* Suelo de cada lote (plano, dentro del grupo inclinado) */
 function sueloLote(e){const [c,r]=MAPA[e.id],x=bx(c),y=by(r),sel=SEL===e.id;
   return `<rect x="${x}" y="${y}" width="${BW}" height="${BH}" rx="5" fill="#82c45a"/><rect x="${x+4}" y="${y+4}" width="${BW-8}" height="${BH-8}" rx="4" fill="none" stroke="#dfe5ec" stroke-width="7"/>
@@ -314,7 +390,7 @@ function cartel(e){const [c,r]=MAPA[e.id],x=bx(c),y=by(r),H=ALTO[e.id]||40,[px,p
     <text x="${px-w/2+10}" y="${py+3}" font-size="16">${e.ico}</text><text x="${px-w/2+32}" y="${py-6}" font-size="12.5" font-weight="800" fill="#14213d">${esc(nom)}</text>
     <text x="${px-w/2+32}" y="${py+9}" font-size="10" font-weight="700" fill="${col}">${TIPO[e.tipo][0]}</text>
     ${n?`<circle cx="${px+w/2-2}" cy="${py-20}" r="12" fill="#e03131" stroke="#fff" stroke-width="3"/><text x="${px+w/2-2}" y="${py-16}" text-anchor="middle" font-size="12" font-weight="800" fill="#fff">${n}</text>`:""}</g></g>`}
-function plazaSuelo(){const x=bx(1),y=by(1),cx=x+BW/2,cy=y+BH/2;
+function plazaSuelo(){const x=bx(PZ[0]),y=by(PZ[1]),cx=x+BW/2,cy=y+BH/2;
   return `<rect x="${x}" y="${y}" width="${BW}" height="${BH}" rx="5" fill="#69b34c"/><circle cx="${cx}" cy="${cy}" r="58" fill="#e9dcc0"/><circle cx="${cx}" cy="${cy}" r="40" fill="#69b34c"/>
     <rect x="${x}" y="${cy-7}" width="${BW}" height="14" fill="#e9dcc0"/><rect x="${cx-7}" y="${y}" width="14" height="${BH}" fill="#e9dcc0"/><circle cx="${cx}" cy="${cy}" r="24" fill="#4dabf7" stroke="#d0ebff" stroke-width="5"/><circle cx="${cx}" cy="${cy}" r="7" fill="#e7f5ff"/>`}
 function carrito(x,y,col,ico,nom){const [px,py]=proj(x+8,y+5,30);
@@ -323,12 +399,12 @@ function kioscoParque(x,y){const t=proj(x+15,y+15,38),b=[proj(x,y,14),proj(x+30,
   let g=caja(x,y,30,30,3,"#e9dcc0");[[x+3,y+3],[x+27,y+3],[x+27,y+27],[x+3,y+27]].forEach(([a,c])=>{const p0=proj(a,c),p1=proj(a,c,14);g+=`<line x1="${p0[0]}" y1="${p0[1]}" x2="${p1[0]}" y2="${p1[1]}" stroke="#fff" stroke-width="3"/>`});
   g+=`<polygon points="${pts([b[3],b[2],t])}" fill="#e03131"/><polygon points="${pts([b[2],b[1],t])}" fill="#a61e1e"/><polygon points="${pts([b[0],b[3],t])}" fill="#f03e3e"/>`;
   return {d:x+y+30,svg:g,zona:{x:x-12,y:y-12,w:54,h:54,ico:"🎶",nom:"Kiosco del parque"}}}
-function plazaObjetos(){const x=bx(1),y=by(1);
+function plazaObjetos(){const x=bx(PZ[0]),y=by(PZ[1]);
   return [...[[18,18],[BW-18,18],[18,BH-18],[BW-18,BH-18]].map(([dx,dy])=>arbol(x+dx,y+dy,12)),
     kioscoParque(x+30,y+26),carrito(x+BW-52,y+30,"#f783ac","🍧","Carrito de copos"),carrito(x+BW-50,y+BH-42,"#fcc419","🌽","Carrito de elotes"),
     {d:x+40+y+BH-40,svg:(()=>{const p=proj(x+40,y+BH-40);return `<g transform="translate(${p[0]},${p[1]})"><polygon points="-14,0 0,-7 14,0 0,7" fill="#ffe066"/><line x1="-8" y1="-2" x2="-8" y2="-22" stroke="#e8590c" stroke-width="3"/><line x1="8" y1="-2" x2="8" y2="-22" stroke="#e8590c" stroke-width="3"/><line x1="-8" y1="-22" x2="8" y2="-22" stroke="#e8590c" stroke-width="3"/><line x1="-2" y1="-22" x2="-2" y2="-8" stroke="#495057"/><rect x="-5" y="-9" width="6" height="3" fill="#1c7ed6"/><text x="0" y="-28" text-anchor="middle" font-size="14">🛝</text></g>`})(),zona:{x:x+22,y:y+BH-58,w:36,h:36,ico:"🛝",nom:"Juegos infantiles"}}];}
 /* Mini comercios en la esquina de cada cuadra (decorativos por ahora: en el juego serán clientes y proveedores pequeños) */
-const MINI={ferre:["☕","Soda La Esquina","#e03131"],libre:["🍦","Heladería Polo","#f06595"],mayo:["🌮","Tacos Don Pepe","#f59f00"],trans:["⛽","Gasolinera Ruta 1","#37b24d"],
+const MINI={ferre:["☕","Soda La Esquina","#e03131"],super:["🥐","Panadería Trigo de Oro","#f08c00"],libre:["🍦","Heladería Polo","#f06595"],mayo:["🌮","Tacos Don Pepe","#f59f00"],trans:["⛽","Gasolinera Ruta 1","#37b24d"],
   conta:["📰","Revistas y Lotería","#1c7ed6"],mante:["🥤","Frescos Naturales","#20c997"],equip:["🔑","Llaves y Cerrajería","#868e96"],clien:["🛒","Pulpería La Bendición","#fd7e14"],
   banco:["🏧","Cajero automático","#fab005"],hacie:["🖨️","Copias y Trámites","#7950f2"],publi:["💐","Floristería Primavera","#e64980"]};
 function miniComercio(id){const [c,r]=MAPA[id],x=bx(c)+6,y=by(r)+BH-38,[ico,nom,col]=MINI[id],[px,py]=proj(x+13,y+13,44);
@@ -391,25 +467,54 @@ function animarTransaccion(doc,listo){
   requestAnimationFrame(paso);
 }
 let ZONAS=[];
+const VB=(()=>{const x0=Math.floor((-30-(MH+30))*.866)-30,x1=Math.ceil((MW+60)*.866)+30,y0=-170,y1=Math.ceil((MW+MH+60)*.5)+50;return [x0,y0,x1-x0,y1-y0]})();
 function mapaHTML(){
   const es=S.empresas.filter(e=>MAPA[e.id]);
   const minis=es.filter(e=>MINI[e.id]).map(e=>miniComercio(e.id)),parque=plazaObjetos();
-  ZONAS=[...minis,...parque].filter(o=>o.zona).map(o=>o.zona);
-  const objetos=[...es.map(lote),...parque,...minis,...es.flatMap(e=>{const [c,r]=MAPA[e.id],x=bx(c),y=by(r);return [arbol(x+14,y+14,9),arbol(x+BW-14,y+16,8)]})].sort((p,q)=>p.d-q.d);
-  return `<svg class="mapa" viewBox="-620 -125 1515 990" role="group" aria-label="Mapa de la ciudad en vista isométrica: camine con las flechas o toque un edificio para abrir la empresa" font-family="Inter, system-ui, sans-serif">
+  ZONAS=[...minis,...parque].filter(o=>o.zona).map(o=>o.zona).concat(LUGARES.map(zonaLugar));
+  const objetos=[...es.map(lote),...parque,...minis,...LUGARES.map(objetoLugar),...es.flatMap(e=>{const [c,r]=MAPA[e.id],x=bx(c),y=by(r);return [arbol(x+14,y+14,9),arbol(x+BW-14,y+16,8)]}),
+    ...LUGARES.filter(L=>L.kind!=="buses").flatMap(L=>{const [c,r]=L.pos,x=bx(c),y=by(r);return [arbol(x+12,y+BH-14,8),arbol(x+BW-12,y+BH-14,8)]})].sort((p,q)=>p.d-q.d);
+  return `<svg class="mapa" viewBox="${VB.join(" ")}" role="group" aria-label="Mapa de la ciudad en vista isométrica: camine con las flechas o toque un edificio para abrir la empresa" font-family="Inter, system-ui, sans-serif">
     <defs><linearGradient id="cielo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fd3f5"/><stop offset="1" stop-color="#d7eefc"/></linearGradient></defs>
-    <rect x="-620" y="-125" width="1515" height="990" fill="url(#cielo)"/>
+    <rect x="${VB[0]}" y="${VB[1]}" width="${VB[2]}" height="${VB[3]}" fill="url(#cielo)"/>
     <polygon points="${pts([proj(-30,-30),proj(MW+30,-30),proj(MW+30,MH+30),proj(-30,MH+30)])}" fill="#5a9e3f"/>
     <polygon points="${pts([proj(MW+30,MH+30),proj(MW+30,-30),proj(MW+30,-30,-22),proj(MW+30,MH+30,-22)])}" fill="#6b4a2b"/><polygon points="${pts([proj(-30,MH+30),proj(MW+30,MH+30),proj(MW+30,MH+30,-22),proj(-30,MH+30,-22)])}" fill="#8a5f37"/>
-    <g transform="matrix(${ISO.join(" ")} 0 0)">${calles()}${plazaSuelo()}${bancas()}${es.map(sueloLote).join("")}${peatones()}${carros()}</g>
-    <g id="capaObjetos">${objetos.map(o=>`<g class="obj" data-d="${o.d}">${o.svg}</g>`).join("")}${avatarSVG()}</g>
-    ${es.map(cartel).join("")}</svg>`;
+    <g transform="matrix(${ISO.join(" ")} 0 0)">${calles()}${plazaSuelo()}${bancas()}${es.map(sueloLote).join("")}${LUGARES.map(sueloLugar).join("")}${carros()}</g>
+    <g id="capaObjetos">${objetos.map(o=>`<g class="obj" data-d="${o.d}">${o.svg}</g>`).join("")}${NPCS.map(npcSVG).join("")}${avatarSVG()}</g>
+    ${LUGARES.map(cartelLugar).join("")}${es.map(cartel).join("")}</svg>`;
 }
-function bancas(){const x=bx(1),y=by(1),cx=x+BW/2,cy=y+BH/2;return [[-46,-14],[34,-14],[-46,10],[34,10]].map(([dx,dy])=>`<rect x="${cx+dx}" y="${cy+dy}" width="12" height="4" rx="1" fill="#8d5524"/>`).join("")}
+/* ═══════════ Los compañeros: 17 estudiantes que caminan solos por las aceras ═══════════ */
+const ix=c=>RD/2+c*(BW+RD),iy=r=>RD/2+r*(BH+RD);
+let semilla=7;const azar=()=>{semilla=(semilla*16807)%2147483647;return (semilla-1)/2147483646};
+const NPCS=[];
+function iniciarNPCS(){
+  NPCS.length=0;semilla=7;
+  S.estudiantes.slice(1).forEach((est,i)=>{const c=Math.floor(azar()*(COLS+1)),r=Math.floor(azar()*(FILAS+1)),ox=(azar()<.5?-1:1)*13,oy=(azar()<.5?-1:1)*13;
+    const n={est,i,c,r,pc:c,pr:r,tc:c,tr:r,x:ix(c)+ox,y:iy(r)+oy,ox,oy,sp:38+azar()*30,fase:azar()*6,mira:1};vecino(n);NPCS.push(n)});
+}
+function vecino(n){const op=[[1,0],[-1,0],[0,1],[0,-1]].map(([a,b])=>[n.c+a,n.r+b]).filter(([c,r])=>c>=0&&r>=0&&c<=COLS&&r<=FILAS);
+  const sin=op.filter(([c,r])=>!(c===n.pc&&r===n.pr)),L=sin.length?sin:op,[c,r]=L[Math.floor(azar()*L.length)];n.tc=c;n.tr=r}
+function colorEst(est){const e=est.emp&&emp(est.emp);return e?(PAL[e.id]||PAL[e.tipo])[0]:"#adb5bd"}
+function npcSVG(n){const e=n.est.emp&&emp(n.est.emp),col=colorEst(n.est);
+  return `<g id="npc-${n.i}" class="npc"><title>${esc(n.est.nombre)}${e?` · ${esc(corto(e.nombre))} · ${esc(n.est.rol)}`:" · sin empresa"}</title><ellipse cx="0" cy="0" rx="9" ry="4.5" fill="rgba(0,0,0,.25)"/>
+    <rect x="-5" y="-12" width="4.5" height="12" rx="2" fill="#343a40"/><rect x=".5" y="-12" width="4.5" height="12" rx="2" fill="#343a40"/>
+    <rect x="-8" y="-28" width="16" height="18" rx="5" fill="${col}" stroke="#fff" stroke-width="1.3"/><circle cx="0" cy="-35" r="8" fill="${["#f3c48c","#c68642","#8d5524","#e0ac69"][n.i%4]}" stroke="#5c3d1e" stroke-width=".8"/>
+    <path d="M -8 -37 Q 0 -48 8 -37 Q 3 -42 0 -41 Q -3 -42 -8 -37 Z" fill="${["#3b2314","#212529","#7c4a1e","#e8c07d"][n.i%4]}"/>${e?`<text x="0" y="-48" text-anchor="middle" font-size="11">${e.ico}</text>`:""}</g>`}
+function colocar(node,x,y,esc1,mira){const capa=document.getElementById("capaObjetos");if(!node||!capa)return;const [px,py]=proj(x,y);
+  node.setAttribute("transform",`translate(${px.toFixed(1)},${py.toFixed(1)}) scale(${esc1*mira},${esc1})`);
+  const d=x+y;let antes=null;for(const o of capa.querySelectorAll(":scope > g.obj")){if(+o.dataset.d>d){antes=o;break}}
+  if(antes){if(node.nextSibling!==antes)capa.insertBefore(node,antes)}else if(capa.lastChild!==node)capa.appendChild(node);}
+function moverNPCS(dt){
+  NPCS.forEach(n=>{const tx=ix(n.tc)+n.ox,ty=iy(n.tr)+n.oy,dx=tx-n.x,dy=ty-n.y,L=Math.hypot(dx,dy),st=n.sp*dt;
+    if(L<=st){n.x=tx;n.y=ty;n.pc=n.c;n.pr=n.r;n.c=n.tc;n.r=n.tr;vecino(n)}else{n.x+=dx/L*st;n.y+=dy/L*st;const sx=(dx-dy);if(Math.abs(sx)>.01)n.mira=sx>0?1:-1}
+    n.fase+=dt*10;const node=document.getElementById("npc-"+n.i);if(node){colocar(node,n.x,n.y,1.35,n.mira);const b=node.children;if(b[2]&&!reducido){b[2].setAttribute("y",-12+Math.max(0,Math.sin(n.fase))*-3);b[3].setAttribute("y",-12+Math.max(0,-Math.sin(n.fase))*-3)}}});
+}
+iniciarNPCS();
+function bancas(){const x=bx(PZ[0]),y=by(PZ[1]),cx=x+BW/2,cy=y+BH/2;return [[-46,-14],[34,-14],[-46,10],[34,10]].map(([dx,dy])=>`<rect x="${cx+dx}" y="${cy+dy}" width="12" height="4" rx="1" fill="#8d5524"/>`).join("")}
 
 /* ═══════════ El muñequito: el estudiante camina por la ciudad ═══════════
    Flechas o W A S D para caminar · E o Enter para entrar a la empresa que tiene enfrente. */
-const AV={x:bx(1)+BW/2,y:by(1)-20,col:(()=>{try{return localStorage.getItem("ciudad_av_col")||"#1c7ed6"}catch(e){return "#1c7ed6"}})(),fase:0,mueve:false,mira:1};
+const AV={x:bx(PZ[0])+BW/2,y:by(PZ[1])-20,col:(()=>{try{return localStorage.getItem("ciudad_av_col")||"#1c7ed6"}catch(e){return "#1c7ed6"}})(),fase:0,mueve:false,mira:1};
 const TECLAS=new Set(),PAD={x:0,y:0};let ZONA=null,ultimoT=0;
 function avatarSVG(){return `<g id="avatar" aria-hidden="true"><ellipse cx="0" cy="0" rx="10" ry="5" fill="rgba(0,0,0,.28)"/>
   <rect id="av-pi" x="-6" y="-14" width="5" height="14" rx="2" fill="#343a40"/><rect id="av-pd" x="1" y="-14" width="5" height="14" rx="2" fill="#343a40"/>
@@ -420,7 +525,7 @@ function avatarSVG(){return `<g id="avatar" aria-hidden="true"><ellipse cx="0" c
 function chocaCon(x,y){
   if(x<-18||y<-18||x>MW+18||y>MH+18)return true;
   for(const e of S.empresas){const m=MAPA[e.id];if(!m)continue;const X=bx(m[0])+28,Y=by(m[1])+20;if(x>X-4&&x<X+BW-74+4&&y>Y-4&&y<Y+BH-62+4)return true}
-  const pc=[bx(1)+BW/2,by(1)+BH/2];if(Math.hypot(x-pc[0],y-pc[1])<30)return true; // la fuente
+  const pc=[bx(PZ[0])+BW/2,by(PZ[1])+BH/2];if(Math.hypot(x-pc[0],y-pc[1])<30)return true; // la fuente
   for(const z of ZONAS)if(x>z.x+12&&x<z.x+z.w-12&&y>z.y+12&&y<z.y+z.h-12)return true;
   return false;
 }
@@ -431,35 +536,40 @@ function zonaCercana(){
 }
 function ponerAvatar(){
   const av=document.getElementById("avatar"),capa=document.getElementById("capaObjetos");if(!av||!capa)return;
-  const [px,py]=proj(AV.x,AV.y);av.setAttribute("transform",`translate(${px.toFixed(1)},${py.toFixed(1)}) scale(${1.7*AV.mira},1.7)`);
+  colocar(av,AV.x,AV.y,1.7,AV.mira);
   const sw=AV.mueve&&!reducido?Math.sin(AV.fase)*5:0;
   document.getElementById("av-pi").setAttribute("transform",`translate(0,${-Math.max(0,sw)})`);document.getElementById("av-pd").setAttribute("transform",`translate(0,${-Math.max(0,-sw)})`);
   document.getElementById("av-cu").setAttribute("y",-32-(AV.mueve&&!reducido?Math.abs(Math.sin(AV.fase))*1.5:0));
-  const d=AV.x+AV.y;let antes=null;for(const o of capa.querySelectorAll(":scope > g.obj")){if(+o.dataset.d>d){antes=o;break}}
-  if(antes){if(av.nextSibling!==antes)capa.insertBefore(av,antes)}else if(capa.lastChild!==av)capa.appendChild(av);
 }
 function avisoZona(){
   const z=zonaCercana(),box=document.getElementById("aviso");if(!box)return;const k=z?(z.emp||z.nom):"";if(k===ZONA)return;ZONA=k;
   if(!z){box.hidden=true;return}
   box.hidden=false;box.innerHTML=z.emp?`<span>${z.ico} Está frente a <b>${esc(z.nom)}</b></span><button type="button" id="entrar">🚪 Entrar <kbd>E</kbd></button>`
-    :`<span>${z.ico} <b>${esc(z.nom)}</b> · mini comercio de la ciudad. En el juego podrá comprarle y venderle.</span>`;
+    :z.lugar?`<span>${z.ico} <b>${esc(z.nom)}</b> · lugar de la ciudad.</span>`:`<span>${z.ico} <b>${esc(z.nom)}</b> · mini comercio de la ciudad. En el juego podrá comprarle y venderle.</span>`;
   const b=document.getElementById("entrar");if(b)b.onclick=entrar;
 }
-function entrar(){const z=zonaCercana();if(!z||!z.emp)return;SEL=z.emp;TAB="emitidos";ZONA=null;pintar();if(innerWidth<980)$("#panel").scrollIntoView({behavior:reducido?"auto":"smooth"})}
+function entrar(){const z=zonaCercana();if(!z||!z.emp)return;SEL=z.emp;TAB=lleva(emp(z.emp))?"diario":"productos";ZONA=null;pintar();$("#panel").scrollIntoView({behavior:reducido?"auto":"smooth",block:"start"})}
+let ZOOM=1,CAM=null;
+function camara(dt){const svg=document.querySelector("svg.mapa");if(!svg)return;
+  const w=VB[2]/ZOOM,h=VB[3]/ZOOM,[px,py]=proj(AV.x,AV.y,40);
+  let x=Math.max(VB[0],Math.min(VB[0]+VB[2]-w,px-w/2)),y=Math.max(VB[1],Math.min(VB[1]+VB[3]-h,py-h/2));
+  if(!CAM)CAM=[VB[0],VB[1],VB[2],VB[3]];const k=reducido?1:Math.min(1,dt*6);
+  CAM=[CAM[0]+(x-CAM[0])*k,CAM[1]+(y-CAM[1])*k,CAM[2]+(w-CAM[2])*k,CAM[3]+(h-CAM[3])*k];
+  svg.setAttribute("viewBox",CAM.map(v=>v.toFixed(1)).join(" "));}
 function tick(t){
   const dt=Math.min(.05,(t-(ultimoT||t))/1000);ultimoT=t;
   let sx=(TECLAS.has("r")?1:0)-(TECLAS.has("l")?1:0)+PAD.x,sy=(TECLAS.has("d")?1:0)-(TECLAS.has("u")?1:0)+PAD.y;
   // de la pantalla al suelo isométrico: derecha = (x+, y−), abajo = (x+, y+)
   let vx=sx+sy,vy=-sx+sy;const L=Math.hypot(vx,vy);AV.mueve=L>0;
   if(L){vx/=L;vy/=L;const sp=150*dt,nx=AV.x+vx*sp,ny=AV.y+vy*sp;if(!chocaCon(nx,AV.y))AV.x=nx;if(!chocaCon(AV.x,ny))AV.y=ny;AV.fase+=dt*14;if(sx)AV.mira=sx>0?1:-1;}
-  if(document.getElementById("avatar")){ponerAvatar();avisoZona()}
+  if(document.getElementById("avatar")){moverNPCS(reducido?0:dt);ponerAvatar();avisoZona();camara(dt)}
   requestAnimationFrame(tick);
 }
 const DIR={ArrowUp:"u",KeyW:"u",ArrowDown:"d",KeyS:"d",ArrowLeft:"l",KeyA:"l",ArrowRight:"r",KeyD:"r"};
 document.addEventListener("keydown",ev=>{
   if($("#dlg").open||/INPUT|SELECT|TEXTAREA/.test((ev.target&&ev.target.tagName)||""))return;
   if(DIR[ev.code]){TECLAS.add(DIR[ev.code]);ev.preventDefault()}
-  else if((ev.code==="KeyE"||ev.key==="Enter")&&!(ev.target&&ev.target.closest&&ev.target.closest("[data-emp],button,a"))){const z=zonaCercana();if(z&&z.emp){ev.preventDefault();entrar()}}
+  else if((ev.code==="KeyE"&&!(ev.target&&ev.target.closest&&ev.target.closest("#panel")))||(ev.key==="Enter"&&!(ev.target&&ev.target.closest&&ev.target.closest("[data-emp],button,a")))){const z=zonaCercana();if(z&&z.emp){ev.preventDefault();entrar()}}
 });
 document.addEventListener("keyup",ev=>{if(DIR[ev.code])TECLAS.delete(DIR[ev.code])});
 addEventListener("blur",()=>TECLAS.clear());
@@ -467,48 +577,143 @@ function controlesHTML(){
   const col=["#1c7ed6","#e03131","#37b24d","#f59f00","#7048e8","#e64980"];
   return `<div class="pad" aria-label="Controles del muñequito"><button type="button" data-pad="0,-1" aria-label="Arriba">▲</button><button type="button" data-pad="-1,0" aria-label="Izquierda">◀</button><button type="button" data-pad="1,0" aria-label="Derecha">▶</button><button type="button" data-pad="0,1" aria-label="Abajo">▼</button></div>
     <div class="colores" role="group" aria-label="Color de la camisa">${col.map(c=>`<button type="button" data-col="${c}" style="background:${c}" aria-label="Camisa color ${c}" aria-pressed="${AV.col===c}"></button>`).join("")}</div>
+    <div class="zoom"><button type="button" id="zMas" aria-label="Acercar la cámara">🔍＋</button><button type="button" id="zMenos" aria-label="Ver toda la ciudad">🔍－</button></div>
     <div class="aviso" id="aviso" hidden></div>`;
 }
 function ligarControles(){
   document.querySelectorAll("[data-pad]").forEach(b=>{const [x,y]=b.dataset.pad.split(",").map(Number),on=ev=>{ev.preventDefault();PAD.x=x;PAD.y=y;b.setPointerCapture&&ev.pointerId!=null&&b.setPointerCapture(ev.pointerId)},off=()=>{PAD.x=0;PAD.y=0};
     b.onpointerdown=on;b.onpointerup=off;b.onpointercancel=off;b.onpointerleave=off;});
+  $("#zMas").onclick=()=>{ZOOM=Math.min(3,ZOOM===1?1.8:ZOOM+.6)};$("#zMenos").onclick=()=>{ZOOM=Math.max(1,ZOOM-.6<1.2?1:ZOOM-.6)};
   document.querySelectorAll("[data-col]").forEach(b=>b.onclick=()=>{AV.col=b.dataset.col;try{localStorage.setItem("ciudad_av_col",AV.col)}catch(e){}const c=document.getElementById("av-cu");if(c)c.setAttribute("fill",AV.col);document.querySelectorAll("[data-col]").forEach(x=>x.setAttribute("aria-pressed",x===b))});
 }
 function pintar(){
   if(!DOCENTE){$("#app").innerHTML=`<div class="card" style="grid-column:1/-1"><h2>Solo para el profe</h2><p class="muted">Este prototipo se abre desde la plataforma, en <b>📅 2027</b>, con la sesión del docente.</p><a class="btn" href="index.html">Ir a la plataforma</a></div>`;return}
-  const nEst=S.empresas.filter(e=>e.tipo!=="ia").length,nIA=S.empresas.filter(e=>e.tipo==="ia").length;
+  const nEst=S.empresas.filter(e=>e.tipo!=="ia").length,nIA=S.empresas.filter(e=>e.tipo==="ia").length,yo=YO(),mia=yo.emp&&emp(yo.emp);
   $("#app").innerHTML=`<section class="card juego">
-      <div class="hud"><span class="hud-t">🏙️ Ciudad de la 10-1</span><span class="hud-c">📅 Día 1</span><span class="hud-c">🏢 ${nEst} empresas de estudiantes</span><span class="hud-c">🤖 ${nIA} de la IA</span><span class="hud-c">🧾 ${S.docs.length} documentos</span></div>
+      <div class="hud"><span class="hud-t">🏙️ Ciudad de la 10-1</span><span class="hud-c">📅 Día 1</span><span class="hud-c">🧑‍🎓 ${S.estudiantes.length} estudiantes</span><span class="hud-c">🏢 ${nEst} empresas de estudiantes</span><span class="hud-c">🤖 ${nIA} de la IA</span><span class="hud-c">🧾 ${S.docs.length} documentos</span>
+        <button type="button" class="hud-b" id="elegir">${mia?`${mia.ico} Tu empresa: ${esc(corto(mia.nombre))} · ${esc(yo.rol)}`:"🧑‍🎓 Escoger mi empresa"}</button></div>
       <div class="mapa-wrap">${mapaHTML()}${controlesHTML()}</div>
-      <div class="legend"><span><i style="background:var(--com)"></i>Comercial</span><span><i style="background:var(--ser)"></i>Servicios</span><span><i style="background:var(--ia)"></i>Empresa de la IA (no lleva contabilidad)</span><span>🔴 documentos de la empresa</span></div>
-      <p class="nota">Camine con las <b>flechas</b> o <b>W A S D</b> (o los botones ▲◀▶▼) y toque <b>E</b> para entrar a la empresa que tiene enfrente. También puede tocar un edificio. Prototipo: todavía no hay roles, días de juego ni Hacienda.</p></section>
+      <div class="legend"><span><i style="background:var(--com)"></i>Comercial</span><span><i style="background:var(--ser)"></i>Servicios</span><span><i style="background:var(--ia)"></i>Empresa de la IA (no lleva contabilidad)</span><span>👕 el color de la camisa es la empresa de cada estudiante</span></div>
+      <p class="nota">Camine con las <b>flechas</b> o <b>W A S D</b> (o los botones ▲◀▶▼) y toque <b>E</b> para entrar a la empresa que tiene enfrente. También puede tocar un edificio. Pase el mouse sobre un compañero para ver su nombre, empresa y rol.</p></section>
     <section class="card" id="panel">${panelHTML()}</section>`;
-  document.querySelectorAll("[data-emp]").forEach(b=>{const ir=()=>{SEL=b.dataset.emp;TAB="emitidos";pintar();if(innerWidth<980)$("#panel").scrollIntoView({behavior:reducido?"auto":"smooth"})};b.onclick=ir;b.onkeydown=ev=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();ir()}}});
-  ligarPanel();ligarControles();ZONA=null;
+  document.querySelectorAll("[data-emp]").forEach(b=>{const ir=()=>{SEL=b.dataset.emp;TAB=lleva(emp(SEL))?"diario":"productos";pintar();$("#panel").scrollIntoView({behavior:reducido?"auto":"smooth",block:"start"})};b.onclick=ir;b.onkeydown=ev=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();ir()}}});
+  $("#elegir").onclick=elegirEmpresa;
+  ligarPanel();ligarControles();ZONA=null;if(CAM)$("svg.mapa").setAttribute("viewBox",CAM.join(" "));
 }
+
+/* ═══════════ Escoger empresa (lo que verá cada estudiante) ═══════════ */
+const CUPO=4;
+function elegirEmpresa(){
+  const yo=YO();
+  const html=()=>`<div class="dlg-hd"><span style="font-size:1.6rem">🧑‍🎓</span><h2>Escoge tu empresa</h2><button type="button" class="ghost x">Cerrar ✕</button></div>
+    <p class="muted" style="margin-top:0">Hay 5 tipos de empresa. Cada una recibe hasta ${CUPO} estudiantes, uno por rol: ${ROLES.join(", ")}. Los roles rotan cada 2 semanas.</p>
+    <div class="tipos">${TIPOS_EMPRESA.map(t=>{const e=emp(t.id),M=miembros(t.id),lleno=M.length>=CUPO&&yo.emp!==t.id,col=(PAL[t.id]||PAL[t.tipo])[0];
+      return `<article class="tipo-card" style="--c:${col}"><div class="tc-hd"><span class="tc-ico">${t.ico}</span><div><b>${esc(e.nombre)}</b><div class="tc-t">${TIPO[t.tipo][0]}</div></div></div>
+        <p>${esc(t.giro)}</p><p class="tc-p">${t.prods.map(p=>esc(p.det)+(p.tarifa?"":" (exento)")).join(" · ")}</p>
+        <div class="tc-m"><b>${M.length}/${CUPO}</b> ${M.map(m=>`<span title="${esc(m.rol||"")}">${esc(m.id===yo.id?"Tú":m.nombre.replace("Estudiante ","E"))} · ${esc(m.rol||"")}</span>`).join("")}</div>
+        ${yo.emp===t.id?`<button type="button" class="ghost" data-salir="1">Salir de esta empresa</button>`:`<button type="button" data-unir="${t.id}" ${lleno?"disabled":""}>${lleno?"Llena":"Unirme"}</button>`}</article>`}).join("")}</div>`;
+  const ligar=()=>{
+    document.querySelectorAll("#dlgBody [data-unir]").forEach(b=>b.onclick=()=>{const id=b.dataset.unir,usados=miembros(id).map(m=>m.rol);yo.emp=id;yo.rol=ROLES.find(r=>!usados.includes(r))||ROLES[0];guardar();iniciarNPCS();abrir(html());ligar();pintar();});
+    const sal=document.querySelector("#dlgBody [data-salir]");if(sal)sal.onclick=()=>{yo.emp=null;yo.rol=null;guardar();abrir(html());ligar();pintar()};
+  };
+  abrir(html());ligar();
+}
+
+/* ═══════════ Contabilidad de cada empresa: diario, asientos esperados y balanza ═══════════ */
+function esperado(e,doc){const A=asientos(doc);if(doc.emisor===e.id&&A.vendedor)return [...A.vendedor.lineas,...(A.vendedor.costo||[])];if(doc.receptor===e.id&&A.comprador)return A.comprador.lineas;return []}
+function porCuenta(L){const m={};L.forEach(([c,d,h])=>{m[c]=m[c]||[0,0];m[c][0]=r2(m[c][0]+(+d||0));m[c][1]=r2(m[c][1]+(+h||0))});return m}
+function revisar(L,E){const a=porCuenta(L),b=porCuenta(E),mal=[];new Set([...Object.keys(a),...Object.keys(b)]).forEach(c=>{const x=a[c]||[0,0],y=b[c]||[0,0];if(Math.abs(x[0]-y[0])>.01||Math.abs(x[1]-y[1])>.01)mal.push(c)});return mal}
+const diarioDe=id=>S.diario[id]||(S.diario[id]=[]);
+const docsDe=id=>S.docs.filter(d=>d.emisor===id||d.receptor===id);
+const pendientes=id=>docsDe(id).filter(d=>!diarioDe(id).some(a=>a.docId===d.id));
+function balanza(id){const m={};diarioDe(id).forEach(a=>a.lineas.forEach(([c,d,h])=>{m[c]=m[c]||[0,0];m[c][0]=r2(m[c][0]+(+d||0));m[c][1]=r2(m[c][1]+(+h||0))}));
+  return Object.keys(m).sort().map(c=>{const [d,h]=m[c];return {c,d,h,sd:r2(Math.max(0,d-h)),sa:r2(Math.max(0,h-d))}})}
+function nombreDoc(d){return `${d.tipo==="NC"?"Nota de crédito":"Factura"} …${d.consecutivo.slice(-4)}`}
+
 function panelHTML(){
-  const e=emp(SEL),s=lleva(e)?saldoDe(e):null;
-  const em=S.docs.filter(d=>d.emisor===e.id).slice().reverse(),re=S.docs.filter(d=>d.receptor===e.id).slice().reverse();
-  const L=TAB==="emitidos"?em:re;
-  return `<div class="co-hd"><div class="ico">${e.ico}</div><div><h2 style="margin:0">${esc(e.nombre)}</h2>
+  const e=emp(SEL),s=lleva(e)?saldoDe(e):null,cont=lleva(e);
+  const tabs=cont?[["productos","📦 Productos"],["documentos",`🧾 Documentos (${docsDe(e.id).length})`],["catalogo","📒 Catálogo de cuentas"],["diario",`📓 Libro diario${pendientes(e.id).length?` · ${pendientes(e.id).length} por registrar`:""}`],["balanza","⚖️ Balanza"]]
+    :[["productos","📦 Productos"],["documentos",`🧾 Documentos (${docsDe(e.id).length})`]];
+  if(!tabs.some(t=>t[0]===TAB))TAB=tabs[0][0];
+  const M=miembros(e.id);
+  return `<div class="co-hd"><div class="ico">${e.ico}</div><div style="flex:1"><h2 style="margin:0">${esc(e.nombre)}</h2>
       <div class="muted" style="font-size:.85rem">${esc(e.giro)}${e.ced?` · Cédula jurídica ${esc(e.ced)}`:""}</div>
-      <div class="tp" style="font-size:.75rem;font-weight:700;color:var(--${TIPO[e.tipo][1]})">${TIPO[e.tipo][0]}</div></div></div>
+      <div class="tp" style="font-size:.75rem;font-weight:700;color:var(--${TIPO[e.tipo][1]})">${TIPO[e.tipo][0]}</div></div><button type="button" class="sec" id="alMapa">⬆ Volver a la ciudad</button></div>
+    ${cont?`<div class="equipo">${M.length?M.map(m=>`<span><b>${esc(m.id===YO().id?"Tú":m.nombre)}</b> ${esc(m.rol)}</span>`).join(""):'<span class="muted">Todavía sin estudiantes</span>'}</div>`:""}
     ${s?`<div class="kv"><div><small>Ventas netas</small><b>${fm(s.vent)}</b></div><div><small>Por cobrar</small><b>${fm(s.cxc)}</b></div><div><small>Por pagar</small><b>${fm(s.cxp)}</b></div><div><small>IVA por pagar</small><b>${fm(s.ivaP)}</b></div><div><small>IVA soportado</small><b>${fm(s.ivaS)}</b></div></div>`:`<p class="muted" style="font-size:.86rem">Las empresas de la IA venden y compran, pero no llevan contabilidad: sus documentos solo los registra la otra empresa.</p>`}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 4px">${e.prods.length?`<button type="button" id="nuevaFE">🧾 Emitir factura</button>`:""}
-      ${em.some(d=>d.tipo==="FE")?`<button type="button" class="sec" id="nuevaNC">↩️ Nota de crédito</button>`:""}</div>
-    ${e.prods.length?`<h3>Catálogo</h3><div class="scroll"><table><thead><tr><th>Detalle</th><th>CABYS</th><th class="r">IVA</th><th class="r">Precio</th>${e.tipo==="com"?'<th class="r">Costo</th><th class="r">Existencia</th>':""}</tr></thead><tbody>
-      ${e.prods.map(p=>`<tr><td>${esc(p.det)}</td><td class="mono">${esc(p.cabys)}</td><td class="r">${p.tarifa?p.tarifa+" %":"Exento"}</td><td class="r">${fm(p.precio)}</td>${e.tipo==="com"?`<td class="r">${fm(p.costo)}</td><td class="r">${p.stock}</td>`:""}</tr>`).join("")}</tbody></table></div>`:""}
-    <h3>Documentos</h3><div class="tabs" role="tablist"><button type="button" role="tab" class="${TAB==="emitidos"?"on":""}" data-tab="emitidos">Emitidos (${em.length})</button><button type="button" role="tab" class="${TAB==="recibidos"?"on":""}" data-tab="recibidos">Recibidos (${re.length})</button></div>
-    ${L.length?`<div class="scroll"><table><thead><tr><th>Documento</th><th>${TAB==="emitidos"?"Cliente":"Proveedor"}</th><th>Fecha</th><th class="r">Total</th></tr></thead><tbody>
-      ${L.map(d=>`<tr class="docrow" data-doc="${d.id}" tabindex="0"><td><span class="chip ${d.tipo==="NC"?"nc":"fe"}">${d.tipo==="NC"?"Nota de crédito":"Factura"}</span> <span class="mono">…${d.consecutivo.slice(-4)}</span></td><td>${esc(emp(TAB==="emitidos"?d.receptor:d.emisor).nombre)}</td><td>${d.fecha}</td><td class="r">${fm(d.calc.total)}</td></tr>`).join("")}</tbody></table></div>`
-      :`<p class="muted" style="font-size:.88rem">Todavía no hay documentos ${TAB}. ${e.prods.length&&TAB==="emitidos"?"Toque «Emitir factura» para hacer la primera.":""}</p>`}`;
+      ${S.docs.some(d=>d.emisor===e.id&&d.tipo==="FE")?`<button type="button" class="sec" id="nuevaNC">↩️ Nota de crédito</button>`:""}</div>
+    <div class="tabs" role="tablist">${tabs.map(([k,t])=>`<button type="button" role="tab" aria-selected="${TAB===k}" class="${TAB===k?"on":""}" data-tab="${k}">${t}</button>`).join("")}</div>
+    <div id="tabBody">${({productos:tabProductos,documentos:tabDocumentos,catalogo:tabCatalogo,diario:tabDiario,balanza:tabBalanza}[TAB])(e)}</div>`;
 }
+function tabProductos(e){if(!e.prods.length)return `<p class="muted">Esta empresa no vende productos en el prototipo.</p>`;
+  return `<div class="scroll"><table><thead><tr><th>Detalle</th><th>CABYS</th><th class="r">IVA</th><th class="r">Precio</th>${e.tipo==="com"?'<th class="r">Costo</th><th class="r">Existencia</th>':""}</tr></thead><tbody>
+    ${e.prods.map(p=>`<tr><td>${esc(p.det)}</td><td class="mono">${esc(p.cabys)}</td><td class="r">${p.tarifa?p.tarifa+" %":"Exento"}</td><td class="r">${fm(p.precio)}</td>${e.tipo==="com"?`<td class="r">${fm(p.costo)}</td><td class="r">${p.stock}</td>`:""}</tr>`).join("")}</tbody></table></div>`}
+function tabDocumentos(e){const L=docsDe(e.id).slice().reverse();if(!L.length)return `<p class="muted" style="font-size:.88rem">Todavía no hay documentos.${e.prods.length?" Toque «Emitir factura» para hacer el primero.":""}</p>`;
+  return `<div class="scroll"><table><thead><tr><th>Documento</th><th>Con</th><th>Fecha</th><th class="r">Total</th></tr></thead><tbody>
+    ${L.map(d=>{const em=d.emisor===e.id;return `<tr class="docrow" data-doc="${d.id}" tabindex="0"><td><span class="chip ${d.tipo==="NC"?"nc":"fe"}">${d.tipo==="NC"?"Nota de crédito":"Factura"}</span> ${em?"emitida":"recibida"} <span class="mono">…${d.consecutivo.slice(-4)}</span></td><td>${esc(corto(emp(em?d.receptor:d.emisor).nombre))}</td><td>${d.fecha}</td><td class="r">${fm(d.calc.total)}</td></tr>`}).join("")}</tbody></table></div>`}
+function tabCatalogo(e){const C=catalogoDe(e);let g="",grupo="";
+  return `<p class="muted" style="font-size:.86rem;margin-top:0">Catálogo de cuentas de una empresa ${e.tipo==="com"?"comercial (con inventario perpetuo)":"de servicios"}. Son las únicas cuentas que puede usar en el diario.</p>
+    <div class="scroll"><table><thead><tr><th>Código</th><th>Cuenta</th><th>Naturaleza</th></tr></thead><tbody>${C.map(c=>{const h=c[3]!==grupo?`<tr class="grupo"><td colspan="3">${c[0][0]} · ${c[3]}</td></tr>`:"";grupo=c[3];return h+`<tr><td class="mono">${c[0]}</td><td>${esc(c[1])}</td><td>${c[2]==="D"?"Deudora":"Acreedora"}</td></tr>`}).join("")}</tbody></table></div>`}
+function tabDiario(e){const P=pendientes(e.id),D=diarioDe(e.id);
+  const est=a=>a.apertura?'<span class="chip ok">Apertura</span>':a.docId?(a.estado==="correcto"?'<span class="chip ok">✔ Correcto</span>':'<span class="chip nc">✖ Revisar</span>'):'<span class="chip fe">Asiento libre</span>';
+  return `${P.length?`<div class="pend"><b>📥 Documentos por registrar (${P.length})</b>${P.map(d=>`<div class="pend-r"><span>${nombreDoc(d)} · ${d.emisor===e.id?"venta a":"compra a"} ${esc(corto(emp(d.emisor===e.id?d.receptor:d.emisor).nombre))} · ${fm(d.calc.total)}</span><button type="button" data-reg="${d.id}">✍️ Registrar asiento</button></div>`).join("")}</div>`
+      :`<p class="msg ok" style="margin-top:0">✅ Todos los documentos están registrados.</p>`}
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 6px"><b>Libro diario · ${D.length} asiento${D.length===1?"":"s"}</b><button type="button" class="sec" data-reg="">＋ Asiento sin documento</button></div>
+    ${D.map((a,i)=>`<div class="asiento"><div class="as-hd"><b>Asiento ${i+1}</b> · ${a.fecha} ${est(a)}${a.apertura?"":` <button type="button" class="ghost mini" data-edit="${a.id}">Corregir</button> <button type="button" class="ghost mini" data-del="${a.id}">Eliminar</button>`}</div>
+      ${tablaAsiento(a.lineas)}<div class="nota">${esc(a.desc)}${a.docId&&a.estado!=="correcto"&&a.mal?` · Revise: ${a.mal.map(c=>c+" "+esc(CTA[c]||"")).join(", ")}`:""}</div></div>`).join("")}`}
+function tabBalanza(e){const B=balanza(e.id),td=r2(B.reduce((t,x)=>t+x.d,0)),th=r2(B.reduce((t,x)=>t+x.h,0)),sd=r2(B.reduce((t,x)=>t+x.sd,0)),sa=r2(B.reduce((t,x)=>t+x.sa,0)),ok=Math.abs(td-th)<.01&&Math.abs(sd-sa)<.01,P=pendientes(e.id).length;
+  return `<p class="muted" style="font-size:.86rem;margin-top:0">Balanza de comprobación de sumas y saldos al ${hoyISO()}, con los asientos registrados en el diario.${P?` Faltan ${P} documento${P===1?"":"s"} por registrar.`:""}</p>
+    <div class="scroll"><table><thead><tr><th>Código</th><th>Cuenta</th><th class="r">Debe</th><th class="r">Haber</th><th class="r">Saldo deudor</th><th class="r">Saldo acreedor</th></tr></thead><tbody>
+    ${B.map(x=>`<tr><td class="mono">${x.c}</td><td>${esc(CTA[x.c]||"")}</td><td class="r">${fm(x.d)}</td><td class="r">${fm(x.h)}</td><td class="r">${x.sd?fm(x.sd):""}</td><td class="r">${x.sa?fm(x.sa):""}</td></tr>`).join("")}
+    <tr class="tot-r"><td colspan="2"><b>Totales</b></td><td class="r"><b>${fm(td)}</b></td><td class="r"><b>${fm(th)}</b></td><td class="r"><b>${fm(sd)}</b></td><td class="r"><b>${fm(sa)}</b></td></tr></tbody></table></div>
+    <p class="msg ${ok?"ok":"bad"}">${ok?"✅ La balanza cuadra: sumas y saldos iguales.":"❌ La balanza no cuadra: revise los asientos del diario."}</p>`}
 function ligarPanel(){
-  const p=$("#panel");
+  const p=$("#panel"),e=emp(SEL);
   p.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{TAB=b.dataset.tab;p.innerHTML=panelHTML();ligarPanel()});
   p.querySelectorAll("[data-doc]").forEach(r=>{const f=()=>verDoc(r.dataset.doc);r.onclick=f;r.onkeydown=ev=>{if(ev.key==="Enter")f()}});
+  p.querySelectorAll("[data-reg]").forEach(b=>b.onclick=()=>editorAsiento(e,b.dataset.reg?S.docs.find(d=>d.id===b.dataset.reg):null));
+  p.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{const a=diarioDe(e.id).find(x=>x.id===b.dataset.edit);editorAsiento(e,a.docId?S.docs.find(d=>d.id===a.docId):null,a)});
+  p.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{if(!confirm("¿Eliminar este asiento del diario?"))return;S.diario[e.id]=diarioDe(e.id).filter(x=>x.id!==b.dataset.del);guardar();p.innerHTML=panelHTML();ligarPanel()});
   const fe=$("#nuevaFE");if(fe)fe.onclick=()=>editorFactura();
   const nc=$("#nuevaNC");if(nc)nc.onclick=()=>editorNC();
+  const am=$("#alMapa");if(am)am.onclick=()=>$(".juego").scrollIntoView({behavior:reducido?"auto":"smooth",block:"start"});
+}
+
+/* ═══════════ Registrar un asiento en el diario (lo hace el contador) ═══════════ */
+function editorAsiento(e,doc,previo){
+  const C=catalogoDe(e);let L=previo?previo.lineas.map(x=>x.slice()):[["",0,0],["",0,0],["",0,0]];
+  let fecha=previo?previo.fecha:(doc?doc.fecha:hoyISO()),desc=previo?previo.desc:(doc?`${nombreDoc(doc)}: ${doc.emisor===e.id?"venta a":"compra a"} ${corto(emp(doc.emisor===e.id?doc.receptor:doc.emisor).nombre)}, ${doc.condicion==="credito"?"a crédito":"de contado"}`:"");
+  let verSol=false;
+  const html=()=>{const td=r2(L.reduce((t,x)=>t+(+x[1]||0),0)),th=r2(L.reduce((t,x)=>t+(+x[2]||0),0)),cuadra=td>0&&Math.abs(td-th)<.01;
+    return `<div class="dlg-hd"><span style="font-size:1.6rem">✍️</span><h2>Asiento de diario · ${esc(corto(e.nombre))}</h2><button type="button" class="ghost x">Cerrar ✕</button></div>
+    ${doc?`<div class="msg" style="background:#f1f5f9">Documento: <b>${nombreDoc(doc)}</b> de ${esc(corto(emp(doc.emisor).nombre))} a ${esc(corto(emp(doc.receptor).nombre))} · Subtotal ${fm(doc.calc.sub)} · IVA ${fm(doc.calc.iva)} · Total ${fm(doc.calc.total)} · ${doc.condicion==="credito"?"Crédito":"Contado"} <button type="button" class="ghost mini" id="aVerDoc">Ver documento</button></div>`:""}
+    <div class="grid"><label>Fecha<input id="aFecha" type="date" value="${fecha}"></label><label style="grid-column:span 2">Descripción<input id="aDesc" value="${esc(desc)}"></label></div>
+    <div class="scroll" style="margin-top:10px"><table class="lines"><thead><tr><th style="min-width:240px">Cuenta</th><th class="r" style="width:150px">Debe</th><th class="r" style="width:150px">Haber</th><th></th></tr></thead><tbody>
+    ${L.map((l,i)=>`<tr><td><select data-a="${i}" data-k="0"><option value="">Elegir cuenta…</option>${C.map(c=>`<option value="${c[0]}" ${c[0]===l[0]?"selected":""}>${c[0]} ${esc(c[1])}</option>`).join("")}</select></td>
+      <td><input data-a="${i}" data-k="1" type="number" min="0" step="0.01" inputmode="decimal" value="${l[1]||""}" style="text-align:right"></td><td><input data-a="${i}" data-k="2" type="number" min="0" step="0.01" inputmode="decimal" value="${l[2]||""}" style="text-align:right"></td>
+      <td>${L.length>2?`<button type="button" class="ghost" data-q="${i}" aria-label="Quitar línea">✕</button>`:""}</td></tr>`).join("")}
+    <tr class="tot-r"><td><b>Sumas</b></td><td class="r"><b>${fm(td)}</b></td><td class="r"><b>${fm(th)}</b></td><td></td></tr></tbody></table></div>
+    <button type="button" class="sec" id="aAdd" style="margin-top:8px">＋ Agregar línea</button>
+    <div class="msg ${cuadra?"ok":"bad"}">${cuadra?"✔ Debe y haber suman igual.":td||th?`Diferencia de ${fm(Math.abs(td-th))} entre debe y haber.`:"Escriba las cuentas y los montos."}</div>
+    ${doc&&verSol?`<div class="asiento"><h4>Asiento correcto (vista del profe)</h4>${tablaAsiento(agrupar(esperado(e,doc)))}</div>`:""}
+    <div id="aMsg"></div><div style="display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;margin-top:10px">${doc?`<button type="button" class="ghost" id="aSol">${verSol?"Ocultar":"👁️ Ver"} asiento correcto (profe)</button>`:"<span></span>"}<button type="button" id="aGuardar" ${cuadra?"":"disabled"}>💾 Guardar en el diario</button></div>`};
+  const leer=()=>{fecha=$("#aFecha").value;desc=$("#aDesc").value};
+  const pinta=()=>{abrir(html());
+    document.querySelectorAll("#dlgBody [data-a]").forEach(i=>i.onchange=()=>{leer();const l=L[+i.dataset.a],k=+i.dataset.k;l[k]=k?r2(Math.max(0,+i.value||0)):i.value;if(k===1&&l[1])l[2]=0;if(k===2&&l[2])l[1]=0;pinta()});
+    document.querySelectorAll("#dlgBody [data-q]").forEach(b=>b.onclick=()=>{leer();L.splice(+b.dataset.q,1);pinta()});
+    $("#aAdd").onclick=()=>{leer();L.push(["",0,0]);pinta()};
+    const vd=$("#aVerDoc");if(vd)vd.onclick=()=>{leer();verDoc(doc.id,false,()=>editorAsiento(e,doc,{id:previo&&previo.id,fecha,desc,lineas:L}))};
+    const so=$("#aSol");if(so)so.onclick=()=>{leer();verSol=!verSol;pinta()};
+    $("#aGuardar").onclick=()=>{leer();const lin=L.filter(l=>l[0]&&(l[1]||l[2])).map(l=>[l[0],+l[1]||0,+l[2]||0]);
+      if(lin.length<2){$("#aMsg").innerHTML='<div class="msg bad">El asiento necesita al menos dos cuentas con monto.</div>';return}
+      const a={id:(previo&&previo.id)||"a"+Date.now(),fecha,desc:desc||"Asiento",lineas:lin};
+      if(doc){a.docId=doc.id;const mal=revisar(lin,esperado(e,doc));a.estado=mal.length?"revisar":"correcto";a.mal=mal}
+      const D=diarioDe(e.id),k=D.findIndex(x=>x.id===a.id);if(k>=0)D[k]=a;else D.push(a);guardar();
+      $("#dlg").close();TAB="diario";pintar();
+      if(doc){const box=document.createElement("div");box.className="toast "+(a.estado==="correcto"?"ok":"bad");box.textContent=a.estado==="correcto"?"✅ ¡Asiento correcto!":`❌ Hay ${a.mal.length} cuenta${a.mal.length===1?"":"s"} por revisar. Use «Corregir».`;document.body.appendChild(box);setTimeout(()=>box.remove(),3500)}};
+  };
+  pinta();
 }
 const abrir=html=>{$("#dlgBody").innerHTML=html;const d=$("#dlg");if(!d.open)d.showModal();const x=$("#dlgBody .x");if(x)x.onclick=()=>d.close()};
 
@@ -601,7 +806,7 @@ function tablaAsiento(L){
     ${L.map(([c,d,h])=>`<tr><td class="${h?"hab":""}">${c} ${esc(CTA[c]||"")}</td><td class="r">${d?fm(d):""}</td><td class="r">${h?fm(h):""}</td></tr>`).join("")}
     <tr><td><b>Sumas iguales</b></td><td class="r"><b>${fm(td)}</b></td><td class="r"><b>${fm(th)}</b></td></tr></tbody></table></div>`;
 }
-function verDoc(id,recien){
+function verDoc(id,recien,volver){
   const d=S.docs.find(x=>x.id===id),V=emp(d.emisor),C=emp(d.receptor),T=d.calc,A=asientos(d),nc=d.tipo==="NC";
   abrir(`<div class="dlg-hd no-print"><span style="font-size:1.6rem">${nc?"↩️":"🧾"}</span><h2>${nc?"Nota de crédito":"Factura"} emitida</h2><button type="button" class="sec" id="imp">🖨️ Imprimir</button><button type="button" class="ghost x">Cerrar ✕</button></div>
     ${recien?`<div class="msg ok no-print">✅ ${nc?"Nota de crédito":"Factura"} emitida. Abajo están los asientos que le tocan a cada empresa.</div>`:""}
@@ -615,7 +820,7 @@ function verDoc(id,recien){
       <div style="overflow-x:auto"><table><thead><tr><th>Cant.</th><th>Detalle</th><th>CABYS</th><th class="r">Precio</th><th class="r">Desc.</th><th class="r">Subtotal</th><th class="r">IVA</th><th class="r">Total</th></tr></thead><tbody>
         ${T.lineas.map(l=>`<tr><td>${l.cant}</td><td>${esc(l.det)}</td><td class="mono">${esc(l.cabys)}</td><td class="r">${fm(l.precio)}</td><td class="r">${l.desc?fm(l.desc):""}</td><td class="r">${fm(l.sub)}</td><td class="r">${l.tarifa?fm(l.iva)+` <small class="muted">(${l.tarifa} %)</small>`:"Exento"}</td><td class="r">${fm(l.total)}</td></tr>`).join("")}</tbody></table></div>
       <div class="tot"><div><span>Total gravado</span><span>${fm(T.gravado)}</span></div><div><span>Total exento</span><span>${fm(T.exento)}</span></div><div><span>Total descuentos</span><span>${fm(T.desc)}</span></div><div><span>Total IVA</span><span>${fm(T.iva)}</span></div><div class="big"><span>Total del comprobante</span><span>${fm(T.total)}</span></div></div></div>
-    <h3>Asientos contables</h3>
+    <h3>Asientos correctos <small class="muted">(vista del profe; el estudiante los registra en el Libro diario)</small></h3>
     <div class="asientos">
       ${A.vendedor?`<div class="asiento"><h4>${esc(V.nombre)} · ${nc?"devolución sobre venta":"venta"}</h4>${tablaAsiento(A.vendedor.lineas)}
         ${A.vendedor.costo?`<div class="nota">Inventario perpetuo: ${nc?"vuelve al inventario":"sale del inventario"} el costo de la mercadería (${fm(A.vendedor.costoMonto)}).</div>${tablaAsiento(A.vendedor.costo)}`:""}</div>`
@@ -626,6 +831,7 @@ function verDoc(id,recien){
         :`<div class="asiento"><h4>${esc(C.nombre)}</h4><p class="muted" style="font-size:.86rem">${C.id==="clien"?"Clientes de la ciudad: no llevan contabilidad.":"Empresa de la IA: no lleva contabilidad en el juego."}</p></div>`}
     </div>`);
   $("#imp").onclick=()=>window.print();
+  if(volver){const b=document.createElement("button");b.type="button";b.className="sec";b.textContent="← Volver al asiento";b.onclick=volver;$("#dlgBody .dlg-hd").insertBefore(b,$("#imp"))}
 }
 
 $("#reiniciar").onclick=()=>{if(!confirm("¿Reiniciar la ciudad del prototipo? Se borran los documentos de prueba de este navegador."))return;
