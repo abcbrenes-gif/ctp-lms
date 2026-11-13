@@ -165,6 +165,34 @@ body.dentro #volver-plataforma{display:none!important}
 .bandera{animation:ondea 1.6s ease-in-out infinite;transform-box:fill-box;transform-origin:left center}
 @keyframes ondea{50%{transform:skewY(-6deg) scaleX(.94)}}
 @media (prefers-reduced-motion: reduce){.humo circle,.sem-r,.sem-v,.bandera{animation:none}}
+/* ── Vida y acabado ── */
+.ola{stroke:#a5d8ff;stroke-width:2;stroke-dasharray:18 26;opacity:.8;animation:ola 3.8s linear infinite}
+@keyframes ola{to{stroke-dashoffset:-88}}
+.nube{animation-name:nube;animation-timing-function:linear;animation-iteration-count:infinite}
+@keyframes nube{from{transform:translateX(var(--x0))}to{transform:translateX(var(--x1))}}
+.paloma-b{transition:transform 1.4s ease-out,opacity 1.4s ease-out}
+.paloma.vuela .paloma-b{transform:translate(calc(40px + var(--i)*12px),-120px) scale(.6);opacity:0}
+.mariposa{animation:revolotea 3.5s ease-in-out infinite}
+@keyframes revolotea{0%,100%{transform:translate(0,0)}25%{transform:translate(8px,-10px)}50%{transform:translate(-4px,-16px)}75%{transform:translate(-10px,-6px)}}
+.luciernaga{animation:luciernaga 3s ease-in-out infinite;filter:drop-shadow(0 0 4px #e9ff6b)}
+@keyframes luciernaga{0%,100%{opacity:.1;transform:translate(0,0)}50%{opacity:1;transform:translate(6px,-12px)}}
+#tinte{transition:fill 3s ease}
+.mapa-wrap.fundido svg.mapa{animation:fundido .9s ease}
+@keyframes fundido{0%{filter:none}50%{filter:brightness(.4) saturate(.6)}100%{filter:none}}
+.fuegos{position:fixed;inset:0;pointer-events:none;z-index:61}
+.fw{position:absolute;width:4px;height:4px;animation:fw 1.6s ease-out both}
+.fw i{position:absolute;left:0;top:0;width:6px;height:6px;border-radius:50%;background:var(--c);box-shadow:0 0 10px var(--c);transform:rotate(var(--a)) translateX(0);animation:chispa 1.6s ease-out both;animation-delay:inherit}
+@keyframes chispa{0%{transform:rotate(var(--a)) translateX(0);opacity:1}80%{opacity:1}100%{transform:rotate(var(--a)) translateX(110px) translateY(30px);opacity:0}}
+.inicio{position:fixed;inset:0;z-index:45;display:grid;place-items:center;background:radial-gradient(ellipse at center,rgba(15,24,48,.35),rgba(10,16,34,.88));backdrop-filter:blur(2px);transition:opacity .5s ease}
+.inicio[hidden]{display:none}.inicio.sale{opacity:0}
+.ini-caja{text-align:center;color:#fff;padding:28px 24px;max-width:560px}
+.ini-t{font:900 clamp(2.4rem,7vw,4.4rem)/1 Lexend,Inter,sans-serif;margin:10px 0 6px;background:linear-gradient(90deg,#ffd43b,#ff8787,#da77f2,#4dabf7);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 6px 20px rgba(0,0,0,.45))}
+.ini-s{font-size:1.1rem;color:#dbe4ff;margin:0 0 14px}
+.ini-ch{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:22px}.ini-ch span{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:5px 12px;font-weight:700;font-size:.86rem}
+.jugar{font:900 1.4rem Lexend,Inter,sans-serif;padding:16px 44px;border-radius:999px;background:linear-gradient(135deg,#ffd43b,#fab005);color:#14213d;border:4px solid #fff;box-shadow:0 14px 34px rgba(0,0,0,.45),0 0 30px rgba(255,212,59,.6);animation:latidoBtn 1.6s ease-in-out infinite}
+@keyframes latidoBtn{50%{transform:scale(1.06)}}
+.ini-n{color:#b8c4dc;font-size:.85rem;margin-top:16px}
+@media (prefers-reduced-motion: reduce){.ola,.nube,.mariposa,.luciernaga,.jugar{animation:none}}
 /* ── Modo noche ── */
 .neon{filter:drop-shadow(0 0 4px var(--n)) drop-shadow(0 0 10px var(--n));animation:neon 3.2s ease-in-out infinite}
 @keyframes neon{0%,100%{opacity:1}46%{opacity:1}48%{opacity:.55}50%{opacity:1}}
@@ -255,6 +283,10 @@ select,input{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--lin
   <div class="hdr-btns"><button class="ghost" id="reiniciar" type="button">↺ Reiniciar ciudad</button><a class="btn sec" href="index.html#/2027">← 2027</a></div>
 </header>
 <main id="app"><p class="muted">Cargando…</p></main>
+<div id="inicio" class="inicio" hidden><div class="ini-caja"><img src="img/logo-ctp-mercedes-norte.png" alt="" width="64" height="91">
+  <h2 class="ini-t">Ciudad Contable</h2><p class="ini-s">Fundá tu empresa, vendé con factura y llevá la contabilidad al día.</p>
+  <div class="ini-ch"><span>🏢 5 empresas</span><span>🧑‍🎓 18 estudiantes</span><span>🧾 Documentos reales</span><span>📓 Diario y balanza</span></div>
+  <button type="button" id="jugar" class="jugar">▶ Jugar</button><p class="ini-n">Flechas o W A S D para caminar · toque para ir · E para entrar</p></div></div>
 <div id="interior" class="interior" hidden role="region" aria-label="Interior de la empresa"></div>
 <div id="iris" class="iris" aria-hidden="true"></div>
 <dialog id="dlg"><div class="dlg" id="dlgBody"></div></dialog>
@@ -405,7 +437,10 @@ const reducido=(()=>{try{return matchMedia("(prefers-reduced-motion: reduce)").m
 /* ── Proyección isométrica (2.5D): el suelo se dibuja plano y se inclina con una matriz; los edificios se levantan como cajas. ── */
 const ISO=[.866,.5,-.866,.5];
 /* Giro de la ciudad: el mundo rota 0°, 90°, 180° o 270° alrededor de su centro antes de proyectarse. */
+const FASES=["🌅 Amanecer","☀️ Día","🌇 Atardecer","🌙 Noche"],TINTES=["rgba(255,140,170,.16)","rgba(255,255,255,0)","rgba(255,120,40,.20)","rgba(0,0,0,0)"];
+let CICLO=(()=>{try{return localStorage.getItem("ciudad_ciclo")!=="0"}catch(e){return true}})(),FASE=1,FASE_T=0;const FASE_DUR=40;
 let NOCHE=(()=>{try{const v=localStorage.getItem("ciudad_noche");return v===null?true:v==="1"}catch(e){return true}})();
+FASE=NOCHE?3:1;
 function mezclar(hex,con,t){const a=parseInt(hex.slice(1),16),b=parseInt(con.slice(1),16),m=k=>Math.round(((a>>k)&255)*(1-t)+((b>>k)&255)*t);return "#"+[16,8,0].map(k=>m(k).toString(16).padStart(2,"0")).join("")}
 const noct=c=>NOCHE&&/^#[0-9a-f]{6}$/i.test(c)?mezclar(c,"#1b1f4a",.42):c;
 /* De noche, el suelo y la vegetación cambian a tonos de crepúsculo */
@@ -586,6 +621,11 @@ function carros(){
   const car=(col,path,dur,beg)=>{const body=(NOCHE?`<polygon points="13,-6 64,-22 64,22 13,6" fill="url(#faro)"/><rect x="-14" y="-6" width="3" height="4" rx="1" fill="#ff4d4d"/><rect x="-14" y="2" width="3" height="4" rx="1" fill="#ff4d4d"/><circle cx="13" cy="-4" r="2.2" fill="#fff9db"/><circle cx="13" cy="4" r="2.2" fill="#fff9db"/>`:"")+`<rect x="-13" y="-7" width="26" height="14" rx="4" fill="${col}"/><rect x="2" y="-5.5" width="7" height="11" rx="2" fill="#1c2a3a" opacity=".8"/><rect x="-10" y="-5.5" width="5" height="11" rx="2" fill="#1c2a3a" opacity=".55"/>`;
     if(reducido){const m=path.match(/M\s*(-?[\d.]+)\s+(-?[\d.]+)/);return `<g transform="translate(${Math.max(30,Math.min(MW-30,+m[1]))},${Math.max(30,Math.min(MH-30,+m[2]))})">${body}</g>`}
     return `<g>${body}<animateMotion dur="${dur}s" begin="${beg}s" repeatCount="indefinite" rotate="auto" path="${path}"/></g>`;};
+  const largo=(col,path,dur,beg,L,txt)=>{const body=(NOCHE?`<polygon points="${L/2},-7 ${L/2+56},-22 ${L/2+56},22 ${L/2},7" fill="url(#faro)"/>`:"")+`<rect x="${-L/2}" y="-8" width="${L}" height="16" rx="4" fill="${col}"/>${Array.from({length:Math.floor(L/9)-1},(_,i)=>`<rect x="${-L/2+5+i*9}" y="-6.5" width="6" height="13" rx="1.5" fill="#1c2a3a" opacity=".55"/>`).join("")}${txt?`<text x="0" y="3" text-anchor="middle" font-size="6" font-weight="900" fill="#fff">${txt}</text>`:""}`;
+    return reducido?"":`<g>${body}<animateMotion dur="${dur}s" begin="${beg}s" repeatCount="indefinite" rotate="auto" path="${path}"/></g>`};
+  const moto=(col,path,dur,beg)=>reducido?"":`<g>${NOCHE?'<polygon points="6,-2 40,-12 40,12 6,2" fill="url(#faro)"/>':""}<rect x="-7" y="-3" width="14" height="6" rx="3" fill="${col}"/><circle cx="1" cy="0" r="3.2" fill="#212529"/><animateMotion dur="${dur}s" begin="${beg}s" repeatCount="indefinite" rotate="auto" path="${path}"/></g>`;
+  C.push(largo("#fab005",`M -60 ${hy(3)+9} H ${MW+60}`,18,-3,46,"BUS"),largo("#fab005",`M ${vx(4)-9} ${MH+60} V -60`,16,-8,46,"BUS"),largo("#0b7285",`M ${MW+60} ${hy(0)+9} H -60`,20,-5,40,"MAYORISTA"),
+    moto("#e03131",`M ${vx(0)+9} -40 V ${MH+40}`,6,-2),moto("#1c7ed6",`M ${MW+40} ${hy(2)-9} H -40`,7,-4),moto("#2f9e44",`M -40 ${hy(4)-9} H ${MW+40}`,6.5,-1));
   C.push(car("#fa5252",`M -40 ${hy(1)+9} H ${MW+40}`,11,0),car("#228be6",`M ${MW+40} ${hy(1)-9} H -40`,13,-4),car("#fcc419",`M -40 ${hy(2)+9} H ${MW+40}`,9,-2),
     car("#f1f3f5",`M ${MW+40} ${hy(0)-9+18} H -40`,15,-7),car("#40c057",`M ${vx(2)+9} -40 V ${MH+40}`,8,-1),car("#be4bdb",`M ${vx(1)-9} ${MH+40} V -40`,10,-5),
     car("#fd7e14",`M ${vx(3)+9} -40 V ${MH+40}`,12,-3),car("#15aabf",`M ${MW+40} ${hy(3)-9} H -40`,14,-9));
@@ -604,6 +644,9 @@ function peatones(){
 function centroLote(id){const m=MAPA[id];return m?proj(bx(m[0])+BW/2-10,by(m[1])+BH/2-10,(ALTO[id]||30)+10):null}
 function confeti(){if(reducido)return;const box=document.createElement("div");box.className="confeti";box.setAttribute("aria-hidden","true");
   box.innerHTML=Array.from({length:18},(_,i)=>`<span style="left:${5+i*5.2}%;animation-delay:${(i%6)*.07}s">${["🪙","✨","🧾"][i%3]}</span>`).join("");document.body.appendChild(box);setTimeout(()=>box.remove(),1600)}
+function fuegos(msg){sonar("ok");const box=document.createElement("div");box.className="fuegos";box.setAttribute("aria-hidden","true");const C=["#ffd43b","#ff6b6b","#4dabf7","#69db7c","#da77f2","#ffa94d"];
+  box.innerHTML=reducido?"":Array.from({length:6},(_,k)=>`<div class="fw" style="left:${12+k*15}%;top:${18+(k%3)*14}%;animation-delay:${k*.22}s">${Array.from({length:14},(_,i)=>`<i style="--a:${i*360/14}deg;--c:${C[(i+k)%C.length]}"></i>`).join("")}</div>`).join("");
+  document.body.appendChild(box);const t=document.createElement("div");t.className="toast ok";t.style.fontSize="1.1rem";t.textContent=msg;document.body.appendChild(t);setTimeout(()=>{box.remove();t.remove()},3600)}
 function animarTransaccion(doc,listo){
   if(INT){confeti();setTimeout(listo,reducido?0:700);return}
   const svg=document.querySelector("svg.mapa"),A=centroLote(doc.emisor),B=centroLote(doc.receptor);
@@ -632,11 +675,19 @@ function animarTransaccion(doc,listo){
 }
 let ZONAS=[];
 let VB=[0,0,1,1];
-function calcVB(){const C=[[-30,-30],[MW+30,-30],[MW+30,MH+30],[-30,MH+30]].map(p=>proj(...p)),X=C.map(p=>p[0]),Y=C.map(p=>p[1]);
+const RIO_Y0=-112,RIO_Y1=-58; // franja del río (coordenadas del mundo, al norte de la ciudad)
+function calcVB(){const C=[[-30,RIO_Y0-20],[MW+30,RIO_Y0-20],[MW+30,MH+30],[-30,MH+30]].map(p=>proj(...p)),X=C.map(p=>p[0]),Y=C.map(p=>p[1]);
   const x0=Math.floor(Math.min(...X))-30,x1=Math.ceil(Math.max(...X))+30,y0=Math.floor(Math.min(...Y))-170,y1=Math.ceil(Math.max(...Y))+72;VB=[x0,y0,x1-x0,y1-y0]}
 calcVB();
-function terreno(){const x=-30,y=-30,w=MW+60,h=MH+60;let g=`<polygon points="${pts([proj(x,y),proj(x+w,y),proj(x+w,y+h),proj(x,y+h)])}" fill="#5a9e3f"/>`;
-  ladosVisibles(x,y,w,h).forEach(l=>{g+=`<polygon points="${pts([proj(...l.a),proj(...l.b),proj(...l.b,-22),proj(...l.a,-22)])}" fill="${l.frente?"#8a5f37":"#6b4a2b"}"/>`});return g}
+function terreno(){const x=-30,y=RIO_Y0-20,w=MW+60,h=MH+30-y;let g=`<polygon points="${pts([proj(x,y),proj(x+w,y),proj(x+w,y+h),proj(x,y+h)])}" fill="#5a9e3f"/>`;
+  ladosVisibles(x,y,w,h).forEach(l=>{g+=`<polygon points="${pts([proj(...l.a),proj(...l.b),proj(...l.b,-22),proj(...l.a,-22)])}" fill="${l.frente?"#8a5f37":"#6b4a2b"}"/>`});
+  // río con orillas de arena y agua con brillo que corre
+  g+=`<polygon points="${pts([proj(x,RIO_Y0-6),proj(x+w,RIO_Y0-6),proj(x+w,RIO_Y1+6),proj(x,RIO_Y1+6)])}" fill="#e9dcc0"/><polygon points="${pts([proj(x,RIO_Y0),proj(x+w,RIO_Y0),proj(x+w,RIO_Y1),proj(x,RIO_Y1)])}" fill="#339af0"/>`;
+  for(let k=0;k<3;k++){const yy=RIO_Y0+12+k*14,a=proj(x,yy),b=proj(x+w,yy);g+=`<line class="ola" x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" style="animation-delay:${-k*1.3}s"/>`}
+  // puentes donde las calles verticales llegan al río
+  for(let c=0;c<=COLS;c++){const X=RD/2+c*(BW+RD);if(c%2)continue;g+=`<polygon points="${pts([proj(X-16,RIO_Y0-8,3),proj(X+16,RIO_Y0-8,3),proj(X+16,-20,3),proj(X-16,-20,3)])}" fill="#868e96" stroke="#495057" stroke-width="1"/>`;
+    [[X-16],[X+16]].forEach(([xx])=>{const a=proj(xx,RIO_Y0-8,9),b=proj(xx,-20,9),a0=proj(xx,RIO_Y0-8,3),b0=proj(xx,-20,3);g+=`<polygon points="${pts([a0,b0,b,a])}" fill="#adb5bd"/>`})}
+  return g}
 function mapaHTML(){
   const es=S.empresas.filter(e=>MAPA[e.id]);
   const minis=es.filter(e=>MINI[e.id]).map(e=>miniComercio(e.id)),parque=plazaObjetos();
@@ -660,13 +711,31 @@ function mapaHTML(){
     <g id="polvo"></g>
     <g id="gps" opacity="0" pointer-events="none"><g class="gps-f"><path d="M 30 -9 L 52 0 L 30 9 Z" fill="#ffd43b" stroke="#14213d" stroke-width="3"/></g><text y="44" text-anchor="middle" font-size="13" font-weight="800" fill="#14213d" stroke="#fff" stroke-width="4" paint-order="stroke"></text></g>
     <g id="capaObjetos">${objetos.map(o=>`<g class="obj" data-d="${o.d}">${o.svg}</g>`).join("")}${NPCS.map(npcSVG).join("")}${avatarSVG()}</g>
+    ${vidaParque()}
     <rect class="luz" x="${VB[0]-VB[2]}" y="${VB[1]-VB[3]}" width="${VB[2]*3}" height="${VB[3]*3}" fill="url(#sol)" pointer-events="none"/>
+    <rect id="tinte" x="${VB[0]-VB[2]}" y="${VB[1]-VB[3]}" width="${VB[2]*3}" height="${VB[3]*3}" fill="${TINTES[FASE]}" pointer-events="none"/>
+    ${nubes()}
     ${LUGARES.map(cartelLugar).join("")}${es.map(cartel).join("")}
     <g id="promptMundo" opacity="0" style="pointer-events:none;cursor:pointer" role="button" aria-label="Entrar a la empresa"><g class="pm-b"><rect x="-74" y="-22" width="148" height="36" rx="18" fill="#14213d" stroke="#ffd43b" stroke-width="3"/>
       <rect x="-64" y="-15" width="22" height="22" rx="6" fill="#ffd43b"/><text x="-53" y="1" text-anchor="middle" font-size="13" font-weight="900" fill="#14213d">E</text>
       <text x="-34" y="-4" font-size="11" font-weight="800" fill="#fff">Entrar</text><text class="pmn" x="-34" y="9" font-size="9" font-weight="600" fill="#ffd43b"></text><path d="M -8 14 L 0 24 L 8 14 Z" fill="#14213d"/></g></g>
     <rect x="${VB[0]-VB[2]}" y="${VB[1]-VB[3]}" width="${VB[2]*3}" height="${VB[3]*3}" fill="url(#vineta)" pointer-events="none"/></svg>`;
 }
+/* Nubes que cruzan la ciudad con su sombra en el suelo */
+function nubes(){if(reducido)return "";let g='<g pointer-events="none" class="nubes">';semilla=31;
+  for(let i=0;i<5;i++){const y=VB[1]+VB[3]*(.12+azar()*.6),s=.7+azar()*.8,dur=70+azar()*60,beg=-azar()*dur,op=NOCHE?.18:.85;
+    const forma=`<ellipse cx="0" cy="0" rx="${70*s}" ry="${26*s}"/><ellipse cx="${-40*s}" cy="${8*s}" rx="${44*s}" ry="${20*s}"/><ellipse cx="${46*s}" cy="${6*s}" rx="${50*s}" ry="${22*s}"/><ellipse cx="${10*s}" cy="${-16*s}" rx="${40*s}" ry="${22*s}"/>`;
+    g+=`<g style="animation-duration:${dur}s;animation-delay:${beg}s;--x0:${VB[0]-260}px;--x1:${VB[0]+VB[2]+260}px" class="nube"><g transform="translate(0,${y+90})" fill="#0b1220" opacity="${NOCHE?0:.10}">${forma}</g><g transform="translate(0,${y})" fill="${NOCHE?"#8e8fc7":"#fff"}" opacity="${op}">${forma}</g></g>`}
+  return g+"</g>"}
+/* Parque con vida: palomas que vuelan si uno se acerca, perros paseando y mariposas (o luciérnagas de noche) */
+function vidaParque(){const x=bx(PZ[0]),y=by(PZ[1]);let g='<g pointer-events="none">';
+  [[x+30,y+BH/2+18],[x+48,y+BH/2+24],[x+40,y+BH/2+30],[x+BW-50,y+20],[x+BW-40,y+28]].forEach(([X,Y],i)=>{const [px,py]=proj(X,Y);g+=`<g class="paloma" data-x="${X}" data-y="${Y}" style="--i:${i}"><g class="paloma-b"><ellipse cx="${px}" cy="${py-3}" rx="5" ry="3.2" fill="#ced4da"/><circle cx="${px+4}" cy="${py-6}" r="2.2" fill="#adb5bd"/><path d="M ${px-5} ${py-4} l -4 -3" stroke="#868e96" stroke-width="1.5"/></g></g>`});
+  if(!reducido){const lazo=[[x+24,y+24],[x+BW-24,y+24],[x+BW-24,y+BH-24],[x+24,y+BH-24]].map(p=>proj(...p)),ruta=`M ${lazo.map(p=>p.map(v=>v.toFixed(1)).join(" ")).join(" L ")} Z`;
+    [["#8d5524",0],["#f1f3f5",-11]].forEach(([col,beg])=>{g+=`<g><ellipse cx="0" cy="-5" rx="8" ry="4.5" fill="${col}" stroke="#495057" stroke-width=".8"/><circle cx="7" cy="-9" r="3.6" fill="${col}" stroke="#495057" stroke-width=".8"/><path d="M -8 -6 l -4 -4" stroke="${col}" stroke-width="2"/><rect x="-6" y="-2" width="2" height="4" fill="#495057"/><rect x="4" y="-2" width="2" height="4" fill="#495057"/><animateMotion dur="22s" begin="${beg}s" repeatCount="indefinite" path="${ruta}"/></g>`});
+    semilla=5;for(let i=0;i<10;i++){const [px,py]=proj(x+20+azar()*(BW-40),y+20+azar()*(BH-40));g+=NOCHE?`<circle class="luciernaga" cx="${px}" cy="${py-18}" r="2.4" fill="#e9ff6b" style="animation-delay:${(-azar()*4).toFixed(2)}s"/>`
+      :`<text class="mariposa" x="${px}" y="${py-14}" font-size="9" style="animation-delay:${(-azar()*4).toFixed(2)}s">${["🦋","🦋","🐝"][i%3]}</text>`}}
+  return g+"</g>"}
+function palomasTick(){document.querySelectorAll(".paloma").forEach(p=>{const d=Math.hypot(AV.x-+p.dataset.x,AV.y-+p.dataset.y);if(d<70&&!p.classList.contains("vuela")){p.classList.add("vuela");setTimeout(()=>p.classList.remove("vuela"),6000)}})}
 function cieloNoche(){let g="";semilla=99;for(let i=0;i<90;i++){const x=VB[0]+azar()*VB[2],y=VB[1]+azar()*VB[3]*.5,r=azar()<.12?1.8:1;g+=`<circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="${r}" fill="#fff" opacity="${(.35+azar()*.6).toFixed(2)}"${azar()<.2?' class="titila"':""}/>`}
   const mx=VB[0]+VB[2]*.86,my=VB[1]+VB[3]*.09;return g+`<circle cx="${mx}" cy="${my}" r="70" fill="#fff6d5" opacity=".08"/><circle cx="${mx}" cy="${my}" r="34" fill="#fff6d5"/><circle cx="${mx+12}" cy="${my-8}" r="30" fill="#1d1d5c" opacity=".55"/>`}
 /* ═══════════ Los compañeros: 17 estudiantes que caminan solos por las aceras ═══════════ */
@@ -895,6 +964,9 @@ function girar(dir){if(INT||MODO==="cine")return;const wr=CAM?CAM[2]/VB[2]:1,w=d
   if(w&&!reducido){w.classList.remove("gira");void w.offsetWidth;w.classList.add("gira")}
   setTimeout(()=>{ROT=(ROT+dir+4)%4;try{localStorage.setItem("ciudad_rot",ROT)}catch(e){}calcVB();
     const [px,py]=proj(AV.x,AV.y,40);CAM=centrarEn(px,py,VB[2]*wr);OBJ=CAM.slice();if(MODO!=="sigue"&&wr>.95){CAM=VB.slice();OBJ=VB.slice()}pintar();sonar("clic")},reducido?0:140)}
+function cicloTick(dt){if(!CICLO||INT)return;FASE_T+=dt;if(FASE_T<FASE_DUR)return;FASE_T=0;FASE=(FASE+1)%4;const n=FASE===3;
+  const ti=document.getElementById("tinte");if(ti)ti.setAttribute("fill",TINTES[FASE]);const hf=document.getElementById("hudFase");if(hf)hf.textContent=FASES[FASE];
+  if(n!==NOCHE){NOCHE=n;document.body.classList.toggle("noche",NOCHE);const w=$(".mapa-wrap");if(w&&!reducido){w.classList.add("fundido");setTimeout(()=>w.classList.remove("fundido"),900)}setTimeout(pintar,reducido?0:450)}}
 function tick(t){
   const dt=Math.min(.05,(t-(ultimoT||t))/1000);ultimoT=t;
   // Entrada: teclado o palanca (en ejes de la pantalla); se pasa al suelo isométrico: derecha = (x+, y−), abajo = (x+, y+)
@@ -914,7 +986,7 @@ function tick(t){
   const sp=Math.hypot(AV.vx,AV.vy);AV.mueve=sp>8;
   if(AV.mueve){const nx=AV.x+AV.vx*dt,ny=AV.y+AV.vy*dt;if(!chocaCon(nx,AV.y))AV.x=nx;else AV.vx=0;if(!chocaCon(AV.x,ny))AV.y=ny;else AV.vy=0;
     AV.fase+=dt*(6+sp*.06);const [rvx,rvy]=rotV(AV.vx,AV.vy),scrx=rvx-rvy;if(Math.abs(scrx)>4)AV.mira=scrx>0?1:-1;if(AV.ruta.length)ponerRuta()}
-  if(document.getElementById("avatar")){moverNPCS(reducido?0:dt);ponerAvatar();avisoZona();resaltarCercana();brujula();polvo(dt);minimapaTick();camara(dt)}
+  if(document.getElementById("avatar")){cicloTick(dt);palomasTick();moverNPCS(reducido?0:dt);ponerAvatar();avisoZona();resaltarCercana();brujula();polvo(dt);minimapaTick();camara(dt)}
   requestAnimationFrame(tick);
 }
 const DIR={ArrowUp:"u",KeyW:"u",ArrowDown:"d",KeyS:"d",ArrowLeft:"l",KeyA:"l",ArrowRight:"r",KeyD:"r"};
@@ -933,7 +1005,7 @@ function controlesHTML(){
     <button type="button" class="correr" id="correr" aria-pressed="false" aria-label="Correr">🏃</button>
     ${minimapaHTML()}
     <div class="colores" role="group" aria-label="Color de la camisa">${col.map(c=>`<button type="button" data-col="${c}" style="background:${c}" aria-label="Camisa color ${c}" aria-pressed="${AV.col===c}"></button>`).join("")}</div>
-    <div class="zoom"><button type="button" id="zMas" aria-label="Acercar">＋</button><span id="zNivel" class="znivel">100 %</span><button type="button" id="zMenos" aria-label="Alejar">－</button><button type="button" id="gIzq" aria-label="Girar la ciudad a la izquierda (tecla Q)">⟲</button><button type="button" id="gDer" aria-label="Girar la ciudad a la derecha (tecla R)">⟳</button><button type="button" id="zYo" aria-label="Centrar la cámara en mi muñequito">🎯</button><button type="button" id="zTodo" aria-label="Ver toda la ciudad">🗺️</button><button type="button" id="nocheBtn" aria-pressed="${NOCHE}" aria-label="Cambiar entre día y noche">${NOCHE?"☀️":"🌙"}</button><button type="button" id="sonido" aria-pressed="${SND.on}" aria-label="Sonidos de la interfaz">${SND.on?"🔊":"🔇"}</button></div>
+    <div class="zoom"><button type="button" id="zMas" aria-label="Acercar">＋</button><span id="zNivel" class="znivel">100 %</span><button type="button" id="zMenos" aria-label="Alejar">－</button><button type="button" id="gIzq" aria-label="Girar la ciudad a la izquierda (tecla Q)">⟲</button><button type="button" id="gDer" aria-label="Girar la ciudad a la derecha (tecla R)">⟳</button><button type="button" id="zYo" aria-label="Centrar la cámara en mi muñequito">🎯</button><button type="button" id="zTodo" aria-label="Ver toda la ciudad">🗺️</button><button type="button" id="cicloBtn" aria-pressed="${CICLO}" aria-label="Ciclo automático de día y noche">${CICLO?"🔄":"⏸️"}</button><button type="button" id="nocheBtn" aria-pressed="${NOCHE}" aria-label="Cambiar entre día y noche">${NOCHE?"☀️":"🌙"}</button><button type="button" id="sonido" aria-pressed="${SND.on}" aria-label="Sonidos de la interfaz">${SND.on?"🔊":"🔇"}</button></div>
     <div class="aviso" id="aviso" hidden></div>`;
 }
 function ligarControles(){
@@ -947,7 +1019,8 @@ function ligarControles(){
   document.querySelectorAll("[data-pad]").forEach(b=>{const [x,y]=b.dataset.pad.split(",").map(Number),on=ev=>{ev.preventDefault();PAD.x=x;PAD.y=y;b.setPointerCapture&&ev.pointerId!=null&&b.setPointerCapture(ev.pointerId)},off=()=>{PAD.x=0;PAD.y=0};
     b.onpointerdown=on;b.onpointerup=off;b.onpointercancel=off;b.onpointerleave=off;});
   $("#zMas").onclick=()=>{zoomEn(.7);sonar("clic")};$("#zMenos").onclick=()=>{zoomEn(1/.7);sonar("clic")};
-  $("#nocheBtn").onclick=()=>{NOCHE=!NOCHE;try{localStorage.setItem("ciudad_noche",NOCHE?"1":"0")}catch(e){}document.body.classList.toggle("noche",NOCHE);const w=$(".mapa-wrap");if(w&&!reducido){w.classList.remove("gira");void w.offsetWidth;w.classList.add("gira")}setTimeout(pintar,reducido?0:140);sonar("clic")};
+  $("#cicloBtn").onclick=ev=>{CICLO=!CICLO;FASE_T=0;try{localStorage.setItem("ciudad_ciclo",CICLO?"1":"0")}catch(e){}ev.currentTarget.textContent=CICLO?"🔄":"⏸️";ev.currentTarget.setAttribute("aria-pressed",CICLO);sonar("clic")};
+  $("#nocheBtn").onclick=()=>{CICLO=false;try{localStorage.setItem("ciudad_ciclo","0")}catch(e){}FASE=NOCHE?1:3;NOCHE=!NOCHE;try{localStorage.setItem("ciudad_noche",NOCHE?"1":"0")}catch(e){}document.body.classList.toggle("noche",NOCHE);const w=$(".mapa-wrap");if(w&&!reducido){w.classList.remove("gira");void w.offsetWidth;w.classList.add("gira")}setTimeout(pintar,reducido?0:140);sonar("clic")};
   $("#gIzq").onclick=()=>girar(-1);$("#gDer").onclick=()=>girar(1);
   $("#zYo").onclick=()=>{MODO="sigue";OBJ=centrarEn(...proj(AV.x,AV.y,40),VB[2]/2.4);sonar("clic")};$("#zTodo").onclick=()=>{MODO="libre";OBJ=VB.slice();sonar("clic")};
   $("#sonido").onclick=ev=>{SND.on=!SND.on;try{localStorage.setItem("ciudad_snd",SND.on?"1":"0")}catch(e){}ev.currentTarget.textContent=SND.on?"🔊":"🔇";ev.currentTarget.setAttribute("aria-pressed",SND.on);sonar("ok")};
@@ -957,7 +1030,7 @@ function pintar(){
   if(!DOCENTE){$("#app").innerHTML=`<div class="card" style="grid-column:1/-1"><h2>Solo para el profe</h2><p class="muted">Este prototipo se abre desde la plataforma, en <b>📅 2027</b>, con la sesión del docente.</p><a class="btn" href="index.html">Ir a la plataforma</a></div>`;return}
   const nEst=S.empresas.filter(e=>e.tipo!=="ia").length,nIA=S.empresas.filter(e=>e.tipo==="ia").length,yo=YO(),mia=yo.emp&&emp(yo.emp);
   $("#app").innerHTML=`<section class="card juego">
-      <div class="hud"><span class="hud-t">🏙️ Ciudad de la 10-1</span><span class="hud-c">📅 Día 1</span><span class="hud-c">🧑‍🎓 ${S.estudiantes.length} estudiantes</span><span class="hud-c">🏢 ${nEst} empresas de estudiantes</span><span class="hud-c">🤖 ${nIA} de la IA</span><span class="hud-c">🧾 ${S.docs.length} documentos</span>
+      <div class="hud"><span class="hud-t">🏙️ Ciudad de la 10-1</span><span class="hud-c">📅 Día 1</span><span class="hud-c" id="hudFase">${FASES[FASE]}</span><span class="hud-c">🧑‍🎓 ${S.estudiantes.length} estudiantes</span><span class="hud-c">🏢 ${nEst} empresas de estudiantes</span><span class="hud-c">🤖 ${nIA} de la IA</span><span class="hud-c">🧾 ${S.docs.length} documentos</span>
         <button type="button" class="hud-b" id="elegir">${mia?`${mia.ico} Tu empresa: ${esc(corto(mia.nombre))} · ${esc(yo.rol)}`:"🧑‍🎓 Escoger mi empresa"}</button></div>
       <div class="mapa-wrap">${mapaHTML()}${controlesHTML()}</div>
       <div class="legend"><span><i style="background:var(--com)"></i>Comercial</span><span><i style="background:var(--ser)"></i>Servicios</span><span><i style="background:var(--ia)"></i>Empresa de la IA (no lleva contabilidad)</span><span>👕 el color de la camisa es la empresa de cada estudiante</span></div>
@@ -1082,7 +1155,8 @@ function editorAsiento(e,doc,previo){
       if(lin.length<2){$("#aMsg").innerHTML='<div class="msg bad">El asiento necesita al menos dos cuentas con monto.</div>';return}
       const a={id:(previo&&previo.id)||"a"+Date.now(),fecha,desc:desc||"Asiento",lineas:lin};
       if(doc){a.docId=doc.id;const mal=revisar(lin,esperado(e,doc));a.estado=mal.length?"revisar":"correcto";a.mal=mal}
-      const D=diarioDe(e.id),k=D.findIndex(x=>x.id===a.id);if(k>=0)D[k]=a;else D.push(a);guardar();
+      const antes=pendientes(e.id).length,D=diarioDe(e.id),k=D.findIndex(x=>x.id===a.id);if(k>=0)D[k]=a;else D.push(a);guardar();
+      if(antes>0&&!pendientes(e.id).length&&diarioDe(e.id).filter(x=>x.docId).every(x=>x.estado==="correcto"))setTimeout(()=>fuegos(`🎆 ¡${corto(e.nombre)} completó todas sus misiones!`),600);
       $("#dlg").close();TAB="diario";pintar();
       if(doc){sonar(a.estado==="correcto"?"ok":"error");if(a.estado==="correcto")confeti();const box=document.createElement("div");box.className="toast "+(a.estado==="correcto"?"ok":"bad");box.textContent=a.estado==="correcto"?"✅ ¡Asiento correcto!":`❌ Hay ${a.mal.length} cuenta${a.mal.length===1?"":"s"} por revisar. Use «Corregir».`;document.body.appendChild(box);setTimeout(()=>box.remove(),3500)}};
   };
@@ -1210,6 +1284,9 @@ function verDoc(id,recien,volver){
 $("#reiniciar").onclick=()=>{if(!confirm("¿Reiniciar la ciudad del prototipo? Se borran los documentos de prueba de este navegador."))return;
   try{localStorage.removeItem(KEY)}catch(e){} S=ciudadInicial();SEL="ferre";TAB="emitidos";pintar()};
 document.body.classList.toggle("noche",NOCHE);pintar();requestAnimationFrame(tick);
+(function(){let visto=false;try{visto=sessionStorage.getItem("ciudad_intro")==="1"}catch(e){}if(visto||!DOCENTE)return;const ini=$("#inicio");ini.hidden=false;MODO="intro";
+  let ang=0;const paseo=()=>{if(MODO!=="intro")return;ang+=.0025;const cx=VB[0]+VB[2]/2+Math.cos(ang)*VB[2]*.18,cy=VB[1]+VB[3]*.55+Math.sin(ang)*VB[3]*.12;OBJ=centrarEn(cx,cy,VB[2]/1.7);requestAnimationFrame(paseo)};paseo();
+  $("#jugar").onclick=()=>{try{sessionStorage.setItem("ciudad_intro","1")}catch(e){}sonar("entrar");ini.classList.add("sale");setTimeout(()=>{ini.hidden=true;MODO="sigue";OBJ=centrarEn(...proj(AV.x,AV.y,40),VB[2]/2.3)},500)};$("#jugar").focus()})();
 </script>
 <script src="js/volver-plataforma.js?v=20261112b"></script>
 </body>
