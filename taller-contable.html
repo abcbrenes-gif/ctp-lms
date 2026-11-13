@@ -106,6 +106,13 @@ details.catal summary{cursor:pointer;font-weight:700;color:var(--accent)}
 .sap-pie{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;padding:8px 12px;border-top:1px solid var(--line);background:var(--surface2);font-size:.86rem}
 .sap-nota{font-size:.76rem;color:var(--muted);padding:6px 12px;border-top:1px solid var(--line)}
 .sap-pie .dif{padding:3px 10px;border-radius:8px;background:var(--surface)}.sap-pie .dif.ok{background:var(--okbg);color:var(--ok)}.sap-pie .dif.bad{background:var(--badbg);color:var(--bad)}
+/* libro mayor en columnas */
+.lm-hd{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;border-bottom:3px solid var(--ink);padding-bottom:8px;margin-bottom:6px}
+table.lm td input{padding:5px 6px;font-size:.86rem}
+.lm-todas{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(460px,100%),1fr));gap:14px}
+.lm-todas table{font-size:.82rem}
+.t-hd{display:flex;justify-content:space-between;align-items:flex-start;gap:6px;border-bottom:3px solid var(--ink);padding-bottom:6px;margin-bottom:4px}
+.t-hd small{display:block;color:var(--muted);font-size:.74rem}.t-hd b{font-size:.95rem}
 /* T de mayor */
 .tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:12px}
 .tcard{border:2px solid var(--line);border-radius:14px;background:var(--surface);padding:10px}
@@ -257,6 +264,10 @@ function armar(empresa,ini,T,nivel){
   const mayor={};for(const a of diario)for(const [c,d,h] of a.lines){const x=mayor[c]||(mayor[c]={c,d:[],h:[]});if(d)x.d.push({n:a.n,m:d});if(h)x.h.push({n:a.n,m:h})}
   Object.values(mayor).forEach(x=>{x.td=r2(x.d.reduce((s,y)=>s+y.m,0));x.th=r2(x.h.reduce((s,y)=>s+y.m,0));const dif=r2(x.td-x.th);x.saldo=Math.abs(dif);x.tipo=dif>0?"D":dif<0?"A":"0"});
   const cods=Object.keys(mayor).sort();
+  // Libro mayor en columnas: movimientos de cada cuenta en orden, con saldo corrido según su naturaleza
+  const GLOSA=[[/^Los socios/,"Aporte de capital de los socios"],[/^Compra mercadería al contado/,"Compra de mercadería al contado"],[/^Compra un mueble/,"Compra de mobiliario y equipo"],[/^Compra mercadería a crédito/,"Compra de mercadería a crédito (USD)"],[/^Paga por adelantado/,"Pago de seguro por adelantado"],[/^Vende mercadería al contado/,"Venta de mercadería al contado"],[/^Recibe la factura de una campaña/,"Publicidad a crédito"],[/^Vende mercadería a crédito/,"Venta de mercadería a crédito"],[/^Cobra/,"Cobro a clientes"],[/^Paga a proveedores/,"Pago a proveedores"],[/^Paga el alquiler/,"Pago del alquiler del local"],[/^Paga la cuota/,"Pago de cuota del préstamo"],[/^Paga los servicios/,"Pago de servicios públicos"],[/^El banco le deposita/,"Intereses ganados"],[/^La asamblea/,"Pago de dividendos"],[/^Paga los salarios/,"Pago de salarios"],[/^Ajuste: registra la depreciación/,"Ajuste: depreciación del mes"],[/^Ajuste: registra el seguro/,"Ajuste: seguro consumido"],[/^Ajuste: quedan pendientes/,"Ajuste: salarios por pagar"]];
+  const corto=a=>a.apertura?"Saldo inicial":((GLOSA.find(([re])=>re.test(a.desc))||[0,String(a.desc).split(/[.;:(]/)[0].slice(0,40)])[1]);
+  const lm={};cods.forEach(c=>{let sa=0;lm[c]=[];diario.forEach(a=>a.lines.filter(l=>l[0]===c).forEach(([,d,h])=>{sa=r2(sa+(CTA[c].nat==="D"?d-h:h-d));lm[c].push({n:a.n,fecha:a.fecha,det:corto(a),d,h,s:sa})}))});
   const bal=cods.map(c=>{const x=mayor[c];return {c,sd:x.td,sh:x.th,ad:x.tipo==="D"?x.saldo:0,aa:x.tipo==="A"?x.saldo:0}});
   const tot={sd:r2(bal.reduce((s,b)=>s+b.sd,0)),sh:r2(bal.reduce((s,b)=>s+b.sh,0)),ad:r2(bal.reduce((s,b)=>s+b.ad,0)),aa:r2(bal.reduce((s,b)=>s+b.aa,0))};
   const S=c=>mayor[c]?(CTA[c].nat==="D"?mayor[c].td-mayor[c].th:mayor[c].th-mayor[c].td):0;
@@ -282,7 +293,7 @@ function armar(empresa,ini,T,nivel){
   F.var=F.fop+F.finv+F.ffin;F.ei=i0("1101")+i0("1102");F.ef=F.ei+F.var;
   if(Math.abs(F.ef-(fin("1101")+fin("1102")))>.5)console.error("El flujo no cuadra con el efectivo final",F);
   if(Math.abs(ESF.f.ta-ESF.f.tpp)>.5)console.error("El balance no cuadra",ESF.f);
-  return {empresa,nivel,ini,trans:T,diario,mayor,cods,bal,tot,ER,ECP,ESF,F,datos:{aporte,div,mob,pagoPr}};
+  return {empresa,nivel,ini,trans:T,diario,mayor,lm,cods,bal,tot,ER,ECP,ESF,F,datos:{aporte,div,mob,pagoPr}};
 }
 
 /* ── Estado del estudiante (en este navegador) ── */
@@ -314,7 +325,7 @@ function pintarCaso(){
 }
 
 /* ── Módulos ── */
-const MODS=[["m1","✍️","Asientos de diario","Registra cada operación con partida doble","var(--m1)"],["m2","📒","Mayorización","Traslada el diario a las cuentas T","var(--m2)"],["m3","⚖️","Balanza de comprobación","Sumas y saldos de cada cuenta","var(--m3)"],["m4","📊","Estados financieros","ER · Patrimonio · Situación · Flujo","var(--m4)"]];
+const MODS=[["m1","✍️","Asientos de diario","Registra cada operación con partida doble","var(--m1)"],["m2","📒","Libro mayor y mayorización","Diario → libro mayor → cuentas T","var(--m2)"],["m3","⚖️","Balanza de comprobación","Sumas y saldos de cada cuenta","var(--m3)"],["m4","📊","Estados financieros","ER · Patrimonio · Situación · Flujo","var(--m4)"]];
 function pintar(){
   if(!DOCENTE){$("#app").innerHTML=`<div class="card" style="margin-top:20px"><h3>Solo para el profe por ahora</h3><p class="muted">Este taller es un prototipo para 2027. Se abre desde la plataforma, en <b>📅 2027</b>, con la sesión del docente.</p><a class="btn" href="index.html">Ir a la plataforma</a></div>`;$("#caso").innerHTML="";return}
   pintarCaso();
@@ -421,20 +432,66 @@ function revisarM1(i){
 /* ══════════ MÓDULO 2 · Mayorización ══════════ */
 function diarioHTML(){return `<div class="scroll"><table><thead><tr><th>N.º</th><th>Fecha</th><th>Cuenta y detalle</th><th class="r">Debe</th><th class="r">Haber</th></tr></thead><tbody>${CASO.diario.map(a=>a.lines.map(([c,d,h],k)=>`<tr${k===a.lines.length-1?' style="border-bottom:2px solid var(--line)"':""}><td>${k?"":"<b>"+a.n+"</b>"}</td><td>${k?"":a.fecha.slice(8)+"/03"}</td><td style="${h?"padding-left:28px":""}">${c} · ${esc(nom(c))}</td><td class="r num">${d?fn(d):""}</td><td class="r num">${h?fn(h):""}</td></tr>`).join("")+`<tr><td></td><td></td><td colspan="3" class="muted" style="font-size:.8rem;font-style:italic;padding-bottom:10px">${esc(a.desc)}</td></tr>`).join("")}</tbody></table></div>`}
 function r2m(c){return ST.m2.r[c]||(ST.m2.r[c]={d:[{n:"",m:""}],h:[{n:"",m:""}],td:"",th:"",s:"",t:""})}
-function pintarM2(){
+function pintarM2(){const P=ST.m2.paso||"A";
+  $("#mod").innerHTML=`<div class="subtabs" role="tablist"><button type="button" role="tab" data-paso="A" class="${P==="A"?"on":""}" aria-selected="${P==="A"}" style="--m4:var(--m2)">A · Libro mayor (del diario)${ST.nota.m2A!=null?` · ${ST.nota.m2A} %`:""}</button><button type="button" role="tab" data-paso="B" class="${P==="B"?"on":""}" aria-selected="${P==="B"}" style="--m4:var(--m2)">B · Mayorización en cuentas T (del libro mayor)${ST.nota.m2B!=null?` · ${ST.nota.m2B} %`:""}</button></div><div id="m2body"></div>`;
+  $$("[data-paso]").forEach(b=>b.onclick=()=>{ST.m2.paso=b.dataset.paso;guardar();pintarM2()});
+  (P==="A"?pintarM2A:pintarM2B)();
+}
+function notaM2(){ponerNota("m2",((ST.nota.m2A||0)+(ST.nota.m2B||0))/2)}
+/* Paso A · Libro mayor en columnas */
+const fechaDM=v=>{const m=String(v||"").trim().match(/^(\d{1,2})\s*[\/\-.]\s*(\d{1,2})(?:\s*[\/\-.]\s*(\d{2,4}))?$/);return m?`${+m[1]}/${+m[2]}`:""};
+const isoDM=iso=>`${+iso.slice(8,10)}/${+iso.slice(5,7)}`;
+function rLM(c){const L=ST.m2.lm||(ST.m2.lm={});return L[c]||(L[c]=[{f:"",det:"",n:"",d:"",h:"",s:""}])}
+function lmTabla(c){const L=CASO.lm[c];return `<div class="scroll"><table class="lm"><thead><tr><th>Fecha</th><th>Detalle</th><th class="r">As.</th><th class="r">Debe</th><th class="r">Haber</th><th class="r">Saldo</th></tr></thead><tbody>${L.map(y=>`<tr><td class="num">${fechaCR(y.fecha).slice(0,5)}</td><td>${esc(y.det)}</td><td class="r num">${y.n}</td><td class="r num">${y.d?fn(y.d):""}</td><td class="r num">${y.h?fn(y.h):""}</td><td class="r num"><b>${fn(y.s)}</b></td></tr>`).join("")}</tbody></table></div>`}
+function pintarM2A(){
+  const cods=CASO.cods,sel=cods.includes(ST.m2.lmSel)?ST.m2.lmSel:cods[0],R=rLM(sel),res=RES["m2A."+sel]||{},cl=k=>res[k]===undefined?"":res[k]?"ok":"bad",a=CTA[sel];
+  const est=c=>{const q=RES["m2A."+c];return q?q.ok?"ok":"bad":(ST.m2.lmOk||{})[c]?"ok":""};
+  $("#m2body").innerHTML=`<div class="card"><h3>📗 Paso A · Del libro diario al libro mayor</h3><p class="ayuda" style="margin:0 0 8px">Escoja una cuenta y copie, en orden, cada asiento del diario donde aparece: fecha, detalle, número de asiento y el monto en Debe o Haber. Después de cada movimiento calcule el <b>saldo</b>: en las cuentas de naturaleza deudora se suma el Debe y se resta el Haber; en las acreedoras, al revés.</p>
+      <details class="ver"><summary>📓 Libro diario (${CASO.diario.length} asientos)</summary>${diarioHTML()}</details></div>
+    <div class="m1"><div><div class="card" style="padding:12px"><h3>Cuentas</h3><p class="muted" style="font-size:.82rem;margin:0 0 8px">${cods.filter(c=>est(c)==="ok").length}/${cods.length} correctas</p>
+      <div class="tlist">${cods.map(c=>`<button type="button" class="sm ${c===sel?"on":""}" data-lm="${c}"><span class="dot ${est(c)}"></span>${c} ${esc(nom(c))}</button>`).join("")}</div></div></div>
+    <div class="card"><div class="lm-hd"><div><small class="muted num">${sel}</small><h3 style="margin:0">${esc(nom(sel))}</h3></div><span class="chip ${a.t}">${TIPO[a.t]} · naturaleza ${a.nat==="D"?"deudora":"acreedora"}</span></div>
+      <div class="scroll"><table class="lm lines"><thead><tr><th style="width:11%">Fecha</th><th>Detalle</th><th style="width:8%">As.</th><th class="r" style="width:17%">Debe</th><th class="r" style="width:17%">Haber</th><th class="r" style="width:17%">Saldo</th><th></th></tr></thead><tbody>
+        ${R.map((y,j)=>`<tr><td><input class="num ${cl("f"+j)}" data-p="m2.lm.${sel}.${j}.f" value="${esc(y.f)}" placeholder="dd/mm" aria-label="Fecha, fila ${j+1}" autocomplete="off"></td><td><input data-p="m2.lm.${sel}.${j}.det" value="${esc(y.det)}" placeholder="Detalle" aria-label="Detalle, fila ${j+1}" autocomplete="off"></td><td><input class="num ${cl("n"+j)}" data-p="m2.lm.${sel}.${j}.n" value="${esc(y.n)}" inputmode="numeric" aria-label="Número de asiento, fila ${j+1}" autocomplete="off"></td><td>${inp(`m2.lm.${sel}.${j}.d`,"n "+cl("m"+j))}</td><td>${inp(`m2.lm.${sel}.${j}.h`,"n "+cl("m"+j))}</td><td>${inp(`m2.lm.${sel}.${j}.s`,"n "+cl("s"+j))}</td><td class="x"><button type="button" class="ghost sm" data-lmq="${j}" aria-label="Quitar fila ${j+1}" ${R.length<=1?"disabled":""}>✕</button></td></tr>`).join("")}
+      </tbody></table></div>
+      <div class="acc"><button type="button" class="sec" id="lmMas">＋ Fila</button><button type="button" id="revA">✔ Revisar esta cuenta</button><button type="button" class="sec" id="revAll">✔ Revisar todas</button>${solBtn("m2A."+sel)}
+        <span style="flex:1"></span>${cods.indexOf(sel)>0?`<button type="button" class="sec" data-lm="${cods[cods.indexOf(sel)-1]}">← Anterior</button>`:""}${cods.indexOf(sel)<cods.length-1?`<button type="button" class="sec" data-lm="${cods[cods.indexOf(sel)+1]}">Siguiente →</button>`:""}</div>
+      <div>${res.html||""}</div>${RES.m2Atot?`<p class="muted">${RES.m2Atot}</p>`:""}
+      ${ST.sol["m2A."+sel]?`<div class="sol"><h4>Solución · ${sel} ${esc(nom(sel))}</h4>${lmTabla(sel)}</div>`:""}
+    </div></div>`;
+  $$("[data-lm]").forEach(b=>b.onclick=()=>{ST.m2.lmSel=b.dataset.lm;guardar();pintarM2A()});
+  $("#lmMas").onclick=()=>{R.push({f:"",det:"",n:"",d:"",h:"",s:""});guardar();pintarM2A()};
+  $$("[data-lmq]").forEach(b=>b.onclick=()=>{R.splice(+b.dataset.lmq,1);delete RES["m2A."+sel];guardar();pintarM2A()});
+  $("#revA").onclick=()=>{revisarLM(sel);notaLM();pintarM2()};
+  $("#revAll").onclick=()=>{cods.forEach(revisarLM);notaLM();pintarM2()};
+  ligarSol(pintarM2A);
+}
+function revisarLM(c){const E=CASO.lm[c],R=rLM(c).filter(y=>y.f||y.n||y.d||y.h||y.s),res={},msgs=[];let bien=true;
+  if(R.length!==E.length){bien=false;msgs.push(R.length<E.length?`Faltan movimientos: esta cuenta aparece en ${E.length} asiento${E.length>1?"s":""} del diario.`:`Sobran filas: esta cuenta aparece en ${E.length} asiento${E.length>1?"s":""} del diario.`)}
+  let mF=false,mN=false,mM=false,mS=false;
+  rLM(c).forEach((y,j)=>{const k=R.indexOf(y);if(k<0)return;const e=E[k];if(!e){res["f"+j]=res["n"+j]=res["m"+j]=res["s"+j]=false;return}
+    res["f"+j]=fechaDM(y.f)===isoDM(e.fecha);res["n"+j]=String(y.n).trim()===String(e.n);res["m"+j]=igual(montoO0(y.d),e.d)&&igual(montoO0(y.h),e.h);res["s"+j]=igual(monto(y.s),e.s);
+    if(!res["f"+j])mF=true;if(!res["n"+j])mN=true;if(!res["m"+j])mM=true;if(!res["s"+j])mS=true});
+  if(mF)msgs.push("Hay fechas que no corresponden al asiento (escríbalas como dd/mm).");if(mN)msgs.push("Hay números de asiento equivocados o en otro orden.");if(mM)msgs.push("Hay montos en la columna equivocada o con un valor distinto al del diario.");if(mS)msgs.push("Hay saldos mal calculados: revise la naturaleza de la cuenta.");
+  if(mF||mN||mM||mS)bien=false;
+  res.ok=bien;res.html=bien?`<div class="fb ok">✅ ¡Cuenta correcta! Saldo final ${fm(E[E.length-1].s)}.</div>`:`<div class="fb bad">❌ Revise:<ul>${msgs.map(m=>`<li>${esc(m)}</li>`).join("")}</ul></div>`;
+  RES["m2A."+c]=res;ST.m2.lmOk=ST.m2.lmOk||{};ST.m2.lmOk[c]=bien;guardar()}
+function notaLM(){const n=CASO.cods.length,b=CASO.cods.filter(c=>(ST.m2.lmOk||{})[c]).length;RES.m2Atot=`${b} de ${n} cuentas correctas en el libro mayor`;ST.nota.m2A=Math.round(100*b/n);notaM2();if(b===n)toast("🎉 ¡Libro mayor completo! Siga con el paso B.")}
+/* Paso B · Mayorización en cuentas T (como estaba) */
+function pintarM2B(){
   const cods=CASO.cods;
-  $("#mod").innerHTML=`<div class="card"><h3>📒 Mayorización</h3><p class="ayuda" style="margin:0 0 8px">Traslade cada línea del libro diario a su cuenta T: los montos del Debe a la izquierda y los del Haber a la derecha, con el número de asiento. Luego sume cada lado y calcule el saldo (deudor si el Debe es mayor, acreedor si el Haber es mayor).</p>
-    <details class="ver" open><summary>📓 Libro diario (${CASO.diario.length} asientos)</summary>${diarioHTML()}</details></div>
-    <div class="tgrid">${cods.map(c=>{const r=r2m(c),res=RES["m2."+c],x=CASO.mayor[c];return `<div class="tcard ${res?res.ok?"ok":"bad":""}"><h4>${c} · ${esc(nom(c))}</h4>
+  $("#m2body").innerHTML=`<div class="card"><h3>📒 Paso B · Del libro mayor a la mayorización en cuentas T</h3><p class="ayuda" style="margin:0 0 8px">Pase los movimientos del libro mayor a cada cuenta T: los del Debe a la izquierda y los del Haber a la derecha, con el número de asiento. Luego sume cada lado (Σ) y calcule el saldo (deudor si el Debe es mayor, acreedor si el Haber es mayor).</p>
+    <details class="ver"><summary>📗 Libro mayor (${cods.length} cuentas)</summary><div class="lm-todas">${cods.map(c=>`<div><b>${c} · ${esc(nom(c))}</b>${lmTabla(c)}</div>`).join("")}</div></details></div>
+    <div class="tgrid">${cods.map(c=>{const r=r2m(c),res=RES["m2."+c],x=CASO.mayor[c];return `<div class="tcard ${res?res.ok?"ok":"bad":""}"><div class="t-hd"><div><small class="num">${c}</small><b>${esc(nom(c))}</b></div><span class="chip ${CTA[c].t}">${TIPO[CTA[c].t]}</span></div>
       <div class="tcols">${["d","h"].map(L=>`<div><div class="hd ${L}">${L==="d"?"Debe":"Haber"}</div>${r[L].map((y,j)=>`<div class="tl"><input data-p="m2.r.${c}.${L}.${j}.n" value="${esc(y.n)}" placeholder="N.º" aria-label="Número de asiento" inputmode="numeric"><input class="n" data-p="m2.r.${c}.${L}.${j}.m" value="${esc(y.m)}" inputmode="decimal" aria-label="Monto"><button type="button" data-tq="${c}|${L}|${j}" aria-label="Quitar">✕</button></div>`).join("")}<button type="button" class="ghost sm" data-ta="${c}|${L}" style="width:100%;justify-content:center">＋</button></div>`).join("")}</div>
-      <div class="tfoot"><label>Total Debe${inp(`m2.r.${c}.td`)}</label><label>Total Haber${inp(`m2.r.${c}.th`)}</label><label>Saldo${inp(`m2.r.${c}.s`)}</label><label>Tipo de saldo<select data-p="m2.r.${c}.t"><option value="">—</option><option value="D" ${r.t==="D"?"selected":""}>Deudor</option><option value="A" ${r.t==="A"?"selected":""}>Acreedor</option><option value="0" ${r.t==="0"?"selected":""}>Sin saldo</option></select></label></div>
+      <div class="tfoot"><label>Σ Debe${inp(`m2.r.${c}.td`)}</label><label>Σ Haber${inp(`m2.r.${c}.th`)}</label><label>Saldo${inp(`m2.r.${c}.s`)}</label><label>Tipo de saldo<select data-p="m2.r.${c}.t"><option value="">—</option><option value="D" ${r.t==="D"?"selected":""}>Deudor</option><option value="A" ${r.t==="A"?"selected":""}>Acreedor</option><option value="0" ${r.t==="0"?"selected":""}>Sin saldo</option></select></label></div>
       ${res?`<div class="tmsg ${res.ok?"ok":"bad"}">${res.ok?"✅ Correcta":"❌ "+res.msgs.map(esc).join(" ")}</div>`:""}
       ${ST.sol.m2?`<div class="sol tro"><div class="tcols">${["d","h"].map(L=>`<div>${x[L].map(y=>`<div class="tl"><span class="ref">(${y.n})</span><span class="v">${fn(y.m)}</span></div>`).join("")}</div>`).join("")}</div><div class="tfoot"><span>Total: <b class="num">${fn(x.td)}</b></span><span>Total: <b class="num">${fn(x.th)}</b></span><span>Saldo: <b class="num">${fn(x.saldo)}</b></span><span><b>${{D:"Deudor",A:"Acreedor","0":"Sin saldo"}[x.tipo]}</b></span></div></div>`:""}
     </div>`}).join("")}</div>
-    <div class="card acc" style="position:sticky;bottom:0;z-index:5;justify-content:flex-end"><button type="button" id="rev2">✔ Revisar el mayor</button>${solBtn("m2")}<span class="muted" id="res2">${RES.m2tot||""}</span></div>`;
-  $$("[data-ta]").forEach(b=>b.onclick=()=>{const [c,L]=b.dataset.ta.split("|");r2m(c)[L].push({n:"",m:""});guardar();pintarM2()});
-  $$("[data-tq]").forEach(b=>b.onclick=()=>{const [c,L,j]=b.dataset.tq.split("|"),r=r2m(c);r[L].splice(+j,1);if(!r[L].length)r[L].push({n:"",m:""});guardar();pintarM2()});
-  $("#rev2").onclick=()=>{revisarM2();pintarM2()};ligarSol(pintarM2);
+    <div class="card acc" style="position:sticky;bottom:0;z-index:5;justify-content:flex-end"><button type="button" id="rev2">✔ Revisar la mayorización</button>${solBtn("m2")}<span class="muted" id="res2">${RES.m2tot||""}</span></div>`;
+  $$("[data-ta]").forEach(b=>b.onclick=()=>{const [c,L]=b.dataset.ta.split("|");r2m(c)[L].push({n:"",m:""});guardar();pintarM2B()});
+  $$("[data-tq]").forEach(b=>b.onclick=()=>{const [c,L,j]=b.dataset.tq.split("|"),r=r2m(c);r[L].splice(+j,1);if(!r[L].length)r[L].push({n:"",m:""});guardar();pintarM2B()});
+  $("#rev2").onclick=()=>{revisarM2();pintarM2()};ligarSol(pintarM2B);
 }
 function revisarM2(){let bien=0;
   CASO.cods.forEach(c=>{const x=CASO.mayor[c],r=r2m(c),msgs=[];
@@ -444,7 +501,7 @@ function revisarM2(){let bien=0;
     if(!igual(monto(r.td),x.td))msgs.push("Total Debe incorrecto.");if(!igual(monto(r.th),x.th))msgs.push("Total Haber incorrecto.");
     if(!igual(monto(r.s)??(x.saldo===0?0:null),x.saldo)||(r.t||"")!==x.tipo)msgs.push("Revise el saldo y su tipo.");
     RES["m2."+c]={ok:!msgs.length,msgs};if(!msgs.length)bien++});
-  const n=CASO.cods.length;RES.m2tot=`${bien} de ${n} cuentas correctas`;ponerNota("m2",100*bien/n);if(bien===n)toast("🎉 ¡Mayor completo y correcto!")}
+  const n=CASO.cods.length;RES.m2tot=`${bien} de ${n} cuentas correctas`;ST.nota.m2B=Math.round(100*bien/n);notaM2();if(bien===n)toast("🎉 ¡Mayor completo y correcto!")}
 
 /* ══════════ MÓDULO 3 · Balanza de comprobación ══════════ */
 function mayorSoloLectura(){return `<div class="tgrid">${CASO.cods.map(c=>{const x=CASO.mayor[c];return `<div class="tcard tro"><h4>${c} · ${esc(nom(c))}</h4><div class="tcols">${["d","h"].map(L=>`<div><div class="hd ${L}">${L==="d"?"Debe":"Haber"}</div>${x[L].map(y=>`<div class="tl"><span class="ref">(${y.n})</span><span class="v">${fn(y.m)}</span></div>`).join("")}</div>`).join("")}</div></div>`}).join("")}</div>`}
