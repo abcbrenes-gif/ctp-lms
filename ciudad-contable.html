@@ -250,6 +250,7 @@ select,input{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--lin
 <div id="interior" class="interior" hidden role="region" aria-label="Interior de la empresa"></div>
 <div id="iris" class="iris" aria-hidden="true"></div>
 <dialog id="dlg"><div class="dlg" id="dlgBody"></div></dialog>
+<script src="js/ciudad-catalogos.js?v=20261113a"></script>
 
 <script>
 const SES=(()=>{try{return JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")||"null")}catch(e){return null}})();
@@ -277,26 +278,11 @@ const catalogoDe=e=>CATALOGO.filter(c=>!c[4]||c[4]===e.tipo);
 /* ═══════════ Los 5 tipos de empresa que pueden escoger los estudiantes ═══════════
    3 comerciales y 2 de servicios. Clase de cada producto: mercaderia | servicio | flete | activo_eq | activo_veh | publicidad */
 const TIPOS_EMPRESA=[
- {id:"ferre",tipo:"com",ico:"🔨",nombre:"Ferretería El Clavo S.A.",ced:"3-101-700101",giro:"Venta de materiales y herramientas",bancos:3000000,
-  prods:[{id:"f1",det:"Martillo de uña 16 oz",cabys:"4621001000100",tarifa:13,precio:6500,costo:4200,clase:"mercaderia",stock:40},
-         {id:"f2",det:"Caja de tornillos 1\" (100 u)",cabys:"4621002000200",tarifa:13,precio:3200,costo:1900,clase:"mercaderia",stock:60},
-         {id:"f3",det:"Saco de cemento 50 kg",cabys:"4621003000300",tarifa:13,precio:7800,costo:6100,clase:"mercaderia",stock:30}]},
- {id:"super",tipo:"com",ico:"🛒",nombre:"Supermercado La Canasta S.A.",ced:"3-101-700505",giro:"Venta de abarrotes y productos de limpieza",bancos:3500000,
-  prods:[{id:"s1",det:"Arroz 2 kg",cabys:"2316001000100",tarifa:0,precio:2300,costo:1700,clase:"mercaderia",stock:120,exento:"Exento en este caso de práctica"},
-         {id:"s2",det:"Leche 1 litro",cabys:"2211001000200",tarifa:0,precio:1050,costo:800,clase:"mercaderia",stock:150,exento:"Exento en este caso de práctica"},
-         {id:"s3",det:"Jabón en polvo 1 kg",cabys:"3531001000300",tarifa:13,precio:2900,costo:2000,clase:"mercaderia",stock:80},
-         {id:"s4",det:"Refresco 2,5 litros",cabys:"2392001000400",tarifa:13,precio:1800,costo:1150,clase:"mercaderia",stock:90}]},
- {id:"libre",tipo:"com",ico:"📚",nombre:"Librería La Pluma S.A.",ced:"3-101-700202",giro:"Venta de útiles y libros",bancos:2500000,
-  prods:[{id:"l1",det:"Resma de papel carta",cabys:"4649001000100",tarifa:13,precio:3900,costo:2700,clase:"mercaderia",stock:80},
-         {id:"l2",det:"Libro de texto de Contabilidad",cabys:"4761001000200",tarifa:0,precio:12000,costo:8000,clase:"mercaderia",stock:25,exento:"Exento en este caso de práctica"},
-         {id:"l3",det:"Caja de lapiceros (12 u)",cabys:"4649002000300",tarifa:13,precio:2400,costo:1500,clase:"mercaderia",stock:50}]},
- {id:"conta",tipo:"ser",ico:"🧮",nombre:"Conta Express S.A.",ced:"3-101-700303",giro:"Servicios de contabilidad",bancos:1800000,
-  prods:[{id:"c1",det:"Servicio de contabilidad mensual",cabys:"8211001000100",tarifa:13,precio:85000,clase:"servicio"},
-         {id:"c2",det:"Declaración de IVA",cabys:"8211002000200",tarifa:13,precio:30000,clase:"servicio"}]},
- {id:"mante",tipo:"ser",ico:"🛠️",nombre:"Mantenimiento Total S.A.",ced:"3-101-700404",giro:"Limpieza y mantenimiento de locales",bancos:1600000,
-  prods:[{id:"m1",det:"Mantenimiento eléctrico (visita)",cabys:"4321001000100",tarifa:13,precio:45000,clase:"servicio"},
-         {id:"m2",det:"Limpieza profunda de local (por día)",cabys:"8121001000200",tarifa:13,precio:38000,clase:"servicio"},
-         {id:"m3",det:"Pintura de local (por día)",cabys:"4334001000200",tarifa:13,precio:60000,clase:"servicio"}]}];
+ {id:"ferre",tipo:"com",ico:"🔨",nombre:"Ferretería El Clavo S.A.",ced:"3-101-700101",giro:"Venta de materiales y herramientas",bancos:3000000,prods:CIUDAD_CATALOGOS.ferre},
+ {id:"super",tipo:"com",ico:"🛒",nombre:"Supermercado La Canasta S.A.",ced:"3-101-700505",giro:"Venta de abarrotes y productos de limpieza",bancos:3500000,prods:CIUDAD_CATALOGOS.super},
+ {id:"libre",tipo:"com",ico:"📚",nombre:"Librería La Pluma S.A.",ced:"3-101-700202",giro:"Venta de útiles y libros",bancos:2500000,prods:CIUDAD_CATALOGOS.libre},
+ {id:"conta",tipo:"ser",ico:"🧮",nombre:"Conta Express S.A.",ced:"3-101-700303",giro:"Servicios de contabilidad",bancos:1800000,prods:CIUDAD_CATALOGOS.conta},
+ {id:"mante",tipo:"ser",ico:"🛠️",nombre:"Mantenimiento Total S.A.",ced:"3-101-700404",giro:"Limpieza y mantenimiento de locales",bancos:1600000,prods:CIUDAD_CATALOGOS.mante}];
 const ROLES=["Gerente","Facturador","Comprador y tesorero","Contador"]; // roles del diseño completo (rotan cada 2 semanas)
 const ROL_ACTUAL="Facturador y contador"; // por ahora: cada estudiante emite sus documentos y los registra
 function ciudadInicial(){
@@ -305,25 +291,16 @@ function ciudadInicial(){
   const rep=[["ferre",4],["super",4],["libre",3],["conta",3],["mante",3]];let k=1;
   rep.forEach(([id,n])=>{for(let j=0;j<n;j++){est[k].emp=id;est[k].rol=ROL_ACTUAL;k++}});
   const empresas=JSON.parse(JSON.stringify(TIPOS_EMPRESA)).concat([
-   {id:"mayo",tipo:"ia",ico:"🏭",nombre:"Mayorista del Norte (IA)",ced:"3-101-900001",giro:"Venta al por mayor de mercadería",
-    prods:[{id:"y1",det:"Martillo de uña 16 oz (mayoreo)",cabys:"4621001000100",tarifa:13,precio:4200,clase:"mercaderia",para:"ferre",ref:"f1"},
-           {id:"y2",det:"Saco de cemento 50 kg (mayoreo)",cabys:"4621003000300",tarifa:13,precio:6100,clase:"mercaderia",para:"ferre",ref:"f3"},
-           {id:"y5",det:"Arroz 2 kg (mayoreo)",cabys:"2316001000100",tarifa:0,precio:1700,clase:"mercaderia",para:"super",ref:"s1"},
-           {id:"y6",det:"Jabón en polvo 1 kg (mayoreo)",cabys:"3531001000300",tarifa:13,precio:2000,clase:"mercaderia",para:"super",ref:"s3"},
-           {id:"y3",det:"Resma de papel carta (mayoreo)",cabys:"4649001000100",tarifa:13,precio:2700,clase:"mercaderia",para:"libre",ref:"l1"},
-           {id:"y4",det:"Libro de texto de Contabilidad (mayoreo)",cabys:"4761001000200",tarifa:0,precio:8000,clase:"mercaderia",para:"libre",ref:"l2"}]},
-   {id:"trans",tipo:"ia",ico:"🚚",nombre:"Transportes Rápidos (IA)",ced:"3-101-900002",giro:"Transporte de carga",
-    prods:[{id:"t1",det:"Flete de mercadería (por viaje)",cabys:"4923001000100",tarifa:13,precio:25000,clase:"flete"}]},
-   {id:"equip",tipo:"ia",ico:"🖥️",nombre:"Equipos y Más (IA)",ced:"3-101-900003",giro:"Venta de mobiliario, equipo y vehículos",
-    prods:[{id:"e1",det:"Computadora de escritorio",cabys:"4651001000100",tarifa:13,precio:450000,clase:"activo_eq"},
-           {id:"e2",det:"Escritorio de oficina",cabys:"4659001000200",tarifa:13,precio:120000,clase:"activo_eq"},
-           {id:"e3",det:"Motocicleta de reparto",cabys:"4540001000300",tarifa:13,precio:1800000,clase:"activo_veh"}]},
-   {id:"publi",tipo:"ia",ico:"📣",nombre:"Publicidad Creativa (IA)",ced:"3-101-900004",giro:"Servicios de publicidad",
-    prods:[{id:"p1",det:"Campaña en redes sociales (mes)",cabys:"7310001000100",tarifa:13,precio:70000,clase:"publicidad"}]},
+   {id:"mayo",tipo:"ia",ico:"🏭",nombre:"Mayorista del Norte (IA)",ced:"3-101-900001",giro:"Venta al por mayor de mercadería",prods:[]},
+   {id:"trans",tipo:"ia",ico:"🚚",nombre:"Transportes Rápidos (IA)",ced:"3-101-900002",giro:"Transporte de carga",prods:CIUDAD_CATALOGOS.trans},
+   {id:"equip",tipo:"ia",ico:"🖥️",nombre:"Equipos y Más (IA)",ced:"3-101-900003",giro:"Venta de mobiliario, equipo y vehículos",prods:CIUDAD_CATALOGOS.equip},
+   {id:"publi",tipo:"ia",ico:"📣",nombre:"Publicidad Creativa (IA)",ced:"3-101-900004",giro:"Servicios de publicidad",prods:CIUDAD_CATALOGOS.publi},
    {id:"clien",tipo:"ia",ico:"👥",nombre:"Clientes de la ciudad (IA)",ced:"",giro:"Personas y negocios que compran a las empresas",prods:[]},
    {id:"banco",tipo:"ia",ico:"🏦",nombre:"Banco de la Ciudad (IA)",ced:"4-000-900005",giro:"Depósitos y préstamos (próxima etapa)",prods:[]},
    {id:"hacie",tipo:"ia",ico:"🏛️",nombre:"Hacienda (IA)",ced:"",giro:"Revisa documentos y audita (próxima etapa)",prods:[]}]);
-  const C={version:2,consec:{},docs:[],estudiantes:est,empresas,diario:{}};
+  empresas.find(e=>e.id==="mayo").prods=CIUDAD_CATALOGOS.mayo(empresas);
+  empresas.forEach(e=>e.prods=JSON.parse(JSON.stringify(e.prods||[])));
+  const C={version:3,consec:{},docs:[],estudiantes:est,empresas,diario:{}};
   // Asiento de apertura de cada empresa de estudiantes: Bancos (+ inventario inicial) contra Capital social.
   empresas.filter(e=>e.tipo!=="ia").forEach(e=>{const inv=r2((e.prods||[]).reduce((t,p)=>t+(p.stock||0)*(p.costo||0),0)),L=[["1102",e.bancos,0]];
     if(inv)L.push(["1105",inv,0]);L.push(["3101",0,r2(e.bancos+inv)]);
@@ -331,9 +308,9 @@ function ciudadInicial(){
   return C;
 }
 const TIPO={com:["Comercial","com"],ser:["Servicios","ser"],ia:["Empresa de la IA","ia"]};
-const KEY="ciudad_contable_proto_v2";
+const KEY="ciudad_contable_proto_v3";
 let S=null; try{S=JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){S=null}
-if(!S||S.version!==2)S=ciudadInicial();
+if(!S||S.version!==3)S=ciudadInicial();
 S.estudiantes.forEach(x=>{if(x.emp)x.rol=ROL_ACTUAL});
 const guardar=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const emp=id=>S.empresas.find(e=>e.id===id);
@@ -934,7 +911,7 @@ function elegirEmpresa(){
     <p class="muted" style="margin-top:0">Hay 5 tipos de empresa y cada una recibe hasta ${CUPO} estudiantes. Por ahora <b>todos son facturador y contador</b>: cada uno emite sus documentos y los registra en el diario.</p>
     <div class="tipos">${TIPOS_EMPRESA.map(t=>{const e=emp(t.id),M=miembros(t.id),lleno=M.length>=CUPO&&yo.emp!==t.id,col=(PAL[t.id]||PAL[t.tipo])[0];
       return `<article class="tipo-card" style="--c:${col}"><div class="tc-hd"><span class="tc-ico">${t.ico}</span><div><b>${esc(e.nombre)}</b><div class="tc-t">${TIPO[t.tipo][0]}</div></div></div>
-        <p>${esc(t.giro)}</p><p class="tc-p">${t.prods.map(p=>esc(p.det)+(p.tarifa?"":" (exento)")).join(" · ")}</p>
+        <p>${esc(t.giro)}</p><p class="tc-p"><b>${t.prods.length} ${t.tipo==="com"?"productos":"servicios"}</b> · ${[...new Set(t.prods.map(p=>p.cat))].map(esc).join(", ")}</p>
         <div class="tc-m"><b>${M.length}/${CUPO}</b> ${M.map(m=>`<span title="${esc(m.rol||"")}">${esc(m.id===yo.id?"Tú":m.nombre.replace("Estudiante ","E"))} · ${esc(m.rol||"")}</span>`).join("")}</div>
         ${yo.emp===t.id?`<button type="button" class="ghost" data-salir="1">Salir de esta empresa</button>`:`<button type="button" data-unir="${t.id}" ${lleno?"disabled":""}>${lleno?"Llena":"Unirme"}</button>`}</article>`}).join("")}</div>`;
   const ligar=()=>{
@@ -971,9 +948,12 @@ function panelHTML(){
     <div class="tabs" role="tablist">${tabs.map(([k,t])=>`<button type="button" role="tab" aria-selected="${TAB===k}" class="${TAB===k?"on":""}" data-tab="${k}">${t}</button>`).join("")}</div>
     <div id="tabBody">${({productos:tabProductos,documentos:tabDocumentos,catalogo:tabCatalogo,diario:tabDiario,balanza:tabBalanza}[TAB])(e)}</div>`;
 }
-function tabProductos(e){if(!e.prods.length)return `<p class="muted">Esta empresa no vende productos en el prototipo.</p>`;
-  return `<div class="scroll"><table><thead><tr><th>Detalle</th><th>CABYS</th><th class="r">IVA</th><th class="r">Precio</th>${e.tipo==="com"?'<th class="r">Costo</th><th class="r">Existencia</th>':""}</tr></thead><tbody>
-    ${e.prods.map(p=>`<tr><td>${esc(p.det)}</td><td class="mono">${esc(p.cabys)}</td><td class="r">${p.tarifa?p.tarifa+" %":"Exento"}</td><td class="r">${fm(p.precio)}</td>${e.tipo==="com"?`<td class="r">${fm(p.costo)}</td><td class="r">${p.stock}</td>`:""}</tr>`).join("")}</tbody></table></div>`}
+function tabProductos(e){if(!e.prods.length)return `<p class="muted">Esta empresa no vende productos en el prototipo.</p>`;let cat="";
+  const com=e.tipo==="com";
+  return `<p class="muted" style="font-size:.86rem;margin-top:0">${e.prods.length} ${com||e.id==="mayo"||e.id==="equip"?"productos":"servicios"} a la venta. Los códigos CABYS son de práctica.</p>
+    <div class="scroll"><table><thead><tr><th>Detalle</th><th>CABYS</th><th class="r">IVA</th><th class="r">Precio</th>${com?'<th class="r">Costo</th><th class="r">Existencia</th>':""}</tr></thead><tbody>
+    ${e.prods.map(p=>{const h=(p.cat||"")!==cat?`<tr class="grupo"><td colspan="${com?6:4}">${esc(p.cat||"Productos")}</td></tr>`:"";cat=p.cat||"";
+      return h+`<tr><td>${esc(p.det)}</td><td class="mono">${esc(p.cabys)}</td><td class="r">${p.tarifa?p.tarifa+" %":"Exento"}</td><td class="r">${fm(p.precio)}</td>${com?`<td class="r">${fm(p.costo)}</td><td class="r">${p.stock}</td>`:""}</tr>`}).join("")}</tbody></table></div>`}
 function tabDocumentos(e){const L=docsDe(e.id).slice().reverse();if(!L.length)return `<p class="muted" style="font-size:.88rem">Todavía no hay documentos.${e.prods.length?" Toque «Emitir factura» para hacer el primero.":""}</p>`;
   return `<div class="scroll"><table><thead><tr><th>Documento</th><th>Con</th><th>Fecha</th><th class="r">Total</th></tr></thead><tbody>
     ${L.map(d=>{const em=d.emisor===e.id;return `<tr class="docrow" data-doc="${d.id}" tabindex="0"><td><span class="chip ${d.tipo==="NC"?"nc":"fe"}">${d.tipo==="NC"?"Nota de crédito":"Factura"}</span> ${em?"emitida":"recibida"} <span class="mono">…${d.consecutivo.slice(-4)}</span></td><td>${esc(corto(emp(em?d.receptor:d.emisor).nombre))}</td><td>${d.fecha}</td><td class="r">${fm(d.calc.total)}</td></tr>`}).join("")}</tbody></table></div>`}
@@ -1057,7 +1037,7 @@ function editorFactura(){
         <label>Condición de venta<select id="fCond"><option value="contado" ${html.cond!=="credito"?"selected":""}>Contado</option><option value="credito" ${html.cond==="credito"?"selected":""}>Crédito a 30 días</option></select></label>
         <label>Medio de pago<select id="fMedio">${["Transferencia","SINPE Móvil","Efectivo","Tarjeta"].map(m=>`<option ${m===html.medio?"selected":""}>${m}</option>`).join("")}</select></label></div>
       <h3>Líneas</h3><div style="overflow-x:auto"><table class="lines"><thead><tr><th style="min-width:220px">Producto o servicio</th><th class="r" style="width:80px">Cant.</th><th class="r">Precio</th><th class="r" style="width:90px">Desc. %</th><th class="r">Subtotal</th><th class="r">IVA</th><th class="r">Total</th><th></th></tr></thead><tbody>
-      ${T.lineas.map((l,i)=>`<tr><td><select data-l="${i}" data-k="prod">${E.prods.map(p=>`<option value="${p.id}" ${p.id===l.prod?"selected":""}>${esc(p.det)}</option>`).join("")}</select><div class="nota">CABYS ${esc(l.cabys)} · ${l.tarifa?"IVA "+l.tarifa+" %":"Exento"}</div></td>
+      ${T.lineas.map((l,i)=>`<tr><td><select data-l="${i}" data-k="prod">${[...new Set(E.prods.map(p=>p.cat||"Productos"))].map(c=>`<optgroup label="${esc(c)}">${E.prods.filter(p=>(p.cat||"Productos")===c).map(p=>`<option value="${p.id}" ${p.id===l.prod?"selected":""}>${esc(p.det)} · ${fm(p.precio).replace(",00","")}</option>`).join("")}</optgroup>`).join("")}</select><div class="nota">CABYS ${esc(l.cabys)} · ${l.tarifa?"IVA "+l.tarifa+" %":"Exento"}</div></td>
         <td><input data-l="${i}" data-k="cant" type="number" min="1" step="1" value="${l.cant}" inputmode="numeric" style="text-align:right"></td><td class="r">${fm(l.precio)}</td>
         <td><input data-l="${i}" data-k="descPct" type="number" min="0" max="100" step="any" value="${l.descPct}" inputmode="decimal" style="text-align:right"></td>
         <td class="r">${fm(l.sub)}</td><td class="r">${fm(l.iva)}</td><td class="r"><b>${fm(l.total)}</b></td><td>${L.length>1?`<button type="button" class="ghost" data-del="${i}" aria-label="Quitar línea">✕</button>`:""}</td></tr>`).join("")}</tbody></table></div>
