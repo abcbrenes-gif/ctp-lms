@@ -138,7 +138,10 @@ body.dentro #volver-plataforma{display:none!important}
 .joy.activa .joy-k{transition:none}
 .correr{position:absolute;right:146px;bottom:30px;width:54px;height:54px;border-radius:50%;padding:0;justify-content:center;font-size:1.5rem;background:rgba(20,33,61,.8);border:3px solid #fff}
 .correr[aria-pressed="true"]{background:#ffd43b;box-shadow:0 0 18px #ffd43b}
-.minimapa{position:absolute;left:12px;top:56px;width:min(230px,28%);height:auto;border-radius:14px;border:3px solid #fff;box-shadow:0 10px 24px rgba(0,0,0,.35);cursor:crosshair;opacity:.95}
+.mm-wrap{position:absolute;left:12px;top:56px;width:min(210px,26%);aspect-ratio:1;display:grid;place-items:center;pointer-events:none}
+.minimapa{width:100%;height:auto;max-height:100%;border-radius:14px;border:3px solid #fff;box-shadow:0 10px 24px rgba(0,0,0,.35);cursor:crosshair;opacity:.95;pointer-events:auto;transition:transform .35s ease}
+.mapa-wrap.gira svg.mapa{animation:giro .28s ease}
+@keyframes giro{0%{opacity:1;transform:scale(1)}50%{opacity:.15;transform:scale(.94) rotate(4deg)}100%{opacity:1;transform:scale(1)}}
 .minimapa:hover{opacity:1}
 #mm-yo{animation:latido 1.2s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
 @keyframes latido{50%{transform:scale(1.35)}}
@@ -152,7 +155,7 @@ body.dentro #volver-plataforma{display:none!important}
 #promptMundo{transition:opacity .18s ease}
 .pm-b{animation:flota 1.4s ease-in-out infinite}
 #gps text{font-family:Inter,sans-serif}
-@media(max-width:700px){.minimapa{width:38%}.joy{width:96px;height:96px}.correr{right:122px;width:46px;height:46px}}
+@media(max-width:700px){.mm-wrap{width:36%}.joy{width:96px;height:96px}.correr{right:122px;width:46px;height:46px}}
 @media (prefers-reduced-motion: reduce){.ruta,.meta-a,#mm-yo,.pm-b{animation:none}}
 /* ── Panel de empresa ── */
 .co-hd{display:flex;gap:12px;align-items:flex-start}
@@ -286,12 +289,13 @@ const TIPOS_EMPRESA=[
   prods:[{id:"m1",det:"Mantenimiento eléctrico (visita)",cabys:"4321001000100",tarifa:13,precio:45000,clase:"servicio"},
          {id:"m2",det:"Limpieza profunda de local (por día)",cabys:"8121001000200",tarifa:13,precio:38000,clase:"servicio"},
          {id:"m3",det:"Pintura de local (por día)",cabys:"4334001000200",tarifa:13,precio:60000,clase:"servicio"}]}];
-const ROLES=["Gerente","Facturador","Comprador y tesorero","Contador"];
+const ROLES=["Gerente","Facturador","Comprador y tesorero","Contador"]; // roles del diseño completo (rotan cada 2 semanas)
+const ROL_ACTUAL="Facturador y contador"; // por ahora: cada estudiante emite sus documentos y los registra
 function ciudadInicial(){
   // 18 estudiantes: el 1 es «Tú» (sin empresa, para probar la elección); los otros 17 ya están repartidos.
   const est=Array.from({length:18},(_,i)=>({id:"e"+(i+1),nombre:i?`Estudiante ${i+1}`:"Tú (Estudiante 1)",emp:null,rol:null}));
   const rep=[["ferre",4],["super",4],["libre",3],["conta",3],["mante",3]];let k=1;
-  rep.forEach(([id,n])=>{for(let j=0;j<n;j++){est[k].emp=id;est[k].rol=ROLES[j%4];k++}});
+  rep.forEach(([id,n])=>{for(let j=0;j<n;j++){est[k].emp=id;est[k].rol=ROL_ACTUAL;k++}});
   const empresas=JSON.parse(JSON.stringify(TIPOS_EMPRESA)).concat([
    {id:"mayo",tipo:"ia",ico:"🏭",nombre:"Mayorista del Norte (IA)",ced:"3-101-900001",giro:"Venta al por mayor de mercadería",
     prods:[{id:"y1",det:"Martillo de uña 16 oz (mayoreo)",cabys:"4621001000100",tarifa:13,precio:4200,clase:"mercaderia",para:"ferre",ref:"f1"},
@@ -322,6 +326,7 @@ const TIPO={com:["Comercial","com"],ser:["Servicios","ser"],ia:["Empresa de la I
 const KEY="ciudad_contable_proto_v2";
 let S=null; try{S=JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){S=null}
 if(!S||S.version!==2)S=ciudadInicial();
+S.estudiantes.forEach(x=>{if(x.emp)x.rol=ROL_ACTUAL});
 const guardar=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const emp=id=>S.empresas.find(e=>e.id===id);
 const lleva=e=>e&&e.tipo!=="ia";   // las empresas de la IA no llevan contabilidad en el juego
@@ -406,22 +411,37 @@ function sonar(tipo){if(!SND.on)return;try{SND.ctx=SND.ctx||new (window.AudioCon
 const reducido=(()=>{try{return matchMedia("(prefers-reduced-motion: reduce)").matches}catch(e){return false}})();
 /* ── Proyección isométrica (2.5D): el suelo se dibuja plano y se inclina con una matriz; los edificios se levantan como cajas. ── */
 const ISO=[.866,.5,-.866,.5];
-const proj=(x,y,z=0)=>[(x-y)*.866,(x+y)*.5-z];
+/* Giro de la ciudad: el mundo rota 0°, 90°, 180° o 270° alrededor de su centro antes de proyectarse. */
+let ROT=(()=>{try{return (+localStorage.getItem("ciudad_rot")||0)%4}catch(e){return 0}})();
+const CS=()=>[[1,0],[0,1],[-1,0],[0,-1]][ROT];
+const rot=(x,y)=>{const [c,s]=CS(),cx=MW/2,cy=MH/2;return [cx+c*(x-cx)-s*(y-cy),cy+s*(x-cx)+c*(y-cy)]};
+const desrot=(x,y)=>{const [c,s]=CS(),cx=MW/2,cy=MH/2;return [cx+c*(x-cx)+s*(y-cy),cy-s*(x-cx)+c*(y-cy)]};
+const rotV=(x,y)=>{const [c,s]=CS();return [c*x-s*y,s*x+c*y]},desrotV=(x,y)=>{const [c,s]=CS();return [c*x+s*y,-s*x+c*y]};
+const proj=(x,y,z=0)=>{const [rx,ry]=rot(x,y);return [(rx-ry)*.866,(rx+ry)*.5-z]};
+const prof=(x,y)=>{const [rx,ry]=rot(x,y);return rx+ry};
+function matrizSuelo(){const [c,s]=CS(),cx=MW/2,cy=MH/2,a1=c,b1=-s,e1=cx-c*cx+s*cy,a2=s,b2=c,e2=cy-s*cx-c*cy;
+  return [.866*(a1-a2),.5*(a1+a2),.866*(b1-b2),.5*(b1+b2),.866*(e1-e2),.5*(e1+e2)].map(v=>+v.toFixed(4)).join(" ")}
+/* Caras de un prisma que se ven desde la cámara (cambian al girar) */
+const LADOS=[[0,1,[0,-1]],[1,2,[1,0]],[2,3,[0,1]],[3,0,[-1,0]]];
+function ladosVisibles(x,y,w,h){const P=[[x,y],[x+w,y],[x+w,y+h],[x,y+h]];return LADOS.map(([i,j,n])=>{const [nx,ny]=rotV(...n);return {a:P[i],b:P[j],nx,ny,vis:nx+ny>.01,frente:Math.abs(nx)<.01&&ny>0}}).filter(l=>l.vis)}
+function piramide(x,y,w,h,z0,z1,col){const P=[[x,y],[x+w,y],[x+w,y+h],[x,y+h]],t=proj(x+w/2,y+h/2,z1);
+  return LADOS.map(([i,j,n])=>{const [nx,ny]=rotV(...n),m=[(P[i][0]+P[j][0])/2,(P[i][1]+P[j][1])/2];return {d:prof(...m),svg:`<polygon points="${pts([proj(...P[i],z0),proj(...P[j],z0),t])}" fill="${nx+ny>.01?(Math.abs(nx)<.01?oscurecer(col,.85):oscurecer(col,.62)):col}"/>`}}).sort((a,b)=>a.d-b.d).map(f=>f.svg).join("")}
 const pts=L=>L.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ");
 const ALTO={ferre:46,super:50,libre:42,conta:72,mante:58,mayo:52,trans:38,equip:62,publi:68,clien:0,banco:84,hacie:96};
 function oscurecer(hex,f){const n=parseInt(hex.slice(1),16),c=k=>Math.max(0,Math.min(255,Math.round(((n>>k)&255)*f)));return "#"+[16,8,0].map(k=>c(k).toString(16).padStart(2,"0")).join("")}
 function caja(x,y,w,h,H,col,opt){
-  opt=opt||{};const A=proj(x,y+h),B=proj(x+w,y+h),C=proj(x+w,y),At=proj(x,y+h,H),Bt=proj(x+w,y+h,H),Ct=proj(x+w,y,H),Dt=proj(x,y,H);
+  opt=opt||{};
   let g=`<polygon points="${pts([proj(x+6,y+6),proj(x+w+22,y+6),proj(x+w+22,y+h+22),proj(x+6,y+h+22)])}" fill="rgba(40,20,0,.12)"/><polygon points="${pts([proj(x+8,y+8),proj(x+w+12,y+8),proj(x+w+12,y+h+12),proj(x+8,y+h+12)])}" fill="rgba(40,20,0,.16)"/>`;
-  g+=`<polygon points="${pts([A,B,Bt,At])}" fill="${oscurecer(col,.82)}"/><polygon points="${pts([B,C,Ct,Bt])}" fill="${oscurecer(col,.62)}"/>`;
   const vent=(P,Q,cols,rows,fill)=>{let v="";for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const u0=(c+.2)/cols,u1=(c+.8)/cols,z0=H*(r+.3)/rows,z1=H*(r+.75)/rows;
     const L=(u,z)=>[P[0]+(Q[0]-P[0])*u,P[1]+(Q[1]-P[1])*u-z];v+=`<polygon points="${pts([L(u0,z0),L(u1,z0),L(u1,z1),L(u0,z1)])}" fill="${fill}"/>`}return v};
-  if(H>=30){const rows=Math.max(1,Math.round(H/22));g+=vent(A,B,Math.round(w/26),rows,"#fff3bf")+vent(B,C,Math.round(h/26),rows,"#ffe8a1")}
-  if(opt.toldo){for(let i=0;i<8;i++){const u0=i/8,u1=(i+1)/8,L=(u,z)=>[A[0]+(B[0]-A[0])*u,A[1]+(B[1]-A[1])*u-z];g+=`<polygon points="${pts([L(u0,10),L(u1,10),L(u1,18),L(u0,18)])}" fill="${i%2?"#fff":col}"/>`}}
-  g+=`<polygon points="${pts([Dt,Ct,Bt,At])}" fill="${col}"/><polygon points="${pts([proj(x+8,y+8,H),proj(x+w-8,y+8,H),proj(x+w-8,y+h-8,H),proj(x+8,y+h-8,H)])}" fill="none" stroke="${oscurecer(col,1.25)}" stroke-width="2"/>`;
+  ladosVisibles(x,y,w,h).forEach(l=>{const A=proj(...l.a),B=proj(...l.b),At=proj(...l.a,H),Bt=proj(...l.b,H),largo=Math.hypot(l.b[0]-l.a[0],l.b[1]-l.a[1]),k=l.frente?.82:.62;
+    g+=`<polygon points="${pts([A,B,Bt,At])}" fill="${oscurecer(col,k)}"/>`;
+    if(H>=30)g+=vent(A,B,Math.max(1,Math.round(largo/26)),Math.max(1,Math.round(H/22)),l.frente?"#fff3bf":"#ffe8a1");
+    if(opt.toldo&&l.frente)for(let i=0;i<8;i++){const u0=i/8,u1=(i+1)/8,L=(u,z)=>[A[0]+(B[0]-A[0])*u,A[1]+(B[1]-A[1])*u-z];g+=`<polygon points="${pts([L(u0,10),L(u1,10),L(u1,18),L(u0,18)])}" fill="${i%2?"#fff":col}"/>`}});
+  g+=`<polygon points="${pts([proj(x,y,H),proj(x+w,y,H),proj(x+w,y+h,H),proj(x,y+h,H)])}" fill="${col}"/><polygon points="${pts([proj(x+8,y+8,H),proj(x+w-8,y+8,H),proj(x+w-8,y+h-8,H),proj(x+8,y+h-8,H)])}" fill="none" stroke="${oscurecer(col,1.25)}" stroke-width="2"/>`;
   return g;
 }
-function arbol(x,y,r){const [px,py]=proj(x,y);return {d:x+y,svg:`<ellipse cx="${px+4}" cy="${py+2}" rx="${r}" ry="${r*.5}" fill="rgba(0,0,0,.22)"/><rect x="${px-2}" y="${py-r}" width="4" height="${r}" fill="#7c4a1e"/><circle cx="${px}" cy="${py-r*1.5}" r="${r}" fill="#2b8a3e"/><circle cx="${px-r*.3}" cy="${py-r*1.8}" r="${r*.55}" fill="#51cf66"/>`}}
+function arbol(x,y,r){const [px,py]=proj(x,y);return {d:prof(x,y),svg:`<ellipse cx="${px+4}" cy="${py+2}" rx="${r}" ry="${r*.5}" fill="rgba(0,0,0,.22)"/><rect x="${px-2}" y="${py-r}" width="4" height="${r}" fill="#7c4a1e"/><circle cx="${px}" cy="${py-r*1.5}" r="${r}" fill="#2b8a3e"/><circle cx="${px-r*.3}" cy="${py-r*1.8}" r="${r*.55}" fill="#51cf66"/>`}}
 function edificioIso(e,x,y,w,h){
   const H=ALTO[e.id]||50,[c1]=PAL[e.id]||PAL[e.tipo];let g="";
   if(e.id==="clien")return casitas(x,y,["#c92a2a","#e8590c","#5c7cfa"]);
@@ -432,8 +452,7 @@ function edificioIso(e,x,y,w,h){
   else{const u=proj(x+16,y+14,H),v=proj(x+40,y+14,H);g+=`<rect x="${u[0]-8}" y="${u[1]-9}" width="16" height="9" rx="2" fill="#dee2e6" stroke="#868e96"/><rect x="${v[0]-8}" y="${v[1]-9}" width="16" height="9" rx="2" fill="#dee2e6" stroke="#868e96"/>`}
   return g;
 }
-function casitas(x,y,cols){let g="";[[0,0],[46,10],[92,0]].forEach(([dx,dy],i)=>{const col=cols[i%cols.length];g+=caja(x+dx,y+dy+8,36,36,18,"#f1f3f5");const t=proj(x+dx+18,y+dy+26,34);
-  g+=`<polygon points="${pts([proj(x+dx,y+dy+8,18),proj(x+dx+36,y+dy+8,18),t])}" fill="${oscurecer(col,.8)}"/><polygon points="${pts([proj(x+dx+36,y+dy+8,18),proj(x+dx+36,y+dy+44,18),t])}" fill="${oscurecer(col,.6)}"/><polygon points="${pts([proj(x+dx,y+dy+44,18),proj(x+dx+36,y+dy+44,18),t])}" fill="${col}"/>`});return g}
+function casitas(x,y,cols){return [[0,0],[46,10],[92,0]].map(([dx,dy],i)=>({d:prof(x+dx+18,y+dy+26),svg:caja(x+dx,y+dy+8,36,36,18,"#f1f3f5")+piramide(x+dx,y+dy+8,36,36,18,34,cols[i%cols.length])})).sort((a,b)=>a.d-b.d).map(o=>o.svg).join("")}
 /* ── Lugares de la ciudad (no son empresas: barrios, colegio, terminal, cancha y clínica) ── */
 function sueloLugar(L){const [c,r]=L.pos,x=bx(c),y=by(r);let g=`<rect x="${x}" y="${y}" width="${BW}" height="${BH}" rx="5" fill="#82c45a"/>`;
   if(L.kind==="cancha")g+=`<rect x="${x+12}" y="${y+12}" width="${BW-24}" height="${BH-24}" rx="3" fill="#40a02b" stroke="#fff" stroke-width="3"/><line x1="${x+BW/2}" y1="${y+12}" x2="${x+BW/2}" y2="${y+BH-12}" stroke="#fff" stroke-width="3"/><circle cx="${x+BW/2}" cy="${y+BH/2}" r="20" fill="none" stroke="#fff" stroke-width="3"/><rect x="${x+12}" y="${y+BH/2-22}" width="22" height="44" fill="none" stroke="#fff" stroke-width="3"/><rect x="${x+BW-34}" y="${y+BH/2-22}" width="22" height="44" fill="none" stroke="#fff" stroke-width="3"/>`;
@@ -447,7 +466,7 @@ function objetoLugar(L){const [c,r]=L.pos,x=bx(c),y=by(r);let g="";
   else if(L.kind==="hospital"){g=caja(x+28,y+20,116,98,64,"#e9ecef");const [tx,ty]=proj(x+86,y+69,64);g+=`<rect x="${tx-6}" y="${ty-16}" width="12" height="32" fill="#e03131"/><rect x="${tx-16}" y="${ty-6}" width="32" height="12" fill="#e03131"/>`;}
   else if(L.kind==="buses"){g=caja(x+20,y+16,150,34,26,"#5c7cfa")+caja(x+34,y+84,26,60,14,"#fab005")+caja(x+106,y+84,26,60,14,"#fab005");}
   else if(L.kind==="cancha"){g=caja(x+30,y+BH-10,130,8,10,"#adb5bd");}
-  return {d:x+y+BW/2+BH/2,svg:g};}
+  return {d:prof(x+BW/2,y+BH/2),svg:g};}
 function cartelLugar(L){const [c,r]=L.pos,x=bx(c),y=by(r),z={casas:44,colegio:70,hospital:94,buses:50,cancha:24}[L.kind],[px,py]=proj(x+BW/2-10,y+BH/2-10,z),w=Math.max(110,L.nombre.length*7+40);
   return `<g class="cartel-lugar" aria-hidden="true"><rect x="${px-w/2}" y="${py-16}" width="${w}" height="26" rx="13" fill="rgba(255,255,255,.92)" stroke="#adb5bd" stroke-width="2"/><text x="${px-w/2+10}" y="${py+2}" font-size="13">${L.ico}</text><text x="${px-w/2+30}" y="${py+2}" font-size="11.5" font-weight="700" fill="#495057">${esc(L.nombre)}</text></g>`}
 const zonaLugar=L=>{const [c,r]=L.pos;return {x:bx(c)+10,y:by(r)+10,w:BW-20,h:BH-20,ico:L.ico,nom:L.nombre,lugar:true}};
@@ -457,7 +476,7 @@ function sueloLote(e){const [c,r]=MAPA[e.id],x=bx(c),y=by(r),sel=SEL===e.id;
     <rect x="${x+120}" y="${y+108}" width="56" height="36" rx="3" fill="#868e96"/>${[0,1,2].map(i=>`<line x1="${x+120+i*18+18}" y1="${y+108}" x2="${x+120+i*18+18}" y2="${y+144}" stroke="#fff" stroke-width="2"/>`).join("")}
     ${sel?`<rect class="marco" x="${x-6}" y="${y-6}" width="${BW+12}" height="${BH+12}" rx="9" fill="none" stroke="#ffd43b" stroke-width="7"/>`:""}`}
 function lote(e){const [c,r]=MAPA[e.id],x=bx(c),y=by(r);
-  return {d:x+y+BW/2+BH/2,svg:`<g class="lote ${SEL===e.id?"sel":""}" data-emp="${e.id}" role="button" tabindex="0" aria-pressed="${SEL===e.id}" aria-label="${esc(e.nombre)}, ${TIPO[e.tipo][0]}"><g class="edif">${edificioIso(e,x+28,y+20,BW-74,BH-62)}</g></g>`}}
+  return {d:prof(x+BW/2,y+BH/2),svg:`<g class="lote ${SEL===e.id?"sel":""}" data-emp="${e.id}" role="button" tabindex="0" aria-pressed="${SEL===e.id}" aria-label="${esc(e.nombre)}, ${TIPO[e.tipo][0]}"><g class="edif">${edificioIso(e,x+28,y+20,BW-74,BH-62)}</g></g>`}}
 function cartel(e){const [c,r]=MAPA[e.id],x=bx(c),y=by(r),H=ALTO[e.id]||40,[px,py]=proj(x+BW/2-10,y+BH/2-10,H+(e.id==="hacie"?60:30)),col=(PAL[e.id]||PAL[e.tipo])[0],
     n=S.docs.filter(d=>d.emisor===e.id||d.receptor===e.id).length,nom=corto(e.nombre),w=Math.max(120,nom.length*7.4+46);
   return `<g class="lote cartel-g" data-emp="${e.id}" aria-hidden="true"><g class="cartel"><line x1="${px}" y1="${py+14}" x2="${px}" y2="${py+30}" stroke="${col}" stroke-width="3"/>
@@ -471,21 +490,21 @@ function plazaSuelo(){const x=bx(PZ[0]),y=by(PZ[1]),cx=x+BW/2,cy=y+BH/2;
   return `<rect x="${x}" y="${y}" width="${BW}" height="${BH}" rx="5" fill="#69b34c"/><circle cx="${cx}" cy="${cy}" r="58" fill="#e9dcc0"/><circle cx="${cx}" cy="${cy}" r="40" fill="#69b34c"/>
     <rect x="${x}" y="${cy-7}" width="${BW}" height="14" fill="#e9dcc0"/><rect x="${cx-7}" y="${y}" width="14" height="${BH}" fill="#e9dcc0"/><circle cx="${cx}" cy="${cy}" r="24" fill="#4dabf7" stroke="#d0ebff" stroke-width="5"/><circle cx="${cx}" cy="${cy}" r="7" fill="#e7f5ff"/>`}
 function carrito(x,y,col,ico,nom){const [px,py]=proj(x+8,y+5,30);
-  return {d:x+y+10,svg:caja(x,y,16,10,12,"#f8f9fa")+`<ellipse cx="${px}" cy="${py+6}" rx="20" ry="9" fill="${col}"/><ellipse cx="${px}" cy="${py+6}" rx="20" ry="9" fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="6 6"/><line x1="${px}" y1="${py+6}" x2="${px}" y2="${py+22}" stroke="#868e96" stroke-width="2"/><text x="${px}" y="${py-6}" text-anchor="middle" font-size="16">${ico}</text>`,zona:{x:x-14,y:y-14,w:44,h:38,ico,nom}}}
+  return {d:prof(x+8,y+5),svg:caja(x,y,16,10,12,"#f8f9fa")+`<ellipse cx="${px}" cy="${py+6}" rx="20" ry="9" fill="${col}"/><ellipse cx="${px}" cy="${py+6}" rx="20" ry="9" fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="6 6"/><line x1="${px}" y1="${py+6}" x2="${px}" y2="${py+22}" stroke="#868e96" stroke-width="2"/><text x="${px}" y="${py-6}" text-anchor="middle" font-size="16">${ico}</text>`,zona:{x:x-14,y:y-14,w:44,h:38,ico,nom}}}
 function kioscoParque(x,y){const t=proj(x+15,y+15,38),b=[proj(x,y,14),proj(x+30,y,14),proj(x+30,y+30,14),proj(x,y+30,14)];
   let g=caja(x,y,30,30,3,"#e9dcc0");[[x+3,y+3],[x+27,y+3],[x+27,y+27],[x+3,y+27]].forEach(([a,c])=>{const p0=proj(a,c),p1=proj(a,c,14);g+=`<line x1="${p0[0]}" y1="${p0[1]}" x2="${p1[0]}" y2="${p1[1]}" stroke="#fff" stroke-width="3"/>`});
-  g+=`<polygon points="${pts([b[3],b[2],t])}" fill="#e03131"/><polygon points="${pts([b[2],b[1],t])}" fill="#a61e1e"/><polygon points="${pts([b[0],b[3],t])}" fill="#f03e3e"/>`;
-  return {d:x+y+30,svg:g,zona:{x:x-12,y:y-12,w:54,h:54,ico:"🎶",nom:"Kiosco del parque"}}}
+  g+=piramide(x,y,30,30,14,38,"#e03131");
+  return {d:prof(x+15,y+15),svg:g,zona:{x:x-12,y:y-12,w:54,h:54,ico:"🎶",nom:"Kiosco del parque"}}}
 function plazaObjetos(){const x=bx(PZ[0]),y=by(PZ[1]);
   return [...[[18,18],[BW-18,18],[18,BH-18],[BW-18,BH-18]].map(([dx,dy])=>arbol(x+dx,y+dy,12)),
     kioscoParque(x+30,y+26),carrito(x+BW-52,y+30,"#f783ac","🍧","Carrito de copos"),carrito(x+BW-50,y+BH-42,"#fcc419","🌽","Carrito de elotes"),
-    {d:x+40+y+BH-40,svg:(()=>{const p=proj(x+40,y+BH-40);return `<g transform="translate(${p[0]},${p[1]})"><polygon points="-14,0 0,-7 14,0 0,7" fill="#ffe066"/><line x1="-8" y1="-2" x2="-8" y2="-22" stroke="#e8590c" stroke-width="3"/><line x1="8" y1="-2" x2="8" y2="-22" stroke="#e8590c" stroke-width="3"/><line x1="-8" y1="-22" x2="8" y2="-22" stroke="#e8590c" stroke-width="3"/><line x1="-2" y1="-22" x2="-2" y2="-8" stroke="#495057"/><rect x="-5" y="-9" width="6" height="3" fill="#1c7ed6"/><text x="0" y="-28" text-anchor="middle" font-size="14">🛝</text></g>`})(),zona:{x:x+22,y:y+BH-58,w:36,h:36,ico:"🛝",nom:"Juegos infantiles"}}];}
+    {d:prof(x+40,y+BH-40),svg:(()=>{const p=proj(x+40,y+BH-40);return `<g transform="translate(${p[0]},${p[1]})"><polygon points="-14,0 0,-7 14,0 0,7" fill="#ffe066"/><line x1="-8" y1="-2" x2="-8" y2="-22" stroke="#e8590c" stroke-width="3"/><line x1="8" y1="-2" x2="8" y2="-22" stroke="#e8590c" stroke-width="3"/><line x1="-8" y1="-22" x2="8" y2="-22" stroke="#e8590c" stroke-width="3"/><line x1="-2" y1="-22" x2="-2" y2="-8" stroke="#495057"/><rect x="-5" y="-9" width="6" height="3" fill="#1c7ed6"/><text x="0" y="-28" text-anchor="middle" font-size="14">🛝</text></g>`})(),zona:{x:x+22,y:y+BH-58,w:36,h:36,ico:"🛝",nom:"Juegos infantiles"}}];}
 /* Mini comercios en la esquina de cada cuadra (decorativos por ahora: en el juego serán clientes y proveedores pequeños) */
 const MINI={ferre:["☕","Soda La Esquina","#e03131"],super:["🥐","Panadería Trigo de Oro","#f08c00"],libre:["🍦","Heladería Polo","#f06595"],mayo:["🌮","Tacos Don Pepe","#f59f00"],trans:["⛽","Gasolinera Ruta 1","#37b24d"],
   conta:["📰","Revistas y Lotería","#1c7ed6"],mante:["🥤","Frescos Naturales","#20c997"],equip:["🔑","Llaves y Cerrajería","#868e96"],clien:["🛒","Pulpería La Bendición","#fd7e14"],
   banco:["🏧","Cajero automático","#fab005"],hacie:["🖨️","Copias y Trámites","#7950f2"],publi:["💐","Floristería Primavera","#e64980"]};
 function miniComercio(id){const [c,r]=MAPA[id],x=bx(c)+6,y=by(r)+BH-38,[ico,nom,col]=MINI[id],[px,py]=proj(x+13,y+13,44);
-  return {d:x+y+26,svg:caja(x,y,26,26,20,col,{toldo:true})+`<circle cx="${px}" cy="${py}" r="13" fill="#fff" stroke="${col}" stroke-width="3"/><text x="${px}" y="${py+5}" text-anchor="middle" font-size="14">${ico}</text>`,zona:{x:x-12,y:y-12,w:50,h:50,ico,nom}}}
+  return {d:prof(x+13,y+13),svg:caja(x,y,26,26,20,col,{toldo:true})+`<circle cx="${px}" cy="${py}" r="13" fill="#fff" stroke="${col}" stroke-width="3"/><text x="${px}" y="${py+5}" text-anchor="middle" font-size="14">${ico}</text>`,zona:{x:x-12,y:y-12,w:50,h:50,ico,nom}}}
 function calles(){
   let g=`<rect width="${MW}" height="${MH}" fill="#4b5260"/>`;
   const hy=[0,1,2,3].map(r=>RD/2+r*(BH+RD)),vx=[0,1,2,3,4].map(c=>RD/2+c*(BW+RD));
@@ -547,7 +566,12 @@ function animarTransaccion(doc,listo){
   requestAnimationFrame(paso);
 }
 let ZONAS=[];
-const VB=(()=>{const x0=Math.floor((-30-(MH+30))*.866)-30,x1=Math.ceil((MW+60)*.866)+30,y0=-170,y1=Math.ceil((MW+MH+60)*.5)+50;return [x0,y0,x1-x0,y1-y0]})();
+let VB=[0,0,1,1];
+function calcVB(){const C=[[-30,-30],[MW+30,-30],[MW+30,MH+30],[-30,MH+30]].map(p=>proj(...p)),X=C.map(p=>p[0]),Y=C.map(p=>p[1]);
+  const x0=Math.floor(Math.min(...X))-30,x1=Math.ceil(Math.max(...X))+30,y0=Math.floor(Math.min(...Y))-170,y1=Math.ceil(Math.max(...Y))+72;VB=[x0,y0,x1-x0,y1-y0]}
+calcVB();
+function terreno(){const x=-30,y=-30,w=MW+60,h=MH+60;let g=`<polygon points="${pts([proj(x,y),proj(x+w,y),proj(x+w,y+h),proj(x,y+h)])}" fill="#5a9e3f"/>`;
+  ladosVisibles(x,y,w,h).forEach(l=>{g+=`<polygon points="${pts([proj(...l.a),proj(...l.b),proj(...l.b,-22),proj(...l.a,-22)])}" fill="${l.frente?"#8a5f37":"#6b4a2b"}"/>`});return g}
 function mapaHTML(){
   const es=S.empresas.filter(e=>MAPA[e.id]);
   const minis=es.filter(e=>MINI[e.id]).map(e=>miniComercio(e.id)),parque=plazaObjetos();
@@ -559,9 +583,8 @@ function mapaHTML(){
       <radialGradient id="sol" cx="22%" cy="8%" r="75%"><stop offset="0" stop-color="#ffd9a0" stop-opacity=".38"/><stop offset=".45" stop-color="#ffc078" stop-opacity=".12"/><stop offset="1" stop-color="#ffc078" stop-opacity="0"/></radialGradient>
       <radialGradient id="vineta" cx="50%" cy="50%" r="72%"><stop offset=".62" stop-color="#0b1220" stop-opacity="0"/><stop offset="1" stop-color="#0b1220" stop-opacity=".35"/></radialGradient></defs>
     <rect x="${VB[0]}" y="${VB[1]}" width="${VB[2]}" height="${VB[3]}" fill="url(#cielo)"/>
-    <polygon points="${pts([proj(-30,-30),proj(MW+30,-30),proj(MW+30,MH+30),proj(-30,MH+30)])}" fill="#5a9e3f"/>
-    <polygon points="${pts([proj(MW+30,MH+30),proj(MW+30,-30),proj(MW+30,-30,-22),proj(MW+30,MH+30,-22)])}" fill="#6b4a2b"/><polygon points="${pts([proj(-30,MH+30),proj(MW+30,MH+30),proj(MW+30,MH+30,-22),proj(-30,MH+30,-22)])}" fill="#8a5f37"/>
-    <g transform="matrix(${ISO.join(" ")} 0 0)">${calles()}${plazaSuelo()}${bancas()}${es.map(sueloLote).join("")}${LUGARES.map(sueloLugar).join("")}${carros()}
+    ${terreno()}
+    <g transform="matrix(${matrizSuelo()})">${calles()}${plazaSuelo()}${bancas()}${es.map(sueloLote).join("")}${LUGARES.map(sueloLugar).join("")}${carros()}
       <polyline id="ruta" class="ruta" points="" fill="none"/><g id="meta" opacity="0"><circle r="16" class="meta-a"/><circle r="6" fill="#ffd43b"/></g></g>
     <g id="polvo"></g>
     <g id="gps" opacity="0" pointer-events="none"><g class="gps-f"><path d="M 30 -9 L 52 0 L 30 9 Z" fill="#ffd43b" stroke="#14213d" stroke-width="3"/></g><text y="44" text-anchor="middle" font-size="13" font-weight="800" fill="#14213d" stroke="#fff" stroke-width="4" paint-order="stroke"></text></g>
@@ -592,11 +615,11 @@ function npcSVG(n){const e=n.est.emp&&emp(n.est.emp),col=colorEst(n.est);
     <path d="M -8 -37 Q 0 -48 8 -37 Q 3 -42 0 -41 Q -3 -42 -8 -37 Z" fill="${["#3b2314","#212529","#7c4a1e","#e8c07d"][n.i%4]}"/>${e?`<text x="0" y="-48" text-anchor="middle" font-size="11">${e.ico}</text>`:""}</g>`}
 function colocar(node,x,y,esc1,mira){const capa=document.getElementById("capaObjetos");if(!node||!capa)return;const [px,py]=proj(x,y);
   node.setAttribute("transform",`translate(${px.toFixed(1)},${py.toFixed(1)}) scale(${esc1*mira},${esc1})`);
-  const d=x+y;let antes=null;for(const o of capa.querySelectorAll(":scope > g.obj")){if(+o.dataset.d>d){antes=o;break}}
+  const d=prof(x,y);let antes=null;for(const o of capa.querySelectorAll(":scope > g.obj")){if(+o.dataset.d>d){antes=o;break}}
   if(antes){if(node.nextSibling!==antes)capa.insertBefore(node,antes)}else if(capa.lastChild!==node)capa.appendChild(node);}
 function moverNPCS(dt){
   NPCS.forEach(n=>{const tx=ix(n.tc)+n.ox,ty=iy(n.tr)+n.oy,dx=tx-n.x,dy=ty-n.y,L=Math.hypot(dx,dy),st=n.sp*dt;
-    if(L<=st){n.x=tx;n.y=ty;n.pc=n.c;n.pr=n.r;n.c=n.tc;n.r=n.tr;vecino(n)}else{n.x+=dx/L*st;n.y+=dy/L*st;const sx=(dx-dy);if(Math.abs(sx)>.01)n.mira=sx>0?1:-1}
+    if(L<=st){n.x=tx;n.y=ty;n.pc=n.c;n.pr=n.r;n.c=n.tc;n.r=n.tr;vecino(n)}else{n.x+=dx/L*st;n.y+=dy/L*st;const [rx,ry]=rotV(dx,dy),sx=rx-ry;if(Math.abs(sx)>.01)n.mira=sx>0?1:-1}
     n.fase+=dt*10;const node=document.getElementById("npc-"+n.i);if(node){colocar(node,n.x,n.y,1.35,n.mira);const b=node.children;if(b[2]&&!reducido){b[2].setAttribute("y",-12+Math.max(0,Math.sin(n.fase))*-3);b[3].setAttribute("y",-12+Math.max(0,-Math.sin(n.fase))*-3)}}});
 }
 iniciarNPCS();
@@ -640,7 +663,7 @@ function avisoZona(){
 }
 function entrar(){const z=zonaCercana();if(!z||!z.emp)return;entrarEmpresa(z.emp)}
 let INT=null,CAM_ANTES=null;
-function puerta(id){const m=MAPA[id];return proj(bx(m[0])+28+(BW-74)/2,by(m[1])+20+(BH-62),18)} // centro de la fachada que da a la calle
+function puerta(id){return proj(...puertaMundo(id),18)} // la fachada que da a la cámara
 function entrarEmpresa(id){
   if(INT||MODO==="cine")return;AV.ruta=[];AV.alLlegar=null;AV.vx=AV.vy=0;ponerRuta();sonar("entrar");SEL=id;TAB=lleva(emp(id))?"diario":"productos";
   CAM_ANTES={obj:OBJ?OBJ.slice():VB.slice(),modo:MODO==="cine"?"libre":MODO};MODO="cine";
@@ -753,9 +776,10 @@ function aEstrella(x0,y0,x1,y1){
 }
 function irA(x,y,alLlegar){const R=aEstrella(AV.x,AV.y,x,y);if(!R||!R.length){aviso("🚧 No se puede llegar ahí");sonar("error");return false}
   AV.ruta=R;AV.alLlegar=alLlegar||null;ponerRuta();if(MODO!=="cine"){MODO="sigue";if(OBJ&&OBJ[2]>VB[2]*.6)OBJ=centrarEn(...proj(AV.x,AV.y,40),VB[2]/2.3)}sonar("clic");return true}
-function puertaMundo(id){const m=MAPA[id];return [bx(m[0])+28+(BW-74)/2,by(m[1])+20+(BH-62)+16]}
+function puertaMundo(id){const m=MAPA[id],X=bx(m[0])+28,Y=by(m[1])+20,w=BW-74,h=BH-62;
+  const C=[[X+w/2,Y-16],[X+w+16,Y+h/2],[X+w/2,Y+h+16],[X-16,Y+h/2]].sort((a,b)=>prof(...b)-prof(...a));return C.find(p=>libre(...p))||C[0]}
 function caminarA(id){const z=zonaCercana();if(z&&z.emp===id){entrarEmpresa(id);return}const [x,y]=puertaMundo(id);irA(x,y,()=>entrarEmpresa(id))}
-function aMundo(px,py){const a=px/.866,b=py/.5;return [(a+b)/2,(b-a)/2]}
+function aMundo(px,py){const a=px/.866,b=py/.5;return desrot((a+b)/2,(b-a)/2)}
 function aviso(t){const b=document.createElement("div");b.className="toast bad";b.textContent=t;document.body.appendChild(b);setTimeout(()=>b.remove(),1800)}
 /* Línea punteada de la ruta y anillo de destino, en el suelo */
 function ponerRuta(){const pl=document.getElementById("ruta"),m=document.getElementById("meta");if(!pl||!m)return;
@@ -779,27 +803,31 @@ function brujula(){const g=document.getElementById("gps");if(!g)return;const id=
 /* Minimapa (vista desde arriba): empresas, misión, compañeros y usted. Tocar = ir ahí. */
 function minimapaHTML(){
   const lote=(x,y,col,op)=>`<rect x="${x+6}" y="${y+6}" width="${BW-12}" height="${BH-12}" rx="10" fill="${col}" opacity="${op||1}"/>`;
-  return `<svg class="minimapa" viewBox="-20 -20 ${MW+40} ${MH+40}" role="button" tabindex="0" aria-label="Minimapa: toque un lugar para caminar hasta ahí">
+  return `<div class="mm-wrap"><svg class="minimapa" style="transform:rotate(${ROT*90}deg)" viewBox="-20 -20 ${MW+40} ${MH+40}" role="button" tabindex="0" aria-label="Minimapa: toque un lugar para caminar hasta ahí">
     <rect x="-20" y="-20" width="${MW+40}" height="${MH+40}" rx="30" fill="#2b3245"/>
     ${S.empresas.filter(e=>MAPA[e.id]).map(e=>{const [c,r]=MAPA[e.id];return `<g data-mm="${e.id}">${lote(bx(c),by(r),(PAL[e.id]||PAL[e.tipo])[0])}<text x="${bx(c)+BW/2}" y="${by(r)+BH/2+26}" text-anchor="middle" font-size="70">${e.ico}</text></g>`}).join("")}
     ${LUGARES.map(L=>lote(bx(L.pos[0]),by(L.pos[1]),"#5c6f5c",.8)).join("")}${lote(bx(PZ[0]),by(PZ[1]),"#40c057")}
     <circle id="mm-mision" r="70" fill="none" stroke="#ffd43b" stroke-width="18" opacity="0"/>
     ${NPCS.map(n=>`<circle id="mm-n${n.i}" r="14" fill="#fff" opacity=".85"/>`).join("")}
-    <circle id="mm-yo" r="26" fill="#ffd43b" stroke="#14213d" stroke-width="8"/></svg>`;
+    <circle id="mm-yo" r="26" fill="#ffd43b" stroke="#14213d" stroke-width="8"/></svg></div>`;
 }
 function minimapaTick(){const yo=document.getElementById("mm-yo");if(!yo)return;yo.setAttribute("cx",AV.x.toFixed(0));yo.setAttribute("cy",AV.y.toFixed(0));
   NPCS.forEach(n=>{const c=document.getElementById("mm-n"+n.i);if(c){c.setAttribute("cx",n.x.toFixed(0));c.setAttribute("cy",n.y.toFixed(0))}});
   const m=document.getElementById("mm-mision"),id=misionActual();if(m){if(id){const [c,r]=MAPA[id];m.setAttribute("cx",bx(c)+BW/2);m.setAttribute("cy",by(r)+BH/2);m.setAttribute("opacity","1")}else m.setAttribute("opacity","0")}}
 function ligarMinimapa(){const mm=$(".minimapa");if(!mm)return;
-  mm.onclick=ev=>{const r=mm.getBoundingClientRect(),x=-20+(ev.clientX-r.left)/r.width*(MW+40),y=-20+(ev.clientY-r.top)/r.height*(MH+40);
+  mm.onclick=ev=>{const pt=mm.createSVGPoint();pt.x=ev.clientX;pt.y=ev.clientY;const q=pt.matrixTransform(mm.getScreenCTM().inverse()),x=q.x,y=q.y;
     const lot=ev.target.closest&&ev.target.closest("[data-mm]");if(lot){caminarA(lot.dataset.mm);return}irA(x,y)};
   mm.onkeydown=ev=>{if(ev.key==="Enter"){const id=misionActual();if(id)caminarA(id)}};}
+function girar(dir){if(INT||MODO==="cine")return;const wr=CAM?CAM[2]/VB[2]:1,w=document.querySelector(".mapa-wrap");
+  if(w&&!reducido){w.classList.remove("gira");void w.offsetWidth;w.classList.add("gira")}
+  setTimeout(()=>{ROT=(ROT+dir+4)%4;try{localStorage.setItem("ciudad_rot",ROT)}catch(e){}calcVB();
+    const [px,py]=proj(AV.x,AV.y,40);CAM=centrarEn(px,py,VB[2]*wr);OBJ=CAM.slice();if(MODO!=="sigue"&&wr>.95){CAM=VB.slice();OBJ=VB.slice()}pintar();sonar("clic")},reducido?0:140)}
 function tick(t){
   const dt=Math.min(.05,(t-(ultimoT||t))/1000);ultimoT=t;
   // Entrada: teclado o palanca (en ejes de la pantalla); se pasa al suelo isométrico: derecha = (x+, y−), abajo = (x+, y+)
   const kx=(TECLAS.has("r")?1:0)-(TECLAS.has("l")?1:0),ky=(TECLAS.has("d")?1:0)-(TECLAS.has("u")?1:0);
   let sx=kx+PAD.x,sy=ky+PAD.y,fuerza=Math.min(1,Math.hypot(sx,sy));
-  let dx=sx+sy,dy=-sx+sy,L=Math.hypot(dx,dy);
+  let [dx,dy]=desrotV(sx+sy,-sx+sy),L=Math.hypot(dx,dy);
   if(L&&!INT){if(AV.ruta.length){AV.ruta=[];AV.alLlegar=null;ponerRuta()}
     if(MODO==="libre"){MODO="sigue";if(OBJ&&OBJ[2]>VB[2]*.6)OBJ=centrarEn(...proj(AV.x,AV.y,40),VB[2]/2.3)}dx/=L;dy/=L}
   else if(AV.ruta.length&&!INT){const [wx,wy]=AV.ruta[0],ex=wx-AV.x,ey=wy-AV.y,d=Math.hypot(ex,ey);
@@ -812,7 +840,7 @@ function tick(t){
   AV.vx+=(dx*vmax-AV.vx)*k;AV.vy+=(dy*vmax-AV.vy)*k;
   const sp=Math.hypot(AV.vx,AV.vy);AV.mueve=sp>8;
   if(AV.mueve){const nx=AV.x+AV.vx*dt,ny=AV.y+AV.vy*dt;if(!chocaCon(nx,AV.y))AV.x=nx;else AV.vx=0;if(!chocaCon(AV.x,ny))AV.y=ny;else AV.vy=0;
-    AV.fase+=dt*(6+sp*.06);const scrx=AV.vx-AV.vy;if(Math.abs(scrx)>4)AV.mira=scrx>0?1:-1;if(AV.ruta.length)ponerRuta()}
+    AV.fase+=dt*(6+sp*.06);const [rvx,rvy]=rotV(AV.vx,AV.vy),scrx=rvx-rvy;if(Math.abs(scrx)>4)AV.mira=scrx>0?1:-1;if(AV.ruta.length)ponerRuta()}
   if(document.getElementById("avatar")){moverNPCS(reducido?0:dt);ponerAvatar();avisoZona();resaltarCercana();brujula();polvo(dt);minimapaTick();camara(dt)}
   requestAnimationFrame(tick);
 }
@@ -820,6 +848,7 @@ const DIR={ArrowUp:"u",KeyW:"u",ArrowDown:"d",KeyS:"d",ArrowLeft:"l",KeyA:"l",Ar
 document.addEventListener("keydown",ev=>{
   if(INT||$("#dlg").open||/INPUT|SELECT|TEXTAREA/.test((ev.target&&ev.target.tagName)||""))return;
   if(ev.key==="Shift")TECLAS.add("shift");
+  if(ev.code==="KeyQ"){girar(-1);return}if(ev.code==="KeyR"&&!ev.ctrlKey&&!ev.metaKey){girar(1);return}
   if(DIR[ev.code]){TECLAS.add(DIR[ev.code]);ev.preventDefault()}
   else if((ev.code==="KeyE"&&!(ev.target&&ev.target.closest&&ev.target.closest("#panel")))||(ev.key==="Enter"&&!(ev.target&&ev.target.closest&&ev.target.closest("[data-emp],button,a")))){const z=zonaCercana();if(z&&z.emp){ev.preventDefault();entrar()}}
 });
@@ -831,7 +860,7 @@ function controlesHTML(){
     <button type="button" class="correr" id="correr" aria-pressed="false" aria-label="Correr">🏃</button>
     ${minimapaHTML()}
     <div class="colores" role="group" aria-label="Color de la camisa">${col.map(c=>`<button type="button" data-col="${c}" style="background:${c}" aria-label="Camisa color ${c}" aria-pressed="${AV.col===c}"></button>`).join("")}</div>
-    <div class="zoom"><button type="button" id="zMas" aria-label="Acercar">＋</button><span id="zNivel" class="znivel">100 %</span><button type="button" id="zMenos" aria-label="Alejar">－</button><button type="button" id="zYo" aria-label="Centrar la cámara en mi muñequito">🎯</button><button type="button" id="zTodo" aria-label="Ver toda la ciudad">🗺️</button><button type="button" id="sonido" aria-pressed="${SND.on}" aria-label="Sonidos de la interfaz">${SND.on?"🔊":"🔇"}</button></div>
+    <div class="zoom"><button type="button" id="zMas" aria-label="Acercar">＋</button><span id="zNivel" class="znivel">100 %</span><button type="button" id="zMenos" aria-label="Alejar">－</button><button type="button" id="gIzq" aria-label="Girar la ciudad a la izquierda (tecla Q)">⟲</button><button type="button" id="gDer" aria-label="Girar la ciudad a la derecha (tecla R)">⟳</button><button type="button" id="zYo" aria-label="Centrar la cámara en mi muñequito">🎯</button><button type="button" id="zTodo" aria-label="Ver toda la ciudad">🗺️</button><button type="button" id="sonido" aria-pressed="${SND.on}" aria-label="Sonidos de la interfaz">${SND.on?"🔊":"🔇"}</button></div>
     <div class="aviso" id="aviso" hidden></div>`;
 }
 function ligarControles(){
@@ -845,6 +874,7 @@ function ligarControles(){
   document.querySelectorAll("[data-pad]").forEach(b=>{const [x,y]=b.dataset.pad.split(",").map(Number),on=ev=>{ev.preventDefault();PAD.x=x;PAD.y=y;b.setPointerCapture&&ev.pointerId!=null&&b.setPointerCapture(ev.pointerId)},off=()=>{PAD.x=0;PAD.y=0};
     b.onpointerdown=on;b.onpointerup=off;b.onpointercancel=off;b.onpointerleave=off;});
   $("#zMas").onclick=()=>{zoomEn(.7);sonar("clic")};$("#zMenos").onclick=()=>{zoomEn(1/.7);sonar("clic")};
+  $("#gIzq").onclick=()=>girar(-1);$("#gDer").onclick=()=>girar(1);
   $("#zYo").onclick=()=>{MODO="sigue";OBJ=centrarEn(...proj(AV.x,AV.y,40),VB[2]/2.4);sonar("clic")};$("#zTodo").onclick=()=>{MODO="libre";OBJ=VB.slice();sonar("clic")};
   $("#sonido").onclick=ev=>{SND.on=!SND.on;try{localStorage.setItem("ciudad_snd",SND.on?"1":"0")}catch(e){}ev.currentTarget.textContent=SND.on?"🔊":"🔇";ev.currentTarget.setAttribute("aria-pressed",SND.on);sonar("ok")};
   document.querySelectorAll("[data-col]").forEach(b=>b.onclick=()=>{AV.col=b.dataset.col;try{localStorage.setItem("ciudad_av_col",AV.col)}catch(e){}const c=document.getElementById("av-cu");if(c)c.setAttribute("fill",AV.col);document.querySelectorAll("[data-col]").forEach(x=>x.setAttribute("aria-pressed",x===b))});
@@ -872,14 +902,14 @@ const CUPO=4;
 function elegirEmpresa(){
   const yo=YO();
   const html=()=>`<div class="dlg-hd"><span style="font-size:1.6rem">🧑‍🎓</span><h2>Escoge tu empresa</h2><button type="button" class="ghost x">Cerrar ✕</button></div>
-    <p class="muted" style="margin-top:0">Hay 5 tipos de empresa. Cada una recibe hasta ${CUPO} estudiantes, uno por rol: ${ROLES.join(", ")}. Los roles rotan cada 2 semanas.</p>
+    <p class="muted" style="margin-top:0">Hay 5 tipos de empresa y cada una recibe hasta ${CUPO} estudiantes. Por ahora <b>todos son facturador y contador</b>: cada uno emite sus documentos y los registra en el diario.</p>
     <div class="tipos">${TIPOS_EMPRESA.map(t=>{const e=emp(t.id),M=miembros(t.id),lleno=M.length>=CUPO&&yo.emp!==t.id,col=(PAL[t.id]||PAL[t.tipo])[0];
       return `<article class="tipo-card" style="--c:${col}"><div class="tc-hd"><span class="tc-ico">${t.ico}</span><div><b>${esc(e.nombre)}</b><div class="tc-t">${TIPO[t.tipo][0]}</div></div></div>
         <p>${esc(t.giro)}</p><p class="tc-p">${t.prods.map(p=>esc(p.det)+(p.tarifa?"":" (exento)")).join(" · ")}</p>
         <div class="tc-m"><b>${M.length}/${CUPO}</b> ${M.map(m=>`<span title="${esc(m.rol||"")}">${esc(m.id===yo.id?"Tú":m.nombre.replace("Estudiante ","E"))} · ${esc(m.rol||"")}</span>`).join("")}</div>
         ${yo.emp===t.id?`<button type="button" class="ghost" data-salir="1">Salir de esta empresa</button>`:`<button type="button" data-unir="${t.id}" ${lleno?"disabled":""}>${lleno?"Llena":"Unirme"}</button>`}</article>`}).join("")}</div>`;
   const ligar=()=>{
-    document.querySelectorAll("#dlgBody [data-unir]").forEach(b=>b.onclick=()=>{const id=b.dataset.unir,usados=miembros(id).map(m=>m.rol);yo.emp=id;yo.rol=ROLES.find(r=>!usados.includes(r))||ROLES[0];guardar();iniciarNPCS();abrir(html());ligar();pintar();});
+    document.querySelectorAll("#dlgBody [data-unir]").forEach(b=>b.onclick=()=>{const id=b.dataset.unir,usados=miembros(id).map(m=>m.rol);yo.emp=id;yo.rol=ROL_ACTUAL;guardar();iniciarNPCS();abrir(html());ligar();pintar();});
     const sal=document.querySelector("#dlgBody [data-salir]");if(sal)sal.onclick=()=>{yo.emp=null;yo.rol=null;guardar();abrir(html());ligar();pintar()};
   };
   abrir(html());ligar();
