@@ -73,7 +73,11 @@ const TIRADERA_NIVELES_AUTO = {
   seg_cuentas_pct: { avanzado: "Selecciona correctamente el 85 % o más de las cuentas de los asientos.", intermedio: "Selecciona correctamente entre el 60 % y el 84 % de las cuentas.", inicial: "Selecciona correctamente entre el 35 % y el 59 % de las cuentas." },
   seg_naturaleza_pct: { avanzado: "Ubica en el Debe o en el Haber el 85 % o más de las cuentas.", intermedio: "Ubica correctamente entre el 60 % y el 84 % de las cuentas.", inicial: "Ubica correctamente entre el 35 % y el 59 % de las cuentas." },
   seg_montos_pct: { avanzado: "Registra con el monto correcto el 85 % o más de las líneas, con la partida doble cuadrada.", intermedio: "Registra con el monto correcto entre el 60 % y el 84 % de las líneas.", inicial: "Registra con el monto correcto entre el 35 % y el 59 % de las líneas." },
-  memoria_rapidez_pct: { avanzado: "Resuelve cada carta en 12 segundos o menos, en promedio.", intermedio: "Resuelve cada carta en 13 a 20 segundos, en promedio.", inicial: "Resuelve cada carta en 21 a 30 segundos, en promedio." }
+  memoria_rapidez_pct: { avanzado: "Resuelve cada carta en 12 segundos o menos, en promedio.", intermedio: "Resuelve cada carta en 13 a 20 segundos, en promedio.", inicial: "Resuelve cada carta en 21 a 30 segundos, en promedio." },
+  // Ciudad Contable (ciudad-contable.html): salen de lo que hizo el estudiante en su empresa.
+  ciudad_documentos_pct: { avanzado: "Emite el 85 % o más de los comprobantes electrónicos (facturas y notas de crédito) solicitados, completos y con el IVA correcto.", intermedio: "Emite entre el 60 % y el 84 % de los comprobantes electrónicos solicitados.", inicial: "Emite entre el 35 % y el 59 % de los comprobantes electrónicos solicitados." },
+  ciudad_asientos_pct: { avanzado: "Registra correctamente al primer intento el 85 % o más de los asientos de los documentos de su empresa, con las cuentas del catálogo y la partida doble.", intermedio: "Registra correctamente al primer intento entre el 60 % y el 84 % de los asientos de los documentos de su empresa.", inicial: "Registra correctamente al primer intento entre el 35 % y el 59 % de los asientos de los documentos de su empresa." },
+  ciudad_balanza_pct: { avanzado: "Registra en el diario el 85 % o más de los documentos de su empresa y su balanza de comprobación cuadra (sumas y saldos iguales).", intermedio: "Registra en el diario entre el 60 % y el 84 % de los documentos de su empresa y su balanza de comprobación cuadra.", inicial: "Registra en el diario entre el 35 % y el 59 % de los documentos de su empresa, o su balanza de comprobación no cuadra." }
 };
 // Nota de Memoria Contable a partir de las métricas de una partida (completa
 // o a medias). Las cartas que no resolvió cuentan como no logradas.
@@ -156,6 +160,20 @@ const ESTRATEGIAS_EVALUACION = {
       { nombre: "Registra el asiento contable de la liquidación con las cuentas de provisiones, gastos, retenciones y bancos, con débitos y créditos balanceados.", puntos_max: 3, auto: "liq_asiento_pct" }
     ],
     demo: { escenario: "Liquidación de una persona despedida con responsabilidad patronal tras 2 años y 8 meses.", puntajes: [3, 2, 3, 3] }
+  },
+  // Ciudad Contable (ciudad-contable.html): cada estudiante dirige una empresa
+  // comercial o de servicios de la mini ciudad, emite comprobantes electrónicos y
+  // lleva el diario y la balanza. La nota sale sola con lo que hizo en su
+  // empresa (85 % o más = 3, 60–84 % = 2, 35–59 % = 1, menos de 35 % = 0).
+  ciudad_contable: {
+    tipo: "rubrica_directa", grupo: "Simuladores", icono: "🏙️", etiqueta: "Ciudad Contable (comprobantes, diario y balanza)", ciudad: true,
+    instrucciones: "Simulación en la Ciudad Contable (trabajo cotidiano). Cada estudiante dirige una empresa comercial o de servicios, emite comprobantes electrónicos, registra los asientos de sus documentos en el libro diario y elabora la balanza de comprobación. Instrumento: escala de desempeño con indicadores de logro y niveles Avanzado (3), Intermedio (2) e Inicial (1); 0 si no presenta evidencia. Cada indicador se califica solo con lo que hizo en su empresa (85 % o más = 3, 60–84 % = 2, 35–59 % = 1, menos de 35 % = 0). Calificación = puntos obtenidos × 100 ÷ total de puntos.",
+    criterios: [
+      { nombre: "Confecciona los comprobantes electrónicos (facturas y notas de crédito) de las ventas de su empresa en el simulador, según la normativa tributaria vigente.", puntos_max: 3, auto: "ciudad_documentos_pct" },
+      { nombre: "Registra en el libro diario los asientos de las operaciones de la empresa comercial o de servicios, con las cuentas del catálogo y la partida doble.", puntos_max: 3, auto: "ciudad_asientos_pct" },
+      { nombre: "Elabora la balanza de comprobación de su empresa, verificando la igualdad de sumas y saldos.", puntos_max: 3, auto: "ciudad_balanza_pct" }
+    ],
+    demo: { escenario: "Ciudad Contable: la Ferretería emite 5 facturas, registra sus asientos y cuadra la balanza.", puntajes: [3, 2, 3] }
   },
   lista_cotejo_general: {
     tipo: "rubrica_directa", grupo: "Rúbricas y listas de cotejo", icono: "✅", etiqueta: "Lista de cotejo general",

@@ -3073,7 +3073,7 @@ async function renderSubtema(id, soloLectura) {
         const resultado = leerContenidoActividadDesdeFormulario(tipo, panel.querySelector("#actividad-constructor"));
         if (!resultado.valido) { alert(resultado.error); return; }
         const presetElegido = ESTRATEGIAS_EVALUACION[valorSelect];
-        if (presetElegido && (presetElegido.tiradera || presetElegido.memoria || presetElegido.liquidacion)) {
+        if (presetElegido && (presetElegido.tiradera || presetElegido.memoria || presetElegido.liquidacion || presetElegido.ciudad)) {
           // Se marca la estrategia y qué dato del juego alimenta cada criterio.
           resultado.contenido.estrategia = valorSelect;
           resultado.contenido.criterios = (resultado.contenido.criterios || []).map((c, i) => {
@@ -3087,6 +3087,9 @@ async function renderSubtema(id, soloLectura) {
           if (presetElegido.liquidacion) {
             resultado.contenido.liq_partes = ["salario", "preaviso", "cesantia", "vacaciones", "aguinaldo", "asiento"];
             resultado.contenido.liq_instrumento = { componente: "Trabajo cotidiano", tipo: "Escala de desempeño", subarea: "", unidad: titulo, resultado: "", indicador: "" };
+          } else if (presetElegido.ciudad) {
+            resultado.contenido.ciudad_instrumento = { componente: "Trabajo cotidiano", tipo: "Escala de desempeño", subarea: "Gestión contable", unidad: titulo, resultado: "", indicador: "" };
+            resultado.contenido.ciudad_meta_docs = 5;
           } else if (presetElegido.memoria) {
             resultado.contenido.memoria_instrumento = { ...MEMORIA_INSTRUMENTO_BASE, unidad: titulo };
             resultado.contenido.memoria_cartas = [];
@@ -4260,6 +4263,7 @@ async function pintarTrabajosCotidianosSubtema(trabajos, soloLectura, subtemaId,
             ${t.contenido_actividad && t.contenido_actividad.estrategia === "juego_tiradera" ? `<a class="btn small" href="tiradera.html?trabajo=${t.id}" target="_blank" rel="noopener">⚡ Lanzar La Tiradera</a>` : ""}
             ${t.contenido_actividad && t.contenido_actividad.estrategia === "juego_memoria" ? `<a class="btn small" href="memoria.html?trabajo=${t.id}&docente=1">🧠 Cartas y evaluación</a>` : ""}
             ${t.contenido_actividad && t.contenido_actividad.estrategia === "liquidacion_laboral" ? `<a class="btn small" href="liquidaciones.html?trabajo=${t.id}&docente=1">📑 Caso de liquidación</a>` : ""}
+            ${t.contenido_actividad && t.contenido_actividad.estrategia === "ciudad_contable" ? `<a class="btn small" href="ciudad-contable.html?trabajo=${t.id}&docente=1">🏙️ Ciudad y evaluación</a>` : ""}
             ${t.tipo_actividad === "rubrica_directa" ? `<button class="btn secondary small" data-calificar-rubrica="${t.id}">🧮 Calificar</button>` : ""}
             ${esEditable(t) ? `<button class="btn secondary small" data-editar-trabajo-subtema="${t.id}">✏️ Editar</button>` : ""}
             ${t.indicador_id
@@ -5700,6 +5704,63 @@ function ligarBloqueMemoria(panel, trabajo, entregaPorEstudiante, recargar) {
   });
 }
 
+// Ciudad Contable: avance de cada estudiante en su empresa (la nota se guarda
+// sola cuando entrega; acá el docente la revisa o pone nota con lo que lleva).
+const CIUDAD_IND = [["ciudad_documentos_pct", "Comprobantes"], ["ciudad_asientos_pct", "Asientos"], ["ciudad_balanza_pct", "Diario y balanza"]];
+function pintarBloqueCiudad(trabajo, ordenados, nombrePorId, entregaPorEstudiante) {
+  const c = trabajo.contenido_actividad || {};
+  let sinEntregar = 0;
+  const pctCelda = v => v == null ? "—" : `<span style="font-weight:600; color:${v >= 85 ? "var(--success-text)" : v >= 60 ? "#9a6700" : v >= 35 ? "#b45309" : "var(--brick)"}">${Math.round(v)} %</span>`;
+  const filas = ordenados.map(id => {
+    const e = entregaPorEstudiante[id];
+    const Cd = e && e.datos_prueba && e.datos_prueba.ciudad;
+    const entregado = e && e.completado && e.puntaje != null;
+    const met = Cd && Cd.metricas;
+    if (!entregado && met) sinEntregar++;
+    const estado = entregado ? (Cd && Cd.calificado_por_docente ? "🏁 Calificado sin entregar" : "✅ Entregó") : met ? "⏳ Jugando (sin entregar)" : "— No ha entrado";
+    return `<tr><td>${escAC(nombrePorId[id] || id)}</td><td style="font-size:0.78rem;">${estado}</td><td style="font-size:0.78rem;">${Cd && Cd.empresa ? escAC(Cd.empresa) : "—"}</td>
+      ${CIUDAD_IND.map(([k]) => `<td style="text-align:center;">${pctCelda(met ? met[k] : null)}</td>`).join("")}
+      <td style="text-align:center; font-weight:700;">${entregado ? e.puntaje + "/3" : "—"}</td>
+      <td>${!entregado && met ? `<button class="btn small" type="button" data-ciudad-calificar="${escAC(id)}">Poner nota con lo que lleva</button>` : ""}</td></tr>`;
+  }).join("");
+  return `<div style="background:var(--surface-soft); border:1px solid var(--paper-line); border-radius:10px; padding:0.8rem; margin-bottom:0.8rem;">
+    <div class="row" style="align-items:center; justify-content:space-between; gap:0.5rem; margin-bottom:0.5rem;">
+      <strong>🏙️ Ciudad Contable <span style="font-weight:400; color:var(--text-muted); font-size:0.8rem;">· meta: ${Number(c.ciudad_meta_docs) || 5} comprobantes por estudiante</span></strong>
+      <a class="btn small" href="ciudad-contable.html?trabajo=${trabajo.id}&docente=1">🏙️ Ciudad y evaluación</a>
+    </div>
+    <p style="font-size:0.78rem; color:var(--text-muted); margin:0 0 0.5rem;">Comprobantes = emitidos frente a la meta · Asientos = correctos al primer intento · Diario y balanza = documentos registrados, con la balanza cuadrada. La nota se guarda sola cuando el estudiante entrega: 85 % o más = 3 · 60–84 % = 2 · 35–59 % = 1 por indicador.</p>
+    ${sinEntregar ? `<div class="row" style="gap:0.5rem; align-items:center; margin-bottom:0.5rem;"><button class="btn small" type="button" data-ciudad-calificar-todos>📥 Poner nota con lo que llevan a los ${sinEntregar} que no entregaron</button></div>` : ""}
+    <span data-ciudad-estado style="font-size:0.8rem; color:var(--text-muted);"></span>
+    <div style="overflow-x:auto;"><table class="grades" style="font-size:0.82rem;"><thead><tr><th>Estudiante</th><th>Estado</th><th>Empresa</th>${CIUDAD_IND.map(([, t]) => `<th>${t}</th>`).join("")}<th>Nota</th><th></th></tr></thead><tbody>${filas}</tbody></table></div>
+  </div>`;
+}
+function ligarBloqueCiudad(panel, trabajo, entregaPorEstudiante, recargar) {
+  const criterios = (trabajo.contenido_actividad && trabajo.contenido_actividad.criterios) || [];
+  const estado = t => { const e = panel.querySelector("[data-ciudad-estado]"); if (e) e.textContent = t; };
+  const calificarUno = async id => {
+    const e = entregaPorEstudiante[id];
+    const Cd = (e && e.datos_prueba && e.datos_prueba.ciudad) || {};
+    if (!Cd.metricas) return false;
+    const nota = memoriaNotaDesdeMetricas(criterios, Cd.metricas, []);
+    const { error } = await guardarNotaManualActividad(trabajo, id, nota.puntaje, { respuestas: nota.puntos, porcentaje: nota.porcentaje, datos_prueba: { ...(e.datos_prueba || {}), ciudad: { ...Cd, en_curso: false, calificado_por_docente: true, entregado_en: new Date().toISOString() } } });
+    if (error) throw new Error(error);
+    return true;
+  };
+  panel.querySelectorAll("[data-ciudad-calificar]").forEach(b => b.addEventListener("click", async () => {
+    b.disabled = true; estado("Guardando nota…");
+    try { await calificarUno(b.dataset.ciudadCalificar); recargar(); } catch (err) { b.disabled = false; estado("No se pudo guardar: " + (err.message || err)); }
+  }));
+  const todos = panel.querySelector("[data-ciudad-calificar-todos]");
+  if (todos) todos.addEventListener("click", async () => {
+    if (!confirm("¿Poner la nota con lo que llevan a todos los que no entregaron?")) return;
+    todos.disabled = true;
+    const ids = [...panel.querySelectorAll("[data-ciudad-calificar]")].map(b => b.dataset.ciudadCalificar);
+    let n = 0;
+    for (const id of ids) { estado(`Guardando notas… ${++n}/${ids.length}`); try { await calificarUno(id); } catch (err) { estado("Error con un estudiante: " + (err.message || err)); } }
+    recargar();
+  });
+}
+
 // Liquidación laboral: avance y nota de cada estudiante por parte.
 const LIQ_PARTES_NOMBRE = { salario: "Salario", preaviso: "Preaviso", cesantia: "Cesantía", vacaciones: "Vacaciones", aguinaldo: "Aguinaldo", asiento: "Asiento" };
 function pintarBloqueLiquidacion(trabajo, ordenados, nombrePorId, entregaPorEstudiante) {
@@ -5781,6 +5842,24 @@ function memoriaInyectarBotones(holder, trabajos) {
         if (!(t.contenido_actividad || {}).liq_caso && !(t.contenido_actividad || {}).liq_practica) { const av = document.createElement("div"); av.style.cssText = "font-size:0.78rem; margin-top:0.2rem; color:var(--brick);"; av.textContent = "⚠️ Todavía no tiene caso: póngalo en «Caso de liquidación» antes de aplicarlo."; destino.appendChild(av); }
       }
     });
+    (trabajos || []).filter(t => t.contenido_actividad && t.contenido_actividad.estrategia === "ciudad_contable").forEach(t => {
+      const fila = holder.querySelector(`[data-fila-trabajo="${t.id}"]`);
+      const destino = fila && (fila.firstElementChild || fila);
+      if (!destino || destino.querySelector("[data-ciudad-jugar]")) return;
+      const esDocente = session && session.role !== "estudiante";
+      const a = document.createElement("a");
+      a.className = "btn small"; a.dataset.ciudadJugar = t.id;
+      a.href = `ciudad-contable.html?trabajo=${t.id}&est=${encodeURIComponent(session && session.id || "")}`;
+      a.style.cssText = "margin-top:0.3rem; align-self:flex-start;";
+      a.textContent = esDocente ? "▶ Probar la ciudad (vista del docente, no guarda nota)" : "🏙️ Entrar a la Ciudad Contable";
+      destino.appendChild(a);
+      if (esDocente) {
+        const b = document.createElement("a");
+        b.className = "btn secondary small"; b.href = `ciudad-contable.html?trabajo=${t.id}&docente=1`;
+        b.style.cssText = "margin-top:0.3rem; align-self:flex-start;"; b.textContent = "🏙️ Ciudad y evaluación (docente)";
+        destino.appendChild(b);
+      }
+    });
     (trabajos || []).filter(t => t.contenido_actividad && t.contenido_actividad.estrategia === "juego_memoria").forEach(t => {
       const fila = holder.querySelector(`[data-fila-trabajo="${t.id}"]`);
       const destino = fila && (fila.firstElementChild || fila);
@@ -5825,7 +5904,7 @@ async function pintarPanelCalificarRubrica(panel, trabajo, materiaId) {
   const entregaPorEstudiante = {};
   (entregas || []).forEach(e => { entregaPorEstudiante[e.estudiante_id] = e; });
 
-  const esTiraderaTrabajo = trabajo.contenido_actividad && ["juego_tiradera", "juego_memoria", "liquidacion_laboral", "mision_seguros", "ruta_laboral"].includes(trabajo.contenido_actividad.estrategia);
+  const esTiraderaTrabajo = trabajo.contenido_actividad && ["juego_tiradera", "juego_memoria", "liquidacion_laboral", "mision_seguros", "ruta_laboral", "ciudad_contable"].includes(trabajo.contenido_actividad.estrategia);
   // En La Tiradera, los indicadores "a mano" se califican por nivel de desempeño (formato MEP).
   const campoCriterio = (estId, c, i, valor) => {
     if (esTiraderaTrabajo && !c.auto) {
@@ -5861,10 +5940,12 @@ async function pintarPanelCalificarRubrica(panel, trabajo, materiaId) {
   const esTiradera = trabajo.contenido_actividad && trabajo.contenido_actividad.estrategia === "juego_tiradera";
   const esMemoria = trabajo.contenido_actividad && trabajo.contenido_actividad.estrategia === "juego_memoria";
   const esLiquidacion = trabajo.contenido_actividad && trabajo.contenido_actividad.estrategia === "liquidacion_laboral";
+  const esCiudad = trabajo.contenido_actividad && trabajo.contenido_actividad.estrategia === "ciudad_contable";
   panel.innerHTML = `
     ${esTiradera ? `<div data-tiradera-bloque style="margin-bottom:0.8rem;"></div>` : ""}
     ${esMemoria ? pintarBloqueMemoria(trabajo, ordenados, nombrePorId, entregaPorEstudiante) : ""}
     ${esLiquidacion ? pintarBloqueLiquidacion(trabajo, ordenados, nombrePorId, entregaPorEstudiante) : ""}
+    ${esCiudad ? pintarBloqueCiudad(trabajo, ordenados, nombrePorId, entregaPorEstudiante) : ""}
     <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.5rem;">Ponele puntos a cada criterio por estudiante (podés dejar algunos sin calificar y volver después). La nota 0-3 se calcula sola según el % del total de puntos.</p>
     <div>${ordenados.map(filaEstudiante).join("")}</div>`;
   if (esTiradera) {
@@ -5873,6 +5954,7 @@ async function pintarPanelCalificarRubrica(panel, trabajo, materiaId) {
   }
   if (esMemoria) ligarBloqueMemoria(panel, trabajo, entregaPorEstudiante, () => pintarPanelCalificarRubrica(panel, trabajo, materiaId));
   if (esLiquidacion) ligarBloqueLiquidacion(panel, trabajo, entregaPorEstudiante, () => pintarPanelCalificarRubrica(panel, trabajo, materiaId));
+  if (esCiudad) ligarBloqueCiudad(panel, trabajo, entregaPorEstudiante, () => pintarPanelCalificarRubrica(panel, trabajo, materiaId));
 
   panel.querySelectorAll("[data-guardar-rubrica]").forEach(btn => {
     btn.addEventListener("click", async () => {
@@ -10363,7 +10445,7 @@ const DOC_DEF_EXT_OK = /\.(pdf|docx?|xlsx?|pptx?|txt|csv|odt|ods|odp|jpe?g|png|w
 async function agregarDocumentoDefinitivo(holder, trabajos, estudianteId, prefijo) {
   prefijo = prefijo || "";
   // Los juegos (Memoria Contable, La Tiradera) no llevan documento para adjuntar.
-  trabajos = (trabajos || []).filter(t => !(t.contenido_actividad && ["juego_memoria", "juego_tiradera", "liquidacion_laboral", "mision_seguros", "ruta_laboral"].includes(t.contenido_actividad.estrategia)));
+  trabajos = (trabajos || []).filter(t => !(t.contenido_actividad && ["juego_memoria", "juego_tiradera", "liquidacion_laboral", "mision_seguros", "ruta_laboral", "ciudad_contable"].includes(t.contenido_actividad.estrategia)));
   if (!trabajos.length) return;
   if (!session) { const d = document.createElement("div"); d.textContent = "⚠️ Sin sesión para adjuntar documento."; holder && holder.appendChild(d); return; }
   try {
@@ -10632,7 +10714,7 @@ async function enlacesTrabajosIndicadores(indicadores, estudiantes) {
   trabajos.forEach(t => indsDe(t).forEach(indT => {
     const est = (t.contenido_actividad || {}).estrategia;
     if (!infoDe[indT]) infoDe[indT] = { tc: t };
-    if (!trabajoDe[indT]) trabajoDe[indT] = `${({ liquidacion_laboral: "📑 Liquidación", mision_seguros: "🛡️ Misión Seguros", ruta_laboral: "⚖️ Ruta Laboral", juego_memoria: "🧠 Memoria Contable", juego_tiradera: "⚡ La Tiradera" })[est] || ("📝 " + (NOMBRES_ACTIVIDAD[t.tipo_actividad] || "Trabajo"))} · ${t.titulo || ""}`;
+    if (!trabajoDe[indT]) trabajoDe[indT] = `${({ liquidacion_laboral: "📑 Liquidación", mision_seguros: "🛡️ Misión Seguros", ruta_laboral: "⚖️ Ruta Laboral", juego_memoria: "🧠 Memoria Contable", juego_tiradera: "⚡ La Tiradera", ciudad_contable: "🏙️ Ciudad Contable" })[est] || ("📝 " + (NOMBRES_ACTIVIDAD[t.tipo_actividad] || "Trabajo"))} · ${t.titulo || ""}`;
     estIds.forEach(e => {
       const h = !!hechos[`${e}-${t.id}`], q = encodeURIComponent(e);
       let href = null, titulo = t.titulo || "Trabajo", ext = false;
@@ -10640,6 +10722,7 @@ async function enlacesTrabajosIndicadores(indicadores, estudiantes) {
       else if (est === "mision_seguros") { href = `seguros.html#/a/${t.id}/e/${q}`; ext = true; titulo = "Misión Seguros · " + titulo; }
       else if (est === "ruta_laboral") { href = `laboral.html#/a/${t.id}/e/${q}`; ext = true; titulo = "Ruta Laboral · " + titulo; }
       else if (est === "juego_memoria") { href = `memoria.html?trabajo=${t.id}&est=${q}&docente=1`; ext = true; titulo = "Memoria Contable · " + titulo; }
+      else if (est === "ciudad_contable") { href = `ciudad-contable.html?trabajo=${t.id}&est=${q}&docente=1`; ext = true; titulo = "Ciudad Contable · " + titulo; }
       else if (t.subtema_id) href = `#/subtema/${t.subtema_id}`;
       else if (t.publicacion_id) href = `#/apartado/${t.publicacion_id}`;
       if (href) poner(e, indT, { href, titulo, hecho: h, ext });

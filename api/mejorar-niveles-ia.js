@@ -24,7 +24,10 @@ const UMBRALES = {
   memoria_dominio_pct: "85 % o más (Avanzado), 60–84 % (Intermedio), 35–59 % (Inicial) de los conceptos escritos bien al primer intento",
   memoria_precision_pct: "85 % o más (Avanzado), 60–84 % (Intermedio), 35–59 % (Inicial) de respuestas correctas",
   memoria_autonomia_pct: "85 % o más (Avanzado), 60–84 % (Intermedio), 35–59 % (Inicial) de las cartas resueltas sin pistas",
-  memoria_rapidez_pct: "12 s o menos por carta en promedio (Avanzado), 13–20 s (Intermedio), 21–30 s (Inicial)"
+  memoria_rapidez_pct: "12 s o menos por carta en promedio (Avanzado), 13–20 s (Intermedio), 21–30 s (Inicial)",
+  ciudad_documentos_pct: "85 % o más (Avanzado), 60–84 % (Intermedio), 35–59 % (Inicial) de los comprobantes electrónicos solicitados que emite",
+  ciudad_asientos_pct: "85 % o más (Avanzado), 60–84 % (Intermedio), 35–59 % (Inicial) de los asientos de sus documentos correctos al primer intento",
+  ciudad_balanza_pct: "85 % o más (Avanzado), 60–84 % (Intermedio), 35–59 % (Inicial) de los documentos registrados en el diario con la balanza cuadrada (si no cuadra, como máximo Inicial)"
 };
 
 function extraerJson(texto) {

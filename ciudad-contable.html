@@ -165,6 +165,13 @@ body.dentro #volver-plataforma{display:none!important}
 .bandera{animation:ondea 1.6s ease-in-out infinite;transform-box:fill-box;transform-origin:left center}
 @keyframes ondea{50%{transform:skewY(-6deg) scaleX(.94)}}
 @media (prefers-reduced-motion: reduce){.humo circle,.sem-r,.sem-v,.bandera{animation:none}}
+/* ── Barra de la actividad evaluada ── */
+.act-bar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#fff8db,#fff);border:2px solid #ffd43b;border-radius:14px;padding:10px 14px;margin-bottom:10px;color:#14213d}
+.act-bar small{display:block;color:#5b6b80;font-size:.82rem}
+.ab-chips{display:flex;flex-wrap:wrap;gap:6px}.ab-c{background:#f1f3f5;border-radius:999px;padding:4px 10px;font-size:.8rem;font-weight:700}
+.ab-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.ab-ok{background:#e5f6ec;color:#1f8f55;font-weight:800;border-radius:999px;padding:6px 12px}
+.ins table.tir-ins{width:100%;border-collapse:collapse;font-size:.82rem}.ins table.tir-ins th,.ins table.tir-ins td{border:1px solid #cbd5e1;padding:6px;vertical-align:top;text-align:left}
+dialog textarea{width:100%;font:inherit;font-size:.84rem;padding:7px;border:1px solid var(--line);border-radius:9px}
 /* ── Vida y acabado ── */
 .ola{stroke:#a5d8ff;stroke-width:2;stroke-dasharray:18 26;opacity:.8;animation:ola 3.8s linear infinite}
 @keyframes ola{to{stroke-dashoffset:-88}}
@@ -278,9 +285,9 @@ select,input{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--lin
 <body>
 <header>
   <img src="img/logo-ctp-mercedes-norte.png" alt="Escudo del CTP Mercedes Norte" width="38" height="54">
-  <div><h1>🏙️ Ciudad Contable <span class="pill">Prototipo 2027 · solo profe</span></h1>
+  <div><h1>🏙️ Ciudad Contable <span class="pill" id="pill">Prototipo 2027 · solo profe</span></h1>
     <p class="sub">Empresas de estudiantes y de la IA que compran y venden con documentos comerciales</p></div>
-  <div class="hdr-btns"><button class="ghost" id="reiniciar" type="button">↺ Reiniciar ciudad</button><a class="btn sec" href="index.html#/2027">← 2027</a></div>
+  <div class="hdr-btns"><button class="ghost" id="reiniciar" type="button">↺ Reiniciar ciudad</button><a class="btn sec" id="volver2027" href="index.html#/2027">← 2027</a></div>
 </header>
 <main id="app"><p class="muted">Cargando…</p></main>
 <div id="inicio" class="inicio" hidden><div class="ini-caja"><img src="img/logo-ctp-mercedes-norte.png" alt="" width="64" height="91">
@@ -290,6 +297,9 @@ select,input{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--lin
 <div id="interior" class="interior" hidden role="region" aria-label="Interior de la empresa"></div>
 <div id="iris" class="iris" aria-hidden="true"></div>
 <dialog id="dlg"><div class="dlg" id="dlgBody"></div></dialog>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js?v=20261105h"></script>
+<script src="js/actividades.js?v=20261113c"></script>
 <script src="js/ciudad-catalogos.js?v=20261113a"></script>
 
 <script>
@@ -348,11 +358,19 @@ function ciudadInicial(){
   return C;
 }
 const TIPO={com:["Comercial","com"],ser:["Servicios","ser"],ia:["Empresa de la IA","ia"]};
-const KEY="ciudad_contable_proto_v3";
+/* Actividad evaluada (formato MEP): la ciudad se abre desde un trabajo de la plataforma
+   (estrategia «ciudad_contable»).  ?trabajo=ID            → el estudiante juega y entrega (nota sola)
+                                     ?trabajo=ID&docente=1 → el docente edita la evaluación y prueba la ciudad
+                                     ?trabajo=ID&est=X&docente=1 → el docente revisa la ciudad de un estudiante (solo lectura) */
+const QS=new URLSearchParams(location.search),TRABAJO_ID=Number(QS.get("trabajo"))||null;
+const EST_ID=(SES&&SES.role==="estudiante"&&SES.id)||QS.get("est")||null;
+const MODO_ACT=!TRABAJO_ID?null:(QS.get("docente")==="1"&&DOCENTE)?(QS.get("est")?"ver":"docente"):(SES&&SES.role==="estudiante")?"estudiante":DOCENTE?"prueba":"nadie";
+const ACT={t:null,entrega:null,bloq:false,listo:!TRABAJO_ID,error:null,nombre:""};
+const KEY=TRABAJO_ID?`ciudad_t${TRABAJO_ID}_${MODO_ACT==="estudiante"?EST_ID:MODO_ACT}`:"ciudad_contable_proto_v3";
 let S=null; try{S=JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){S=null}
 if(!S||S.version!==3)S=ciudadInicial();
 S.estudiantes.forEach(x=>{if(x.emp)x.rol=ROL_ACTUAL});
-const guardar=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const guardar=()=>{if(MODO_ACT==="ver")return;S.guardado_en=new Date().toISOString();try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}sincronizar()};
 const emp=id=>S.empresas.find(e=>e.id===id);
 const lleva=e=>e&&e.tipo!=="ia";   // las empresas de la IA no llevan contabilidad en el juego
 const miembros=id=>S.estudiantes.filter(x=>x.emp===id);
@@ -441,8 +459,8 @@ const FASES=["🌅 Amanecer","☀️ Día","🌇 Atardecer","🌙 Noche"],TINTES
 let CICLO=(()=>{try{return localStorage.getItem("ciudad_ciclo")!=="0"}catch(e){return true}})(),FASE=1,FASE_T=0;const FASE_DUR=40;
 let NOCHE=(()=>{try{const v=localStorage.getItem("ciudad_noche");return v===null?true:v==="1"}catch(e){return true}})();
 FASE=NOCHE?3:1;
-function mezclar(hex,con,t){const a=parseInt(hex.slice(1),16),b=parseInt(con.slice(1),16),m=k=>Math.round(((a>>k)&255)*(1-t)+((b>>k)&255)*t);return "#"+[16,8,0].map(k=>m(k).toString(16).padStart(2,"0")).join("")}
-const noct=c=>NOCHE&&/^#[0-9a-f]{6}$/i.test(c)?mezclar(c,"#1b1f4a",.42):c;
+function mezclarColor(hex,con,t){const a=parseInt(hex.slice(1),16),b=parseInt(con.slice(1),16),m=k=>Math.round(((a>>k)&255)*(1-t)+((b>>k)&255)*t);return "#"+[16,8,0].map(k=>m(k).toString(16).padStart(2,"0")).join("")}
+const noct=c=>NOCHE&&/^#[0-9a-f]{6}$/i.test(c)?mezclarColor(c,"#1b1f4a",.42):c;
 /* De noche, el suelo y la vegetación cambian a tonos de crepúsculo */
 const PAL_NOCHE={"#82c45a":"#2f5a3e","#69b34c":"#2c5338","#5a9e3f":"#24452f","#4b5260":"#20242f","#dfe5ec":"#465068","#e9dcc0":"#5f5677","#f8d548":"#b8952a",
   "#2b8a3e":"#1d5a37","#51cf66":"#2f8f5a","#868e96":"#384056","#40a02b":"#2b6b2a","#8a5f37":"#3d2a22","#6b4a2b":"#2c1e18","#4dabf7":"#4c8fd6","#adb5bd":"#5b6378","#5c7cfa":"#4c5fc4","#fab005":"#c98a04"};
@@ -1027,9 +1045,12 @@ function ligarControles(){
   document.querySelectorAll("[data-col]").forEach(b=>b.onclick=()=>{AV.col=b.dataset.col;try{localStorage.setItem("ciudad_av_col",AV.col)}catch(e){}const c=document.getElementById("av-cu");if(c)c.setAttribute("fill",AV.col);document.querySelectorAll("[data-col]").forEach(x=>x.setAttribute("aria-pressed",x===b))});
 }
 function pintar(){
-  if(!DOCENTE){$("#app").innerHTML=`<div class="card" style="grid-column:1/-1"><h2>Solo para el profe</h2><p class="muted">Este prototipo se abre desde la plataforma, en <b>📅 2027</b>, con la sesión del docente.</p><a class="btn" href="index.html">Ir a la plataforma</a></div>`;return}
+  if(TRABAJO_ID&&!ACT.listo){$("#app").innerHTML=`<p class="muted">Cargando la actividad…</p>`;return}
+  if(ACT.error){$("#app").innerHTML=`<div class="card" style="grid-column:1/-1"><h2>🏙️ Ciudad Contable</h2><p>${esc(ACT.error)}</p><a class="btn" href="index.html">Ir a la plataforma</a></div>`;return}
+  if(MODO_ACT==="nadie"){$("#app").innerHTML=`<div class="card" style="grid-column:1/-1"><h2>Iniciá sesión</h2><p class="muted">Entrá a la plataforma con tu cédula y abrí la Ciudad Contable desde tu tema.</p><a class="btn" href="index.html">Ir a la plataforma</a></div>`;return}
+  if(!DOCENTE&&MODO_ACT!=="estudiante"){$("#app").innerHTML=`<div class="card" style="grid-column:1/-1"><h2>Solo para el profe</h2><p class="muted">Este prototipo se abre desde la plataforma, en <b>📅 2027</b>, con la sesión del docente.</p><a class="btn" href="index.html">Ir a la plataforma</a></div>`;return}
   const nEst=S.empresas.filter(e=>e.tipo!=="ia").length,nIA=S.empresas.filter(e=>e.tipo==="ia").length,yo=YO(),mia=yo.emp&&emp(yo.emp);
-  $("#app").innerHTML=`<section class="card juego">
+  $("#app").innerHTML=`<section class="card juego">${barraActividad()}
       <div class="hud"><span class="hud-t">🏙️ Ciudad de la 10-1</span><span class="hud-c">📅 Día 1</span><span class="hud-c" id="hudFase">${FASES[FASE]}</span><span class="hud-c">🧑‍🎓 ${S.estudiantes.length} estudiantes</span><span class="hud-c">🏢 ${nEst} empresas de estudiantes</span><span class="hud-c">🤖 ${nIA} de la IA</span><span class="hud-c">🧾 ${S.docs.length} documentos</span>
         <button type="button" class="hud-b" id="elegir">${mia?`${mia.ico} Tu empresa: ${esc(corto(mia.nombre))} · ${esc(yo.rol)}`:"🧑‍🎓 Escoger mi empresa"}</button></div>
       <div class="mapa-wrap">${mapaHTML()}${controlesHTML()}</div>
@@ -1039,9 +1060,106 @@ function pintar(){
   $("svg.mapa").addEventListener("click",ev=>{if(ARRASTRO||MODO==="cine"||ev.target.closest("[data-emp]"))return;if(ev.target.closest("#promptMundo")){entrar();return}const [mx,my]=aMapa($("svg.mapa"),ev.clientX,ev.clientY),[wx,wy]=aMundo(mx,my);
     if(wx<-20||wy<-20||wx>MW+20||wy>MH+20)return;irA(wx,wy)});
   if(!NAV.ok)navConstruir();ponerRuta();CERCA=null;
-  $("#elegir").onclick=()=>{sonar("clic");elegirEmpresa()};
+  $("#elegir").onclick=()=>{if(MODO_ACT==="ver"||ACT.bloq){aviso("La empresa ya no se puede cambiar");return}sonar("clic");elegirEmpresa()};ligarBarra();
   ligarControles();ligarCamara();ZONA=null;if(CAM)$("svg.mapa").setAttribute("viewBox",CAM.join(" "));
   if(INT)renderInterior();
+}
+
+/* ═══════════ Actividad evaluada en formato MEP ═══════════
+   Indicadores automáticos (85 % o más = 3 · 60–84 % = 2 · 35–59 % = 1 · menos = 0):
+   · ciudad_documentos_pct: comprobantes que emitió su empresa frente a la meta del docente.
+   · ciudad_asientos_pct:   asientos de los documentos de su empresa correctos al primer intento.
+   · ciudad_balanza_pct:    documentos registrados en el diario; si la balanza no cuadra, como máximo Inicial. */
+const NIVEL_NOM=["Sin evidencia","Inicial","Intermedio","Avanzado"];
+const nivelDe=p=>p==null?0:p>=85?3:p>=60?2:p>=35?1:0;
+const metaDocs=()=>Math.max(1,Math.round(+((ACT.t&&ACT.t.contenido_actividad&&ACT.t.contenido_actividad.ciudad_meta_docs)||5)));
+const criteriosAct=()=>(ACT.t&&ACT.t.contenido_actividad&&ACT.t.contenido_actividad.criterios&&ACT.t.contenido_actividad.criterios.length?ACT.t.contenido_actividad.criterios:(typeof ESTRATEGIAS_EVALUACION!=="undefined"?ESTRATEGIAS_EVALUACION.ciudad_contable.criterios:[]));
+function cuadraBalanza(id){const B=balanza(id),s=k=>r2(B.reduce((t,x)=>t+x[k],0));return Math.abs(s("d")-s("h"))<.01&&Math.abs(s("sd")-s("sa"))<.01}
+function metricasCiudad(){const yo=YO(),e=yo.emp&&emp(yo.emp);if(!e)return null;
+  const docs=docsDe(e.id),D=diarioDe(e.id),P=S.primeros||{},n=docs.length,pc=x=>Math.round(x*10)/10;
+  const emit=S.docs.filter(d=>d.emisor===e.id).length,bien=docs.filter(d=>P[e.id+"|"+d.id]===true).length,reg=docs.filter(d=>D.some(a=>a.docId===d.id)).length;
+  const regPct=n?100*reg/n:0;
+  return {ciudad_documentos_pct:pc(Math.min(100,100*emit/metaDocs())),ciudad_asientos_pct:pc(n?100*bien/n:0),ciudad_balanza_pct:pc(cuadraBalanza(e.id)?regPct:Math.min(regPct,59)),
+    emitidos:emit,documentos:n,primer_intento:bien,registrados:reg,cuadra:cuadraBalanza(e.id)}}
+let tSync=null;
+function sincronizar(ya){if(MODO_ACT!=="estudiante"||ACT.bloq||!ACT.t||!EST_ID||!ACT.listo||typeof upsertSinConflicto!=="function")return;clearTimeout(tSync);
+  tSync=setTimeout(async()=>{try{const e=YO().emp&&emp(YO().emp),ahora=new Date().toISOString();
+    await upsertSinConflicto("actividades_estudiante",{trabajo_id:ACT.t.id,estudiante_id:EST_ID},{datos_prueba:{ciudad:{estado:S,metricas:metricasCiudad(),empresa:e?e.nombre:null,en_curso:true,guardado_en:ahora}},actualizado_en:ahora})}catch(err){console.warn("ciudad sync",err)}},ya?0:2500)}
+async function cargarActividad(){
+  try{
+    if(typeof sb==="undefined")throw new Error("No se pudo conectar con la plataforma. Revise el internet y recargue.");
+    const {data:t,error}=await sb.from("trabajos_cotidianos").select("*").eq("id",TRABAJO_ID).maybeSingle();if(error)throw error;
+    if(!t||!t.contenido_actividad||t.contenido_actividad.estrategia!=="ciudad_contable")throw new Error("No se encontró esta actividad de la Ciudad Contable.");
+    ACT.t=t;
+    if(MODO_ACT==="estudiante"||MODO_ACT==="ver"){
+      if(MODO_ACT==="estudiante"&&t.habilitado===false)throw new Error("El profe todavía no ha habilitado esta actividad. Volvé a intentarlo más tarde.");
+      const {data:en}=await sb.from("actividades_estudiante").select("*").eq("trabajo_id",t.id).eq("estudiante_id",EST_ID).maybeSingle();
+      ACT.entrega=en||null;ACT.bloq=!!(en&&en.completado);const R=en&&en.datos_prueba&&en.datos_prueba.ciudad;
+      if(MODO_ACT==="ver"){if(!R||!R.estado)throw new Error("Este estudiante todavía no ha entrado a la ciudad.");S=R.estado;
+        const {data:es}=await sb.from("estudiantes").select("nombre, apellido1, apellido2").eq("id",EST_ID).maybeSingle();ACT.nombre=es?[es.nombre,es.apellido1,es.apellido2].filter(Boolean).join(" "):String(EST_ID)}
+      else if(R&&R.estado&&R.estado.version===3&&(!S.guardado_en||(R.estado.guardado_en||R.guardado_en||"")>S.guardado_en))S=R.estado;
+      S.estudiantes.forEach(x=>{if(x.emp)x.rol=ROL_ACTUAL});
+    }
+  }catch(e){ACT.error=e.message||String(e)}
+  ACT.listo=true;iniciarNPCS();pintar();
+}
+function barraActividad(){if(!TRABAJO_ID||!ACT.t)return "";const T=esc(ACT.t.titulo||"Ciudad Contable"),m=metricasCiudad(),meta=metaDocs();
+  const chips=m?`<span class="ab-c">🧾 ${m.emitidos}/${meta} comprobantes</span><span class="ab-c">✍️ ${m.primer_intento}/${m.documentos} asientos al 1.er intento</span><span class="ab-c">${m.cuadra?"⚖️ Balanza cuadrada":"⚠️ Balanza sin cuadrar"} · ${m.registrados}/${m.documentos} registrados</span>`:`<span class="ab-c">🧑‍🎓 Primero escogé tu empresa</span>`;
+  if(MODO_ACT==="estudiante")return `<div class="act-bar"><div><b>📝 ${T}</b><small>Meta: emitir ${meta} comprobantes, registrar el asiento de cada documento y cuadrar la balanza.</small></div><div class="ab-chips">${chips}</div><div class="ab-btns"><button type="button" class="sec" id="abVer">📋 Cómo me evalúan</button>${ACT.bloq?`<span class="ab-ok">✅ Entregado${ACT.entrega&&ACT.entrega.puntaje!=null?` · nota ${ACT.entrega.puntaje}/3`:""}</span>`:`<button type="button" id="abEntregar">📤 Entregar al profe</button>`}</div></div>`;
+  if(MODO_ACT==="ver")return `<div class="act-bar"><div><b>👁️ Ciudad de ${esc(ACT.nombre)}</b><small>${T} · solo lectura: lo que cambie aquí no se guarda.${ACT.entrega&&ACT.entrega.completado?` Entregó · nota ${ACT.entrega.puntaje}/3.`:" Todavía no entrega."}</small></div><div class="ab-chips">${chips}</div><div class="ab-btns"><button type="button" class="sec" id="abVer">📋 Instrumento</button></div></div>`;
+  return `<div class="act-bar"><div><b>🏙️ ${T}</b><small>${MODO_ACT==="docente"?"Evaluación de la actividad (formato MEP). Puede probar la ciudad aquí: no guarda notas.":"Vista de prueba del docente: no guarda nota."}</small></div><div class="ab-chips">${chips}</div><div class="ab-btns"><button type="button" class="sec" id="abVer">👁️ Instrumento</button>${MODO_ACT==="docente"?`<button type="button" id="abEditar">📋 Evaluación (MEP)</button>`:""}</div></div>`}
+function ligarBarra(){const v=$("#abVer");if(v)v.onclick=verInstrumento;const en=$("#abEntregar");if(en)en.onclick=entregarCiudad;const ed=$("#abEditar");if(ed)ed.onclick=editarEvaluacion}
+const INS_BASE=()=>({componente:"Trabajo cotidiano",tipo:"Escala de desempeño",subarea:"Gestión contable",unidad:(ACT.t&&ACT.t.titulo)||"Ciudad Contable",resultado:"",indicador:""});
+function verInstrumento(){if(typeof tiraderaInstrumentoHTML!=="function")return;const C=ACT.t.contenido_actividad||{};
+  const html=tiraderaInstrumentoHTML(ACT.t.titulo||"Ciudad Contable",criteriosAct(),{...INS_BASE(),...(C.ciudad_instrumento||{})}).replace(/Se califica con el registro del juego\./g,"Se califica sola con lo que hizo en su empresa.").replace(/Los indicadores automáticos usan el registro de la partida:[^<]*/,`Cada indicador se califica solo con lo que hizo en su empresa (meta: ${metaDocs()} comprobantes): 85 % o más = 3 · 60–84 % = 2 · 35–59 % = 1 · menos de 35 % = 0.`);
+  abrir(`<div class="dlg-hd"><span style="font-size:1.6rem">📋</span><h2>Instrumento de evaluación</h2><button type="button" class="sec" id="imp">🖨️ Imprimir</button><button type="button" class="ghost x">Cerrar ✕</button></div><div class="ins">${html}</div>`);$("#imp").onclick=()=>window.print()}
+function entregarCiudad(){const yo=YO(),e=yo.emp&&emp(yo.emp);if(!e){aviso("🧑‍🎓 Primero escogé tu empresa");return}
+  const m=metricasCiudad(),crit=criteriosAct(),nota=memoriaNotaDesdeMetricas(crit,m,[]);
+  abrir(`<div class="dlg-hd"><span style="font-size:1.6rem">📤</span><h2>¿Entregar al profe?</h2><button type="button" class="ghost x">Cerrar ✕</button></div>
+    <p class="muted" style="margin-top:0">Así va tu trabajo en <b>${esc(corto(e.nombre))}</b>:</p>
+    <div class="scroll"><table><thead><tr><th>Indicador</th><th class="r">Logro</th><th>Nivel</th></tr></thead><tbody>${crit.map((c,i)=>{const p=c.auto&&m[c.auto]!=null?m[c.auto]:null,n=c.auto?nivelDe(p):null;return `<tr><td>${esc(c.nombre)}</td><td class="r">${p==null?"—":Math.round(p)+" %"}</td><td>${n==null?"Lo califica el profe":`<b>${NIVEL_NOM[n]} (${n})</b>`}</td></tr>`}).join("")}</tbody></table></div>
+    <p>Nota estimada: <b>${nota.puntaje}/3</b> (${Math.round(nota.porcentaje)} %).</p>
+    <p class="msg bad">Después de entregar, lo que hagás en la ciudad ya no cuenta para la nota.</p><div id="eMsg"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="ghost" id="eNo">Seguir jugando</button><button type="button" id="eOk">📤 Sí, entregar</button></div>`);
+  $("#eNo").onclick=()=>$("#dlg").close();
+  $("#eOk").onclick=async ev=>{ev.target.disabled=true;$("#eMsg").innerHTML='<p class="muted">Entregando…</p>';clearTimeout(tSync);
+    try{const ahora=new Date().toISOString(),r=await guardarNotaManualActividad(ACT.t,EST_ID,nota.puntaje,{respuestas:nota.puntos,porcentaje:nota.porcentaje,datos_prueba:{ciudad:{estado:S,metricas:m,empresa:e.nombre,en_curso:false,guardado_en:ahora,entregado_en:ahora}}});
+      if(r&&r.error)throw new Error(r.error);ACT.bloq=true;ACT.entrega={completado:true,puntaje:nota.puntaje};$("#dlg").close();fuegos(`📤 ¡Entregado! Tu nota: ${nota.puntaje}/3`);pintar()}
+    catch(err){ev.target.disabled=false;$("#eMsg").innerHTML=`<div class="msg bad">No se pudo entregar: ${esc(err.message||err)}. Avisale al profe antes de salir.</div>`}};
+}
+function editarEvaluacion(){const C=ACT.t.contenido_actividad||{};let ins={...INS_BASE(),...(C.ciudad_instrumento||{})},meta=metaDocs();
+  const base=ESTRATEGIAS_EVALUACION.ciudad_contable.criterios;
+  let lista=base.map(c=>{const prev=(C.criterios||[]).find(p=>p.auto===c.auto)||c;return {nombre:prev.nombre,puntos_max:Number(prev.puntos_max)||3,auto:c.auto,niveles:tiraderaNivelesDe(prev)}});
+  const NV=[["avanzado","Avanzado (3)"],["intermedio","Intermedio (2)"],["inicial","Inicial (1)"]];
+  const leer=()=>{document.querySelectorAll("#dlgBody [data-ins]").forEach(x=>{ins[x.dataset.ins]=x.value.trim()});meta=Math.max(1,Math.round(+$("#evMeta").value||5));
+    lista=lista.map((c,i)=>{const niveles={};document.querySelectorAll(`#dlgBody [data-niv="${i}"]`).forEach(t=>{niveles[t.dataset.k]=t.value.trim()});return {...c,nombre:(document.querySelector(`#dlgBody [data-nom="${i}"]`)||{}).value||c.nombre,niveles}})};
+  const pinta=()=>{const campo=(k,et)=>`<label>${et}<input data-ins="${k}" value="${esc(ins[k]||"")}"></label>`;
+    abrir(`<div class="dlg-hd"><span style="font-size:1.6rem">📋</span><h2>Evaluación de la actividad <small class="muted">(formato MEP)</small></h2><button type="button" class="ghost x">Cerrar ✕</button></div>
+      <p class="muted" style="margin-top:0;font-size:.86rem">Escala de desempeño con indicadores de logro y la evidencia de cada nivel (Avanzado 3 · Intermedio 2 · Inicial 1; 0 sin evidencia). Cada indicador se califica solo con lo que el estudiante hizo en su empresa: 85 % o más = 3, 60–84 % = 2, 35–59 % = 1. Calificación = puntos obtenidos × 100 ÷ total.</p>
+      <div class="msg" style="background:#f3f0ff"><b>✨ Mejorar con IA</b> — redacta los indicadores y la evidencia de cada nivel según el tema y el resultado de aprendizaje. Usted revisa antes de guardar.
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"><input id="evIndic" style="flex:1 1 16rem" placeholder="Indicaciones para la IA (opcional)"><button type="button" id="evIA">✨ Mejorar todos los niveles</button></div><small class="muted" id="evIAest"></small></div>
+      <h3>Datos del instrumento</h3>
+      <div class="grid">${campo("componente","Componente")}${campo("tipo","Tipo de instrumento")}${campo("subarea","Subárea")}${campo("unidad","Unidad de estudio / tema")}</div>
+      <div class="grid" style="margin-top:8px">${campo("resultado","Resultado de aprendizaje (del programa)")}${campo("indicador","Indicador de logro (del programa)")}<label>Meta de comprobantes por estudiante<input id="evMeta" type="number" min="1" max="50" step="1" value="${meta}"></label></div>
+      <h3>Indicadores y criterios de desempeño</h3>
+      ${lista.map((c,i)=>`<div class="asiento" style="margin-bottom:8px"><label>${i+1}. Indicador <small class="muted">(se califica solo)</small><input data-nom="${i}" value="${esc(c.nombre)}"></label>
+        <div class="grid" style="margin-top:6px">${NV.map(([k,et])=>`<label>${et}<textarea data-niv="${i}" data-k="${k}" rows="3">${esc(c.niveles[k]||"")}</textarea></label>`).join("")}</div>
+        ${c.iaNota?`<div class="nota" style="color:var(--ok)">✨ ${esc(c.iaNota)}</div>`:""}</div>`).join("")}
+      <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;align-items:center;margin-top:10px"><small class="muted" id="evEst"></small><button type="button" class="sec" id="evVer">👁️ Ver instrumento</button><button type="button" id="evGuardar">💾 Guardar evaluación</button></div>`);
+    $("#evVer").onclick=()=>{leer();ACT.t.contenido_actividad={...ACT.t.contenido_actividad,criterios:lista,ciudad_instrumento:ins,ciudad_meta_docs:meta};verInstrumento()};
+    $("#evGuardar").onclick=async ev=>{leer();ev.target.disabled=true;$("#evEst").textContent="Guardando…";
+      try{const {data:act}=await sb.from("trabajos_cotidianos").select("contenido_actividad").eq("id",ACT.t.id).maybeSingle();
+        const nuevo={...((act&&act.contenido_actividad)||C),criterios:lista.map(c=>({nombre:c.nombre,puntos_max:c.puntos_max,auto:c.auto,niveles:c.niveles})),ciudad_instrumento:ins,ciudad_meta_docs:meta};
+        const {error}=await sb.from("trabajos_cotidianos").update({contenido_actividad:nuevo}).eq("id",ACT.t.id);if(error)throw error;
+        ACT.t.contenido_actividad=nuevo;$("#evEst").textContent="✓ Guardada. Los estudiantes ya la ven en «Cómo me evalúan».";pintar()}
+      catch(err){$("#evEst").textContent="No se pudo guardar: "+(err.message||err)}ev.target.disabled=false};
+    $("#evIA").onclick=async ev=>{leer();ev.target.disabled=true;$("#evIAest").textContent="✨ La IA está trabajando…";
+      try{const r=await fetch("/api/mejorar-niveles-ia",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({instrumento:ins,criterios:lista,instrucciones:$("#evIndic").value,actividad:"Ciudad Contable: cada estudiante dirige una empresa comercial o de servicios de una mini ciudad, emite comprobantes electrónicos (facturas y notas de crédito), registra los asientos de sus documentos en el libro diario y elabora la balanza de comprobación — "+(ACT.t.titulo||""),componente:ins.componente})});
+        const j=await r.json().catch(()=>({}));if(!r.ok||!Array.isArray(j.criterios))throw new Error(j.error||"Error "+r.status);
+        j.criterios.forEach(x=>{if(lista[x.i]){lista[x.i].nombre=x.nombre;lista[x.i].niveles=x.niveles;lista[x.i].iaNota=x.nota||"Redacción mejorada por la IA."}});pinta();$("#evIAest").textContent="✨ Listo: revise y toque Guardar evaluación."}
+      catch(err){ev.target.disabled=false;$("#evIAest").textContent="No se pudo mejorar con IA: "+(err.message||err)}};
+  };
+  pinta();
 }
 
 /* ═══════════ Escoger empresa (lo que verá cada estudiante) ═══════════ */
@@ -1143,7 +1261,7 @@ function editorAsiento(e,doc,previo){
     <button type="button" class="sec" id="aAdd" style="margin-top:8px">＋ Agregar línea</button>
     <div class="msg ${cuadra?"ok":"bad"}">${cuadra?"✔ Debe y haber suman igual.":td||th?`Diferencia de ${fm(Math.abs(td-th))} entre debe y haber.`:"Escriba las cuentas y los montos."}</div>
     ${doc&&verSol?`<div class="asiento"><h4>Asiento correcto (vista del profe)</h4>${tablaAsiento(agrupar(esperado(e,doc)))}</div>`:""}
-    <div id="aMsg"></div><div style="display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;margin-top:10px">${doc?`<button type="button" class="ghost" id="aSol">${verSol?"Ocultar":"👁️ Ver"} asiento correcto (profe)</button>`:"<span></span>"}<button type="button" id="aGuardar" ${cuadra?"":"disabled"}>💾 Guardar en el diario</button></div>`};
+    <div id="aMsg"></div><div style="display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;margin-top:10px">${doc&&DOCENTE?`<button type="button" class="ghost" id="aSol">${verSol?"Ocultar":"👁️ Ver"} asiento correcto (profe)</button>`:"<span></span>"}<button type="button" id="aGuardar" ${cuadra?"":"disabled"}>💾 Guardar en el diario</button></div>`};
   const leer=()=>{fecha=$("#aFecha").value;desc=$("#aDesc").value};
   const pinta=()=>{abrir(html());
     document.querySelectorAll("#dlgBody [data-a]").forEach(i=>i.onchange=()=>{leer();const l=L[+i.dataset.a],k=+i.dataset.k;l[k]=k?r2(Math.max(0,+i.value||0)):i.value;if(k===1&&l[1])l[2]=0;if(k===2&&l[2])l[1]=0;pinta()});
@@ -1154,7 +1272,7 @@ function editorAsiento(e,doc,previo){
     $("#aGuardar").onclick=()=>{leer();const lin=L.filter(l=>l[0]&&(l[1]||l[2])).map(l=>[l[0],+l[1]||0,+l[2]||0]);
       if(lin.length<2){$("#aMsg").innerHTML='<div class="msg bad">El asiento necesita al menos dos cuentas con monto.</div>';return}
       const a={id:(previo&&previo.id)||"a"+Date.now(),fecha,desc:desc||"Asiento",lineas:lin};
-      if(doc){a.docId=doc.id;const mal=revisar(lin,esperado(e,doc));a.estado=mal.length?"revisar":"correcto";a.mal=mal}
+      if(doc){a.docId=doc.id;const mal=revisar(lin,esperado(e,doc));a.estado=mal.length?"revisar":"correcto";a.mal=mal;S.primeros=S.primeros||{};const kp=e.id+"|"+doc.id;if(!(kp in S.primeros))S.primeros[kp]=a.estado==="correcto"}
       const antes=pendientes(e.id).length,D=diarioDe(e.id),k=D.findIndex(x=>x.id===a.id);if(k>=0)D[k]=a;else D.push(a);guardar();
       if(antes>0&&!pendientes(e.id).length&&diarioDe(e.id).filter(x=>x.docId).every(x=>x.estado==="correcto"))setTimeout(()=>fuegos(`🎆 ¡${corto(e.nombre)} completó todas sus misiones!`),600);
       $("#dlg").close();TAB="diario";pintar();
@@ -1256,7 +1374,7 @@ function tablaAsiento(L){
 function verDoc(id,recien,volver){
   const d=S.docs.find(x=>x.id===id),V=emp(d.emisor),C=emp(d.receptor),T=d.calc,A=asientos(d),nc=d.tipo==="NC";
   abrir(`<div class="dlg-hd no-print"><span style="font-size:1.6rem">${nc?"↩️":"🧾"}</span><h2>${nc?"Nota de crédito":"Factura"} emitida</h2><button type="button" class="sec" id="imp">🖨️ Imprimir</button><button type="button" class="ghost x">Cerrar ✕</button></div>
-    ${recien?`<div class="msg ok no-print">✅ ${nc?"Nota de crédito":"Factura"} emitida. Abajo están los asientos que le tocan a cada empresa.</div>`:""}
+    ${recien?`<div class="msg ok no-print">✅ ${nc?"Nota de crédito":"Factura"} emitida. ${DOCENTE?"Abajo están los asientos que le tocan a cada empresa.":"Ahora regístrelo en el Libro diario."}</div>`:""}
     <div class="comp"><div class="comp-hd"><div><div class="t">${nc?"NOTA DE CRÉDITO ELECTRÓNICA":"FACTURA ELECTRÓNICA"}</div><div class="water">Documento didáctico · sin validez tributaria</div></div>
       <div style="text-align:right"><div><b>Consecutivo</b> <span class="mono">${d.consecutivo}</span></div><div><b>Fecha</b> ${d.fecha}</div></div></div>
       <div class="mono" style="margin-bottom:10px"><b>Clave:</b> ${d.clave}</div>
@@ -1267,7 +1385,7 @@ function verDoc(id,recien,volver){
       <div style="overflow-x:auto"><table><thead><tr><th>Cant.</th><th>Detalle</th><th>CABYS</th><th class="r">Precio</th><th class="r">Desc.</th><th class="r">Subtotal</th><th class="r">IVA</th><th class="r">Total</th></tr></thead><tbody>
         ${T.lineas.map(l=>`<tr><td>${l.cant}</td><td>${esc(l.det)}</td><td class="mono">${esc(l.cabys)}</td><td class="r">${fm(l.precio)}</td><td class="r">${l.desc?fm(l.desc):""}</td><td class="r">${fm(l.sub)}</td><td class="r">${l.tarifa?fm(l.iva)+` <small class="muted">(${l.tarifa} %)</small>`:"Exento"}</td><td class="r">${fm(l.total)}</td></tr>`).join("")}</tbody></table></div>
       <div class="tot"><div><span>Total gravado</span><span>${fm(T.gravado)}</span></div><div><span>Total exento</span><span>${fm(T.exento)}</span></div><div><span>Total descuentos</span><span>${fm(T.desc)}</span></div><div><span>Total IVA</span><span>${fm(T.iva)}</span></div><div class="big"><span>Total del comprobante</span><span>${fm(T.total)}</span></div></div></div>
-    <h3>Asientos correctos <small class="muted">(vista del profe; el estudiante los registra en el Libro diario)</small></h3>
+    ${DOCENTE?`    <h3>Asientos correctos <small class="muted">(vista del profe; el estudiante los registra en el Libro diario)</small></h3>
     <div class="asientos">
       ${A.vendedor?`<div class="asiento"><h4>${esc(V.nombre)} · ${nc?"devolución sobre venta":"venta"}</h4>${tablaAsiento(A.vendedor.lineas)}
         ${A.vendedor.costo?`<div class="nota">Inventario perpetuo: ${nc?"vuelve al inventario":"sale del inventario"} el costo de la mercadería (${fm(A.vendedor.costoMonto)}).</div>${tablaAsiento(A.vendedor.costo)}`:""}</div>`
@@ -1276,15 +1394,16 @@ function verDoc(id,recien,volver){
         ${T.lineas.some(l=>l.clase==="flete")&&C.tipo==="com"?'<div class="nota">El flete se suma al costo del inventario (NIC 2).</div>':""}
         ${T.lineas.some(l=>l.clase.startsWith("activo"))?'<div class="nota">El activo se registra sin el IVA, que se recupera como crédito fiscal (NIC 16).</div>':""}</div>`
         :`<div class="asiento"><h4>${esc(C.nombre)}</h4><p class="muted" style="font-size:.86rem">${C.id==="clien"?"Clientes de la ciudad: no llevan contabilidad.":"Empresa de la IA: no lleva contabilidad en el juego."}</p></div>`}
-    </div>`);
+    </div>`:`<p class="muted no-print" style="font-size:.86rem">Ahora registre el asiento de este documento en el <b>Libro diario</b> de su empresa.</p>`}`);
   $("#imp").onclick=()=>window.print();
   if(volver){const b=document.createElement("button");b.type="button";b.className="sec";b.textContent="← Volver al asiento";b.onclick=volver;$("#dlgBody .dlg-hd").insertBefore(b,$("#imp"))}
 }
 
 $("#reiniciar").onclick=()=>{if(!confirm("¿Reiniciar la ciudad del prototipo? Se borran los documentos de prueba de este navegador."))return;
   try{localStorage.removeItem(KEY)}catch(e){} S=ciudadInicial();SEL="ferre";TAB="emitidos";pintar()};
+if(TRABAJO_ID){$("#pill").textContent={estudiante:"Actividad evaluada",docente:"Evaluación · docente",prueba:"Prueba del docente · no guarda nota",ver:"Revisión del docente · solo lectura",nadie:"Actividad"}[MODO_ACT];$("#volver2027").style.display="none";if(MODO_ACT==="estudiante"||MODO_ACT==="ver")$("#reiniciar").style.display="none";cargarActividad()}
 document.body.classList.toggle("noche",NOCHE);pintar();requestAnimationFrame(tick);
-(function(){let visto=false;try{visto=sessionStorage.getItem("ciudad_intro")==="1"}catch(e){}if(visto||!DOCENTE)return;const ini=$("#inicio");ini.hidden=false;MODO="intro";
+(function(){let visto=false;try{visto=sessionStorage.getItem("ciudad_intro")==="1"}catch(e){}if(visto||!(DOCENTE||MODO_ACT==="estudiante")||MODO_ACT==="ver")return;const ini=$("#inicio");ini.hidden=false;MODO="intro";
   let ang=0;const paseo=()=>{if(MODO!=="intro")return;ang+=.0025;const cx=VB[0]+VB[2]/2+Math.cos(ang)*VB[2]*.18,cy=VB[1]+VB[3]*.55+Math.sin(ang)*VB[3]*.12;OBJ=centrarEn(cx,cy,VB[2]/1.7);requestAnimationFrame(paseo)};paseo();
   $("#jugar").onclick=()=>{try{sessionStorage.setItem("ciudad_intro","1")}catch(e){}sonar("entrar");ini.classList.add("sale");setTimeout(()=>{ini.hidden=true;MODO="sigue";OBJ=centrarEn(...proj(AV.x,AV.y,40),VB[2]/2.3)},500)};$("#jugar").focus()})();
 </script>
