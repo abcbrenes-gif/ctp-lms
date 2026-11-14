@@ -146,6 +146,9 @@ table.xl tr.xl-let th{text-align:center;background:var(--surface2);font-family:v
 table.xl th.aux,table.xl td.aux{background:color-mix(in srgb,var(--m3) 6%,transparent)}
 table.xl .xl-nom{font-size:.78rem;padding:4px 6px}
 table.xl tr.xl-tot td{border-top:2px solid var(--ink)}
+.row.rcc{grid-template-columns:minmax(0,1fr) minmax(110px,190px) minmax(90px,150px) 30px}
+@media(max-width:620px){.row.rcc{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 30px}.row.rcc input{grid-column:1/3}}
+tr.subc td{font-size:.84rem;color:var(--muted);padding-left:22px}tr.subc td:first-child{padding-left:22px}
 /* T de mayor */
 .tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:12px}
 .tcard{border:2px solid var(--line);border-radius:14px;background:var(--surface);padding:10px}
@@ -235,7 +238,10 @@ const CC={ADM:"ADM – Administración",VEN:"VEN – Ventas",BOD:"BOD – Bodega
 const llevaCC=c=>/^[456]/.test(c);
 const NF2=new Intl.NumberFormat("es-CR",{minimumFractionDigits:2,maximumFractionDigits:2}),fu=n=>"$"+NF2.format(n);
 const TIPO={A:"Activo",P:"Pasivo",PT:"Patrimonio",I:"Ingreso",C:"Costo",G:"Gasto"};
-const nom=c=>c==="UR_FIN"?"Utilidades retenidas (al cierre del período)":(CTA[c]?CTA[c].n:c);
+// Subcuentas por centro de costo: 6101.01 = Gasto de salarios – Administración
+const SUF={ADM:"01",VEN:"02",BOD:"03",FIN:"04"},CC_DE_SUF={"01":"ADM","02":"VEN","03":"BOD","04":"FIN"};
+const esSub=c=>/^\d{4}\.\d{2}$/.test(c||"");
+const nom=c=>{if(c==="UR_FIN")return "Utilidades retenidas (al cierre del período)";if(esSub(c)){const [p,s2]=c.split(".");return `${CTA[p]?CTA[p].n:p} – ${(CC[CC_DE_SUF[s2]]||"").split(" – ")[1]||s2}`}return CTA[c]?CTA[c].n:c};
 
 /* ── Generador de casos ── */
 function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
@@ -268,10 +274,11 @@ function intentoCaso(seed,nivel){
   const pp=Math.round((ini["2101"]+cr)*(.35+R()*.3)/5000)*5000;add(16,`Paga a proveedores ${fm(pp)} de facturas pendientes, con transferencia bancaria.`,[["2101",pp,0],["1102",0,pp]]);
   const alq=m(250e3,450e3);add(18,`Paga el alquiler del local del mes de ${MES}: ${fm(alq)}.`,[["6102",alq,0],["1102",0,alq]]);
   let int=0,amort=0;if(nivel>=2){int=Math.round(ini["2201"]*.01/1000)*1000;amort=m(60e3,150e3);add(20,`Paga la cuota mensual del préstamo bancario: ${fm(amort+int)}, de los cuales ${fm(amort)} son amortización del principal y ${fm(int)} son intereses.`,[["2201",amort,0],["6201",int,0],["1102",0,amort+int]])}
-  const sp=m(60e3,160e3);add(22,`Paga los servicios públicos del mes (electricidad, agua e internet): ${fm(sp)}.`,[["6103",sp,0],["1102",0,sp]]);
+  // Gasto repartido entre dos centros de costo: una línea por centro (subcuentas)
+  const spA=m(40e3,100e3),spB=m(20e3,60e3);add(22,`Paga los servicios públicos del mes (electricidad, agua e internet): ${fm(spA)} de las oficinas (centro ADM – Administración) y ${fm(spB)} de la bodega (centro BOD – Bodega); en total ${fm(spA+spB)}.`,[["6103",spA,0,"ADM"],["6103",spB,0,"BOD"],["1102",0,spA+spB]]);
   if(nivel>=2){const ig=m(5e3,25e3,1000);add(24,`El banco le deposita ${fm(ig)} por intereses ganados en la cuenta de ahorros.`,[["1102",ig,0],["4201",0,ig]]);
     const dv=m(100e3,300e3,10e3);add(26,`La asamblea de socios acuerda y paga dividendos por ${fm(dv)} con transferencia bancaria.`,[["3103",dv,0],["1102",0,dv]])}
-  const sal=m(500e3,900e3,10e3);add(28,`Paga los salarios del mes al personal: ${fm(sal)} con transferencia bancaria.`,[["6101",sal,0],["1102",0,sal]]);
+  const salV=m(300e3,550e3,10e3),salA=m(200e3,400e3,10e3);add(28,`Paga los salarios del mes con transferencia bancaria: ${fm(salV)} del personal de ventas (centro VEN – Ventas) y ${fm(salA)} del personal administrativo (centro ADM – Administración); en total ${fm(salV+salA)}.`,[["6101",salV,0,"VEN"],["6101",salA,0,"ADM"],["1102",0,salV+salA]]);
   if(nivel>=2){const baseDep=ini["1201"]+(T.find(t=>t.tipo==="mob")||{lines:[[0,0]]}).lines[0][1],dep=Math.round(baseDep*.10/12/1000)*1000;
     add(31,`Ajuste: registra la depreciación del mes del mobiliario y equipo (línea recta, 10 % anual sobre ${fm(baseDep)}): ${fm(dep)}.`,[["6105",dep,0],["1202",0,dep]],"aj");
     add(31,`Ajuste: registra el seguro consumido en el mes (1 de los 12 meses pagados por adelantado): ${fm(prima/12)}.`,[["6106",prima/12,0],["1105",0,prima/12]],"aj");
@@ -284,7 +291,7 @@ function intentoCaso(seed,nivel){
     t.desc+=` Documento de respaldo: ${t.ref}.`});
   const pick=a=>a[Math.floor(RF()*a.length)];
   const CCM={"4101":"VEN","5101":"VEN","6101":pick(["ADM","VEN"]),"6102":pick(["VEN","BOD"]),"6103":"ADM","6104":"VEN","6105":"VEN","6106":"ADM","6201":"FIN","4201":"FIN"};
-  T.forEach(t=>{const rc=t.lines.map(l=>l[0]).find(c=>CCM[c]);if(rc){t.cc=CCM[rc];t.desc+=` Centro de costo: ${CC[t.cc]}.`}});
+  T.forEach(t=>{if(t.lines.some(l=>l[3])){t.multi=true;return}const rc=t.lines.map(l=>l[0]).find(c=>CCM[c]);if(rc){t.cc=CCM[rc];t.lines.forEach(l=>{if(llevaCC(l[0]))l[3]=t.cc});t.desc+=` Centro de costo: ${CC[t.cc]}.`}});
   // Validar saldos (banco e inventario nunca negativos)
   const s={...ini};for(const t of T){for(const [c,d,h] of t.lines){const a=CTA[c];s[c]=(s[c]||0)+(a.nat==="D"?d-h:h-d)}if(s["1102"]<50000||s["1104"]<0||s["2101"]<0||s["1103"]<0)return null}
   return armar(empresa,ini,T,nivel);
@@ -306,7 +313,9 @@ function armar(empresa,ini,T,nivel){
   const tot={sd:r2(bal.reduce((s,b)=>s+b.sd,0)),sh:r2(bal.reduce((s,b)=>s+b.sh,0)),ad:r2(bal.reduce((s,b)=>s+b.ad,0)),aa:r2(bal.reduce((s,b)=>s+b.aa,0))};
   const S=c=>mayor[c]?(CTA[c].nat==="D"?mayor[c].td-mayor[c].th:mayor[c].th-mayor[c].td):0;
   // Estado de resultados
-  const lista=g=>cods.filter(c=>CTA[c].g===g&&S(c)).map(c=>[c,S(c)]);
+  // subcuentas por centro de costo (cuentas de resultados)
+  const subs={};diario.forEach(a=>a.lines.forEach(([c,d,h,cc])=>{if(!cc)return;const k=c+"."+SUF[cc];subs[k]=r2((subs[k]||0)+(CTA[c].nat==="D"?d-h:h-d))}));
+  const lista=g=>Object.keys(subs).sort().filter(k=>CTA[k.slice(0,4)].g===g&&subs[k]).map(k=>[k,subs[k]]);
   const ventas=S("4101"),cv=S("5101"),ub=ventas-cv,go=lista("GO"),tgo=go.reduce((s,x)=>s+x[1],0),uo=ub-tgo,oi=lista("OI"),og=lista("OG");
   const un=uo+oi.reduce((s,x)=>s+x[1],0)-og.reduce((s,x)=>s+x[1],0);
   const ER={rows:{ing:lista("ING"),cv:lista("CV"),go,oi,og},f:{ub,tgo,uo,un}};
@@ -327,11 +336,11 @@ function armar(empresa,ini,T,nivel){
   F.var=F.fop+F.finv+F.ffin;F.ei=i0("1101")+i0("1102");F.ef=F.ei+F.var;
   if(Math.abs(F.ef-(fin("1101")+fin("1102")))>.5)console.error("El flujo no cuadra con el efectivo final",F);
   if(Math.abs(ESF.f.ta-ESF.f.tpp)>.5)console.error("El balance no cuadra",ESF.f);
-  return {empresa,nivel,ini,trans:T,diario,mayor,lm,cods,bal,tot,ER,ECP,ESF,F,datos:{aporte,div,mob,pagoPr}};
+  return {empresa,nivel,ini,trans:T,diario,mayor,lm,subs,cods,bal,tot,ER,ECP,ESF,F,datos:{aporte,div,mob,pagoPr}};
 }
 
 /* ── Estado del estudiante (en este navegador) ── */
-const KEY="taller_ciclo_contable_v2";
+const KEY="taller_ciclo_contable_v3";
 const nuevaSemilla=()=>100000+Math.floor(Math.random()*900000);
 const estadoNuevo=(seed,nivel)=>({v:1,seed,nivel,mod:"m1",m1:{sel:0,r:{}},m2:{r:{}},m3:{r:{},tot:{}},m4:{tab:"er",er:{rows:{},f:{}},ecp:{},esf:{rows:{},f:{}},fl:{}},nota:{},sol:{}});
 let ST=null;try{ST=JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){}
@@ -382,7 +391,7 @@ function opcionesCuentas(sel,incluir){const g={};CAT.forEach(a=>{(g[a.t]=g[a.t]|
 function r1(i){const r=ST.m1.r[i]||(ST.m1.r[i]={lines:[{c:"",d:"",h:""},{c:"",d:"",h:""}],int:0,ok:false,pri:null});r.hdr=r.hdr||{fc:"",fd:"",ref:"",com:"",mon:"CRC",tc:""};return r}
 const codigoDe=v=>(String(v||"").match(/^\s*(\d{4})/)||[])[1]||"";
 const fechaCR=iso=>iso?iso.slice(8,10)+"/"+iso.slice(5,7)+"/"+iso.slice(0,4):"";
-function tablaAsiento(lines,t){const me=t&&t.mon==="USD"?t.me:null;return `<div class="scroll"><table><thead><tr><th>Cta. mayor</th><th>Nombre de la cuenta</th>${t?"<th>Centro de costo</th>":""}${me?'<th class="r">Débito ME</th><th class="r">Crédito ME</th>':""}<th class="r">Débito ₡</th><th class="r">Crédito ₡</th></tr></thead><tbody>${lines.map(([c,d,h],k)=>`<tr><td class="num">${c}</td><td>${esc(nom(c))}</td>${t?`<td>${llevaCC(c)&&t.cc?t.cc:"—"}</td>`:""}${me?`<td class="r num">${me[k][1]?NF2.format(me[k][1]):""}</td><td class="r num">${me[k][2]?NF2.format(me[k][2]):""}</td>`:""}<td class="r num">${d?fn(d):""}</td><td class="r num">${h?fn(h):""}</td></tr>`).join("")}</tbody></table></div>`}
+function tablaAsiento(lines,t){const me=t&&t.mon==="USD"?t.me:null;return `<div class="scroll"><table><thead><tr><th>Cta. mayor</th><th>Nombre de la cuenta</th>${t?"<th>Centro de costo</th>":""}${me?'<th class="r">Débito ME</th><th class="r">Crédito ME</th>':""}<th class="r">Débito ₡</th><th class="r">Crédito ₡</th></tr></thead><tbody>${lines.map(([c,d,h,cc],k)=>`<tr><td class="num">${c}</td><td>${esc(nom(c))}</td>${t?`<td>${llevaCC(c)&&(cc||t.cc)?(cc||t.cc):"—"}</td>`:""}${me?`<td class="r num">${me[k][1]?NF2.format(me[k][1]):""}</td><td class="r num">${me[k][2]?NF2.format(me[k][2]):""}</td>`:""}<td class="r num">${d?fn(d):""}</td><td class="r num">${h?fn(h):""}</td></tr>`).join("")}</tbody></table></div>`}
 function pintarM1(){
   const T=CASO.trans,i=Math.min(ST.m1.sel||0,T.length-1),t=T[i],r=r1(i),H=r.hdr,res=RES["m1."+i]||{},cl=k=>res[k]===undefined?"":res[k]?"ok":"bad",USD=H.mon==="USD";
   const hechos=T.filter((_,k)=>ST.m1.r[k]&&ST.m1.r[k].ok).length,pri=T.filter((_,k)=>ST.m1.r[k]&&ST.m1.r[k].pri===true).length;
@@ -420,16 +429,18 @@ function pintarM1(){
   $("#mas").onclick=()=>{r.lines.push({c:"",d:"",h:""});guardar();pintarM1()};
   $$("[data-quitar]").forEach(b=>b.onclick=()=>{r.lines.splice(+b.dataset.quitar,1);delete RES["m1."+i];guardar();pintarM1()});
   $("#rev1").onclick=()=>{if(revisarM1(i))pintarM1()};
-  const pi=$("#pista");if(pi)pi.onclick=()=>{$("#fb1").insertAdjacentHTML("beforeend",`<div class="fb warn">💡 En este asiento intervienen ${t.lines.length} líneas con estas cuentas: ${[...new Set(t.lines.map(l=>l[0]+" "+nom(l[0])))].map(esc).join(", ")}. Recuerde: aumentos de activo, costo y gasto van al Débito; aumentos de pasivo, patrimonio e ingreso van al Crédito. La referencia es el documento de respaldo que trae la operación.${t.cc?` Las cuentas de resultados van al centro de costo ${t.cc}.`:" Esta operación no lleva centro de costo."}${t.mon==="USD"?" Está en dólares: escoja la moneda USD, anote el tipo de cambio y multiplique.":""}</div>`);pi.disabled=true};
+  const pi=$("#pista");if(pi)pi.onclick=()=>{$("#fb1").insertAdjacentHTML("beforeend",`<div class="fb warn">💡 En este asiento intervienen ${t.lines.length} líneas con estas cuentas: ${[...new Set(t.lines.map(l=>l[0]+" "+nom(l[0])))].map(esc).join(", ")}. Recuerde: aumentos de activo, costo y gasto van al Débito; aumentos de pasivo, patrimonio e ingreso van al Crédito. La referencia es el documento de respaldo que trae la operación.${t.multi?" El gasto se reparte entre dos centros de costo: use una línea para cada centro, con la misma cuenta.":t.cc?` Las cuentas de resultados van al centro de costo ${t.cc}.`:" Esta operación no lleva centro de costo."}${t.mon==="USD"?" Está en dólares: escoja la moneda USD, anote el tipo de cambio y multiplique.":""}</div>`);pi.disabled=true};
   ligarSol(pintarM1);totalesM1(i);
 }
 function totalesM1(i){const r=r1(i);let d=0,h=0;r.lines.forEach((l,j)=>{d+=montoO0(l.d)||0;h+=montoO0(l.h)||0;const nm=$("#nm"+j),c=CTA[codigoDe(l.c)];if(nm)nm.innerHTML=c?esc(c.n):(l.c?'<span style="color:var(--bad)">Cuenta no existe</span>':'<span class="muted">—</span>')});
   const a=$("#totD"),b=$("#totH"),df=$("#dif");if(!a)return;a.textContent=fn(d)||"0";b.textContent=fn(h)||"0";const dif=r2(d-h);df.innerHTML=`Diferencia <b class="num">${fn(Math.abs(dif))||"0"}</b>`;df.className="dif "+(d>0&&Math.abs(dif)<.5?"ok":dif?"bad":"")}
 function revisarM1(i){
   const t=CASO.trans[i],r=r1(i),H=r.hdr,msgs=[],res={};const exp={},stu={};
-  t.lines.forEach(([c,d,h])=>{const x=exp[c]||(exp[c]={d:0,h:0});x.d+=d;x.h+=h});
+  const K=(c,cc)=>llevaCC(c)?c+"|"+(cc||""):c,cta=k=>k.split("|")[0],lbl=k=>{const [c,cc]=k.split("|");return `${c} «${nom(c)}»${cc?` (centro ${cc})`:""}`};
+  t.lines.forEach(([c,d,h,cc])=>{const k=K(c,cc),x=exp[k]||(exp[k]={d:0,h:0});x.d+=d;x.h+=h});
+  const ctasExp=new Set(Object.keys(exp).map(cta));
   let malNum=false,sinCuenta=false,ctaMala=false;
-  r.lines.forEach((l,j)=>{const d=monto(l.d),h=monto(l.h),c=codigoDe(l.c);if(Number.isNaN(d)||Number.isNaN(h))malNum=true;if(!l.c){if(d||h)sinCuenta=true;return}if(!CTA[c]){ctaMala=true;res["c"+j]=false;return}const x=stu[c]||(stu[c]={d:0,h:0});x.d+=d||0;x.h+=h||0;res["c"+j]=!!exp[c]});
+  r.lines.forEach((l,j)=>{const d=monto(l.d),h=monto(l.h),c=codigoDe(l.c);if(Number.isNaN(d)||Number.isNaN(h))malNum=true;if(!l.c){if(d||h)sinCuenta=true;return}if(!CTA[c]){ctaMala=true;res["c"+j]=false;return}const k=K(c,l.cc),x=stu[k]||(stu[k]={d:0,h:0});x.d+=d||0;x.h+=h||0;res["c"+j]=ctasExp.has(c)});
   const td=Object.values(stu).reduce((s,x)=>s+x.d,0),th=Object.values(stu).reduce((s,x)=>s+x.h,0);
   // Como SAP: no deja contabilizar un asiento descuadrado o sin líneas (no cuenta como intento)
   if(!Object.keys(stu).length||Math.abs(td-th)>.5||malNum||sinCuenta||ctaMala){
@@ -444,19 +455,24 @@ function revisarM1(i){
   const monE=t.mon||"CRC",monS=H.mon||"CRC";res.mon=monS===monE;if(!res.mon)msgs.push(monE==="USD"?"El documento está en dólares: el asiento se registra en moneda USD.":"Esta operación es en colones: la moneda del asiento es CRC.");
   if(monE==="USD"&&res.mon){res.tc=igual(monto(H.tc),t.tc)&&Math.abs(monto(H.tc)-t.tc)<.005;if(!res.tc)msgs.push("El tipo de cambio no es el del día de la operación.")}
   let ccFalta=false,ccSobra=false,ccMal=false;
-  r.lines.forEach((l,j)=>{const c=codigoDe(l.c);if(!CTA[c])return;const e=llevaCC(c)?(t.cc||""):"",v=l.cc||"";res["cc"+j]=v===e;if(v!==e){if(!v)ccFalta=true;else if(!e)ccSobra=true;else ccMal=true}});
+  r.lines.forEach((l,j)=>{const c=codigoDe(l.c);if(!CTA[c])return;const v=l.cc||"";
+    if(!llevaCC(c)){res["cc"+j]=!v;if(v)ccSobra=true;return}
+    res["cc"+j]=!!exp[K(c,v)];if(!res["cc"+j]&&ctasExp.has(c)){if(!v)ccFalta=true;else ccMal=true}});
   if(ccFalta)msgs.push("Hay cuentas de resultados sin centro de costo.");if(ccSobra)msgs.push("Las cuentas de balance (activo, pasivo y patrimonio) no llevan centro de costo.");if(ccMal)msgs.push("Hay un centro de costo que no es el que indica la operación.");
   if(monE==="USD"&&res.mon){const eM={},sM={};t.me.forEach(([c,d,h])=>{const x=eM[c]||(eM[c]={d:0,h:0});x.d+=d;x.h+=h});
     r.lines.forEach(l=>{const c=codigoDe(l.c);if(!CTA[c])return;const x=sM[c]||(sM[c]={d:0,h:0});x.d+=montoO0(l.dme)||0;x.h+=montoO0(l.hme)||0});
     const malME=Object.keys(eM).filter(c=>!sM[c]||Math.abs(eM[c].d-sM[c].d)>.005||Math.abs(eM[c].h-sM[c].h)>.005);
     r.lines.forEach((l,j)=>{const c=codigoDe(l.c);res["me"+j]=!!eM[c]&&!malME.includes(c)});
     malME.filter(c=>sM[c]).forEach(c=>msgs.push(`Los montos en dólares (ME) de la cuenta ${c} «${nom(c)}» no son correctos.`))}
-  const falt=Object.keys(exp).filter(c=>!stu[c]),sobra=Object.keys(stu).filter(c=>!exp[c]);
-  if(falt.length)msgs.push(`Falta${falt.length>1?"n":""} ${falt.length} cuenta${falt.length>1?"s":""} en el asiento.`);
-  sobra.forEach(c=>msgs.push(`La cuenta ${c} «${nom(c)}» no interviene en esta operación.`));
-  Object.keys(exp).filter(c=>stu[c]).forEach(c=>{const e=exp[c],s=stu[c];if(!igual(e.d,s.d)||!igual(e.h,s.h)){
-    const lado=(e.d&&!s.d&&s.h)||(e.h&&!s.h&&s.d);msgs.push(lado?`La cuenta ${c} «${nom(c)}» está en la columna equivocada: piense si aumenta o disminuye y cuál es su naturaleza.`:`El monto de la cuenta ${c} «${nom(c)}» no es correcto.`);
-    r.lines.forEach((l,j)=>{if(codigoDe(l.c)===c)res["c"+j]=false})}});
+  const ctasStu=new Set(Object.keys(stu).map(cta));
+  const falt=Object.keys(exp).filter(k=>!stu[k]),sobra=Object.keys(stu).filter(k=>!ctasExp.has(cta(k)));
+  const faltCtas=[...new Set(falt.filter(k=>!ctasStu.has(cta(k))).map(cta))],faltLin=falt.filter(k=>ctasStu.has(cta(k)));
+  if(faltCtas.length)msgs.push(`Falta${faltCtas.length>1?"n":""} ${faltCtas.length} cuenta${faltCtas.length>1?"s":""} en el asiento.`);
+  if(faltLin.length&&!ccMal&&!ccFalta)msgs.push(`Falta${faltLin.length>1?"n":""} ${faltLin.length} línea${faltLin.length>1?"s":""}: el gasto se reparte entre centros de costo, use una línea por centro.`);
+  sobra.forEach(k=>msgs.push(`La cuenta ${lbl(k)} no interviene en esta operación.`));
+  Object.keys(exp).filter(k=>stu[k]).forEach(k=>{const e=exp[k],s=stu[k];if(!igual(e.d,s.d)||!igual(e.h,s.h)){
+    const lado=(e.d&&!s.d&&s.h)||(e.h&&!s.h&&s.d);msgs.push(lado?`La cuenta ${lbl(k)} está en la columna equivocada: piense si aumenta o disminuye y cuál es su naturaleza.`:`El monto de la cuenta ${lbl(k)} no es correcto.`);
+    r.lines.forEach((l,j)=>{if(K(codigoDe(l.c),l.cc)===k)res["c"+j]=false})}});
   const ok=!msgs.length;r.int++;if(r.pri===null)r.pri=ok;if(ok)r.ok=true;
   res.html=ok?`<div class="fb ok">✅ ¡Asiento contabilizado! Encabezado, cuentas y montos correctos, y cuadra: débito ${fm(td)} = crédito ${fm(th)}.</div>`:`<div class="fb bad">❌ Revise:<ul>${msgs.map(m=>`<li>${esc(m)}</li>`).join("")}</ul></div>`;
   RES["m1."+i]=res;
@@ -628,7 +644,7 @@ function revisarM3(){const res={};let bien=0,n=0;
 
 /* ══════════ MÓDULO 4 · Estados financieros ══════════ */
 const SUBT=[["er","Estado de resultados"],["ecp","Cambios en el patrimonio"],["esf","Situación financiera"],["fl","Flujos de efectivo"]];
-function balanzaLectura(){return `<div class="scroll"><table><thead><tr><th>Cuenta</th><th class="r">Saldo deudor</th><th class="r">Saldo acreedor</th></tr></thead><tbody>${CASO.bal.map(b=>`<tr><td>${b.c} · ${esc(nom(b.c))}</td><td class="r num">${b.ad?fn(b.ad):""}</td><td class="r num">${b.aa?fn(b.aa):""}</td></tr>`).join("")}<tr><td><b>Totales</b></td><td class="r num"><b>${fn(CASO.tot.ad)}</b></td><td class="r num"><b>${fn(CASO.tot.aa)}</b></td></tr></tbody></table></div>`}
+function balanzaLectura(){return `<div class="scroll"><table><thead><tr><th>Cuenta</th><th class="r">Saldo deudor</th><th class="r">Saldo acreedor</th></tr></thead><tbody>${CASO.bal.map(b=>`<tr><td>${b.c} · ${esc(nom(b.c))}</td><td class="r num">${b.ad?fn(b.ad):""}</td><td class="r num">${b.aa?fn(b.aa):""}</td></tr>`+Object.keys(CASO.subs).sort().filter(k=>k.slice(0,4)===b.c).map(k=>`<tr class="subc"><td>↳ ${k} · ${esc(nom(k))}</td><td class="r num">${b.ad?fn(CASO.subs[k]):""}</td><td class="r num">${b.aa?fn(CASO.subs[k]):""}</td></tr>`).join("")).join("")}<tr><td><b>Totales</b></td><td class="r num"><b>${fn(CASO.tot.ad)}</b></td><td class="r num"><b>${fn(CASO.tot.aa)}</b></td></tr></tbody></table></div>`}
 function inicialesLectura(){const I=CASO.ini;return `<div class="scroll"><table><thead><tr><th>Saldos al 1 de ${MES}</th><th class="r">Monto</th></tr></thead><tbody>${Object.keys(I).sort().map(c=>`<tr><td>${c} · ${esc(nom(c))}</td><td class="r num">${fn(I[c])}</td></tr>`).join("")}</tbody></table></div>
   <p class="ayuda" style="margin:8px 0 0"><b>Datos adicionales del mes:</b> aportes de capital ${fm(CASO.datos.aporte)} · dividendos pagados ${fm(CASO.datos.div)} · compra de mobiliario y equipo al contado ${fm(CASO.datos.mob)} · amortización del préstamo ${fm(CASO.datos.pagoPr)} · no hubo préstamos nuevos. No se calcula impuesto sobre la renta en este caso.</p>`}
 function pintarM4(){
@@ -640,8 +656,10 @@ function pintarM4(){
 }
 const efHd=t=>`<div class="ef-hd"><b>${esc(CASO.empresa)}</b><span>${t}</span><span>${t.startsWith("Estado de situación")?`Al ${DIAS_MES} de ${MES} de ${ANIO}`:`Del 1 al ${DIAS_MES} de ${MES} de ${ANIO}`} · en colones</span></div>`;
 // Sección con filas «cuenta + monto» que el estudiante arma
+const conCentro=tab=>tab==="er";
+const claveFila=(tab,r)=>conCentro(tab)&&r.c&&r.cc?r.c+"."+SUF[r.cc]:r.c;
 function seccion(tab,sec,titulo,exp,extraOpc){const rows=ST.m4[tab].rows[sec]||(ST.m4[tab].rows[sec]=Array.from({length:Math.max(1,exp.length)},()=>({c:"",m:""})));const res=RES["m4."+tab]||{};
-  return `<div class="sec">${titulo}</div>${rows.map((r,j)=>{const k=`${sec}.${j}`;const cl=res[k]===undefined?"":res[k]?"ok":"bad";return `<div class="row"><select class="${cl}" data-p="m4.${tab}.rows.${sec}.${j}.c" aria-label="${esc(titulo)}: cuenta ${j+1}">${opcionesCuentas(r.c,extraOpc?extraOpc(r.c):"")}</select>${inp(`m4.${tab}.rows.${sec}.${j}.m`,"n "+cl)}<button type="button" data-rq="${tab}|${sec}|${j}" aria-label="Quitar fila">✕</button></div>`}).join("")}
+  return `<div class="sec">${titulo}</div>${rows.map((r,j)=>{const k=`${sec}.${j}`;const cl=res[k]===undefined?"":res[k]?"ok":"bad";return `<div class="row ${conCentro(tab)?"rcc":""}"><select class="${cl}" data-p="m4.${tab}.rows.${sec}.${j}.c" aria-label="${esc(titulo)}: cuenta ${j+1}">${opcionesCuentas(r.c,extraOpc?extraOpc(r.c):"")}</select>${conCentro(tab)?`<select class="${cl}" data-p="m4.${tab}.rows.${sec}.${j}.cc" aria-label="${esc(titulo)}: centro de costo ${j+1}"><option value="">Centro…</option>${Object.entries(CC).map(([c2,v])=>`<option value="${c2}" ${r.cc===c2?"selected":""}>${SUF[c2]} · ${esc(v)}</option>`).join("")}</select>`:""}${inp(`m4.${tab}.rows.${sec}.${j}.m`,"n "+cl)}<button type="button" data-rq="${tab}|${sec}|${j}" aria-label="Quitar fila">✕</button></div>`}).join("")}
     <button type="button" class="ghost sm" data-ra="${tab}|${sec}">＋ cuenta</button>${res["sec."+sec]?`<div class="tmsg bad">${esc(res["sec."+sec])}</div>`:""}`}
 function campo(tab,k,et,gran){const res=RES["m4."+tab]||{},cl=res["f."+k]===undefined?"":res["f."+k]?"ok":"bad";return `<div class="row tot ${gran?"gran":""}"><span>${et}</span>${inp(`m4.${tab}.f.${k}`,"n "+cl)}<span></span></div>`}
 function pieEF(tab,solHTML){return `<div class="acc"><button type="button" id="revEF">✔ Revisar</button>${solBtn("m4"+tab)}</div><div>${(RES["m4."+tab]||{}).html||""}</div>${ST.sol["m4"+tab]?`<div class="sol"><h4>Solución</h4>${solHTML}</div>`:""}`}
@@ -650,13 +668,13 @@ function ligarEF(tab,pintarFn,revisar){$$("[data-ra]").forEach(b=>b.onclick=()=>
   $("#revEF").onclick=()=>{revisar();pintarM4()};ligarSol(pintarM4)}
 function revisarSecciones(tab,secs,campos){const res={};let bien=0,n=0;
   Object.entries(secs).forEach(([sec,exp])=>{const rows=ST.m4[tab].rows[sec]||[],usados=new Set();let faltan=exp.length;
-    rows.forEach((r,j)=>{if(!r.c&&monto(r.m)==null)return;n++;const e=exp.find(x=>x[0]===r.c);const ok=!!e&&!usados.has(r.c)&&igual(monto(r.m),e[1]);if(e&&!usados.has(r.c)){usados.add(r.c);faltan--}res[`${sec}.${j}`]=ok;if(ok)bien++});
+    rows.forEach((r,j)=>{if(!r.c&&monto(r.m)==null)return;n++;const key=claveFila(tab,r),e=exp.find(x=>x[0]===key);const ok=!!e&&!usados.has(key)&&igual(monto(r.m),e[1]);if(e&&!usados.has(key)){usados.add(key);faltan--}res[`${sec}.${j}`]=ok;if(ok)bien++});
     if(faltan>0){n+=faltan;res["sec."+sec]=`Falta${faltan>1?"n":""} ${faltan} cuenta${faltan>1?"s":""} en esta sección.`}});
   Object.entries(campos).forEach(([k,v])=>{n++;const ok=igual(montoO0(getPath(ST,`m4.${tab}.f.${k}`)),v);res["f."+k]=ok;if(ok)bien++});
   res.html=bien===n?`<div class="fb ok">✅ ¡Estado correcto!</div>`:`<div class="fb bad">❌ ${bien} de ${n} partes correctas. Las cuentas en rojo no van en esa sección o tienen el monto equivocado; los totales en rojo están mal calculados.</div>`;
   RES["m4."+tab]=res;ponerNota("m4"+tab,100*bien/Math.max(1,n));notaM4()}
 function notaM4(){const v=SUBT.map(([k])=>ST.nota["m4"+k]||0);ponerNota("m4",v.reduce((a,b)=>a+b,0)/4)}
-const filaSol=(c,v,sangria)=>`<div class="row" style="grid-template-columns:minmax(0,1fr) 160px"><span style="${sangria?"padding-left:18px":""}">${esc(nom(c))}</span><span class="num" style="text-align:right">${fn(v)}</span></div>`;
+const filaSol=(c,v,sangria)=>`<div class="row" style="grid-template-columns:minmax(0,1fr) 160px"><span style="${sangria?"padding-left:18px":""}">${esSub(c)?`<span class="num muted">${c}</span> `:""}${esc(nom(c))}</span><span class="num" style="text-align:right">${fn(v)}</span></div>`;
 const totSol=(t,v,gran)=>`<div class="row tot ${gran?"gran":""}" style="grid-template-columns:minmax(0,1fr) 160px"><span style="text-align:left">${t}</span><span class="num">${fn(v)}</span></div>`;
 /* Estado de resultados */
 function pintarER(){const E=CASO.ER;
@@ -664,7 +682,7 @@ function pintarER(){const E=CASO.ER;
     ${seccion("er","ing","Ingresos de operación",E.rows.ing)}${seccion("er","cv","Costo de ventas",E.rows.cv)}${campo("er","ub","Utilidad bruta",1)}
     ${seccion("er","go","Gastos de operación",E.rows.go)}${campo("er","tgo","Total gastos de operación")}${campo("er","uo","Utilidad de operación",1)}
     ${seccion("er","oi","Otros ingresos",E.rows.oi)}${seccion("er","og","Otros gastos",E.rows.og)}${campo("er","un","Utilidad neta del período",1)}
-    <p class="ayuda">Escriba los gastos y el costo en positivo; la resta se hace en los totales. Si una sección no lleva cuentas, deje su fila vacía.</p>
+    <p class="ayuda">🏷️ En este estado cada cuenta se presenta por <b>subcuenta de centro de costo</b>: escoja la cuenta y su centro (por ejemplo, 6101 + 01 Administración = <b>6101.01 Gasto de salarios – Administración</b>). Las subcuentas están en la balanza de la derecha. Si una cuenta tiene dos centros, va en dos filas. Escriba los gastos y el costo en positivo; la resta se hace en los totales.</p>
     ${pieEF("er",`<div class="sec">Ingresos de operación</div>${E.rows.ing.map(x=>filaSol(...x,1)).join("")}<div class="sec">Costo de ventas</div>${E.rows.cv.map(x=>filaSol(...x,1)).join("")}${totSol("Utilidad bruta",E.f.ub,1)}<div class="sec">Gastos de operación</div>${E.rows.go.map(x=>filaSol(...x,1)).join("")}${totSol("Total gastos de operación",E.f.tgo)}${totSol("Utilidad de operación",E.f.uo,1)}${E.rows.oi.length?`<div class="sec">Otros ingresos</div>${E.rows.oi.map(x=>filaSol(...x,1)).join("")}`:""}${E.rows.og.length?`<div class="sec">Otros gastos</div>${E.rows.og.map(x=>filaSol(...x,1)).join("")}`:""}${totSol("Utilidad neta del período",E.f.un,1)}`)}</div>`;
   ligarEF("er",pintarER,()=>revisarSecciones("er",E.rows,E.f))}
 /* Estado de cambios en el patrimonio */
