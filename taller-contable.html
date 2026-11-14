@@ -850,7 +850,7 @@ const TIPOS_T={general:{ic:"🟢",et:"Práctica general",pl:"Prácticas generale
 const CRIT_T={m1:{nombre:"Registra en el libro diario los asientos de las facturas electrónicas, con el encabezado, las cuentas del catálogo, los centros de costo, el IVA y los montos correctos.",auto:"taller_asientos_pct"},
  m2:{nombre:"Traslada los asientos al libro mayor y a las cuentas T, con sus totales y saldos correctos.",auto:"taller_mayor_pct"},
  m3:{nombre:"Elabora la balanza de comprobación de sumas y saldos, verificando la igualdad de los totales.",auto:"taller_balanza_pct"},
- m4:{nombre:"Elabora los estados financieros (resultados por subcuenta de centro de costo, cambios en el patrimonio, situación financiera y flujos de efectivo) a partir de la balanza.",auto:"taller_estados_pct"}};
+ m4:{nombre:"Elabora los estados financieros básicos de la empresa a partir de la balanza de comprobación, con las subcuentas por centro de costo.",auto:"taller_estados_pct"}};
 const RA_T="Confeccionar ciclos contables para la empresa de servicios y comercial, en moneda nacional e internacional, utilizando como herramienta la hoja electrónica o software contable considerando lo establecido en la legislación vigente.";
 const C_ACT=()=>(ACTV.t&&ACTV.t.contenido_actividad)||{};
 const modsAct=()=>ACTV.t?(C_ACT().taller_modulos||["m1","m2","m3","m4"]):["m1","m2","m3","m4"];
