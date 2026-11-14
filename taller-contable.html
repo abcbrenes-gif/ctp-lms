@@ -154,6 +154,17 @@ tr.subc td{font-size:.84rem;color:var(--muted);padding-left:22px}tr.subc td:firs
 :root[data-theme="dark"] .act-bar{background:var(--surface)}
 .act-bar small{display:block;color:var(--muted);font-size:.84rem}
 .ab-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.ab-ok{background:var(--okbg);color:var(--ok);font-weight:800;border-radius:999px;padding:6px 12px}
+.entres{display:flex;flex-direction:column;gap:10px;margin:10px 0}.entres-g{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:center;font-size:.9rem}.entres-g b{justify-self:end}.entres-g .entbar{grid-column:1/-1}
+.entcards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}@media(max-width:900px){.entcards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.entcard{display:flex;flex-direction:column;align-items:stretch;gap:3px;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);cursor:pointer;font:inherit;min-width:0}
+.entcard.on{border:2px solid var(--accent);box-shadow:var(--shadow)}.entcard:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.entcard-t{font-weight:700;font-size:.84rem}.entcard-n{font-size:1.6rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}.entcard-n small{font-size:.95rem;color:var(--muted);font-weight:600}
+.entcard-s{font-size:.76rem;color:var(--muted)}.entcard-s b{color:var(--ink)}
+.entbar{display:block;height:6px;border-radius:4px;background:var(--surface2);overflow:hidden}.entbar i{display:block;height:100%;background:var(--accent)}
+.hubbox>summary{cursor:pointer;list-style-position:inside}.hub-top{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:10px}.hub-top label{display:flex;flex-direction:column;font-size:.8rem;font-weight:600;color:var(--muted);min-width:220px}
+.resn{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:8px 12px}.resn>summary{cursor:pointer;font-weight:800}.resn-t th{font-size:.78rem}.resn-p td{border-top:2px solid var(--ink)}
+.chip.ok{background:var(--okbg);color:var(--ok)}.chip.bad{background:var(--badbg);color:var(--bad)}.chip.warn{background:var(--warnbg);color:var(--warn)}
+.ejs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}@media(max-width:700px){.ejs{grid-template-columns:minmax(0,1fr)}}.ej{border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:.84rem;min-width:0}.ejt{width:100%;margin-top:4px}.ejt td{padding:2px 4px;border-bottom:1px solid var(--line)}
 .hub-f{display:flex;flex-wrap:wrap;gap:8px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:8px}
 .hub-f small{display:block;color:var(--muted);font-size:.8rem}.hub-g{margin:14px 0 2px;font-size:.92rem}.hub-g small{font-weight:600;color:var(--muted)}
 dialog#dlgT{border:0;border-radius:16px;padding:16px;width:min(960px,96vw);max-height:92vh;overflow:auto;background:var(--surface);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.35)}
@@ -254,13 +265,13 @@ const montoO0=v=>{const x=monto(v);return x==null?0:x};
 /* ── Catálogo de cuentas (empresa comercial, NIIF para PYMES) ──
    tipo: A activo, P pasivo, PT patrimonio, I ingreso, C costo, G gasto · grupo para los estados */
 const CAT=[
- ["1101","Caja","A","AC"],["1102","Bancos","A","AC"],["1103","Cuentas por cobrar","A","AC"],["1104","Inventario de mercadería","A","AC"],["1105","Seguros pagados por adelantado","A","AC"],["1106","IVA soportado (crédito fiscal)","A","AC"],
+ ["1101","Caja","A","AC"],["1102","Bancos","A","AC"],["1103","Cuentas por cobrar","A","AC"],["1104","Inventario de mercadería","A","AC"],["1105","Seguros pagados por adelantado","A","AC"],["1106","IVA soportado (crédito fiscal)","A","AC"],["1107","Suministros","A","AC"],
  ["1201","Mobiliario y equipo","A","ANC"],["1202","Depreciación acumulada de mobiliario y equipo","A","ANC",1],
  ["2101","Cuentas por pagar","P","PC"],["2102","Salarios por pagar","P","PC"],["2103","IVA por pagar (débito fiscal)","P","PC"],["2201","Préstamo bancario por pagar (largo plazo)","P","PNC"],
  ["3101","Capital social","PT","PAT"],["3102","Utilidades retenidas","PT","PAT"],["3103","Dividendos","PT","DIV",1],
- ["4101","Ventas","I","ING"],["4201","Ingresos por intereses","I","OI"],
+ ["4101","Ventas","I","ING"],["4102","Ingresos por servicios","I","ING"],["4201","Ingresos por intereses","I","OI"],
  ["5101","Costo de ventas","C","CV"],
- ["6101","Gasto de salarios","G","GO"],["6102","Gasto de alquiler","G","GO"],["6103","Gasto de servicios públicos","G","GO"],["6104","Gasto de publicidad","G","GO"],["6105","Gasto de depreciación","G","GO"],["6106","Gasto de seguros","G","GO"],["6107","Gasto de mantenimiento","G","GO"],["6108","Gasto de papelería y útiles","G","GO"],["6201","Gasto por intereses","G","OG"]
+ ["6101","Gasto de salarios","G","GO"],["6102","Gasto de alquiler","G","GO"],["6103","Gasto de servicios públicos","G","GO"],["6104","Gasto de publicidad","G","GO"],["6105","Gasto de depreciación","G","GO"],["6106","Gasto de seguros","G","GO"],["6107","Gasto de mantenimiento","G","GO"],["6108","Gasto de papelería y útiles","G","GO"],["6109","Gasto de suministros","G","GO"],["6201","Gasto por intereses","G","OG"]
 ].map(([c,n,t,g,contra])=>({c,n,t,g,contra:!!contra,nat:(["A","C","G"].includes(t)?!contra:(t==="PT"&&contra))?"D":"A"}));
 const CTA=Object.fromEntries(CAT.map(a=>[a.c,a]));
 // Centros de costo (como las «normas de reparto» de SAP Business One): solo para cuentas de resultados (clases 4, 5 y 6)
@@ -276,8 +287,10 @@ const nom=c=>{if(c==="UR_FIN")return "Utilidades retenidas (al cierre del perío
 /* ── Generador de casos ── */
 function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 const EMPRESAS=["Comercial La Esquina S.A.","Distribuidora El Roble S.A.","Bazar Mercedes Norte S.A.","Almacén Los Guayabos S.A.","Comercializadora Tico S.A.","Importadora La Ceiba S.A.","Depósito El Cafetal S.A.","Tienda La Sabana S.A."];
+const EMPRESAS_S=["Servicios Contables Mercedes S.A.","Taller Mecánico El Pistón S.A.","Clínica Dental Sonrisas S.A.","Academia de Idiomas Horizonte S.A.","Lavandería La Burbuja S.A.","Soluciones Informáticas Tico S.A.","Salón de Belleza Glamour S.A.","Fumigadora El Campo S.A."];
+const TIPO_EMP={comercial:"Empresa comercial",servicios:"Empresa de servicios"};
 const MES="marzo",ANIO=2027,DIAS_MES=31;
-function generarCaso(seed,nivel){for(let k=0;k<60;k++){const c=intentoCaso(seed+k*7919,nivel);if(c){c.seed=seed;return c}}throw new Error("No se pudo generar el caso")}
+function generarCaso(seed,nivel,tipo){for(let k=0;k<60;k++){const c=tipo==="servicios"?intentoServicios(seed+k*7919,nivel):intentoCaso(seed+k*7919,nivel);if(c){c.seed=seed;return c}}throw new Error("No se pudo generar el caso")}
 function intentoCaso(seed,nivel){
   const R=rng(seed),m=(a,b,st=5000)=>Math.round((a+R()*(b-a))/st)*st;
   const empresa=EMPRESAS[Math.floor(R()*EMPRESAS.length)];
@@ -313,20 +326,60 @@ function intentoCaso(seed,nivel){
     add(31,`Ajuste: registra la depreciación del mes del mobiliario y equipo (línea recta, 10 % anual sobre ${fm(baseDep)}): ${fm(dep)}.`,[["6105",dep,0],["1202",0,dep]],"aj");
     add(31,`Ajuste: registra el seguro consumido en el mes (1 de los 12 meses pagados por adelantado): ${fm(prima/12)}.`,[["6106",prima/12,0],["1105",0,prima/12]],"aj");
     const sa=m(80e3,200e3,10e3);add(31,`Ajuste: quedan pendientes de pago salarios de la última semana del mes por ${fm(sa)}.`,[["6101",sa,0],["2102",0,sa]],"aj")}
+  return finCaso(empresa,ini,T,nivel,RF,num,"comercial");
+}
+function finCaso(empresa,ini,T,nivel,RF,num,tipo){
   T.sort((a,b)=>a.dia-b.dia);
   // Documento de respaldo de cada operación (lo que se anota en «Referencia» del asiento)
   let fe=100+Math.floor(RF()*800),aj=0;
   T.forEach(t=>{const c=t.lines.map(l=>l[0]),deb=t.lines.filter(l=>l[1]).map(l=>l[0]),cre=t.lines.filter(l=>l[2]).map(l=>l[0]);
-    t.ref=t.tipo==="aj"?`AJ-${String(++aj).padStart(2,"0")}`:c.includes("4101")?`FE-${String(++fe).padStart(5,"0")}`:c.includes("3101")?`DEP-${num(4)}`:c.includes("4201")?`NB-${num(4)}`:deb.includes("1102")&&cre.includes("1103")?`REC-${num(4)}`:(cre.includes("2101")||deb.includes("1105")||deb.includes("1201")||(deb.includes("1104")&&cre.includes("1102")))?`FC-${num(5)}`:`TRF-${num(6)}`;
+    t.ref=t.tipo==="aj"?`AJ-${String(++aj).padStart(2,"0")}`:(c.includes("4101")||c.includes("4102"))?`FE-${String(++fe).padStart(5,"0")}`:c.includes("3101")?`DEP-${num(4)}`:c.includes("4201")?`NB-${num(4)}`:deb.includes("1102")&&cre.includes("1103")?`REC-${num(4)}`:(cre.includes("2101")||deb.includes("1105")||deb.includes("1201")||((deb.includes("1104")||deb.includes("1107"))&&cre.includes("1102")))?`FC-${num(5)}`:`TRF-${num(6)}`;
     t.desc+=` Documento de respaldo: ${t.ref}.`});
   const pick=a=>a[Math.floor(RF()*a.length)];
   const CCM={"4101":"VEN","5101":"VEN","6101":pick(["ADM","VEN"]),"6102":pick(["VEN","BOD"]),"6103":"ADM","6104":"VEN","6105":"VEN","6106":"ADM","6201":"FIN","4201":"FIN"};
+  if(tipo==="servicios"){CCM["4102"]="VEN";CCM["6109"]=pick(["ADM","VEN"])}
   T.forEach(t=>{if(t.lines.some(l=>l[3])){t.multi=true;return}const rc=t.lines.map(l=>l[0]).find(c=>CCM[c]);if(rc){t.cc=CCM[rc];t.lines.forEach(l=>{if(llevaCC(l[0]))l[3]=t.cc});t.desc+=` Centro de costo: ${CC[t.cc]}.`}});
   // Validar saldos (banco e inventario nunca negativos)
-  const s={...ini};for(const t of T){for(const [c,d,h] of t.lines){const a=CTA[c];s[c]=(s[c]||0)+(a.nat==="D"?d-h:h-d)}if(s["1102"]<50000||s["1104"]<0||s["2101"]<0||s["1103"]<0)return null}
-  return armar(empresa,ini,T,nivel);
+  const s={...ini};for(const t of T){for(const [c,d,h] of t.lines){const a=CTA[c];s[c]=(s[c]||0)+(a.nat==="D"?d-h:h-d)}if(s["1102"]<50000||s["1104"]<0||s["1107"]<0||s["2101"]<0||s["1103"]<0)return null}
+  return armar(empresa,ini,T,nivel,tipo);
 }
-function armar(empresa,ini,T,nivel){
+// Empresa de servicios: no vende mercadería (no hay inventario ni costo de ventas); usa suministros que se consumen al dar el servicio
+function intentoServicios(seed,nivel){
+  const R=rng(seed),m=(a,b,st=5000)=>Math.round((a+R()*(b-a))/st)*st;
+  const empresa=EMPRESAS_S[Math.floor(R()*EMPRESAS_S.length)];
+  const ini={"1101":m(50e3,200e3),"1102":m(1.6e6,3e6,10e3),"1103":m(300e3,800e3),"1107":m(150e3,400e3),"1201":m(1.5e6,3e6,50e3),"1202":m(150e3,450e3),"2101":m(200e3,500e3)};
+  if(nivel>=2)ini["2201"]=m(1e6,2e6,50e3);
+  const act=ini["1101"]+ini["1102"]+ini["1103"]+ini["1107"]+ini["1201"]-ini["1202"],pas=ini["2101"]+(ini["2201"]||0),neto=act-pas;
+  ini["3101"]=Math.floor(neto*.7/100000)*100000;ini["3102"]=neto-ini["3101"];if(ini["3102"]<=0)return null;
+  const T=[],dia=(d)=>`${ANIO}-03-${String(d).padStart(2,"0")}`;
+  const add=(d,desc,lines,tipo,x)=>T.push({fecha:dia(d),dia:d,desc,lines,tipo,...(x||{})});
+  const RF=rng(seed^0x5f3759df),num=n=>String(Math.floor(RF()*9*10**(n-1))+10**(n-1));
+  const aporte=m(300e3,900e3,50e3);add(2,`Los socios hacen un aporte adicional de capital de ${fm(aporte)}, que se deposita en la cuenta bancaria de la empresa.`,[["1102",aporte,0],["3101",0,aporte]]);
+  const cs=m(150e3,400e3,10e3);add(3,`Compra suministros para dar los servicios (materiales y útiles que se consumen en el trabajo) al contado por ${fm(cs)} y los paga con transferencia bancaria.`,[["1107",cs,0],["1102",0,cs]]);
+  if(nivel>=2){const mob=m(300e3,800e3,10e3);add(4,`Compra equipo de cómputo para la oficina por ${fm(mob)}, pagado con transferencia bancaria.`,[["1201",mob,0],["1102",0,mob]],"mob")}
+  const usd=m(300,900,50),tc=Math.round((500+R()*30)*100)/100,cr=r2(usd*tc);
+  add(5,`Compra suministros a crédito a 30 días a un proveedor del exterior por ${fu(usd)} (factura en dólares). Tipo de cambio del día: ₡${NF2.format(tc)} por dólar.`,[["1107",cr,0],["2101",0,cr]],null,{mon:"USD",tc,me:[["1107",usd,0],["2101",0,usd]]});
+  let prima=0;if(nivel>=2){prima=(12+Math.floor(R()*13))*12000;add(6,`Paga por adelantado la póliza de seguro de la oficina para los próximos 12 meses: ${fm(prima)} con transferencia bancaria.`,[["1105",prima,0],["1102",0,prima]])}
+  const v1=m(600e3,1.2e6,10e3);add(8,`Presta servicios al contado por ${fm(v1)}; los clientes pagan con transferencia y el dinero queda en el banco.`,[["1102",v1,0],["4102",0,v1]]);
+  if(nivel>=2){const pub=m(80e3,250e3);add(9,`Recibe la factura de una campaña de publicidad en redes sociales por ${fm(pub)}, a pagar en 30 días.`,[["6104",pub,0],["2101",0,pub]])}
+  const v2=m(500e3,1.1e6,10e3);add(11,`Presta servicios a crédito por ${fm(v2)} (factura a 30 días).`,[["1103",v2,0],["4102",0,v2]]);
+  const cob=Math.round((ini["1103"]+v2)*(.4+R()*.3)/5000)*5000;add(14,`Cobra a varios clientes ${fm(cob)} de facturas pendientes; el dinero se deposita en el banco.`,[["1102",cob,0],["1103",0,cob]]);
+  const pp=Math.round((ini["2101"]+cr)*(.35+R()*.3)/5000)*5000;add(16,`Paga a proveedores ${fm(pp)} de facturas pendientes, con transferencia bancaria.`,[["2101",pp,0],["1102",0,pp]]);
+  const alq=m(200e3,400e3);add(18,`Paga el alquiler de la oficina del mes de ${MES}: ${fm(alq)}.`,[["6102",alq,0],["1102",0,alq]]);
+  if(nivel>=2){const int=Math.round(ini["2201"]*.01/1000)*1000,amort=m(60e3,150e3);add(20,`Paga la cuota mensual del préstamo bancario: ${fm(amort+int)}, de los cuales ${fm(amort)} son amortización del principal y ${fm(int)} son intereses.`,[["2201",amort,0],["6201",int,0],["1102",0,amort+int]])}
+  const spA=m(40e3,90e3),spB=m(30e3,80e3);add(22,`Paga los servicios públicos del mes (electricidad, agua e internet): ${fm(spA)} de las oficinas (centro ADM – Administración) y ${fm(spB)} del área donde se atiende a los clientes (centro VEN – Ventas); en total ${fm(spA+spB)}.`,[["6103",spA,0,"ADM"],["6103",spB,0,"VEN"],["1102",0,spA+spB]]);
+  if(nivel>=2){const ig=m(5e3,25e3,1000);add(24,`El banco le deposita ${fm(ig)} por intereses ganados en la cuenta de ahorros.`,[["1102",ig,0],["4201",0,ig]]);
+    const dv=m(100e3,300e3,10e3);add(26,`La asamblea de socios acuerda y paga dividendos por ${fm(dv)} con transferencia bancaria.`,[["3103",dv,0],["1102",0,dv]])}
+  const salV=m(300e3,550e3,10e3),salA=m(200e3,400e3,10e3);add(28,`Paga los salarios del mes con transferencia bancaria: ${fm(salV)} del personal que presta los servicios (centro VEN – Ventas) y ${fm(salA)} del personal administrativo (centro ADM – Administración); en total ${fm(salV+salA)}.`,[["6101",salV,0,"VEN"],["6101",salA,0,"ADM"],["1102",0,salV+salA]]);
+  if(nivel>=2){const baseDep=ini["1201"]+(T.find(t=>t.tipo==="mob")||{lines:[[0,0]]}).lines[0][1],dep=Math.round(baseDep*.10/12/1000)*1000;
+    add(31,`Ajuste: registra la depreciación del mes del mobiliario y equipo (línea recta, 10 % anual sobre ${fm(baseDep)}): ${fm(dep)}.`,[["6105",dep,0],["1202",0,dep]],"aj");
+    add(31,`Ajuste: registra el seguro consumido en el mes (1 de los 12 meses pagados por adelantado): ${fm(prima/12)}.`,[["6106",prima/12,0],["1105",0,prima/12]],"aj");
+    const disp=ini["1107"]+cs+cr,cons=Math.round(disp*(.45+R()*.2)/1000)*1000;
+    add(31,`Ajuste: según el conteo físico de fin de mes, se consumieron suministros por ${fm(cons)} (había ${fm(disp)} disponibles).`,[["6109",cons,0],["1107",0,cons]],"aj");
+    const sa=m(80e3,200e3,10e3);add(31,`Ajuste: quedan pendientes de pago salarios de la última semana del mes por ${fm(sa)}.`,[["6101",sa,0],["2102",0,sa]],"aj")}
+  return finCaso(empresa,ini,T,nivel,RF,num,"servicios");
+}
+function armar(empresa,ini,T,nivel,tipo){
   // Libro diario: asiento 1 = apertura con los saldos iniciales
   const ap=Object.keys(ini).sort().filter(c=>ini[c]).map(c=>CTA[c].nat==="D"?[c,ini[c],0]:[c,0,ini[c]]);
   const diario=[{n:1,fecha:`${ANIO}-03-01`,desc:"Asiento de apertura: saldos iniciales del período",lines:ap,apertura:true}].concat(T.map((t,i)=>({...t,n:i+2})));
@@ -335,7 +388,7 @@ function armar(empresa,ini,T,nivel){
   Object.values(mayor).forEach(x=>{x.td=r2(x.d.reduce((s,y)=>s+y.m,0));x.th=r2(x.h.reduce((s,y)=>s+y.m,0));const dif=r2(x.td-x.th);x.saldo=Math.abs(dif);x.tipo=dif>0?"D":dif<0?"A":"0"});
   const cods=Object.keys(mayor).sort();
   // Libro mayor en columnas: movimientos de cada cuenta en orden, con saldo corrido según su naturaleza
-  const GLOSA=[[/^Los socios/,"Aporte de capital de los socios"],[/^Compra mercadería al contado/,"Compra de mercadería al contado"],[/^Compra un mueble/,"Compra de mobiliario y equipo"],[/^Compra mercadería a crédito/,"Compra de mercadería a crédito (USD)"],[/^Paga por adelantado/,"Pago de seguro por adelantado"],[/^Vende mercadería al contado/,"Venta de mercadería al contado"],[/^Recibe la factura de una campaña/,"Publicidad a crédito"],[/^Vende mercadería a crédito/,"Venta de mercadería a crédito"],[/^Cobra/,"Cobro a clientes"],[/^Paga a proveedores/,"Pago a proveedores"],[/^Paga el alquiler/,"Pago del alquiler del local"],[/^Paga la cuota/,"Pago de cuota del préstamo"],[/^Paga los servicios/,"Pago de servicios públicos"],[/^El banco le deposita/,"Intereses ganados"],[/^La asamblea/,"Pago de dividendos"],[/^Paga los salarios/,"Pago de salarios"],[/^Ajuste: registra la depreciación/,"Ajuste: depreciación del mes"],[/^Ajuste: registra el seguro/,"Ajuste: seguro consumido"],[/^Ajuste: quedan pendientes/,"Ajuste: salarios por pagar"]];
+  const GLOSA=[[/^Los socios/,"Aporte de capital de los socios"],[/^Compra mercadería al contado/,"Compra de mercadería al contado"],[/^Compra un mueble/,"Compra de mobiliario y equipo"],[/^Compra mercadería a crédito/,"Compra de mercadería a crédito (USD)"],[/^Paga por adelantado/,"Pago de seguro por adelantado"],[/^Vende mercadería al contado/,"Venta de mercadería al contado"],[/^Recibe la factura de una campaña/,"Publicidad a crédito"],[/^Vende mercadería a crédito/,"Venta de mercadería a crédito"],[/^Cobra/,"Cobro a clientes"],[/^Paga a proveedores/,"Pago a proveedores"],[/^Paga el alquiler/,"Pago del alquiler del local"],[/^Paga la cuota/,"Pago de cuota del préstamo"],[/^Paga los servicios/,"Pago de servicios públicos"],[/^El banco le deposita/,"Intereses ganados"],[/^La asamblea/,"Pago de dividendos"],[/^Paga los salarios/,"Pago de salarios"],[/^Ajuste: registra la depreciación/,"Ajuste: depreciación del mes"],[/^Ajuste: registra el seguro/,"Ajuste: seguro consumido"],[/^Ajuste: quedan pendientes/,"Ajuste: salarios por pagar"],[/^Compra suministros para/,"Compra de suministros al contado"],[/^Compra suministros a crédito/,"Compra de suministros a crédito (USD)"],[/^Compra equipo de cómputo/,"Compra de mobiliario y equipo"],[/^Presta servicios al contado/,"Servicios prestados al contado"],[/^Presta servicios a crédito/,"Servicios prestados a crédito"],[/^Ajuste: según el conteo físico|^Ajuste: suministros/,"Ajuste: suministros consumidos"]];
   const corto=a=>a.apertura?"Saldo inicial":a.gl?a.gl:((GLOSA.find(([re])=>re.test(a.desc))||[0,String(a.desc).split(/[.;:(]/)[0].slice(0,40)])[1]);
   diario.forEach(a=>a.glosa=corto(a));
   const lm={};cods.forEach(c=>{let sa=0;lm[c]=[];diario.forEach(a=>a.lines.filter(l=>l[0]===c).forEach(([,d,h])=>{sa=r2(sa+(CTA[c].nat==="D"?d-h:h-d));lm[c].push({n:a.n,fecha:a.fecha,det:corto(a),d,h,s:sa})}))});
@@ -346,9 +399,9 @@ function armar(empresa,ini,T,nivel){
   // subcuentas por centro de costo (cuentas de resultados)
   const subs={};diario.forEach(a=>a.lines.forEach(([c,d,h,cc])=>{if(!cc)return;const k=c+"."+SUF[cc];subs[k]=r2((subs[k]||0)+(CTA[c].nat==="D"?d-h:h-d))}));
   const lista=g=>Object.keys(subs).sort().filter(k=>CTA[k.slice(0,4)].g===g&&subs[k]).map(k=>[k,subs[k]]);
-  const ventas=S("4101"),cv=S("5101"),ub=ventas-cv,go=lista("GO"),tgo=go.reduce((s,x)=>s+x[1],0),uo=ub-tgo,oi=lista("OI"),og=lista("OG");
+  const SRV=tipo==="servicios",ventas=S("4101")+S("4102"),cv=S("5101"),ub=ventas-cv,go=lista("GO"),tgo=go.reduce((s,x)=>s+x[1],0),uo=ub-tgo,oi=lista("OI"),og=lista("OG");
   const un=uo+oi.reduce((s,x)=>s+x[1],0)-og.reduce((s,x)=>s+x[1],0);
-  const ER={rows:{ing:lista("ING"),cv:lista("CV"),go,oi,og},f:{ub,tgo,uo,un}};
+  const ER={rows:{ing:lista("ING"),cv:SRV?[]:lista("CV"),go,oi,og},f:SRV?{tgo,uo,un}:{ub,tgo,uo,un}};
   // Estado de cambios en el patrimonio
   const aporte=T.filter(t=>t.lines.some(l=>l[0]==="3101"&&l[2])).reduce((s,t)=>s+t.lines.find(l=>l[0]==="3101")[2],0),div=S("3103");
   const cap0=ini["3101"],ur0=ini["3102"],capF=cap0+aporte,urF=ur0+un-div;
@@ -361,23 +414,23 @@ function armar(empresa,ini,T,nivel){
   // Flujo de efectivo (método indirecto, NIIF para PYMES sección 7)
   const fin=c=>S(c),i0=c=>ini[c]||0,cambioA=c=>-(fin(c)-i0(c)),cambioP=c=>fin(c)-i0(c);
   const mob=T.filter(t=>t.tipo==="mob").reduce((s,t)=>s+t.lines[0][1],0),pagoPr=T.reduce((s,t)=>s+t.lines.filter(l=>l[0]==="2201"&&l[1]).reduce((a,l)=>a+l[1],0),0);
-  const F={un,dep:S("6105"),dcxc:cambioA("1103"),dinv:cambioA("1104"),dseg:cambioA("1105"),dcxp:cambioP("2101"),dsal:cambioP("2102"),divac:cambioA("1106"),divap:cambioP("2103")};
-  F.fop=F.un+F.dep+F.dcxc+F.dinv+F.dseg+F.divac+F.dcxp+F.dsal+F.divap;F.cmob=-mob;F.finv=F.cmob;F.apo=aporte;F.rpr=0;F.ppr=-pagoPr;F.div=-div;F.ffin=F.apo+F.rpr+F.ppr+F.div;
+  const F={un,dep:S("6105"),dcxc:cambioA("1103"),dinv:cambioA("1104"),dsum:cambioA("1107"),dseg:cambioA("1105"),dcxp:cambioP("2101"),dsal:cambioP("2102"),divac:cambioA("1106"),divap:cambioP("2103")};
+  F.fop=F.un+F.dep+F.dcxc+F.dinv+F.dsum+F.dseg+F.divac+F.dcxp+F.dsal+F.divap;F.cmob=-mob;F.finv=F.cmob;F.apo=aporte;F.rpr=0;F.ppr=-pagoPr;F.div=-div;F.ffin=F.apo+F.rpr+F.ppr+F.div;
   F.var=F.fop+F.finv+F.ffin;F.ei=i0("1101")+i0("1102");F.ef=F.ei+F.var;
   if(Math.abs(F.ef-(fin("1101")+fin("1102")))>.5)console.error("El flujo no cuadra con el efectivo final",F);
   if(Math.abs(ESF.f.ta-ESF.f.tpp)>.5)console.error("El balance no cuadra",ESF.f);
-  return {empresa,nivel,ini,trans:T,diario,mayor,lm,subs,cods,bal,tot,ER,ECP,ESF,F,datos:{aporte,div,mob,pagoPr}};
+  return {empresa,tipo:SRV?"servicios":"comercial",nivel,ini,trans:T,diario,mayor,lm,subs,cods,bal,tot,ER,ECP,ESF,F,datos:{aporte,div,mob,pagoPr}};
 }
 
 /* ── Estado del estudiante (en este navegador) ── */
 const KEY="taller_ciclo_contable_v3";let KEYV=KEY;
 const nuevaSemilla=()=>100000+Math.floor(Math.random()*900000);
-const estadoNuevo=(seed,nivel)=>({v:1,seed,nivel,mod:"m1",m1:{sel:0,r:{}},m2:{r:{}},m3:{r:{},tot:{}},m4:{tab:"er",er:{rows:{},f:{}},ecp:{},esf:{rows:{},f:{}},fl:{}},nota:{},sol:{}});
+const estadoNuevo=(seed,nivel,tipo)=>({v:1,seed,nivel,tipo:tipo||"comercial",mod:"m1",m1:{sel:0,r:{}},m2:{r:{}},m3:{r:{},tot:{}},m4:{tab:"er",er:{rows:{},f:{}},ecp:{},esf:{rows:{},f:{}},fl:{}},nota:{},sol:{}});
 let ST=null;try{ST=JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){}
-const qsCaso=+new URLSearchParams(location.search).get("caso")||0,qsNivel=+new URLSearchParams(location.search).get("nivel")||0;
-if(!ST||ST.v!==1)ST=estadoNuevo(qsCaso||nuevaSemilla(),qsNivel||1);
-else if(qsCaso&&qsCaso!==ST.seed)ST=estadoNuevo(qsCaso,qsNivel||ST.nivel);
-let CASO=generarCaso(ST.seed,ST.nivel),RES={};
+const qsTipo=new URLSearchParams(location.search).get("tipo")==="servicios"?"servicios":"",qsCaso=+new URLSearchParams(location.search).get("caso")||0,qsNivel=+new URLSearchParams(location.search).get("nivel")||0;
+if(!ST||ST.v!==1)ST=estadoNuevo(qsCaso||nuevaSemilla(),qsNivel||1,qsTipo);
+else if((qsCaso&&qsCaso!==ST.seed)||(qsTipo&&qsTipo!==(ST.tipo||"comercial")))ST=estadoNuevo(qsCaso||ST.seed,qsNivel||ST.nivel,qsTipo||ST.tipo);
+let CASO=generarCaso(ST.seed,ST.nivel,ST.tipo),RES={};
 let tGuardar=null;const guardar=()=>{clearTimeout(tGuardar);ST.guardado_en=new Date().toISOString();tGuardar=setTimeout(()=>{try{localStorage.setItem(KEYV,JSON.stringify(ST))}catch(e){}},300);if(typeof sincronizarT==="function")sincronizarT()};
 function setPath(o,p,v){const k=p.split(".");let x=o;for(let i=0;i<k.length-1;i++){x=x[k[i]]??(x[k[i]]=/^\d+$/.test(k[i+1])?[]:{})}x[k[k.length-1]]=v}
 function getPath(o,p){return p.split(".").reduce((x,k)=>x==null?x:x[k],o)}
@@ -386,16 +439,38 @@ const inp=(p,cls="n",ph="")=>`<input class="${cls}" data-p="${p}" value="${esc(g
 
 /* ── Cabecera: caso y nivel ── */
 function pintarCaso(){
-  $("#caso").innerHTML=`<label>Nivel<select id="nivel"><option value="1" ${ST.nivel===1?"selected":""}>1 · Básico (10 operaciones)</option><option value="2" ${ST.nivel===2?"selected":""}>2 · Completo con ajustes (18)</option></select></label>
+  $("#caso").innerHTML=`<label>Tipo de empresa<select id="tipoEmp">${Object.entries(TIPO_EMP).map(([k,v])=>`<option value="${k}" ${(ST.tipo||"comercial")===k?"selected":""}>${k==="servicios"?"🛠️":"🛒"} ${v}</option>`).join("")}</select></label><label>Nivel<select id="nivel"><option value="1" ${ST.nivel===1?"selected":""}>1 · Básico (10 operaciones)</option><option value="2" ${ST.nivel===2?"selected":""}>2 · Completo con ajustes</option></select></label>
     <label>Código del caso<input id="codigo" class="num" value="${ST.seed}" inputmode="numeric" aria-describedby="codAyuda"></label>
-    <button type="button" class="sec" id="cargar" title="Cargar el caso de ese código">Abrir</button><button type="button" id="nuevo">🎲 Caso nuevo</button>`;
-  const cambiar=(seed,nivel)=>{const hay=JSON.stringify(ST.m1.r)!=="{}"||JSON.stringify(ST.m2.r)!=="{}"||JSON.stringify(ST.m3.r)!=="{}";
+    <button type="button" class="sec" id="cargar" title="Cargar el caso de ese código">Abrir</button><button type="button" id="nuevo">🎲 Caso nuevo</button><button type="button" class="sec" id="verEstr" title="Diferencias entre empresa comercial y de servicios">📘 Comercial vs servicios</button>`;
+  const cambiar=(seed,nivel,tipo)=>{const hay=JSON.stringify(ST.m1.r)!=="{}"||JSON.stringify(ST.m2.r)!=="{}"||JSON.stringify(ST.m3.r)!=="{}";
     if(hay&&!confirm("Se empieza un caso nuevo y se borra lo que lleva en este caso. ¿Continuar?")){pintarCaso();return}
-    const mod=ST.mod;ST=estadoNuevo(seed,nivel);ST.mod=mod;CASO=generarCaso(seed,nivel);RES={};guardar();pintar()};
-  $("#nivel").onchange=e=>cambiar(ST.seed,+e.target.value);
-  $("#nuevo").onclick=()=>cambiar(nuevaSemilla(),ST.nivel);
-  $("#cargar").onclick=()=>{const v=+$("#codigo").value;if(!(v>0)){toast("Escriba un código válido");return}if(v!==ST.seed)cambiar(v,ST.nivel)};
+    const mod=ST.mod;ST=estadoNuevo(seed,nivel,tipo);ST.mod=mod;CASO=generarCaso(seed,nivel,tipo);RES={};guardar();pintar()};
+  $("#nivel").onchange=e=>cambiar(ST.seed,+e.target.value,ST.tipo);
+  $("#verEstr").onclick=verEstructuras;
+  $("#tipoEmp").onchange=e=>cambiar(ST.seed,ST.nivel,e.target.value);
+  $("#nuevo").onclick=()=>cambiar(nuevaSemilla(),ST.nivel,ST.tipo);
+  $("#cargar").onclick=()=>{const v=+$("#codigo").value;if(!(v>0)){toast("Escriba un código válido");return}if(v!==ST.seed)cambiar(v,ST.nivel,ST.tipo)};
 }
+
+
+/* ── Estructuras y ejemplos: empresa comercial y empresa de servicios ── */
+function verEstructuras(){const fila=(a,b)=>`<tr><td>${a}</td><td>${b}</td></tr>`;
+  const asi=(t,L)=>`<div class="ej"><b>${t}</b><table class="ejt">${L.map(([c,d,h])=>`<tr><td class="num">${c}</td><td>${esc(nom(c))}</td><td class="r num">${d?fn(d):""}</td><td class="r num">${h?fn(h):""}</td></tr>`).join("")}</table></div>`;
+  abrirDlg("📘 Empresa comercial y empresa de servicios",`<p class="ayuda">En Contabilidad se trabajan dos tipos de empresa. El ciclo contable es el mismo (asientos → mayor → balanza → estados); cambian algunas cuentas, los asientos de ingresos y la estructura del estado de resultados.</p>
+  <div class="scroll"><table><thead><tr><th>🛒 Empresa comercial</th><th>🛠️ Empresa de servicios</th></tr></thead><tbody>
+  ${fila("<b>Qué hace:</b> compra mercadería y la revende (tienda, ferretería, farmacia, supermercado).","<b>Qué hace:</b> vende su trabajo o conocimiento (taller mecánico, clínica, academia, consultoría, salón de belleza).")}
+  ${fila("<b>Activo corriente:</b> 1104 Inventario de mercadería.","<b>Activo corriente:</b> 1107 Suministros (materiales que se consumen al dar el servicio). No hay inventario para vender.")}
+  ${fila("<b>Ingresos:</b> 4101 Ventas.","<b>Ingresos:</b> 4102 Ingresos por servicios.")}
+  ${fila("<b>Costo:</b> 5101 Costo de ventas (inventario permanente: cada venta lleva su asiento de costo).","<b>Costo:</b> no tiene costo de ventas. Los suministros usados se pasan a gasto con un ajuste: 6109 Gasto de suministros.")}
+  ${fila("<b>Estado de resultados:</b><br>Ventas<br>(−) Costo de ventas<br>= <b>Utilidad bruta</b><br>(−) Gastos de operación<br>= Utilidad de operación<br>(±) Otros ingresos y gastos<br>= <b>Utilidad neta</b>","<b>Estado de resultados:</b><br>Ingresos por servicios<br>(−) Gastos de operación<br>= Utilidad de operación<br>(±) Otros ingresos y gastos<br>= <b>Utilidad neta</b><br><small class='muted'>(sin utilidad bruta)</small>")}
+  ${fila("<b>Flujo de efectivo:</b> (Aumento) disminución en inventario de mercadería.","<b>Flujo de efectivo:</b> (Aumento) disminución en suministros.")}
+  ${fila("<b>Facturas que recibe:</b> compras de mercadería (con flete, descuentos, IVA soportado).","<b>Facturas que recibe:</b> compras de suministros y gastos (con IVA soportado).")}
+  </tbody></table></div>
+  <h4 style="margin:14px 0 6px">Ejemplos de asientos (venta o servicio de ₡500 000 + IVA 13 %)</h4>
+  <div class="ejs">${asi("🛒 Venta de mercadería al contado (costo ₡300 000)",[["1102",565000,0],["4101",0,500000],["2103",0,65000],["5101",300000,0],["1104",0,300000]])}${asi("🛠️ Servicio prestado al contado",[["1102",565000,0],["4102",0,500000],["2103",0,65000]])}
+  ${asi("🛒 Compra de mercadería a crédito",[["1104",200000,0],["1106",26000,0],["2101",0,226000]])}${asi("🛠️ Compra de suministros a crédito",[["1107",200000,0],["1106",26000,0],["2101",0,226000]])}
+  ${asi("🛒 (No lleva ajuste de suministros: el costo ya se registró en cada venta)",[])}${asi("🛠️ Ajuste: suministros consumidos en el mes",[["6109",120000,0],["1107",0,120000]])}</div>
+  <p class="ayuda">Arriba en <b>Tipo de empresa</b> puede cambiar el caso de práctica entre comercial y servicios.</p><div class="acc"><button type="button" id="dOk">Entendido</button></div>`);$("#dOk").onclick=cerrarDlg}
 
 /* ── Módulos ── */
 const MODS=[["m1","✍️","Asientos de diario","Registra cada operación con partida doble","var(--m1)"],["m2","📒","Libro mayor y mayorización","Diario → libro mayor → cuentas T","var(--m2)"],["m3","⚖️","Balanza de comprobación","Sumas y saldos de cada cuenta","var(--m3)"],["m4","📊","Estados financieros","ER · Patrimonio · Situación · Flujo","var(--m4)"]];
@@ -411,7 +486,7 @@ function pintar(){
   const C=CASO;
   const E=C.cf&&C.cf.empresa;
   $("#app").innerHTML=`${ACTV.t?barraActividadT():hubHTML()}<nav class="mods" aria-label="Módulos del taller" style="grid-template-columns:repeat(${Math.min(4,MV.length)},minmax(0,1fr))">${tabs}</nav>
-    <div class="card"><div class="empresa"><b>🏪 ${esc(C.empresa)}</b>${E?`<span class="muted">Cédula jurídica ${esc(E.cedula||"")} · ${esc(E.actividad||"")}</span>`:""}<span class="muted">Empresa comercial · inventario permanente · moneda: colones</span><span class="muted">Período: 1 al ${DIAS_MES} de ${MES} de ${ANIO}</span>${ACTV.t?`<span class="chip">🧾 ${C.trans.length} facturas</span>`:`<span class="chip">Caso ${C.seed} · nivel ${C.nivel}</span>`}</div>
+    <div class="card"><div class="empresa"><b>${C.tipo==="servicios"?"🛠️":"🏪"} ${esc(C.empresa)}</b>${E?`<span class="muted">Cédula jurídica ${esc(E.cedula||"")} · ${esc(E.actividad||"")}</span>`:""}<span class="muted">${C.tipo==="servicios"?"Empresa de servicios · suministros (sin inventario de mercadería)":"Empresa comercial · inventario permanente"} · moneda: colones</span><span class="muted">Período: 1 al ${DIAS_MES} de ${MES} de ${ANIO}</span>${ACTV.t?`<span class="chip">🧾 ${C.trans.filter(t=>t.factura).length} facturas</span>`:`<span class="chip">Caso ${C.seed} · nivel ${C.nivel}</span>`}</div>
       <div class="ayuda">${ACTV.t?(puedeRevisar()?"Cada operación sale de una factura electrónica: véala, registre el asiento y siga el ciclo. Puede revisar cada módulo cuando quiera.":"Cada operación sale de una factura electrónica. Aquí no hay botón de revisar: se revisa todo cuando "+(tipoAct()==="examen"?"termine":"entregue")+". Su avance se guarda solo."):"Los cuatro módulos usan el mismo caso. Puede hacerlos en orden o practicar uno solo: cada módulo ya trae resuelto el paso anterior."}</div></div>
     <div id="mod"></div>`;
   if(ACTV.t)ligarBarraT();else ligarHub();
@@ -444,7 +519,7 @@ function pintarM1(){
           <label>Referencia 1 <small>(documento de respaldo)</small><input class="${cl("ref")}" data-p="m1.r.${i}.hdr.ref" value="${esc(H.ref)}" placeholder="FE-00105" autocomplete="off"></label>
           <label>Moneda<select class="${cl("mon")}" data-p="m1.r.${i}.hdr.mon"><option value="CRC" ${(H.mon||"CRC")==="CRC"?"selected":""}>CRC – Colón costarricense</option><option value="USD" ${H.mon==="USD"?"selected":""}>USD – Dólar estadounidense</option></select></label>
           <label>Tipo de cambio <small>(₡ por dólar)</small><input class="n ${cl("tc")}" data-p="m1.r.${i}.hdr.tc" value="${esc(H.mon==="USD"?H.tc||"":"1,00")}" ${H.mon==="USD"?"":"disabled"} inputmode="decimal" placeholder="506,45" autocomplete="off"></label>
-          <label class="sap-com">Comentarios<input class="${cl("com")}" data-p="m1.r.${i}.hdr.com" value="${esc(H.com)}" placeholder="Ej.: Venta de mercadería al contado" maxlength="120" autocomplete="off"></label>
+          <label class="sap-com">Comentarios<input class="${cl("com")}" data-p="m1.r.${i}.hdr.com" value="${esc(H.com)}" placeholder="${CASO.tipo==="servicios"?"Ej.: Servicios prestados al contado":"Ej.: Venta de mercadería al contado"}" maxlength="120" autocomplete="off"></label>
         </div>
         <div class="scroll"><table class="lines sap-grid"><thead><tr><th style="width:4%">#</th><th style="width:12%">Cta. mayor</th><th>Nombre de la cuenta</th><th style="width:13%">Centro de costo</th>${USD?'<th class="r" style="width:12%">Débito ME</th><th class="r" style="width:12%">Crédito ME</th>':""}<th class="r" style="width:${USD?14:17}%">Débito ₡</th><th class="r" style="width:${USD?14:17}%">Crédito ₡</th><th></th></tr></thead><tbody>
           ${r.lines.map((l,j)=>`<tr><td class="muted num">${j+1}</td><td><input class="num ${cl("c"+j)}" list="ctas" data-p="m1.r.${i}.lines.${j}.c" value="${esc(l.c)}" placeholder="1102" inputmode="numeric" autocomplete="off" aria-label="Cuenta de mayor, línea ${j+1}"></td><td class="nm" id="nm${j}">${CTA[codigoDe(l.c)]?esc(CTA[codigoDe(l.c)].n):'<span class="muted">—</span>'}</td><td><select class="${cl("cc"+j)}" data-p="m1.r.${i}.lines.${j}.cc" aria-label="Centro de costo, línea ${j+1}"><option value="">—</option>${Object.entries(CC).map(([k,v])=>`<option value="${k}" ${l.cc===k?"selected":""} title="${esc(v)}">${k}</option>`).join("")}</select></td>${USD?`<td>${inp(`m1.r.${i}.lines.${j}.dme`,"n "+cl("me"+j))}</td><td>${inp(`m1.r.${i}.lines.${j}.hme`,"n "+cl("me"+j))}</td>`:""}<td>${inp(`m1.r.${i}.lines.${j}.d`)}</td><td>${inp(`m1.r.${i}.lines.${j}.h`)}</td><td class="x"><button type="button" class="ghost sm" data-quitar="${j}" aria-label="Quitar línea ${j+1}" ${r.lines.length<=2?"disabled":""}>✕</button></td></tr>`).join("")}
@@ -713,13 +788,14 @@ function notaM4(){const v=SUBT.map(([k])=>ST.nota["m4"+k]||0);ponerNota("m4",v.r
 const filaSol=(c,v,sangria)=>`<div class="row" style="grid-template-columns:minmax(0,1fr) 160px"><span style="${sangria?"padding-left:18px":""}">${esSub(c)?`<span class="num muted">${c}</span> `:""}${esc(nom(c))}</span><span class="num" style="text-align:right">${fn(v)}</span></div>`;
 const totSol=(t,v,gran)=>`<div class="row tot ${gran?"gran":""}" style="grid-template-columns:minmax(0,1fr) 160px"><span style="text-align:left">${t}</span><span class="num">${fn(v)}</span></div>`;
 /* Estado de resultados */
-function pintarER(){const E=CASO.ER;
+function pintarER(){const E=CASO.ER,SRV=CASO.tipo==="servicios";
   $("#ef").innerHTML=`<div class="ef">${efHd("Estado de resultados")}
-    ${seccion("er","ing","Ingresos de operación",E.rows.ing)}${seccion("er","cv","Costo de ventas",E.rows.cv)}${campo("er","ub","Utilidad bruta",1)}
+    <p class="ayuda" style="margin:0 0 6px">${SRV?"🛠️ <b>Empresa de servicios</b>: no vende mercadería, así que no hay costo de ventas ni utilidad bruta. Estructura: <b>Ingresos por servicios − Gastos de operación = Utilidad de operación</b> ± otros ingresos y gastos = Utilidad neta.":"🛒 <b>Empresa comercial</b>: Ventas − Costo de ventas = <b>Utilidad bruta</b> − Gastos de operación = Utilidad de operación ± otros ingresos y gastos = Utilidad neta."}</p>
+    ${seccion("er","ing","Ingresos de operación",E.rows.ing)}${SRV?"":seccion("er","cv","Costo de ventas",E.rows.cv)+campo("er","ub","Utilidad bruta",1)}
     ${seccion("er","go","Gastos de operación",E.rows.go)}${campo("er","tgo","Total gastos de operación")}${campo("er","uo","Utilidad de operación",1)}
     ${seccion("er","oi","Otros ingresos",E.rows.oi)}${seccion("er","og","Otros gastos",E.rows.og)}${campo("er","un","Utilidad neta del período",1)}
-    <p class="ayuda">🏷️ En este estado cada cuenta se presenta por <b>subcuenta de centro de costo</b>: escoja la cuenta y su centro (por ejemplo, 6101 + 01 Administración = <b>6101.01 Gasto de salarios – Administración</b>). Las subcuentas están en la balanza de la derecha. Si una cuenta tiene dos centros, va en dos filas. Escriba los gastos y el costo en positivo; la resta se hace en los totales.</p>
-    ${pieEF("er",`<div class="sec">Ingresos de operación</div>${E.rows.ing.map(x=>filaSol(...x,1)).join("")}<div class="sec">Costo de ventas</div>${E.rows.cv.map(x=>filaSol(...x,1)).join("")}${totSol("Utilidad bruta",E.f.ub,1)}<div class="sec">Gastos de operación</div>${E.rows.go.map(x=>filaSol(...x,1)).join("")}${totSol("Total gastos de operación",E.f.tgo)}${totSol("Utilidad de operación",E.f.uo,1)}${E.rows.oi.length?`<div class="sec">Otros ingresos</div>${E.rows.oi.map(x=>filaSol(...x,1)).join("")}`:""}${E.rows.og.length?`<div class="sec">Otros gastos</div>${E.rows.og.map(x=>filaSol(...x,1)).join("")}`:""}${totSol("Utilidad neta del período",E.f.un,1)}`)}</div>`;
+    <p class="ayuda">🏷️ En este estado cada cuenta se presenta por <b>subcuenta de centro de costo</b>: escoja la cuenta y su centro (por ejemplo, 6101 + 01 Administración = <b>6101.01 Gasto de salarios – Administración</b>). Las subcuentas están en la balanza de la derecha. Si una cuenta tiene dos centros, va en dos filas. Escriba los gastos${SRV?"":" y el costo"} en positivo; la resta se hace en los totales.</p>
+    ${pieEF("er",`<div class="sec">Ingresos de operación</div>${E.rows.ing.map(x=>filaSol(...x,1)).join("")}${SRV?"":`<div class="sec">Costo de ventas</div>${E.rows.cv.map(x=>filaSol(...x,1)).join("")}${totSol("Utilidad bruta",E.f.ub,1)}`}<div class="sec">Gastos de operación</div>${E.rows.go.map(x=>filaSol(...x,1)).join("")}${totSol("Total gastos de operación",E.f.tgo)}${totSol("Utilidad de operación",E.f.uo,1)}${E.rows.oi.length?`<div class="sec">Otros ingresos</div>${E.rows.oi.map(x=>filaSol(...x,1)).join("")}`:""}${E.rows.og.length?`<div class="sec">Otros gastos</div>${E.rows.og.map(x=>filaSol(...x,1)).join("")}`:""}${totSol("Utilidad neta del período",E.f.un,1)}`)}</div>`;
   ligarEF("er",pintarER,()=>revisarSecciones("er",E.rows,E.f))}
 /* Estado de cambios en el patrimonio */
 const ECP_F=[["si","Saldo al 1 de "+MES],["ap","Aportes de capital"],["un","Utilidad neta del período"],["dv","Dividendos"],["sf",`Saldo al ${DIAS_MES} de ${MES}`]],ECP_C=["Capital social","Utilidades retenidas","Total patrimonio"];
@@ -739,15 +815,16 @@ function pintarESF(){const E=CASO.ESF,ur=sel=>`<optgroup label="Del estado de ca
     ${pieEF("esf",["ACTIVO",["Activo corriente","ac","tac"],["Activo no corriente","anc","tanc"],["TOTAL ACTIVO",null,"ta"],"PASIVO",["Pasivo corriente","pc","tpc"],["Pasivo no corriente","pnc","tpnc"],["TOTAL PASIVO",null,"tp"],"PATRIMONIO",["Patrimonio","pat","tpat"],["TOTAL PASIVO Y PATRIMONIO",null,"tpp"]].map(x=>typeof x==="string"?`<div class="sec">${x}</div>`:x[1]?(E.rows[x[1]].length?`<div class="sec" style="font-weight:600">${x[0]}</div>${E.rows[x[1]].map(y=>filaSol(...y,1)).join("")}${totSol("Total "+x[0].toLowerCase(),E.f[x[2]])}`:""):totSol(x[0],E.f[x[2]],1)).join(""))}</div>`;
   ligarEF("esf",pintarESF,()=>revisarSecciones("esf",E.rows,E.f))}
 /* Estado de flujos de efectivo (método indirecto) */
-const FL=[["h","Actividades de operación"],["un","Utilidad neta del período"],["dep","(+) Gasto de depreciación (no usa efectivo)"],["dcxc","(Aumento) disminución en cuentas por cobrar"],["dinv","(Aumento) disminución en inventario de mercadería"],["dseg","(Aumento) disminución en seguros pagados por adelantado"],["divac","(Aumento) disminución en IVA soportado (crédito fiscal)"],["dcxp","Aumento (disminución) en cuentas por pagar"],["dsal","Aumento (disminución) en salarios por pagar"],["divap","Aumento (disminución) en IVA por pagar"],["fop","Efectivo neto de las actividades de operación",1],
+const FL=[["h","Actividades de operación"],["un","Utilidad neta del período"],["dep","(+) Gasto de depreciación (no usa efectivo)"],["dcxc","(Aumento) disminución en cuentas por cobrar"],["dinv","(Aumento) disminución en inventario de mercadería",0,"c"],["dsum","(Aumento) disminución en suministros",0,"s"],["dseg","(Aumento) disminución en seguros pagados por adelantado"],["divac","(Aumento) disminución en IVA soportado (crédito fiscal)"],["dcxp","Aumento (disminución) en cuentas por pagar"],["dsal","Aumento (disminución) en salarios por pagar"],["divap","Aumento (disminución) en IVA por pagar"],["fop","Efectivo neto de las actividades de operación",1],
   ["h","Actividades de inversión"],["cmob","Compra de mobiliario y equipo"],["finv","Efectivo neto de las actividades de inversión",1],
   ["h","Actividades de financiamiento"],["apo","Aportes de capital de los socios"],["rpr","Préstamos recibidos"],["ppr","Pagos del principal de préstamos"],["div","Dividendos pagados"],["ffin","Efectivo neto de las actividades de financiamiento",1],
   ["var","Aumento (disminución) neto del efectivo",2],["ei",`Efectivo al 1 de ${MES} (caja y bancos)`],["ef",`Efectivo al ${DIAS_MES} de ${MES} (caja y bancos)`,2]];
+const flLineas=()=>FL.filter(x=>!x[3]||x[3]===(CASO.tipo==="servicios"?"s":"c"));
 function pintarFL(){const F=CASO.F,res=RES["m4.fl"]||{};
   $("#ef").innerHTML=`<div class="ef">${efHd("Estado de flujos de efectivo (método indirecto)")}
-    ${FL.map(([k,t,tot])=>k==="h"?`<div class="sec">${t}</div>`:`<div class="row ${tot?"tot":""} ${tot===2?"gran":""}"><span style="${tot?"":"padding-left:14px;font-weight:400;text-align:left"}">${t}</span>${inp(`m4.fl.${k}`,"n "+(res[k]===undefined?"":res[k]?"ok":"bad"),"0")}<span></span></div>`).join("")}
+    ${flLineas().map(([k,t,tot])=>k==="h"?`<div class="sec">${t}</div>`:`<div class="row ${tot?"tot":""} ${tot===2?"gran":""}"><span style="${tot?"":"padding-left:14px;font-weight:400;text-align:left"}">${t}</span>${inp(`m4.fl.${k}`,"n "+(res[k]===undefined?"":res[k]?"ok":"bad"),"0")}<span></span></div>`).join("")}
     <p class="ayuda">Compare cada cuenta con su saldo inicial: si un activo corriente <b>aumenta</b>, se resta; si un pasivo corriente <b>aumenta</b>, se suma. Las salidas de efectivo van en negativo. El efectivo final debe ser igual a Caja + Bancos de la balanza.</p>
-    ${pieEF("fl",FL.map(([k,t,tot])=>k==="h"?`<div class="sec">${t}</div>`:tot?totSol(t,F[k],tot===2):`<div class="row" style="grid-template-columns:minmax(0,1fr) 160px"><span style="padding-left:14px">${t}</span><span class="num" style="text-align:right">${fn(F[k])}</span></div>`).join(""))}</div>`;
+    ${pieEF("fl",flLineas().map(([k,t,tot])=>k==="h"?`<div class="sec">${t}</div>`:tot?totSol(t,F[k],tot===2):`<div class="row" style="grid-template-columns:minmax(0,1fr) 160px"><span style="padding-left:14px">${t}</span><span class="num" style="text-align:right">${fn(F[k])}</span></div>`).join(""))}</div>`;
   ligarEF("fl",pintarFL,revisarFL)}
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -792,7 +869,7 @@ const GASTO_CTA={alquiler:"6102",servicios:"6103",publicidad:"6104",mantenimient
 const MEDIO_N={efectivo:"Efectivo",transferencia:"Transferencia",tarjeta:"Tarjeta",sinpe:"SINPE Móvil"};
 /* ── Caso completo a partir de las facturas (mismo para todo el grupo) ── */
 function casoDesdeFacturas(CF,seed){
-  const R=rng(seed),m=(a,b,st=5000)=>Math.round((a+R()*(b-a))/st)*st,emp=CF.empresa||{};
+  const R=rng(seed),m=(a,b,st=5000)=>Math.round((a+R()*(b-a))/st)*st,emp=CF.empresa||{},SRV=CF.tipo_empresa==="servicios",INV=SRV?"1107":"1104";let sumC=0;
   const F=(CF.facturas||[]).slice().sort((a,b)=>a.dia-b.dia).map(f=>({...f,calc:calcFactura(f)}));
   const aCol=(f,v)=>f.moneda==="USD"?r2(v*f.tipo_cambio):v;
   let fe=Math.floor(R()*900)+100;const T=[];let cajaOut=0,bancOut=0,costoTot=0;
@@ -801,22 +878,25 @@ function casoDesdeFacturas(CF,seed){
     const consec=f.tipo==="venta"?"0010000101"+String(++fe).padStart(10,"0"):"00"+String(1+Math.floor(R()*9))+"000010"+String(Math.floor(R()*1e9)).padStart(10,"0");
     const cc=f.centro||(f.tipo==="venta"?"VEN":"ADM");let lines,desc,gl,extra={};
     const cond=f.condicion==="credito"?`a crédito (${f.plazo} días)`:`de contado (${(MEDIO_N[f.medio]||"").toLowerCase()})`;
-    if(f.tipo==="venta"){const costo=Math.round(c.neto*(f.costo_pct||.6)/100)*100;costoTot+=costo;
+    if(f.tipo==="venta"&&SRV){lines=[[pagoCta,c.total,0],["4102",0,c.neto,cc]];if(c.iva)lines.push(["2103",0,c.iva]);
+      desc=`Registre la factura electrónica de servicios prestados ${cond} a ${cont.nombre} (vea el comprobante). Es una empresa de servicios: no lleva costo de ventas. Centro de costo: ${CC[cc]}.`;gl=`Servicio ${f.condicion==="credito"?"a crédito":"de contado"} · FE ${consec.slice(-6)}`}
+    else if(f.tipo==="venta"){const costo=Math.round(c.neto*(f.costo_pct||.6)/100)*100;costoTot+=costo;
       lines=[[pagoCta,c.total,0],["4101",0,c.neto,cc]];if(c.iva)lines.push(["2103",0,c.iva]);lines.push(["5101",costo,0,cc],["1104",0,costo]);
       desc=`Registre la factura electrónica de venta ${cond} a ${cont.nombre} (vea el comprobante). Según el kardex, el costo de la mercadería vendida es ${fm(costo)}. Centro de costo: ${CC[cc]}.`;gl=`Venta ${f.condicion==="credito"?"a crédito":"de contado"} · FE ${consec.slice(-6)}`}
     else if(f.tipo==="compra"){const tot=aCol(f,c.total),inv=aCol(f,r2(c.neto+c.flete));
-      lines=[["1104",f.moneda==="USD"?tot:inv,0]];if(c.iva&&f.moneda!=="USD")lines.push(["1106",c.iva,0]);lines.push([pagoCta,0,tot]);
-      if(f.moneda==="USD")extra={mon:"USD",tc:f.tipo_cambio,me:[["1104",c.total,0],[pagoCta,0,c.total]]};
+      if(SRV)sumC+=f.moneda==="USD"?tot:inv;lines=[[INV,f.moneda==="USD"?tot:inv,0]];if(c.iva&&f.moneda!=="USD")lines.push(["1106",c.iva,0]);lines.push([pagoCta,0,tot]);
+      if(f.moneda==="USD")extra={mon:"USD",tc:f.tipo_cambio,me:[[INV,c.total,0],[pagoCta,0,c.total]]};
       desc=f.moneda==="USD"?`Registre la factura en dólares de un proveedor del exterior, ${cond} (vea el comprobante). Tipo de cambio del día: ₡${NF2.format(f.tipo_cambio)} por dólar. No trae IVA: el de importación se paga en la aduana.`
-        :`Registre la factura electrónica de compra de mercadería ${cond} a ${cont.nombre} (vea el comprobante).${c.flete?" El flete forma parte del costo del inventario.":""}`;gl=`Compra ${f.condicion==="credito"?"a crédito":"de contado"}${f.moneda==="USD"?" (USD)":""}`}
+        :`Registre la factura electrónica de compra de ${SRV?"suministros":"mercadería"} ${cond} a ${cont.nombre} (vea el comprobante).${c.flete?(SRV?" El flete forma parte del costo de los suministros.":" El flete forma parte del costo del inventario."):""}`;gl=`Compra ${f.condicion==="credito"?"a crédito":"de contado"}${f.moneda==="USD"?" (USD)":""}`}
     else{const cta=GASTO_CTA[f.gasto]||"6103";lines=[[cta,c.neto,0,cc]];if(c.iva)lines.push(["1106",c.iva,0]);lines.push([pagoCta,0,c.total]);
       desc=`Registre la factura electrónica de ${nom(cta).replace(/^Gasto de /,"").toLowerCase()} ${cond} de ${cont.nombre} (vea el comprobante). Centro de costo: ${CC[cc]}.`;gl=`${nom(cta).replace(/^Gasto de /,"Gasto: ")}`}
     if(pagoCta==="1101"&&f.tipo!=="venta")cajaOut+=aCol(f,c.total);if(pagoCta==="1102"&&f.tipo!=="venta")bancOut+=aCol(f,c.total);
     T.push({fecha:dia,dia:f.dia,desc,gl,lines,tipo:f.tipo,emp,cc:f.tipo==="gasto"||f.tipo==="venta"?cc:null,ref:consec,refs:[consec,(f.tipo==="venta"?"FE-":"")+String(+consec.slice(-10))],factura:f,...extra})});
-  const ini={"1101":Math.max(m(80e3,200e3),Math.ceil(cajaOut*1.2/5000)*5000),"1102":Math.max(m(1.5e6,3e6,10e3),Math.ceil(bancOut*1.3/10000)*10000),"1103":m(300e3,700e3),"1104":Math.max(m(900e3,1.8e6,10e3),Math.ceil(costoTot*1.1/10000)*10000),"1201":m(1.5e6,3e6,50e3),"1202":m(150e3,450e3),"2101":m(300e3,700e3)};
-  const act=ini["1101"]+ini["1102"]+ini["1103"]+ini["1104"]+ini["1201"]-ini["1202"],neto=act-ini["2101"];
+  const ini={"1101":Math.max(m(80e3,200e3),Math.ceil(cajaOut*1.2/5000)*5000),"1102":Math.max(m(1.5e6,3e6,10e3),Math.ceil(bancOut*1.3/10000)*10000),"1103":m(300e3,700e3),[INV]:SRV?m(150e3,400e3):Math.max(m(900e3,1.8e6,10e3),Math.ceil(costoTot*1.1/10000)*10000),"1201":m(1.5e6,3e6,50e3),"1202":m(150e3,450e3),"2101":m(300e3,700e3)};
+  if(SRV){const disp=ini["1107"]+sumC,cons=Math.round(disp*.5/1000)*1000;if(cons>0)T.push({fecha:`${ANIO}-03-31`,dia:31,desc:`Ajuste de fin de mes (sin factura): según el conteo físico se consumieron suministros por ${fm(cons)} al dar los servicios (había ${fm(disp)} disponibles). Centro de costo: ${CC.ADM}.`,gl:"Ajuste: suministros consumidos",lines:[["6109",cons,0,"ADM"],["1107",0,cons]],tipo:"aj",cc:"ADM",ref:"AJ-01",refs:["AJ-01"],emp})}
+  const act=ini["1101"]+ini["1102"]+ini["1103"]+ini[INV]+ini["1201"]-ini["1202"],neto=act-ini["2101"];
   ini["3101"]=Math.floor(neto*.7/100000)*100000;ini["3102"]=neto-ini["3101"];
-  const c=armar(emp.nombre||"Empresa del caso",ini,T,0);c.seed=seed;c.cf=CF;c.facturas=true;return c}
+  const c=armar(emp.nombre||"Empresa del caso",ini,T,0,SRV?"servicios":"comercial");c.seed=seed;c.cf=CF;c.facturas=true;return c}
 /* ── Vista de la factura electrónica (formato de Hacienda, resumido) ── */
 function facturaHTML(t){const f=t.factura;if(!f)return "";const k=f.calc,c=k.t,USD=f.moneda==="USD",emp=t.emp||{},cont=f.contraparte||{};
   const venta=f.tipo==="venta",em=venta?{n:emp.nombre,c:emp.cedula}:{n:cont.nombre,c:cont.cedula},re=venta?{n:cont.nombre,c:cont.cedula}:{n:emp.nombre,c:emp.cedula};
@@ -828,32 +908,35 @@ function facturaHTML(t){const f=t.factura;if(!f)return "";const k=f.calc,c=k.t,U
       <div><small>CONDICIÓN</small><b>${f.condicion==="credito"?`Crédito · ${f.plazo} días`:"Contado"}</b><span>Medio de pago: ${MEDIO_N[f.medio]||"—"}</span><span>Moneda: ${USD?`USD · T.C. ₡${NF2.format(f.tipo_cambio)}`:"CRC (colones)"}</span></div></div>
     <div class="scroll"><table class="fe-t"><thead><tr><th>CABYS</th><th>Detalle</th><th class="r">Cant.</th><th class="r">Precio unit.</th><th class="r">Descuento</th><th class="r">Subtotal</th><th class="r">IVA</th><th class="r">Monto IVA</th></tr></thead><tbody>
       ${k.L.map(l=>`<tr><td class="num">${esc(l.cabys)}</td><td>${esc(l.detalle)} <small class="muted">(${esc(l.unidad)})</small></td><td class="r num">${l.cantidad}</td><td class="r num">${$m(l.precio)}</td><td class="r num">${l.desc?`${$m(l.desc)} <small>(${l.desc_pct} %)</small>`:"—"}</td><td class="r num">${$m(l.neto)}</td><td class="r">${l.tarifa?l.tarifa+" %":"Exento"}</td><td class="r num">${l.iva?$m(l.iva):"—"}</td></tr>`).join("")}
-      ${c.flete?`<tr><td class="num">—</td><td>Servicio de flete (transporte de la mercadería)</td><td class="r num">1</td><td class="r num">${$m(c.flete)}</td><td class="r">—</td><td class="r num">${$m(c.flete)}</td><td class="r">${c.ivaFlete?"13 %":"—"}</td><td class="r num">${c.ivaFlete?$m(c.ivaFlete):"—"}</td></tr>`:""}
+      ${c.flete?`<tr><td class="num">—</td><td>Servicio de flete (transporte)</td><td class="r num">1</td><td class="r num">${$m(c.flete)}</td><td class="r">—</td><td class="r num">${$m(c.flete)}</td><td class="r">${c.ivaFlete?"13 %":"—"}</td><td class="r num">${c.ivaFlete?$m(c.ivaFlete):"—"}</td></tr>`:""}
     </tbody></table></div>
     <div class="fe-res"><div class="muted" style="font-size:.78rem">${f.tipo==="gasto"?"Gasto con factura · ":""}${USD?"Factura del exterior: sin IVA (se paga en aduana).":"Comprobante electrónico autorizado por el Ministerio de Hacienda (ejemplo didáctico)."}</div>
       <table><tr><td>Total venta</td><td class="r num">${$m(c.bruto)}</td></tr>${c.desc?`<tr><td>(−) Descuentos</td><td class="r num">${$m(c.desc)}</td></tr>`:""}<tr><td>Venta neta</td><td class="r num">${$m(c.neto)}</td></tr>
       ${c.flete?`<tr><td>Otros cargos (flete)</td><td class="r num">${$m(c.flete)}</td></tr>`:""}<tr><td>Total gravado</td><td class="r num">${$m(c.gravado)}</td></tr><tr><td>Total exento</td><td class="r num">${$m(c.exento)}</td></tr>
       ${Object.keys(k.porTarifa).sort((a,b)=>b-a).map(tf=>`<tr><td>IVA ${tf} %</td><td class="r num">${$m(k.porTarifa[tf])}</td></tr>`).join("")}<tr class="fe-tot"><td>TOTAL COMPROBANTE</td><td class="r num">${$m(c.total)}</td></tr></table></div></div>`}
 /* ── Facturas de ejemplo (si la IA no responde): todas las variables del mercado ── */
-function facturasDemo(seed,n){const R=rng(seed),p=a=>a[Math.floor(R()*a.length)],q=(a,b)=>a+Math.floor(R()*(b-a+1));
+function facturasDemo(seed,n,tipoEmp){const SRV=tipoEmp==="servicios",R=rng(seed),p=a=>a[Math.floor(R()*a.length)],q=(a,b)=>a+Math.floor(R()*(b-a+1));
   const PROD=[["Arroz 1,8 kg","Unid",1450,1],["Frijoles negros 900 g","Unid",1650,1],["Leche semidescremada 1 L","Unid",980,1],["Acetaminofén 500 mg x 100","Caja",3200,2],["Jarabe para la tos 120 ml","Unid",4100,2],["Refresco 3 L","Unid",1900,13],["Detergente en polvo 2 kg","Unid",3800,13],["Cuaderno universitario","Unid",1200,13],["Consulta de nutrición","Serv",15000,4],["Abono orgánico 46 kg","Saco",9800,1]];
+  const SERV=[["Mantenimiento preventivo de computadora","Serv",25000,13],["Instalación de red e internet","Serv",45000,13],["Consulta médica general","Serv",30000,4],["Terapia física (sesión)","Serv",22000,4],["Curso de inglés (mensualidad, educación privada)","Serv",48000,2],["Tutoría de matemáticas (educación privada)","Serv",12000,2],["Fumigación de cultivo (servicio agropecuario)","Serv",60000,1],["Asesoría contable mensual","Serv",85000,13],["Diseño de logotipo","Serv",70000,13]];
+  const SUM=[["Tóner para impresora","Unid",28000,13],["Resma de papel carta","Resma",3200,13],["Materiales de limpieza (kit)","Kit",9500,13],["Guantes desechables x 100","Caja",4800,13],["Cable de red UTP (metro)","m",450,13],["Alcohol en gel 1 L","Unid",3500,13]];
   const CLI=[["Restaurante El Fogón S.A.","3-101-458712"],["Soda La Tica","3-102-334455"],["María Fernández Rojas","1-1234-0567"],["Clínica San Rafael S.A.","3-101-998877"],["Universidad Técnica (orden de compra exenta)","4-000-042150"],["Carlos Jiménez Mora","2-0567-0891"]];
   const PRO=[["Distribuidora Central S.A.","3-101-112233"],["Mayoreo Del Valle S.A.","3-101-556677"],["Farmacéutica Nacional S.A.","3-101-778899"]];
   const F=[];const ventas=Math.max(3,Math.round(n*.5));
   for(let i=0;i<n;i++){const tipo=i<ventas?"venta":i<ventas+2?"compra":"gasto",cli=p(CLI),exenta=tipo==="venta"&&/exenta/.test(cli[0]);
-    const lin=Array.from({length:q(1,4)},()=>{const x=p(PROD);return {cabys:String(q(1e12,9e12)),detalle:x[0],unidad:x[1],cantidad:tipo==="venta"?q(1,40):q(20,200),precio:Math.round(x[2]*(tipo==="venta"?1:.7)),desc_pct:R()<.35?p([5,10,15]):0,tarifa:exenta?0:x[3]}});
+    const lin=Array.from({length:q(1,4)},()=>{const x=p(SRV?(tipo==="venta"?SERV:SUM):PROD);return {cabys:String(q(1e12,9e12)),detalle:x[0],unidad:x[1],cantidad:SRV?(tipo==="venta"?q(1,8):q(2,30)):tipo==="venta"?q(1,40):q(20,200),precio:Math.round(x[2]*(tipo==="venta"||SRV?1:.7)),desc_pct:R()<.35?p([5,10,15]):0,tarifa:exenta?0:x[3]}});
     const f={tipo,dia:2+Math.floor(26*i/n),moneda:"CRC",tipo_cambio:null,contraparte:tipo==="venta"?{nombre:cli[0],cedula:cli[1]}:tipo==="compra"?{nombre:p(PRO)[0],cedula:p(PRO)[1]}:{nombre:"Inversiones Los Laureles S.A.",cedula:"3-101-246810"},
-      condicion:R()<.45?"credito":"contado",plazo:30,medio:p(["efectivo","transferencia","tarjeta","sinpe"]),gasto:tipo==="gasto"?p(["alquiler","servicios","publicidad","mantenimiento","papeleria"]):null,centro:tipo==="venta"?"VEN":p(["ADM","VEN","BOD"]),flete:tipo==="compra"&&R()<.6?q(10,40)*1000:0,costo_pct:tipo==="venta"?.55+Math.round(R()*20)/100:null,lineas:lin};
-    if(tipo==="gasto"){f.lineas=[{cabys:String(q(1e12,9e12)),detalle:{alquiler:"Alquiler del local comercial",servicios:"Servicio eléctrico y de internet",publicidad:"Campaña publicitaria en redes",mantenimiento:"Mantenimiento de equipo de refrigeración",papeleria:"Papelería y útiles de oficina"}[f.gasto],unidad:"Serv",cantidad:1,precio:q(8,45)*10000,desc_pct:0,tarifa:13}]}
+      condicion:R()<.45?"credito":"contado",plazo:30,medio:p(["efectivo","transferencia","tarjeta","sinpe"]),gasto:tipo==="gasto"?p(["alquiler","servicios","publicidad","mantenimiento","papeleria"]):null,centro:tipo==="venta"?"VEN":p(["ADM","VEN","BOD"]),flete:tipo==="compra"&&R()<.6?q(10,40)*1000:0,costo_pct:tipo==="venta"&&!SRV?.55+Math.round(R()*20)/100:null,lineas:lin};
+    if(tipo==="gasto"){f.lineas=[{cabys:String(q(1e12,9e12)),detalle:{alquiler:SRV?"Alquiler de la oficina":"Alquiler del local comercial",servicios:"Servicio eléctrico y de internet",publicidad:"Campaña publicitaria en redes",mantenimiento:"Mantenimiento de equipo de refrigeración",papeleria:"Papelería y útiles de oficina"}[f.gasto],unidad:"Serv",cantidad:1,precio:q(8,45)*10000,desc_pct:0,tarifa:13}]}
     if(f.condicion==="credito")f.plazo=p([15,30,60]);F.push(f)}
   const ci=F.findIndex(f=>f.tipo==="compra");if(ci>=0){Object.assign(F[ci],{moneda:"USD",tipo_cambio:Math.round((505+R()*25)*100)/100,contraparte:{nombre:"Global Supply Inc. (Miami)",cedula:"EXT-55-0193"},flete:q(1,4)*50,medio:"transferencia"});F[ci].lineas.forEach(l=>{l.precio=Math.round(l.precio/500*100)/100;l.tarifa=0})}
-  return {empresa:{nombre:p(["Minisúper La Esperanza S.A.","Abastecedor El Roble S.A.","Comercial Santa Lucía S.A."]),cedula:"3-101-"+q(100000,999999),actividad:"Venta de abarrotes, medicamentos y artículos varios",provincia:"Heredia"},facturas:F.sort((a,b)=>a.dia-b.dia)}}
+  return {tipo_empresa:SRV?"servicios":"comercial",empresa:SRV?{nombre:p(["Servicios Integrales Mercedes S.A.","Multiservicios El Roble S.A.","Centro de Servicios Santa Lucía S.A."]),cedula:"3-101-"+q(100000,999999),actividad:"Servicios de salud, educación privada, soporte informático y servicios agropecuarios",provincia:"Heredia"}
+    :{nombre:p(["Minisúper La Esperanza S.A.","Abastecedor El Roble S.A.","Comercial Santa Lucía S.A."]),cedula:"3-101-"+q(100000,999999),actividad:"Venta de abarrotes, medicamentos y artículos varios",provincia:"Heredia"},facturas:F.sort((a,b)=>a.dia-b.dia)}}
 
 /* ── Calificación de los módulos de la actividad (sin pintar nada) ── */
 function revisarECP(){const E=CASO.ECP,r={};let b=0,n=0;ECP_F.forEach(([k])=>[0,1,2].forEach(j=>{n++;const ok=igual(montoO0(getPath(ST,`m4.ecp.${k}.${j}`)),E[k][j]);r[k+j]=ok;if(ok)b++}));
   r.html=b===n?`<div class="fb ok">✅ ¡Estado correcto! Las utilidades retenidas al cierre (${fm(E.sf[1])}) pasan al estado de situación financiera.</div>`:`<div class="fb bad">❌ ${b} de ${n} casillas correctas. Recuerde: saldo final = saldo inicial + aportes + utilidad − dividendos, en cada columna.</div>`;
   RES["m4.ecp"]=r;ponerNota("m4ecp",100*b/n);notaM4()}
-function revisarFL(){const F=CASO.F,r={};let b=0,n=0;FL.filter(x=>x[0]!=="h").forEach(([k])=>{n++;const ok=igual(montoO0(getPath(ST,`m4.fl.${k}`)),F[k]);r[k]=ok;if(ok)b++});
+function revisarFL(){const F=CASO.F,r={};let b=0,n=0;flLineas().filter(x=>x[0]!=="h").forEach(([k])=>{n++;const ok=igual(montoO0(getPath(ST,`m4.fl.${k}`)),F[k]);r[k]=ok;if(ok)b++});
   r.html=b===n?`<div class="fb ok">✅ ¡Flujo correcto! El efectivo final (${fm(F.ef)}) coincide con Caja + Bancos.</div>`:`<div class="fb bad">❌ ${b} de ${n} líneas correctas. Revise los signos: las salidas de efectivo y los aumentos de activos corrientes van en negativo.</div>`;
   RES["m4.fl"]=r;ponerNota("m4fl",100*b/n);notaM4()}
 function calificarTodo(){const M=modsAct(),N=CASO.trans.length;
@@ -940,19 +1023,68 @@ function editarEvaluacionT(t){const C=t.contenido_actividad;let ins=insT(t),list
       catch(err){ev.target.disabled=false;$("#evE").textContent="No se pudo mejorar: "+(err.message||err)}}};
   pinta()}
 
+/* ── Resumen tipo Aula Contable: avance por tipo de trabajo, tablas y resumen de notas ── */
+const CATS_T=["evaluativa","tarea","general","casa","examen"];
+const hoyISO=()=>new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+const catT=t=>(t.contenido_actividad||{}).taller_tipo||"general";
+const vencida=t=>{const f=(t.contenido_actividad||{}).fecha_entrega;return !!f&&f<hoyISO()};
+const pctDe=a=>a&&a.completado&&a.porcentaje!=null?Math.round(+a.porcentaje):null;
+// Estadística de una categoría: pares (actividad, estudiante) con su entrega
+function statCat(pares){const E=pares.filter(p=>p.a&&p.a.completado),ps=E.map(p=>pctDe(p.a)).filter(v=>v!=null),venc=pares.filter(p=>!(p.a&&p.a.completado)&&vencida(p.t)).length;
+  return {tot:pares.length,ent:E.length,pct:pares.length?Math.round(E.length*100/pares.length):0,prom:ps.length?Math.round(ps.reduce((a,b)=>a+b,0)/ps.length):null,venc,pend:pares.length-E.length-venc}}
+function tarjetasCat(st,sel,donde,extra){const tot=CATS_T.reduce((a,k)=>a+st[k].tot,0),ent=CATS_T.reduce((a,k)=>a+st[k].ent,0),g=tot?Math.round(ent*100/tot):0;
+  return `<div class="entres"><div class="entres-g"><span>Avance general${donde==="grupo"?" del grupo":""}</span><b>${ent} de ${tot} ${donde==="grupo"?"entregas":"entregados"} · ${g} %</b><div class="entbar"><i style="width:${g}%"></i></div></div>
+   <div class="entcards" role="tablist" aria-label="Tipo de trabajo">${CATS_T.map(k=>{const x=st[k],T=TIPOS_T[k];return `<button type="button" role="tab" aria-selected="${k===sel}" class="entcard${k===sel?" on":""}" data-cat="${k}">
+     <span class="entcard-t">${T.ic} ${T.pl}</span><span class="entcard-n">${x.ent}<small>/${x.tot}</small></span><span class="entcard-s">${x.tot?x.pct+" % entregado":"Sin trabajos"}${extra&&extra[k]?" · "+extra[k]:""}</span>
+     <span class="entbar"><i style="width:${x.pct}%"></i></span>
+     <span class="entcard-s">${x.prom!=null?`Resultado promedio <b>${x.prom} %</b>${T.nota?"":" (sin nota)"}`:"Resultado promedio —"}</span>
+     <span class="entcard-s">${x.pend?`⏳ ${x.pend} pendiente${x.pend===1?"":"s"}`:""}${x.pend&&x.venc?" · ":""}${x.venc?`<span style="color:var(--bad)">❌ ${x.venc} no realizado${x.venc===1?"":"s"}</span>`:""}</span></button>`}).join("")}</div></div>`}
+const colorPct=n=>n>=85?"var(--ok)":n>=60?"var(--warn)":"var(--bad)";
+const nivelDe=p=>p>=85?3:p>=60?2:p>=35?1:0;
+
 /* ── Panel del profe: actividades del Taller ── */
-const HUB={lista:null,mats:[]};
-async function cargarHub(){if(!HAY_BD())return;try{const [{data},{data:mats}]=await Promise.all([sb.from("trabajos_cotidianos").select("id,titulo,fecha,habilitado,indicador_id,contenido_actividad").eq("contenido_actividad->>estrategia",ESTR_T).order("id",{ascending:false}),sb.from("materias").select("id,nombre,seccion")]);HUB.lista=data||[];HUB.mats=mats||[]}catch(e){HUB.lista=[]}}
+const HUB={lista:null,mats:[],ae:[],est:{},mat:null,cat:null,abierto:true,resAbierto:false};
+async function cargarHub(){if(!HAY_BD())return;try{const [{data},{data:mats}]=await Promise.all([sb.from("trabajos_cotidianos").select("id,titulo,fecha,habilitado,indicador_id,contenido_actividad").eq("contenido_actividad->>estrategia",ESTR_T).order("id",{ascending:false}),sb.from("materias").select("id,nombre,seccion")]);HUB.lista=data||[];HUB.mats=mats||[];
+    const ids=HUB.lista.map(t=>t.id);const {data:ae}=ids.length?await sb.from("actividades_estudiante").select("trabajo_id,estudiante_id,completado,puntaje,porcentaje,actualizado_en").in("trabajo_id",ids):{data:[]};HUB.ae=ae||[];
+    if(HUB.mat==null){const conAct=HUB.lista.map(t=>Number((t.contenido_actividad||{}).materia_id));HUB.mat=(HUB.mats.find(m=>conAct.includes(m.id))||HUB.mats.find(m=>/contab/i.test(m.nombre))||HUB.mats[0]||{}).id??null}
+    await cargarEstMat(HUB.mat)}catch(e){console.warn("hub",e);HUB.lista=HUB.lista||[]}}
+async function cargarEstMat(mat){if(mat==null||HUB.est[mat])return;try{const {data:em}=await sb.from("estudiante_materias").select("estudiante_id").eq("materia_id",mat);const ids=[...new Set((em||[]).map(x=>x.estudiante_id))];
+  const {data:es}=ids.length?await sb.from("estudiantes").select("id,nombre,apellido1,apellido2").in("id",ids):{data:[]};
+  HUB.est[mat]=(es||[]).map(e=>({id:e.id,n:[e.apellido1,e.apellido2,e.nombre].filter(Boolean).join(" ")})).sort((a,b)=>a.n.localeCompare(b.n,"es"))}catch(e){HUB.est[mat]=[]}}
 const nomMatT=id=>{const m=HUB.mats.find(x=>x.id===Number(id));return m?m.nombre.trim()+(m.seccion?" · "+m.seccion:""):"Sin materia"};
+// Actividades que cuentan en el resumen: abiertas o que ya tienen trabajo de algún estudiante
+const cuentaT=t=>t.habilitado!==false||HUB.ae.some(a=>a.trabajo_id===t.id);
 function hubHTML(){if(!HAY_BD())return `<div class="card"><h3>📚 Actividades del Taller</h3><p class="muted">Para crear actividades abra el Taller desde la plataforma con la sesión del docente.</p></div>`;
   if(!HUB.lista)return `<div class="card"><h3>📚 Actividades del Taller</h3><p class="muted">Cargando…</p></div>`;
-  const fila=t=>{const C=t.contenido_actividad||{},T=TIPOS_T[C.taller_tipo||"general"];return `<div class="hub-f"><div style="flex:1;min-width:220px"><b>${T.ic} ${esc(t.titulo)}</b><small>${T.et} · ${esc(nomMatT(C.materia_id))} · ${(C.taller_caso&&C.taller_caso.facturas||[]).length} facturas · módulos ${(C.taller_modulos||[]).map(m=>m.slice(1)).join(", ")}${C.fecha_entrega?` · entrega ${fechaCR(C.fecha_entrega)}`:""}${t.indicador_id?" · con indicador en la Rúbrica":""}</small></div>
+  const delMat=HUB.lista.filter(t=>Number((t.contenido_actividad||{}).materia_id)===Number(HUB.mat)),ES=HUB.est[HUB.mat]||[];
+  const porT={};HUB.ae.forEach(a=>{(porT[a.trabajo_id]=porT[a.trabajo_id]||{})[a.estudiante_id]=a});
+  const st={},nAct={};CATS_T.forEach(k=>{const L=delMat.filter(t=>catT(t)===k&&cuentaT(t));nAct[k]=L.length+" actividad"+(L.length===1?"":"es");st[k]=statCat(L.flatMap(t=>ES.map(e=>({t,a:(porT[t.id]||{})[e.id]}))))});
+  if(!HUB.cat||!CATS_T.includes(HUB.cat))HUB.cat=CATS_T.find(k=>delMat.some(t=>catT(t)===k))||"evaluativa";
+  const T=TIPOS_T[HUB.cat],G=delMat.filter(t=>catT(t)===HUB.cat);
+  const fila=t=>{const C=t.contenido_actividad||{},T=TIPOS_T[C.taller_tipo||"general"],R=porT[t.id]||{},ent=ES.filter(e=>R[e.id]&&R[e.id].completado).length;return `<div class="hub-f"><div style="flex:1;min-width:220px"><b>${T.ic} ${esc(t.titulo)}</b><small>${T.et} · ${(C.taller_caso||{}).tipo_empresa==="servicios"?"🛠️ Servicios":"🛒 Comercial"} · ${(C.taller_caso&&C.taller_caso.facturas||[]).length} facturas · módulos ${(C.taller_modulos||[]).map(m=>m.slice(1)).join(", ")}${C.fecha_entrega?` · entrega ${fechaCR(C.fecha_entrega)}`:""}${t.indicador_id?" · con indicador en la Rúbrica":""}</small><small>📥 ${ent} de ${ES.length} ${T.nota?"entregaron":"terminaron"}</small></div>
     <span class="chip">${t.habilitado===false?"⏸️ Cerrada":"🟢 Abierta"}</span><a class="btn sec sm" href="taller-contable.html?a=${t.id}">👁️ Ver y probar</a><button type="button" class="sm ${t.habilitado===false?"":"sec"}" data-hab="${t.id}">${t.habilitado===false?"▶ Abrir":"⏸️ Cerrar"}</button><button type="button" class="sec sm" data-ent="${t.id}">📥 Entregas</button>${T.nota?`<button type="button" class="sec sm" data-ins="${t.id}">📋 Evaluación</button>`:""}</div>`};
-  const grupos=Object.keys(TIPOS_T).map(k=>{const G=HUB.lista.filter(t=>(t.contenido_actividad||{}).taller_tipo===k);return G.length?`<h4 class="hub-g">${TIPOS_T[k].ic} ${TIPOS_T[k].pl} <small>· ${TIPOS_T[k].desc}</small></h4>${G.map(fila).join("")}`:""}).join("");
-  return `<div class="card"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><h3 style="margin:0;margin-right:auto">📚 Actividades del Taller</h3><button type="button" id="hubNueva">✨ Nueva actividad con IA</button></div>
-    <p class="ayuda" style="margin:6px 0 0">Cada actividad sale de facturas electrónicas que redacta la IA (IVA 13 %, 4 %, 2 %, 1 % y exento, descuentos, flete, contado o crédito, medios de pago y compras en dólares). Se crean <b>cerradas</b>: ábralas con ▶ Abrir. Las evaluativas y las tareas crean su indicador en la Rúbrica y la nota se pone sola al entregar.</p>
-    ${grupos||'<p class="muted" style="margin:10px 0 0">Todavía no hay actividades.</p>'}</div>`}
+  return `<details class="card hubbox" ${HUB.abierto?"open":""} id="hubBox"><summary><h3 style="display:inline">📚 Actividades y evaluación del Taller</h3></summary>
+    <div class="hub-top"><label>Materia y sección<select id="hubMat">${HUB.mats.map(m=>`<option value="${m.id}" ${Number(m.id)===Number(HUB.mat)?"selected":""}>${esc(m.nombre)}${m.seccion?" · "+esc(m.seccion):""}</option>`).join("")}</select></label><span class="muted" style="font-size:.85rem">${ES.length} estudiante${ES.length===1?"":"s"}</span><span style="flex:1"></span><button type="button" id="hubNueva">✨ Nueva actividad con IA</button></div>
+    ${tarjetasCat(st,HUB.cat,"grupo",nAct)}
+    <h4 class="hub-g">${T.ic} ${T.pl} <small>· ${T.desc}</small></h4>
+    ${G.map(fila).join("")||`<p class="muted" style="margin:6px 0">No hay ${T.pl.toLowerCase()} en esta materia. Créela con ✨ Nueva actividad con IA.</p>`}
+    ${resumenNotasT(G.filter(cuentaT),ES,porT,T)}
+    <p class="ayuda" style="margin:10px 0 0">Cada actividad sale de facturas electrónicas que redacta la IA, de una <b>empresa comercial</b> o de una <b>empresa de servicios</b> (IVA 13 %, 4 %, 2 %, 1 % y exento, descuentos, flete, contado o crédito, medios de pago y compras en dólares). Se crean <b>cerradas</b>: ábralas con ▶ Abrir. Las evaluativas y las tareas crean su indicador en la Rúbrica y la nota se pone sola al entregar.</p></details>`}
+// «📊 Resumen de notas finales»: resultado de cada estudiante en cada actividad del tipo elegido
+function resumenNotasT(G,ES,porT,T){if(!G.length||!ES.length)return "";
+  const celda=(t,e)=>{const a=(porT[t.id]||{})[e.id],p=pctDe(a);if(p!=null){const C=t.contenido_actividad||{},nt=TIPOS_T[C.taller_tipo||"general"].nota;return `<td class="r num"><b style="color:${colorPct(p)}">${p} %</b>${nt?`<br><small class="muted">${a.puntaje!=null?a.puntaje:nivelDe(p)}/3 pts</small>`:""}</td>`}
+    if(a)return '<td class="r"><small class="muted">⏳ en curso</small></td>';return vencida(t)?'<td class="r"><span style="color:var(--bad)" title="No realizado">❌</span></td>':'<td class="r muted">—</td>'};
+  const filas=ES.map(e=>{const ns=G.map(t=>pctDe((porT[t.id]||{})[e.id])).filter(v=>v!=null),pr=ns.length?Math.round(ns.reduce((a,b)=>a+b,0)/ns.length):null;
+    return `<tr><td><b>${esc(e.n)}</b></td>${G.map(t=>celda(t,e)).join("")}<td class="r num"><b>${pr!=null?pr+" %":"—"}</b></td></tr>`}).join("");
+  const prom=t=>{const ns=ES.map(e=>pctDe((porT[t.id]||{})[e.id])).filter(v=>v!=null);return ns.length?Math.round(ns.reduce((a,b)=>a+b,0)/ns.length)+" %":"—"};
+  return `<details class="resn" ${HUB.resAbierto?"open":""} id="hubRes"><summary>📊 Resumen de notas finales · ${T.pl}</summary>
+    <p class="muted" style="margin:6px 0;font-size:.85rem">Resultado de cada estudiante (porcentaje de aciertos de los módulos de la actividad).${T.nota?" Debajo, los puntos del indicador en la Rúbrica (escala MEP: 85 % o más = 3 · 60–84 % = 2 · 35–59 % = 1).":" Este tipo de práctica no lleva nota."} ❌ = no realizado (pasó la fecha de entrega).</p>
+    <div class="scroll"><table class="resn-t"><thead><tr><th>Estudiante</th>${G.map(t=>`<th class="r" title="${esc(t.titulo)}">${esc(t.titulo.length>28?t.titulo.slice(0,26)+"…":t.titulo)}</th>`).join("")}<th class="r">Promedio</th></tr></thead>
+    <tbody>${filas}<tr class="resn-p"><td><b>Promedio del grupo</b></td>${G.map(t=>`<td class="r num"><b>${prom(t)}</b></td>`).join("")}<td></td></tr></tbody></table></div></details>`}
 function ligarHub(){const n=$("#hubNueva");if(n)n.onclick=nuevaActividad;
+  const hb=$("#hubBox");if(hb)hb.ontoggle=()=>{HUB.abierto=hb.open};const hr=$("#hubRes");if(hr)hr.ontoggle=()=>{HUB.resAbierto=hr.open};
+  const hm=$("#hubMat");if(hm)hm.onchange=async()=>{HUB.mat=+hm.value;HUB.cat=null;await cargarEstMat(HUB.mat);pintar()};
+  $$("#hubBox [data-cat]").forEach(b=>b.onclick=()=>{HUB.cat=b.dataset.cat;pintar()});
   $$("[data-hab]").forEach(b=>b.onclick=async()=>{const t=HUB.lista.find(x=>x.id===+b.dataset.hab);b.disabled=true;const {error}=await sb.from("trabajos_cotidianos").update({habilitado:t.habilitado===false}).eq("id",t.id);
     if(error){alert("No se pudo cambiar: "+error.message);b.disabled=false;return}t.habilitado=t.habilitado===false;toast(t.habilitado?"🟢 Abierta para los estudiantes":"⏸️ Cerrada");pintar()});
   $$("[data-ent]").forEach(b=>b.onclick=()=>verEntregasT(HUB.lista.find(x=>x.id===+b.dataset.ent)));
@@ -967,28 +1099,29 @@ async function verEntregasT(t){const C=t.contenido_actividad||{},T=TIPOS_T[C.tal
     ${filas.map(({e,n,a})=>{const met=a&&a.datos_prueba&&a.datos_prueba.taller&&a.datos_prueba.taller.metricas;return `<tr><td>${esc(n)}</td><td>${a?a.completado?(T.nota?"✅ Entregó":"✅ Terminó"):"⏳ En curso":"— No ha entrado"}</td>${crit.map(c=>`<td class="r num">${met&&met[c.auto]!=null?Math.round(met[c.auto])+" %":"—"}</td>`).join("")}<td class="r num"><b>${a&&a.completado?(T.nota?(a.puntaje!=null?a.puntaje+"/3":"—"):(a.porcentaje!=null?Math.round(a.porcentaje)+" %":"—")):"—"}</b></td><td>${a?`<a class="btn sec sm" href="taller-contable.html?a=${t.id}&est=${encodeURIComponent(e.id)}&docente=1">👁️</a>`:""}</td></tr>`}).join("")||'<tr><td colspan="9" class="muted">No hay estudiantes en esta materia.</td></tr>'}</tbody></table></div>`}
 /* ── Nueva actividad: datos, facturas con IA, vista previa y creación ── */
 function nuevaActividad(){const mDef=(HUB.mats.find(m=>/contab/i.test(m.nombre))||HUB.mats.find(m=>m.id===1)||HUB.mats[0]||{}).id;
-  const D={tipo:"general",materia:mDef,titulo:"",mods:["m1","m2","m3","m4"],giro:"",n:8,ind:"",fecha:"",CF:null,seed:nuevaSemilla()};
+  const D={tipo:"general",emp:"comercial",materia:mDef,titulo:"",mods:["m1","m2","m3","m4"],giro:"",n:8,ind:"",fecha:"",CF:null,seed:nuevaSemilla()};
   const form=()=>{abrirDlg("✨ Nueva actividad del Taller",`<div class="ins-g">
       <label>Tipo de actividad<select id="naT">${Object.entries(TIPOS_T).map(([k,v])=>`<option value="${k}" ${D.tipo===k?"selected":""}>${v.ic} ${v.et}${v.nota?" · "+v.nota:" · sin nota"}</option>`).join("")}</select></label>
+      <label>Tipo de empresa<select id="naE">${Object.entries(TIPO_EMP).map(([k,v])=>`<option value="${k}" ${D.emp===k?"selected":""}>${k==="servicios"?"🛠️":"🛒"} ${v}</option>`).join("")}</select></label>
       <label>Materia<select id="naM">${HUB.mats.map(m=>`<option value="${m.id}" ${m.id===D.materia?"selected":""}>${esc(m.nombre)}${m.seccion?" · "+esc(m.seccion):""}</option>`).join("")}</select></label>
       <label>Título <small>(opcional)</small><input id="naTi" value="${esc(D.titulo)}" placeholder="Se arma solo con el tipo y la empresa"></label>
-      <label>Giro de la empresa o tema<input id="naG" value="${esc(D.giro)}" placeholder="Farmacia, ferretería, supermercado… (libre)"></label>
+      <label>Giro de la empresa o tema<input id="naG" value="${esc(D.giro)}" placeholder="Comercial: farmacia, ferretería… · Servicios: taller, clínica, academia… (libre)"></label>
       <label>Cantidad de facturas<input id="naN" type="number" min="6" max="12" value="${D.n}"></label>
       <label id="naFl">Fecha de entrega<input id="naF" type="date" value="${esc(D.fecha)}"></label></div>
     <fieldset class="na-mods"><legend>Módulos que incluye</legend>${MODS.map(([k,i,t])=>`<label><input type="checkbox" value="${k}" ${D.mods.includes(k)?"checked":""}> ${i} ${t}</label>`).join("")}</fieldset>
     <label style="display:block;margin-top:8px">Indicaciones para la IA <small>(opcional)</small><input id="naI" value="${esc(D.ind)}" placeholder="Ej.: que haya ventas con tarifa reducida del 1 % y una compra con flete"></label>
     <div id="naMsg"></div><div class="acc"><span style="flex:1"></span><button type="button" class="sec" id="naDemo">Usar facturas de ejemplo (sin IA)</button><button type="button" id="naGen">✨ Generar facturas con IA</button></div>`);
     const tog=()=>{$("#naFl").style.display=["tarea","casa"].includes($("#naT").value)?"":"none"};tog();$("#naT").onchange=tog;
-    const leer=()=>{D.tipo=$("#naT").value;D.materia=+$("#naM").value;D.titulo=$("#naTi").value.trim();D.giro=$("#naG").value.trim();D.n=Math.min(12,Math.max(6,+$("#naN").value||8));D.ind=$("#naI").value.trim();D.fecha=$("#naF").value;D.mods=$$(".na-mods input:checked").map(x=>x.value)};
-    $("#naDemo").onclick=()=>{leer();if(!D.mods.length){$("#naMsg").innerHTML='<p class="fb bad">Escoja al menos un módulo.</p>';return}D.CF=facturasDemo(D.seed,D.n);vista()};
+    const leer=()=>{D.tipo=$("#naT").value;D.emp=$("#naE").value;D.materia=+$("#naM").value;D.titulo=$("#naTi").value.trim();D.giro=$("#naG").value.trim();D.n=Math.min(12,Math.max(6,+$("#naN").value||8));D.ind=$("#naI").value.trim();D.fecha=$("#naF").value;D.mods=$$(".na-mods input:checked").map(x=>x.value)};
+    $("#naDemo").onclick=()=>{leer();if(!D.mods.length){$("#naMsg").innerHTML='<p class="fb bad">Escoja al menos un módulo.</p>';return}D.CF=facturasDemo(D.seed,D.n,D.emp);vista()};
     $("#naGen").onclick=async ev=>{leer();if(!D.mods.length){$("#naMsg").innerHTML='<p class="fb bad">Escoja al menos un módulo.</p>';return}ev.target.disabled=true;$("#naMsg").innerHTML='<p class="muted">✨ La IA está redactando las facturas (puede tardar un minuto)…</p>';
-      try{const r=await fetch("/api/taller-facturas-ia",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({giro:D.giro,n:D.n,indicaciones:D.ind})});const j=await r.json().catch(()=>({}));
-        if(!r.ok||!j.facturas)throw new Error(j.error||"Error "+r.status);D.CF=j;vista()}
+      try{const r=await fetch("/api/taller-facturas-ia",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({giro:D.giro,n:D.n,indicaciones:D.ind,tipo_empresa:D.emp})});const j=await r.json().catch(()=>({}));
+        if(!r.ok||!j.facturas)throw new Error(j.error||"Error "+r.status);j.tipo_empresa=D.emp;D.CF=j;vista()}
       catch(err){ev.target.disabled=false;$("#naMsg").innerHTML=`<div class="fb bad">No se pudo generar con IA: ${esc(err.message||err)}. Puede intentarlo de nuevo o usar facturas de ejemplo.</div>`}}};
   const vista=()=>{let c;try{c=casoDesdeFacturas(D.CF,D.seed)}catch(e){$("#naMsg").innerHTML=`<div class="fb bad">Las facturas no sirvieron para armar el caso: ${esc(e.message||e)}. Genere otra vez.</div>`;return}
     const prev=CASO;CASO=c;const tit=D.titulo||`${TIPOS_T[D.tipo].et} · ${D.CF.empresa.nombre}`;
-    abrirDlg("👀 Vista previa · "+tit,`<p class="ayuda"><b>${esc(D.CF.empresa.nombre)}</b> · ${esc(D.CF.empresa.actividad||"")} · ${c.trans.length} facturas · ${TIPOS_T[D.tipo].et} · ${esc(nomMatT(D.materia))}</p>
-      <div class="scroll"><table><thead><tr><th>Día</th><th>Tipo</th><th>Contraparte</th><th>Condición</th><th>IVA</th><th class="r">Total</th><th></th></tr></thead><tbody>${c.trans.map((t,i)=>{const f=t.factura,k=f.calc;return `<tr><td>${f.dia}</td><td>${{venta:"Venta",compra:"Compra",gasto:"Gasto"}[f.tipo]}${f.moneda==="USD"?" · USD":""}</td><td>${esc(f.contraparte.nombre)}</td><td>${f.condicion==="credito"?"Crédito "+f.plazo+" d":"Contado · "+MEDIO_N[f.medio]}</td><td>${[...new Set(k.L.map(l=>l.tarifa?l.tarifa+" %":"Exento"))].join(", ")}${k.t.desc?" · desc.":""}${k.t.flete?" · flete":""}</td><td class="r num">${f.moneda==="USD"?"$"+NF2.format(k.t.total):fm(k.t.total)}</td><td><button type="button" class="ghost sm" data-vf="${i}">Ver</button></td></tr>`}).join("")}</tbody></table></div>
+    abrirDlg("👀 Vista previa · "+tit,`<p class="ayuda"><b>${esc(D.CF.empresa.nombre)}</b> · ${TIPO_EMP[D.CF.tipo_empresa||"comercial"]} · ${esc(D.CF.empresa.actividad||"")} · ${c.trans.filter(t=>t.factura).length} facturas · ${TIPOS_T[D.tipo].et} · ${esc(nomMatT(D.materia))}</p>
+      <div class="scroll"><table><thead><tr><th>Día</th><th>Tipo</th><th>Contraparte</th><th>Condición</th><th>IVA</th><th class="r">Total</th><th></th></tr></thead><tbody>${c.trans.map((t,i)=>{const f=t.factura;if(!f)return `<tr><td>${t.dia}</td><td>Ajuste</td><td colspan="4">${esc(t.gl||t.desc)}</td><td></td></tr>`;const k=f.calc;return `<tr><td>${f.dia}</td><td>${{venta:D.CF.tipo_empresa==="servicios"?"Servicio":"Venta",compra:D.CF.tipo_empresa==="servicios"?"Compra suministros":"Compra",gasto:"Gasto"}[f.tipo]}${f.moneda==="USD"?" · USD":""}</td><td>${esc(f.contraparte.nombre)}</td><td>${f.condicion==="credito"?"Crédito "+f.plazo+" d":"Contado · "+MEDIO_N[f.medio]}</td><td>${[...new Set(k.L.map(l=>l.tarifa?l.tarifa+" %":"Exento"))].join(", ")}${k.t.desc?" · desc.":""}${k.t.flete?" · flete":""}</td><td class="r num">${f.moneda==="USD"?"$"+NF2.format(k.t.total):fm(k.t.total)}</td><td><button type="button" class="ghost sm" data-vf="${i}">Ver</button></td></tr>`}).join("")}</tbody></table></div>
       <div id="vfac"></div><div id="naMsg"></div><div class="acc"><button type="button" class="sec" id="naVolver">← Cambiar datos</button><span style="flex:1"></span><button type="button" class="sec" id="naOtra">🔄 Generar otra vez</button><button type="button" id="naCrear">💾 Crear actividad (cerrada)</button></div>`);
     $$("[data-vf]").forEach(b=>b.onclick=()=>{$("#vfac").innerHTML=facturaHTML(c.trans[+b.dataset.vf])});
     CASO=prev;
@@ -997,7 +1130,7 @@ function nuevaActividad(){const mDef=(HUB.mats.find(m=>/contab/i.test(m.nombre))
       try{await crearActividadT(D,tit);cerrarDlg();toast("✅ Actividad creada (cerrada)");await cargarHub();pintar()}catch(err){ev.target.disabled=false;$("#naMsg").innerHTML=`<div class="fb bad">No se pudo crear: ${esc(err.message||err)}</div>`}}};
   form()}
 async function crearActividadT(D,titulo){const T=TIPOS_T[D.tipo],hoy=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
-  const desc=`Registra y procesa el ciclo contable de ${D.CF.empresa.nombre} a partir de ${D.CF.facturas.length} facturas electrónicas (IVA, descuentos, flete, contado y crédito, moneda extranjera y centros de costo).`;
+  const desc=`Registra y procesa el ciclo contable de ${D.CF.empresa.nombre} (${D.CF.tipo_empresa==="servicios"?"empresa de servicios":"empresa comercial"}) a partir de ${D.CF.facturas.length} facturas electrónicas (IVA, descuentos, flete, contado y crédito, moneda extranjera y centros de costo).`;
   const criterios=T.nota?D.mods.map(m=>({...CRIT_T[m],puntos_max:3,niveles:typeof tiraderaNivelesDe==="function"?tiraderaNivelesDe(CRIT_T[m]):undefined})):[];
   let ind=null;
   if(T.nota){const {data:ex}=await sb.from("indicadores").select("id,letra").eq("materia_id",D.materia).eq("categoria",T.nota);
@@ -1012,14 +1145,26 @@ async function crearActividadT(D,titulo){const T=TIPOS_T[D.tipo],hoy=new Date(Da
   if(error){if(ind)await sb.from("indicadores").delete().eq("id",ind.id);throw new Error(error.message)}}
 
 /* ── Vista del estudiante sin actividad: sus actividades abiertas ── */
+let CAT_EST=null;
 async function pintarHubEstudiante(){$("#caso").innerHTML="";$("#app").innerHTML='<p class="muted" style="margin-top:20px">Cargando sus actividades…</p>';
   if(!HAY_BD()){$("#app").innerHTML=`<div class="card" style="margin-top:20px"><h3>🧮 Taller del Ciclo Contable</h3><p class="muted">Entre a la plataforma con su usuario y abra el Taller desde ahí.</p><a class="btn" href="index.html">Ir a la plataforma</a></div>`;return}
   try{const [{data:L},{data:em}]=await Promise.all([sb.from("trabajos_cotidianos").select("id,titulo,habilitado,contenido_actividad").eq("contenido_actividad->>estrategia",ESTR_T).order("id",{ascending:false}),sb.from("estudiante_materias").select("materia_id").eq("estudiante_id",EST_ID)]);
-    const mis=(em||[]).map(x=>x.materia_id),ab=(L||[]).filter(t=>mis.includes(Number((t.contenido_actividad||{}).materia_id)));
+    const mis=(em||[]).map(x=>Number(x.materia_id)),ab=(L||[]).filter(t=>mis.includes(Number((t.contenido_actividad||{}).materia_id)));
     const {data:ae}=ab.length?await sb.from("actividades_estudiante").select("trabajo_id,completado,puntaje,porcentaje").eq("estudiante_id",EST_ID).in("trabajo_id",ab.map(t=>t.id)):{data:[]};
-    const mias={};(ae||[]).forEach(a=>mias[a.trabajo_id]=a);const vis=ab.filter(t=>t.habilitado!==false||(mias[t.id]&&mias[t.id].completado));
-    $("#app").innerHTML=`<div class="card" style="margin-top:16px"><h3>🧮 Mis actividades del Taller</h3><p class="ayuda">Prácticas y tareas que abrió su profe. Todas salen de facturas electrónicas: véalas, regístrelas y siga el ciclo contable.</p>
-      ${vis.map(t=>{const C=t.contenido_actividad||{},T=TIPOS_T[C.taller_tipo||"general"],a=mias[t.id];return `<div class="hub-f"><div style="flex:1;min-width:220px"><b>${T.ic} ${esc(t.titulo)}</b><small>${T.et} · ${T.desc}${C.fecha_entrega?` · entregar a más tardar el ${fechaCR(C.fecha_entrega)}`:""}</small></div><span class="chip">${a&&a.completado?`✅ ${T.nota?"Entregada"+(a.puntaje!=null?" · "+a.puntaje+"/3":""):"Terminada"+(a.porcentaje!=null?" · "+Math.round(a.porcentaje)+" %":"")}`:a?"⏳ En curso":"🆕 Pendiente"}</span><a class="btn sm" href="taller-contable.html?a=${t.id}">${a&&a.completado?"👁️ Ver":a?"▶ Seguir":"▶ Empezar"}</a></div>`}).join("")||'<p class="muted">Su profe todavía no ha abierto actividades del Taller.</p>'}</div>`}
+    const mias={};(ae||[]).forEach(a=>mias[a.trabajo_id]=a);const vis=ab.filter(t=>t.habilitado!==false||mias[t.id]);
+    const st={};CATS_T.forEach(k=>st[k]=statCat(vis.filter(t=>catT(t)===k).map(t=>({t,a:mias[t.id]}))));
+    if(!CAT_EST)CAT_EST=CATS_T.find(k=>vis.some(t=>catT(t)===k&&!(mias[t.id]&&mias[t.id].completado)))||CATS_T.find(k=>st[k].tot)||"evaluativa";
+    const T=TIPOS_T[CAT_EST],G=vis.filter(t=>catT(t)===CAT_EST);
+    const estado=(t,a)=>a&&a.completado?`<span class="chip ok">✅ ${T.nota?"Entregada":"Terminada"}</span>`:vencida(t)?`<span class="chip bad">❌ No realizada</span>`:t.habilitado===false?`<span class="chip">🔒 Cerrada</span>`:a?`<span class="chip warn">⏳ En curso</span>`:`<span class="chip">🆕 Pendiente</span>`;
+    const resultado=a=>{const p=pctDe(a);return p==null?'<span class="muted">—</span>':`<b style="color:${colorPct(p)}">${p} %</b>${T.nota?`<br><small class="muted">Nota ${a.puntaje!=null?a.puntaje:nivelDe(p)}/3 · ${["Sin evidencia","Inicial","Intermedio","Avanzado"][a.puntaje!=null?a.puntaje:nivelDe(p)]}</small>`:""}`};
+    const accion=(t,a)=>t.habilitado===false&&!(a&&a.completado)?'<span class="muted">—</span>':`<a class="btn sm ${a&&a.completado?"sec":""}" href="taller-contable.html?a=${t.id}">${a&&a.completado?(T.nota?"👁️ Ver lo que entregué":"👁️ Ver resultados y soluciones"):a?"▶ Seguir":"▶ Empezar"}</a>`;
+    $("#app").innerHTML=`<div class="card" style="margin-top:16px"><h3>🧮 Mis trabajos del Taller del Ciclo Contable</h3><p class="ayuda">Prácticas y tareas que abrió su profe, de empresas <b>comerciales</b> y <b>de servicios</b>. Todas salen de facturas electrónicas: véalas, regístrelas y siga el ciclo contable. <button type="button" class="ghost sm" id="verEstr2">📘 Comercial vs servicios</button></p>
+      ${tarjetasCat(st,CAT_EST,"yo")}
+      <h4 class="hub-g">${T.ic} ${T.pl} <small>· ${T.desc}</small></h4>
+      ${G.length?`<div class="scroll"><table class="tbl-est"><thead><tr><th>Práctica</th><th>Empresa</th><th>Fecha de entrega</th><th>Estado</th><th class="r">Resultado</th><th>Solución</th></tr></thead><tbody>
+        ${G.map(t=>{const C=t.contenido_actividad||{},a=mias[t.id];return `<tr><td><b>${esc(t.titulo)}</b></td><td>${(C.taller_caso||{}).tipo_empresa==="servicios"?"🛠️ Servicios":"🛒 Comercial"}</td><td>${C.fecha_entrega?fechaCR(C.fecha_entrega):'<span class="muted">—</span>'}</td><td>${estado(t,a)}</td><td class="r num">${resultado(a)}</td><td>${accion(t,a)}</td></tr>`}).join("")}</tbody></table></div>`:`<p class="muted">No tiene ${T.pl.toLowerCase()} por ahora.</p>`}
+      <p class="ayuda" style="margin-top:10px">${T.nota?"📋 Al entregar, la plataforma revisa todo y la nota (escala MEP 0 a 3) pasa sola a la Rúbrica. Las soluciones no se muestran en las que llevan nota.":TIPOS_T[CAT_EST].rev?"Puede revisar, ver pistas y soluciones mientras trabaja.":"Como en el examen: al terminar ve su resultado y las soluciones."}</p></div>`;
+    $$("#app [data-cat]").forEach(b=>b.onclick=()=>{CAT_EST=b.dataset.cat;pintarHubEstudiante()});const ve=$("#verEstr2");if(ve)ve.onclick=verEstructuras}
   catch(e){$("#app").innerHTML=`<div class="card"><p class="fb bad">No se pudieron cargar sus actividades: ${esc(e.message||e)}</p></div>`}}
 
 /* ── Soluciones y entrada de datos ── */
