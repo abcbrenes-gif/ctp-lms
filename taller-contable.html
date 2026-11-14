@@ -137,6 +137,15 @@ tr.pickable.sel td{background:#ffe066!important;color:#14213d}tr.pickable.usado{
 tr.pickable:focus-visible{outline:3px solid var(--m2)}
 .drop{cursor:copy;border-radius:8px}.drop.armado{outline:2px dashed var(--m2);outline-offset:-2px;background:color-mix(in srgb,var(--m2) 7%,transparent)}
 .drop.armado:hover{background:color-mix(in srgb,var(--m2) 18%,transparent)}
+/* balanza tipo Excel */
+.xl-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0 6px;background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:6px 8px}
+.xl-fx{font-style:italic;font-weight:800;color:var(--m3);font-family:var(--fn)}
+.xl-bar #fxDir{min-width:36px;font-family:var(--fn)}.xl-bar #fx{flex:1 1 260px;font-family:var(--fn)}
+table.xl th.xl-n{width:30px;text-align:center;color:var(--muted);background:var(--surface2);font-family:var(--fn)}
+table.xl tr.xl-let th{text-align:center;background:var(--surface2);font-family:var(--fn);padding:2px}
+table.xl th.aux,table.xl td.aux{background:color-mix(in srgb,var(--m3) 6%,transparent)}
+table.xl .xl-nom{font-size:.78rem;padding:4px 6px}
+table.xl tr.xl-tot td{border-top:2px solid var(--ink)}
 /* T de mayor */
 .tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:12px}
 .tcard{border:2px solid var(--line);border-radius:14px;background:var(--surface);padding:10px}
@@ -458,8 +467,9 @@ function revisarM1(i){
 function diarioHTML(){return `<div class="scroll"><table><thead><tr><th>N.º</th><th>Fecha</th><th>Cuenta y detalle</th><th class="r">Debe</th><th class="r">Haber</th></tr></thead><tbody>${CASO.diario.map(a=>a.lines.map(([c,d,h],k)=>`<tr${k===a.lines.length-1?' style="border-bottom:2px solid var(--line)"':""}><td>${k?"":"<b>"+a.n+"</b>"}</td><td>${k?"":a.fecha.slice(8)+"/03"}</td><td style="${h?"padding-left:28px":""}">${c} · ${esc(nom(c))}</td><td class="r num">${d?fn(d):""}</td><td class="r num">${h?fn(h):""}</td></tr>`).join("")+`<tr><td></td><td></td><td colspan="3" class="muted" style="font-size:.8rem;font-style:italic;padding-bottom:10px">${esc(a.desc)}</td></tr>`).join("")}</tbody></table></div>`}
 const vacio=a=>a.every(y=>!Object.values(y).some(v=>String(v||"").trim()));
 const filasT=n=>Array.from({length:Math.max(1,n)},()=>({n:"",m:""}));
-function r2m(c){const x=CASO.mayor[c],r=ST.m2.r[c]||(ST.m2.r[c]={d:filasT(x.d.length),h:filasT(x.h.length),td:"",th:"",s:"",t:""});
-  ["d","h"].forEach(L=>{if(vacio(r[L])&&r[L].length!==Math.max(1,x[L].length))r[L]=filasT(x[L].length)});return r}
+const filasIguales=c=>{const x=CASO.mayor[c];return Math.max(x.d.length,x.h.length)+1};
+function r2m(c){const n=filasIguales(c),r=ST.m2.r[c]||(ST.m2.r[c]={d:filasT(n),h:filasT(n),td:"",th:"",s:"",t:""});
+  ["d","h"].forEach(L=>{if(vacio(r[L])&&r[L].length!==n)r[L]=filasT(n)});return r}
 function pintarM2(){const P=ST.m2.paso||"A";
   $("#mod").innerHTML=`<div class="subtabs" role="tablist"><button type="button" role="tab" data-paso="A" class="${P==="A"?"on":""}" aria-selected="${P==="A"}" style="--m4:var(--m2)">A · Libro mayor (del diario)${ST.nota.m2A!=null?` · ${ST.nota.m2A} %`:""}</button><button type="button" role="tab" data-paso="B" class="${P==="B"?"on":""}" aria-selected="${P==="B"}" style="--m4:var(--m2)">B · Mayorización en cuentas T (del libro mayor)${ST.nota.m2B!=null?` · ${ST.nota.m2B} %`:""}</button>
     <span style="flex:1"></span><div class="modo" role="group" aria-label="Forma de hacer los pases"><button type="button" data-modo="manual" class="${DIG()?"":"on"}" aria-pressed="${!DIG()}">✍️ Manual</button><button type="button" data-modo="digital" class="${DIG()?"on":""}" aria-pressed="${DIG()}">🖱️ Digital</button></div></div>
@@ -532,9 +542,9 @@ function notaLM(){const n=CASO.cods.length,b=CASO.cods.filter(c=>(ST.m2.lmOk||{}
 /* Paso B · Mayorización en cuentas T (como estaba) */
 function pintarM2B(){
   const cods=CASO.cods;
-  $("#m2body").innerHTML=`<div class="card"><h3>📒 Paso B · Del libro mayor a la mayorización en cuentas T</h3><p class="ayuda" style="margin:0 0 8px">Con sus asientos a la mano (a la derecha) y el libro mayor, pase los movimientos a cada cuenta T; cada T ya trae el tamaño que necesita (las filas de cada lado): los del Debe a la izquierda y los del Haber a la derecha, con el número de asiento. Luego sume cada lado (Σ) y calcule el saldo (deudor si el Debe es mayor, acreedor si el Haber es mayor).</p>
+  $("#m2body").innerHTML=`<div class="card"><h3>📒 Paso B · Del libro mayor a la mayorización en cuentas T</h3><p class="ayuda" style="margin:0 0 8px">Con sus asientos a la mano (a la derecha) y el libro mayor, pase los movimientos a cada cuenta T. Cada T trae <b>las mismas filas en el Debe y en el Haber</b>: razone cuántos movimientos van en cada lado y deje vacías las que sobren (si le faltan, agregue con ＋). los del Debe a la izquierda y los del Haber a la derecha, con el número de asiento. Luego sume cada lado (Σ) y calcule el saldo (deudor si el Debe es mayor, acreedor si el Haber es mayor).</p>
     <details class="ver"><summary>📗 Libro mayor (${cods.length} cuentas)</summary><div class="lm-todas">${cods.map(c=>`<div><b>${c} · ${esc(nom(c))}</b>${lmTabla(c)}</div>`).join("")}</div></details></div>
-    <div class="m2lay"><div><div class="tgrid">${cods.map(c=>{const r=r2m(c),res=RES["m2."+c],x=CASO.mayor[c];return `<div class="tcard ${res?res.ok?"ok":"bad":""}"><div class="t-hd"><div><small class="num">${c}</small><b>${esc(nom(c))}</b></div><span class="chip ${CTA[c].t}">${TIPO[CTA[c].t]}</span></div><small class="tam">📏 Debe: ${x.d.length} · Haber: ${x.h.length}</small>
+    <div class="m2lay"><div><div class="tgrid">${cods.map(c=>{const r=r2m(c),res=RES["m2."+c],x=CASO.mayor[c];return `<div class="tcard ${res?res.ok?"ok":"bad":""}"><div class="t-hd"><div><small class="num">${c}</small><b>${esc(nom(c))}</b></div><span class="chip ${CTA[c].t}">${TIPO[CTA[c].t]}</span></div>
       <div class="tcols">${["d","h"].map(L=>`<div${DIG()?` class="drop" data-drop="${c}|${L}|0" tabindex="0" role="button" aria-label="Poner en el ${L==="d"?"Debe":"Haber"} de ${esc(nom(c))}"`:""}><div class="hd ${L}">${L==="d"?"Debe":"Haber"}</div>${r[L].map((y,j)=>`<div class="tl"><input data-p="m2.r.${c}.${L}.${j}.n" value="${esc(y.n)}" placeholder="N.º" aria-label="Número de asiento" inputmode="numeric"><input class="n" data-p="m2.r.${c}.${L}.${j}.m" value="${esc(y.m)}" inputmode="decimal" aria-label="Monto"><button type="button" data-tq="${c}|${L}|${j}" aria-label="Quitar">✕</button></div>`).join("")}<button type="button" class="ghost sm" data-ta="${c}|${L}" style="width:100%;justify-content:center">＋</button></div>`).join("")}</div>
       <div class="tfoot"><label>Σ Debe${inp(`m2.r.${c}.td`)}</label><label>Σ Haber${inp(`m2.r.${c}.th`)}</label><label>Saldo${inp(`m2.r.${c}.s`)}</label><label>Tipo de saldo<select data-p="m2.r.${c}.t"><option value="">—</option><option value="D" ${r.t==="D"?"selected":""}>Deudor</option><option value="A" ${r.t==="A"?"selected":""}>Acreedor</option><option value="0" ${r.t==="0"?"selected":""}>Sin saldo</option></select></label></div>
       ${res?`<div class="tmsg ${res.ok?"ok":"bad"}">${res.ok?"✅ Correcta":"❌ "+res.msgs.map(esc).join(" ")}</div>`:""}
@@ -557,23 +567,61 @@ function revisarM2(){let bien=0;
 
 /* ══════════ MÓDULO 3 · Balanza de comprobación ══════════ */
 function mayorSoloLectura(){return `<div class="tgrid">${CASO.cods.map(c=>{const x=CASO.mayor[c];return `<div class="tcard tro"><h4>${c} · ${esc(nom(c))}</h4><div class="tcols">${["d","h"].map(L=>`<div><div class="hd ${L}">${L==="d"?"Debe":"Haber"}</div>${x[L].map(y=>`<div class="tl"><span class="ref">(${y.n})</span><span class="v">${fn(y.m)}</span></div>`).join("")}</div>`).join("")}</div></div>`}).join("")}</div>`}
+/* Hoja tipo Excel: columnas A Código · B Cuenta · C Sumas Debe · D Sumas Haber · E Saldo deudor · F Saldo acreedor · G… columnas de trabajo.
+   Filas 1…n = cuentas y n+1 = totales. En cualquier casilla se puede escribir un número o una fórmula que empiece con «=»
+   y solo sume y reste: =C3-D3 · =1250000+30000-4500 · =SUMA(C1:C12) */
+const COLS_B=["sd","sh","ad","aa"],LET=i=>String.fromCharCode(67+i);
+const extrasM3=()=>ST.m3.extra||(ST.m3.extra=[]);
+function celdaPath(col,fila){const n=CASO.bal.length,ci=col.charCodeAt(0)-67;if(ci<0)return null;
+  const k=ci<4?COLS_B[ci]:"x"+(ci-4);if(ci>=4&&ci-4>=extrasM3().length)return null;
+  if(fila>=1&&fila<=n)return ci<4?`m3.r.${CASO.bal[fila-1].c}.${k}`:`m3.x.${CASO.bal[fila-1].c}.${k}`;
+  if(fila===n+1)return ci<4?`m3.tot.${k}`:`m3.xt.${k}`;return null}
+function evalCelda(path,pila){pila=pila||new Set();if(!path)return NaN;if(pila.has(path))return NaN;pila.add(path);
+  const raw=String(getPath(ST,path)??"").trim();let v;
+  if(!raw)v=0;else if(raw[0]!=="=")v=monto(raw);else v=evalFormula(raw.slice(1),pila);
+  pila.delete(path);return v}
+function evalFormula(f,pila){f=f.toUpperCase().replace(/\s+/g,"").replace(/SUM\(/g,"SUMA(");
+  // SUMA(C1:C12) → suma del rango
+  f=f.replace(/SUMA\(([A-Z])(\d+):([A-Z])(\d+)\)/g,(m,c1,r1,c2,r2_)=>{let t=0;const a=Math.min(+r1,+r2_),b=Math.max(+r1,+r2_),x=Math.min(c1.charCodeAt(0),c2.charCodeAt(0)),y=Math.max(c1.charCodeAt(0),c2.charCodeAt(0));
+    for(let c=x;c<=y;c++)for(let r=a;r<=b;r++){const v=evalCelda(celdaPath(String.fromCharCode(c),r),pila);if(Number.isNaN(v))return "NaN";t+=v}return "("+t+")"});
+  f=f.replace(/([A-Z])(\d+)/g,(m,c,r)=>{const v=evalCelda(celdaPath(c,+r),pila);return Number.isNaN(v)?"NaN":"("+v+")"});
+  if(/NaN/.test(f)||!/^[0-9.,()+\-]+$/.test(f))return NaN;
+  // números escritos con coma decimal o puntos de miles
+  f=f.replace(/\d[\d.,]*/g,x=>{const v=monto(x);return Number.isNaN(v)?"NaN":String(v)});if(/NaN/.test(f))return NaN;
+  try{const v=Function('"use strict";return ('+f+")")();return typeof v==="number"&&isFinite(v)?r2(v):NaN}catch(e){return NaN}}
+const verCelda=path=>{const raw=String(getPath(ST,path)??"").trim();if(!raw||raw[0]!=="=")return raw;const v=evalCelda(path);return Number.isNaN(v)?"#ERROR":fn(v)||"0"};
+function celdaM3(path,dir,cls){return `<input class="n cel ${cls||""}" data-p="${path}" data-dir="${dir}" value="${esc(verCelda(path))}" inputmode="text" autocomplete="off" aria-label="Casilla ${dir}">`}
+function refrescarCeldas(excepto){$$("input.cel").forEach(x=>{if(x!==excepto&&x!==document.activeElement)x.value=verCelda(x.dataset.p)})}
+document.addEventListener("focusin",e=>{if(!e.target.classList||!e.target.classList.contains("cel"))return;e.target.value=String(getPath(ST,e.target.dataset.p)??"");const fx=$("#fx");if(fx){$("#fxDir").textContent=e.target.dataset.dir;fx.value=e.target.value}});
+document.addEventListener("focusout",e=>{if(!e.target.classList||!e.target.classList.contains("cel"))return;setTimeout(()=>refrescarCeldas(),0)});
+document.addEventListener("input",e=>{if(e.target.classList&&e.target.classList.contains("cel")){const fx=$("#fx");if(fx)fx.value=e.target.value;refrescarCeldas(e.target)}});
 function pintarM3(){
-  const res=RES.m3||{},cl=k=>res[k]===undefined?"":res[k]?"ok":"bad";
+  const res=RES.m3||{},cl=k=>res[k]===undefined?"":res[k]?"ok":"bad",X=extrasM3(),n=CASO.bal.length;
   $("#mod").innerHTML=`<div class="card"><h3>⚖️ Balanza de comprobación de sumas y saldos</h3><p class="ayuda" style="margin:0 0 8px">Con el mayor de abajo, sume el Debe y el Haber de cada cuenta (columnas de <b>sumas</b>) y anote su saldo en la columna que corresponde (<b>deudor</b> o <b>acreedor</b>). Al final, los totales de sumas deben ser iguales entre sí, y también los de saldos.</p>
     <details class="ver"><summary>📒 Libro mayor (cuentas T)</summary>${mayorSoloLectura()}</details>
     <div class="ef-hd"><b>${esc(CASO.empresa)}</b><span>Balanza de comprobación de sumas y saldos</span><span>Al ${DIAS_MES} de ${MES} de ${ANIO} · en colones</span></div>
-    <div class="scroll"><table><thead><tr><th>Código</th><th>Cuenta</th><th class="r">Sumas Debe</th><th class="r">Sumas Haber</th><th class="r">Saldo deudor</th><th class="r">Saldo acreedor</th></tr></thead><tbody>
-      ${CASO.bal.map(b=>`<tr><td class="num">${b.c}</td><td>${esc(nom(b.c))}</td>${["sd","sh","ad","aa"].map(k=>`<td style="min-width:120px">${inp(`m3.r.${b.c}.${k}`,"n "+cl(b.c+"."+k))}</td>`).join("")}</tr>`).join("")}
-      <tr><td></td><td><b>Totales</b></td>${["sd","sh","ad","aa"].map(k=>`<td>${inp(`m3.tot.${k}`,"n "+cl("tot."+k))}</td>`).join("")}</tr>
+    <div class="xl-bar"><span class="xl-fx">fx</span><b id="fxDir">—</b><input id="fx" placeholder="Toque una casilla. Fórmulas: =C3-D3 · =125000+30000 · =SUMA(C1:C${n})" autocomplete="off" aria-label="Barra de fórmulas">
+      <button type="button" class="sec sm" id="addCol">＋ Columna</button>${X.length?`<button type="button" class="ghost sm" id="delCol">− Quitar última columna</button>`:""}</div>
+    <div class="scroll"><table class="xl"><thead><tr class="xl-let"><th></th><th>A</th><th>B</th>${[0,1,2,3].map(i=>`<th>${LET(i)}</th>`).join("")}${X.map((_,i)=>`<th class="aux">${LET(4+i)}</th>`).join("")}</tr>
+      <tr><th class="xl-n"></th><th>Código</th><th>Cuenta</th><th class="r">Sumas Debe</th><th class="r">Sumas Haber</th><th class="r">Saldo deudor</th><th class="r">Saldo acreedor</th>${X.map((x,i)=>`<th class="aux"><input class="xl-nom" data-p="m3.extra.${i}.nom" value="${esc(x.nom||"")}" placeholder="Columna ${LET(4+i)}" aria-label="Nombre de la columna ${LET(4+i)}"></th>`).join("")}</tr></thead><tbody>
+      ${CASO.bal.map((b,f)=>`<tr><th class="xl-n">${f+1}</th><td class="num">${b.c}</td><td>${esc(nom(b.c))}</td>${COLS_B.map((k,i)=>`<td style="min-width:120px">${celdaM3(`m3.r.${b.c}.${k}`,LET(i)+(f+1),cl(b.c+"."+k))}</td>`).join("")}${X.map((_,i)=>`<td class="aux" style="min-width:110px">${celdaM3(`m3.x.${b.c}.x${i}`,LET(4+i)+(f+1))}</td>`).join("")}</tr>`).join("")}
+      <tr class="xl-tot"><th class="xl-n">${n+1}</th><td></td><td><b>Totales</b></td>${COLS_B.map((k,i)=>`<td>${celdaM3(`m3.tot.${k}`,LET(i)+(n+1),cl("tot."+k))}</td>`).join("")}${X.map((_,i)=>`<td class="aux">${celdaM3(`m3.xt.x${i}`,LET(4+i)+(n+1))}</td>`).join("")}</tr>
     </tbody></table></div>
+    <p class="ayuda" style="margin:6px 0 0">🧮 Como en Excel: escriba un número o una fórmula que empiece con <b>=</b>. Solo suma y resta: <code>=C3-D3</code>, <code>=125000+30000-4500</code> o <code>=SUMA(C1:C${n})</code>. Las columnas que agregue (G, H…) son para sus cálculos y no se califican.</p>
     ${ST.sol.m3?`<div class="sol"><h4>Solución</h4><div class="scroll"><table><thead><tr><th>Cuenta</th><th class="r">Sumas Debe</th><th class="r">Sumas Haber</th><th class="r">Saldo deudor</th><th class="r">Saldo acreedor</th></tr></thead><tbody>${CASO.bal.map(b=>`<tr><td>${b.c} · ${esc(nom(b.c))}</td>${["sd","sh","ad","aa"].map(k=>`<td class="r num">${b[k]?fn(b[k]):""}</td>`).join("")}</tr>`).join("")}<tr><td><b>Totales</b></td>${["sd","sh","ad","aa"].map(k=>`<td class="r num"><b>${fn(CASO.tot[k])}</b></td>`).join("")}</tr></tbody></table></div></div>`:""}
     <div class="acc"><button type="button" id="rev3">✔ Revisar balanza</button>${solBtn("m3")}</div><div>${RES.m3html||""}</div></div>`;
   $("#rev3").onclick=()=>{revisarM3();pintarM3()};ligarSol(pintarM3);
+  $("#addCol").onclick=()=>{X.push({nom:""});guardar();pintarM3()};
+  const dc=$("#delCol");if(dc)dc.onclick=()=>{const i=X.length-1;if(!confirm(`¿Quitar la columna ${LET(4+i)} y lo que tiene escrito?`))return;X.pop();Object.values(ST.m3.x||{}).forEach(o=>delete o["x"+i]);if(ST.m3.xt)delete ST.m3.xt["x"+i];guardar();pintarM3()};
+  const fx=$("#fx");let celFx=null;
+  document.querySelectorAll("input.cel").forEach(x=>x.addEventListener("focus",()=>{celFx=x}));
+  fx.oninput=()=>{if(!celFx)return;setPath(ST,celFx.dataset.p,fx.value);celFx.classList.remove("ok","bad");guardar();refrescarCeldas()};
+  fx.onkeydown=e=>{if(e.key==="Enter"&&celFx){e.preventDefault();celFx.value=verCelda(celFx.dataset.p)}};
 }
 function revisarM3(){const res={};let bien=0,n=0;
-  CASO.bal.forEach(b=>["sd","sh","ad","aa"].forEach(k=>{const v=montoO0(getPath(ST,`m3.r.${b.c}.${k}`));res[b.c+"."+k]=igual(v,b[k]);n++;if(res[b.c+"."+k])bien++}));
-  ["sd","sh","ad","aa"].forEach(k=>{const v=monto(getPath(ST,`m3.tot.${k}`));res["tot."+k]=igual(v,CASO.tot[k]);n++;if(res["tot."+k])bien++});
-  const st=k=>montoO0(getPath(ST,`m3.tot.${k}`)),cuadra=igual(st("sd"),st("sh"))&&igual(st("ad"),st("aa"))&&st("sd")>0;
+  CASO.bal.forEach(b=>["sd","sh","ad","aa"].forEach(k=>{const v=evalCelda(`m3.r.${b.c}.${k}`);res[b.c+"."+k]=igual(v,b[k]);n++;if(res[b.c+"."+k])bien++}));
+  ["sd","sh","ad","aa"].forEach(k=>{const v=evalCelda(`m3.tot.${k}`);res["tot."+k]=String(getPath(ST,`m3.tot.${k}`)??"").trim()!==""&&igual(v,CASO.tot[k]);n++;if(res["tot."+k])bien++});
+  const st=k=>evalCelda(`m3.tot.${k}`)||0,cuadra=igual(st("sd"),st("sh"))&&igual(st("ad"),st("aa"))&&st("sd")>0;
   RES.m3=res;RES.m3html=bien===n?`<div class="fb ok">✅ ¡Balanza correcta! Sumas: ${fm(CASO.tot.sd)} = ${fm(CASO.tot.sh)} · Saldos: ${fm(CASO.tot.ad)} = ${fm(CASO.tot.aa)}.</div>`
     :`<div class="fb bad">❌ ${bien} de ${n} casillas correctas (las rojas están mal).${cuadra?" Sus totales cuadran entre sí, pero alguna cuenta tiene un error que se compensa con otro.":" Sus totales todavía no cuadran."} Recuerde: el saldo es la diferencia entre las sumas y va en la columna del lado mayor.</div>`;
   ponerNota("m3",100*bien/n)}
