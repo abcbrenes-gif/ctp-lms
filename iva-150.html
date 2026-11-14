@@ -239,24 +239,25 @@ body.sinrev .revbtn,body.sinrev [data-sol]{display:none!important}
 .asi-hd{display:flex;justify-content:space-between;gap:8px}.asi-t{width:100%}.asi-t td{padding:3px 4px}.asi-t td:first-child{min-width:220px}.asi-tot td{border-top:2px solid var(--ink);font-weight:800}.asi-t .warn{color:var(--warn)}
 .fe-nota{background:#fff6db;color:#5a4300;padding:6px 12px;font-size:.8rem;border-top:1px solid #c8d4e2}.fe-tot{font-weight:800}
 .guia ol{padding-left:20px}.guia li{margin:4px 0}.guia h4{margin:12px 0 6px}
+.bal td{min-width:120px}.bal td:first-child{min-width:240px}.bal .sol{display:block;margin-top:2px;padding:1px 6px}.ok-t{color:var(--ok);font-size:.8rem;font-weight:700}.asi-t .warn{color:var(--warn);font-size:.8rem;font-weight:700}
 .sol{background:var(--okbg);color:var(--ink);border-radius:8px;padding:6px 10px;font-size:.84rem}
 </style>
 </head>
 <body>
 <header class="top"><div class="wrap">
   <div class="brand"><img src="img/logo-ctp-mercedes-norte.png" alt="Escudo del CTP Mercedes Norte" width="31" height="44">
-    <div><b>Declaración del IVA · Formulario 150 <span class="pill">Prototipo 2027</span></b><small>Facturas · Crédito fiscal y proporcionalidad · Formulario 150 (TRIBU-CR) · Asientos</small></div></div>
+    <div><b>Declaración del IVA · Formulario 150 <span class="pill">Prototipo 2027</span></b><small>Facturas al diario · Balanza · Crédito fiscal y proporcionalidad · Formulario 150 (TRIBU-CR) · Liquidación</small></div></div>
   <div class="caso" id="caso"></div>
 </div></header>
 <main class="wrap" id="app"><p class="muted">Cargando…</p></main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="js/config.js?v=20261105h"></script>
-<script src="js/actividades.js?v=20261114b"></script>
+<script src="js/actividades.js?v=20261114c"></script>
 <script>
 /* ══════════════════════════════════════════════════════════════════════
    Declaración del IVA · Formulario 150 (TRIBU-CR). Prototipo 2027.
    Un caso = una empresa (comercial o de servicios) y las facturas de un mes.
-     1. Clasificar facturas   2. Crédito fiscal y proporcionalidad
+     1. Facturas al diario (subcuentas por tarifa)   2. Balanza de comprobación   3. Crédito fiscal y proporcionalidad
      3. Formulario 150        4. Asientos del IVA (ventas, compras, liquidación y pago)
    Niveles: 1 tarifa única 13 % · 2 varias tarifas (compras identificadas)
             3 proporcionalidad (prorrata provisional) · 4 diciembre (liquidación anual)
@@ -293,9 +294,12 @@ const TIPO_EMP={comercial:"Empresa comercial",servicios:"Empresa de servicios"};
 const NIVELES={1:"1 · Tarifa única (13 %)",2:"2 · Varias tarifas (compras identificadas)",3:"3 · Proporcionalidad (prorrata)",4:"4 · Diciembre: liquidación anual"};
 
 /* ── Catálogo de cuentas para el IVA ── */
-const CAT=[["1101","Caja"],["1102","Bancos"],["1103","Cuentas por cobrar"],["1104","Inventario de mercadería"],["1106","IVA soportado (crédito fiscal)"],["1107","Suministros"],["1108","IVA saldo a favor"],["1109","Retenciones de IVA por tarjetas (pago a cuenta)"],
-  ["2101","Cuentas por pagar"],["2103","IVA por pagar (débito fiscal)"],["2104","IVA por pagar a Hacienda (liquidación)"],
-  ["4101","Ventas"],["4102","Ingresos por servicios"],["6102","Gasto de alquiler"],["6103","Gasto de servicios públicos"],["6104","Gasto de publicidad"],["6107","Gasto de mantenimiento"],["6108","Gasto de papelería y útiles"],["6110","Gasto por IVA no acreditable"]];
+// Subcuentas por tarifa: así la balanza de comprobación da los datos de la declaración
+const SUB=[["13","13 %"],["04","4 %"],["02","2 %"],["01","1 %"]],SUBV=[...SUB.map(([k,t])=>[k,"gravadas al "+t]),["ED","exentas con derecho a crédito"],["ES","exentas sin derecho a crédito"]];
+const SUF_V={v13:"13",v4:"04",v2:"02",v1:"01",ecd:"ED",esd:"ES"},SUF_T={13:"13",4:"04",2:"02",1:"01"};
+const CAT=[["1101","Caja"],["1102","Bancos"],["1103","Cuentas por cobrar"],["1104","Inventario de mercadería"],...SUB.map(([k,t])=>["1106."+k,"IVA soportado (crédito fiscal) "+t]),["1107","Suministros"],["1108","IVA saldo a favor"],["1109","Retenciones de IVA por tarjetas (pago a cuenta)"],
+  ["2101","Cuentas por pagar"],...SUB.map(([k,t])=>["2103."+k,"IVA por pagar (débito fiscal) "+t]),["2104","IVA por pagar a Hacienda (liquidación)"],
+  ...SUBV.map(([k,t])=>["4101."+k,"Ventas "+t]),...SUBV.map(([k,t])=>["4102."+k,"Ingresos por servicios "+t]),["6102","Gasto de alquiler"],["6103","Gasto de servicios públicos"],["6104","Gasto de publicidad"],["6107","Gasto de mantenimiento"],["6108","Gasto de papelería y útiles"],["6110","Gasto por IVA no acreditable"]];
 const nom=c=>(CAT.find(x=>x[0]===c)||[c,c])[1];
 
 /* ── Textos del generador ── */
@@ -344,7 +348,7 @@ function generarCaso(seed,nivel,emp){nivel=+nivel||1;emp=emp==="servicios"?"serv
   // Compras generales (se usan en todas las ventas)
   if(nivel!==2)(nivel===1?[COMP_GEN[0],COMP_GEN[1],COMP_GEN[3]]:COMP_GEN.slice(0,3)).forEach(([d,t,cta])=>F.push({tipo:"compra",tar:t,cta,cat:"c13",dest:nivel===1?null:"ni",lin:[{d,u:"Serv",q:1,p:m(d.startsWith("Alquiler")?250e3:60e3,d.startsWith("Alquiler")?450e3:180e3,500),desc:0}],cont:pick(PROVEEDORES),cond:"contado",medio:"transferencia"}));
   // Compra a un proveedor del régimen simplificado (no desglosa IVA: no da crédito)
-  F.push({tipo:"compra",tar:0,cta:"6107",cat:"csr",dest:null,simp:true,lin:[{d:"Reparación menor del local (proveedor en régimen simplificado)",u:"Serv",q:1,p:m(25e3,90e3,500),desc:0}],cont:"Taller de soldadura Don Beto (régimen simplificado)",cond:"contado",medio:"efectivo"});
+  F.push({tipo:"compra",tar:0,cta:"6107",cat:"csr",dest:null,simp:true,lin:[{d:"Reparación menor del local (proveedor en régimen simplificado)",u:"Serv",q:1,p:m(25e3,90e3,500),desc:0}],cont:"Taller de soldadura Don Beto (régimen simplificado)",cond:"contado",medio:"sinpe"});
   // Días y consecutivos
   const dias=F.map(()=>2+Math.floor(R()*(finDeMes(mes)-3)));F.forEach((f,i)=>{f.dia=dias[i]});F.sort((a,b)=>a.dia-b.dia||(a.tipo>b.tipo?-1:1));
   let nf=Math.floor(R()*900)+100;F.forEach((f,i)=>{f.n=i+1;f.consec=(f.tipo==="venta"?"00100001"+(f.simp?"04":"01"):"00100001"+(f.simp?"04":"01"))+String(f.tipo==="venta"?nf++:Math.floor(R()*9e9)+1e9).padStart(10,"0");
@@ -381,7 +385,18 @@ function calcular(c){const F=c.F;
     LQ={anio,pd,totAnio:T,credEnenov,ivaAnio,filasDef,def,aplic,L:def-aplic}}
   const L=LQ?LQ.L:0,neto=D-C,periodo=neto-L,ret=F.reduce((a,f)=>a+f.ret,0),fin=periodo-ret-c.sfa;
   const R={D,S,C,G,neto,L,periodo,ret,sfa:c.sfa,fin,pagar:Math.max(0,fin),plazo:plazoDe(c.mes)};
-  const caso={...c,V,CT,ident,ni,LQ,R};caso.form=formulario(caso);caso.asientos=asientos(caso);return caso}
+  const caso={...c,V,CT,ident,ni,LQ,R};caso.diario=F.map(f=>asientoFactura(f,c.emp));caso.balanza=balanzaDe(caso.diario);caso.form=formulario(caso);caso.asientos=asientos(caso);return caso}
+const netos=lin=>{const o={};lin.forEach(([k,v])=>{if(v)o[k]=(o[k]||0)+v});Object.keys(o).forEach(k=>{if(Math.abs(o[k])<.5)delete o[k]});return o};
+// Asiento de diario de una factura (+ débito, − crédito)
+function asientoFactura(f,emp){if(f.tipo==="venta"){const cob=f.cond==="credito"?"1103":f.medio==="efectivo"?"1101":"1102";
+    return netos([[cob,f.total-f.ret],["1109",f.ret],[(emp==="servicios"?"4102.":"4101.")+SUF_V[f.cat],-f.base],f.iva?["2103."+SUF_T[f.tar],-f.iva]:["",0]])}
+  const pag=f.cond==="credito"?"2101":f.medio==="efectivo"?"1101":"1102";
+  return netos([[f.cta,f.simp?f.total:f.base],f.iva?["1106."+SUF_T[f.tar],f.iva]:["",0],[pag,-f.total]])}
+// Balanza de comprobación de los movimientos del mes (sumas y saldos)
+function balanzaDe(D){const B={};D.forEach(n=>Object.entries(n).forEach(([c,v])=>{const x=B[c]||(B[c]={d:0,h:0});v>0?x.d+=v:x.h-=v}));
+  const ord=Object.keys(B).sort((a,b)=>CAT.findIndex(x=>x[0]===a)-CAT.findIndex(x=>x[0]===b));
+  const filas=ord.map(c=>{const x=B[c],sd=Math.max(0,x.d-x.h),sa=Math.max(0,x.h-x.d);return {c,d:x.d,h:x.h,sd,sa}});
+  const T=k=>filas.reduce((a,x)=>a+x[k],0);return {filas,tot:{d:T("d"),h:T("h"),sd:T("sd"),sa:T("sa")}}}
 
 /* ── Formulario 150: casillas que aplican a este caso (como en TRIBU-CR) ── */
 function formulario(c){const {V,CT,R}=c,L=[],add=(sec,k,n,v,o)=>L.push({sec,k,n,v,...(o||{})});
@@ -408,22 +423,18 @@ function formulario(c){const {V,CT,R}=c,L=[],add=(sec,k,n,v,o)=>L.push({sec,k,n,
 const SECCIONES={I:"I. Ventas y otras operaciones del periodo",II:"II. Compras y créditos del periodo",III:"III. Liquidación de créditos por regla de proporcionalidad",IV:"IV. Determinación del impuesto por operaciones gravadas",V:"V. Determinación del impuesto final",VI:"VI. Liquidación de la deuda tributaria"};
 
 /* ── Asientos esperados (saldo neto por cuenta: + débito, − crédito) ── */
-function asientos(c){const F=c.F,R=c.R,A=[],ing=c.emp==="servicios"?"4102":"4101";
-  const nt=lin=>{const o={};lin.forEach(([k,v])=>{if(v)o[k]=(o[k]||0)+v});Object.keys(o).forEach(k=>{if(!o[k])delete o[k]});return o};
-  const V=F.filter(f=>f.tipo==="venta"),Cm=F.filter(f=>f.tipo==="compra"),fin=`${ANIO}-${String(c.mes).padStart(2,"0")}-${finDeMes(c.mes)}`;
-  A.push({k:"a1",t:"Ventas del mes",fecha:fin,g:`Registro de las ventas de ${MESES[c.mes-1]} según la forma de cobro (resumen de las facturas emitidas). En las ventas con tarjeta el banco retiene el 6 % de la venta neta como pago a cuenta del IVA.`,
-    n:nt([...V.map(f=>[f.cond==="credito"?"1103":f.medio==="efectivo"?"1101":"1102",f.total-f.ret]),...V.map(f=>["1109",f.ret]),[ing,-V.reduce((a,f)=>a+f.base,0)],["2103",-R.D]])});
-  A.push({k:"a2",t:"Compras y gastos del mes",fecha:fin,g:`Registro de las compras y gastos de ${MESES[c.mes-1]} (resumen de las facturas recibidas): el IVA de las facturas va completo al IVA soportado.`,
-    n:nt([...Cm.map(f=>[f.cta,f.base]),["1106",R.S],...Cm.map(f=>[f.cond==="credito"?"2101":f.medio==="efectivo"?"1101":"1102",-f.total])])});
-  A.push({k:"a3",t:"Liquidación del IVA del mes",fecha:fin,g:`Cierre del IVA de ${MESES[c.mes-1]}: se cancelan el débito y el crédito fiscal, el IVA que no se puede acreditar pasa a gasto${c.LQ?" (con el ajuste de la liquidación anual de la proporcionalidad)":""}, se aplican las retenciones${R.sfa?" y el saldo a favor anterior":""}, y queda el impuesto por pagar o el saldo a favor.`,
-    n:nt([["2103",R.D],["1106",-R.S],["6110",R.G-R.L],["1109",-R.ret],["1108",-R.sfa],R.fin>=0?["2104",-R.fin]:["1108",-R.fin]])});
-  if(R.pagar>0)A.push({k:"a4",t:"Pago del IVA",fecha:R.plazo,g:`Pago del impuesto en TRIBU-CR a más tardar el ${fechaCR(R.plazo)}, con transferencia desde la cuenta bancaria.`,n:nt([["2104",R.pagar],["1102",-R.pagar]])});
+function asientos(c){const R=c.R,A=[],fin=`${ANIO}-${String(c.mes).padStart(2,"0")}-${finDeMes(c.mes)}`;
+  const deb=[13,4,2,1].filter(t=>c.V&&Object.keys(c.V).some(s=>TV[s].tar===t)).map(t=>["2103."+SUF_T[t],Object.keys(c.V).filter(s=>TV[s].tar===t).reduce((a,s)=>a+c.V[s].iva,0)]);
+  const sop=[13,4,2,1].filter(t=>c.CT["c"+t]).map(t=>["1106."+SUF_T[t],-c.CT["c"+t].iva]);
+  A.push({k:"a3",t:"Liquidación del IVA del mes",fecha:fin,g:`Cierre del IVA de ${MESES[c.mes-1]}: se cancelan los saldos de IVA por pagar (débito fiscal) y de IVA soportado (crédito fiscal) de cada tarifa que muestra la balanza, el IVA que no se puede acreditar pasa a gasto${c.LQ?" (con el ajuste de la liquidación anual de la proporcionalidad)":""}, se aplican las retenciones${R.sfa?" y el saldo a favor anterior":""}, y queda el impuesto por pagar o el saldo a favor.`,
+    n:netos([...deb,...sop,["6110",R.G-R.L],["1109",-R.ret],["1108",-R.sfa],R.fin>=0?["2104",-R.fin]:["1108",-R.fin]])});
+  if(R.pagar>0)A.push({k:"a4",t:"Pago del IVA",fecha:R.plazo,g:`Pago del impuesto en TRIBU-CR a más tardar el ${fechaCR(R.plazo)}, con transferencia desde la cuenta bancaria.`,n:netos([["2104",R.pagar],["1102",-R.pagar]])});
   return A}
 
 /* ── Estado del estudiante ── */
-const KEY="iva150_v1";let KEYV=KEY;
+const KEY="iva150_v2";let KEYV=KEY;
 const nuevaSemilla=()=>100000+Math.floor(Math.random()*900000);
-const estadoNuevo=(seed,nivel,emp)=>({v:1,seed,nivel:+nivel||1,emp:emp||"comercial",mod:"m1",m1:{},m2:{},m3:{},m4:{},nota:{},sol:{}});
+const estadoNuevo=(seed,nivel,emp)=>({v:1,seed,nivel:+nivel||1,emp:emp||"comercial",mod:"m1",m1:{},mb:{},m2:{},m3:{},m4:{},nota:{},sol:{}});
 let ST=null;try{ST=JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){}
 if(!ST||ST.v!==1)ST=estadoNuevo(nuevaSemilla(),1,"comercial");
 let CASO=generarCaso(ST.seed,ST.nivel,ST.emp),RES={};
@@ -444,7 +455,7 @@ function pintarCaso(){
     <label>Nivel<select id="nivel">${Object.entries(NIVELES).map(([k,v])=>`<option value="${k}" ${+k===ST.nivel?"selected":""}>${v}</option>`).join("")}</select></label>
     <label>Código del caso<input id="codigo" class="num" value="${ST.seed}" inputmode="numeric"></label>
     <button type="button" class="sec" id="cargar">Abrir</button><button type="button" id="nuevo">🎲 Caso nuevo</button><button type="button" class="sec" id="verGuia">📘 Cómo se declara</button>`;
-  const cambiar=(seed,nivel,emp)=>{const hay=["m1","m2","m3","m4"].some(k=>JSON.stringify(ST[k]||{})!=="{}");
+  const cambiar=(seed,nivel,emp)=>{const hay=["m1","mb","m2","m3","m4"].some(k=>JSON.stringify(ST[k]||{})!=="{}");
     if(hay&&!confirm("Se empieza un caso nuevo y se borra lo que lleva en este caso. ¿Continuar?")){pintarCaso();return}
     const mod=ST.mod;ST=estadoNuevo(seed,nivel,emp);ST.mod=mod;CASO=generarCaso(seed,nivel,emp);RES={};guardar();pintar()};
   $("#nivel").onchange=e=>cambiar(ST.seed,+e.target.value,ST.emp);$("#tipoEmp").onchange=e=>cambiar(ST.seed,ST.nivel,e.target.value);
@@ -463,7 +474,7 @@ function verGuia(){abrirDlg("📘 Cómo se declara el IVA · Formulario 150 (TRI
     <li><b>Compras no identificadas</b> (alquiler, electricidad, publicidad…: sirven a todas las ventas): se reparten con la <b>proporción provisional</b> = ventas de cada tipo del año anterior ÷ total de ventas del año anterior.</li></ul></li>
   <li><b>Diciembre</b>: se calcula la <b>proporción definitiva</b> con las ventas reales del año y se compara el crédito definitivo con el aplicado durante el año: la diferencia es un saldo a favor o un saldo deudor por la liquidación de la proporcionalidad.</li>
   <li><b>Impuesto final</b> = débito − crédito (± liquidación) − retenciones de tarjetas (pago a cuenta) − saldo a favor de periodos anteriores.</li></ol>
-  <h4>Asientos del IVA</h4><div class="scroll"><table><tbody>
+  <h4>Del diario a la declaración</h4><p>Cada factura se registra en el diario con <b>subcuentas por tarifa</b> (Ventas gravadas al 13 %, IVA por pagar 13 %, IVA soportado 13 %…). La balanza de comprobación suma esas subcuentas y de ahí se cargan las ventas y el IVA en el formulario 150.</p><h4>Asientos del IVA</h4><div class="scroll"><table><tbody>
   <tr><td>Venta</td><td>Débito: Caja, Bancos o CxC (y Retenciones de IVA por tarjetas) · Crédito: Ventas / Ingresos por servicios e <b>IVA por pagar (débito fiscal)</b></td></tr>
   <tr><td>Compra</td><td>Débito: Inventario, Suministros o Gasto y <b>IVA soportado (crédito fiscal)</b> · Crédito: Bancos o CxP</td></tr>
   <tr><td>Liquidación</td><td>Débito: IVA por pagar (débito fiscal) y Gasto por IVA no acreditable · Crédito: IVA soportado, Retenciones, IVA saldo a favor e <b>IVA por pagar a Hacienda</b> (o débito a IVA saldo a favor si el resultado es a favor)</td></tr>
@@ -482,7 +493,7 @@ function facturaHTML(f){const C=CASO,venta=f.tipo==="venta",yo={n:C.empresa,c:"3
     ${f.ret?`<div class="fe-nota">💳 Pagada con tarjeta: el banco le retiene a la empresa el 6 % de la venta neta (${fm(f.ret)}) como pago a cuenta del IVA.</div>`:""}</div>`}
 
 /* ── Módulos ── */
-const MODS=[["m1","🧾","Clasificar facturas","Tarifa, base, IVA y destino","var(--m1)"],["m2","⚖️","Crédito fiscal","Tarifa reducida y proporcionalidad","var(--m2)"],["m3","🖥️","Formulario 150","Secciones I a VI, como en TRIBU-CR","var(--m3)"],["m4","✍️","Asientos del IVA","Ventas, compras, liquidación y pago","var(--m4)"]];
+const MODS=[["m1","🧾","Facturas al diario","Asiento de cada factura por tarifa","var(--m1)"],["mb","📊","Balanza de comprobación","Sumas y saldos de las cuentas","#0b7285"],["m2","⚖️","Crédito fiscal","Tarifa reducida y proporcionalidad","var(--m2)"],["m3","🖥️","Formulario 150","Secciones I a VI, como en TRIBU-CR","var(--m3)"],["m4","✍️","Liquidación y pago","Cierre del IVA y pago en TRIBU-CR","var(--m4)"]];
 function pintar(){
   document.body.classList.toggle("sinrev",!puedeRevisar());const pl=$(".brand .pill");if(pl)pl.style.display=DOCENTE?"":"none";document.body.classList.toggle("bloq",!!ACTV.bloq||ACTV.modo==="ver");
   if(ACTV.id){if(!ACTV.listo){$("#app").innerHTML='<p class="muted" style="margin-top:20px">Cargando la actividad…</p>';$("#caso").innerHTML="";return}
@@ -494,47 +505,55 @@ function pintar(){
   const nota=ST.nota||{},MV=MODS.filter(m=>modsAct().includes(m[0]));if(!MV.some(m=>m[0]===ST.mod))ST.mod=MV[0][0];
   const tabs=MV.map(([k,i,t,s,c])=>`<button type="button" class="mod ${ST.mod===k?"on":""}" data-mod="${k}" style="--c:${c}" aria-pressed="${ST.mod===k}"><span class="t"><span class="i">${i}</span>${t}</span><small>${s}</small><div class="bar" title="Avance de la última revisión"><i style="width:${nota[k]||0}%"></i></div></button>`).join("");
   const C=CASO;
-  $("#app").innerHTML=`${ACTV.t?barraActividadT():hubHTML()}<nav class="mods" aria-label="Módulos" style="grid-template-columns:repeat(${Math.min(4,MV.length)},minmax(0,1fr))">${tabs}</nav>
+  $("#app").innerHTML=`${ACTV.t?barraActividadT():hubHTML()}<nav class="mods" aria-label="Módulos" style="grid-template-columns:repeat(${Math.min(5,MV.length)},minmax(0,1fr))">${tabs}</nav>
     <div class="card"><div class="empresa"><b>${C.emp==="servicios"?"🛠️":"🏪"} ${esc(C.empresa)}</b><span class="muted">${TIPO_EMP[C.emp]} · contribuyente del régimen general de IVA</span><span class="muted">Periodo: ${mesTxt()}</span><span class="chip">${NIVELES[C.nivel]}</span>${ACTV.t?"":`<span class="chip">Caso ${C.seed}</span>`}</div>
-      <div class="ayuda">${ACTV.t?(puedeRevisar()?"Puede revisar cada módulo cuando quiera.":"Aquí no hay botón de revisar: se revisa todo cuando "+(tipoAct()==="examen"?"termine":"entregue")+". Su avance se guarda solo."):"Los cuatro módulos usan el mismo caso. Puede hacerlos en orden o practicar uno solo."} ${datosExtra()}</div></div>
+      <div class="ayuda">${ACTV.t?(puedeRevisar()?"Puede revisar cada módulo cuando quiera.":"Aquí no hay botón de revisar: se revisa todo cuando "+(tipoAct()==="examen"?"termine":"entregue")+". Su avance se guarda solo."):"Los cinco módulos usan el mismo caso. Puede hacerlos en orden o practicar uno solo."} ${datosExtra()}</div></div>
     <div id="mod"></div>`;
   if(ACTV.t)ligarBarraT();else ligarHub();
   $$("[data-mod]").forEach(b=>b.onclick=()=>{ST.mod=b.dataset.mod;guardar();pintar()});
-  ({m1:pintarM1,m2:pintarM2,m3:pintarM3,m4:pintarM4})[ST.mod]()}
+  ({m1:pintarM1,mb:pintarMB,m2:pintarM2,m3:pintarM3,m4:pintarM4})[ST.mod]()}
 function datosExtra(){const R=CASO.R,x=[];if(R.sfa)x.push(`Saldo a favor de periodos anteriores: <b>${fm(R.sfa)}</b>.`);if(CASO.nivel>=3)x.push("Tiene ventas con distintas tarifas o sin derecho a crédito: aplica la regla de proporcionalidad.");return x.join(" ")}
 // Lista de facturas (en los módulos 2 a 4). Si la actividad incluye el módulo 1, no se muestra la clasificación.
 function listaFacturas(){const ver=!modsAct().includes("m1")||ST.fin||ACTV.modo==="docente"||!ACTV.t;const F=CASO.F;
   return `<details class="ver"><summary>📄 Facturas del mes (${F.length})${ver?" · ya clasificadas":""}</summary><div class="scroll"><table><thead><tr><th>N.º</th><th>Día</th><th>Tipo</th><th>Detalle</th><th>Condición</th>${ver?"<th>Casilla</th><th>Destino</th>":""}<th class="r">Venta neta</th><th class="r">IVA</th><th class="r">Total</th><th class="r">Retención</th></tr></thead><tbody>
     ${F.map(f=>`<tr><td>${f.n}</td><td>${f.dia}</td><td>${f.tipo==="venta"?"Venta":"Compra"}</td><td>${esc(f.lin[0].d)}</td><td>${f.cond==="credito"?"Crédito":"Contado · "+MEDIO_N[f.medio]}</td>${ver?`<td>${f.tipo==="venta"?TV[f.cat].c:CASILLA_C[f.cat]}</td><td>${f.dest==="ni"?"No identificada":f.dest?TV[f.dest].c:"—"}</td>`:""}<td class="r num">${fn(f.base)}</td><td class="r num">${fn(f.iva)}</td><td class="r num">${fn(f.total)}</td><td class="r num">${f.ret?fn(f.ret):""}</td></tr>`).join("")}</tbody></table></div></details>`}
 
-/* ══════════ MÓDULO 1 · Clasificar facturas ══════════ */
-const opsVenta=()=>ORD_V.map(s=>[s,TV[s].n]);
-const opsCompra=[["c13","Compras al 13 %"],["c4","Compras al 4 %"],["c2","Compras al 2 %"],["c1","Compras al 1 %"],["csr","Sin IVA: adquiridos a otros regímenes (simplificado)"],["cex","Sin IVA: bienes y servicios exentos"]];
+/* ══════════ MÓDULO 1 · Asientos de diario de las facturas ══════════ */
 const opsDest=()=>[...CASO.SET.map(s=>[s,"Identificada: para "+TV[s].c.toLowerCase()]),["ni","No identificada (sirve a todas las ventas)"],["na","No aplica (no trae IVA)"]];
 const pideDest=f=>f.tipo==="compra"&&CASO.nivel>=2;
 const destOk=f=>f.tar===0?"na":f.dest;
-function pintarM1(){const F=CASO.F,i=Math.min(ST.m1.sel||0,F.length-1),f=F[i],b=`m1.r.${i}`;
-  const hechos=F.filter((_,k)=>RES[`m1.r.${k}.ok`]).length;
+function pintarM1(){const F=CASO.F,i=Math.min(ST.m1.sel||0,F.length-1),f=F[i],p=`m1.a.${i}`;
+  const hechos=F.filter((_,k)=>RES[`m1.ok.${k}`]).length;
   $("#mod").innerHTML=`<div class="m1">
-    <div><div class="card" style="padding:12px"><h3>Facturas</h3><p class="muted" style="font-size:.82rem;margin:0 0 8px">${hechos}/${F.length} correctas en la última revisión</p>
-      <div class="tlist">${F.map((x,k)=>`<button type="button" class="sm ${k===i?"on":""}" data-f="${k}"><span class="dot ${RES[`m1.r.${k}.ok`]===true?"ok":RES[`m1.r.${k}.ok`]===false?"bad":""}"></span>${x.n}. ${x.tipo==="venta"?"Venta":"Compra"} · día ${x.dia}</button>`).join("")}</div></div></div>
-    <div class="card"><div class="trx"><b>Factura ${i+1} de ${F.length} · ${f.tipo==="venta"?"emitida (venta)":"recibida (compra o gasto)"}</b><br>Clasifíquela como en el formulario 150: casilla, venta neta (base imponible) e IVA${pideDest(f)?", y si la compra se puede identificar con un tipo de venta":""}.</div>
+    <div><div class="card" style="padding:12px"><h3>Facturas</h3><p class="muted" style="font-size:.82rem;margin:0 0 8px">${hechos}/${F.length} asientos correctos en la última revisión</p>
+      <div class="tlist">${F.map((x,k)=>`<button type="button" class="sm ${k===i?"on":""}" data-f="${k}"><span class="dot ${RES[`m1.ok.${k}`]===true?"ok":RES[`m1.ok.${k}`]===false?"bad":""}"></span>${x.n}. ${x.tipo==="venta"?"Venta":"Compra"} · día ${x.dia}</button>`).join("")}</div></div></div>
+    <div class="card"><div class="trx"><b>Factura ${i+1} de ${F.length} · ${f.tipo==="venta"?"emitida (venta)":"recibida (compra o gasto)"} · ${f.dia} de ${MESES[CASO.mes-1]}</b><br>Registre el asiento de diario. Use la <b>subcuenta de la tarifa</b> (ventas e IVA por tarifa): así la balanza le dará los datos del formulario 150.</div>
       ${facturaHTML(f)}
-      <div class="ins-g">
-        <label>Casilla del formulario 150${sel(b+".cas",f.tipo==="venta"?opsVenta():opsCompra)}</label>
-        <label>Base imponible (venta neta)${inp(b+".base","₡")}</label>
-        <label>${f.tipo==="venta"?"IVA cobrado (débito)":"IVA soportado"}${inp(b+".iva","₡")}</label>
-        ${pideDest(f)?`<label>Destino de la compra${sel(b+".dest",opsDest())}</label>`:""}</div>
-      <div class="acc"><button type="button" class="sec" id="ant" ${i?"":"disabled"}>← Anterior</button><span style="flex:1"></span>${solBtn("m1."+i)}<button type="button" class="revbtn" id="rev1">✔️ Revisar todas</button><button type="button" class="sec" id="sig" ${i<F.length-1?"":"disabled"}>Siguiente →</button></div>
+      <div class="asi ${RES[`m1.ok.${i}`]===true?"ok":RES[`m1.ok.${i}`]===false?"bad":""}"><div class="asi-hd"><b>📘 Asiento N.º ${i+1}</b><span class="muted">${fechaCR(f.fecha)}</span></div>${editorAsiento(p)}
+      ${pideDest(f)?`<label style="display:block;margin-top:8px;max-width:520px">Destino de la compra (para el crédito fiscal)${sel(`m1.dest.${i}`,opsDest())}</label>`:""}</div>
+      <div class="acc"><button type="button" class="sec" id="ant" ${i?"":"disabled"}>← Anterior</button><span style="flex:1"></span>${solBtn("m1."+i)}<button type="button" class="revbtn" id="rev1">✔️ Revisar todos</button><button type="button" class="sec" id="sig" ${i<F.length-1?"":"disabled"}>Siguiente →</button></div>
       <div id="m1msg">${RES.m1msg||""}</div>
-      ${ST.sol["m1."+i]?`<div class="sol"><b>Solución:</b> ${f.tipo==="venta"?TV[f.cat].n:CASILLA_C[f.cat]} · base ${fm(f.base)} · IVA ${fm(f.iva)}${pideDest(f)?` · destino: ${f.tar===0?"no aplica":f.dest==="ni"?"no identificada":"identificada con "+TV[f.dest].c.toLowerCase()}`:""}.<br><small>${f.simp?"El régimen simplificado no desglosa IVA: no hay impuesto soportado ni crédito.":f.tipo==="venta"?"":f.tar===0?"Compra exenta: no trae IVA soportado.":f.dest==="ni"?"Sirve a todas las ventas de la empresa: su crédito se reparte con la proporción.":f.dest&&!TV[f.dest].pleno?`Va destinada a ventas al ${TV[f.dest].tar} % o sin derecho: su crédito se limita.`:""}</small></div>`:""}</div></div>`;
+      ${ST.sol["m1."+i]?`<div class="sol"><b>Solución</b>${solAsiento({n:CASO.diario[i]})}${pideDest(f)?`Destino: ${f.tar===0?"no aplica":f.dest==="ni"?"no identificada":"identificada con "+TV[f.dest].c.toLowerCase()}.`:""}<br><small>${f.simp?"El régimen simplificado no desglosa IVA: todo el monto es gasto y no hay crédito.":f.ret?"Venta con tarjeta: el banco deposita el total menos la retención del 6 % de la venta neta, que es un pago a cuenta del IVA.":f.tipo==="compra"&&f.tar===0?"Compra exenta: no trae IVA soportado.":""}</small></div>`:""}</div></div>`;
   $$("[data-f]").forEach(x=>x.onclick=()=>{ST.m1.sel=+x.dataset.f;guardar();pintarM1()});
   $("#ant").onclick=()=>{ST.m1.sel=i-1;guardar();pintarM1()};$("#sig").onclick=()=>{ST.m1.sel=i+1;guardar();pintarM1()};
-  $("#rev1").onclick=()=>{revisarM1();pintarM1()};ligarSol(pintarM1)}
+  ligarEditor(pintarM1);$("#rev1").onclick=()=>{revisarM1();pintarM1()};ligarSol(pintarM1)}
 function revisarM1(){const F=CASO.F;let b=0,n=0,ok=0;
-  F.forEach((f,i)=>{const p=`m1.r.${i}`,r=getPath(ST,p)||{};const ch=[[p+".cas",r.cas===f.cat],[p+".base",cerca(monto(r.base),f.base)],[p+".iva",cerca(montoO0(r.iva),f.iva)]];if(pideDest(f))ch.push([p+".dest",r.dest===destOk(f)]);
-    let todo=true;ch.forEach(([k,v])=>{RES[k]=v;n++;if(v)b++;else todo=false});RES[p+".ok"]=todo;if(todo)ok++});
-  RES.m1msg=`<div class="fb ${ok===F.length?"ok":"bad"}">${ok===F.length?"✅ ¡Todas las facturas bien clasificadas!":`❌ ${ok} de ${F.length} facturas completas y correctas (${b} de ${n} casillas).`}</div>`;ponerNota("m1",100*b/n)}
+  F.forEach((f,i)=>{const r=compararAsiento(`m1.a.${i}`,CASO.diario[i]);let todo=r.bien===r.tot;b+=r.bien;n+=r.tot;
+    if(pideDest(f)){const d=getPath(ST,`m1.dest.${i}`)===destOk(f);RES[`m1.dest.${i}`]=d;n++;if(d)b++;else todo=false}RES[`m1.ok.${i}`]=todo;if(todo)ok++});
+  RES.m1msg=`<div class="fb ${ok===F.length?"ok":"bad"}">${ok===F.length?"✅ ¡Todos los asientos correctos!":`❌ ${ok} de ${F.length} asientos completos y correctos (${b} de ${n} cuentas o destinos).`}</div>`;ponerNota("m1",100*b/Math.max(1,n))}
+
+/* ══════════ MÓDULO · Balanza de comprobación ══════════ */
+function pintarMB(){const B=CASO.balanza,sb_=ST.sol.mb;
+  $("#mod").innerHTML=`<div class="card"><h3>📊 Balanza de comprobación de ${mesTxt()}</h3><p class="ayuda">Pase los asientos del diario (módulo 1) a la balanza: sumas del debe y del haber de cada cuenta y su saldo. Las subcuentas de ventas, de IVA por pagar y de IVA soportado por tarifa son las que se cargan en la declaración.</p>
+    <details class="ver"><summary>📘 Ver el libro diario resuelto (${CASO.F.length} asientos)</summary>${modsAct().includes("m1")&&ACTV.t&&!ST.fin&&ACTV.modo==="estudiante"?'<p class="muted">Use sus propios asientos del módulo 1.</p>':CASO.F.map((f,i)=>`<div class="asi"><b>${i+1}. ${f.tipo==="venta"?"Venta":"Compra"} · ${esc(f.lin[0].d)}</b>${solAsiento({n:CASO.diario[i]})}</div>`).join("")}</details>
+    <div class="scroll"><table class="bal"><thead><tr><th>Cuenta</th><th class="r">Debe</th><th class="r">Haber</th><th class="r">Saldo deudor</th><th class="r">Saldo acreedor</th></tr></thead><tbody>
+    ${B.filas.map(x=>`<tr><td>${x.c} · ${esc(nom(x.c))}</td>${["d","h","sd","sa"].map(k=>`<td>${inp(`mb.${x.c.replace(".","_")}.${k}`,"₡")}${sb_?`<small class="sol num">${fn(x[k])||"0"}</small>`:""}</td>`).join("")}</tr>`).join("")}
+    <tr class="asi-tot"><td>Totales</td>${["d","h","sd","sa"].map(k=>`<td>${inp(`mb.tot.${k}`,"₡")}${sb_?`<small class="sol num">${fn(B.tot[k])}</small>`:""}</td>`).join("")}</tr></tbody></table></div>
+    <div class="acc"><span id="mbmsg" style="flex:1">${RES.mbmsg||""}</span>${solBtn("mb")}<button type="button" class="revbtn" id="revB">✔️ Revisar balanza</button></div></div>`;
+  $("#revB").onclick=()=>{revisarMB();pintarMB()};ligarSol(pintarMB)}
+function revisarMB(){const B=CASO.balanza;let b=0,n=0;const chk=(p,v)=>{const ok=cerca(montoO0(getPath(ST,p)),v,1);RES[p]=ok;n++;if(ok)b++};
+  B.filas.forEach(x=>["d","h","sd","sa"].forEach(k=>chk(`mb.${x.c.replace(".","_")}.${k}`,x[k])));["d","h","sd","sa"].forEach(k=>chk(`mb.tot.${k}`,B.tot[k]));
+  RES.mbmsg=`<span class="fb ${b===n?"ok":"bad"}">${b===n?"✅ ¡Balanza correcta! Sumas iguales y saldos iguales.":`❌ ${b} de ${n} casillas correctas.`}</span>`;ponerNota("mb",100*b/n)}
 
 /* ══════════ MÓDULO 2 · Crédito fiscal y proporcionalidad ══════════ */
 function pintarM2(){const C=CASO,R=C.R,s2=ST.sol.m2;
@@ -568,7 +587,7 @@ function revisarM2(){const C=CASO,g=p=>getPath(ST,p);let b=0,n=0;const chk=(p,v,
 /* ══════════ MÓDULO 3 · Formulario 150 ══════════ */
 function pintarM3(){const C=CASO,s3=ST.sol.m3,L=C.form;
   $("#mod").innerHTML=`<div class="card tribu"><div class="tribu-hd"><div><b>TRIBU-CR · Declaraciones</b><small>Formulario 150 · Impuesto al Valor Agregado (régimen general)</small></div><div class="tribu-dat"><span>Cédula 3-101-${String(C.seed).slice(0,6)}</span><span>${esc(C.empresa)}</span><span>Periodo: <b>${String(C.mes).padStart(2,"0")}/${ANIO}</b></span></div></div>
-    ${listaFacturas()}<p class="ayuda">Llene las casillas que aplican a esta empresa (TRIBU-CR solo muestra las que corresponden a las tarifas y tipos de venta del contribuyente). Escriba 0 donde no haya monto.${C.nivel>=3?" Las proporciones van en porcentaje con dos decimales.":""}</p>
+    ${listaFacturas()}<p class="ayuda">📊 Las ventas y el IVA por tarifa salen de la <b>balanza de comprobación</b> (subcuentas 41xx, 2103 y 1106); las compras por tarifa y sin IVA, del registro de facturas recibidas; el crédito, del módulo de crédito fiscal. Llene las casillas que aplican a esta empresa (TRIBU-CR solo muestra las que corresponden a las tarifas y tipos de venta del contribuyente). Escriba 0 donde no haya monto.${C.nivel>=3?" Las proporciones van en porcentaje con dos decimales.":""}</p>
     ${Object.keys(SECCIONES).filter(k=>L.some(x=>x.sec===k)).map(k=>`<fieldset class="f150"><legend>${SECCIONES[k]}</legend>${L.filter(x=>x.sec===k).map(x=>`<div class="f150-r"><span>${esc(x.n)}</span>${inp("m3."+x.k,x.pct?"%":"₡")}${s3?`<span class="sol num">${x.pct?NF.format(Math.round(x.v*100)/100)+" %":fn(x.v)}</span>`:""}</div>`).join("")}</fieldset>`).join("")}
     <fieldset class="f150"><legend>Presentación y pago</legend><div class="f150-r"><span>Fecha límite para presentar y pagar</span><input type="date" class="${cl("m3.plazo")}" data-p="m3.plazo" value="${esc(ST.m3.plazo||"")}">${s3?`<span class="sol">${fechaCR(C.R.plazo)}</span>`:""}</div></fieldset>
     <div class="acc"><span id="m3msg" style="flex:1">${RES.m3msg||""}</span>${solBtn("m3")}<button type="button" class="revbtn" id="rev3">✔️ Revisar la declaración</button></div></div>`;
@@ -578,25 +597,29 @@ function revisarM3(){const C=CASO;let b=0,n=0;C.form.forEach(x=>{const p="m3."+x
   RES.m3msg=`<span class="fb ${b===n?"ok":"bad"}">${b===n?`✅ ¡Declaración correcta! ${C.R.pagar>0?`Importe a pagar ${fm(C.R.pagar)}`:`Saldo a favor final ${fm(-C.R.fin)}`}.`:`❌ ${b} de ${n} casillas correctas.`}</span>`;ponerNota("m3",100*b/n)}
 
 /* ══════════ MÓDULO 4 · Asientos del IVA ══════════ */
-const opsCta=()=>CAT.filter(([c])=>!(CASO.emp==="servicios"&&c==="4101")&&!(CASO.emp==="comercial"&&c==="4102")).map(([c,n])=>[c,c+" · "+n]);
-function filasA(k){const L=getPath(ST,"m4."+k);if(Array.isArray(L)&&L.length)return L;const nl=[{c:"",d:"",h:""},{c:"",d:"",h:""}];setPath(ST,"m4."+k,nl);return nl}
+const opsCta=()=>CAT.filter(([c])=>!(CASO.emp==="servicios"&&c.startsWith("4101"))&&!(CASO.emp==="comercial"&&c.startsWith("4102"))).map(([c,n])=>[c,c+" · "+n]);
+function filasP(p){const L=getPath(ST,p);if(Array.isArray(L)&&L.length)return L;const nl=[{c:"",d:"",h:""},{c:"",d:"",h:""},{c:"",d:"",h:""}];setPath(ST,p,nl);return nl}
+const filasA=k=>filasP("m4."+k);
+// Tabla editable de un asiento (cuenta, debe, haber), guardada en la ruta p
+function editorAsiento(p){const L=filasP(p),td=L.reduce((x,l)=>x+montoO0(l.d),0),th=L.reduce((x,l)=>x+montoO0(l.h),0);
+  return `<div class="scroll"><table class="asi-t"><thead><tr><th>Cuenta</th><th class="r">Debe</th><th class="r">Haber</th><th></th></tr></thead><tbody>
+    ${L.map((l,j)=>`<tr><td>${sel(`${p}.${j}.c`,opsCta(),"— Cuenta —")}</td><td>${inp(`${p}.${j}.d`,"Debe")}</td><td>${inp(`${p}.${j}.h`,"Haber")}</td><td><button type="button" class="ghost sm" data-q="${p}|${j}" aria-label="Quitar línea">✕</button></td></tr>`).join("")}
+    <tr class="asi-tot"><td><button type="button" class="ghost sm" data-mas="${p}">＋ Línea</button> ${td||th?(Math.abs(td-th)<.5?'<span class="ok-t">✓ Cuadra</span>':'<span class="warn">⚠️ No cuadra</span>'):""}</td><td class="r num">${fn(td)}</td><td class="r num">${fn(th)}</td><td></td></tr></tbody></table></div>`}
+function ligarEditor(rep){$$("[data-mas]").forEach(b=>b.onclick=()=>{filasP(b.dataset.mas).push({c:"",d:"",h:""});guardar();rep()});
+  $$("[data-q]").forEach(b=>b.onclick=()=>{const [p,j]=b.dataset.q.split("|");const L=filasP(p);if(L.length>1)L.splice(+j,1);guardar();rep()})}
+// Compara un asiento con el esperado: cuentas con el monto correcto
+function compararAsiento(p,n){const L=filasP(p),net={};L.forEach(l=>{if(!l.c)return;net[l.c]=(net[l.c]||0)+montoO0(l.d)-montoO0(l.h)});
+  const ks=new Set([...Object.keys(n),...Object.keys(net).filter(k=>Math.abs(net[k])>.5)]);let bien=0;ks.forEach(k=>{if(cerca(net[k]||0,n[k]||0,2))bien++});
+  L.forEach((l,j)=>{if(l.c)RES[`${p}.${j}.c`]=cerca(net[l.c]||0,n[l.c]||0,2)});return {bien,tot:ks.size}}
 function pintarM4(){const C=CASO,s4=ST.sol.m4;
-  $("#mod").innerHTML=`<div class="card"><h3>✍️ Asientos del IVA de ${mesTxt()}</h3>${listaFacturas()}<p class="ayuda">Registre cada asiento en resumen (una línea por cuenta: sume las facturas). Use las cuentas del catálogo.${C.R.sfa?` La empresa tiene en <b>1108 IVA saldo a favor</b> ${fm(C.R.sfa)} de periodos anteriores, que se aplica en esta declaración.`:""}</p>
-    ${C.asientos.map(a=>{const L=filasA(a.k),td=L.reduce((x,l)=>x+montoO0(l.d),0),th=L.reduce((x,l)=>x+montoO0(l.h),0);return `<div class="asi ${RES["m4."+a.k]===true?"ok":RES["m4."+a.k]===false?"bad":""}"><div class="asi-hd"><b>${a.k.slice(1)}. ${a.t}</b><span class="muted">${fechaCR(a.fecha)}</span></div><p class="ayuda" style="margin:2px 0 6px">${esc(a.g)}</p>
-      <div class="scroll"><table class="asi-t"><thead><tr><th>Cuenta</th><th class="r">Debe</th><th class="r">Haber</th><th></th></tr></thead><tbody>
-      ${L.map((l,j)=>`<tr><td>${sel(`m4.${a.k}.${j}.c`,opsCta(),"— Cuenta —")}</td><td>${inp(`m4.${a.k}.${j}.d`,"Debe")}</td><td>${inp(`m4.${a.k}.${j}.h`,"Haber")}</td><td><button type="button" class="ghost sm" data-q="${a.k}.${j}" aria-label="Quitar línea">✕</button></td></tr>`).join("")}
-      <tr class="asi-tot"><td><button type="button" class="ghost sm" data-mas="${a.k}">＋ Línea</button></td><td class="r num ${Math.abs(td-th)<.5&&td?"":"warn"}">${fn(td)}</td><td class="r num">${fn(th)}</td><td></td></tr></tbody></table></div>
-      ${s4?`<div class="sol"><b>Solución</b>${solAsiento(a)}</div>`:""}</div>`}).join("")}
+  $("#mod").innerHTML=`<div class="card"><h3>✍️ Liquidación y pago del IVA de ${mesTxt()}</h3>${listaFacturas()}<p class="ayuda">Las ventas y las compras ya quedaron en el diario (módulo 1). Ahora cierre el IVA con los saldos de la <b>balanza</b> y el resultado del <b>formulario 150</b>.${C.R.sfa?` La empresa tiene en <b>1108 IVA saldo a favor</b> ${fm(C.R.sfa)} de periodos anteriores, que se aplica en esta declaración.`:""}</p>
+    ${C.asientos.map((a,i)=>`<div class="asi ${RES["m4."+a.k]===true?"ok":RES["m4."+a.k]===false?"bad":""}"><div class="asi-hd"><b>${i+1}. ${a.t}</b><span class="muted">${fechaCR(a.fecha)}</span></div><p class="ayuda" style="margin:2px 0 6px">${esc(a.g)}</p>
+      ${editorAsiento("m4."+a.k)}${s4?`<div class="sol"><b>Solución</b>${solAsiento(a)}</div>`:""}</div>`).join("")}
     ${C.R.pagar>0?"":`<p class="fb ok">Este mes el resultado es <b>saldo a favor</b> (${fm(-C.R.fin)}): no hay pago. Queda en 1108 IVA saldo a favor para los meses siguientes.</p>`}
     <div class="acc"><span id="m4msg" style="flex:1">${RES.m4msg||""}</span>${solBtn("m4")}<button type="button" class="revbtn" id="rev4">✔️ Revisar asientos</button></div></div>`;
-  $$("[data-mas]").forEach(b=>b.onclick=()=>{filasA(b.dataset.mas).push({c:"",d:"",h:""});guardar();pintarM4()});
-  $$("[data-q]").forEach(b=>b.onclick=()=>{const [k,j]=b.dataset.q.split(".");const L=filasA(k);if(L.length>1)L.splice(+j,1);guardar();pintarM4()});
-  $("#rev4").onclick=()=>{revisarM4();pintarM4()};ligarSol(pintarM4)}
+  ligarEditor(pintarM4);$("#rev4").onclick=()=>{revisarM4();pintarM4()};ligarSol(pintarM4)}
 const solAsiento=a=>`<table class="asi-t">${Object.entries(a.n).sort((x,y)=>(y[1]>0)-(x[1]>0)).map(([c,v])=>`<tr><td>${c} · ${esc(nom(c))}</td><td class="r num">${v>0?fn(v):""}</td><td class="r num">${v<0?fn(-v):""}</td></tr>`).join("")}</table>`;
-function revisarM4(){let b=0,n=0,ok=0;CASO.asientos.forEach(a=>{const L=filasA(a.k),net={};L.forEach(l=>{if(!l.c)return;net[l.c]=(net[l.c]||0)+montoO0(l.d)-montoO0(l.h)});
-    const ks=new Set([...Object.keys(a.n),...Object.keys(net).filter(k=>Math.abs(net[k])>.5)]);let bien=0;ks.forEach(k=>{if(cerca(net[k]||0,a.n[k]||0,8))bien++});
-    L.forEach((l,j)=>{if(!l.c)return;const okL=cerca(net[l.c]||0,a.n[l.c]||0,8);RES[`m4.${a.k}.${j}.c`]=okL});
-    const todo=bien===ks.size;RES["m4."+a.k]=todo;if(todo)ok++;b+=bien;n+=ks.size});
+function revisarM4(){let b=0,n=0,ok=0;CASO.asientos.forEach(a=>{const r=compararAsiento("m4."+a.k,a.n),todo=r.bien===r.tot;RES["m4."+a.k]=todo;if(todo)ok++;b+=r.bien;n+=r.tot});
   RES.m4msg=`<span class="fb ${ok===CASO.asientos.length?"ok":"bad"}">${ok===CASO.asientos.length?"✅ ¡Asientos correctos!":`❌ ${ok} de ${CASO.asientos.length} asientos correctos (${b} de ${n} cuentas con el monto correcto).`}</span>`;ponerNota("m4",100*b/Math.max(1,n))}
 
 /* ── Soluciones y entrada de datos ── */
@@ -616,20 +639,21 @@ const TIPOS_T={general:{ic:"🟢",et:"Práctica general",pl:"Prácticas generale
  examen:{ic:"🎯",et:"Práctica para examen",pl:"Prácticas para examen",nota:null,rev:false,desc:"sin nota: como en el examen, sin revisar ni ver soluciones hasta terminar"},
  evaluativa:{ic:"📝",et:"Práctica evaluativa",pl:"Prácticas evaluativas",nota:"Trabajo cotidiano",rev:false,desc:"trabajo cotidiano: lleva nota en la Rúbrica"},
  tarea:{ic:"📚",et:"Tarea",pl:"Tareas",nota:"Tareas",rev:false,desc:"lleva nota en el componente Tareas de la Rúbrica"}};
-const CRIT_T={m1:{nombre:"Clasifica las facturas electrónicas del mes por tarifa y tipo de operación, con la base imponible, el IVA y el destino de las compras, según la Ley 9635.",auto:"iva_facturas_pct"},
+const CRIT_T={m1:{nombre:"Registra en el libro diario los asientos de las facturas electrónicas del mes, con las subcuentas de ventas e IVA por tarifa, la retención de tarjetas y el destino de las compras.",auto:"iva_diario_pct"},
+ mb:{nombre:"Elabora la balanza de comprobación de los movimientos del mes, con sumas y saldos correctos e iguales.",auto:"iva_balanza_pct"},
  m2:{nombre:"Calcula el crédito fiscal y el gasto para utilidades del periodo, aplicando las tarifas reducidas y la regla de proporcionalidad.",auto:"iva_credito_pct"},
  m3:{nombre:"Completa las secciones del formulario 150 de IVA (TRIBU-CR) con el débito, el crédito, las retenciones y el impuesto a pagar o el saldo a favor.",auto:"iva_formulario_pct"},
- m4:{nombre:"Registra los asientos de ventas, compras, liquidación y pago del IVA del mes, con las cuentas y los montos correctos.",auto:"iva_asientos_pct"}};
+ m4:{nombre:"Registra los asientos de liquidación y pago del IVA del mes, con las cuentas y los montos correctos.",auto:"iva_asientos_pct"}};
 const RA_T="Resolver casos sencillos aplicando lo establecido en el Reglamento a la Ley N.º 9635 para el Fortalecimiento de las Finanzas Públicas y el Reglamento de canasta básica tributaria vigente.";
 const C_ACT=()=>(ACTV.t&&ACTV.t.contenido_actividad)||{};
-const modsAct=()=>ACTV.t?(C_ACT().iva_modulos||["m1","m2","m3","m4"]):["m1","m2","m3","m4"];
+const modsAct=()=>ACTV.t?(C_ACT().iva_modulos||["m1","mb","m2","m3","m4"]):["m1","mb","m2","m3","m4"];
 const tipoAct=()=>ACTV.t?(C_ACT().iva_tipo||"general"):null;
 const puedeRevisar=()=>!ACTV.t||ACTV.modo==="ver"||ACTV.modo==="docente"||TIPOS_T[tipoAct()].rev||!!ST.fin;
-const critAct=t=>{const C=(t||ACTV.t||{}).contenido_actividad||{};return C.criterios&&C.criterios.length?C.criterios:(C.iva_modulos||["m1","m2","m3","m4"]).map(m=>({...CRIT_T[m],puntos_max:3}))};
+const critAct=t=>{const C=(t||ACTV.t||{}).contenido_actividad||{};return C.criterios&&C.criterios.length?C.criterios:(C.iva_modulos||["m1","mb","m2","m3","m4"]).map(m=>({...CRIT_T[m],puntos_max:3}))};
 const HAY_BD=()=>typeof sb!=="undefined"&&!!SES;
 
-function calificarTodo(){const M=modsAct();if(M.includes("m1"))revisarM1();if(M.includes("m2"))revisarM2();if(M.includes("m3"))revisarM3();if(M.includes("m4"))revisarM4();
-  const met={};M.forEach(m=>met[CRIT_T[m].auto]=ST.nota[m]||0);return met}
+function calificarTodo(){const M=modsAct();if(M.includes("m1"))revisarM1();if(M.includes("mb"))revisarMB();if(M.includes("m2"))revisarM2();if(M.includes("m3"))revisarM3();if(M.includes("m4"))revisarM4();
+  const met={};M.forEach(m=>met[CRIT_T[m].auto]=ST.nota[m]||0);if(met.iva_diario_pct!=null)met.iva_facturas_pct=met.iva_diario_pct;return met}
 let tSyncT=null;
 function sincronizarT(ya){if(ACTV.modo!=="estudiante"||ACTV.bloq||!ACTV.t||!HAY_BD())return;clearTimeout(tSyncT);
   tSyncT=setTimeout(async()=>{try{const ahora=new Date().toISOString();await upsertSinConflicto("actividades_estudiante",{trabajo_id:ACTV.t.id,estudiante_id:EST_ID},{datos_prueba:{iva:{st:ST,en_curso:!ST.fin,guardado_en:ahora,metricas:ST.metricas||null}},actualizado_en:ahora})}catch(e){console.warn("iva sync",e)}},ya?0:2500)}
@@ -656,7 +680,7 @@ async function cargarActividad(){
 
 /* ── Nueva actividad: tipo, nivel, empresa, módulos; vista previa y creación ── */
 function nuevaActividad(){const mDef=(HUB.mats.find(m=>/tribut/i.test(m.nombre))||HUB.mats.find(m=>/contab/i.test(m.nombre))||HUB.mats[0]||{}).id;
-  const D={tipo:"general",emp:"comercial",nivel:1,materia:mDef,titulo:"",mods:["m1","m2","m3","m4"],fecha:"",seed:nuevaSemilla()};
+  const D={tipo:"general",emp:"comercial",nivel:1,materia:mDef,titulo:"",mods:["m1","mb","m2","m3","m4"],fecha:"",seed:nuevaSemilla()};
   const form=()=>{abrirDlg("✨ Nueva actividad · Declaración del IVA",`<div class="ins-g">
       <label>Tipo de actividad<select id="naT">${Object.entries(TIPOS_T).map(([k,v])=>`<option value="${k}" ${D.tipo===k?"selected":""}>${v.ic} ${v.et}${v.nota?" · "+v.nota:" · sin nota"}</option>`).join("")}</select></label>
       <label>Materia<select id="naM">${HUB.mats.map(m=>`<option value="${m.id}" ${m.id===D.materia?"selected":""}>${esc(m.nombre)}${m.seccion?" · "+esc(m.seccion):""}</option>`).join("")}</select></label>
@@ -705,8 +729,8 @@ function barraActividadT(){const t=ACTV.t,C=C_ACT(),T=TIPOS_T[tipoAct()],en=ACTV
     <div class="ab-btns">${est}<button type="button" class="sec" id="abIns">📋 ${ACTV.modo==="estudiante"?(T.nota?"Cómo me evalúan":"Cómo se revisa"):"👁️ Instrumento"}</button>${ACTV.modo==="docente"?`<button type="button" id="abEdit">📋 Evaluación (MEP)</button>`:""}${btn}</div></div>`}
 function ligarBarraT(){const i=$("#abIns");if(i)i.onclick=()=>verInstrumentoT(ACTV.t);const ed=$("#abEdit");if(ed)ed.onclick=()=>editarEvaluacionT(ACTV.t);const e=$("#abEnt");if(e)e.onclick=entregarT;const f=$("#abFin");if(f)f.onclick=terminarT}
 function resumenTabla(met,crit){return `<div class="scroll"><table><thead><tr><th>Indicador</th><th class="r">Logro</th><th>Nivel</th></tr></thead><tbody>${crit.map(c=>{const p=met[c.auto]||0,n=p>=85?3:p>=60?2:p>=35?1:0;return `<tr><td>${esc(c.nombre)}</td><td class="r num">${Math.round(p)} %</td><td><b>${["Sin evidencia","Inicial","Intermedio","Avanzado"][n]} (${n})</b></td></tr>`}).join("")}</tbody></table></div>`}
-function entregarT(){const crit=critAct(),pend=CASO.F.filter((_,i)=>!(ST.m1.r&&ST.m1.r[i]&&ST.m1.r[i].cas)).length;
-  abrirDlg("📤 ¿Entregar al profe?",`<p>Al entregar, la plataforma revisa todo y pone la nota sola en la Rúbrica (${esc(TIPOS_T[tipoAct()].nota)}). <b>Después ya no podrá cambiar nada.</b></p>${pend&&modsAct().includes("m1")?`<p class="fb warn">Le faltan ${pend} factura${pend>1?"s":""} sin clasificar: cuentan como incorrectos.</p>`:""}<div id="dlgMsg"></div><div class="acc"><button type="button" class="sec" id="dNo">Seguir trabajando</button><button type="button" id="dSi">📤 Sí, entregar</button></div>`);
+function entregarT(){const crit=critAct(),pend=CASO.F.filter((_,i)=>!filasP(`m1.a.${i}`).some(l=>l.c)).length;
+  abrirDlg("📤 ¿Entregar al profe?",`<p>Al entregar, la plataforma revisa todo y pone la nota sola en la Rúbrica (${esc(TIPOS_T[tipoAct()].nota)}). <b>Después ya no podrá cambiar nada.</b></p>${pend&&modsAct().includes("m1")?`<p class="fb warn">Le faltan ${pend} factura${pend>1?"s":""} sin registrar en el diario: cuentan como incorrectos.</p>`:""}<div id="dlgMsg"></div><div class="acc"><button type="button" class="sec" id="dNo">Seguir trabajando</button><button type="button" id="dSi">📤 Sí, entregar</button></div>`);
   $("#dNo").onclick=cerrarDlg;$("#dSi").onclick=async ev=>{ev.target.disabled=true;$("#dlgMsg").innerHTML='<p class="muted">Revisando y entregando…</p>';clearTimeout(tSyncT);
     const met=calificarTodo(),nota=memoriaNotaDesdeMetricas(crit,met,[]),ahora=new Date().toISOString();ST.metricas=met;ST.fin=true;ST.guardado_en=ahora;
     try{const r=await guardarNotaManualActividad(ACTV.t,EST_ID,nota.puntaje,{respuestas:nota.puntos,porcentaje:nota.porcentaje,datos_prueba:{iva:{st:ST,en_curso:false,guardado_en:ahora,entregado_en:ahora,metricas:met}}});
@@ -745,7 +769,7 @@ function editarEvaluacionT(t){const C=t.contenido_actividad||{},TT=TIPOS_T[C.iva
       <div class="ins-g">${campo("componente","Componente")}${campo("tipo","Tipo de instrumento")}${campo("subarea","Subárea")}${campo("unidad","Unidad de estudio / tema")}</div>
       <div class="ins-g" style="margin-top:8px">${campo("resultado","Resultado de aprendizaje (del programa)")}${campo("indicador","Indicador de logro (del programa)")}</div>
       <h4 class="ev-h">Indicadores y criterios de desempeño</h4>
-      ${lista.map((c,i)=>`<div class="card" style="padding:10px;margin-top:8px"><label>${i+1}. Indicador <small class="muted">(se califica solo con el módulo ${esc(({iva_facturas_pct:"1 · Clasificar facturas",iva_credito_pct:"2 · Crédito fiscal",iva_formulario_pct:"3 · Formulario 150",iva_asientos_pct:"4 · Asientos del IVA"})[c.auto]||"")})</small><input data-nom="${i}" value="${esc(c.nombre)}"></label>
+      ${lista.map((c,i)=>`<div class="card" style="padding:10px;margin-top:8px"><label>${i+1}. Indicador <small class="muted">(se califica solo con el módulo ${esc(({iva_diario_pct:"1 · Facturas al diario",iva_facturas_pct:"1 · Facturas",iva_balanza_pct:"2 · Balanza",iva_credito_pct:"3 · Crédito fiscal",iva_formulario_pct:"4 · Formulario 150",iva_asientos_pct:"5 · Liquidación y pago"})[c.auto]||"")})</small><input data-nom="${i}" value="${esc(c.nombre)}"></label>
         <div class="ins-g" style="margin-top:6px">${NV.map(([k,et])=>`<label>${et}<textarea data-niv="${i}" data-k="${k}" rows="3">${esc(c.niveles[k]||"")}</textarea></label>`).join("")}</div>${c.iaNota?`<small style="color:var(--ok)">✨ ${esc(c.iaNota)}</small>`:""}</div>`).join("")}
       <div class="acc"><span class="muted" id="evE"></span><span style="flex:1"></span><button type="button" class="sec" id="evVer">👁️ Ver instrumento</button><button type="button" id="evG">💾 Guardar evaluación</button></div>`);
     $("#evVer").onclick=()=>{leer();verInstrumentoT({...t,contenido_actividad:{...t.contenido_actividad,criterios:lista,iva_instrumento:ins}},()=>pinta())};
@@ -756,7 +780,7 @@ function editarEvaluacionT(t){const C=t.contenido_actividad||{},TT=TIPOS_T[C.iva
         t.contenido_actividad=nuevo;$("#evE").textContent="✓ Guardada. Los estudiantes ya la ven en «Cómo me evalúan»."}
       catch(err){$("#evE").textContent="No se pudo guardar: "+(err.message||err)}ev.target.disabled=false};
     $("#evIA").onclick=async ev=>{leer();ev.target.disabled=true;$("#evIAest").textContent="✨ La IA está trabajando…";
-      try{const r=await fetch("/api/mejorar-niveles-ia",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({instrumento:ins,criterios:lista,instrucciones:$("#evIndic").value,actividad:`Declaración mensual del IVA (formulario 150 de TRIBU-CR) de una ${C.iva_emp==="servicios"?"empresa de servicios":"empresa comercial"}: clasificación de facturas por tarifa, crédito fiscal (tarifas reducidas y regla de proporcionalidad), llenado del formulario y asientos de liquidación y pago del IVA — `+t.titulo,componente:ins.componente})});
+      try{const r=await fetch("/api/mejorar-niveles-ia",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({instrumento:ins,criterios:lista,instrucciones:$("#evIndic").value,actividad:`Declaración mensual del IVA (formulario 150 de TRIBU-CR) de una ${C.iva_emp==="servicios"?"empresa de servicios":"empresa comercial"}: registro de las facturas en el diario con subcuentas por tarifa, balanza de comprobación, crédito fiscal (tarifas reducidas y regla de proporcionalidad), llenado del formulario y asientos de liquidación y pago del IVA — `+t.titulo,componente:ins.componente})});
         const j=await r.json().catch(()=>({}));if(!r.ok||!Array.isArray(j.criterios))throw new Error(j.error||"Error "+r.status);
         j.criterios.forEach(x=>{if(lista[x.i]){lista[x.i].nombre=x.nombre;lista[x.i].niveles=x.niveles;lista[x.i].iaNota=x.nota||"Redacción mejorada por la IA."}});pinta();$("#evIAest").textContent="✨ Listo: revise y toque Guardar evaluación."}
       catch(err){ev.target.disabled=false;$("#evIAest").textContent="No se pudo mejorar con IA: "+(err.message||err)}}};
@@ -854,7 +878,7 @@ async function pintarHubEstudiante(){$("#caso").innerHTML="";$("#app").innerHTML
     const estado=(t,a)=>a&&a.completado?`<span class="chip ok">✅ ${T.nota?"Entregada":"Terminada"}</span>`:vencida(t)?`<span class="chip bad">❌ No realizada</span>`:t.habilitado===false?`<span class="chip">🔒 Cerrada</span>`:a?`<span class="chip warn">⏳ En curso</span>`:`<span class="chip">🆕 Pendiente</span>`;
     const resultado=a=>{const p=pctDe(a);return p==null?'<span class="muted">—</span>':`<b style="color:${colorPct(p)}">${p} %</b>${T.nota?`<br><small class="muted">Nota ${a.puntaje!=null?a.puntaje:nivelDe(p)}/3 · ${["Sin evidencia","Inicial","Intermedio","Avanzado"][a.puntaje!=null?a.puntaje:nivelDe(p)]}</small>`:""}`};
     const accion=(t,a)=>t.habilitado===false&&!(a&&a.completado)?'<span class="muted">—</span>':`<a class="btn sm ${a&&a.completado?"sec":""}" href="iva-150.html?a=${t.id}">${a&&a.completado?(T.nota?"👁️ Ver lo que entregué":"👁️ Ver resultados y soluciones"):a?"▶ Seguir":"▶ Empezar"}</a>`;
-    $("#app").innerHTML=`<div class="card" style="margin-top:16px"><h3>🧾 Mis trabajos de la Declaración del IVA</h3><p class="ayuda">Prácticas y tareas que abrió su profe: clasifique las facturas del mes, calcule el crédito fiscal, llene el formulario 150 y registre los asientos del IVA. <button type="button" class="ghost sm" id="verEstr2">📘 Cómo se declara</button></p>
+    $("#app").innerHTML=`<div class="card" style="margin-top:16px"><h3>🧾 Mis trabajos de la Declaración del IVA</h3><p class="ayuda">Prácticas y tareas que abrió su profe: registre las facturas del mes en el diario, arme la balanza de comprobación, calcule el crédito fiscal, llene el formulario 150 y liquide el IVA. <button type="button" class="ghost sm" id="verEstr2">📘 Cómo se declara</button></p>
       ${tarjetasCat(st,CAT_EST,"yo")}
       <h4 class="hub-g">${T.ic} ${T.pl} <small>· ${T.desc}</small></h4>
       ${G.length?`<div class="scroll"><table class="tbl-est"><thead><tr><th>Práctica</th><th>Empresa</th><th>Fecha de entrega</th><th>Estado</th><th class="r">Resultado</th><th>Solución</th></tr></thead><tbody>
