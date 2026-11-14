@@ -291,7 +291,8 @@ async function renderHome() {
     { grupo: "juegos", href: "tiradera.html?historial=1", icono: "📚", titulo: "Resultados de La Tiradera", sub: "Partidas anteriores: puntos ganados y perdidos de cada estudiante, descarga en Excel", cta: "Ver resultados →" },
     { grupo: "juegos", href: "planilla-opoly.html", icono: "🎲", titulo: "Planilla Opoly", sub: "Juego 3D tipo Monopoly para 2–8 jugadores: compra empresas resolviendo problemas de planilla", cta: "Jugar →" },
     { grupo: "juegos", href: "laboral.html", icono: "⚖️", titulo: "Ruta Laboral CR", sub: "Juego con narrador y música: contratos, aguinaldo, vacaciones, preaviso y cesantía en 6 misiones con XP y medallas", cta: "Jugar →" },
-    { grupo: "juegos", href: "seguros.html", icono: "🛡️", titulo: "Misión Seguros", sub: "Contabilidad de seguros (SUGESE): 5 niveles para armar asientos arrastrando cuentas, con XP y rachas", cta: "Jugar →" }
+    { grupo: "juegos", href: "seguros.html", icono: "🛡️", titulo: "Misión Seguros", sub: "Contabilidad de seguros (SUGESE): 5 niveles para armar asientos arrastrando cuentas, con XP y rachas", cta: "Jugar →" },
+    { grupo: "juegos", href: "taller-contable.html", icono: "🧮", titulo: "Taller del Ciclo Contable", sub: "Prácticas y tareas a partir de facturas electrónicas: asientos, libro mayor, balanza y estados financieros", cta: "Entrar →" }
   ];
   const tarjetaAcceso = a => `
     <a class="section-tile flip-card" href="${a.href}" ${a.externo ? 'target="_blank" rel="noopener"' : ""}>

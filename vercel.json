@@ -6,6 +6,7 @@
     { "source": "/api/generar-examen-ia", "destination": "/api/ia?fn=generar-examen-ia" },
     { "source": "/api/revisar-ley-infografia", "destination": "/api/ia?fn=revisar-ley-infografia" },
     { "source": "/api/plan-practica-ia", "destination": "/api/ia?fn=plan-practica-ia" },
-    { "source": "/api/padres", "destination": "/api/ia?fn=padres" }
+    { "source": "/api/padres", "destination": "/api/ia?fn=padres" },
+    { "source": "/api/taller-facturas-ia", "destination": "/api/ia?fn=taller-facturas-ia" }
   ]
 }
