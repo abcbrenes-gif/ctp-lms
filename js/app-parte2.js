@@ -5904,7 +5904,7 @@ async function pintarPanelCalificarRubrica(panel, trabajo, materiaId) {
   const entregaPorEstudiante = {};
   (entregas || []).forEach(e => { entregaPorEstudiante[e.estudiante_id] = e; });
 
-  const esTiraderaTrabajo = trabajo.contenido_actividad && ["juego_tiradera", "juego_memoria", "liquidacion_laboral", "mision_seguros", "ruta_laboral", "ciudad_contable", "taller_ciclo", "iva_150"].includes(trabajo.contenido_actividad.estrategia);
+  const esTiraderaTrabajo = trabajo.contenido_actividad && ["juego_tiradera", "juego_memoria", "liquidacion_laboral", "mision_seguros", "ruta_laboral", "ciudad_contable", "taller_ciclo", "iva_150", "conta_basica"].includes(trabajo.contenido_actividad.estrategia);
   // En La Tiradera, los indicadores "a mano" se califican por nivel de desempeño (formato MEP).
   const campoCriterio = (estId, c, i, valor) => {
     if (esTiraderaTrabajo && !c.auto) {
@@ -10445,7 +10445,7 @@ const DOC_DEF_EXT_OK = /\.(pdf|docx?|xlsx?|pptx?|txt|csv|odt|ods|odp|jpe?g|png|w
 async function agregarDocumentoDefinitivo(holder, trabajos, estudianteId, prefijo) {
   prefijo = prefijo || "";
   // Los juegos (Memoria Contable, La Tiradera) no llevan documento para adjuntar.
-  trabajos = (trabajos || []).filter(t => !(t.contenido_actividad && ["juego_memoria", "juego_tiradera", "liquidacion_laboral", "mision_seguros", "ruta_laboral", "ciudad_contable", "taller_ciclo", "iva_150"].includes(t.contenido_actividad.estrategia)));
+  trabajos = (trabajos || []).filter(t => !(t.contenido_actividad && ["juego_memoria", "juego_tiradera", "liquidacion_laboral", "mision_seguros", "ruta_laboral", "ciudad_contable", "taller_ciclo", "iva_150", "conta_basica"].includes(t.contenido_actividad.estrategia)));
   if (!trabajos.length) return;
   if (!session) { const d = document.createElement("div"); d.textContent = "⚠️ Sin sesión para adjuntar documento."; holder && holder.appendChild(d); return; }
   try {
@@ -10722,6 +10722,7 @@ async function enlacesTrabajosIndicadores(indicadores, estudiantes) {
       else if (est === "mision_seguros") { href = `seguros.html#/a/${t.id}/e/${q}`; ext = true; titulo = "Misión Seguros · " + titulo; }
       else if (est === "ruta_laboral") { href = `laboral.html#/a/${t.id}/e/${q}`; ext = true; titulo = "Ruta Laboral · " + titulo; }
       else if (est === "juego_memoria") { href = `memoria.html?trabajo=${t.id}&est=${q}&docente=1`; ext = true; titulo = "Memoria Contable · " + titulo; }
+      else if (est === "conta_basica") { href = `contabilidad-basica.html?a=${t.id}&est=${q}&docente=1`; ext = true; titulo = "Ruta Contable Básica · " + titulo; }
       else if (est === "iva_150") { href = `iva-150.html?a=${t.id}&est=${q}&docente=1`; ext = true; titulo = "Declaración del IVA · " + titulo; }
       else if (est === "taller_ciclo") { href = `taller-contable.html?a=${t.id}&est=${q}&docente=1`; ext = true; titulo = "Taller del Ciclo Contable · " + titulo; }
       else if (est === "ciudad_contable") { href = `ciudad-contable.html?trabajo=${t.id}&est=${q}&docente=1`; ext = true; titulo = "Ciudad Contable · " + titulo; }

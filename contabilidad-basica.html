@@ -1,0 +1,868 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ruta Contable Básica</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="img/logo-ctp-mercedes-norte.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --bg:#F5F7FB;--surface:#fff;--surface2:#F1F4F9;--ink:#0F172A;--muted:#5B6B80;--line:#DCE3EE;
+  --accent:#4F46E5;--accent2:#7C3AED;--accent-soft:#EEF0FF;
+  --debe:#2457B8;--haber:#C2501C;--ok:#1E8A4C;--okbg:#E3F7EA;--bad:#C23A3A;--badbg:#FDECEC;--warn:#A86F00;--warnbg:#FFF6DB;
+  --m1:#4F46E5;--m2:#0E8A7E;--m3:#C2501C;--m4:#7C3AED;
+  --f:"Plus Jakarta Sans",Inter,"Segoe UI",system-ui,sans-serif;--fn:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  --shadow:0 6px 20px rgba(15,23,42,.08);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0B1020;--surface:#121A30;--surface2:#182340;--ink:#E8EDFB;--muted:#9AA9CC;--line:#26324F;--accent-soft:#1E2550;
+  --debe:#7FA6F0;--haber:#F08A5A;--ok:#5ACB89;--okbg:#173A28;--bad:#F07A7A;--badbg:#3E1C1C;--warn:#E0B048;--warnbg:#3A2E10;--shadow:0 6px 20px rgba(0,0,0,.4);color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0B1020;--surface:#121A30;--surface2:#182340;--ink:#E8EDFB;--muted:#9AA9CC;--line:#26324F;--accent-soft:#1E2550;
+  --debe:#7FA6F0;--haber:#F08A5A;--ok:#5ACB89;--okbg:#173A28;--bad:#F07A7A;--badbg:#3E1C1C;--warn:#E0B048;--warnbg:#3A2E10;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--f);padding-bottom:80px}
+.wrap{max-width:1240px;margin:0 auto;padding:0 max(16px,env(safe-area-inset-left)) 0 max(16px,env(safe-area-inset-right))}
+h1,h2,h3,h4{margin:0;line-height:1.2}
+.num,input.n{font-family:var(--fn);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+button,.btn{font:600 .9rem var(--f);border:0;border-radius:10px;padding:9px 14px;cursor:pointer;background:var(--accent);color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+button.sec,.btn.sec{background:var(--surface2);color:var(--ink);border:1px solid var(--line)}
+button.ghost{background:transparent;color:var(--muted);border:1px dashed var(--line)}
+button.sm{padding:5px 10px;font-size:.8rem}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 40%,transparent);outline-offset:1px}
+input,select{font:inherit;color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:8px;padding:6px 8px;min-width:0;width:100%}
+input.n{text-align:right}
+input.ok,select.ok{border-color:var(--ok);background:var(--okbg)}
+input.bad,select.bad{border-color:var(--bad);background:var(--badbg)}
+/* barra superior */
+.top{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+.top .wrap{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;padding-block:10px}
+@media(max-width:700px){.top{position:static}.mod .i{display:none}}
+.brand{display:flex;gap:10px;align-items:center;margin-right:auto}
+.brand img{height:44px;width:auto}
+.brand b{font-size:1.2rem;font-weight:800;display:block}
+.brand small{color:var(--muted);font-size:.8rem}
+.caso{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.caso label{font-size:.78rem;color:var(--muted);display:flex;flex-direction:column;gap:2px}
+.caso select{width:auto}.caso input{width:110px}
+/* módulos */
+.mods{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:16px 0}
+@media(max-width:820px){.mods{grid-template-columns:repeat(2,minmax(0,1fr))!important}.mod{min-width:0;padding:10px}.mod .t{font-size:.9rem;overflow-wrap:anywhere}}
+.mod{background:var(--surface);border:2px solid var(--line);border-radius:16px;padding:12px 14px;text-align:left;color:var(--ink);display:block;cursor:pointer;box-shadow:var(--shadow);transition:transform .15s}
+.mod:hover{transform:translateY(-2px)}
+.mod.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 8%,var(--surface))}
+.mod .t{display:flex;gap:8px;align-items:center;font-weight:800;font-size:1rem}
+.mod .i{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--c);color:#fff;font-size:1.1rem;flex:none}
+.mod small{display:block;color:var(--muted);font-size:.78rem;margin-top:4px}
+.bar{height:6px;border-radius:9px;background:var(--surface2);margin-top:8px;overflow:hidden}.bar i{display:block;height:100%;background:var(--c);border-radius:9px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
+.card h3{font-size:1.05rem;margin-bottom:6px}
+.empresa{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;margin-bottom:10px}
+.empresa b{font-size:1.05rem}
+.chip{display:inline-block;font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--surface2);color:var(--muted)}
+.chip.A{background:#e0f2f1;color:#0f766e}.chip.P{background:#fdeee5;color:#c2410c}.chip.PT{background:#f3e8ff;color:#7e22ce}.chip.I{background:#e5f6ec;color:#1f8f55}.chip.C{background:#fff4d6;color:#a16207}.chip.G{background:#fde7ef;color:#be185d}
+table{border-collapse:collapse;width:100%}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700}
+td.r,th.r{text-align:right}
+.scroll{overflow-x:auto}
+.fb{border-radius:10px;padding:10px 12px;margin-top:10px;font-size:.9rem}
+.fb.ok{background:var(--okbg);color:var(--ok)}.fb.bad{background:var(--badbg);color:var(--bad)}.fb.warn{background:var(--warnbg);color:var(--warn)}
+.fb ul{margin:4px 0 0;padding-left:1.2rem}
+.acc{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.sol{margin-top:12px;border:2px dashed var(--accent);border-radius:12px;padding:10px 12px;background:var(--accent-soft)}
+.sol h4{font-size:.9rem;margin-bottom:6px}
+/* módulo 1 */
+.m1{display:grid;grid-template-columns:250px minmax(0,1fr);gap:14px}
+@media(max-width:860px){.m1{grid-template-columns:minmax(0,1fr)}}
+.tlist{display:flex;flex-direction:column;gap:6px;max-height:70vh;overflow:auto}
+@media(max-width:860px){.tlist{flex-direction:row;max-height:none;overflow-x:auto;padding-bottom:4px}.tlist button{flex:none}}
+.tlist button{background:var(--surface);color:var(--ink);border:1.5px solid var(--line);justify-content:flex-start;text-align:left;font-weight:600}
+.tlist button.on{border-color:var(--m1);background:var(--accent-soft)}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--line);flex:none}.dot.ok{background:var(--ok)}.dot.bad{background:var(--bad)}
+.trx{font-size:1.02rem;background:var(--surface2);border-left:4px solid var(--m1);border-radius:10px;padding:12px 14px;margin:8px 0 12px}
+.lines td{padding:4px}.lines td.x{width:36px}
+.tots{display:flex;gap:16px;justify-content:flex-end;font-weight:700;margin-top:6px;font-size:.9rem}
+.tots .d{color:var(--debe)}.tots .h{color:var(--haber)}
+details.catal summary{cursor:pointer;font-weight:700;color:var(--accent)}
+.catal-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:2px 16px;font-size:.84rem;margin-top:8px}
+/* asiento estilo SAP Business One */
+.sap{border:1px solid #b9c6d6;border-radius:10px;overflow:hidden;background:var(--surface)}
+.sap-tit{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(#f4f7fb,#e3eaf3);border-bottom:1px solid #b9c6d6;padding:8px 12px;font-weight:800;color:#1c3d6e}
+:root[data-theme="dark"] .sap-tit{background:var(--surface2);color:var(--ink)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .sap-tit{background:var(--surface2);color:var(--ink)}}
+.sap-n{font-weight:600;font-size:.9rem}
+.sap-hd{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 12px;padding:10px 12px;border-bottom:1px solid var(--line)}
+@media(max-width:700px){.sap-hd{grid-template-columns:minmax(0,1fr)}}
+.sap-hd label{display:flex;flex-direction:column;gap:3px;font-size:.78rem;font-weight:700;color:var(--muted)}
+.sap-hd small{font-weight:400}
+.sap-hd .sap-com{grid-column:1/-1}
+.sap-grid th{background:var(--surface2)}
+.sap-grid td.nm{font-size:.88rem}
+.sap-pie{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;padding:8px 12px;border-top:1px solid var(--line);background:var(--surface2);font-size:.86rem}
+.sap-nota{font-size:.76rem;color:var(--muted);padding:6px 12px;border-top:1px solid var(--line)}
+.sap-pie .dif{padding:3px 10px;border-radius:8px;background:var(--surface)}.sap-pie .dif.ok{background:var(--okbg);color:var(--ok)}.sap-pie .dif.bad{background:var(--badbg);color:var(--bad)}
+/* libro mayor en columnas */
+.lm-hd{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;border-bottom:3px solid var(--ink);padding-bottom:8px;margin-bottom:6px}
+table.lm td input{padding:5px 6px;font-size:.86rem}
+.lm-todas{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(460px,100%),1fr));gap:14px}
+.lm-todas table{font-size:.82rem}
+.t-hd{display:flex;justify-content:space-between;align-items:flex-start;gap:6px;border-bottom:3px solid var(--ink);padding-bottom:6px;margin-bottom:4px}
+.t-hd small{display:block;color:var(--muted);font-size:.74rem}.t-hd b{font-size:.95rem}
+/* asientos a la mano (panel fijo) */
+.m2lay{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;align-items:start}
+@media(max-width:1000px){.m2lay{grid-template-columns:minmax(0,1fr)}.dpanel{position:static!important;max-height:420px!important;order:-1}}
+.dpanel{position:sticky;top:84px;max-height:calc(100vh - 100px);overflow:auto;background:var(--surface);border:2px solid var(--m1);border-radius:14px;padding:10px;box-shadow:var(--shadow)}
+.dp-hd{position:sticky;top:-10px;background:var(--surface);padding:4px 0 8px;margin-bottom:4px;border-bottom:1px solid var(--line);z-index:1}
+.dp-hd b{display:block}.dp-hd small{color:var(--muted);font-size:.74rem}
+.dp-as{border-bottom:1px dashed var(--line);padding:6px 0}
+.dp-t{display:flex;gap:8px;align-items:center;font-size:.8rem;margin-bottom:2px}.dp-t .dp-ok,.dp-t .dp-ej{margin-left:auto}
+.dp-as table{font-size:.76rem}.dp-as td{padding:2px 4px;border:0}.dp-as td.d{color:var(--debe)}.dp-as td.h{color:var(--haber)}
+.cchips{display:flex;flex-wrap:wrap;gap:6px}.cchips button{background:var(--surface);color:var(--ink);border:1.5px solid var(--line);font-family:var(--fn)}.cchips button.on{border-color:var(--m2);background:color-mix(in srgb,var(--m2) 12%,var(--surface))}
+.tam{display:block;font-size:.74rem;color:var(--m2);font-weight:700;margin:2px 0 4px}
+.m2lay .tgrid{grid-template-columns:repeat(auto-fill,minmax(min(380px,100%),1fr))}
+/* modo digital */
+.modo{display:inline-flex;border:1.5px solid var(--line);border-radius:10px;overflow:hidden}
+.modo button{border-radius:0;background:var(--surface);color:var(--ink)}.modo button.on{background:var(--m2);color:#fff}
+.pick-bar{position:sticky;top:76px;z-index:6;background:#fff8db;color:#5c4400;border:2px solid #ffd43b;border-radius:12px;padding:8px 12px;margin-bottom:10px;font-size:.9rem}
+:root[data-theme="dark"] .pick-bar{background:#3a2e10;color:#ffe9a8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .pick-bar{background:#3a2e10;color:#ffe9a8}}
+@media(max-width:700px){.pick-bar{top:0}}
+tr.pickable{cursor:pointer}tr.pickable:hover td{background:color-mix(in srgb,var(--m2) 10%,transparent)}
+tr.pickable.sel td{background:#ffe066!important;color:#14213d}tr.pickable.usado{opacity:.45}
+tr.pickable:focus-visible{outline:3px solid var(--m2)}
+.drop{cursor:copy;border-radius:8px}.drop.armado{outline:2px dashed var(--m2);outline-offset:-2px;background:color-mix(in srgb,var(--m2) 7%,transparent)}
+.drop.armado:hover{background:color-mix(in srgb,var(--m2) 18%,transparent)}
+/* balanza tipo Excel */
+.xl-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0 6px;background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:6px 8px}
+.xl-fx{font-style:italic;font-weight:800;color:var(--m3);font-family:var(--fn)}
+.xl-bar #fxDir{min-width:36px;font-family:var(--fn)}.xl-bar #fx{flex:1 1 260px;font-family:var(--fn)}
+table.xl th.xl-n{width:30px;text-align:center;color:var(--muted);background:var(--surface2);font-family:var(--fn)}
+table.xl tr.xl-let th{text-align:center;background:var(--surface2);font-family:var(--fn);padding:2px}
+table.xl th.aux,table.xl td.aux{background:color-mix(in srgb,var(--m3) 6%,transparent)}
+table.xl .xl-nom{font-size:.78rem;padding:4px 6px}
+table.xl tr.xl-tot td{border-top:2px solid var(--ink)}
+.row.rcc{grid-template-columns:minmax(0,1fr) minmax(110px,190px) minmax(90px,150px) 30px}
+@media(max-width:620px){.row.rcc{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 30px}.row.rcc input{grid-column:1/3}}
+tr.subc td{font-size:.84rem;color:var(--muted);padding-left:22px}tr.subc td:first-child{padding-left:22px}
+/* actividades, facturas y diálogos */
+.act-bar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;border:2px solid #ffd43b;background:linear-gradient(135deg,#fff8db,var(--surface));margin-top:16px}
+:root[data-theme="dark"] .act-bar{background:var(--surface)}
+.act-bar small{display:block;color:var(--muted);font-size:.84rem}
+.ab-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.ab-ok{background:var(--okbg);color:var(--ok);font-weight:800;border-radius:999px;padding:6px 12px}
+.entres{display:flex;flex-direction:column;gap:10px;margin:10px 0}.entres-g{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:center;font-size:.9rem}.entres-g b{justify-self:end}.entres-g .entbar{grid-column:1/-1}
+.entcards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}@media(max-width:900px){.entcards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.entcard{display:flex;flex-direction:column;align-items:stretch;gap:3px;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);cursor:pointer;font:inherit;min-width:0}
+.entcard.on{border:2px solid var(--accent);box-shadow:var(--shadow)}.entcard:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.entcard-t{font-weight:700;font-size:.84rem}.entcard-n{font-size:1.6rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}.entcard-n small{font-size:.95rem;color:var(--muted);font-weight:600}
+.entcard-s{font-size:.76rem;color:var(--muted)}.entcard-s b{color:var(--ink)}
+.entbar{display:block;height:6px;border-radius:4px;background:var(--surface2);overflow:hidden}.entbar i{display:block;height:100%;background:var(--accent)}
+.hubbox>summary{cursor:pointer;list-style-position:inside}.hub-top{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:10px}.hub-top label{display:flex;flex-direction:column;font-size:.8rem;font-weight:600;color:var(--muted);min-width:220px}
+.resn{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:8px 12px}.resn>summary{cursor:pointer;font-weight:800}.resn-t th{font-size:.78rem}.resn-p td{border-top:2px solid var(--ink)}
+.chip.ok{background:var(--okbg);color:var(--ok)}.chip.bad{background:var(--badbg);color:var(--bad)}.chip.warn{background:var(--warnbg);color:var(--warn)}
+.ia-box{background:var(--accent-soft);border-radius:10px;padding:10px 12px;margin:8px 0;font-size:.88rem}.ev-h{margin:14px 0 4px}
+.ejs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}@media(max-width:700px){.ejs{grid-template-columns:minmax(0,1fr)}}.ej{border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:.84rem;min-width:0}.ejt{width:100%;margin-top:4px}.ejt td{padding:2px 4px;border-bottom:1px solid var(--line)}
+.hub-f{display:flex;flex-wrap:wrap;gap:8px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:8px}
+.hub-f small{display:block;color:var(--muted);font-size:.8rem}.hub-g{margin:14px 0 2px;font-size:.92rem}.hub-g small{font-weight:600;color:var(--muted)}
+dialog#dlgT{border:0;border-radius:16px;padding:16px;width:min(960px,96vw);max-height:92vh;overflow:auto;background:var(--surface);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+dialog#dlgT::backdrop{background:rgba(15,23,42,.55)}
+.dlg-hd{display:flex;align-items:center;gap:10px;justify-content:space-between;margin-bottom:8px}
+.ins-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr));gap:8px 12px}
+.ins-g label,#dlgB>label{display:flex;flex-direction:column;gap:3px;font-size:.8rem;font-weight:700;color:var(--muted)}
+#dlgB textarea{font:inherit;font-size:.84rem;width:100%;padding:6px;border:1.5px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+.na-mods{border:1px solid var(--line);border-radius:10px;margin-top:10px;display:flex;flex-wrap:wrap;gap:6px 16px}.na-mods label{display:flex;gap:6px;align-items:center;font-size:.9rem}.na-mods input{width:auto}
+.ins table{border-collapse:collapse;width:100%;font-size:.82rem}.ins td,.ins th{border:1px solid var(--line);padding:5px;vertical-align:top}
+.fe{border:2px solid #9fb3c8;border-radius:12px;background:#fff;color:#14213d;margin:10px 0 14px;overflow:hidden;font-size:.86rem}
+.fe-hd{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;background:#eef3f9;padding:10px 12px;border-bottom:1px solid #c8d4e2}
+.fe-hd b{display:block;font-size:1rem;letter-spacing:.02em}.fe-hd small{display:block;color:#4a5b70}.fe-clave{font-size:.7rem;word-break:break-all}.fe-f{text-align:right}
+.fe-partes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr));gap:8px 14px;padding:10px 12px;border-bottom:1px solid #e3e9f1}
+.fe-partes small{display:block;font-size:.68rem;font-weight:800;color:#6b7c90;letter-spacing:.06em}.fe-partes span{display:block;color:#4a5b70;font-size:.8rem}
+.fe-t th{background:#f6f8fb;color:#4a5b70}.fe-t td,.fe-t th{padding:5px 8px;border-bottom:1px solid #e3e9f1;color:#14213d}
+.fe-res{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,320px);gap:12px;padding:10px 12px;align-items:end}
+@media(max-width:620px){.fe-res{grid-template-columns:minmax(0,1fr)}}
+.fe-res td{padding:3px 6px;border:0;color:#14213d}.fe-res tr.fe-tot td{font-weight:900;border-top:2px solid #14213d;font-size:.95rem}
+body.sinrev #rev1,body.sinrev #pista,body.sinrev #revA,body.sinrev #revAll,body.sinrev #rev2,body.sinrev #rev3,body.sinrev #revEF,body.sinrev [data-sol]{display:none!important}
+body.bloq #mod input,body.bloq #mod select{pointer-events:none;background:var(--surface2)}
+body.bloq #mod [data-quitar],body.bloq #mod #mas,body.bloq #mod [data-ta],body.bloq #mod [data-tq],body.bloq #mod [data-ra],body.bloq #mod [data-rq],body.bloq #mod #lmMas,body.bloq #mod [data-lmq],body.bloq #mod #addCol,body.bloq #mod #delCol{display:none}
+/* T de mayor */
+.tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:12px}
+.tcard{border:2px solid var(--line);border-radius:14px;background:var(--surface);padding:10px}
+.tcard.ok{border-color:var(--ok)}.tcard.bad{border-color:var(--bad)}
+.tcard h4{font-size:.92rem;text-align:center;border-bottom:3px solid var(--ink);padding-bottom:6px;margin-bottom:4px}
+.tcols{display:grid;grid-template-columns:1fr 1fr}
+.tcols>div{padding:4px}.tcols>div:first-child{border-right:3px solid var(--ink)}
+.tcols .hd{font-size:.72rem;font-weight:800;text-align:center;text-transform:uppercase}
+.tcols .hd.d{color:var(--debe)}.tcols .hd.h{color:var(--haber)}
+.tl{display:grid;grid-template-columns:44px minmax(0,1fr) 22px;gap:3px;margin-bottom:3px;align-items:center}
+.tl input{padding:4px 5px;font-size:.84rem}
+.tl button{padding:0;width:22px;height:22px;justify-content:center;background:transparent;color:var(--muted);font-size:.8rem}
+.tfoot{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;border-top:1px solid var(--line);padding-top:6px;font-size:.78rem}
+.tfoot label{display:flex;flex-direction:column;gap:2px;color:var(--muted)}
+.tfoot input,.tfoot select{padding:4px 6px;font-size:.84rem}
+.tmsg{font-size:.78rem;margin-top:6px}.tmsg.ok{color:var(--ok)}.tmsg.bad{color:var(--bad)}
+.tro .tl{grid-template-columns:30px minmax(0,1fr)}
+.tro .v{font-family:var(--fn);font-size:.84rem;text-align:right}
+.tro .ref{font-size:.74rem;color:var(--muted)}
+details.ver{margin-bottom:12px}
+details.ver>summary{cursor:pointer;font-weight:700;padding:8px 0}
+/* estados financieros */
+.subtabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.subtabs button{background:var(--surface2);color:var(--ink);border:1.5px solid var(--line)}
+.subtabs button.on{background:var(--m4);color:#fff;border-color:var(--m4)}
+.ef{max-width:760px;margin:0 auto;border:1px solid var(--line);border-radius:14px;padding:16px 18px;background:var(--surface)}
+.ef-hd{text-align:center;margin-bottom:12px}.ef-hd b{display:block;font-size:1.05rem}.ef-hd span{display:block;color:var(--muted);font-size:.86rem}
+.sec{margin:10px 0 4px;font-weight:800;font-size:.92rem}
+.row{display:grid;grid-template-columns:minmax(0,1fr) minmax(90px,160px) 30px;gap:6px;margin:4px 0;align-items:center}
+.row.tot{grid-template-columns:minmax(0,1fr) 160px 30px;font-weight:800}
+.row.tot span{text-align:right;padding-right:6px}
+.row.tot.gran{border-top:2px solid var(--ink);padding-top:6px}
+.row button{padding:0;width:28px;height:28px;justify-content:center;background:transparent;color:var(--muted)}
+.ecp td input{min-width:110px}
+.side{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px}
+@media(max-width:900px){.side{grid-template-columns:minmax(0,1fr)}}
+.ayuda{font-size:.86rem;color:var(--muted)}
+.pill{display:inline-block;font-size:.72rem;font-weight:800;background:#fff3bf;color:#7a5a00;border-radius:999px;padding:2px 10px;vertical-align:middle}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1f2937;color:#fff;padding:10px 16px;border-radius:12px;z-index:50;box-shadow:var(--shadow);font-weight:600}
+@media print{.top,.mods,.acc,#volver-plataforma{display:none!important}}
+body.sinrev .revbtn,body.sinrev [data-sol]{display:none!important}
+.bloq #mod input,body.bloq #mod select{pointer-events:none;background:var(--surface2)}body.bloq #mod [data-mas],body.bloq #mod [data-q]{display:none}
+.tribu{border-top:4px solid #0b4f8a}.tribu-hd{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;background:#0b4f8a;color:#fff;margin:-16px -16px 12px;padding:12px 16px;border-radius:12px 12px 0 0}
+.tribu-hd b{display:block;font-size:1.05rem}.tribu-hd small{display:block;opacity:.85}.tribu-dat{display:flex;flex-direction:column;align-items:flex-end;font-size:.82rem}
+.f150{border:1px solid var(--line);border-radius:12px;margin:12px 0;padding:8px 12px 10px}.f150 legend{font-weight:800;padding:0 6px;color:var(--m3)}
+.f150-r{display:grid;grid-template-columns:minmax(0,1fr) minmax(110px,190px) minmax(0,130px);gap:8px;align-items:center;padding:5px 0;border-bottom:1px dashed var(--line);font-size:.88rem}.f150-r:last-child{border-bottom:0}
+@media(max-width:600px){.f150-r{grid-template-columns:minmax(0,1fr)}}
+.asi{border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;margin:12px 0}.asi.ok{border-color:var(--ok)}.asi.bad{border-color:var(--bad)}
+.asi-hd{display:flex;justify-content:space-between;gap:8px}.asi-t{width:100%}.asi-t td{padding:3px 4px}.asi-t td:first-child{min-width:220px}.asi-tot td{border-top:2px solid var(--ink);font-weight:800}.asi-t .warn{color:var(--warn)}
+.fe-nota{background:#fff6db;color:#5a4300;padding:6px 12px;font-size:.8rem;border-top:1px solid #c8d4e2}.fe-tot{font-weight:800}
+.guia ol{padding-left:20px}.guia li{margin:4px 0}.guia h4{margin:12px 0 6px}
+.bal td{min-width:120px}.bal td:first-child{min-width:240px}.bal .sol{display:block;margin-top:2px;padding:1px 6px}.ok-t{color:var(--ok);font-size:.8rem;font-weight:700}.asi-t .warn{color:var(--warn);font-size:.8rem;font-weight:700}
+.sol{background:var(--okbg);color:var(--ink);border-radius:8px;padding:6px 10px;font-size:.84rem}
+
+.hud{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:16px;align-items:center;margin-top:16px;background:linear-gradient(135deg,#1e1b4b,#4338ca);color:#fff;border:0}
+.hud small{opacity:.85;display:block}.hud-r{display:flex;flex-direction:column}.rk{font-size:.75rem;opacity:.85}.hud-x span{font-weight:800}
+.xpbar{height:10px;border-radius:6px;background:rgba(255,255,255,.25);overflow:hidden;margin:4px 0}.xpbar i{display:block;height:100%;background:linear-gradient(90deg,#facc15,#f97316)}
+.mapa-t{margin:18px 0 4px}.mapa{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-top:12px}
+.mis{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;background:var(--surface);color:var(--ink);border:2px solid var(--c);border-radius:16px;padding:14px;box-shadow:var(--shadow);cursor:pointer;transition:transform .15s}
+.mis:hover:not(:disabled){transform:translateY(-3px)}.mis.lock{filter:grayscale(1);opacity:.6}.mis-i{font-size:2rem}.mis-n{position:absolute;top:10px;right:12px;background:var(--c);color:#fff;border-radius:999px;width:26px;height:26px;display:grid;place-items:center;font-weight:800;font-size:.8rem}
+.mis small{color:var(--muted)}.mis-st{color:#eab308;font-size:1.2rem;letter-spacing:2px}
+.mhd{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:16px 0 10px;border-left:6px solid var(--c);padding-left:10px}.mhd h2{flex:1;min-width:200px}
+.tabs{display:flex;gap:6px}.tabs button{background:var(--surface2);color:var(--ink);border:1.5px solid var(--line)}.tabs button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.aprende h3{margin-bottom:8px}.aprende h4{margin:14px 0 6px}.aprende p{margin:8px 0}
+.tres{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:10px 0}@media(max-width:700px){.tres{grid-template-columns:minmax(0,1fr)}}
+.tc{border-radius:12px;padding:10px 12px;border:2px solid}.tc p{margin:4px 0}.tc.a{border-color:#16a34a;background:color-mix(in srgb,#16a34a 8%,var(--surface))}.tc.p{border-color:#dc2626;background:color-mix(in srgb,#dc2626 8%,var(--surface))}.tc.t{border-color:#7c3aed;background:color-mix(in srgb,#7c3aed 8%,var(--surface))}
+.ojo{background:var(--warnbg);border-radius:10px;padding:8px 12px}.ecu{text-align:center;font-weight:800;font-size:1.2rem;background:var(--accent-soft);border-radius:12px;padding:10px}
+td.up{color:var(--ok);font-weight:700}td.down{color:var(--bad);font-weight:700}
+.ej{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:8px 0}.refs{margin-top:16px;font-size:.84rem;color:var(--muted);border-top:1px solid var(--line);padding-top:8px}.refs ul{margin:4px 0 0;padding-left:18px}
+.qhd{display:flex;justify-content:space-between;font-weight:700;font-size:.9rem}.qbar{height:6px;background:var(--surface2);border-radius:4px;overflow:hidden;margin:6px 0 12px}.qbar i{display:block;height:100%;background:var(--accent)}
+.q{border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;margin:8px 0;flex:1;min-width:0}.q.ok{border-color:var(--ok)}.q.bad{border-color:var(--bad)}.q-txt{font-size:1.02rem;margin-bottom:10px}
+.q-ops{display:flex;flex-wrap:wrap;gap:8px}.opc{background:var(--surface2);color:var(--ink);border:2px solid var(--line)}.opc.on{border-color:var(--accent);background:var(--accent-soft)}.opc.es-sol{border-color:var(--ok);background:var(--okbg)}
+.q-ef{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.q-ef>div{display:flex;flex-direction:column;gap:4px}@media(max-width:600px){.q-ef{grid-template-columns:minmax(0,1fr)}}
+.q-num{display:flex;flex-direction:column;max-width:260px;font-size:.85rem;color:var(--muted)}
+.q-exp{margin-top:10px;border-radius:10px;padding:8px 12px;font-size:.9rem}.q-exp.ok{background:var(--okbg)}.q-exp.bad{background:var(--badbg)}.q-ref{display:block;margin-top:6px;color:var(--muted)}
+.qn{display:flex;gap:8px;align-items:flex-start}.qn-n{background:var(--accent);color:#fff;border-radius:999px;min-width:28px;height:28px;display:grid;place-items:center;font-weight:800;margin-top:14px}
+.fin{text-align:center}.fin-p{font-size:3rem;font-weight:800;margin:6px 0}.fin-s{font-size:2.2rem;color:#eab308;letter-spacing:4px;margin:0}
+.asi-t{width:100%}.asi-t td{padding:3px 4px}.asi-t td:first-child{min-width:220px}.asi-tot td{border-top:2px solid var(--ink);font-weight:800}.ok-t{color:var(--ok);font-size:.8rem;font-weight:700}.warn-t{color:var(--warn);font-size:.8rem;font-weight:700}
+ol.prev{font-size:.85rem;padding-left:20px}ol.prev li{margin:3px 0}
+body.sinrev .revbtn{display:none!important}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <div class="brand"><img src="img/logo-ctp-mercedes-norte.png" alt="Escudo del CTP Mercedes Norte" width="31" height="44">
+    <div><b>Ruta Contable Básica <span class="pill">Prototipo 2027</span></b><small>Activo, pasivo y patrimonio · Catálogo de cuentas · Ecuación contable · Debe y Haber · Partida doble</small></div></div>
+  <div class="caso" id="caso"></div>
+</div></header>
+<main class="wrap" id="app"><p class="muted">Cargando…</p></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js?v=20261105h"></script>
+<script src="js/actividades.js?v=20261114e"></script>
+<script>
+/* ══════════════════════════════════════════════════════════════════════
+   Ruta Contable Básica · Prototipo 2027
+   Misiones para aprender contabilidad desde cero: elementos de los estados
+   financieros (activo, pasivo, patrimonio), catálogo de cuentas, ecuación
+   contable, ingresos y gastos, naturaleza de las cuentas y partida doble.
+   Cada misión trae «Aprende» (teoría con ejemplos y referencias) y «Practica»
+   (preguntas al azar con explicación, XP y estrellas). Con actividades MEP.
+   Referencias: Marco Conceptual para la Información Financiera (IASB, 2018);
+   NIIF para las PYMES (secciones 2 y 4); NIC 1; programa MEP de Contabilidad.
+   ══════════════════════════════════════════════════════════════════════ */
+const SES=(()=>{try{return JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")||"null")}catch(e){return null}})();
+const DOCENTE=!!(SES&&SES.role==="docente");
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+const NF=new Intl.NumberFormat("es-CR",{maximumFractionDigits:2});
+const fm=n=>(n<0?"(":"")+"₡"+NF.format(Math.abs(n))+(n<0?")":"");
+const fn=n=>n==null?"":(n<0?"(":"")+NF.format(Math.abs(n))+(n<0?")":"");
+function monto(v){if(v==null)return null;let s=String(v).trim();if(!s)return null;let neg=/^\(.*\)$/.test(s)||/^-/.test(s);
+  s=s.replace(/[₡%\s()+-]/g,"");s=s.includes(",")?s.replace(/\./g,"").replace(",","."):/^\d+\.\d{1,2}$/.test(s)?s:s.replace(/\./g,"");if(!s||isNaN(+s))return NaN;return neg?-(+s):+s}
+const montoO0=v=>{const x=monto(v);return x==null?0:x};
+const cerca=(a,b,t)=>a!=null&&!isNaN(a)&&Math.abs(a-b)<=(t==null?1:t)+1e-9;
+function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const fechaCR=iso=>iso?iso.slice(8,10)+"/"+iso.slice(5,7)+"/"+iso.slice(0,4):"";
+function mezclar(a,R){a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(R()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+
+/* ── Catálogo de cuentas (NIIF para las PYMES, empresa de servicios y comercial) ──
+   [código, nombre, grupo, subgrupo, saldo normal, descripción del manual, ejemplos de la vida real] */
+const GR={1:"Activo",2:"Pasivo",3:"Patrimonio",4:"Ingresos",5:"Costos",6:"Gastos"};
+const SG={AC:"Activo corriente",ANC:"Activo no corriente",PC:"Pasivo corriente",PNC:"Pasivo no corriente",PAT:"Patrimonio",ING:"Ingresos",CV:"Costos",GO:"Gastos"};
+const CAT=[
+ ["1101","Caja","AC","D","Dinero en efectivo (billetes y monedas) que la empresa tiene en sus instalaciones.",["El dinero en efectivo de la caja registradora de la tienda.","Los billetes que guarda la recepcionista para dar vuelto a los clientes."]],
+ ["1102","Bancos","AC","D","Dinero depositado en cuentas bancarias a nombre de la empresa.",["El saldo de la cuenta corriente de la empresa en el Banco Nacional.","El dinero que los clientes depositaron por SINPE Móvil en la cuenta de la empresa."]],
+ ["1103","Cuentas por cobrar","AC","D","Derechos de cobro a clientes por ventas o servicios a crédito.",["Lo que le debe un cliente por un servicio facturado a 30 días.","Las facturas de clientes que todavía no han pagado."]],
+ ["1104","Inventario de mercadería","AC","D","Bienes que la empresa compra para revenderlos.",["Los productos en los estantes del supermercado listos para la venta.","Los celulares que una tienda compró para revender."]],
+ ["1105","Seguros pagados por adelantado","AC","D","Pólizas pagadas por anticipado cuyo beneficio se recibirá en los próximos meses.",["La póliza contra incendio pagada hoy por todo el año siguiente.","El seguro del vehículo pagado por adelantado por seis meses."]],
+ ["1107","Suministros de oficina","AC","D","Materiales de consumo (papel, tóner, útiles) que aún no se han usado.",["Las resmas de papel y los tóneres guardados en la bodega de la oficina.","Los materiales de limpieza comprados y todavía sin usar."]],
+ ["1108","Documentos por cobrar","AC","D","Derechos de cobro respaldados por un documento formal (letra de cambio o pagaré).",["Un pagaré firmado por un cliente que pagará en 90 días.","Una letra de cambio a favor de la empresa."]],
+ ["1201","Terrenos","ANC","D","Lotes propiedad de la empresa usados en su actividad (no se deprecian).",["El lote donde está construido el local de la empresa.","Un terreno comprado para construir la futura bodega."]],
+ ["1202","Edificios","ANC","D","Construcciones propiedad de la empresa usadas en su actividad.",["El edificio de dos pisos donde funcionan las oficinas.","La bodega construida en el terreno de la empresa."]],
+ ["1203","Mobiliario y equipo","ANC","D","Muebles y equipo de oficina usados por varios años.",["Los escritorios y sillas de las oficinas.","El aire acondicionado instalado en la sala de espera."]],
+ ["1204","Equipo de cómputo","ANC","D","Computadoras, servidores e impresoras de uso de la empresa.",["Las computadoras portátiles que usan los empleados.","El servidor donde se guarda el sistema contable."]],
+ ["1205","Vehículos","ANC","D","Vehículos propiedad de la empresa usados en su actividad.",["El camión que reparte la mercadería a los clientes.","La motocicleta del mensajero de la empresa."]],
+ ["1206","Depreciación acumulada","ANC","H","Cuenta complementaria (de valuación) que acumula el desgaste del activo fijo; resta al activo.",["El desgaste acumulado de las computadoras después de dos años de uso.","La parte del costo del camión que ya se reconoció como gasto por su uso."]],
+ ["1207","Software y licencias","ANC","D","Activo intangible: programas y licencias de uso por varios años.",["La licencia del sistema contable comprada por tres años.","El software de facturación electrónica de la empresa."]],
+ ["2101","Cuentas por pagar","PC","H","Deudas con proveedores por compras a crédito.",["La factura del proveedor de mercadería que se paga en 30 días.","Lo que la empresa le debe a la distribuidora por suministros comprados a crédito."]],
+ ["2102","Salarios por pagar","PC","H","Salarios devengados por los empleados que aún no se les han pagado.",["Los salarios de la última semana del mes que se pagan el próximo lunes.","El salario de diciembre que se paga el 2 de enero."]],
+ ["2103","IVA por pagar","PC","H","Impuesto al valor agregado cobrado a los clientes que se debe pagar a Hacienda.",["El 13 % de IVA cobrado en las ventas del mes, que se paga a Hacienda el día 15.","El impuesto de las facturas de venta pendiente de declarar."]],
+ ["2104","Cargas sociales por pagar","PC","H","Cuotas obrero-patronales pendientes de pagar a la CCSS.",["Las cuotas de la CCSS del mes que se pagan con la planilla.","Lo retenido a los empleados para la Caja que aún no se ha pagado."]],
+ ["2105","Documentos por pagar","PC","H","Deudas respaldadas por un documento formal (pagaré o letra) a menos de un año.",["Un pagaré firmado a un proveedor a 90 días.","Una letra de cambio que la empresa debe pagar en seis meses."]],
+ ["2106","Ingresos cobrados por adelantado","PC","H","Dinero recibido de clientes por servicios o bienes que todavía no se han entregado (es una obligación).",["El adelanto que pagó un cliente por un curso que empieza el próximo mes.","El alquiler que un inquilino pagó por adelantado por tres meses."]],
+ ["2107","Intereses por pagar","PC","H","Intereses de préstamos devengados y pendientes de pago.",["Los intereses del préstamo del mes que se pagan con la próxima cuota.","Los intereses acumulados de un pagaré."]],
+ ["2201","Préstamos bancarios por pagar a largo plazo","PNC","H","Préstamos que se pagan en un plazo mayor a un año.",["El préstamo a cinco años del banco para comprar equipo.","El financiamiento bancario de la ampliación del local, a diez años."]],
+ ["2202","Hipotecas por pagar","PNC","H","Préstamos a largo plazo garantizados con una propiedad.",["La hipoteca a 15 años con la que se compró el edificio.","El préstamo hipotecario garantizado con el terreno de la empresa."]],
+ ["3101","Capital social","PAT","H","Aportes de los socios o dueños a la empresa.",["El dinero que los socios aportaron para crear la sociedad anónima.","El vehículo que un socio aportó a la empresa a cambio de acciones."]],
+ ["3102","Utilidades retenidas","PAT","H","Ganancias de periodos anteriores que no se han repartido a los socios.",["Las ganancias de años anteriores que la empresa reinvirtió.","Las utilidades acumuladas que los socios decidieron no repartir."]],
+ ["3103","Reserva legal","PAT","H","Parte de las utilidades que por ley se separa y no se reparte (Código de Comercio).",["El 5 % de la utilidad anual separado como reserva según el Código de Comercio.","La reserva que la sociedad anónima debe acumular por ley."]],
+ ["3104","Dividendos (retiros de los socios)","PAT","D","Cuenta que disminuye el patrimonio por las ganancias repartidas a los socios.",["Las ganancias que la asamblea de socios acordó repartirse.","El dinero que el dueño retiró de la empresa para uso personal."]],
+ ["4101","Ventas","ING","H","Ingresos por la venta de mercadería.",["La venta de un refrigerador a un cliente de la tienda.","Las ventas del día en el supermercado."]],
+ ["4102","Ingresos por servicios","ING","H","Ingresos por los servicios que presta la empresa.",["El cobro de una consulta médica en una clínica privada.","Lo facturado por una asesoría contable mensual."]],
+ ["4201","Ingresos por intereses","ING","H","Intereses ganados por inversiones o cuentas de ahorro.",["Los intereses que el banco le pagó a la empresa por su cuenta de ahorros.","Los rendimientos de un certificado de depósito a plazo."]],
+ ["4202","Ingresos por alquileres","ING","H","Ingresos por alquilar bienes de la empresa a terceros.",["El alquiler que cobra la empresa por un local que no usa.","Lo que paga un inquilino por usar una oficina de la empresa."]],
+ ["5101","Costo de ventas","CV","D","Costo de la mercadería que se vendió.",["Lo que le costó a la tienda el refrigerador que vendió.","El costo de los productos vendidos en el mes."]],
+ ["6101","Gasto de salarios","GO","D","Remuneración de los empleados por su trabajo del periodo.",["El salario del mes de la secretaria.","La planilla quincenal de los técnicos."]],
+ ["6102","Gasto de alquiler","GO","D","Alquiler del local u oficinas correspondiente al periodo.",["El alquiler mensual del local donde funciona la empresa.","Lo pagado por usar una bodega alquilada este mes."]],
+ ["6103","Gasto de servicios públicos","GO","D","Electricidad, agua, teléfono e internet consumidos en el periodo.",["El recibo de electricidad del mes.","La factura de internet y teléfono de la oficina."]],
+ ["6104","Gasto de publicidad","GO","D","Anuncios y campañas para promocionar la empresa.",["La campaña en redes sociales de este mes.","El anuncio pagado en la radio local."]],
+ ["6105","Gasto por depreciación","GO","D","Parte del costo del activo fijo reconocida como gasto por su uso en el periodo.",["La depreciación de este mes de las computadoras.","El desgaste del camión reconocido como gasto del año."]],
+ ["6106","Gasto de seguros","GO","D","Parte de las pólizas de seguro que corresponde al periodo.",["La parte del seguro anual que corresponde a este mes.","La póliza del vehículo consumida en el periodo."]],
+ ["6107","Gasto de cargas sociales","GO","D","Cuotas patronales a la CCSS sobre los salarios del periodo.",["La cuota patronal de la CCSS de la planilla del mes.","Las cargas sociales patronales de los salarios de los empleados."]],
+ ["6108","Gasto de papelería y útiles","GO","D","Suministros de oficina consumidos en el periodo.",["El papel y los tóneres que se usaron este mes.","Los útiles de oficina consumidos en el periodo."]],
+ ["6109","Gasto de mantenimiento","GO","D","Reparaciones y mantenimiento de equipos e instalaciones.",["La reparación del aire acondicionado de la oficina.","El mantenimiento preventivo del camión."]],
+ ["6201","Gasto por intereses","GO","D","Intereses que cobra el banco por los préstamos.",["Los intereses de la cuota del préstamo bancario.","Los intereses cobrados por un pagaré con un proveedor."]]];
+const C_=c=>CAT.find(x=>x[0]===c);
+const nom=c=>(C_(c)||[c,c])[1];
+const grupoDe=c=>GR[c[0]];
+const elemDe=c=>{const sg=C_(c)[2];return sg==="AC"||sg==="ANC"?"Activo":sg==="PC"||sg==="PNC"?"Pasivo":sg==="PAT"?"Patrimonio":sg==="ING"?"Ingreso":sg==="CV"?"Costo":"Gasto"};
+
+/* ── Transacciones (efecto en la ecuación y asiento) ── X: monto, Y: segundo monto ── */
+const TX=[
+ {d:(X)=>`Los socios aportan ${fm(X)} en efectivo para iniciar la empresa.`,L:(X)=>[["1101",X],["3101",-X]],ef:[1,0,1],e:"a"},
+ {d:(X)=>`Un socio aporta un vehículo valorado en ${fm(X)} a cambio de acciones.`,L:(X)=>[["1205",X],["3101",-X]],ef:[1,0,1],e:"a"},
+ {d:(X)=>`La empresa recibe un préstamo bancario a 5 años por ${fm(X)}, que se deposita en su cuenta.`,L:(X)=>[["1102",X],["2201",-X]],ef:[1,1,0],e:"a"},
+ {d:(X)=>`Compra mobiliario de oficina por ${fm(X)} y lo paga con transferencia bancaria.`,L:(X)=>[["1203",X],["1102",-X]],ef:[0,0,0],e:"a"},
+ {d:(X)=>`Compra computadoras por ${fm(X)} a crédito, a 30 días.`,L:(X)=>[["1204",X],["2101",-X]],ef:[1,1,0],e:"a"},
+ {d:(X,Y)=>`Compra un vehículo de reparto por ${fm(X)}: paga ${fm(X-Y)} con transferencia y el resto (${fm(Y)}) queda a crédito.`,L:(X,Y)=>[["1205",X],["1102",-(X-Y)],["2101",-Y]],ef:[1,1,0],e:"a"},
+ {d:(X)=>`Compra papel, tóner y útiles de oficina por ${fm(X)} en efectivo (todavía no se usan).`,L:(X)=>[["1107",X],["1101",-X]],ef:[0,0,0],e:"a"},
+ {d:(X)=>`Paga por adelantado la póliza de seguro de todo el año: ${fm(X)} con transferencia.`,L:(X)=>[["1105",X],["1102",-X]],ef:[0,0,0],e:"a"},
+ {d:(X)=>`Paga el alquiler del local de este mes: ${fm(X)} con transferencia.`,L:(X)=>[["6102",X],["1102",-X]],ef:[-1,0,-1],e:"a"},
+ {d:(X)=>`Paga los salarios del mes a los empleados: ${fm(X)} con transferencia.`,L:(X)=>[["6101",X],["1102",-X]],ef:[-1,0,-1],e:"a"},
+ {d:(X)=>`Paga en efectivo el recibo de electricidad y agua del mes: ${fm(X)}.`,L:(X)=>[["6103",X],["1101",-X]],ef:[-1,0,-1],e:"a"},
+ {d:(X)=>`Presta un servicio a un cliente y cobra ${fm(X)} al contado; el dinero se deposita en el banco.`,L:(X)=>[["1102",X],["4102",-X]],ef:[1,0,1],e:"s"},
+ {d:(X)=>`Presta un servicio a crédito por ${fm(X)}; el cliente pagará en 30 días.`,L:(X)=>[["1103",X],["4102",-X]],ef:[1,0,1],e:"s"},
+ {d:(X)=>`Un cliente paga ${fm(X)} de una factura pendiente; se deposita en el banco.`,L:(X)=>[["1102",X],["1103",-X]],ef:[0,0,0],e:"a"},
+ {d:(X)=>`Paga a un proveedor ${fm(X)} que le debía, con transferencia.`,L:(X)=>[["2101",X],["1102",-X]],ef:[-1,-1,0],e:"a"},
+ {d:(X)=>`Recibe la factura de una campaña de publicidad por ${fm(X)}, a pagar el próximo mes.`,L:(X)=>[["6104",X],["2101",-X]],ef:[0,1,-1],e:"a"},
+ {d:(X)=>`Abona ${fm(X)} al principal del préstamo bancario de largo plazo.`,L:(X)=>[["2201",X],["1102",-X]],ef:[-1,-1,0],e:"a"},
+ {d:(X)=>`Un cliente paga por adelantado ${fm(X)} por un servicio que se le prestará el próximo mes.`,L:(X)=>[["1102",X],["2106",-X]],ef:[1,1,0],e:"s"},
+ {d:(X)=>`Los socios acuerdan repartirse y se pagan ${fm(X)} de dividendos con transferencia.`,L:(X)=>[["3104",X],["1102",-X]],ef:[-1,0,-1],e:"a"},
+ {d:(X)=>`El banco deposita ${fm(X)} de intereses ganados en la cuenta de ahorros de la empresa.`,L:(X)=>[["1102",X],["4201",-X]],ef:[1,0,1],e:"a"},
+ {d:(X)=>`Paga ${fm(X)} de intereses del préstamo bancario.`,L:(X)=>[["6201",X],["1102",-X]],ef:[-1,0,-1],e:"a"},
+ {d:(X)=>`Compra mercadería para la venta por ${fm(X)} y la paga con transferencia.`,L:(X)=>[["1104",X],["1102",-X]],ef:[0,0,0],e:"c"},
+ {d:(X)=>`Compra mercadería para la venta por ${fm(X)} a crédito, a 30 días.`,L:(X)=>[["1104",X],["2101",-X]],ef:[1,1,0],e:"c"},
+ {d:(X,Y)=>`Vende mercadería al contado por ${fm(X)} en efectivo. Esa mercadería le había costado ${fm(Y)} (inventario permanente: registre la venta y el costo).`,L:(X,Y)=>[["1101",X],["4101",-X],["5101",Y],["1104",-Y]],ef:[1,0,1],e:"c"},
+ {d:(X,Y)=>`Vende mercadería a crédito por ${fm(X)}. Esa mercadería le había costado ${fm(Y)} (registre la venta y el costo).`,L:(X,Y)=>[["1103",X],["4101",-X],["5101",Y],["1104",-Y]],ef:[1,0,1],e:"c"},
+ {d:(X)=>`Al final del mes quedan salarios ganados por los empleados y no pagados por ${fm(X)}.`,L:(X)=>[["6101",X],["2102",-X]],ef:[0,1,-1],e:"a"},
+ {d:(X)=>`Paga los salarios pendientes del mes anterior: ${fm(X)} con transferencia.`,L:(X)=>[["2102",X],["1102",-X]],ef:[-1,-1,0],e:"a"},
+ {d:(X)=>`Deposita en el banco ${fm(X)} del efectivo que había en caja.`,L:(X)=>[["1102",X],["1101",-X]],ef:[0,0,0],e:"a"},
+ {d:(X)=>`Alquila una oficina que no usa y cobra el alquiler del mes: ${fm(X)} por transferencia.`,L:(X)=>[["1102",X],["4202",-X]],ef:[1,0,1],e:"a"},
+ {d:(X)=>`Firma un pagaré a 90 días por ${fm(X)} para documentar una deuda que tenía con un proveedor.`,L:(X)=>[["2101",X],["2105",-X]],ef:[0,0,0],e:"a"},
+ {d:(X)=>`Paga ${fm(X)} con transferencia por la reparación del aire acondicionado de la oficina.`,L:(X)=>[["6109",X],["1102",-X]],ef:[-1,0,-1],e:"a"},
+ {d:(X,Y)=>`Compra un terreno por ${fm(X)}: paga una prima de ${fm(X-Y)} con transferencia y el resto (${fm(Y)}) con una hipoteca a 15 años.`,L:(X,Y)=>[["1201",X],["1102",-(X-Y)],["2202",-Y]],ef:[1,1,0],e:"a"},
+ {d:(X)=>`Registra la depreciación del mes del equipo de cómputo: ${fm(X)}.`,L:(X)=>[["6105",X],["1206",-X]],ef:[-1,0,-1],e:"a"},
+ {d:(X)=>`Registra la parte del seguro pagado por adelantado que corresponde a este mes: ${fm(X)}.`,L:(X)=>[["6106",X],["1105",-X]],ef:[-1,0,-1],e:"a"}];
+const efTxt=v=>v>0?"Aumenta":v<0?"Disminuye":"No cambia";
+
+/* ── Misiones ── */
+const MISIONES=[
+ ["m1","🌱","Activo, pasivo y patrimonio","Los tres elementos de la situación financiera","#16a34a"],
+ ["m2","📒","El catálogo de cuentas","Códigos, grupos, corriente y no corriente","#0e7490"],
+ ["m3","⚖️","La ecuación contable","Activo = Pasivo + Patrimonio","#7c3aed"],
+ ["m4","📈","Ingresos, costos y gastos","Cómo cambian el patrimonio","#c2410c"],
+ ["m5","↔️","Naturaleza de las cuentas","Debe, Haber y saldo normal","#2563eb"],
+ ["m6","✍️","Partida doble: el asiento","Registrar cada transacción","#be185d"],
+ ["m7","🏆","Desafío final","Todo lo aprendido","#ca8a04"]];
+const MIS=k=>MISIONES.find(m=>m[0]===k);
+
+/* ── Generadores de preguntas: cada uno devuelve {t,txt,...,sol,exp,ref} ──
+   t: op (opción única) · num (número) · ef (efecto en la ecuación) · as (asiento) */
+const REF={def:"Marco Conceptual (IASB, 2018), párr. 4.3 (activo), 4.26 (pasivo) y 4.63 (patrimonio); NIIF para las PYMES, Sección 2.",cor:"NIC 1, párr. 66 y 69; NIIF para las PYMES, Sección 4 (Estado de situación financiera).",res:"Marco Conceptual (IASB, 2018), párr. 4.68 (ingresos) y 4.69 (gastos).",pd:"Partida doble: todo débito tiene su crédito por el mismo monto (sumas iguales)."};
+const defElem={Activo:"Un activo es un recurso económico presente que la empresa controla, producto de hechos pasados, y que puede generarle beneficios económicos.",Pasivo:"Un pasivo es una obligación presente de la empresa de entregar recursos económicos, producto de hechos pasados.",Patrimonio:"El patrimonio es lo que queda de los activos después de restar todos los pasivos: la parte que pertenece a los dueños.",
+  Ingreso:"Un ingreso aumenta los activos o disminuye los pasivos y, con eso, aumenta el patrimonio (sin ser aporte de los socios).",Gasto:"Un gasto disminuye los activos o aumenta los pasivos y, con eso, disminuye el patrimonio (sin ser reparto a los socios).",Costo:"El costo de ventas es lo que costó la mercadería vendida: es un gasto que se enfrenta a las ventas para obtener la utilidad bruta."};
+function genM1(R){const c=R()<.5?pickB(R,CAT.filter(x=>/^[123]/.test(x[0]))):pickB(R,CAT.filter(x=>/^[123]/.test(x[0]))),ej=c[5][Math.floor(R()*2)],el=elemDe(c[0]);
+  if(R()<.25)return {t:"op",txt:`Según el Marco Conceptual, ¿qué es <b>${esc(c[1])}</b> para la empresa?`,ops:["Activo","Pasivo","Patrimonio"],sol:["Activo","Pasivo","Patrimonio"].indexOf(el),exp:`${esc(c[1])}: ${esc(c[4])} ${defElem[el]}`,ref:REF.def};
+  return {t:"op",txt:`${esc(ej)}<br><small class="muted">¿Es un activo, un pasivo o patrimonio?</small>`,ops:["Activo","Pasivo","Patrimonio"],sol:["Activo","Pasivo","Patrimonio"].indexOf(el),exp:`Es <b>${el.toLowerCase()}</b> (cuenta ${c[0]} ${esc(c[1])}). ${defElem[el]}${c[0]==="2106"?" Aunque entró dinero, la empresa todavía debe el servicio: por eso es una obligación.":c[0]==="3104"?" Los dividendos son una cuenta de patrimonio que lo disminuye.":c[0]==="1206"?" Es una cuenta complementaria del activo: aparece en el activo restando.":""}`,ref:REF.def}}
+function pickB(R,a){return a[Math.floor(R()*a.length)]}
+function genM2(R){const k=Math.floor(R()*4),c=pickB(R,CAT);
+  if(k===0){const ops=Object.entries(GR).map(([n,t])=>`${n} · ${t}`);return {t:"op",txt:`¿En qué grupo del catálogo de cuentas está <b>${esc(c[1])}</b>?`,ops,sol:+c[0][0]-1,exp:`El primer dígito del código indica el grupo: <b>${c[0]}</b> empieza con ${c[0][0]} = ${GR[c[0][0]]}. 1 Activo · 2 Pasivo · 3 Patrimonio · 4 Ingresos · 5 Costos · 6 Gastos.`,ref:"Catálogo de cuentas de la práctica (estructura usual en Costa Rica, ordenado según los estados financieros)."}}
+  if(k===1){const c2=pickB(R,CAT.filter(x=>/^[12]/.test(x[0]))),ops=["Activo corriente","Activo no corriente","Pasivo corriente","Pasivo no corriente"];return {t:"op",txt:`<b>${esc(c2[1])}</b> (${esc(c2[4])}) es…`,ops,sol:ops.indexOf(SG[c2[2]]),exp:`${SG[c2[2]]}: ${c2[2].endsWith("NC")?"se espera usar, cobrar o pagar en <b>más de un año</b> (o no es parte del ciclo normal de operación).":"se espera realizar, cobrar o pagar <b>dentro de un año</b> o en el ciclo normal de operación."}`,ref:REF.cor}}
+  if(k===2){const otros=mezclar(CAT.filter(x=>x[0]!==c[0]&&x[0][0]===c[0][0]),R).slice(0,3).map(x=>x[0]);while(otros.length<3)otros.push(String(+c[0]+otros.length+11));const ops=mezclar([c[0],...otros],R);
+    return {t:"op",txt:`En el catálogo de la práctica, ¿qué código tiene <b>${esc(c[1])}</b>?`,ops,sol:ops.indexOf(c[0]),exp:`${c[0]} · ${esc(c[1])}. Los dos primeros dígitos indican el subgrupo (${c[0].slice(0,2)}: ${SG[c[2]]}) y los últimos, la cuenta.`,ref:"Catálogo de cuentas de la práctica."}}
+  const otros=mezclar(CAT.filter(x=>x[0]!==c[0]),R).slice(0,3),ops=mezclar([c,...otros],R).map(x=>x[1]);
+  return {t:"op",txt:`El manual de cuentas dice: «${esc(c[4])}». ¿Qué cuenta es?`,ops,sol:ops.indexOf(c[1]),exp:`Es <b>${c[0]} ${esc(c[1])}</b>. El manual de cuentas explica qué registra cada cuenta, cuándo se debita y cuándo se acredita.`,ref:"Manual (instructivo) del catálogo de cuentas."}}
+const m=(R,a,b,st=5000)=>Math.round((a+R()*(b-a))/st)*st;
+function genM3(R){const k=Math.floor(R()*3);
+  if(k===0){const P=m(R,200e3,3e6),Pt=m(R,500e3,5e6),A=P+Pt,q=Math.floor(R()*3);
+    if(q===0)return {t:"num",txt:`Una empresa tiene activos por ${fm(A)} y pasivos por ${fm(P)}. ¿Cuánto es su patrimonio?`,sol:Pt,exp:`Patrimonio = Activo − Pasivo = ${fm(A)} − ${fm(P)} = <b>${fm(Pt)}</b>.`,ref:REF.def};
+    if(q===1)return {t:"num",txt:`Una empresa tiene pasivos por ${fm(P)} y un patrimonio de ${fm(Pt)}. ¿Cuánto suman sus activos?`,sol:A,exp:`Activo = Pasivo + Patrimonio = ${fm(P)} + ${fm(Pt)} = <b>${fm(A)}</b>.`,ref:REF.def};
+    return {t:"num",txt:`Los activos de una empresa suman ${fm(A)} y el patrimonio de los dueños es ${fm(Pt)}. ¿Cuánto debe la empresa (pasivo)?`,sol:P,exp:`Pasivo = Activo − Patrimonio = ${fm(A)} − ${fm(Pt)} = <b>${fm(P)}</b>.`,ref:REF.def}}
+  if(k===1){const A0=m(R,2e6,6e6),P0=m(R,500e3,1.5e6),tx=pickB(R,TX.filter(t=>t.L.length<=3)),X=m(R,100e3,600e3),Y=Math.round(X*.4/5000)*5000,A1=A0+tx.ef[0]*(tx.L(X,Y).filter(([c,v])=>c[0]==="1").reduce((a,[c,v])=>a+v,0)*Math.sign(tx.ef[0]||1));
+    const dA=tx.L(X,Y).filter(([c])=>c[0]==="1").reduce((a,[,v])=>a+v,0);
+    return {t:"num",txt:`Una empresa tiene activos por ${fm(A0)}. Luego: ${tx.d(X,Y)} ¿Cuánto suman ahora sus activos?`,sol:A0+dA,exp:`La transacción ${dA>0?"aumenta":dA<0?"disminuye":"no cambia"} el total de activos${dA?" en "+fm(Math.abs(dA)):" (solo cambia un activo por otro)"}: ${fm(A0)} ${dA>=0?"+":"−"} ${fm(Math.abs(dA))} = <b>${fm(A0+dA)}</b>.`,ref:REF.def}}
+  const tx=pickB(R,TX),X=m(R,100e3,800e3),Y=Math.round(X*(tx.L.length>2&&tx.ef[1]===0?.6:.4)/5000)*5000;
+  return {t:"ef",txt:tx.d(X,Y),sol:tx.ef,exp:`Efecto en la ecuación: Activo ${efTxt(tx.ef[0]).toLowerCase()} · Pasivo ${efTxt(tx.ef[1]).toLowerCase()} · Patrimonio ${efTxt(tx.ef[2]).toLowerCase()}. La ecuación sigue en equilibrio: Activo = Pasivo + Patrimonio.`,ref:REF.def}}
+function genM4(R){const k=R()<.6,c=pickB(R,CAT.filter(x=>/^[456]/.test(x[0]))),ej=c[5][Math.floor(R()*2)],el=elemDe(c[0]);
+  if(k)return {t:"op",txt:`${esc(ej)}<br><small class="muted">¿Es un ingreso, un costo o un gasto?</small>`,ops:["Ingreso","Costo","Gasto"],sol:["Ingreso","Costo","Gasto"].indexOf(el),exp:`Es un <b>${el.toLowerCase()}</b> (cuenta ${c[0]} ${esc(c[1])}). ${defElem[el]}`,ref:REF.res};
+  return {t:"op",txt:`Cuando se registra <b>${esc(c[1])}</b>, ¿qué pasa con el patrimonio de la empresa?`,ops:["Aumenta","Disminuye"],sol:el==="Ingreso"?0:1,exp:`${el==="Ingreso"?"Los ingresos aumentan":"Los costos y gastos disminuyen"} el patrimonio, porque al cierre pasan a la utilidad (o pérdida) del periodo. ${defElem[el]}`,ref:REF.res}}
+function genM5(R){const k=Math.floor(R()*3),c=pickB(R,CAT),D=c[3]==="D";
+  if(k===0){const ops=["Deudor (aumenta por el Debe)","Acreedor (aumenta por el Haber)"];return {t:"op",txt:`¿Cuál es el saldo normal de <b>${c[0]} ${esc(c[1])}</b>?`,ops,sol:D?0:1,exp:`${esc(c[1])} es ${elemDe(c[0]).toLowerCase()}: ${D?"aumenta por el <b>Debe</b> y su saldo normal es <b>deudor</b>":"aumenta por el <b>Haber</b> y su saldo normal es <b>acreedor</b>"}.${c[0]==="1206"?" Es una cuenta complementaria del activo: trabaja al revés de los activos.":c[0]==="3104"?" Los dividendos disminuyen el patrimonio: trabajan al revés del capital.":""} Regla: activos, costos y gastos aumentan por el Debe; pasivos, patrimonio e ingresos aumentan por el Haber.`,ref:REF.pd}}
+  if(k===1){return {t:"op",txt:`Para registrar una <b>disminución</b> de <b>${esc(c[1])}</b>, ¿en qué columna se anota?`,ops:["Debe","Haber"],sol:D?1:0,exp:`${esc(c[1])} aumenta por el ${D?"Debe":"Haber"}, así que disminuye por el <b>${D?"Haber":"Debe"}</b>.`,ref:REF.pd}}
+  const reglas=[["Los activos aumentan por el…",0,"Los activos aumentan por el Debe (lado izquierdo) y disminuyen por el Haber."],["Los pasivos aumentan por el…",1,"Los pasivos aumentan por el Haber y disminuyen por el Debe."],["El capital social aumenta por el…",1,"El patrimonio aumenta por el Haber."],["Los ingresos se registran (aumentan) en el…",1,"Los ingresos aumentan el patrimonio: se registran en el Haber."],["Los gastos se registran (aumentan) en el…",0,"Los gastos disminuyen el patrimonio: se registran en el Debe."],["El lado izquierdo de una cuenta T se llama…",0,"El lado izquierdo es el Debe (débitos); el derecho, el Haber (créditos)."],["Cargar o debitar una cuenta es anotar en el…",0,"Cargar = debitar = anotar en el Debe. Abonar = acreditar = anotar en el Haber."],["Abonar o acreditar una cuenta es anotar en el…",1,"Abonar = acreditar = anotar en el Haber."]],r=pickB(R,reglas);
+  return {t:"op",txt:r[0],ops:["Debe","Haber"],sol:r[1],exp:r[2],ref:REF.pd}}
+function genM6(R,emp){const L=TX.filter(t=>emp==="servicios"?t.e!=="c":emp==="comercial"?t.e!=="s":true),tx=pickB(R,L),X=m(R,80e3,900e3),Y=Math.round(X*(tx.L.toString().includes("5101")?.6:.4)/5000)*5000;
+  const n={};tx.L(X,Y).forEach(([c,v])=>n[c]=(n[c]||0)+v);
+  return {t:"as",txt:tx.d(X,Y),n,exp:`Cuentas que se afectan: ${Object.entries(n).map(([c,v])=>`${c} ${esc(nom(c))} (${v>0?"Debe":"Haber"} ${fm(Math.abs(v))})`).join(" · ")}. Debe = Haber.`,ref:REF.pd}}
+const GEN={m1:genM1,m2:genM2,m3:genM3,m4:genM4,m5:genM5,m6:genM6};
+function genM7(R,emp){const k=pickB(R,["m1","m2","m3","m4","m5","m6","m6"]);return {...GEN[k](R,emp),de:k}}
+GEN.m7=genM7;
+// Conjunto de n preguntas sin repetir el enunciado
+function preguntas(mis,seed,n,emp){const R=rng(seed+mis.charCodeAt(1)*7919),out=[],vistos=new Set();let tries=0;
+  while(out.length<n&&tries<n*40){tries++;const q=GEN[mis](R,emp);const k=q.txt+(q.ops||[]).join();if(vistos.has(k))continue;vistos.add(k);out.push(q)}return out}
+// Calificación de una respuesta (0 a 1)
+function corregir(q,a){if(a==null)return 0;
+  if(q.t==="op")return +a===q.sol?1:0;
+  if(q.t==="num")return cerca(monto(a),q.sol,1)?1:0;
+  if(q.t==="ef")return [0,1,2].filter(i=>a[i]!=null&&a[i]!==""&&+a[i]===q.sol[i]).length/3;
+  if(q.t==="as"){const net={};(a||[]).forEach(l=>{if(!l||!l.c)return;net[l.c]=(net[l.c]||0)+montoO0(l.d)-montoO0(l.h)});
+    const ks=new Set([...Object.keys(q.n),...Object.keys(net).filter(k=>Math.abs(net[k])>.5)]);let b=0;ks.forEach(k=>{if(cerca(net[k]||0,q.n[k]||0,1))b++});return ks.size?b/ks.size:0}
+  return 0}
+
+/* ── «Aprende»: teoría de cada misión, con ejemplos y referencias ── */
+const tablaCuentas=f=>`<div class="scroll"><table><thead><tr><th>Código</th><th>Cuenta</th><th>Qué registra</th><th>Ejemplo</th></tr></thead><tbody>${CAT.filter(f).map(c=>`<tr><td class="num">${c[0]}</td><td><b>${esc(c[1])}</b></td><td>${esc(c[4])}</td><td class="muted">${esc(c[5][0])}</td></tr>`).join("")}</tbody></table></div>`;
+const lecturas=`<div class="refs"><b>📚 Referencias y lecturas</b><ul>
+  <li>IASB (2018). <i>Marco Conceptual para la Información Financiera</i>, capítulo 4: definiciones de activo (4.3), pasivo (4.26), patrimonio (4.63), ingresos (4.68) y gastos (4.69).</li>
+  <li>IASB. <i>NIIF para las PYMES</i>, Sección 2 (Conceptos y principios generales) y Sección 4 (Estado de situación financiera). NIC 1, <i>Presentación de estados financieros</i> (corriente y no corriente).</li>
+  <li>Para ampliar (Costa Rica): Escoto, R. <i>El ciclo contable</i>. Editorial UNED · Artavia, R. y Badilla, S. (2020). <i>Contabilidad y su aplicación: un nuevo enfoque</i>. Cartago: Cóndor Editores.</li>
+  <li>MEP (2020). Programa de estudio de Contabilidad, 10.° año, subárea Gestión contable: «Ciclos contables» (tratamiento de las cuentas, cuentas de los estados financieros, asientos simples y compuestos).</li></ul></div>`;
+const APRENDE={
+ m1:()=>`<h3>🌱 Activo, pasivo y patrimonio</h3><p>La contabilidad registra lo que la empresa <b>tiene</b>, lo que <b>debe</b> y lo que <b>pertenece a los dueños</b>. El Marco Conceptual de las NIIF los define así (en palabras sencillas):</p>
+  <div class="tres"><div class="tc a"><b>Activo</b><p>Recurso económico <b>presente</b> que la empresa <b>controla</b> por hechos pasados y que puede generarle beneficios.</p><small>Ej.: dinero en caja, cuentas por cobrar, mercadería, computadoras, terrenos.</small></div>
+   <div class="tc p"><b>Pasivo</b><p>Obligación <b>presente</b> de la empresa de entregar recursos económicos, por hechos pasados.</p><small>Ej.: deudas con proveedores, salarios por pagar, préstamos, IVA por pagar.</small></div>
+   <div class="tc t"><b>Patrimonio</b><p>Lo que queda de los activos después de restar los pasivos: la parte de los <b>dueños</b>.</p><small>Ej.: capital aportado por los socios, utilidades retenidas.</small></div></div>
+  <p><b>Tres preguntas para clasificar:</b> ¿La empresa lo <b>controla</b> y le dará beneficios? → activo. ¿La empresa <b>debe</b> entregar dinero, bienes o servicios? → pasivo. ¿Es <b>aporte o ganancia de los dueños</b>? → patrimonio.</p>
+  <p class="ojo">⚠️ Casos que confunden: un <b>adelanto de un cliente</b> es pasivo (se debe el servicio); los <b>seguros pagados por adelantado</b> son activo (todavía dan beneficio); la <b>depreciación acumulada</b> va en el activo restando; los <b>dividendos</b> disminuyen el patrimonio.</p>
+  <h4>Activos</h4>${tablaCuentas(c=>c[0][0]==="1")}<h4>Pasivos</h4>${tablaCuentas(c=>c[0][0]==="2")}<h4>Patrimonio</h4>${tablaCuentas(c=>c[0][0]==="3")}${lecturas}`,
+ m2:()=>`<h3>📒 El catálogo (manual) de cuentas</h3><p>El <b>catálogo de cuentas</b> es la lista ordenada y codificada de todas las cuentas que usa la empresa. El <b>manual (instructivo)</b> explica qué registra cada cuenta, cuándo se debita y cuándo se acredita. Así todos registran igual.</p>
+  <div class="scroll"><table><thead><tr><th>Dígito</th><th>Grupo</th><th>Estado financiero</th></tr></thead><tbody><tr><td>1</td><td>Activo</td><td rowspan="3">Estado de situación financiera</td></tr><tr><td>2</td><td>Pasivo</td></tr><tr><td>3</td><td>Patrimonio</td></tr><tr><td>4</td><td>Ingresos</td><td rowspan="3">Estado de resultados</td></tr><tr><td>5</td><td>Costos</td></tr><tr><td>6</td><td>Gastos</td></tr></tbody></table></div>
+  <p><b>Cómo se lee un código:</b> <span class="num">1102</span> → <b>1</b> activo · <b>11</b> activo corriente · <b>1102</b> Bancos. <span class="num">2201</span> → <b>2</b> pasivo · <b>22</b> pasivo no corriente · <b>2201</b> Préstamos a largo plazo.</p>
+  <p><b>Corriente o no corriente</b> (NIC 1 y NIIF para las PYMES, Sección 4): es <b>corriente</b> lo que se espera cobrar, usar o pagar <b>dentro de un año</b> (o en el ciclo normal de operación); lo demás es <b>no corriente</b>.</p>
+  <h4>Catálogo completo de la práctica</h4>${tablaCuentas(()=>true)}${lecturas}`,
+ m3:()=>`<h3>⚖️ La ecuación contable</h3><p class="ecu">ACTIVO = PASIVO + PATRIMONIO</p><p>Todo lo que la empresa tiene (activo) fue financiado por terceros (pasivo) o por los dueños (patrimonio). Por eso la ecuación <b>siempre</b> está en equilibrio: cada transacción la cambia por los dos lados o cambia elementos del mismo lado.</p>
+  <div class="scroll"><table><thead><tr><th>Transacción</th><th>Activo</th><th>Pasivo</th><th>Patrimonio</th></tr></thead><tbody>${[0,2,3,4,8,11,14,15].map(i=>{const t=TX[i];return `<tr><td>${t.d(500000,200000)}</td>${t.ef.map(v=>`<td class="${v>0?"up":v<0?"down":""}">${efTxt(v)}</td>`).join("")}</tr>`}).join("")}</tbody></table></div>
+  <p><b>Ojo:</b> «No cambia» significa que el <b>total</b> no cambia, aunque una cuenta suba y otra baje (p. ej., comprar mobiliario al contado: aumenta Mobiliario y disminuye Bancos).</p>
+  <p><b>Fórmulas:</b> Patrimonio = Activo − Pasivo · Pasivo = Activo − Patrimonio · Activo = Pasivo + Patrimonio.</p>${lecturas}`,
+ m4:()=>`<h3>📈 Ingresos, costos y gastos</h3><p>Los <b>ingresos</b> aumentan el patrimonio y los <b>gastos</b> (y el costo de ventas) lo disminuyen. Se acumulan en el <b>estado de resultados</b> y, al cierre, la utilidad pasa al patrimonio.</p>
+  <p class="ecu">Activo = Pasivo + Capital + (Ingresos − Costos − Gastos)</p>
+  <p><b>Empresa de servicios:</b> Ingresos por servicios − Gastos de operación = Utilidad de operación. <b>Empresa comercial:</b> Ventas − Costo de ventas = Utilidad bruta − Gastos de operación = Utilidad de operación.</p>
+  <p class="ojo">⚠️ No todo lo que se paga es gasto: comprar una computadora es un <b>activo</b> (dura varios años); su uso se va reconociendo como <b>gasto por depreciación</b>. Y no todo lo que entra es ingreso: un <b>préstamo</b> es pasivo y un <b>aporte de socios</b> es patrimonio.</p>
+  <h4>Ingresos</h4>${tablaCuentas(c=>c[0][0]==="4")}<h4>Costos</h4>${tablaCuentas(c=>c[0][0]==="5")}<h4>Gastos</h4>${tablaCuentas(c=>c[0][0]==="6")}${lecturas}`,
+ m5:()=>`<h3>↔️ Naturaleza de las cuentas: Debe y Haber</h3><p>Cada cuenta se representa como una <b>T</b>: el lado izquierdo es el <b>Debe</b> (débitos, cargos) y el derecho el <b>Haber</b> (créditos, abonos).</p>
+  <div class="scroll"><table><thead><tr><th>Grupo</th><th>Aumenta por el</th><th>Disminuye por el</th><th>Saldo normal</th></tr></thead><tbody>
+   <tr><td>Activo</td><td><b>Debe</b></td><td>Haber</td><td>Deudor</td></tr><tr><td>Pasivo</td><td><b>Haber</b></td><td>Debe</td><td>Acreedor</td></tr><tr><td>Patrimonio</td><td><b>Haber</b></td><td>Debe</td><td>Acreedor</td></tr>
+   <tr><td>Ingresos</td><td><b>Haber</b></td><td>Debe</td><td>Acreedor</td></tr><tr><td>Costos y gastos</td><td><b>Debe</b></td><td>Haber</td><td>Deudor</td></tr></tbody></table></div>
+  <p class="ojo">⚠️ Excepciones (cuentas complementarias): <b>Depreciación acumulada</b> está en el activo pero tiene saldo <b>acreedor</b>; <b>Dividendos / retiros</b> está en el patrimonio pero tiene saldo <b>deudor</b>.</p>
+  <p><b>Truco:</b> Activo = Pasivo + Patrimonio → lo de la izquierda de la ecuación aumenta por la izquierda (Debe); lo de la derecha, por la derecha (Haber).</p>${lecturas}`,
+ m6:()=>`<h3>✍️ La partida doble: el asiento de diario</h3><p>Cada transacción afecta <b>al menos dos cuentas</b>: lo que se anota en el Debe de unas debe ser igual a lo que se anota en el Haber de otras. Ese registro es el <b>asiento</b> en el libro diario.</p>
+  <p><b>Pasos:</b> 1) ¿Qué cuentas cambian? 2) ¿Aumentan o disminuyen? 3) Según su naturaleza, ¿van al Debe o al Haber? 4) ¿Debe = Haber?</p>
+  ${[0,4,8,12,5,23].map(i=>{const t=TX[i],L=t.L(500000,200000);return `<div class="ej"><b>${t.d(500000,200000)}</b><table class="asi-t">${L.map(([c,v])=>`<tr><td>${c} · ${esc(nom(c))}</td><td class="r num">${v>0?fn(v):""}</td><td class="r num">${v<0?fn(-v):""}</td></tr>`).join("")}</table></div>`}).join("")}
+  <p>Un asiento con dos cuentas es <b>simple</b>; con tres o más, <b>compuesto</b> (como la compra pagada en parte al contado y en parte a crédito).</p>${lecturas}`,
+ m7:()=>`<h3>🏆 Desafío final</h3><p>Preguntas de todas las misiones: clasificar elementos, catálogo, ecuación contable, ingresos y gastos, naturaleza de las cuentas y asientos. ¡Demuestre todo lo aprendido!</p>${lecturas}`};
+
+/* ── Estado del juego (práctica libre) ── */
+const KEY="ruta_contable_basica_v1";
+const juegoNuevo=()=>({v:1,xp:0,racha:0,mejorRacha:0,emp:"comercial",est:{},vista:"mapa",mis:null,tab:"aprende",ses:null});
+let J=null;try{J=JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){}if(!J||J.v!==1)J=juegoNuevo();
+const guardarJ=()=>{try{localStorage.setItem(KEY,JSON.stringify(J))}catch(e){}};
+const RANGOS=[[0,"Aprendiz contable"],[200,"Auxiliar contable"],[500,"Asistente contable"],[900,"Contador junior"],[1400,"Contador"],[2000,"Contador sénior"],[2800,"Auditor"]];
+const rango=xp=>{let r=RANGOS[0];RANGOS.forEach(x=>{if(xp>=x[0])r=x});const i=RANGOS.indexOf(r),sig=RANGOS[i+1];return {n:r[1],i:i+1,pct:sig?Math.round((xp-r[0])*100/(sig[0]-r[0])):100,sig}};
+const estrellas=p=>p>=90?3:p>=70?2:p>=50?1:0;
+const abierta=k=>DOCENTE||k==="m1"||(()=>{const i=MISIONES.findIndex(x=>x[0]===k);return (J.est[MISIONES[i-1][0]]||{}).st>=1})();
+function toast(t){const d=document.createElement("div");d.className="toast";d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),2600)}
+
+/* ── Pintar una pregunta (con respuesta a, y si se muestra la corrección) ── */
+const opsCta=()=>CAT.map(c=>[c[0],c[0]+" · "+c[1]]);
+function preguntaHTML(q,a,pref,mostrar){const ok=mostrar?corregir(q,a):null;let h=`<div class="q ${mostrar?(ok===1?"ok":"bad"):""}"><div class="q-txt">${q.txt}</div>`;
+  if(q.t==="op")h+=`<div class="q-ops">${q.ops.map((o,i)=>`<button type="button" class="opc ${a!=null&&+a===i?"on":""} ${mostrar&&i===q.sol?"es-sol":""}" data-q="${pref}" data-v="${i}">${esc(o)}</button>`).join("")}</div>`;
+  if(q.t==="num")h+=`<label class="q-num">Respuesta (₡)<input class="n" data-qn="${pref}" value="${esc(a??"")}" inputmode="decimal" autocomplete="off"></label>`;
+  if(q.t==="ef")h+=`<div class="q-ef">${["Activo","Pasivo","Patrimonio"].map((e,i)=>`<div><b>${e}</b>${[1,-1,0].map(v=>`<button type="button" class="opc sm ${a&&a[i]!=null&&+a[i]===v?"on":""} ${mostrar&&q.sol[i]===v?"es-sol":""}" data-qe="${pref}" data-i="${i}" data-v="${v}">${efTxt(v)}</button>`).join("")}</div>`).join("")}</div>`;
+  if(q.t==="as"){const L=Array.isArray(a)&&a.length?a:[{c:"",d:"",h:""},{c:"",d:"",h:""},{c:"",d:"",h:""}],td=L.reduce((x,l)=>x+montoO0(l.d),0),th=L.reduce((x,l)=>x+montoO0(l.h),0);
+    h+=`<div class="scroll"><table class="asi-t"><thead><tr><th>Cuenta</th><th class="r">Debe</th><th class="r">Haber</th><th></th></tr></thead><tbody>${L.map((l,j)=>`<tr><td><select data-qa="${pref}" data-j="${j}" data-k="c"><option value="">— Cuenta —</option>${opsCta().map(([k,t])=>`<option value="${k}" ${l.c===k?"selected":""}>${esc(t)}</option>`).join("")}</select></td><td><input class="n" data-qa="${pref}" data-j="${j}" data-k="d" value="${esc(l.d||"")}" inputmode="decimal" placeholder="Debe"></td><td><input class="n" data-qa="${pref}" data-j="${j}" data-k="h" value="${esc(l.h||"")}" inputmode="decimal" placeholder="Haber"></td><td><button type="button" class="ghost sm" data-qq="${pref}" data-j="${j}" aria-label="Quitar línea">✕</button></td></tr>`).join("")}
+      <tr class="asi-tot"><td><button type="button" class="ghost sm" data-qm="${pref}">＋ Línea</button> ${td||th?(Math.abs(td-th)<.5?'<span class="ok-t">✓ Cuadra</span>':'<span class="warn-t">⚠️ No cuadra</span>'):""}</td><td class="r num">${fn(td)}</td><td class="r num">${fn(th)}</td><td></td></tr></tbody></table></div>`}
+  if(mostrar)h+=`<div class="q-exp ${ok===1?"ok":"bad"}"><b>${ok===1?"✅ ¡Correcto!":ok>0?`🟡 Parcialmente correcto (${Math.round(ok*100)} %)`:"❌ Incorrecto"}</b> ${q.t==="num"?`Respuesta: <b>${fm(q.sol)}</b>. `:""}${q.exp}${q.t==="as"?`<table class="asi-t">${Object.entries(q.n).sort((x,y)=>(y[1]>0)-(x[1]>0)).map(([c,v])=>`<tr><td>${c} · ${esc(nom(c))}</td><td class="r num">${v>0?fn(v):""}</td><td class="r num">${v<0?fn(-v):""}</td></tr>`).join("")}</table>`:""}<small class="q-ref">📚 ${esc(q.ref)}</small></div>`;
+  return h+"</div>"}
+// Actualiza los totales del asiento sin volver a pintar (no se pierde el cursor)
+function totAs(x){const t=x.closest("table");if(!t)return;const sum=k=>[...t.querySelectorAll(`input[data-k="${k}"]`)].reduce((a,i)=>a+montoO0(i.value),0),d=sum("d"),h=sum("h"),r=t.querySelector(".asi-tot");if(!r)return;const c=r.children;
+  c[1].textContent=fn(d);c[2].textContent=fn(h);let e=c[0].querySelector(".ok-t,.warn-t");if(e)e.remove();if(d||h)c[0].insertAdjacentHTML("beforeend",Math.abs(d-h)<.5?' <span class="ok-t">✓ Cuadra</span>':' <span class="warn-t">⚠️ No cuadra</span>')}
+// Enlaza los controles de las preguntas: lee/escribe la respuesta con get(pref) / set(pref,valor)
+function ligarPreguntas(get,set,rep,bloq){if(bloq)return;
+  $$("[data-q]").forEach(b=>b.onclick=()=>{set(b.dataset.q,+b.dataset.v);rep()});
+  $$("[data-qe]").forEach(b=>b.onclick=()=>{const a=[...(get(b.dataset.qe)||[null,null,null])];a[+b.dataset.i]=+b.dataset.v;set(b.dataset.qe,a);rep()});
+  $$("[data-qn]").forEach(x=>x.oninput=()=>set(x.dataset.qn,x.value));
+  const filas=p=>{let L=get(p);if(!Array.isArray(L)||!L.length)L=[{c:"",d:"",h:""},{c:"",d:"",h:""},{c:"",d:"",h:""}];return L.map(l=>({...l}))};
+  $$("[data-qa]").forEach(x=>{const ev=x.tagName==="SELECT"?"onchange":"oninput";x[ev]=()=>{const L=filas(x.dataset.qa);L[+x.dataset.j][x.dataset.k]=x.value;set(x.dataset.qa,L);if(x.tagName==="SELECT")rep();else totAs(x)}});
+  $$("[data-qm]").forEach(b=>b.onclick=()=>{const L=filas(b.dataset.qm);L.push({c:"",d:"",h:""});set(b.dataset.qm,L);rep()});
+  $$("[data-qq]").forEach(b=>b.onclick=()=>{const L=filas(b.dataset.qq);if(L.length>1)L.splice(+b.dataset.j,1);set(b.dataset.qq,L);rep()})}
+
+/* ══════════ Práctica libre: mapa, misiones, XP y estrellas ══════════ */
+function pintarJuego(){const r=rango(J.xp);
+  $("#caso").innerHTML=`<label>Tipo de empresa en los ejemplos<select id="cbEmp"><option value="comercial" ${J.emp==="comercial"?"selected":""}>🛒 Comercial</option><option value="servicios" ${J.emp==="servicios"?"selected":""}>🛠️ Servicios</option><option value="ambas" ${J.emp==="ambas"?"selected":""}>Ambas</option></select></label>`;
+  $("#cbEmp").onchange=e=>{J.emp=e.target.value;guardarJ()};
+  const hud=`<div class="hud card"><div class="hud-r"><span class="rk">🎖️ Rango ${r.i}</span><b>${r.n}</b></div><div class="hud-x"><span>⭐ ${J.xp} XP</span><div class="xpbar"><i style="width:${r.pct}%"></i></div><small>${r.sig?`${r.sig[0]-J.xp} XP para «${r.sig[1]}»`:"¡Rango máximo!"}</small></div><div class="hud-r"><span class="rk">🔥 Racha</span><b>${J.racha}</b><small>Mejor: ${J.mejorRacha}</small></div></div>`;
+  if(J.vista==="mapa"||!J.mis){$("#app").innerHTML=`${DOCENTE?hubHTML():""}${hud}<h2 class="mapa-t">🗺️ Ruta Contable Básica</h2><p class="ayuda">Desde cero: qué es un activo, un pasivo y el patrimonio; el catálogo de cuentas; la ecuación contable; ingresos y gastos; Debe y Haber; y el asiento de diario. Cada misión tiene <b>📖 Aprende</b> (teoría, muchos ejemplos y referencias NIIF) y <b>🎮 Practica</b> (10 preguntas al azar con explicación). Gane estrellas para abrir la siguiente misión.</p>
+    <div class="mapa">${MISIONES.map(([k,ic,t,s,col],i)=>{const e=J.est[k]||{},ab=abierta(k);return `<button type="button" class="mis ${ab?"":"lock"}" data-mis="${k}" style="--c:${col}" ${ab?"":"disabled"}><span class="mis-n">${i+1}</span><span class="mis-i">${ab?ic:"🔒"}</span><b>${t}</b><small>${s}</small><span class="mis-st">${"★".repeat(e.st||0)}${"☆".repeat(3-(e.st||0))}</span>${e.mejor!=null?`<small>Mejor: ${e.mejor} %</small>`:""}</button>`}).join("")}</div>`;
+    if(DOCENTE)ligarHub();$$("[data-mis]").forEach(b=>b.onclick=()=>{J.mis=b.dataset.mis;J.vista="mis";J.tab="aprende";J.ses=null;guardarJ();pintar()});return}
+  const M=MIS(J.mis),S=J.ses;
+  let cuerpo="";
+  if(J.tab==="aprende")cuerpo=`<div class="card aprende">${APRENDE[J.mis]()}<div class="acc"><span style="flex:1"></span><button type="button" id="aPract">🎮 ¡A practicar!</button></div></div>`;
+  else if(!S)cuerpo=`<div class="card"><h3>🎮 Practica: ${M[2]}</h3><p>10 preguntas al azar. Cada respuesta correcta da <b>10 XP</b> (+5 por racha de 3 o más). Al final verá su resultado y sus estrellas: 50 % = ★, 70 % = ★★, 90 % = ★★★.</p><div class="acc"><span style="flex:1"></span><button type="button" id="aIni">▶ Empezar</button></div></div>`;
+  else if(S.i>=S.q.length){const p=Math.round(S.p*100/S.q.length),st=estrellas(p);cuerpo=`<div class="card fin"><h3>${st===3?"🏆 ¡Excelente!":st>=1?"🎉 ¡Misión superada!":"💪 ¡Siga practicando!"}</h3><p class="fin-p">${p} %</p><p class="fin-s">${"★".repeat(st)}${"☆".repeat(3-st)}</p><p>Ganó <b>${S.xp} XP</b> en esta ronda.</p><div class="acc"><button type="button" class="sec" id="aMapa">🗺️ Volver al mapa</button><span style="flex:1"></span><button type="button" class="sec" id="aTeo">📖 Repasar la teoría</button><button type="button" id="aIni">🔄 Otra ronda</button></div></div>`}
+  else{const q=S.q[S.i],res=S.r[S.i]!=null;cuerpo=`<div class="card"><div class="qhd"><span>Pregunta ${S.i+1} de ${S.q.length}</span><span>✅ ${Math.round(S.p*10)/10} · ⭐ +${S.xp} XP</span></div><div class="qbar"><i style="width:${S.i*100/S.q.length}%"></i></div>
+    <div id="qz">${preguntaHTML(q,S.a,"j",res)}</div><div class="acc"><span style="flex:1"></span>${res?`<button type="button" id="aSig">${S.i+1<S.q.length?"Siguiente →":"Ver resultado 🏁"}</button>`:`<button type="button" id="aRev">✔️ Revisar</button>`}</div></div>`}
+  $("#app").innerHTML=`${hud}<div class="mhd" style="--c:${M[4]}"><button type="button" class="sec" id="aVolver">← Mapa</button><h2>${M[1]} ${M[2]}</h2><div class="tabs"><button type="button" class="${J.tab==="aprende"?"on":""}" data-tab="aprende">📖 Aprende</button><button type="button" class="${J.tab==="practica"?"on":""}" data-tab="practica">🎮 Practica</button></div></div>${cuerpo}`;
+  $("#aVolver").onclick=()=>{J.vista="mapa";J.ses=null;guardarJ();pintar()};$$("[data-tab]").forEach(b=>b.onclick=()=>{J.tab=b.dataset.tab;guardarJ();pintar()});
+  const ini=()=>{J.ses={q:preguntas(J.mis,Math.floor(Math.random()*1e9),10,J.emp),i:0,a:null,r:[],p:0,xp:0};J.tab="practica";guardarJ();pintar()};
+  [["#aPract",ini],["#aIni",ini],["#aMapa",()=>{J.vista="mapa";J.ses=null;guardarJ();pintar()}],["#aTeo",()=>{J.tab="aprende";J.ses=null;guardarJ();pintar()}]].forEach(([s,f])=>{const b=$(s);if(b)b.onclick=f});
+  if(S&&S.i<S.q.length){const res=S.r[S.i]!=null;
+    const repQ=()=>{const qz=$("#qz");if(qz){qz.innerHTML=preguntaHTML(S.q[S.i],S.a,"j",false);ligarPreguntas(()=>S.a,(p,v)=>{S.a=v},repQ,false)}};
+    ligarPreguntas(()=>S.a,(p,v)=>{S.a=v},repQ,res);
+    const rv=$("#aRev");if(rv)rv.onclick=()=>{const q=S.q[S.i],ok=corregir(q,S.a);S.r[S.i]=ok;S.p+=ok;if(ok===1){J.racha++;J.mejorRacha=Math.max(J.mejorRacha,J.racha);const g=10+(J.racha>=3?5:0);S.xp+=g;J.xp+=g;if(J.racha>=3)toast(`🔥 ¡Racha de ${J.racha}! +${g} XP`)}else{J.racha=0;if(ok>0){const g=Math.round(10*ok);S.xp+=g;J.xp+=g}}guardarJ();pintar()};
+    const sg=$("#aSig");if(sg)sg.onclick=()=>{S.i++;S.a=null;if(S.i>=S.q.length){const p=Math.round(S.p*100/S.q.length),e=J.est[J.mis]||(J.est[J.mis]={});e.mejor=Math.max(e.mejor||0,p);e.st=Math.max(e.st||0,estrellas(p));if(estrellas(p)>=1){const i=MISIONES.findIndex(x=>x[0]===J.mis);if(MISIONES[i+1])toast(`🔓 ¡Se abrió «${MISIONES[i+1][2]}»!`)}}guardarJ();pintar()}}}
+
+/* ══════════ Modo actividad: módulos (misiones) con preguntas fijas ══════════ */
+let CASO=null,ST=null,RES={},KEYV="cb_act";
+const MODS=MISIONES.map(([k,i,t,s,c])=>[k,i,t,s,c]);
+const estadoNuevo=(seed)=>({v:1,seed,mod:"m1",a:{},nota:{},sol:{}});
+let tGuardar=null;const guardar=()=>{if(!ST)return;clearTimeout(tGuardar);ST.guardado_en=new Date().toISOString();tGuardar=setTimeout(()=>{try{localStorage.setItem(KEYV,JSON.stringify(ST))}catch(e){}},300);if(typeof sincronizarT==="function")sincronizarT()};
+function ponerNota(k,pct){ST.nota[k]=Math.round(pct);guardar();const b=$(`[data-mod="${k}"] .bar i`);if(b)b.style.width=ST.nota[k]+"%"}
+function revisarMod(k){const Q=CASO.q[k]||[];const s=Q.reduce((a,q,i)=>a+corregir(q,(ST.a[k]||{})[i]),0);RES[k]=true;ponerNota(k,Q.length?100*s/Q.length:0)}
+function pintarActividad(){const MV=MODS.filter(m=>modsAct().includes(m[0]));if(!MV.some(m=>m[0]===ST.mod))ST.mod=MV[0][0];
+  const tabs=MV.map(([k,i,t,s,c])=>`<button type="button" class="mod ${ST.mod===k?"on":""}" data-mod="${k}" style="--c:${c}" aria-pressed="${ST.mod===k}"><span class="t"><span class="i">${i}</span>${t}</span><small>${(CASO.q[k]||[]).length} preguntas</small><div class="bar"><i style="width:${(ST.nota||{})[k]||0}%"></i></div></button>`).join("");
+  const k=ST.mod,Q=CASO.q[k]||[],mostrar=puedeRevisar()&&RES[k],bloq=!!ACTV.bloq||ACTV.modo==="ver";
+  $("#app").innerHTML=`${barraActividadT()}<nav class="mods" style="grid-template-columns:repeat(${Math.min(4,MV.length)},minmax(0,1fr))">${tabs}</nav>
+    <div class="card"><details class="ver"><summary>📖 Repasar la teoría de «${MIS(k)[2]}»</summary><div class="aprende">${APRENDE[k]()}</div></details>
+    <div id="qs">${Q.map((q,i)=>`<div class="qn"><span class="qn-n">${i+1}</span>${preguntaHTML(q,(ST.a[k]||{})[i],k+"|"+i,mostrar||ST.fin&&puedeRevisar())}</div>`).join("")}</div>
+    <div class="acc"><span id="msg" style="flex:1">${mostrar||ST.fin?`<span class="fb ${(ST.nota[k]||0)>=85?"ok":"bad"}">Resultado del módulo: ${ST.nota[k]||0} %</span>`:""}</span>${puedeRevisar()&&!bloq?`<button type="button" class="revbtn" id="revM">✔️ Revisar</button>`:""}</div></div>`;
+  ligarBarraT();$$("[data-mod]").forEach(b=>b.onclick=()=>{ST.mod=b.dataset.mod;guardar();pintar()});
+  const get=p=>{const [m,i]=p.split("|");return (ST.a[m]||{})[i]},set=(p,v)=>{const [m,i]=p.split("|");(ST.a[m]=ST.a[m]||{})[i]=v;RES[m]=false;guardar()};
+  const rep=()=>{const y=scrollY;pintar();scrollTo(0,y)};ligarPreguntas(get,set,rep,bloq);
+  const rv=$("#revM");if(rv)rv.onclick=()=>{revisarMod(k);rep()}}
+
+function pintar(){
+  document.body.classList.toggle("sinrev",ACTV.t?!puedeRevisar():false);const pl=$(".brand .pill");if(pl)pl.style.display=DOCENTE?"":"none";
+  if(ACTV.id){if(!ACTV.listo){$("#app").innerHTML='<p class="muted" style="margin-top:20px">Cargando la actividad…</p>';$("#caso").innerHTML="";return}
+    if(ACTV.error){$("#caso").innerHTML="";$("#app").innerHTML=`<div class="card" style="margin-top:20px"><h3>🧭 Ruta Contable Básica</h3><p>${esc(ACTV.error)}</p><a class="btn" href="${DOCENTE?"contabilidad-basica.html":"index.html"}">Volver</a></div>`;return}
+    $("#caso").innerHTML=`<a class="btn sec" href="contabilidad-basica.html">📚 ${DOCENTE?"Actividades":"Mis actividades"}</a>`;
+    if(ACTV.modo==="estudiante"&&!ACTV.bloq&&!ST.fin&&!ST.vio_instrumento){pintarAntesDeEmpezar();return}
+    pintarActividad();return}
+  if(!DOCENTE&&SES&&SES.role==="estudiante"&&new URLSearchParams(location.search).get("libre")!=="1"){pintarHubEstudiante();return}
+  if(DOCENTE&&HUB.lista===null&&HAY_BD()){HUB.lista=undefined;cargarHub().then(pintar)}
+  pintarJuego()}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Actividades (prácticas generales, para la casa, para examen, evaluativas y tareas)
+   con evaluación en formato MEP (escala de desempeño: Inicial 1 · Intermedio 2 · Avanzado 3).
+   Cada misión incluida es un indicador; todo el grupo recibe las mismas preguntas.
+   ══════════════════════════════════════════════════════════════════════ */
+const QSa=new URLSearchParams(location.search);
+const EST_ID=SES&&SES.role==="estudiante"?SES.id:null;
+const ACTV={id:+QSa.get("a")||null,t:null,listo:false,error:null,entrega:null,bloq:false,nombre:""};
+ACTV.modo=!ACTV.id?null:(DOCENTE&&QSa.get("est"))?"ver":DOCENTE?"docente":EST_ID?"estudiante":"nadie";
+const ESTR_T="conta_basica";
+const TIPOS_T={general:{ic:"🟢",et:"Práctica general",pl:"Prácticas generales",nota:null,rev:true,desc:"sin nota: con revisión, explicaciones y soluciones"},
+ casa:{ic:"🏠",et:"Práctica para la casa",pl:"Prácticas para la casa",nota:null,rev:true,desc:"sin nota: para hacer en casa, con revisión y explicaciones"},
+ examen:{ic:"🎯",et:"Práctica para examen",pl:"Prácticas para examen",nota:null,rev:false,desc:"sin nota: como en el examen, sin revisar ni ver soluciones hasta terminar"},
+ evaluativa:{ic:"📝",et:"Práctica evaluativa",pl:"Prácticas evaluativas",nota:"Trabajo cotidiano",rev:false,desc:"trabajo cotidiano: lleva nota en la Rúbrica"},
+ tarea:{ic:"📚",et:"Tarea",pl:"Tareas",nota:"Tareas",rev:false,desc:"lleva nota en el componente Tareas de la Rúbrica"}};
+const CRIT_T={m1:{nombre:"Clasifica los recursos, obligaciones y aportes de una empresa como activo, pasivo o patrimonio, según las definiciones del Marco Conceptual.",auto:"cb_elementos_pct"},
+ m2:{nombre:"Identifica las cuentas del catálogo por su código, grupo y clasificación corriente o no corriente.",auto:"cb_catalogo_pct"},
+ m3:{nombre:"Aplica la ecuación contable al analizar el efecto de las transacciones en el activo, el pasivo y el patrimonio.",auto:"cb_ecuacion_pct"},
+ m4:{nombre:"Clasifica las cuentas de resultados como ingresos, costos o gastos, según su efecto en el patrimonio.",auto:"cb_resultados_pct"},
+ m5:{nombre:"Determina la naturaleza deudora o acreedora de las cuentas, según las reglas del Debe y el Haber.",auto:"cb_naturaleza_pct"},
+ m6:{nombre:"Registra asientos de diario simples y compuestos de transacciones de empresas de servicios y comerciales, aplicando la partida doble.",auto:"cb_asientos_pct"},
+ m7:{nombre:"Resuelve situaciones contables básicas que integran los elementos, el catálogo, la ecuación contable y el registro por partida doble.",auto:"cb_integral_pct"}};
+const ELEM_T={cb_elementos_pct:"Clasificación de cada caso como activo, pasivo o patrimonio · uso de las definiciones del Marco Conceptual · casos especiales (adelantos de clientes, pagos anticipados, depreciación acumulada, dividendos).",
+ cb_catalogo_pct:"Grupo de la cuenta según el primer dígito · código de la cuenta · activo y pasivo corriente o no corriente · cuenta según la descripción del manual.",
+ cb_ecuacion_pct:"Cálculo del activo, pasivo o patrimonio con la ecuación · efecto de cada transacción (aumenta, disminuye o no cambia) en los tres elementos · equilibrio de la ecuación.",
+ cb_resultados_pct:"Clasificación de ingresos, costos y gastos · efecto de cada cuenta en el patrimonio.",
+ cb_naturaleza_pct:"Saldo normal deudor o acreedor · columna en que aumenta o disminuye cada cuenta · cuentas complementarias.",
+ cb_asientos_pct:"Cuentas del catálogo que se afectan · columna Debe o Haber de cada una · montos · igualdad de débitos y créditos.",
+ cb_integral_pct:"Preguntas de todas las misiones resueltas correctamente."};
+const RA_T="Confeccionar ciclos contables para la empresa de servicios y comercial, en moneda nacional e internacional, utilizando como herramienta la hoja electrónica o software contable considerando lo establecido en la legislación vigente.";
+const C_ACT=()=>(ACTV.t&&ACTV.t.contenido_actividad)||{};
+const modsAct=()=>ACTV.t?(C_ACT().cb_modulos||["m1","m2","m3","m4","m5","m6"]):["m1","m2","m3","m4","m5","m6"];
+const tipoAct=()=>ACTV.t?(C_ACT().cb_tipo||"general"):null;
+const puedeRevisar=()=>!ACTV.t||ACTV.modo==="ver"||ACTV.modo==="docente"||TIPOS_T[tipoAct()].rev||!!(ST&&ST.fin);
+const critAct=t=>{const C=(t||ACTV.t||{}).contenido_actividad||{};return (C.criterios&&C.criterios.length?C.criterios:(C.cb_modulos||["m1","m2","m3","m4","m5","m6"]).map(m=>({...CRIT_T[m],puntos_max:3}))).map(c=>({...c,evidencias:c.evidencias||ELEM_T[c.auto]||""}))};
+const HAY_BD=()=>typeof sb!=="undefined"&&!!SES;
+const casoAct=C=>{const q={};(C.cb_modulos||[]).forEach(m=>q[m]=preguntas(m,C.cb_seed,C.cb_n||8,C.cb_emp||"ambas"));return {q}};
+
+function calificarTodo(){modsAct().forEach(revisarMod);const met={};modsAct().forEach(m=>met[CRIT_T[m].auto]=ST.nota[m]||0);return met}
+let tSyncT=null;
+function sincronizarT(ya){if(ACTV.modo!=="estudiante"||ACTV.bloq||!ACTV.t||!HAY_BD())return;clearTimeout(tSyncT);
+  tSyncT=setTimeout(async()=>{try{const ahora=new Date().toISOString();await upsertSinConflicto("actividades_estudiante",{trabajo_id:ACTV.t.id,estudiante_id:EST_ID},{datos_prueba:{conta:{st:ST,en_curso:!ST.fin,guardado_en:ahora,metricas:ST.metricas||null}},actualizado_en:ahora})}catch(e){console.warn("cb sync",e)}},ya?0:2500)}
+async function cargarActividad(){
+  try{if(!HAY_BD())throw new Error(SES?"No se pudo conectar con la plataforma. Revise el internet y recargue.":"Entre a la plataforma con su usuario y abra la Ruta Contable Básica desde ahí.");
+    const {data:t,error}=await sb.from("trabajos_cotidianos").select("*").eq("id",ACTV.id).maybeSingle();if(error)throw error;
+    if(!t||(t.contenido_actividad||{}).estrategia!==ESTR_T)throw new Error("No se encontró esta actividad de la Ruta Contable Básica.");
+    ACTV.t=t;const C=t.contenido_actividad;
+    if(ACTV.modo==="estudiante"&&t.habilitado===false)throw new Error("Su profe todavía no ha abierto esta actividad (o ya la cerró).");
+    KEYV=`cb_act_${t.id}_${ACTV.modo==="estudiante"?EST_ID:ACTV.modo}`;
+    let loc=null;try{loc=JSON.parse(localStorage.getItem(KEYV)||"null")}catch(e){}
+    ST=loc&&loc.v===1?loc:estadoNuevo(C.cb_seed);
+    if(ACTV.modo==="estudiante"||ACTV.modo==="ver"){const est=ACTV.modo==="ver"?QSa.get("est"):EST_ID;
+      const {data:en}=await sb.from("actividades_estudiante").select("*").eq("trabajo_id",t.id).eq("estudiante_id",est).maybeSingle();
+      ACTV.entrega=en||null;const R=en&&en.datos_prueba&&en.datos_prueba.conta;
+      if(ACTV.modo==="ver"){if(!R||!R.st)throw new Error("Este estudiante todavía no ha trabajado en esta actividad.");ST=R.st;
+        const {data:es}=await sb.from("estudiantes").select("nombre, apellido1, apellido2").eq("id",est).maybeSingle();ACTV.nombre=es?[es.nombre,es.apellido1,es.apellido2].filter(Boolean).join(" "):String(est)}
+      else if(R&&R.st&&(!ST.guardado_en||(R.guardado_en||"")>ST.guardado_en))ST=R.st;
+      ACTV.bloq=!!(en&&en.completado&&TIPOS_T[C.cb_tipo||"general"].nota)}
+    CASO=casoAct(C);if(!modsAct().includes(ST.mod))ST.mod=modsAct()[0];
+    if(ACTV.modo==="ver"||ST.fin){calificarTodo();modsAct().forEach(m=>RES[m]=true)}
+  }catch(e){ACTV.error=e.message||String(e)}
+  ACTV.listo=true;pintar()}
+
+/* ── Nueva actividad: tipo, misiones, cantidad de preguntas; vista previa y creación ── */
+function nuevaActividad(){const mDef=(HUB.mats.find(m=>/contab/i.test(m.nombre))||HUB.mats[0]||{}).id;
+  const D={tipo:"general",emp:"ambas",n:8,materia:mDef,titulo:"",mods:["m1","m2","m3"],fecha:"",seed:100000+Math.floor(Math.random()*900000)};
+  const form=()=>{abrirDlg("✨ Nueva actividad · Ruta Contable Básica",`<div class="ins-g">
+      <label>Tipo de actividad<select id="naT">${Object.entries(TIPOS_T).map(([k,v])=>`<option value="${k}" ${D.tipo===k?"selected":""}>${v.ic} ${v.et}${v.nota?" · "+v.nota:" · sin nota"}</option>`).join("")}</select></label>
+      <label>Materia<select id="naM">${HUB.mats.map(m=>`<option value="${m.id}" ${m.id===D.materia?"selected":""}>${esc(m.nombre)}${m.seccion?" · "+esc(m.seccion):""}</option>`).join("")}</select></label>
+      <label>Preguntas por misión<select id="naN">${[5,8,10,12,15].map(n=>`<option ${n===D.n?"selected":""}>${n}</option>`).join("")}</select></label>
+      <label>Tipo de empresa en los asientos<select id="naE"><option value="ambas" ${D.emp==="ambas"?"selected":""}>Servicios y comercial</option><option value="servicios" ${D.emp==="servicios"?"selected":""}>🛠️ Servicios</option><option value="comercial" ${D.emp==="comercial"?"selected":""}>🛒 Comercial</option></select></label>
+      <label>Título <small>(opcional)</small><input id="naTi" value="${esc(D.titulo)}" placeholder="Se arma solo con el tipo y las misiones"></label>
+      <label id="naFl">Fecha de entrega<input id="naF" type="date" value="${esc(D.fecha)}"></label></div>
+    <fieldset class="na-mods"><legend>Misiones que incluye (cada una es un indicador del instrumento)</legend>${MISIONES.map(([k,i,t])=>`<label><input type="checkbox" value="${k}" ${D.mods.includes(k)?"checked":""}> ${i} ${t}</label>`).join("")}</fieldset>
+    <div id="naMsg"></div><div class="acc"><span style="flex:1"></span><button type="button" id="naVer">👀 Vista previa</button></div>`);
+    const tog=()=>{$("#naFl").style.display=["tarea","casa"].includes($("#naT").value)?"":"none"};tog();$("#naT").onchange=tog;
+    $("#naVer").onclick=()=>{D.tipo=$("#naT").value;D.n=+$("#naN").value;D.emp=$("#naE").value;D.materia=+$("#naM").value;D.titulo=$("#naTi").value.trim();D.fecha=$("#naF").value;D.mods=$$(".na-mods input:checked").map(x=>x.value);
+      if(!D.mods.length){$("#naMsg").innerHTML='<p class="fb bad">Escoja al menos una misión.</p>';return}vista()}};
+  const vista=()=>{const C={cb_modulos:D.mods,cb_seed:D.seed,cb_n:D.n,cb_emp:D.emp},c=casoAct(C),tit=D.titulo||`${TIPOS_T[D.tipo].et} · ${D.mods.map(m=>MIS(m)[2]).join(", ").slice(0,90)}`;
+    const ins=instrumentoTxt({titulo:tit,contenido_actividad:{cb_tipo:D.tipo,cb_modulos:D.mods,materia_id:D.materia,cb_desc:descAct(D)}});
+    abrirDlg("👀 Vista previa · "+tit,`<p class="ayuda">${TIPOS_T[D.tipo].et} · ${D.mods.length} misiones × ${D.n} preguntas · ${esc(nomMatT(D.materia))}. Todo el grupo recibe las mismas preguntas.</p>
+      ${D.mods.map(m=>`<details class="resn"><summary>${MIS(m)[1]} ${MIS(m)[2]} · ${c.q[m].length} preguntas</summary><ol class="prev">${c.q[m].map(q=>`<li>${q.txt.replace(/<br>.*$/,"")}</li>`).join("")}</ol></details>`).join("")}
+      <details class="resn"><summary>📋 Evaluación que se va a usar (formato MEP)</summary><div class="ins">${ins}</div><p class="ayuda">Después de crearla puede ajustarla con <b>📋 Evaluación (MEP)</b> (también con ✨ IA).</p></details>
+      <div id="naMsg"></div><div class="acc"><button type="button" class="sec" id="naVolver">← Cambiar datos</button><span style="flex:1"></span><button type="button" class="sec" id="naOtra">🎲 Otras preguntas</button><button type="button" id="naCrear">💾 Crear actividad (cerrada)</button></div>`);
+    $("#naVolver").onclick=form;$("#naOtra").onclick=()=>{D.seed=100000+Math.floor(Math.random()*900000);vista()};
+    $("#naCrear").onclick=async ev=>{ev.target.disabled=true;$("#naMsg").innerHTML='<p class="muted">Creando…</p>';
+      try{await crearActividadT(D,tit);cerrarDlg();toast("✅ Actividad creada (cerrada)");HUB.mat=D.materia;HUB.cat=D.tipo;await cargarHub();pintar()}catch(err){ev.target.disabled=false;$("#naMsg").innerHTML=`<div class="fb bad">No se pudo crear: ${esc(err.message||err)}</div>`}}};
+  form()}
+const descAct=D=>`Resuelve ${D.mods.length*D.n} situaciones de contabilidad básica (${D.mods.map(m=>MIS(m)[2].toLowerCase()).join(", ")}), según el Marco Conceptual de las NIIF y el catálogo de cuentas.`;
+async function crearActividadT(D,titulo){const T=TIPOS_T[D.tipo],hoy=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10),desc=descAct(D);
+  const criterios=D.mods.map(m=>({...CRIT_T[m],puntos_max:3,niveles:typeof tiraderaNivelesDe==="function"?tiraderaNivelesDe(CRIT_T[m]):undefined}));
+  let ind=null;
+  if(T.nota){const {data:ex}=await sb.from("indicadores").select("id,letra").eq("materia_id",D.materia).eq("categoria",T.nota);
+    const usadas=new Set((ex||[]).map(e=>String(e.letra||"").trim().toUpperCase().replace(/\d+$/,"")));let i=0,letra="";for(;;){let n=i,l="";do{l=String.fromCharCode(65+(n%26))+l;n=Math.floor(n/26)-1}while(n>=0);if(!usadas.has(l)){letra=l;break}i++}
+    const r=await sb.from("indicadores").insert({materia_id:D.materia,categoria:T.nota,letra,descripcion:desc,puntaje_maximo:3,fecha_evaluacion:D.fecha||hoy,orden:(ex||[]).length+1}).select().maybeSingle();
+    if(r.error||!r.data)throw new Error(r.error?r.error.message:"no se pudo crear el indicador");ind=r.data;
+    const niv=[[0,"Sin evidencia","No presenta el trabajo o tiene correcto menos del 35 % de las situaciones planteadas."],[1,"Inicial","Resuelve correctamente entre el 35 % y el 59 % de las situaciones planteadas."],[2,"Intermedio","Resuelve correctamente entre el 60 % y el 84 % de las situaciones planteadas."],[3,"Avanzado","Resuelve correctamente el 85 % o más de las situaciones planteadas."]];
+    try{await sb.from("criterios_indicador").insert(niv.map(([puntaje,nivel,d])=>({indicador_id:ind.id,puntaje,nivel,descripcion:d})))}catch(e){}}
+  const C={estrategia:ESTR_T,cb_tipo:D.tipo,materia_id:D.materia,cb_desc:desc,cb_modulos:D.mods,cb_seed:D.seed,cb_n:D.n,cb_emp:D.emp,fecha_entrega:["tarea","casa"].includes(D.tipo)&&D.fecha?D.fecha:null,criterios,
+    cb_instrumento:{componente:T.nota||`${T.et} (sin nota)`,tipo:"Escala de desempeño",subarea:"Gestión contable",unidad:"Ciclos contables: tratamiento de las cuentas y sus componentes",resultado:RA_T,indicador:"Clasifica las cuentas de los estados financieros."}};
+  const {error}=await sb.from("trabajos_cotidianos").insert({titulo,fecha:hoy,tipo_actividad:"rubrica_directa",habilitado:false,indicador_id:ind?ind.id:null,contenido_actividad:C});
+  if(error){if(ind)await sb.from("indicadores").delete().eq("id",ind.id);throw new Error(error.message)}}
+const subareaDe=()=>"Gestión contable";
+
+function barraActividadT(){const t=ACTV.t,C=C_ACT(),T=TIPOS_T[tipoAct()],en=ACTV.entrega;
+  const est=ACTV.bloq?`<span class="ab-ok">✅ Entregada${en&&en.puntaje!=null?` · nota ${en.puntaje}/3`:""}</span>`:ST.fin?`<span class="ab-ok">✅ Terminada${ST.pctFin!=null?` · ${ST.pctFin} %`:""}</span>`:"";
+  let btn="";if(ACTV.modo==="estudiante"&&!ACTV.bloq){btn=T.nota?`<button type="button" id="abEnt">📤 Entregar al profe</button>`:tipoAct()==="examen"&&!ST.fin?`<button type="button" id="abFin">🏁 Terminar y ver mi resultado</button>`:!ST.fin?`<button type="button" class="sec" id="abFin">✅ Marcar como terminada</button>`:""}
+  return `<div class="act-bar card"><div><b>${T.ic} ${esc(t.titulo)}</b><small>${T.et} · ${T.desc}${C.fecha_entrega?` · entregar a más tardar el <b>${fechaCR(C.fecha_entrega)}</b>`:""}</small>
+      ${ACTV.modo==="ver"?`<small>👁️ Trabajo de <b>${esc(ACTV.nombre)}</b> · solo lectura: lo que cambie aquí no se guarda.</small>`:ACTV.modo==="docente"?`<small>🧪 Vista del profe: puede resolverla para probarla; no se guarda en la plataforma.</small>`:""}</div>
+    <div class="ab-btns">${est}<button type="button" class="sec" id="abIns">📋 ${ACTV.modo==="estudiante"?(T.nota?"Cómo me evalúan":"Cómo se revisa"):"👁️ Instrumento"}</button>${ACTV.modo==="docente"?`<button type="button" id="abEdit">📋 Evaluación (MEP)</button>`:""}${btn}</div></div>`}
+function ligarBarraT(){const i=$("#abIns");if(i)i.onclick=()=>verInstrumentoT(ACTV.t);const ed=$("#abEdit");if(ed)ed.onclick=()=>editarEvaluacionT(ACTV.t);const e=$("#abEnt");if(e)e.onclick=entregarT;const f=$("#abFin");if(f)f.onclick=terminarT}
+function resumenTabla(met,crit){return `<div class="scroll"><table><thead><tr><th>Indicador</th><th class="r">Logro</th><th>Nivel</th></tr></thead><tbody>${crit.map(c=>{const p=met[c.auto]||0,n=p>=85?3:p>=60?2:p>=35?1:0;return `<tr><td>${esc(c.nombre)}</td><td class="r num">${Math.round(p)} %</td><td><b>${["Sin evidencia","Inicial","Intermedio","Avanzado"][n]} (${n})</b></td></tr>`}).join("")}</tbody></table></div>`}
+function entregarT(){const crit=critAct(),pend=modsAct().reduce((a,m)=>a+(CASO.q[m]||[]).filter((_,i)=>(ST.a[m]||{})[i]==null).length,0);
+  abrirDlg("📤 ¿Entregar al profe?",`<p>Al entregar, la plataforma revisa todo y pone la nota sola en la Rúbrica (${esc(TIPOS_T[tipoAct()].nota)}). <b>Después ya no podrá cambiar nada.</b></p>${pend?`<p class="fb warn">Le faltan ${pend} pregunta${pend>1?"s":""} sin responder: cuentan como incorrectas.</p>`:""}<div id="dlgMsg"></div><div class="acc"><button type="button" class="sec" id="dNo">Seguir trabajando</button><button type="button" id="dSi">📤 Sí, entregar</button></div>`);
+  $("#dNo").onclick=cerrarDlg;$("#dSi").onclick=async ev=>{ev.target.disabled=true;$("#dlgMsg").innerHTML='<p class="muted">Revisando y entregando…</p>';clearTimeout(tSyncT);
+    const met=calificarTodo(),nota=memoriaNotaDesdeMetricas(crit,met,[]),ahora=new Date().toISOString();ST.metricas=met;ST.fin=true;ST.guardado_en=ahora;
+    try{const r=await guardarNotaManualActividad(ACTV.t,EST_ID,nota.puntaje,{respuestas:nota.puntos,porcentaje:nota.porcentaje,datos_prueba:{conta:{st:ST,en_curso:false,guardado_en:ahora,entregado_en:ahora,metricas:met}}});
+      if(r&&r.error)throw new Error(r.error);ACTV.bloq=true;ACTV.entrega={completado:true,puntaje:nota.puntaje,porcentaje:nota.porcentaje};guardar();
+      $("#dlgB").innerHTML=`<p class="fb ok">✅ ¡Entregada! Tu nota en este indicador: <b>${nota.puntaje}/3</b> (${Math.round(nota.porcentaje)} %).</p>${resumenTabla(met,crit)}<div class="acc"><button type="button" id="dOk">Listo</button></div>`;$("#dOk").onclick=()=>{cerrarDlg();pintar()}}
+    catch(err){ev.target.disabled=false;ST.fin=false;$("#dlgMsg").innerHTML=`<div class="fb bad">No se pudo entregar: ${esc(err.message||err)}. Avísele al profe antes de salir.</div>`}}}
+function terminarT(){const ex=tipoAct()==="examen";
+  if(!confirm(ex?"¿Terminar la práctica para examen? Se revisa todo y ya puede ver los resultados y las soluciones.":"¿Marcar la práctica como terminada? Se revisa todo y se guarda su resultado."))return;
+  const met=calificarTodo(),vals=Object.values(met),pct=Math.round(vals.reduce((a,b)=>a+b,0)/Math.max(1,vals.length)),ahora=new Date().toISOString();
+  ST.metricas=met;ST.fin=true;ST.pctFin=pct;ST.guardado_en=ahora;guardar();
+  if(HAY_BD()&&ACTV.modo==="estudiante")upsertSinConflicto("actividades_estudiante",{trabajo_id:ACTV.t.id,estudiante_id:EST_ID},{completado:true,puntaje:null,porcentaje:pct,datos_prueba:{conta:{st:ST,en_curso:false,guardado_en:ahora,metricas:met}},actualizado_en:ahora}).catch(()=>{});
+  abrirDlg(ex?"🎯 Resultado de la práctica para examen":"✅ Práctica terminada",`<p class="fb ${pct>=85?"ok":pct>=60?"warn":"bad"}" style="font-size:1.1rem"><b>Resultado: ${pct} %</b></p>${resumenTabla(met,modsAct().map(m=>CRIT_T[m]))}<p class="muted">Ahora puede usar los botones <b>Revisar</b> y <b>Ver solución</b> de cada módulo para ver qué estuvo bien y qué no.</p><div class="acc"><button type="button" id="dOk">Ver mis resultados</button></div>`);
+  $("#dOk").onclick=()=>{cerrarDlg();pintar()}}
+
+/* ── Diálogo genérico ── */
+function abrirDlg(tit,html){let d=$("#dlgT");if(!d){d=document.createElement("dialog");d.id="dlgT";d.innerHTML=`<div class="dlg-hd"><h3 id="dlgTit"></h3><button type="button" class="ghost sm" id="dlgX">Cerrar ✕</button></div><div id="dlgB"></div>`;document.body.appendChild(d);$("#dlgX").onclick=cerrarDlg}
+  $("#dlgTit").textContent=tit;$("#dlgB").innerHTML=html;if(!d.open)d.showModal()}
+function cerrarDlg(){const d=$("#dlgT");if(d&&d.open)d.close()}
+
+/* ── Evaluación en formato MEP (escala de desempeño de la plataforma) ── */
+const insT=t=>{const C=t.contenido_actividad||{},T=TIPOS_T[C.cb_tipo||"general"];return {componente:T.nota||`${T.et} (sin nota)`,tipo:"Escala de desempeño",subarea:subareaDe(C.materia_id),unidad:"Ciclos contables: tratamiento de las cuentas y sus componentes",resultado:RA_T,indicador:C.cb_desc||"",...(C.cb_instrumento||{})}};
+function instrumentoTxt(t){const T=TIPOS_T[(t.contenido_actividad||{}).cb_tipo||"general"];return (typeof tiraderaInstrumentoHTML==="function"?tiraderaInstrumentoHTML(t.titulo,critAct(t),insT(t)):"").replace(/Se califica con el registro del juego\./g,"Se califica solo con lo que hizo en el simulador.").replace(/Los indicadores automáticos usan el registro de la partida:[^<]*/,"Cada indicador se califica solo con el porcentaje de aciertos del módulo: 85 % o más = 3 · 60–84 % = 2 · 35–59 % = 1 · menos de 35 % = 0.")+(T.nota?"":`<p class="ayuda">ℹ️ ${esc(T.et)}: no lleva nota en la Rúbrica. El instrumento muestra cómo se revisa y en qué nivel quedaría el trabajo.</p>`)}
+function verInstrumentoT(t,volver){const html=instrumentoTxt(t);
+  abrirDlg("📋 Instrumento de evaluación (formato MEP)",`<div class="ins">${html}</div><div class="acc"><button type="button" class="sec" id="insImp">🖨️ Imprimir</button>${volver?`<button type="button" class="sec" id="insVol">← Volver a editar</button>`:DOCENTE&&t.id?`<button type="button" id="insEd">✏️ Editar evaluación</button>`:""}</div>`);
+  $("#insImp").onclick=()=>{const w=open("","_blank");w.document.write(`<html><head><title>${esc(t.titulo)}</title><style>body{font-family:Arial,sans-serif;font-size:12px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #999;padding:4px;vertical-align:top}</style></head><body>${html}</body></html>`);w.document.close();w.print()};
+  const e=$("#insEd");if(e)e.onclick=()=>editarEvaluacionT(t);const v=$("#insVol");if(v)v.onclick=volver}
+function editarEvaluacionT(t){const C=t.contenido_actividad||{},TT=TIPOS_T[C.cb_tipo||"general"];let ins=insT(t);
+  let lista=critAct(t).map(c=>({nombre:c.nombre,puntos_max:Number(c.puntos_max)||3,auto:c.auto,evidencias:c.evidencias||"",niveles:typeof tiraderaNivelesDe==="function"?tiraderaNivelesDe(c):(c.niveles||{})}));let sugInd="";
+  const NV=[["avanzado","Avanzado (3)"],["intermedio","Intermedio (2)"],["inicial","Inicial (1)"]];
+  const leer=()=>{$$("#dlgB [data-ins]").forEach(x=>ins[x.dataset.ins]=x.value.trim());lista=lista.map((c,i)=>{const niveles={};$$(`#dlgB [data-niv="${i}"]`).forEach(x=>niveles[x.dataset.k]=x.value.trim());return {...c,nombre:($(`#dlgB [data-nom="${i}"]`)||{}).value||c.nombre,evidencias:(($(`#dlgB [data-evi="${i}"]`)||{}).value||"").trim(),niveles}})};
+  const pinta=()=>{const campo=(k,et)=>`<label>${et}<input data-ins="${k}" value="${esc(ins[k]||"")}"></label>`;
+    abrirDlg("📋 Evaluación de la actividad (formato MEP)",`<p class="ayuda" style="margin-top:0">Escala de desempeño con indicadores de logro y la evidencia de cada nivel (<b>Avanzado 3 · Intermedio 2 · Inicial 1</b>; 0 sin evidencia). Cada indicador se califica solo con el porcentaje de aciertos de su módulo: 85 % o más = 3, 60–84 % = 2, 35–59 % = 1. Calificación = puntos obtenidos × 100 ÷ total.${TT.nota?` La nota pasa sola a <b>${esc(TT.nota)}</b> en la Rúbrica cuando el estudiante entrega.`:` Esta práctica <b>no lleva nota</b>: el instrumento le muestra al estudiante cómo se revisa su trabajo.`}</p>
+      <div class="ia-box"><b>✨ Mejorar con IA · evaluación robusta alineada al MEP</b> — la IA revisa todo el instrumento con el Reglamento de Evaluación de los Aprendizajes (Decreto 45509-MEP) y el programa de estudio: deriva cada indicador del resultado de aprendizaje (verbo + contenido + condición), redacta niveles graduales y excluyentes con el umbral y lo que se observa en cada uno, y agrega las <b>evidencias observables</b> de cada indicador. También propone un indicador de logro alineado. Usted revisa todo antes de guardar.
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"><input id="evIndic" style="flex:1 1 16rem" placeholder="Indicaciones para la IA (opcional): p. ej., enfatizar la proporcionalidad"><button type="button" id="evIA">✨ Mejorar con IA (MEP)</button></div><small class="muted" id="evIAest"></small>${sugInd?`<div class="sol" style="margin-top:6px"><b>Indicador de logro propuesto</b> (ya quedó en «Indicador de logro»; revíselo): ${esc(sugInd)}</div>`:""}</div>
+      <h4 class="ev-h">Datos del instrumento</h4>
+      <div class="ins-g">${campo("componente","Componente")}${campo("tipo","Tipo de instrumento")}${campo("subarea","Subárea")}${campo("unidad","Unidad de estudio / tema")}</div>
+      <div class="ins-g" style="margin-top:8px">${campo("resultado","Resultado de aprendizaje (del programa)")}${campo("indicador","Indicador de logro (del programa)")}</div>
+      <h4 class="ev-h">Indicadores y criterios de desempeño</h4>
+      ${lista.map((c,i)=>`<div class="card" style="padding:10px;margin-top:8px"><label>${i+1}. Indicador <small class="muted">(se califica solo con el módulo ${esc(({cb_elementos_pct:"1 · Activo, pasivo y patrimonio",cb_catalogo_pct:"2 · Catálogo de cuentas",cb_ecuacion_pct:"3 · Ecuación contable",cb_resultados_pct:"4 · Ingresos, costos y gastos",cb_naturaleza_pct:"5 · Naturaleza de las cuentas",cb_asientos_pct:"6 · Partida doble",cb_integral_pct:"7 · Desafío final"})[c.auto]||"")})</small><input data-nom="${i}" value="${esc(c.nombre)}"></label>
+        <div class="ins-g" style="margin-top:6px">${NV.map(([k,et])=>`<label>${et}<textarea data-niv="${i}" data-k="${k}" rows="4">${esc(c.niveles[k]||"")}</textarea></label>`).join("")}</div><label style="display:block;margin-top:6px">Evidencias observables <small class="muted">(lo que revisa la plataforma; se muestran en el instrumento)</small><textarea data-evi="${i}" rows="2">${esc(c.evidencias||"")}</textarea></label>${c.iaNota?`<small style="color:var(--ok)">✨ ${esc(c.iaNota)}</small>`:""}</div>`).join("")}
+      <div class="acc"><span class="muted" id="evE"></span><span style="flex:1"></span><button type="button" class="sec" id="evVer">👁️ Ver instrumento</button><button type="button" id="evG">💾 Guardar evaluación</button></div>`);
+    $("#evVer").onclick=()=>{leer();verInstrumentoT({...t,contenido_actividad:{...t.contenido_actividad,criterios:lista,cb_instrumento:ins}},()=>pinta())};
+    $("#evG").onclick=async ev=>{leer();ev.target.disabled=true;$("#evE").textContent="Guardando…";
+      try{const {data:act}=await sb.from("trabajos_cotidianos").select("contenido_actividad").eq("id",t.id).maybeSingle();
+        const nuevo={...((act&&act.contenido_actividad)||C),criterios:lista.map(c=>({nombre:c.nombre,puntos_max:c.puntos_max,auto:c.auto,evidencias:c.evidencias,niveles:c.niveles})),cb_instrumento:{...ins}};
+        const {error}=await sb.from("trabajos_cotidianos").update({contenido_actividad:nuevo}).eq("id",t.id);if(error)throw error;
+        t.contenido_actividad=nuevo;$("#evE").textContent="✓ Guardada. Los estudiantes ya la ven en «Cómo me evalúan»."}
+      catch(err){$("#evE").textContent="No se pudo guardar: "+(err.message||err)}ev.target.disabled=false};
+    $("#evIA").onclick=async ev=>{leer();ev.target.disabled=true;$("#evIAest").textContent="✨ La IA está trabajando…";
+      try{const r=await fetch("/api/mejorar-niveles-ia",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({modo:"robusto",instrumento:ins,criterios:lista.map(c=>({...c,elementos:ELEM_T[c.auto]||""})),instrucciones:$("#evIndic").value,actividad:`Ruta Contable Básica (contabilidad desde cero, décimo año): elementos de los estados financieros según el Marco Conceptual de las NIIF, catálogo y manual de cuentas, ecuación contable, ingresos y gastos, naturaleza de las cuentas (Debe y Haber) y asientos de diario por partida doble — `+t.titulo,componente:ins.componente})});
+        const j=await r.json().catch(()=>({}));if(!r.ok||!Array.isArray(j.criterios))throw new Error(j.error||"Error "+r.status);
+        j.criterios.forEach(x=>{if(lista[x.i]){lista[x.i].nombre=x.nombre;lista[x.i].niveles=x.niveles;if(x.evidencias)lista[x.i].evidencias=x.evidencias;lista[x.i].iaNota=x.nota||"Redacción mejorada por la IA."}});if(j.indicador_logro){ins.indicador=j.indicador_logro;sugInd=j.indicador_logro}pinta();$("#evIAest").textContent="✨ Listo: revise y toque Guardar evaluación."}
+      catch(err){ev.target.disabled=false;$("#evIAest").textContent="No se pudo mejorar con IA: "+(err.message||err)}}};
+  pinta()}
+/* ── Estudiante: antes de empezar, así lo vamos a evaluar (como en Ruta Laboral y Misión Seguros) ── */
+function pintarAntesDeEmpezar(){const t=ACTV.t,T=TIPOS_T[tipoAct()];$("#caso").innerHTML=`<a class="btn sec" href="contabilidad-basica.html">📚 Mis actividades</a>`;
+  $("#app").innerHTML=`<div class="card" style="margin-top:16px"><span class="chip">📋 Antes de empezar: ${T.nota?"así te vamos a evaluar":"así se revisa tu trabajo"}</span><h3 style="margin:8px 0 4px">${T.ic} ${esc(t.titulo)}</h3><p class="ayuda">${T.et} · ${T.desc}${C_ACT().fecha_entrega?` · entregar a más tardar el <b>${fechaCR(C_ACT().fecha_entrega)}</b>`:""}</p>
+    <div class="ins">${instrumentoTxt(t)}</div><div class="acc"><span style="flex:1"></span><button type="button" id="insOk">✅ Entendido, empezar</button></div></div>`;
+  $("#insOk").onclick=()=>{ST.vio_instrumento=new Date().toISOString();guardar();pintar()}}
+/* ── Resumen tipo Aula Contable: avance por tipo de trabajo, tablas y resumen de notas ── */
+const CATS_T=["evaluativa","tarea","general","casa","examen"];
+const hoyISO=()=>new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+const catT=t=>(t.contenido_actividad||{}).cb_tipo||"general";
+const vencida=t=>{const f=(t.contenido_actividad||{}).fecha_entrega;return !!f&&f<hoyISO()};
+const pctDe=a=>a&&a.completado&&a.porcentaje!=null?Math.round(+a.porcentaje):null;
+// Estadística de una categoría: pares (actividad, estudiante) con su entrega
+function statCat(pares){const E=pares.filter(p=>p.a&&p.a.completado),ps=E.map(p=>pctDe(p.a)).filter(v=>v!=null),venc=pares.filter(p=>!(p.a&&p.a.completado)&&vencida(p.t)).length;
+  return {tot:pares.length,ent:E.length,pct:pares.length?Math.round(E.length*100/pares.length):0,prom:ps.length?Math.round(ps.reduce((a,b)=>a+b,0)/ps.length):null,venc,pend:pares.length-E.length-venc}}
+function tarjetasCat(st,sel,donde,extra){const tot=CATS_T.reduce((a,k)=>a+st[k].tot,0),ent=CATS_T.reduce((a,k)=>a+st[k].ent,0),g=tot?Math.round(ent*100/tot):0;
+  return `<div class="entres"><div class="entres-g"><span>Avance general${donde==="grupo"?" del grupo":""}</span><b>${ent} de ${tot} ${donde==="grupo"?"entregas":"entregados"} · ${g} %</b><div class="entbar"><i style="width:${g}%"></i></div></div>
+   <div class="entcards" role="tablist" aria-label="Tipo de trabajo">${CATS_T.map(k=>{const x=st[k],T=TIPOS_T[k];return `<button type="button" role="tab" aria-selected="${k===sel}" class="entcard${k===sel?" on":""}" data-cat="${k}">
+     <span class="entcard-t">${T.ic} ${T.pl}</span><span class="entcard-n">${x.ent}<small>/${x.tot}</small></span><span class="entcard-s">${x.tot?x.pct+" % entregado":"Sin trabajos"}${extra&&extra[k]?" · "+extra[k]:""}</span>
+     <span class="entbar"><i style="width:${x.pct}%"></i></span>
+     <span class="entcard-s">${x.prom!=null?`Resultado promedio <b>${x.prom} %</b>${T.nota?"":" (sin nota)"}`:"Resultado promedio —"}</span>
+     <span class="entcard-s">${x.pend?`⏳ ${x.pend} pendiente${x.pend===1?"":"s"}`:""}${x.pend&&x.venc?" · ":""}${x.venc?`<span style="color:var(--bad)">❌ ${x.venc} no realizado${x.venc===1?"":"s"}</span>`:""}</span></button>`}).join("")}</div></div>`}
+const colorPct=n=>n>=85?"var(--ok)":n>=60?"var(--warn)":"var(--bad)";
+const nivelDe=p=>p>=85?3:p>=60?2:p>=35?1:0;
+
+/* ── Panel del profe: actividades ── */
+const HUB={lista:null,mats:[],ae:[],est:{},mat:null,cat:null,abierto:true,resAbierto:false};
+async function cargarHub(){if(!HAY_BD())return;try{const [{data},{data:mats}]=await Promise.all([sb.from("trabajos_cotidianos").select("id,titulo,fecha,habilitado,indicador_id,contenido_actividad").eq("contenido_actividad->>estrategia",ESTR_T).order("id",{ascending:false}),sb.from("materias").select("id,nombre,seccion")]);HUB.lista=data||[];HUB.mats=mats||[];
+    const ids=HUB.lista.map(t=>t.id);const {data:ae}=ids.length?await sb.from("actividades_estudiante").select("trabajo_id,estudiante_id,completado,puntaje,porcentaje,actualizado_en").in("trabajo_id",ids):{data:[]};HUB.ae=ae||[];
+    if(HUB.mat==null){const conAct=HUB.lista.map(t=>Number((t.contenido_actividad||{}).materia_id));HUB.mat=(HUB.mats.find(m=>conAct.includes(m.id))||HUB.mats.find(m=>/contab/i.test(m.nombre))||HUB.mats[0]||{}).id??null}
+    await cargarEstMat(HUB.mat)}catch(e){console.warn("hub",e);HUB.lista=HUB.lista||[]}}
+async function cargarEstMat(mat){if(mat==null||HUB.est[mat])return;try{const {data:em}=await sb.from("estudiante_materias").select("estudiante_id").eq("materia_id",mat);const ids=[...new Set((em||[]).map(x=>x.estudiante_id))];
+  const {data:es}=ids.length?await sb.from("estudiantes").select("id,nombre,apellido1,apellido2").in("id",ids):{data:[]};
+  HUB.est[mat]=(es||[]).map(e=>({id:e.id,n:[e.apellido1,e.apellido2,e.nombre].filter(Boolean).join(" ")})).sort((a,b)=>a.n.localeCompare(b.n,"es"))}catch(e){HUB.est[mat]=[]}}
+const nomMatT=id=>{const m=HUB.mats.find(x=>x.id===Number(id));return m?m.nombre.trim()+(m.seccion?" · "+m.seccion:""):"Sin materia"};
+// Actividades que cuentan en el resumen: abiertas o que ya tienen trabajo de algún estudiante
+const cuentaT=t=>t.habilitado!==false||HUB.ae.some(a=>a.trabajo_id===t.id);
+function hubHTML(){if(!HAY_BD())return `<div class="card"><h3>📚 Actividades de la Ruta Contable Básica</h3><p class="muted">Para crear actividades abra la Ruta Contable Básica desde la plataforma con la sesión del docente.</p></div>`;
+  if(!HUB.lista)return `<div class="card"><h3>📚 Actividades de la Ruta Contable Básica</h3><p class="muted">Cargando…</p></div>`;
+  const delMat=HUB.lista.filter(t=>Number((t.contenido_actividad||{}).materia_id)===Number(HUB.mat)),ES=HUB.est[HUB.mat]||[];
+  const porT={};HUB.ae.forEach(a=>{(porT[a.trabajo_id]=porT[a.trabajo_id]||{})[a.estudiante_id]=a});
+  const st={},nAct={};CATS_T.forEach(k=>{const L=delMat.filter(t=>catT(t)===k&&cuentaT(t));nAct[k]=L.length+" actividad"+(L.length===1?"":"es");st[k]=statCat(L.flatMap(t=>ES.map(e=>({t,a:(porT[t.id]||{})[e.id]}))))});
+  if(!HUB.cat||!CATS_T.includes(HUB.cat))HUB.cat=CATS_T.find(k=>delMat.some(t=>catT(t)===k))||"evaluativa";
+  const T=TIPOS_T[HUB.cat],G=delMat.filter(t=>catT(t)===HUB.cat);
+  const fila=t=>{const C=t.contenido_actividad||{},T=TIPOS_T[C.cb_tipo||"general"],R=porT[t.id]||{},ent=ES.filter(e=>R[e.id]&&R[e.id].completado).length;return `<div class="hub-f"><div style="flex:1;min-width:220px"><b>${T.ic} ${esc(t.titulo)}</b><small>${T.et} · ${(C.cb_modulos||[]).length} misiones × ${C.cb_n||8} preguntas · misiones ${(C.cb_modulos||[]).map(m=>m.slice(1)).join(", ")}${C.fecha_entrega?` · entrega ${fechaCR(C.fecha_entrega)}`:""}${t.indicador_id?" · con indicador en la Rúbrica":""}</small><small>📥 ${ent} de ${ES.length} ${T.nota?"entregaron":"terminaron"}</small></div>
+    <span class="chip">${t.habilitado===false?"⏸️ Cerrada":"🟢 Abierta"}</span><a class="btn sec sm" href="contabilidad-basica.html?a=${t.id}">👁️ Ver y probar</a><button type="button" class="sm ${t.habilitado===false?"":"sec"}" data-hab="${t.id}">${t.habilitado===false?"▶ Abrir":"⏸️ Cerrar"}</button><button type="button" class="sec sm" data-ent="${t.id}">📥 Entregas</button><button type="button" class="sm" data-ins="${t.id}">📋 Evaluación (MEP)</button></div>`};
+  return `<details class="card hubbox" ${HUB.abierto?"open":""} id="hubBox"><summary><h3 style="display:inline">📚 Actividades y evaluación · Ruta Contable Básica</h3></summary>
+    <div class="hub-top"><label>Materia y sección<select id="hubMat">${HUB.mats.map(m=>`<option value="${m.id}" ${Number(m.id)===Number(HUB.mat)?"selected":""}>${esc(m.nombre)}${m.seccion?" · "+esc(m.seccion):""}</option>`).join("")}</select></label><span class="muted" style="font-size:.85rem">${ES.length} estudiante${ES.length===1?"":"s"}</span><span style="flex:1"></span><button type="button" id="hubNueva">✨ Nueva actividad</button></div>
+    ${tarjetasCat(st,HUB.cat,"grupo",nAct)}
+    <h4 class="hub-g">${T.ic} ${T.pl} <small>· ${T.desc}</small></h4>
+    ${G.map(fila).join("")||`<p class="muted" style="margin:6px 0">No hay ${T.pl.toLowerCase()} en esta materia. Créela con ✨ Nueva actividad.</p>`}
+    ${resumenNotasT(G.filter(cuentaT),ES,porT,T)}
+    <p class="ayuda" style="margin:10px 0 0">Cada actividad trae preguntas de las misiones que usted escoja (elementos, catálogo, ecuación, ingresos y gastos, Debe y Haber, asientos). Todo el grupo recibe las mismas preguntas. Se crean <b>cerradas</b>: ábralas con ▶ Abrir. Las evaluativas y las tareas crean su indicador en la Rúbrica y la nota se pone sola al entregar.</p></details>`}
+// «📊 Resumen de notas finales»: resultado de cada estudiante en cada actividad del tipo elegido
+function resumenNotasT(G,ES,porT,T){if(!G.length||!ES.length)return "";
+  const celda=(t,e)=>{const a=(porT[t.id]||{})[e.id],p=pctDe(a);if(p!=null){const C=t.contenido_actividad||{},nt=TIPOS_T[C.cb_tipo||"general"].nota;return `<td class="r num"><b style="color:${colorPct(p)}">${p} %</b>${nt?`<br><small class="muted">${a.puntaje!=null?a.puntaje:nivelDe(p)}/3 pts</small>`:""}</td>`}
+    if(a)return '<td class="r"><small class="muted">⏳ en curso</small></td>';return vencida(t)?'<td class="r"><span style="color:var(--bad)" title="No realizado">❌</span></td>':'<td class="r muted">—</td>'};
+  const filas=ES.map(e=>{const ns=G.map(t=>pctDe((porT[t.id]||{})[e.id])).filter(v=>v!=null),pr=ns.length?Math.round(ns.reduce((a,b)=>a+b,0)/ns.length):null;
+    return `<tr><td><b>${esc(e.n)}</b></td>${G.map(t=>celda(t,e)).join("")}<td class="r num"><b>${pr!=null?pr+" %":"—"}</b></td></tr>`}).join("");
+  const prom=t=>{const ns=ES.map(e=>pctDe((porT[t.id]||{})[e.id])).filter(v=>v!=null);return ns.length?Math.round(ns.reduce((a,b)=>a+b,0)/ns.length)+" %":"—"};
+  return `<details class="resn" ${HUB.resAbierto?"open":""} id="hubRes"><summary>📊 Resumen de notas finales · ${T.pl}</summary>
+    <p class="muted" style="margin:6px 0;font-size:.85rem">Resultado de cada estudiante (porcentaje de aciertos de los módulos de la actividad).${T.nota?" Debajo, los puntos del indicador en la Rúbrica (escala MEP: 85 % o más = 3 · 60–84 % = 2 · 35–59 % = 1).":" Este tipo de práctica no lleva nota."} ❌ = no realizado (pasó la fecha de entrega).</p>
+    <div class="scroll"><table class="resn-t"><thead><tr><th>Estudiante</th>${G.map(t=>`<th class="r" title="${esc(t.titulo)}">${esc(t.titulo.length>28?t.titulo.slice(0,26)+"…":t.titulo)}</th>`).join("")}<th class="r">Promedio</th></tr></thead>
+    <tbody>${filas}<tr class="resn-p"><td><b>Promedio del grupo</b></td>${G.map(t=>`<td class="r num"><b>${prom(t)}</b></td>`).join("")}<td></td></tr></tbody></table></div></details>`}
+function ligarHub(){const n=$("#hubNueva");if(n)n.onclick=nuevaActividad;
+  const hb=$("#hubBox");if(hb)hb.ontoggle=()=>{HUB.abierto=hb.open};const hr=$("#hubRes");if(hr)hr.ontoggle=()=>{HUB.resAbierto=hr.open};
+  const hm=$("#hubMat");if(hm)hm.onchange=async()=>{HUB.mat=+hm.value;HUB.cat=null;await cargarEstMat(HUB.mat);pintar()};
+  $$("#hubBox [data-cat]").forEach(b=>b.onclick=()=>{HUB.cat=b.dataset.cat;pintar()});
+  $$("[data-hab]").forEach(b=>b.onclick=async()=>{const t=HUB.lista.find(x=>x.id===+b.dataset.hab);b.disabled=true;const {error}=await sb.from("trabajos_cotidianos").update({habilitado:t.habilitado===false}).eq("id",t.id);
+    if(error){alert("No se pudo cambiar: "+error.message);b.disabled=false;return}t.habilitado=t.habilitado===false;toast(t.habilitado?"🟢 Abierta para los estudiantes":"⏸️ Cerrada");pintar()});
+  $$("[data-ent]").forEach(b=>b.onclick=()=>verEntregasT(HUB.lista.find(x=>x.id===+b.dataset.ent)));
+  $$("[data-ins]").forEach(b=>b.onclick=()=>editarEvaluacionT(HUB.lista.find(x=>x.id===+b.dataset.ins)))}
+async function verEntregasT(t){const C=t.contenido_actividad||{},T=TIPOS_T[C.cb_tipo||"general"],crit=critAct(t);abrirDlg("📥 Entregas · "+t.titulo,'<p class="muted">Cargando…</p>');
+  const [{data:ae},{data:em}]=await Promise.all([sb.from("actividades_estudiante").select("estudiante_id,completado,puntaje,porcentaje,datos_prueba,actualizado_en").eq("trabajo_id",t.id),sb.from("estudiante_materias").select("estudiante_id").eq("materia_id",C.materia_id)]);
+  const ids=[...new Set([...(em||[]).map(x=>x.estudiante_id),...(ae||[]).map(x=>x.estudiante_id)])];
+  const {data:es}=ids.length?await sb.from("estudiantes").select("id,nombre,apellido1,apellido2").in("id",ids):{data:[]};
+  const por={};(ae||[]).forEach(a=>por[a.estudiante_id]=a);
+  const filas=(es||[]).map(e=>({e,n:[e.apellido1,e.apellido2,e.nombre].filter(Boolean).join(" "),a:por[e.id]})).sort((x,y)=>x.n.localeCompare(y.n,"es"));
+  $("#dlgB").innerHTML=`<p class="ayuda">${T.ic} ${T.et}${T.nota?` · la nota pasa sola a ${esc(T.nota)} cuando el estudiante entrega`:" · sin nota"}. Toque 👁️ para ver el trabajo de cada estudiante.</p><div class="scroll"><table><thead><tr><th>Estudiante</th><th>Estado</th>${crit.map((c,i)=>`<th class="r" title="${esc(c.nombre)}">Ind. ${i+1}</th>`).join("")}<th class="r">${T.nota?"Nota":"Resultado"}</th><th></th></tr></thead><tbody>
+    ${filas.map(({e,n,a})=>{const met=a&&a.datos_prueba&&a.datos_prueba.conta&&a.datos_prueba.conta.metricas;return `<tr><td>${esc(n)}</td><td>${a?a.completado?(T.nota?"✅ Entregó":"✅ Terminó"):"⏳ En curso":"— No ha entrado"}</td>${crit.map(c=>`<td class="r num">${met&&met[c.auto]!=null?Math.round(met[c.auto])+" %":"—"}</td>`).join("")}<td class="r num"><b>${a&&a.completado?(T.nota?(a.puntaje!=null?a.puntaje+"/3":"—"):(a.porcentaje!=null?Math.round(a.porcentaje)+" %":"—")):"—"}</b></td><td>${a?`<a class="btn sec sm" href="contabilidad-basica.html?a=${t.id}&est=${encodeURIComponent(e.id)}&docente=1">👁️</a>`:""}</td></tr>`}).join("")||'<tr><td colspan="9" class="muted">No hay estudiantes en esta materia.</td></tr>'}</tbody></table></div>`}
+/* ── Vista del estudiante sin actividad: sus actividades abiertas ── */
+let CAT_EST=null;
+async function pintarHubEstudiante(){$("#caso").innerHTML="";$("#app").innerHTML='<p class="muted" style="margin-top:20px">Cargando sus actividades…</p>';
+  if(!HAY_BD()){$("#app").innerHTML=`<div class="card" style="margin-top:20px"><h3>🧭 Ruta Contable Básica</h3><p class="muted">Entre a la plataforma con su usuario y abra la Ruta Contable Básica desde ahí.</p><a class="btn" href="index.html">Ir a la plataforma</a></div>`;return}
+  try{const [{data:L},{data:em}]=await Promise.all([sb.from("trabajos_cotidianos").select("id,titulo,habilitado,contenido_actividad").eq("contenido_actividad->>estrategia",ESTR_T).order("id",{ascending:false}),sb.from("estudiante_materias").select("materia_id").eq("estudiante_id",EST_ID)]);
+    const mis=(em||[]).map(x=>Number(x.materia_id)),ab=(L||[]).filter(t=>mis.includes(Number((t.contenido_actividad||{}).materia_id)));
+    const {data:ae}=ab.length?await sb.from("actividades_estudiante").select("trabajo_id,completado,puntaje,porcentaje").eq("estudiante_id",EST_ID).in("trabajo_id",ab.map(t=>t.id)):{data:[]};
+    const mias={};(ae||[]).forEach(a=>mias[a.trabajo_id]=a);const vis=ab.filter(t=>t.habilitado!==false||mias[t.id]);
+    const st={};CATS_T.forEach(k=>st[k]=statCat(vis.filter(t=>catT(t)===k).map(t=>({t,a:mias[t.id]}))));
+    if(!CAT_EST)CAT_EST=CATS_T.find(k=>vis.some(t=>catT(t)===k&&!(mias[t.id]&&mias[t.id].completado)))||CATS_T.find(k=>st[k].tot)||"evaluativa";
+    const T=TIPOS_T[CAT_EST],G=vis.filter(t=>catT(t)===CAT_EST);
+    const estado=(t,a)=>a&&a.completado?`<span class="chip ok">✅ ${T.nota?"Entregada":"Terminada"}</span>`:vencida(t)?`<span class="chip bad">❌ No realizada</span>`:t.habilitado===false?`<span class="chip">🔒 Cerrada</span>`:a?`<span class="chip warn">⏳ En curso</span>`:`<span class="chip">🆕 Pendiente</span>`;
+    const resultado=a=>{const p=pctDe(a);return p==null?'<span class="muted">—</span>':`<b style="color:${colorPct(p)}">${p} %</b>${T.nota?`<br><small class="muted">Nota ${a.puntaje!=null?a.puntaje:nivelDe(p)}/3 · ${["Sin evidencia","Inicial","Intermedio","Avanzado"][a.puntaje!=null?a.puntaje:nivelDe(p)]}</small>`:""}`};
+    const accion=(t,a)=>t.habilitado===false&&!(a&&a.completado)?'<span class="muted">—</span>':`<a class="btn sm ${a&&a.completado?"sec":""}" href="contabilidad-basica.html?a=${t.id}">${a&&a.completado?(T.nota?"👁️ Ver lo que entregué":"👁️ Ver resultados y soluciones"):a?"▶ Seguir":"▶ Empezar"}</a>`;
+    $("#app").innerHTML=`<div class="card" style="margin-top:16px"><h3>🧭 Mis trabajos de la Ruta Contable Básica</h3><p class="ayuda">Prácticas y tareas que abrió su profe sobre contabilidad básica. <a class="btn sm" href="contabilidad-basica.html?libre=1">🎮 Práctica libre (misiones con XP)</a></p>
+      ${tarjetasCat(st,CAT_EST,"yo")}
+      <h4 class="hub-g">${T.ic} ${T.pl} <small>· ${T.desc}</small></h4>
+      ${G.length?`<div class="scroll"><table class="tbl-est"><thead><tr><th>Práctica</th><th>Misiones</th><th>Fecha de entrega</th><th>Estado</th><th class="r">Resultado</th><th>Solución</th></tr></thead><tbody>
+        ${G.map(t=>{const C=t.contenido_actividad||{},a=mias[t.id];return `<tr><td><b>${esc(t.titulo)}</b></td><td>${(C.cb_modulos||[]).map(m=>MIS(m)[1]).join(" ")}</td><td>${C.fecha_entrega?fechaCR(C.fecha_entrega):'<span class="muted">—</span>'}</td><td>${estado(t,a)}</td><td class="r num">${resultado(a)}</td><td>${accion(t,a)}</td></tr>`}).join("")}</tbody></table></div>`:`<p class="muted">No tiene ${T.pl.toLowerCase()} por ahora.</p>`}
+      <p class="ayuda" style="margin-top:10px">${T.nota?"📋 Al entregar, la plataforma revisa todo y la nota (escala MEP 0 a 3) pasa sola a la Rúbrica. Las soluciones no se muestran en las que llevan nota.":TIPOS_T[CAT_EST].rev?"Puede revisar, ver pistas y soluciones mientras trabaja.":"Como en el examen: al terminar ve su resultado y las soluciones."}</p></div>`;
+    $$("#app [data-cat]").forEach(b=>b.onclick=()=>{CAT_EST=b.dataset.cat;pintarHubEstudiante()});}
+  catch(e){$("#app").innerHTML=`<div class="card"><p class="fb bad">No se pudieron cargar sus actividades: ${esc(e.message||e)}</p></div>`}}
+if(ACTV.id)cargarActividad();
+pintar();
+</script>
+<script src="js/volver-plataforma.js?v=20261112b" data-grupo="juegos"></script>
+</body>
+</html>
