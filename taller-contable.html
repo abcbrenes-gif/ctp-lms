@@ -51,7 +51,7 @@ input.bad,select.bad{border-color:var(--bad);background:var(--badbg)}
 .caso select{width:auto}.caso input{width:110px}
 /* módulos */
 .mods{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:16px 0}
-@media(max-width:820px){.mods{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:820px){.mods{grid-template-columns:repeat(2,minmax(0,1fr))!important}.mod{min-width:0;padding:10px}.mod .t{font-size:.9rem;overflow-wrap:anywhere}}
 .mod{background:var(--surface);border:2px solid var(--line);border-radius:16px;padding:12px 14px;text-align:left;color:var(--ink);display:block;cursor:pointer;box-shadow:var(--shadow);transition:transform .15s}
 .mod:hover{transform:translateY(-2px)}
 .mod.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 8%,var(--surface))}
@@ -239,7 +239,7 @@ details.ver>summary{cursor:pointer;font-weight:700;padding:8px 0}
 <main class="wrap" id="app"><p class="muted">Cargando…</p></main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="js/config.js?v=20261105h"></script>
-<script src="js/actividades.js?v=20261114a"></script>
+<script src="js/actividades.js?v=20261114b"></script>
 
 <script>
 /* ══════════════════════════════════════════════════════════════════════

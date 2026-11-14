@@ -292,7 +292,8 @@ async function renderHome() {
     { grupo: "juegos", href: "planilla-opoly.html", icono: "🎲", titulo: "Planilla Opoly", sub: "Juego 3D tipo Monopoly para 2–8 jugadores: compra empresas resolviendo problemas de planilla", cta: "Jugar →" },
     { grupo: "juegos", href: "laboral.html", icono: "⚖️", titulo: "Ruta Laboral CR", sub: "Juego con narrador y música: contratos, aguinaldo, vacaciones, preaviso y cesantía en 6 misiones con XP y medallas", cta: "Jugar →" },
     { grupo: "juegos", href: "seguros.html", icono: "🛡️", titulo: "Misión Seguros", sub: "Contabilidad de seguros (SUGESE): 5 niveles para armar asientos arrastrando cuentas, con XP y rachas", cta: "Jugar →" },
-    { grupo: "juegos", href: "taller-contable.html", icono: "🧮", titulo: "Taller del Ciclo Contable", sub: "Prácticas y tareas a partir de facturas electrónicas: asientos, libro mayor, balanza y estados financieros", cta: "Entrar →" }
+    { grupo: "juegos", href: "taller-contable.html", icono: "🧮", titulo: "Taller del Ciclo Contable", sub: "Prácticas y tareas a partir de facturas electrónicas: asientos, libro mayor, balanza y estados financieros", cta: "Entrar →" },
+    { grupo: "juegos", href: "iva-150.html", icono: "🧾", titulo: "Declaración del IVA", sub: "Formulario 150 de TRIBU-CR: clasificar facturas, crédito fiscal y proporcionalidad, declaración y asientos del IVA", cta: "Entrar →" }
   ];
   const tarjetaAcceso = a => `
     <a class="section-tile flip-card" href="${a.href}" ${a.externo ? 'target="_blank" rel="noopener"' : ""}>
