@@ -252,7 +252,7 @@ body.sinrev .revbtn,body.sinrev [data-sol]{display:none!important}
 <main class="wrap" id="app"><p class="muted">Cargando…</p></main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="js/config.js?v=20261105h"></script>
-<script src="js/actividades.js?v=20261114c"></script>
+<script src="js/actividades.js?v=20261114d"></script>
 <script>
 /* ══════════════════════════════════════════════════════════════════════
    Declaración del IVA · Formulario 150 (TRIBU-CR). Prototipo 2027.
@@ -649,7 +649,13 @@ const C_ACT=()=>(ACTV.t&&ACTV.t.contenido_actividad)||{};
 const modsAct=()=>ACTV.t?(C_ACT().iva_modulos||["m1","mb","m2","m3","m4"]):["m1","mb","m2","m3","m4"];
 const tipoAct=()=>ACTV.t?(C_ACT().iva_tipo||"general"):null;
 const puedeRevisar=()=>!ACTV.t||ACTV.modo==="ver"||ACTV.modo==="docente"||TIPOS_T[tipoAct()].rev||!!ST.fin;
-const critAct=t=>{const C=(t||ACTV.t||{}).contenido_actividad||{};return C.criterios&&C.criterios.length?C.criterios:(C.iva_modulos||["m1","mb","m2","m3","m4"]).map(m=>({...CRIT_T[m],puntos_max:3}))};
+const ELEM_T={iva_diario_pct:"Asiento de cada factura · subcuentas de ventas e IVA por tarifa (13 %, 4 %, 2 %, 1 %, exentas) · IVA soportado por tarifa · retención del 6 % en ventas con tarjeta · cuenta de cobro o pago · destino de las compras · partida doble cuadrada.",
+ iva_facturas_pct:"Asiento de cada factura con subcuentas por tarifa, retención de tarjetas y destino de las compras.",
+ iva_balanza_pct:"Sumas del debe y del haber de cada cuenta y subcuenta · saldos deudores y acreedores · totales iguales.",
+ iva_credito_pct:"Tarifa aplicada · crédito fiscal y gasto para utilidades de las compras identificadas · proporción provisional · reparto de las compras no identificadas · liquidación anual de la proporcionalidad (diciembre) · totales del periodo.",
+ iva_formulario_pct:"Casillas de las secciones I a VI del formulario 150 (ventas por tarifa, compras y créditos, liquidación de la proporcionalidad, determinación del impuesto, retenciones, saldo a favor e importe a pagar) · fecha límite de presentación y pago.",
+ iva_asientos_pct:"Asiento de liquidación del IVA (débito y crédito fiscal por tarifa, IVA no acreditable a gasto, retenciones, saldo a favor) · asiento de pago · cuentas y montos correctos."};
+const critAct=t=>{const C=(t||ACTV.t||{}).contenido_actividad||{};return (C.criterios&&C.criterios.length?C.criterios:(C.iva_modulos||["m1","mb","m2","m3","m4"]).map(m=>({...CRIT_T[m],puntos_max:3}))).map(c=>({...c,evidencias:c.evidencias||ELEM_T[c.auto]||""}))};
 const HAY_BD=()=>typeof sb!=="undefined"&&!!SES;
 
 function calificarTodo(){const M=modsAct();if(M.includes("m1"))revisarM1();if(M.includes("mb"))revisarMB();if(M.includes("m2"))revisarM2();if(M.includes("m3"))revisarM3();if(M.includes("m4"))revisarM4();
@@ -758,31 +764,31 @@ function verInstrumentoT(t,volver){const html=instrumentoTxt(t);
   $("#insImp").onclick=()=>{const w=open("","_blank");w.document.write(`<html><head><title>${esc(t.titulo)}</title><style>body{font-family:Arial,sans-serif;font-size:12px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #999;padding:4px;vertical-align:top}</style></head><body>${html}</body></html>`);w.document.close();w.print()};
   const e=$("#insEd");if(e)e.onclick=()=>editarEvaluacionT(t);const v=$("#insVol");if(v)v.onclick=volver}
 function editarEvaluacionT(t){const C=t.contenido_actividad||{},TT=TIPOS_T[C.iva_tipo||"general"];let ins=insT(t);
-  let lista=critAct(t).map(c=>({nombre:c.nombre,puntos_max:Number(c.puntos_max)||3,auto:c.auto,niveles:typeof tiraderaNivelesDe==="function"?tiraderaNivelesDe(c):(c.niveles||{})}));
+  let lista=critAct(t).map(c=>({nombre:c.nombre,puntos_max:Number(c.puntos_max)||3,auto:c.auto,evidencias:c.evidencias||"",niveles:typeof tiraderaNivelesDe==="function"?tiraderaNivelesDe(c):(c.niveles||{})}));let sugInd="";
   const NV=[["avanzado","Avanzado (3)"],["intermedio","Intermedio (2)"],["inicial","Inicial (1)"]];
-  const leer=()=>{$$("#dlgB [data-ins]").forEach(x=>ins[x.dataset.ins]=x.value.trim());lista=lista.map((c,i)=>{const niveles={};$$(`#dlgB [data-niv="${i}"]`).forEach(x=>niveles[x.dataset.k]=x.value.trim());return {...c,nombre:($(`#dlgB [data-nom="${i}"]`)||{}).value||c.nombre,niveles}})};
+  const leer=()=>{$$("#dlgB [data-ins]").forEach(x=>ins[x.dataset.ins]=x.value.trim());lista=lista.map((c,i)=>{const niveles={};$$(`#dlgB [data-niv="${i}"]`).forEach(x=>niveles[x.dataset.k]=x.value.trim());return {...c,nombre:($(`#dlgB [data-nom="${i}"]`)||{}).value||c.nombre,evidencias:(($(`#dlgB [data-evi="${i}"]`)||{}).value||"").trim(),niveles}})};
   const pinta=()=>{const campo=(k,et)=>`<label>${et}<input data-ins="${k}" value="${esc(ins[k]||"")}"></label>`;
     abrirDlg("📋 Evaluación de la actividad (formato MEP)",`<p class="ayuda" style="margin-top:0">Escala de desempeño con indicadores de logro y la evidencia de cada nivel (<b>Avanzado 3 · Intermedio 2 · Inicial 1</b>; 0 sin evidencia). Cada indicador se califica solo con el porcentaje de aciertos de su módulo: 85 % o más = 3, 60–84 % = 2, 35–59 % = 1. Calificación = puntos obtenidos × 100 ÷ total.${TT.nota?` La nota pasa sola a <b>${esc(TT.nota)}</b> en la Rúbrica cuando el estudiante entrega.`:` Esta práctica <b>no lleva nota</b>: el instrumento le muestra al estudiante cómo se revisa su trabajo.`}</p>
-      <div class="ia-box"><b>✨ Mejorar con IA</b> — redacta los indicadores (verbo + contenido + condición) y la evidencia observable de cada nivel según el resultado de aprendizaje. Usted revisa antes de guardar.
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"><input id="evIndic" style="flex:1 1 16rem" placeholder="Indicaciones para la IA (opcional)"><button type="button" id="evIA">✨ Mejorar todos los niveles</button></div><small class="muted" id="evIAest"></small></div>
+      <div class="ia-box"><b>✨ Mejorar con IA · evaluación robusta alineada al MEP</b> — la IA revisa todo el instrumento con el Reglamento de Evaluación de los Aprendizajes (Decreto 45509-MEP) y el programa de estudio: deriva cada indicador del resultado de aprendizaje (verbo + contenido + condición), redacta niveles graduales y excluyentes con el umbral y lo que se observa en cada uno, y agrega las <b>evidencias observables</b> de cada indicador. También propone un indicador de logro alineado. Usted revisa todo antes de guardar.
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"><input id="evIndic" style="flex:1 1 16rem" placeholder="Indicaciones para la IA (opcional): p. ej., enfatizar la proporcionalidad"><button type="button" id="evIA">✨ Mejorar con IA (MEP)</button></div><small class="muted" id="evIAest"></small>${sugInd?`<div class="sol" style="margin-top:6px"><b>Indicador de logro propuesto</b> (ya quedó en «Indicador de logro»; revíselo): ${esc(sugInd)}</div>`:""}</div>
       <h4 class="ev-h">Datos del instrumento</h4>
       <div class="ins-g">${campo("componente","Componente")}${campo("tipo","Tipo de instrumento")}${campo("subarea","Subárea")}${campo("unidad","Unidad de estudio / tema")}</div>
       <div class="ins-g" style="margin-top:8px">${campo("resultado","Resultado de aprendizaje (del programa)")}${campo("indicador","Indicador de logro (del programa)")}</div>
       <h4 class="ev-h">Indicadores y criterios de desempeño</h4>
       ${lista.map((c,i)=>`<div class="card" style="padding:10px;margin-top:8px"><label>${i+1}. Indicador <small class="muted">(se califica solo con el módulo ${esc(({iva_diario_pct:"1 · Facturas al diario",iva_facturas_pct:"1 · Facturas",iva_balanza_pct:"2 · Balanza",iva_credito_pct:"3 · Crédito fiscal",iva_formulario_pct:"4 · Formulario 150",iva_asientos_pct:"5 · Liquidación y pago"})[c.auto]||"")})</small><input data-nom="${i}" value="${esc(c.nombre)}"></label>
-        <div class="ins-g" style="margin-top:6px">${NV.map(([k,et])=>`<label>${et}<textarea data-niv="${i}" data-k="${k}" rows="3">${esc(c.niveles[k]||"")}</textarea></label>`).join("")}</div>${c.iaNota?`<small style="color:var(--ok)">✨ ${esc(c.iaNota)}</small>`:""}</div>`).join("")}
+        <div class="ins-g" style="margin-top:6px">${NV.map(([k,et])=>`<label>${et}<textarea data-niv="${i}" data-k="${k}" rows="4">${esc(c.niveles[k]||"")}</textarea></label>`).join("")}</div><label style="display:block;margin-top:6px">Evidencias observables <small class="muted">(lo que revisa la plataforma; se muestran en el instrumento)</small><textarea data-evi="${i}" rows="2">${esc(c.evidencias||"")}</textarea></label>${c.iaNota?`<small style="color:var(--ok)">✨ ${esc(c.iaNota)}</small>`:""}</div>`).join("")}
       <div class="acc"><span class="muted" id="evE"></span><span style="flex:1"></span><button type="button" class="sec" id="evVer">👁️ Ver instrumento</button><button type="button" id="evG">💾 Guardar evaluación</button></div>`);
     $("#evVer").onclick=()=>{leer();verInstrumentoT({...t,contenido_actividad:{...t.contenido_actividad,criterios:lista,iva_instrumento:ins}},()=>pinta())};
     $("#evG").onclick=async ev=>{leer();ev.target.disabled=true;$("#evE").textContent="Guardando…";
       try{const {data:act}=await sb.from("trabajos_cotidianos").select("contenido_actividad").eq("id",t.id).maybeSingle();
-        const nuevo={...((act&&act.contenido_actividad)||C),criterios:lista.map(c=>({nombre:c.nombre,puntos_max:c.puntos_max,auto:c.auto,niveles:c.niveles})),iva_instrumento:{...ins}};
+        const nuevo={...((act&&act.contenido_actividad)||C),criterios:lista.map(c=>({nombre:c.nombre,puntos_max:c.puntos_max,auto:c.auto,evidencias:c.evidencias,niveles:c.niveles})),iva_instrumento:{...ins}};
         const {error}=await sb.from("trabajos_cotidianos").update({contenido_actividad:nuevo}).eq("id",t.id);if(error)throw error;
         t.contenido_actividad=nuevo;$("#evE").textContent="✓ Guardada. Los estudiantes ya la ven en «Cómo me evalúan»."}
       catch(err){$("#evE").textContent="No se pudo guardar: "+(err.message||err)}ev.target.disabled=false};
     $("#evIA").onclick=async ev=>{leer();ev.target.disabled=true;$("#evIAest").textContent="✨ La IA está trabajando…";
-      try{const r=await fetch("/api/mejorar-niveles-ia",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({instrumento:ins,criterios:lista,instrucciones:$("#evIndic").value,actividad:`Declaración mensual del IVA (formulario 150 de TRIBU-CR) de una ${C.iva_emp==="servicios"?"empresa de servicios":"empresa comercial"}: registro de las facturas en el diario con subcuentas por tarifa, balanza de comprobación, crédito fiscal (tarifas reducidas y regla de proporcionalidad), llenado del formulario y asientos de liquidación y pago del IVA — `+t.titulo,componente:ins.componente})});
+      try{const r=await fetch("/api/mejorar-niveles-ia",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({modo:"robusto",instrumento:ins,criterios:lista.map(c=>({...c,elementos:ELEM_T[c.auto]||""})),instrucciones:$("#evIndic").value,actividad:`Declaración mensual del IVA (formulario 150 de TRIBU-CR) de una ${C.iva_emp==="servicios"?"empresa de servicios":"empresa comercial"}: registro de las facturas en el diario con subcuentas por tarifa, balanza de comprobación, crédito fiscal (tarifas reducidas y regla de proporcionalidad), llenado del formulario y asientos de liquidación y pago del IVA — `+t.titulo,componente:ins.componente})});
         const j=await r.json().catch(()=>({}));if(!r.ok||!Array.isArray(j.criterios))throw new Error(j.error||"Error "+r.status);
-        j.criterios.forEach(x=>{if(lista[x.i]){lista[x.i].nombre=x.nombre;lista[x.i].niveles=x.niveles;lista[x.i].iaNota=x.nota||"Redacción mejorada por la IA."}});pinta();$("#evIAest").textContent="✨ Listo: revise y toque Guardar evaluación."}
+        j.criterios.forEach(x=>{if(lista[x.i]){lista[x.i].nombre=x.nombre;lista[x.i].niveles=x.niveles;if(x.evidencias)lista[x.i].evidencias=x.evidencias;lista[x.i].iaNota=x.nota||"Redacción mejorada por la IA."}});if(j.indicador_logro){ins.indicador=j.indicador_logro;sugInd=j.indicador_logro}pinta();$("#evIAest").textContent="✨ Listo: revise y toque Guardar evaluación."}
       catch(err){ev.target.disabled=false;$("#evIAest").textContent="No se pudo mejorar con IA: "+(err.message||err)}}};
   pinta()}
 /* ── Estudiante: antes de empezar, así lo vamos a evaluar (como en Ruta Laboral y Misión Seguros) ── */
