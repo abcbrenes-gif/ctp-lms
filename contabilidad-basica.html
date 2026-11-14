@@ -268,6 +268,74 @@ td.up{color:var(--ok);font-weight:700}td.down{color:var(--bad);font-weight:700}
 .asi-t{width:100%}.asi-t td{padding:3px 4px}.asi-t td:first-child{min-width:220px}.asi-tot td{border-top:2px solid var(--ink);font-weight:800}.ok-t{color:var(--ok);font-size:.8rem;font-weight:700}.warn-t{color:var(--warn);font-size:.8rem;font-weight:700}
 ol.prev{font-size:.85rem;padding-left:20px}ol.prev li{margin:3px 0}
 body.sinrev .revbtn{display:none!important}
+/* ═══ Apariencia de juego: colores vivos y animaciones (15 años, primera vez con contabilidad) ═══ */
+body.juego{background:linear-gradient(135deg,#fdf2f8 0%,#eef2ff 30%,#ecfeff 60%,#fefce8 100%);background-size:300% 300%;animation:fondo 18s ease infinite}
+@keyframes fondo{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) body.juego{background:linear-gradient(135deg,#1e1b4b,#0f172a 40%,#042f2e 70%,#3b0764);background-size:300% 300%}}
+body.juego .top{background:linear-gradient(90deg,#7c3aed,#db2777,#f59e0b);color:#fff;border:0}body.juego .top small{color:#fff;opacity:.9}body.juego .top label{color:#fff}
+.hud{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto auto;gap:16px;align-items:center;margin-top:16px;background:linear-gradient(135deg,#4f46e5,#7c3aed 50%,#db2777);color:#fff;border-radius:20px;padding:14px 18px;box-shadow:0 10px 30px rgba(124,58,237,.35)}
+@media(max-width:700px){.hud{grid-template-columns:auto minmax(0,1fr) auto}.hud>.hud-r:nth-of-type(3),.hud>.hud-r:last-child{display:none}}
+.hud-av{font-size:2.4rem;animation:flotar 3s ease-in-out infinite}.hud small{opacity:.9;display:block}.hud-r{display:flex;flex-direction:column}.rk{font-size:.72rem;opacity:.9;text-transform:uppercase;letter-spacing:.04em}.hud-x span{font-weight:800}
+.xpbar{height:12px;border-radius:8px;background:rgba(255,255,255,.25);overflow:hidden;margin:4px 0}.xpbar i{display:block;height:100%;background:linear-gradient(90deg,#fde047,#fb923c,#f43f5e);border-radius:8px;transition:width .8s cubic-bezier(.2,.8,.2,1)}
+.hero{display:flex;gap:16px;align-items:center;margin:18px 0 6px;background:var(--surface);border-radius:20px;padding:16px 20px;box-shadow:var(--shadow);border:2px dashed #c4b5fd}
+.hero h2{font-size:1.6rem}.grad{background:linear-gradient(90deg,#7c3aed,#db2777,#f59e0b);-webkit-background-clip:text;background-clip:text;color:transparent}.hero p{margin:6px 0}.hero-m{font-size:4.5rem;animation:flotar 3s ease-in-out infinite}
+.hero-b{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.pill2{background:#fef3c7;color:#92400e;border-radius:999px;padding:6px 14px;font-weight:800}
+.rel{background:linear-gradient(90deg,#f59e0b,#ef4444);box-shadow:0 6px 16px rgba(239,68,68,.35);animation:latido 2s ease-in-out infinite}
+@media(max-width:600px){.hero-m{display:none}}
+.mapa{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin:16px 0}
+.mis{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;background:linear-gradient(150deg,var(--c),color-mix(in srgb,var(--c) 55%,#fff));color:#fff;border:0;border-radius:22px;padding:16px;box-shadow:0 10px 24px color-mix(in srgb,var(--c) 35%,transparent);cursor:pointer;transition:transform .2s;animation:entrar .5s backwards;animation-delay:var(--d)}
+.mis:hover:not(:disabled){transform:translateY(-6px) rotate(-1deg)}.mis:hover:not(:disabled) .mis-i{animation:rebote .6s}
+.mis.lock{background:linear-gradient(150deg,#94a3b8,#cbd5e1);box-shadow:none;cursor:not-allowed}.mis.oro{outline:3px solid #fde047;outline-offset:3px}
+.mis-i{font-size:2.6rem;filter:drop-shadow(0 3px 4px rgba(0,0,0,.2))}.mis b{font-size:1.05rem;text-shadow:0 1px 2px rgba(0,0,0,.2)}.mis small{color:#fff;opacity:.95}
+.mis-n{position:absolute;top:12px;right:14px;background:#fff;color:var(--c);border-radius:999px;width:30px;height:30px;display:grid;place-items:center;font-weight:800}
+.mis-st i{font-style:normal;font-size:1.5rem;color:rgba(255,255,255,.45)}.mis-st i.on{color:#fde047;text-shadow:0 0 8px #fde047}.mis-m{background:rgba(255,255,255,.25);border-radius:999px;padding:1px 8px}
+.mhd{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:16px 0 10px;background:linear-gradient(90deg,var(--c),color-mix(in srgb,var(--c) 50%,#fff));color:#fff;border-radius:18px;padding:10px 14px}.mhd h2{flex:1;min-width:200px}.mhd-i{display:inline-block;animation:rebote 2s infinite}
+.tabs{display:flex;gap:6px}.tabs button{background:rgba(255,255,255,.25);color:#fff;border:2px solid rgba(255,255,255,.5)}.tabs button.on{background:#fff;color:var(--c)}
+button.big{font-size:1.05rem;padding:12px 22px;border-radius:999px;background:linear-gradient(90deg,#7c3aed,#db2777);box-shadow:0 6px 16px rgba(219,39,119,.3);transition:transform .15s}button.big:hover{transform:scale(1.05)}
+.conti{display:flex;gap:10px;align-items:flex-end;margin:4px 0 12px}.conti-c{font-size:2.6rem;animation:flotar 3s ease-in-out infinite}.conti.feliz .conti-c{animation:salto .6s 2}.conti.triste .conti-c{animation:temblor .5s}
+.conti-b{position:relative;background:#ede9fe;color:#3b0764;border-radius:16px 16px 16px 4px;padding:8px 12px;font-size:.92rem}.conti.feliz .conti-b{background:#dcfce7;color:#14532d}.conti.triste .conti-b{background:#fff7ed;color:#7c2d12}
+.juego-q.acierto{animation:brillo .8s}.juego-q.fallo .q{animation:temblor .45s}
+.q{border:2px solid var(--line);border-radius:16px;padding:14px 16px;margin:8px 0;flex:1;min-width:0;background:var(--surface)}.q.ok{border-color:#22c55e}.q.bad{border-color:#f97316}.q-txt{font-size:1.06rem;margin-bottom:12px;font-weight:600}
+.q-ops{display:flex;flex-wrap:wrap;gap:10px}.opc{background:var(--surface);color:var(--ink);border:2.5px solid #c4b5fd;border-radius:14px;padding:10px 16px;font-size:.98rem;transition:transform .12s,background .2s}.opc:hover:not(:disabled){transform:translateY(-2px);background:#f5f3ff}
+.opc.on{border-color:#7c3aed;background:#ede9fe;animation:pop .25s}.opc.es-sol{border-color:#22c55e;background:#dcfce7}.opc.mal{border-color:#ef4444;background:#fee2e2;animation:temblor .4s}
+/* Cajas para arrastrar */
+.dd-pool{display:flex;flex-wrap:wrap;gap:8px;min-height:48px;padding:10px;border-radius:14px;background:repeating-linear-gradient(45deg,var(--surface2),var(--surface2) 10px,var(--surface) 10px,var(--surface) 20px);margin-bottom:12px}
+.dd-ok{font-weight:800;color:#16a34a;animation:pop .4s}
+.chipd{background:#fff;color:#1e1b4b;border:2px solid #a78bfa;border-radius:12px;padding:8px 12px;font-size:.86rem;font-weight:600;text-align:left;cursor:grab;touch-action:none;box-shadow:0 3px 0 #c4b5fd;transition:transform .12s}
+.chipd:hover{transform:translateY(-2px)}.chipd.sel{background:#fde047;border-color:#ca8a04;box-shadow:0 0 0 4px rgba(250,204,21,.4);animation:latido 1s infinite}.chipd.arr{opacity:.35}
+.chipd.en{cursor:pointer;width:100%;margin-top:6px}.chipd.bien{border-color:#22c55e;background:#dcfce7;box-shadow:0 3px 0 #86efac}.chipd.mal{border-color:#ef4444;background:#fee2e2;box-shadow:0 3px 0 #fca5a5}
+.ghost{position:fixed;z-index:60;pointer-events:none;transform:translate(-50%,-50%) rotate(-4deg) scale(1.05);box-shadow:0 12px 26px rgba(0,0,0,.25)!important;max-width:260px}
+.dd-cajas{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.dd-t .dd-cajas{grid-template-columns:repeat(2,minmax(0,1fr))}@media(max-width:640px){.dd-cajas{grid-template-columns:minmax(0,1fr)!important}}
+.caja{min-height:120px;border-radius:16px;padding:10px;border:3px dashed;transition:transform .15s,background .15s;cursor:pointer}.caja.over{transform:scale(1.03);border-style:solid}
+.cj-t{display:block;text-align:center;font-size:1.05rem;margin-bottom:4px}.cj0{border-color:#22c55e;background:color-mix(in srgb,#22c55e 10%,var(--surface))}.cj1{border-color:#ef4444;background:color-mix(in srgb,#ef4444 9%,var(--surface))}.cj2{border-color:#8b5cf6;background:color-mix(in srgb,#8b5cf6 10%,var(--surface))}
+.dd-t .dd-cajas{border-top:5px solid var(--ink);padding-top:10px;position:relative}.dd-t .dd-cajas::after{content:"";position:absolute;left:50%;top:0;bottom:0;border-left:5px solid var(--ink)}.dd-t .cj0{border-color:#2563eb;background:color-mix(in srgb,#2563eb 8%,var(--surface))}.dd-t .cj1{border-color:#ea580c;background:color-mix(in srgb,#ea580c 8%,var(--surface))}
+/* Parejas */
+.par{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:12px}.par-c{display:flex;flex-direction:column;gap:8px}
+.pz{background:var(--surface);color:var(--ink);border:2.5px solid var(--line);border-radius:12px;padding:9px 12px;text-align:left;font-weight:600;display:flex;gap:8px;align-items:center}.pz.cod{font-family:var(--fn);justify-content:center}.pz.sel{border-color:#ca8a04;background:#fef9c3;animation:latido 1s infinite}
+.pn{background:var(--ink);color:#fff;border-radius:999px;min-width:24px;height:24px;display:inline-grid;place-items:center;font-size:.8rem}
+.pz.m0{border-color:#22c55e;background:#dcfce7}.pz.m1{border-color:#3b82f6;background:#dbeafe}.pz.m2{border-color:#a855f7;background:#f3e8ff}.pz.m3{border-color:#f97316;background:#ffedd5}.pz.m4{border-color:#ec4899;background:#fce7f3}
+.pz.m0 .pn{background:#16a34a}.pz.m1 .pn{background:#2563eb}.pz.m2 .pn{background:#9333ea}.pz.m3 .pn{background:#ea580c}.pz.m4 .pn{background:#db2777}.pz.mal{outline:3px solid #ef4444}.pz.bien{outline:3px solid #22c55e}
+.exp-l{margin:6px 0;padding-left:18px}.exp-l li{margin:2px 0}
+/* Balanza animada */
+.bal-an{margin:10px auto 4px;max-width:420px;text-align:center}.bal-viga{display:flex;justify-content:space-between;gap:10px;border-bottom:6px solid #a16207;padding-bottom:4px;animation:balanceo 2.4s ease-in-out}
+.bal-pl{background:#fef3c7;border:2px solid #ca8a04;border-radius:0 0 40px 40px;padding:6px 10px;min-width:40%;display:flex;flex-direction:column;align-items:center;color:#713f12}.bal-pl span{font-size:1.3rem}.bal-pie{font-size:1.6rem;margin-top:-4px}
+.flota{position:fixed;left:50%;top:40%;transform:translateX(-50%);font-size:2rem;font-weight:800;color:#f59e0b;text-shadow:0 2px 0 #fff,0 4px 10px rgba(0,0,0,.2);z-index:70;pointer-events:none;animation:subir 1.2s ease-out forwards}
+canvas.confeti{position:fixed;inset:0;pointer-events:none;z-index:80}
+.fin-p{font-size:3.4rem;font-weight:800;margin:6px 0;background:linear-gradient(90deg,#7c3aed,#db2777);-webkit-background-clip:text;background-clip:text;color:transparent}
+.fin-s i{font-style:normal;font-size:3rem;color:#e5e7eb;display:inline-block}.fin-s i.on{color:#facc15;text-shadow:0 0 14px #fde047;animation:estrella .6s backwards;animation-delay:var(--d)}
+.rel-t{font-size:1.6rem;font-weight:800;background:#fff;color:#dc2626;border-radius:999px;padding:2px 14px;font-variant-numeric:tabular-nums}
+@keyframes flotar{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes rebote{0%,100%{transform:scale(1)}30%{transform:scale(1.25) rotate(-8deg)}60%{transform:scale(.95) rotate(6deg)}}
+@keyframes entrar{from{opacity:0;transform:translateY(20px) scale(.95)}}
+@keyframes latido{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@keyframes pop{0%{transform:scale(.9)}60%{transform:scale(1.08)}100%{transform:scale(1)}}
+@keyframes temblor{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+@keyframes salto{0%,100%{transform:translateY(0)}40%{transform:translateY(-18px) rotate(-10deg)}}
+@keyframes brillo{0%{box-shadow:0 0 0 0 rgba(34,197,94,.6)}100%{box-shadow:0 0 0 22px rgba(34,197,94,0)}}
+@keyframes balanceo{0%{transform:rotate(-6deg)}30%{transform:rotate(5deg)}60%{transform:rotate(-2deg)}100%{transform:rotate(0)}}
+@keyframes subir{0%{opacity:0;transform:translate(-50%,10px) scale(.8)}20%{opacity:1;transform:translate(-50%,0) scale(1.15)}100%{opacity:0;transform:translate(-50%,-70px)}}
+@keyframes estrella{0%{transform:scale(0) rotate(-90deg)}70%{transform:scale(1.35) rotate(10deg)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
@@ -412,11 +480,17 @@ const MIS=k=>MISIONES.find(m=>m[0]===k);
 const REF={def:"Marco Conceptual (IASB, 2018), párr. 4.3 (activo), 4.26 (pasivo) y 4.63 (patrimonio); NIIF para las PYMES, Sección 2.",cor:"NIC 1, párr. 66 y 69; NIIF para las PYMES, Sección 4 (Estado de situación financiera).",res:"Marco Conceptual (IASB, 2018), párr. 4.68 (ingresos) y 4.69 (gastos).",pd:"Partida doble: todo débito tiene su crédito por el mismo monto (sumas iguales)."};
 const defElem={Activo:"Un activo es un recurso económico presente que la empresa controla, producto de hechos pasados, y que puede generarle beneficios económicos.",Pasivo:"Un pasivo es una obligación presente de la empresa de entregar recursos económicos, producto de hechos pasados.",Patrimonio:"El patrimonio es lo que queda de los activos después de restar todos los pasivos: la parte que pertenece a los dueños.",
   Ingreso:"Un ingreso aumenta los activos o disminuye los pasivos y, con eso, aumenta el patrimonio (sin ser aporte de los socios).",Gasto:"Un gasto disminuye los activos o aumenta los pasivos y, con eso, disminuye el patrimonio (sin ser reparto a los socios).",Costo:"El costo de ventas es lo que costó la mercadería vendida: es un gasto que se enfrenta a las ventas para obtener la utilidad bruta."};
-function genM1(R){const c=R()<.5?pickB(R,CAT.filter(x=>/^[123]/.test(x[0]))):pickB(R,CAT.filter(x=>/^[123]/.test(x[0]))),ej=c[5][Math.floor(R()*2)],el=elemDe(c[0]);
+let INTERACTIVO=true;
+// Juego de cajas: arrastrar cada caso a su caja
+function cajas(R,txt,lista,boxes,itemTxt,solDe,estilo,ref,expDe){const L=mezclar(lista,R).slice(0,6),items=L.map(c=>({txt:itemTxt(c),sol:solDe(c)}));
+  return {t:"cajas",txt,cajas:boxes,items,sol:items.map(i=>i.sol),estilo,exp:`<ul class="exp-l">${L.map((c,i)=>`<li>${esc(items[i].txt)} → <b>${boxes[items[i].sol]}</b>${expDe?" · "+expDe(c):""}</li>`).join("")}</ul>`,ref}}
+function genM1(R){if(INTERACTIVO&&R()<.35)return cajas(R,"🧺 Arrastre cada caso a su caja (o tóquelo y después toque la caja).",CAT.filter(x=>/^[123]/.test(x[0])),["Activo","Pasivo","Patrimonio"],c=>c[5][Math.floor(R()*2)],c=>["Activo","Pasivo","Patrimonio"].indexOf(elemDe(c[0])),"tres",REF.def,c=>`${c[0]} ${esc(c[1])}`);
+  const c=R()<.5?pickB(R,CAT.filter(x=>/^[123]/.test(x[0]))):pickB(R,CAT.filter(x=>/^[123]/.test(x[0]))),ej=c[5][Math.floor(R()*2)],el=elemDe(c[0]);
   if(R()<.25)return {t:"op",txt:`Según el Marco Conceptual, ¿qué es <b>${esc(c[1])}</b> para la empresa?`,ops:["Activo","Pasivo","Patrimonio"],sol:["Activo","Pasivo","Patrimonio"].indexOf(el),exp:`${esc(c[1])}: ${esc(c[4])} ${defElem[el]}`,ref:REF.def};
   return {t:"op",txt:`${esc(ej)}<br><small class="muted">¿Es un activo, un pasivo o patrimonio?</small>`,ops:["Activo","Pasivo","Patrimonio"],sol:["Activo","Pasivo","Patrimonio"].indexOf(el),exp:`Es <b>${el.toLowerCase()}</b> (cuenta ${c[0]} ${esc(c[1])}). ${defElem[el]}${c[0]==="2106"?" Aunque entró dinero, la empresa todavía debe el servicio: por eso es una obligación.":c[0]==="3104"?" Los dividendos son una cuenta de patrimonio que lo disminuye.":c[0]==="1206"?" Es una cuenta complementaria del activo: aparece en el activo restando.":""}`,ref:REF.def}}
 function pickB(R,a){return a[Math.floor(R()*a.length)]}
-function genM2(R){const k=Math.floor(R()*4),c=pickB(R,CAT);
+function genM2(R){if(INTERACTIVO&&R()<.3){const L=mezclar(CAT,R).slice(0,5),der=mezclar(L.map(c=>c[0]),R);return {t:"par",txt:"🔗 Una cada cuenta con su código: toque una cuenta y luego su código.",izq:L.map(c=>c[1]),der,sol:L.map(c=>der.indexOf(c[0])),exp:`<ul class="exp-l">${L.map(c=>`<li><b>${c[0]}</b> · ${esc(c[1])} (${GR[c[0][0]]})</li>`).join("")}</ul>`,ref:"Catálogo de cuentas de la práctica."}}
+  const k=Math.floor(R()*4),c=pickB(R,CAT);
   if(k===0){const ops=Object.entries(GR).map(([n,t])=>`${n} · ${t}`);return {t:"op",txt:`¿En qué grupo del catálogo de cuentas está <b>${esc(c[1])}</b>?`,ops,sol:+c[0][0]-1,exp:`El primer dígito del código indica el grupo: <b>${c[0]}</b> empieza con ${c[0][0]} = ${GR[c[0][0]]}. 1 Activo · 2 Pasivo · 3 Patrimonio · 4 Ingresos · 5 Costos · 6 Gastos.`,ref:"Catálogo de cuentas de la práctica (estructura usual en Costa Rica, ordenado según los estados financieros)."}}
   if(k===1){const c2=pickB(R,CAT.filter(x=>/^[12]/.test(x[0]))),ops=["Activo corriente","Activo no corriente","Pasivo corriente","Pasivo no corriente"];return {t:"op",txt:`<b>${esc(c2[1])}</b> (${esc(c2[4])}) es…`,ops,sol:ops.indexOf(SG[c2[2]]),exp:`${SG[c2[2]]}: ${c2[2].endsWith("NC")?"se espera usar, cobrar o pagar en <b>más de un año</b> (o no es parte del ciclo normal de operación).":"se espera realizar, cobrar o pagar <b>dentro de un año</b> o en el ciclo normal de operación."}`,ref:REF.cor}}
   if(k===2){const otros=mezclar(CAT.filter(x=>x[0]!==c[0]&&x[0][0]===c[0][0]),R).slice(0,3).map(x=>x[0]);while(otros.length<3)otros.push(String(+c[0]+otros.length+11));const ops=mezclar([c[0],...otros],R);
@@ -434,10 +508,12 @@ function genM3(R){const k=Math.floor(R()*3);
     return {t:"num",txt:`Una empresa tiene activos por ${fm(A0)}. Luego: ${tx.d(X,Y)} ¿Cuánto suman ahora sus activos?`,sol:A0+dA,exp:`La transacción ${dA>0?"aumenta":dA<0?"disminuye":"no cambia"} el total de activos${dA?" en "+fm(Math.abs(dA)):" (solo cambia un activo por otro)"}: ${fm(A0)} ${dA>=0?"+":"−"} ${fm(Math.abs(dA))} = <b>${fm(A0+dA)}</b>.`,ref:REF.def}}
   const tx=pickB(R,TX),X=m(R,100e3,800e3),Y=Math.round(X*(tx.L.length>2&&tx.ef[1]===0?.6:.4)/5000)*5000;
   return {t:"ef",txt:tx.d(X,Y),sol:tx.ef,exp:`Efecto en la ecuación: Activo ${efTxt(tx.ef[0]).toLowerCase()} · Pasivo ${efTxt(tx.ef[1]).toLowerCase()} · Patrimonio ${efTxt(tx.ef[2]).toLowerCase()}. La ecuación sigue en equilibrio: Activo = Pasivo + Patrimonio.`,ref:REF.def}}
-function genM4(R){const k=R()<.6,c=pickB(R,CAT.filter(x=>/^[456]/.test(x[0]))),ej=c[5][Math.floor(R()*2)],el=elemDe(c[0]);
+function genM4(R){if(INTERACTIVO&&R()<.35)return cajas(R,"🧺 ¿Ingreso, costo o gasto? Arrastre cada caso a su caja.",CAT.filter(x=>/^[456]/.test(x[0])),["Ingreso","Costo","Gasto"],c=>c[5][Math.floor(R()*2)],c=>["Ingreso","Costo","Gasto"].indexOf(elemDe(c[0])),"tres",REF.res,c=>`${c[0]} ${esc(c[1])}`);
+  const k=R()<.6,c=pickB(R,CAT.filter(x=>/^[456]/.test(x[0]))),ej=c[5][Math.floor(R()*2)],el=elemDe(c[0]);
   if(k)return {t:"op",txt:`${esc(ej)}<br><small class="muted">¿Es un ingreso, un costo o un gasto?</small>`,ops:["Ingreso","Costo","Gasto"],sol:["Ingreso","Costo","Gasto"].indexOf(el),exp:`Es un <b>${el.toLowerCase()}</b> (cuenta ${c[0]} ${esc(c[1])}). ${defElem[el]}`,ref:REF.res};
   return {t:"op",txt:`Cuando se registra <b>${esc(c[1])}</b>, ¿qué pasa con el patrimonio de la empresa?`,ops:["Aumenta","Disminuye"],sol:el==="Ingreso"?0:1,exp:`${el==="Ingreso"?"Los ingresos aumentan":"Los costos y gastos disminuyen"} el patrimonio, porque al cierre pasan a la utilidad (o pérdida) del periodo. ${defElem[el]}`,ref:REF.res}}
-function genM5(R){const k=Math.floor(R()*3),c=pickB(R,CAT),D=c[3]==="D";
+function genM5(R){if(INTERACTIVO&&R()<.35)return cajas(R,"🅃 ¿Por qué lado AUMENTA cada cuenta? Arrástrela al lado correcto de la T.",CAT,["Debe","Haber"],c=>`${c[0]} ${c[1]}`,c=>c[3]==="D"?0:1,"t",REF.pd,c=>`${elemDe(c[0]).toLowerCase()}, saldo ${c[3]==="D"?"deudor":"acreedor"}`);
+  const k=Math.floor(R()*3),c=pickB(R,CAT),D=c[3]==="D";
   if(k===0){const ops=["Deudor (aumenta por el Debe)","Acreedor (aumenta por el Haber)"];return {t:"op",txt:`¿Cuál es el saldo normal de <b>${c[0]} ${esc(c[1])}</b>?`,ops,sol:D?0:1,exp:`${esc(c[1])} es ${elemDe(c[0]).toLowerCase()}: ${D?"aumenta por el <b>Debe</b> y su saldo normal es <b>deudor</b>":"aumenta por el <b>Haber</b> y su saldo normal es <b>acreedor</b>"}.${c[0]==="1206"?" Es una cuenta complementaria del activo: trabaja al revés de los activos.":c[0]==="3104"?" Los dividendos disminuyen el patrimonio: trabajan al revés del capital.":""} Regla: activos, costos y gastos aumentan por el Debe; pasivos, patrimonio e ingresos aumentan por el Haber.`,ref:REF.pd}}
   if(k===1){return {t:"op",txt:`Para registrar una <b>disminución</b> de <b>${esc(c[1])}</b>, ¿en qué columna se anota?`,ops:["Debe","Haber"],sol:D?1:0,exp:`${esc(c[1])} aumenta por el ${D?"Debe":"Haber"}, así que disminuye por el <b>${D?"Haber":"Debe"}</b>.`,ref:REF.pd}}
   const reglas=[["Los activos aumentan por el…",0,"Los activos aumentan por el Debe (lado izquierdo) y disminuyen por el Haber."],["Los pasivos aumentan por el…",1,"Los pasivos aumentan por el Haber y disminuyen por el Debe."],["El capital social aumenta por el…",1,"El patrimonio aumenta por el Haber."],["Los ingresos se registran (aumentan) en el…",1,"Los ingresos aumentan el patrimonio: se registran en el Haber."],["Los gastos se registran (aumentan) en el…",0,"Los gastos disminuyen el patrimonio: se registran en el Debe."],["El lado izquierdo de una cuenta T se llama…",0,"El lado izquierdo es el Debe (débitos); el derecho, el Haber (créditos)."],["Cargar o debitar una cuenta es anotar en el…",0,"Cargar = debitar = anotar en el Debe. Abonar = acreditar = anotar en el Haber."],["Abonar o acreditar una cuenta es anotar en el…",1,"Abonar = acreditar = anotar en el Haber."]],r=pickB(R,reglas);
@@ -450,10 +526,11 @@ function genM7(R,emp){const k=pickB(R,["m1","m2","m3","m4","m5","m6","m6"]);retu
 GEN.m7=genM7;
 // Conjunto de n preguntas sin repetir el enunciado
 function preguntas(mis,seed,n,emp){const R=rng(seed+mis.charCodeAt(1)*7919),out=[],vistos=new Set();let tries=0;
-  while(out.length<n&&tries<n*40){tries++;const q=GEN[mis](R,emp);const k=q.txt+(q.ops||[]).join();if(vistos.has(k))continue;vistos.add(k);out.push(q)}return out}
+  while(out.length<n&&tries<n*40){tries++;const q=GEN[mis](R,emp);const k=q.txt+(q.ops||[]).join()+(q.items||[]).map(i=>i.txt).join()+(q.izq||[]).join();if(vistos.has(k))continue;vistos.add(k);out.push(q)}return out}
 // Calificación de una respuesta (0 a 1)
 function corregir(q,a){if(a==null)return 0;
   if(q.t==="op")return +a===q.sol?1:0;
+  if(q.t==="cajas"||q.t==="par")return q.sol.filter((x,i)=>a[i]!=null&&+a[i]===x).length/q.sol.length;
   if(q.t==="num")return cerca(monto(a),q.sol,1)?1:0;
   if(q.t==="ef")return [0,1,2].filter(i=>a[i]!=null&&a[i]!==""&&+a[i]===q.sol[i]).length/3;
   if(q.t==="as"){const net={};(a||[]).forEach(l=>{if(!l||!l.c)return;net[l.c]=(net[l.c]||0)+montoO0(l.d)-montoO0(l.h)});
@@ -516,50 +593,115 @@ function toast(t){const d=document.createElement("div");d.className="toast";d.te
 const opsCta=()=>CAT.map(c=>[c[0],c[0]+" · "+c[1]]);
 function preguntaHTML(q,a,pref,mostrar){const ok=mostrar?corregir(q,a):null;let h=`<div class="q ${mostrar?(ok===1?"ok":"bad"):""}"><div class="q-txt">${q.txt}</div>`;
   if(q.t==="op")h+=`<div class="q-ops">${q.ops.map((o,i)=>`<button type="button" class="opc ${a!=null&&+a===i?"on":""} ${mostrar&&i===q.sol?"es-sol":""}" data-q="${pref}" data-v="${i}">${esc(o)}</button>`).join("")}</div>`;
+  if(q.t==="cajas"){const A=Array.isArray(a)?a:[],sl=SELQ[pref];
+    h+=`<div class="dd dd-${q.estilo||""}"><div class="dd-pool">${q.items.map((it,i)=>A[i]==null?`<button type="button" class="chipd ${sl===i?"sel":""}" data-ci="${i}" data-pref="${pref}">${esc(it.txt)}</button>`:"").join("")||'<span class="dd-ok">✨ ¡Todo ubicado!</span>'}</div>
+      <div class="dd-cajas">${q.cajas.map((c,b)=>`<div class="caja cj${b}" data-box="${b}" data-pref="${pref}" role="button" tabindex="0" aria-label="Caja ${c}"><b class="cj-t">${c}</b>${q.items.map((it,i)=>A[i]!=null&&+A[i]===b?`<button type="button" class="chipd en ${mostrar?(it.sol===b?"bien":"mal"):""}" data-ci="${i}" data-pref="${pref}" data-quitar="1" title="Tocar para sacarlo">${esc(it.txt)}${mostrar&&it.sol!==b?` <small>→ ${q.cajas[it.sol]}</small>`:""}</button>`:"").join("")}</div>`).join("")}</div></div>`}
+  if(q.t==="par"){const A=Array.isArray(a)?a:[],sl=SELQ[pref];
+    h+=`<div class="par"><div class="par-c">${q.izq.map((t,i)=>`<button type="button" class="pz ${sl===i?"sel":""} ${A[i]!=null?"m"+(i%5):""} ${mostrar?(+A[i]===q.sol[i]?"bien":"mal"):""}" data-pi="${i}" data-pref="${pref}">${A[i]!=null?`<span class="pn">${i+1}</span>`:""}${esc(t)}</button>`).join("")}</div><div class="par-c">${q.der.map((t,j)=>{const i=A.findIndex(x=>x!=null&&+x===j);return `<button type="button" class="pz cod ${i>=0?"m"+(i%5):""}" data-pj="${j}" data-pref="${pref}">${i>=0?`<span class="pn">${i+1}</span>`:""}${esc(t)}</button>`}).join("")}</div></div>`}
   if(q.t==="num")h+=`<label class="q-num">Respuesta (₡)<input class="n" data-qn="${pref}" value="${esc(a??"")}" inputmode="decimal" autocomplete="off"></label>`;
   if(q.t==="ef")h+=`<div class="q-ef">${["Activo","Pasivo","Patrimonio"].map((e,i)=>`<div><b>${e}</b>${[1,-1,0].map(v=>`<button type="button" class="opc sm ${a&&a[i]!=null&&+a[i]===v?"on":""} ${mostrar&&q.sol[i]===v?"es-sol":""}" data-qe="${pref}" data-i="${i}" data-v="${v}">${efTxt(v)}</button>`).join("")}</div>`).join("")}</div>`;
   if(q.t==="as"){const L=Array.isArray(a)&&a.length?a:[{c:"",d:"",h:""},{c:"",d:"",h:""},{c:"",d:"",h:""}],td=L.reduce((x,l)=>x+montoO0(l.d),0),th=L.reduce((x,l)=>x+montoO0(l.h),0);
     h+=`<div class="scroll"><table class="asi-t"><thead><tr><th>Cuenta</th><th class="r">Debe</th><th class="r">Haber</th><th></th></tr></thead><tbody>${L.map((l,j)=>`<tr><td><select data-qa="${pref}" data-j="${j}" data-k="c"><option value="">— Cuenta —</option>${opsCta().map(([k,t])=>`<option value="${k}" ${l.c===k?"selected":""}>${esc(t)}</option>`).join("")}</select></td><td><input class="n" data-qa="${pref}" data-j="${j}" data-k="d" value="${esc(l.d||"")}" inputmode="decimal" placeholder="Debe"></td><td><input class="n" data-qa="${pref}" data-j="${j}" data-k="h" value="${esc(l.h||"")}" inputmode="decimal" placeholder="Haber"></td><td><button type="button" class="ghost sm" data-qq="${pref}" data-j="${j}" aria-label="Quitar línea">✕</button></td></tr>`).join("")}
       <tr class="asi-tot"><td><button type="button" class="ghost sm" data-qm="${pref}">＋ Línea</button> ${td||th?(Math.abs(td-th)<.5?'<span class="ok-t">✓ Cuadra</span>':'<span class="warn-t">⚠️ No cuadra</span>'):""}</td><td class="r num">${fn(td)}</td><td class="r num">${fn(th)}</td><td></td></tr></tbody></table></div>`}
-  if(mostrar)h+=`<div class="q-exp ${ok===1?"ok":"bad"}"><b>${ok===1?"✅ ¡Correcto!":ok>0?`🟡 Parcialmente correcto (${Math.round(ok*100)} %)`:"❌ Incorrecto"}</b> ${q.t==="num"?`Respuesta: <b>${fm(q.sol)}</b>. `:""}${q.exp}${q.t==="as"?`<table class="asi-t">${Object.entries(q.n).sort((x,y)=>(y[1]>0)-(x[1]>0)).map(([c,v])=>`<tr><td>${c} · ${esc(nom(c))}</td><td class="r num">${v>0?fn(v):""}</td><td class="r num">${v<0?fn(-v):""}</td></tr>`).join("")}</table>`:""}<small class="q-ref">📚 ${esc(q.ref)}</small></div>`;
+  if(mostrar)h+=`<div class="q-exp ${ok===1?"ok":"bad"}"><b>${ok===1?"✅ ¡Correcto!":ok>0?`🟡 Parcialmente correcto (${Math.round(ok*100)} %)`:"❌ Incorrecto"}</b> ${q.t==="num"?`Respuesta: <b>${fm(q.sol)}</b>. `:""}${q.exp}${q.t==="ef"?balanzaHTML(q.sol):""}${q.t==="as"?`<table class="asi-t">${Object.entries(q.n).sort((x,y)=>(y[1]>0)-(x[1]>0)).map(([c,v])=>`<tr><td>${c} · ${esc(nom(c))}</td><td class="r num">${v>0?fn(v):""}</td><td class="r num">${v<0?fn(-v):""}</td></tr>`).join("")}</table>`:""}<small class="q-ref">📚 ${esc(q.ref)}</small></div>`;
   return h+"</div>"}
 // Actualiza los totales del asiento sin volver a pintar (no se pierde el cursor)
 function totAs(x){const t=x.closest("table");if(!t)return;const sum=k=>[...t.querySelectorAll(`input[data-k="${k}"]`)].reduce((a,i)=>a+montoO0(i.value),0),d=sum("d"),h=sum("h"),r=t.querySelector(".asi-tot");if(!r)return;const c=r.children;
   c[1].textContent=fn(d);c[2].textContent=fn(h);let e=c[0].querySelector(".ok-t,.warn-t");if(e)e.remove();if(d||h)c[0].insertAdjacentHTML("beforeend",Math.abs(d-h)<.5?' <span class="ok-t">✓ Cuadra</span>':' <span class="warn-t">⚠️ No cuadra</span>')}
+const SELQ={};
+// Arrastrar con el dedo o el mouse (Pointer Events); al soltar sobre una caja llama a fin(caja)
+function arrastrar(e,el,fin){if(e.button>0||document.body.classList.contains("bloq"))return;const x0=e.clientX,y0=e.clientY;let g=null;
+  const mv=ev=>{if(!g&&Math.hypot(ev.clientX-x0,ev.clientY-y0)<8)return;ev.preventDefault();if(!g){g=el.cloneNode(true);g.classList.add("ghost");document.body.appendChild(g);el.classList.add("arr")}
+    g.style.left=ev.clientX+"px";g.style.top=ev.clientY+"px";$$(".caja.over").forEach(c=>c.classList.remove("over"));const t=document.elementFromPoint(ev.clientX,ev.clientY),c=t&&t.closest(".caja");if(c&&c.dataset.pref===el.dataset.pref)c.classList.add("over")};
+  const up=ev=>{removeEventListener("pointermove",mv);removeEventListener("pointerup",up);removeEventListener("pointercancel",up);if(!g)return;g.remove();el.classList.remove("arr");el._drag=true;setTimeout(()=>{el._drag=false},50);
+    const t=document.elementFromPoint(ev.clientX,ev.clientY),c=t&&t.closest(".caja");$$(".caja.over").forEach(x=>x.classList.remove("over"));if(c&&c.dataset.pref===el.dataset.pref)fin(+c.dataset.box)};
+  addEventListener("pointermove",mv,{passive:false});addEventListener("pointerup",up);addEventListener("pointercancel",up)}
+// Sonidos cortos (se pueden apagar)
+let AC=null;const SONIDO=()=>{try{return localStorage.getItem("cb_sonido")!=="0"}catch(e){return true}};
+function sonido(k){if(!SONIDO())return;try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const N={ok:[[660,.08],[880,.12]],mal:[[220,.18]],pop:[[520,.06]],tic:[[900,.03]],fin:[[523,.1],[659,.1],[784,.1],[1047,.2]]}[k]||[];let t=AC.currentTime;
+  N.forEach(([f,d])=>{const o=AC.createOscillator(),g=AC.createGain();o.type=k==="mal"?"sawtooth":"triangle";o.frequency.value=f;g.gain.setValueAtTime(.08,t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g);g.connect(AC.destination);o.start(t);o.stop(t+d);t+=d})}catch(e){}}
+// Confeti
+const QUIETO=matchMedia("(prefers-reduced-motion: reduce)").matches;
+function confeti(n=90){if(QUIETO)return;const cv=document.createElement("canvas");cv.className="confeti";cv.width=innerWidth;cv.height=innerHeight;document.body.appendChild(cv);const x=cv.getContext("2d"),C=["#f43f5e","#f59e0b","#10b981","#3b82f6","#a855f7","#facc15","#ec4899"];
+  const P=Array.from({length:n},()=>({x:innerWidth/2+(Math.random()-.5)*200,y:innerHeight*.35,vx:(Math.random()-.5)*14,vy:-Math.random()*14-4,s:4+Math.random()*6,c:C[Math.floor(Math.random()*C.length)],r:Math.random()*6}));let f=0;
+  const paso=()=>{x.clearRect(0,0,cv.width,cv.height);P.forEach(p=>{p.vy+=.45;p.x+=p.vx;p.y+=p.vy;p.r+=.2;x.save();x.translate(p.x,p.y);x.rotate(p.r);x.fillStyle=p.c;x.fillRect(-p.s/2,-p.s/2,p.s,p.s*.6);x.restore()});if(++f<90)requestAnimationFrame(paso);else cv.remove()};paso()}
+function flotar(txt){const d=document.createElement("div");d.className="flota";d.textContent=txt;document.body.appendChild(d);setTimeout(()=>d.remove(),1200)}
+// Balanza animada de la ecuación contable
+function balanzaHTML(ef){const izq=ef[0],der=ef[1]+ef[2];return `<div class="bal-an" aria-hidden="true"><div class="bal-viga"><div class="bal-pl izq"><b>Activo</b><span>${ef[0]>0?"⬆️":ef[0]<0?"⬇️":"＝"}</span></div><div class="bal-pl der"><b>Pasivo + Patrimonio</b><span>${ef[1]>0||ef[2]>0?"⬆️":ef[1]<0||ef[2]<0?"⬇️":"＝"}</span></div></div><div class="bal-pie">⚖️</div><small>La ecuación siempre queda en equilibrio.</small></div>`}
+// Mascota «Conti»: consejos de cada misión
+const TIPS={m1:["Pregúntese: ¿la empresa lo TIENE, lo DEBE o es de los DUEÑOS? 🤔","Un adelanto de un cliente es pasivo: ¡todavía le debe el servicio!","Lo pagado por adelantado (seguros, alquiler) es activo: aún da beneficio."],
+  m2:["El primer número del código dice el grupo: 1 Activo, 2 Pasivo, 3 Patrimonio… 🔢","Corriente = menos de un año. No corriente = más de un año.","El manual de cuentas dice qué registra cada cuenta."],
+  m3:["Activo = Pasivo + Patrimonio. ¡Siempre en equilibrio! ⚖️","Si una cuenta de activo sube y otra baja igual, el total no cambia.","Los gastos bajan el patrimonio; los ingresos lo suben."],
+  m4:["Ingreso = la empresa gana. Gasto = la empresa consume. 💸","Comprar una computadora NO es gasto: es un activo.","Un préstamo no es ingreso: es una deuda (pasivo)."],
+  m5:["Activos y gastos crecen por el DEBE (izquierda) 👈","Pasivos, patrimonio e ingresos crecen por el HABER (derecha) 👉","La depreciación acumulada es al revés: saldo acreedor."],
+  m6:["Debe = Haber, siempre. ¡Revise que cuadre! ✅","Piense: ¿qué entra? (Debe) ¿de dónde sale? (Haber)","Una venta con inventario permanente lleva dos partes: venta y costo."],
+  m7:["¡Usted puede! Use todo lo aprendido 💪","Lea con calma: cada palabra cuenta.","Si duda, vuelva a la ecuación contable."]};
+const conti=(mis,estado)=>`<div class="conti ${estado||""}"><span class="conti-c" aria-hidden="true">${estado==="feliz"?"🥳":estado==="triste"?"🤗":"🦉"}</span><div class="conti-b"><b>Conti dice:</b> ${estado==="feliz"?"¡Excelente! Así se hace. 🎉":estado==="triste"?"¡Casi! Lea la explicación y la próxima sale. 💪":TIPS[mis][Math.floor(Math.random()*TIPS[mis].length)]}</div></div>`;
 // Enlaza los controles de las preguntas: lee/escribe la respuesta con get(pref) / set(pref,valor)
 function ligarPreguntas(get,set,rep,bloq){if(bloq)return;
   $$("[data-q]").forEach(b=>b.onclick=()=>{set(b.dataset.q,+b.dataset.v);rep()});
   $$("[data-qe]").forEach(b=>b.onclick=()=>{const a=[...(get(b.dataset.qe)||[null,null,null])];a[+b.dataset.i]=+b.dataset.v;set(b.dataset.qe,a);rep()});
   $$("[data-qn]").forEach(x=>x.oninput=()=>set(x.dataset.qn,x.value));
+  const ubicar=(p,i,b)=>{const A=[...(get(p)||[])];A[i]=b;SELQ[p]=null;set(p,A);sonido(b==null?"tic":"pop");rep()};
+  $$(".chipd").forEach(ch=>{const p=ch.dataset.pref,i=+ch.dataset.ci;
+    ch.onclick=()=>{if(ch._drag)return;if(ch.dataset.quitar){ubicar(p,i,null);return}SELQ[p]=SELQ[p]===i?null:i;sonido("tic");rep()};
+    ch.onpointerdown=e=>arrastrar(e,ch,b=>ubicar(p,i,b))});
+  $$(".caja").forEach(c=>{const go=()=>{const p=c.dataset.pref;if(SELQ[p]==null)return;ubicar(p,SELQ[p],+c.dataset.box)};c.onclick=e=>{if(!e.target.closest(".chipd"))go()};c.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go()}}});
+  $$("[data-pi]").forEach(b=>b.onclick=()=>{const p=b.dataset.pref,i=+b.dataset.pi,A=[...(get(p)||[])];if(A[i]!=null){A[i]=null;set(p,A);SELQ[p]=null;sonido("tic");rep();return}SELQ[p]=SELQ[p]===i?null:i;sonido("tic");rep()});
+  $$("[data-pj]").forEach(b=>b.onclick=()=>{const p=b.dataset.pref,j=+b.dataset.pj,i=SELQ[p];if(i==null){toast("Primero toque una cuenta de la izquierda 👈");return}const A=[...(get(p)||[])].map(x=>x!=null&&+x===j?null:x);A[i]=j;SELQ[p]=null;set(p,A);sonido("pop");rep()});
   const filas=p=>{let L=get(p);if(!Array.isArray(L)||!L.length)L=[{c:"",d:"",h:""},{c:"",d:"",h:""},{c:"",d:"",h:""}];return L.map(l=>({...l}))};
   $$("[data-qa]").forEach(x=>{const ev=x.tagName==="SELECT"?"onchange":"oninput";x[ev]=()=>{const L=filas(x.dataset.qa);L[+x.dataset.j][x.dataset.k]=x.value;set(x.dataset.qa,L);if(x.tagName==="SELECT")rep();else totAs(x)}});
   $$("[data-qm]").forEach(b=>b.onclick=()=>{const L=filas(b.dataset.qm);L.push({c:"",d:"",h:""});set(b.dataset.qm,L);rep()});
   $$("[data-qq]").forEach(b=>b.onclick=()=>{const L=filas(b.dataset.qq);if(L.length>1)L.splice(+b.dataset.j,1);set(b.dataset.qq,L);rep()})}
 
 /* ══════════ Práctica libre: mapa, misiones, XP y estrellas ══════════ */
-function pintarJuego(){const r=rango(J.xp);
-  $("#caso").innerHTML=`<label>Tipo de empresa en los ejemplos<select id="cbEmp"><option value="comercial" ${J.emp==="comercial"?"selected":""}>🛒 Comercial</option><option value="servicios" ${J.emp==="servicios"?"selected":""}>🛠️ Servicios</option><option value="ambas" ${J.emp==="ambas"?"selected":""}>Ambas</option></select></label>`;
-  $("#cbEmp").onchange=e=>{J.emp=e.target.value;guardarJ()};
-  const hud=`<div class="hud card"><div class="hud-r"><span class="rk">🎖️ Rango ${r.i}</span><b>${r.n}</b></div><div class="hud-x"><span>⭐ ${J.xp} XP</span><div class="xpbar"><i style="width:${r.pct}%"></i></div><small>${r.sig?`${r.sig[0]-J.xp} XP para «${r.sig[1]}»`:"¡Rango máximo!"}</small></div><div class="hud-r"><span class="rk">🔥 Racha</span><b>${J.racha}</b><small>Mejor: ${J.mejorRacha}</small></div></div>`;
-  if(J.vista==="mapa"||!J.mis){$("#app").innerHTML=`${DOCENTE?hubHTML():""}${hud}<h2 class="mapa-t">🗺️ Ruta Contable Básica</h2><p class="ayuda">Desde cero: qué es un activo, un pasivo y el patrimonio; el catálogo de cuentas; la ecuación contable; ingresos y gastos; Debe y Haber; y el asiento de diario. Cada misión tiene <b>📖 Aprende</b> (teoría, muchos ejemplos y referencias NIIF) y <b>🎮 Practica</b> (10 preguntas al azar con explicación). Gane estrellas para abrir la siguiente misión.</p>
-    <div class="mapa">${MISIONES.map(([k,ic,t,s,col],i)=>{const e=J.est[k]||{},ab=abierta(k);return `<button type="button" class="mis ${ab?"":"lock"}" data-mis="${k}" style="--c:${col}" ${ab?"":"disabled"}><span class="mis-n">${i+1}</span><span class="mis-i">${ab?ic:"🔒"}</span><b>${t}</b><small>${s}</small><span class="mis-st">${"★".repeat(e.st||0)}${"☆".repeat(3-(e.st||0))}</span>${e.mejor!=null?`<small>Mejor: ${e.mejor} %</small>`:""}</button>`}).join("")}</div>`;
-    if(DOCENTE)ligarHub();$$("[data-mis]").forEach(b=>b.onclick=()=>{J.mis=b.dataset.mis;J.vista="mis";J.tab="aprende";J.ses=null;guardarJ();pintar()});return}
+function pintarJuego(){const r=rango(J.xp);document.body.classList.add("juego");
+  $("#caso").innerHTML=`<label>Empresa en los ejemplos<select id="cbEmp"><option value="comercial" ${J.emp==="comercial"?"selected":""}>🛒 Comercial</option><option value="servicios" ${J.emp==="servicios"?"selected":""}>🛠️ Servicios</option><option value="ambas" ${J.emp==="ambas"?"selected":""}>🎲 Ambas</option></select></label><button type="button" class="sec" id="cbSon" aria-pressed="${SONIDO()}">${SONIDO()?"🔊 Sonido":"🔇 Sin sonido"}</button>`;
+  $("#cbEmp").onchange=e=>{J.emp=e.target.value;guardarJ()};$("#cbSon").onclick=()=>{try{localStorage.setItem("cb_sonido",SONIDO()?"0":"1")}catch(e){}pintarJuego()};
+  const hud=`<div class="hud"><div class="hud-av" aria-hidden="true">${["🐣","🐥","🦊","🦉","🦁","🐉","👑"][Math.min(6,r.i-1)]}</div><div class="hud-r"><span class="rk">Rango ${r.i}</span><b>${r.n}</b></div><div class="hud-x"><span>⭐ ${J.xp} XP</span><div class="xpbar"><i style="width:${r.pct}%"></i></div><small>${r.sig?`${r.sig[0]-J.xp} XP para «${r.sig[1]}»`:"¡Rango máximo!"}</small></div><div class="hud-r"><span class="rk">🔥 Racha</span><b>${J.racha}</b><small>Mejor: ${J.mejorRacha}</small></div><div class="hud-r"><span class="rk">⚡ Relámpago</span><b>${J.relampago||0}</b><small>récord</small></div></div>`;
+  if(J.vista==="relampago"){pintarRelampago(hud);return}
+  if(J.vista==="mapa"||!J.mis){const tot=MISIONES.reduce((a,[k])=>a+((J.est[k]||{}).st||0),0);
+    $("#app").innerHTML=`${DOCENTE?hubHTML():""}${hud}<div class="hero"><div><h2>🗺️ <span class="grad">Ruta Contable Básica</span></h2><p>¡Bienvenido a su primera aventura contable! Descubra qué <b>tiene</b>, qué <b>debe</b> y qué es de los <b>dueños</b> una empresa, y aprenda a registrarlo como un profesional. Cada misión tiene <b>📖 Aprende</b> y <b>🎮 Juega</b>: arrastre, una parejas y gane estrellas ⭐ para abrir la siguiente.</p>
+      <div class="hero-b"><span class="pill2">⭐ ${tot} / ${MISIONES.length*3} estrellas</span><button type="button" id="aRel" class="rel">⚡ Reto relámpago · 60 s</button></div></div><div class="hero-m" aria-hidden="true">🦉</div></div>
+    <div class="mapa">${MISIONES.map(([k,ic,t,s,col],i)=>{const e=J.est[k]||{},ab=abierta(k);return `<button type="button" class="mis ${ab?"":"lock"} ${(e.st||0)===3?"oro":""}" data-mis="${k}" style="--c:${col};--d:${i*.08}s" ${ab?"":"disabled"} aria-label="Misión ${i+1}: ${t}${ab?"":" (bloqueada)"}"><span class="mis-n">${i+1}</span><span class="mis-i">${ab?ic:"🔒"}</span><b>${t}</b><small>${s}</small><span class="mis-st">${[0,1,2].map(n=>`<i class="${n<(e.st||0)?"on":""}">★</i>`).join("")}</span>${e.mejor!=null?`<small class="mis-m">Mejor: ${e.mejor} %</small>`:ab?`<small class="mis-m">¡Nueva!</small>`:""}</button>`}).join("")}</div>`;
+    if(DOCENTE)ligarHub();$$("[data-mis]").forEach(b=>b.onclick=()=>{sonido("pop");J.mis=b.dataset.mis;J.vista="mis";J.tab="aprende";J.ses=null;guardarJ();pintar()});
+    $("#aRel").onclick=()=>{sonido("pop");J.vista="relampago";J.rel=null;guardarJ();pintar()};return}
   const M=MIS(J.mis),S=J.ses;
   let cuerpo="";
-  if(J.tab==="aprende")cuerpo=`<div class="card aprende">${APRENDE[J.mis]()}<div class="acc"><span style="flex:1"></span><button type="button" id="aPract">🎮 ¡A practicar!</button></div></div>`;
-  else if(!S)cuerpo=`<div class="card"><h3>🎮 Practica: ${M[2]}</h3><p>10 preguntas al azar. Cada respuesta correcta da <b>10 XP</b> (+5 por racha de 3 o más). Al final verá su resultado y sus estrellas: 50 % = ★, 70 % = ★★, 90 % = ★★★.</p><div class="acc"><span style="flex:1"></span><button type="button" id="aIni">▶ Empezar</button></div></div>`;
-  else if(S.i>=S.q.length){const p=Math.round(S.p*100/S.q.length),st=estrellas(p);cuerpo=`<div class="card fin"><h3>${st===3?"🏆 ¡Excelente!":st>=1?"🎉 ¡Misión superada!":"💪 ¡Siga practicando!"}</h3><p class="fin-p">${p} %</p><p class="fin-s">${"★".repeat(st)}${"☆".repeat(3-st)}</p><p>Ganó <b>${S.xp} XP</b> en esta ronda.</p><div class="acc"><button type="button" class="sec" id="aMapa">🗺️ Volver al mapa</button><span style="flex:1"></span><button type="button" class="sec" id="aTeo">📖 Repasar la teoría</button><button type="button" id="aIni">🔄 Otra ronda</button></div></div>`}
-  else{const q=S.q[S.i],res=S.r[S.i]!=null;cuerpo=`<div class="card"><div class="qhd"><span>Pregunta ${S.i+1} de ${S.q.length}</span><span>✅ ${Math.round(S.p*10)/10} · ⭐ +${S.xp} XP</span></div><div class="qbar"><i style="width:${S.i*100/S.q.length}%"></i></div>
-    <div id="qz">${preguntaHTML(q,S.a,"j",res)}</div><div class="acc"><span style="flex:1"></span>${res?`<button type="button" id="aSig">${S.i+1<S.q.length?"Siguiente →":"Ver resultado 🏁"}</button>`:`<button type="button" id="aRev">✔️ Revisar</button>`}</div></div>`}
-  $("#app").innerHTML=`${hud}<div class="mhd" style="--c:${M[4]}"><button type="button" class="sec" id="aVolver">← Mapa</button><h2>${M[1]} ${M[2]}</h2><div class="tabs"><button type="button" class="${J.tab==="aprende"?"on":""}" data-tab="aprende">📖 Aprende</button><button type="button" class="${J.tab==="practica"?"on":""}" data-tab="practica">🎮 Practica</button></div></div>${cuerpo}`;
+  if(J.tab==="aprende")cuerpo=`<div class="card aprende">${conti(J.mis)}${APRENDE[J.mis]()}<div class="acc"><span style="flex:1"></span><button type="button" id="aPract" class="big">🎮 ¡A jugar!</button></div></div>`;
+  else if(!S)cuerpo=`<div class="card inicio">${conti(J.mis)}<h3>🎮 ${M[2]}</h3><p>10 retos al azar: elegir, arrastrar a cajas, unir parejas, completar asientos… Cada acierto da <b>10 XP</b> (+5 con racha de 3). Estrellas: 50 % ★ · 70 % ★★ · 90 % ★★★.</p><div class="acc"><span style="flex:1"></span><button type="button" id="aIni" class="big">▶ ¡Empezar!</button></div></div>`;
+  else if(S.i>=S.q.length){const p=Math.round(S.p*100/S.q.length),st=estrellas(p);cuerpo=`<div class="card fin">${conti(J.mis,st>=1?"feliz":"triste")}<h3>${st===3?"🏆 ¡Excelente!":st>=1?"🎉 ¡Misión superada!":"💪 ¡Siga practicando!"}</h3><p class="fin-p">${p} %</p><p class="fin-s">${[0,1,2].map(n=>`<i class="${n<st?"on":""}" style="--d:${n*.25}s">★</i>`).join("")}</p><p>Ganó <b>${S.xp} XP</b> en esta ronda.</p><div class="acc"><button type="button" class="sec" id="aMapa">🗺️ Mapa</button><span style="flex:1"></span><button type="button" class="sec" id="aTeo">📖 Repasar</button><button type="button" id="aIni" class="big">🔄 Otra ronda</button></div></div>`}
+  else{const q=S.q[S.i],res=S.r[S.i]!=null,ok=res?S.r[S.i]:null;cuerpo=`<div class="card juego-q ${res?(ok===1?"acierto":"fallo"):""}"><div class="qhd"><span>Reto ${S.i+1} de ${S.q.length}</span><span>✅ ${Math.round(S.p*10)/10} · ⭐ +${S.xp} XP</span></div><div class="qbar"><i style="width:${(S.i+(res?1:0))*100/S.q.length}%"></i></div>
+    ${conti(J.mis,res?(ok===1?"feliz":"triste"):"")}<div id="qz">${preguntaHTML(q,S.a,"j",res)}</div><div class="acc"><span style="flex:1"></span>${res?`<button type="button" id="aSig" class="big">${S.i+1<S.q.length?"Siguiente →":"Ver resultado 🏁"}</button>`:`<button type="button" id="aRev" class="big">✔️ Revisar</button>`}</div></div>`}
+  $("#app").innerHTML=`${hud}<div class="mhd" style="--c:${M[4]}"><button type="button" class="sec" id="aVolver">← Mapa</button><h2><span class="mhd-i">${M[1]}</span> ${M[2]}</h2><div class="tabs"><button type="button" class="${J.tab==="aprende"?"on":""}" data-tab="aprende">📖 Aprende</button><button type="button" class="${J.tab==="practica"?"on":""}" data-tab="practica">🎮 Juega</button></div></div>${cuerpo}`;
   $("#aVolver").onclick=()=>{J.vista="mapa";J.ses=null;guardarJ();pintar()};$$("[data-tab]").forEach(b=>b.onclick=()=>{J.tab=b.dataset.tab;guardarJ();pintar()});
-  const ini=()=>{J.ses={q:preguntas(J.mis,Math.floor(Math.random()*1e9),10,J.emp),i:0,a:null,r:[],p:0,xp:0};J.tab="practica";guardarJ();pintar()};
+  const ini=()=>{sonido("pop");J.ses={q:preguntas(J.mis,Math.floor(Math.random()*1e9),10,J.emp),i:0,a:null,r:[],p:0,xp:0};J.tab="practica";guardarJ();pintar()};
   [["#aPract",ini],["#aIni",ini],["#aMapa",()=>{J.vista="mapa";J.ses=null;guardarJ();pintar()}],["#aTeo",()=>{J.tab="aprende";J.ses=null;guardarJ();pintar()}]].forEach(([s,f])=>{const b=$(s);if(b)b.onclick=f});
+  if(S&&S.i>=S.q.length&&!S.celebrado){S.celebrado=true;guardarJ();const p=Math.round(S.p*100/S.q.length);if(p>=70){sonido("fin");confeti(160)}}
   if(S&&S.i<S.q.length){const res=S.r[S.i]!=null;
     const repQ=()=>{const qz=$("#qz");if(qz){qz.innerHTML=preguntaHTML(S.q[S.i],S.a,"j",false);ligarPreguntas(()=>S.a,(p,v)=>{S.a=v},repQ,false)}};
     ligarPreguntas(()=>S.a,(p,v)=>{S.a=v},repQ,res);
-    const rv=$("#aRev");if(rv)rv.onclick=()=>{const q=S.q[S.i],ok=corregir(q,S.a);S.r[S.i]=ok;S.p+=ok;if(ok===1){J.racha++;J.mejorRacha=Math.max(J.mejorRacha,J.racha);const g=10+(J.racha>=3?5:0);S.xp+=g;J.xp+=g;if(J.racha>=3)toast(`🔥 ¡Racha de ${J.racha}! +${g} XP`)}else{J.racha=0;if(ok>0){const g=Math.round(10*ok);S.xp+=g;J.xp+=g}}guardarJ();pintar()};
-    const sg=$("#aSig");if(sg)sg.onclick=()=>{S.i++;S.a=null;if(S.i>=S.q.length){const p=Math.round(S.p*100/S.q.length),e=J.est[J.mis]||(J.est[J.mis]={});e.mejor=Math.max(e.mejor||0,p);e.st=Math.max(e.st||0,estrellas(p));if(estrellas(p)>=1){const i=MISIONES.findIndex(x=>x[0]===J.mis);if(MISIONES[i+1])toast(`🔓 ¡Se abrió «${MISIONES[i+1][2]}»!`)}}guardarJ();pintar()}}}
+    const rv=$("#aRev");if(rv)rv.onclick=()=>{const q=S.q[S.i],ok=corregir(q,S.a);S.r[S.i]=ok;S.p+=ok;let g=0;if(ok===1){J.racha++;J.mejorRacha=Math.max(J.mejorRacha,J.racha);g=10+(J.racha>=3?5:0);if(J.racha>=3)toast(`🔥 ¡Racha de ${J.racha}!`)}else{J.racha=0;if(ok>0)g=Math.round(10*ok)}S.xp+=g;J.xp+=g;
+      guardarJ();pintar();if(ok===1){sonido("ok");confeti(60)}else sonido("mal");if(g)flotar(`+${g} XP`)};
+    const sg=$("#aSig");if(sg)sg.onclick=()=>{S.i++;S.a=null;if(S.i>=S.q.length){const p=Math.round(S.p*100/S.q.length),e=J.est[J.mis]||(J.est[J.mis]={});const antes=e.st||0;e.mejor=Math.max(e.mejor||0,p);e.st=Math.max(antes,estrellas(p));if(antes<1&&e.st>=1){const i=MISIONES.findIndex(x=>x[0]===J.mis);if(MISIONES[i+1])setTimeout(()=>toast(`🔓 ¡Se abrió «${MISIONES[i+1][2]}»!`),600)}}guardarJ();pintar();scrollTo({top:0,behavior:QUIETO?"auto":"smooth"})}}}
+
+/* ── ⚡ Reto relámpago: 60 segundos, la mayor cantidad de aciertos ── */
+let tRel=null;
+function pintarRelampago(hud){const R_=J.rel;
+  const vol=()=>{clearInterval(tRel);J.vista="mapa";J.rel=null;guardarJ();pintar()};
+  if(!R_||R_.fin){$("#app").innerHTML=`${hud}<div class="mhd" style="--c:#f59e0b"><button type="button" class="sec" id="rVol">← Mapa</button><h2><span class="mhd-i">⚡</span> Reto relámpago</h2></div>
+    <div class="card fin rel-c">${R_&&R_.fin?`<h3>${R_.p>(R_.antes||0)?"🏆 ¡Nuevo récord!":"⏱️ ¡Tiempo!"}</h3><p class="fin-p">${R_.p}</p><p>aciertos en 60 segundos (${R_.n} respondidas)</p>`:`<h3>⚡ ¿Cuántas puede en 60 segundos?</h3><p>Preguntas rápidas de las misiones que ya abrió: toque la respuesta y pasa sola a la siguiente. Cada acierto suma 5 XP.</p>`}
+    <p>Su récord: <b>${J.relampago||0}</b></p><div class="acc"><span style="flex:1"></span><button type="button" id="rIni" class="big">▶ ${R_?"Otra vez":"¡Arrancar!"}</button></div></div>`;
+    $("#rVol").onclick=vol;$("#rIni").onclick=()=>{sonido("pop");const mis=MISIONES.filter(([k])=>abierta(k)&&["m1","m2","m4","m5"].includes(k)).map(x=>x[0]);const R=rng(Math.floor(Math.random()*1e9));INTERACTIVO=false;const Q=[];for(let i=0;i<80;i++){const q=GEN[mis[Math.floor(R()*mis.length)]](R,J.emp);if(q.t==="op")Q.push(q)}INTERACTIVO=true;
+      J.rel={q:Q,i:0,p:0,n:0,fin:false,t0:Date.now(),antes:J.relampago||0};pintar()};return}
+  const q=R_.q[R_.i],rest=Math.max(0,60-Math.floor((Date.now()-R_.t0)/1000));
+  $("#app").innerHTML=`${hud}<div class="mhd" style="--c:#f59e0b"><button type="button" class="sec" id="rVol">← Salir</button><h2><span class="mhd-i">⚡</span> Reto relámpago</h2><span class="rel-t" id="rT">${rest}s</span><span class="pill2">✅ ${R_.p}</span></div>
+    <div class="card"><div class="qbar"><i id="rBar" style="width:${rest*100/60}%;background:linear-gradient(90deg,#f59e0b,#ef4444)"></i></div><div class="q"><div class="q-txt">${q.txt}</div><div class="q-ops">${q.ops.map((o,i)=>`<button type="button" class="opc" data-r="${i}">${esc(o)}</button>`).join("")}</div></div></div>`;
+  $("#rVol").onclick=vol;
+  $$("[data-r]").forEach(b=>b.onclick=()=>{const ok=+b.dataset.r===q.sol;b.classList.add(ok?"es-sol":"mal");R_.n++;if(ok){R_.p++;J.xp+=5;sonido("ok")}else{sonido("mal");$$("[data-r]")[q.sol].classList.add("es-sol")}
+    $$("[data-r]").forEach(x=>x.disabled=true);setTimeout(()=>{R_.i=(R_.i+1)%R_.q.length;guardarJ();if(!R_.fin)pintar()},ok?250:900)});
+  clearInterval(tRel);tRel=setInterval(()=>{const r=Math.max(0,60-Math.floor((Date.now()-R_.t0)/1000)),t=$("#rT"),bar=$("#rBar");if(t)t.textContent=r+"s";if(bar)bar.style.width=(r*100/60)+"%";
+    if(r<=0){clearInterval(tRel);R_.fin=true;if(R_.p>(J.relampago||0)){J.relampago=R_.p;sonido("fin");confeti(160)}guardarJ();pintar()}},250)}
 
 /* ══════════ Modo actividad: módulos (misiones) con preguntas fijas ══════════ */
 let CASO=null,ST=null,RES={},KEYV="cb_act";
@@ -578,7 +720,7 @@ function pintarActividad(){const MV=MODS.filter(m=>modsAct().includes(m[0]));if(
   ligarBarraT();$$("[data-mod]").forEach(b=>b.onclick=()=>{ST.mod=b.dataset.mod;guardar();pintar()});
   const get=p=>{const [m,i]=p.split("|");return (ST.a[m]||{})[i]},set=(p,v)=>{const [m,i]=p.split("|");(ST.a[m]=ST.a[m]||{})[i]=v;RES[m]=false;guardar()};
   const rep=()=>{const y=scrollY;pintar();scrollTo(0,y)};ligarPreguntas(get,set,rep,bloq);
-  const rv=$("#revM");if(rv)rv.onclick=()=>{revisarMod(k);rep()}}
+  const rv=$("#revM");if(rv)rv.onclick=()=>{revisarMod(k);rep();const n=ST.nota[k]||0;if(n>=85){sonido("fin");confeti(120)}else sonido(n>=60?"ok":"mal")}}
 
 function pintar(){
   document.body.classList.toggle("sinrev",ACTV.t?!puedeRevisar():false);const pl=$(".brand .pill");if(pl)pl.style.display=DOCENTE?"":"none";
@@ -627,7 +769,7 @@ const tipoAct=()=>ACTV.t?(C_ACT().cb_tipo||"general"):null;
 const puedeRevisar=()=>!ACTV.t||ACTV.modo==="ver"||ACTV.modo==="docente"||TIPOS_T[tipoAct()].rev||!!(ST&&ST.fin);
 const critAct=t=>{const C=(t||ACTV.t||{}).contenido_actividad||{};return (C.criterios&&C.criterios.length?C.criterios:(C.cb_modulos||["m1","m2","m3","m4","m5","m6"]).map(m=>({...CRIT_T[m],puntos_max:3}))).map(c=>({...c,evidencias:c.evidencias||ELEM_T[c.auto]||""}))};
 const HAY_BD=()=>typeof sb!=="undefined"&&!!SES;
-const casoAct=C=>{const q={};(C.cb_modulos||[]).forEach(m=>q[m]=preguntas(m,C.cb_seed,C.cb_n||8,C.cb_emp||"ambas"));return {q}};
+const casoAct=C=>{INTERACTIVO=(C.cb_ver||1)>=2;const q={};(C.cb_modulos||[]).forEach(m=>q[m]=preguntas(m,C.cb_seed,C.cb_n||8,C.cb_emp||"ambas"));INTERACTIVO=true;return {q}};
 
 function calificarTodo(){modsAct().forEach(revisarMod);const met={};modsAct().forEach(m=>met[CRIT_T[m].auto]=ST.nota[m]||0);return met}
 let tSyncT=null;
@@ -669,10 +811,10 @@ function nuevaActividad(){const mDef=(HUB.mats.find(m=>/contab/i.test(m.nombre))
     const tog=()=>{$("#naFl").style.display=["tarea","casa"].includes($("#naT").value)?"":"none"};tog();$("#naT").onchange=tog;
     $("#naVer").onclick=()=>{D.tipo=$("#naT").value;D.n=+$("#naN").value;D.emp=$("#naE").value;D.materia=+$("#naM").value;D.titulo=$("#naTi").value.trim();D.fecha=$("#naF").value;D.mods=$$(".na-mods input:checked").map(x=>x.value);
       if(!D.mods.length){$("#naMsg").innerHTML='<p class="fb bad">Escoja al menos una misión.</p>';return}vista()}};
-  const vista=()=>{const C={cb_modulos:D.mods,cb_seed:D.seed,cb_n:D.n,cb_emp:D.emp},c=casoAct(C),tit=D.titulo||`${TIPOS_T[D.tipo].et} · ${D.mods.map(m=>MIS(m)[2]).join(", ").slice(0,90)}`;
+  const vista=()=>{const C={cb_modulos:D.mods,cb_seed:D.seed,cb_n:D.n,cb_emp:D.emp,cb_ver:2},c=casoAct(C),tit=D.titulo||`${TIPOS_T[D.tipo].et} · ${D.mods.map(m=>MIS(m)[2]).join(", ").slice(0,90)}`;
     const ins=instrumentoTxt({titulo:tit,contenido_actividad:{cb_tipo:D.tipo,cb_modulos:D.mods,materia_id:D.materia,cb_desc:descAct(D)}});
     abrirDlg("👀 Vista previa · "+tit,`<p class="ayuda">${TIPOS_T[D.tipo].et} · ${D.mods.length} misiones × ${D.n} preguntas · ${esc(nomMatT(D.materia))}. Todo el grupo recibe las mismas preguntas.</p>
-      ${D.mods.map(m=>`<details class="resn"><summary>${MIS(m)[1]} ${MIS(m)[2]} · ${c.q[m].length} preguntas</summary><ol class="prev">${c.q[m].map(q=>`<li>${q.txt.replace(/<br>.*$/,"")}</li>`).join("")}</ol></details>`).join("")}
+      ${D.mods.map(m=>`<details class="resn"><summary>${MIS(m)[1]} ${MIS(m)[2]} · ${c.q[m].length} preguntas</summary><ol class="prev">${c.q[m].map(q=>`<li>${q.txt.replace(/<br>.*$/,"")}${q.items?" <small class='muted'>("+q.items.map(i=>esc(i.txt)).join(" · ")+")</small>":q.izq?" <small class='muted'>("+q.izq.map(esc).join(" · ")+")</small>":""}</li>`).join("")}</ol></details>`).join("")}
       <details class="resn"><summary>📋 Evaluación que se va a usar (formato MEP)</summary><div class="ins">${ins}</div><p class="ayuda">Después de crearla puede ajustarla con <b>📋 Evaluación (MEP)</b> (también con ✨ IA).</p></details>
       <div id="naMsg"></div><div class="acc"><button type="button" class="sec" id="naVolver">← Cambiar datos</button><span style="flex:1"></span><button type="button" class="sec" id="naOtra">🎲 Otras preguntas</button><button type="button" id="naCrear">💾 Crear actividad (cerrada)</button></div>`);
     $("#naVolver").onclick=form;$("#naOtra").onclick=()=>{D.seed=100000+Math.floor(Math.random()*900000);vista()};
@@ -689,7 +831,7 @@ async function crearActividadT(D,titulo){const T=TIPOS_T[D.tipo],hoy=new Date(Da
     if(r.error||!r.data)throw new Error(r.error?r.error.message:"no se pudo crear el indicador");ind=r.data;
     const niv=[[0,"Sin evidencia","No presenta el trabajo o tiene correcto menos del 35 % de las situaciones planteadas."],[1,"Inicial","Resuelve correctamente entre el 35 % y el 59 % de las situaciones planteadas."],[2,"Intermedio","Resuelve correctamente entre el 60 % y el 84 % de las situaciones planteadas."],[3,"Avanzado","Resuelve correctamente el 85 % o más de las situaciones planteadas."]];
     try{await sb.from("criterios_indicador").insert(niv.map(([puntaje,nivel,d])=>({indicador_id:ind.id,puntaje,nivel,descripcion:d})))}catch(e){}}
-  const C={estrategia:ESTR_T,cb_tipo:D.tipo,materia_id:D.materia,cb_desc:desc,cb_modulos:D.mods,cb_seed:D.seed,cb_n:D.n,cb_emp:D.emp,fecha_entrega:["tarea","casa"].includes(D.tipo)&&D.fecha?D.fecha:null,criterios,
+  const C={estrategia:ESTR_T,cb_ver:2,cb_tipo:D.tipo,materia_id:D.materia,cb_desc:desc,cb_modulos:D.mods,cb_seed:D.seed,cb_n:D.n,cb_emp:D.emp,fecha_entrega:["tarea","casa"].includes(D.tipo)&&D.fecha?D.fecha:null,criterios,
     cb_instrumento:{componente:T.nota||`${T.et} (sin nota)`,tipo:"Escala de desempeño",subarea:"Gestión contable",unidad:"Ciclos contables: tratamiento de las cuentas y sus componentes",resultado:RA_T,indicador:"Clasifica las cuentas de los estados financieros."}};
   const {error}=await sb.from("trabajos_cotidianos").insert({titulo,fecha:hoy,tipo_actividad:"rubrica_directa",habilitado:false,indicador_id:ind?ind.id:null,contenido_actividad:C});
   if(error){if(ind)await sb.from("indicadores").delete().eq("id",ind.id);throw new Error(error.message)}}
