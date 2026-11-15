@@ -1,0 +1,17 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Animaciones propias (ligeras; se apagan con «reducir movimiento») */
+@keyframes sube { from { opacity: 0; transform: translateY(12px); } }
+@keyframes pop { 0% { transform: scale(.5); opacity: 0; } 70% { transform: scale(1.15); } }
+@keyframes tiembla { 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }
+.anim-sube { animation: sube .35s ease-out both; }
+.anim-pop { animation: pop .3s ease-out both; }
+.anim-tiembla { animation: tiembla .35s ease-in-out; }
+.voltea { perspective: 800px; }
+.voltea-in { transition: transform .5s; transform-style: preserve-3d; }
+.voltea-in.girada { transform: rotateY(180deg); }
+.cara { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.cara.dorso { transform: rotateY(180deg); }
+@media (prefers-reduced-motion: reduce) { .anim-sube, .anim-pop, .anim-tiembla { animation: none; } .voltea-in { transition: none; } * { transition-duration: 0s !important; } }
+@media print { .no-print, #volver-plataforma { display: none !important; } body { background: #fff; } }
