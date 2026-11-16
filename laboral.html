@@ -339,12 +339,17 @@ function jugarMision(m,ctx){
   const leerNum=v=>{let s=String(v).replace(/[₡\s]/g,"");if(/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s))s=s.replace(/\./g,"").replace(",",".");else if(/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(s))s=s.replace(/,/g,"");else s=s.replace(",",".");return Number(s)};
   const activar=p=>{
     if(EVAL){
-      const lista=()=>{resuelto=true;$("#sig").disabled=false;$("#sig").focus();sfx("clic");fb("tip",EXAM?"📌 Respuesta registrada. Verás tu resultado y la solución al final.":"📌 Respuesta registrada. Tu profe verá el resultado cuando entregues el trabajo.","Respuesta registrada.")};
+      const lista=ok=>{resuelto=true;$("#sig").disabled=false;$("#sig").focus();
+        if(!EXAM){sfx("clic");fb("tip","📌 Respuesta registrada. Tu profe verá el resultado cuando entregues el trabajo.","Respuesta registrada.");return}
+        // Práctica de examen: una sola respuesta, pero de una vez se ve si acertó, la respuesta correcta y la explicación.
+        sfx(ok?"ok":"mal");const exp=procedimientoHTML(p);
+        document.querySelectorAll("#zona .opt").forEach(x=>{const es=p.k==="mc"?+x.dataset.o===p.r:(x.dataset.tf==="1")===p.r;if(es)x.classList.add("good")});
+        fb(ok?"ok":"bad",`${ok?"✅ ¡Correcto!":"❌ No es correcto."}<small><b>Respuesta correcta:</b> ${correctaHTML(p)}${exp?"<br>"+exp:""}</small>`,ok?"¡Correcto!":"No es correcto.");$("#fb").scrollIntoView({block:"nearest",behavior:"smooth"})};
       if(p.k==="mc"||p.k==="tf")document.querySelectorAll("#zona .opt").forEach(b=>b.onclick=()=>{if(resuelto)return;
-        const v=p.k==="mc"?+b.dataset.o:b.dataset.tf==="1",ok=p.k==="mc"?v===p.r:v===p.r;b.style.borderColor="var(--amber)";b.style.background="rgba(255,210,122,.12)";
-        document.querySelectorAll("#zona .opt").forEach(x=>x.disabled=true);registrar({v,ok});lista()});
+        const v=p.k==="mc"?+b.dataset.o:b.dataset.tf==="1",ok=p.k==="mc"?v===p.r:v===p.r;if(!EXAM){b.style.borderColor="var(--amber)";b.style.background="rgba(255,210,122,.12)";}
+        document.querySelectorAll("#zona .opt").forEach(x=>x.disabled=true);if(EXAM&&!ok)b.classList.add("bad");registrar({v,ok});lista(ok)});
       if(p.k==="num"){const inp=$("#num"),chk=$("#chk");const go=()=>{if(resuelto)return;const v=leerNum(inp.value);if(!inp.value||!isFinite(v)){fb("tip","✍️ Escribe un número.");return}
-        if(!confirm("¿Registrar esta respuesta? Solo tienes una oportunidad."))return;inp.disabled=true;chk.disabled=true;registrar({v,ok:Math.abs(v-p.ok)<=(p.tol||1)});lista()};
+        if(!confirm("¿Registrar esta respuesta? Solo tienes una oportunidad."))return;inp.disabled=true;chk.disabled=true;const okN=Math.abs(v-p.ok)<=(p.tol||1);registrar({v,ok:okN});lista(okN)};
         chk.onclick=go;inp.onkeydown=e=>{if(e.key==="Enter")go()}}
       return}
     if(p.k==="mc"||p.k==="tf"){document.querySelectorAll("#zona .opt").forEach(b=>b.onclick=()=>{if(resuelto)return;intentos++;
@@ -622,7 +627,7 @@ function hubHTML(){
     return `<h4 style="margin:14px 0 6px;color:var(--cyan)">${et} <small style="color:var(--mut);font-weight:600">· ${d}</small></h4>${G.map(fila).join("")||'<p class="sub" style="margin:0">Todavía no hay.</p>'}`};
   return `<section class="card" style="margin-bottom:18px;border-color:rgba(122,240,255,.35)"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b style="font-size:1.15rem;margin-right:auto">📚 Actividades del profe</b>${DOC?`<button class="sec" id="verRL">👥 Respuestas del juego libre</button>`:""}${DOC&&!ACT.lista.length?`<button class="pink" id="crearPaq">✨ Crear 4 prácticas y 3 trabajos cotidianos</button>`:""}${DOC&&!ACT.lista.some(t=>(t.contenido_actividad||{}).lab_tipo==="examen")?`<button class="pink" id="crearExa">🎯 Crear las 5 prácticas de examen</button>`:""}</div>
     <p class="sub" style="margin:6px 0 0;font-size:.9rem">${DOC?"Se crean cerradas: ábralas una por una con <b>▶ Abrir</b>. Los trabajos cotidianos tienen su indicador en la Rúbrica, muestran la evaluación en formato MEP antes de empezar y la nota se pone sola al entregar.":"Estas son las actividades que tu profe abrió. Las prácticas no llevan nota; los trabajos cotidianos sí."}</p>
-    ${grupo("diaria","🟢 Prácticas interactivas","sin nota: con pistas, narrador y XP")}${grupo("examen","🎯 Prácticas de examen","sin nota: una respuesta por pregunta, como en el examen; resultado y solución al final")}${grupo("evaluativa","📝 Trabajos cotidianos","con nota en la Rúbrica: una sola respuesta por paso, sin pistas")}</section>`}
+    ${grupo("diaria","🟢 Prácticas interactivas","sin nota: con pistas, narrador y XP")}${grupo("examen","🎯 Prácticas de examen","sin nota: una respuesta por pregunta; la respuesta correcta sale al responder y las respuestas están siempre a la vista")}${grupo("evaluativa","📝 Trabajos cotidianos","con nota en la Rúbrica: una sola respuesta por paso, sin pistas")}</section>`}
 function activarHub(){
   if(HAY_BD()&&!ACT.lista)cargarActs().then(()=>{if(!location.hash||location.hash==="#/"||location.hash==="#")mapa()});
   document.querySelectorAll("[data-hab]").forEach(b=>b.onclick=async()=>{const t=ACT.lista.find(x=>x.id===+b.dataset.hab);b.disabled=true;
@@ -752,7 +757,7 @@ async function paginaAct(id,jugarYa){
    ${ev&&DOC?`<div class="fb ${solPublicada(t)?"ok":"tip"}" style="margin:0 0 12px">${solPublicada(t)?"📢 La solución está <b>publicada</b>: la ven los estudiantes que ya entregaron (y todos cuando el trabajo esté cerrado).":"🔒 La solución está <b>oculta</b> para los estudiantes."}</div>`:""}
    <div class="card"><div style="display:flex;gap:14px;align-items:center"><div class="ic" style="width:64px;height:64px;border-radius:20px;display:grid;place-items:center;font-size:2rem;background:rgba(255,255,255,.06)">${M.ic}</div><div><h2 style="margin:0">${escH(t.titulo)}</h2><p class="sub" style="margin:4px 0 0">${escH(C.lab_desc||"")}</p></div></div>
     ${DOC?'<div class="fb tip">🧪 Vista del profe: puede resolverla para probarla; no se guarda nada.</div>':""}
-    <p style="margin:14px 0 6px">${ex?"<b>Práctica de examen (sin nota):</b> como en el examen, cada pregunta se responde <b>una sola vez</b>, sin pistas ni ver si está bien. Al final ves tu resultado por tipo de pregunta (concepto, caso y cálculo) y la solución con tus respuestas. La puedes repetir.":ev?"<b>Reglas:</b> cada paso se responde <b>una sola vez</b>, sin pistas ni ver si está bien. Al final toca <b>📤 Entregar</b>: la nota se calcula sola con el % de conceptos, casos y cálculos correctos (85 % o más = 3 · 60–84 % = 2 · 35–59 % = 1).":"<b>Práctica sin nota:</b> tienes pistas, varios intentos, narrador y XP. Termínala para completarla."}</p>
+    <p style="margin:14px 0 6px">${ex?"<b>Práctica de examen (sin nota):</b> como en el examen, cada pregunta se responde <b>una sola vez</b> y sin pistas. Al responder ves de una vez si acertaste, la respuesta correcta y la explicación. Con <b>📖 Ver respuestas</b> puedes repasar todas las respuestas cuando quieras. Al final ves tu resultado por tipo de pregunta (concepto, caso y cálculo). La puedes repetir.":ev?"<b>Reglas:</b> cada paso se responde <b>una sola vez</b>, sin pistas ni ver si está bien. Al final toca <b>📤 Entregar</b>: la nota se calcula sola con el % de conceptos, casos y cálculos correctos (85 % o más = 3 · 60–84 % = 2 · 35–59 % = 1).":"<b>Práctica sin nota:</b> tienes pistas, varios intentos, narrador y XP. Termínala para completarla."}</p>
     <div class="prog"><span style="width:${entregado?100:pct}%"></span></div><small class="sub">${hechos}/${P} pasos respondidos</small>
     ${met?`<div class="grid" style="margin-top:14px">${LAB_CRIT.filter(c=>met[c.auto]!=null).map(c=>`<div class="card" style="padding:12px"><b style="font-size:1.4rem;color:var(--cyan)">${Math.round(met[c.auto])} %</b><br><small>${escH(c.nombre)}</small></div>`).join("")}</div>`:""}
     ${entregado&&ev?`<p style="font-size:1.2rem;font-weight:900;margin:14px 0 0">Nota del indicador: ${mi.puntaje!=null?mi.puntaje+" / 3":"—"} ${mi.porcentaje!=null?`(${Math.round(mi.porcentaje)} %)`:""}</p>`:""}
@@ -760,9 +765,9 @@ async function paginaAct(id,jugarYa){
       return `<div class="fb ${ok/P2>=.85?"ok":ok/P2>=.6?"tip":"bad"}" style="margin-top:14px"><b style="font-size:1.25rem">🎯 Resultado: ${ok} de ${P2} correctas (${Math.round(100*ok/P2)} %)</b>${prog.intento>1?` · intento ${prog.intento}`:""}</div>
       <div class="grid" style="margin-top:10px">${LAB_CRIT.filter(c=>m3[c.auto]!=null).map(c=>`<div class="card" style="padding:12px"><b style="font-size:1.4rem;color:var(--cyan)">${Math.round(m3[c.auto])} %</b><br><small>${CAT_NOM[c.cat]}s</small></div>`).join("")}</div>`})():""}
     ${entregado&&!ev&&!ex?'<p style="font-weight:900;color:var(--mint)">🏆 Práctica completada</p>':""}
-    <div class="actions">${ex&&terminado?`<button class="ok" id="exSol">📖 Ver solución y mis respuestas</button>`:""}${entregado&&ev?"":`<button class="pink" onclick="sfx('clic');irA('#/a/${t.id}/jugar')">${entregado||(ex&&terminado)?ex?"🔁 Repetir la práctica de examen":"🔁 Repetir la práctica":terminado&&ev?"👁️ Revisar":hechos?"▶ Seguir":"▶ Empezar"}</button>`}${ev&&EST_ID&&!entregado?`<button class="ok" id="entregar">📤 Entregar trabajo</button>`:""}</div></div>`;
+    <div class="actions">${ex?`<button class="ok" id="exSol">${terminado?"📖 Ver solución y mis respuestas":"📖 Ver respuestas"}</button>`:""}${entregado&&ev?"":`<button class="pink" onclick="sfx('clic');irA('#/a/${t.id}/jugar')">${entregado||(ex&&terminado)?ex?"🔁 Repetir la práctica de examen":"🔁 Repetir la práctica":terminado&&ev?"👁️ Revisar":hechos?"▶ Seguir":"▶ Empezar"}</button>`}${ev&&EST_ID&&!entregado?`<button class="ok" id="entregar">📤 Entregar trabajo</button>`:""}</div></div>`;
   const vi=$("#verIns");if(vi)vi.onclick=()=>verInstrumento(t);
-  const xs=$("#exSol");if(xs)xs.onclick=()=>verSolucion(t,prog);
+  const xs=$("#exSol");if(xs)xs.onclick=()=>verSolucion(t,prog&&Object.keys(prog.resp||{}).length?prog:null);
   const vs=$("#verSol");if(vs)vs.onclick=()=>verSolucion(t,EST_ID?prog:null);
   const ps=$("#pubSol");if(ps)ps.onclick=()=>{const si=!solPublicada(t);if(si&&!confirm("¿Publicar la solución? La verán los estudiantes que ya entregaron este trabajo (y todos cuando lo cierre)."))return;ps.disabled=true;publicarSolucion(t,si)};
   const eb=$("#entregar");if(eb)eb.onclick=async()=>{const falt=P-hechos;
