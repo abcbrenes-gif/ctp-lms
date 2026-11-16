@@ -491,15 +491,29 @@ async function sha256hex(txt){const b=await crypto.subtle.digest("SHA-256",TE.en
    Estudiantes: este navegador, cada trabajo cifrado con su clave (AES-256).
    Profesor (dueño del aula): la nube, visible solo para él. */
 function supabaseStudentStore(estudianteId){
+  // Rendimiento: el trabajo completo de un estudiante pesa cientos de KB. Antes se volvía a
+  // descargar entero cada 30 s y antes de cada guardado. Ahora se recuerda la marca de tiempo
+  // (actualizado_en) de la última versión que este navegador leyó o guardó, y solo se descarga
+  // de nuevo si esa marca cambió, es decir, si alguien más (el profe, u otro dispositivo) lo modificó.
+  let marca=null;
+  const ms=v=>{const n=Date.parse(v);return isNaN(n)?null:n};
   return {mode:"local",
     async loadWork(){
-      const {data,error}=await sb.from("aula_conta_trabajos_estudiante").select("companies").eq("estudiante_id",estudianteId).maybeSingle();
+      const {data,error}=await sb.from("aula_conta_trabajos_estudiante").select("companies,actualizado_en").eq("estudiante_id",estudianteId).maybeSingle();
       if(error)throw error;
+      marca=data?ms(data.actualizado_en):null;
       return (data&&data.companies)||[];
     },
-    async saveWork(_u,_dk,companies){
-      const {error}=await sb.from("aula_conta_trabajos_estudiante").upsert({estudiante_id:estudianteId,companies,actualizado_en:new Date().toISOString()});
+    async cambioAjeno(){
+      const {data,error}=await sb.from("aula_conta_trabajos_estudiante").select("actualizado_en").eq("estudiante_id",estudianteId).maybeSingle();
       if(error)throw error;
+      return (data?ms(data.actualizado_en):null)!==marca;
+    },
+    async saveWork(_u,_dk,companies){
+      const ts=new Date().toISOString();
+      const {data,error}=await sb.from("aula_conta_trabajos_estudiante").upsert({estudiante_id:estudianteId,companies,actualizado_en:ts}).select("actualizado_en").maybeSingle();
+      if(error)throw error;
+      marca=ms((data&&data.actualizado_en)||ts);
     }
   };
 }
@@ -655,7 +669,7 @@ const tareaBloqueada=c=>!isTeacher()&&!!(c&&unaEntrega(c)&&c.entregado);
 
 /* Guardado agrupado: una escritura a la vez */
 const pending=new Set();let saveTimer=null,flushing=false;
-function touch(c){if(APP.readOnly||!c)return;if(ventanaBloqueada(c)){toast("⏰ Fuera del horario de la práctica: no se puede guardar");return}pending.add(c.id);setSave("Guardando…");clearTimeout(saveTimer);saveTimer=setTimeout(flush,600)}
+function touch(c){if(APP.readOnly||!c)return;if(ventanaBloqueada(c)){toast("⏰ Fuera del horario de la práctica: no se puede guardar");return}pending.add(c.id);setSave("Guardando…");clearTimeout(saveTimer);saveTimer=setTimeout(flush,1500)}
 async function flush(){
   if(!APP.me||APP.demo||APP.readOnly||!pending.size)return;
   if(flushing){clearTimeout(saveTimer);saveTimer=setTimeout(flush,400);return}
@@ -2260,6 +2274,9 @@ function evAplicarReset(c,p){
 async function evRefrescarCfg(){
   try{
     if(!APP.store||!APP.store.loadWork||isTeacher())return;
+    // Si nadie más tocó el trabajo desde la última lectura o guardado, no hay nada que refrescar
+    // (consulta mínima en lugar de descargar todo el trabajo). Ante la duda, se descarga como antes.
+    if(APP.store.cambioAjeno){let cambio=true;try{cambio=await APP.store.cambioAjeno()}catch(e){}if(!cambio)return}
     const fresh=await APP.store.loadWork();
     // Empresas que el profe asignó mientras el estudiante tenía la página abierta:
     // se agregan para que el guardado no las borre.
