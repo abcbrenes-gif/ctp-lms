@@ -11,7 +11,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 //    «modo examen» (js/volver-plataforma.js) queda apagado.
 //  · true: ven sus exámenes publicados y, mientras tengan uno abierto, la plataforma solo les
 //    muestra el examen.
-const EXAMENES_ABIERTOS = false;
+const EXAMENES_ABIERTOS = true;
 
 const INSTITUCION = {
   nombre: "CTP Mercedes Norte",
