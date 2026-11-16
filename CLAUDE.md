@@ -24,6 +24,3 @@ Estas reglas las dio el profesor (Contabilidad, CTP Mercedes Norte). Seguirlas s
 ## Secciones
 - 10-1 = Gestión Contable (materia_id 1). 11-3 = Gestión Tributaria (materia_id 2).
 - El curso tiene dos períodos (Decreto 45509-MEP): nota anual = 50 % I Período + 50 % II Período.
-
-## Caché de archivos (técnico)
-- Los archivos de `js/` y `css/` que se cargan con `?v=...` quedan guardados un año en el navegador (ver `vercel.json`). Al cambiar uno, subir su `?v=` en todos los HTML que lo cargan; si no, los estudiantes siguen viendo la versión vieja.

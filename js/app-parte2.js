@@ -1730,16 +1730,13 @@ async function renderMateriasEstudiante(el, s) {
     return;
   }
 
-  // Rendimiento: los datos de todas las materias se piden a la vez (antes era una consulta
-  // tras otra, materia por materia) y de los trabajos solo se traen las columnas que se usan
-  // aquí (el contenido completo de cada actividad pesa mucho y no hace falta en esta pantalla).
-  const datosDeMateria = async (m) => {
-    const cuadrosP = sb.from("materia_cuadros").select("*").eq("materia_id", m.id).order("orden").order("creado_en").then(r => r);
+  let html = accesoAulaConta;
+  const panelDataPorMateria = {};
+  for (const m of materiasAsignadas) {
+    html += `<h3 style="margin-top:1.4rem;">${m.nombre}</h3>`;
+
     const { data: unidades } = await sb.from("programa").select("id").eq("materia_id", m.id);
     const programaIds = (unidades || []).map(u => u.id);
-    const cursosP = programaIds.length
-      ? sb.from("cursos_interactivos").select("*").in("programa_id", programaIds).eq("habilitado", true).then(r => r)
-      : Promise.resolve({ data: [] });
     let apartados = [];
     if (programaIds.length > 0) {
       const { data: resultados } = await sb.from("resultados_aprendizaje").select("id").in("programa_id", programaIds);
@@ -1749,25 +1746,8 @@ async function renderMateriasEstudiante(el, s) {
         apartados = pubs || [];
       }
     }
-    const apartadoIds = apartados.map(a => a.id);
-    let trabajos = [];
-    if (apartadoIds.length > 0) {
-      let r = await sb.from("trabajos_cotidianos").select("id, titulo, fecha, indicador_id, publicacion_id, indicadores_criterio:contenido_actividad->indicadores_criterio, publicaciones(titulo)").in("publicacion_id", apartadoIds).order("fecha");
-      if (r.error) r = await sb.from("trabajos_cotidianos").select("*, publicaciones(titulo)").in("publicacion_id", apartadoIds).order("fecha");
-      trabajos = (r.data || []).map(t => t.contenido_actividad ? t : { ...t, contenido_actividad: { indicadores_criterio: t.indicadores_criterio || [] } });
-    }
-    const trabajoIds = trabajos.map(t => t.id);
-    const [{ data: cuadrosMateria }, { data: cursos }, { data: misEstados }] = await Promise.all([cuadrosP, cursosP,
-      trabajoIds.length ? sb.from("trabajos_cotidianos_estudiante").select("trabajo_id, completado").eq("estudiante_id", s.id).in("trabajo_id", trabajoIds) : Promise.resolve({ data: [] })]);
-    return { apartados, cuadrosMateria, cursos, trabajos, misEstados };
-  };
-  const datosMaterias = await Promise.all(materiasAsignadas.map(datosDeMateria));
 
-  let html = accesoAulaConta;
-  const panelDataPorMateria = {};
-  for (const [iMat, m] of materiasAsignadas.entries()) {
-    html += `<h3 style="margin-top:1.4rem;">${m.nombre}</h3>`;
-    const { apartados, cuadrosMateria, cursos, trabajos, misEstados } = datosMaterias[iMat];
+    const { data: cuadrosMateria } = await sb.from("materia_cuadros").select("*").eq("materia_id", m.id).order("orden").order("creado_en");
     const listaCuadrosMateria = cuadrosMateria || [];
     const temasPorCuadroEst = {};
     apartados.forEach(a => {
@@ -1807,6 +1787,9 @@ async function renderMateriasEstudiante(el, s) {
       <div class="roster" id="cuadro-panel-${m.id}" style="margin-bottom:1rem;"></div>`;
     }
 
+    const { data: cursos } = programaIds.length
+      ? await sb.from("cursos_interactivos").select("*").in("programa_id", programaIds).eq("habilitado", true)
+      : { data: [] };
     html += `
       <p style="font-size:0.8rem; color:var(--text-muted);">Cursos interactivos</p>
       <div class="roster" style="margin-bottom:1rem;">
@@ -1814,6 +1797,16 @@ async function renderMateriasEstudiante(el, s) {
       </div>`;
 
     // Trabajos cotidianos pendientes, de todos los temas de esta materia.
+    const apartadoIds = apartados.map(a => a.id);
+    let trabajos = [];
+    if (apartadoIds.length > 0) {
+      const { data: tc } = await sb.from("trabajos_cotidianos").select("*, publicaciones(titulo)").in("publicacion_id", apartadoIds).order("fecha");
+      trabajos = tc || [];
+    }
+    const trabajoIds = trabajos.map(t => t.id);
+    const { data: misEstados } = trabajoIds.length
+      ? await sb.from("trabajos_cotidianos_estudiante").select("*").eq("estudiante_id", s.id).in("trabajo_id", trabajoIds)
+      : { data: [] };
     const porTrabajo = {};
     (misEstados || []).forEach(e => { porTrabajo[e.trabajo_id] = e.completado; });
 
