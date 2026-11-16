@@ -790,7 +790,7 @@ async function resultados(id){$("#app").innerHTML='<p class="muted">Cargando res
     if(!confirm(`Se pasan a «Pruebas» los puntos de ${listos.length} estudiante(s).${faltan?`\n${faltan} tienen ítems sin calificar y no se pasan todavía.`:""}`))return;
     rt.disabled=true;let ok=0;for(const f of listos){const r=await registrarNota(ex,f.e.id,f.c.total);if(!r.error)ok++}toast(`📥 ${ok} notas en «Pruebas»`);resultados(id)}}
 async function registrarNota(ex,estId,pts){if(!ex.indicador_id)return {error:"sin registro"};
-  return upsertSinConflicto("calificaciones_indicador",{indicador_id:ex.indicador_id,estudiante_id:estId},{puntaje_obtenido:Math.round(pts*100)/100})}
+  return upsertSinConflicto("calificaciones_indicador",{indicador_id:ex.indicador_id,estudiante_id:estId},{puntaje_obtenido:Math.ceil(Math.round(pts*100)/100)})} // «Pruebas» solo acepta enteros: se redondea hacia arriba (22,8 → 23)
 // Desglose por parte y conceptos que necesita reforzar (ítems sin el puntaje completo).
 function desgloseHTML(ex,resp,dp){const man=(dp&&dp.manual)||{},fal={};
   const filas=ex.partes.map((p,pi)=>{let o=0,t=0;p.items.forEach(it=>{const a=autoItem(p,it,resp[it.id]),m=man[it.id],v=m!==undefined&&m!==null&&m!==""?+m:a,pts=+it.pts||0;t+=pts;o+=v||0;
