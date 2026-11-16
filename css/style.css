@@ -1225,3 +1225,22 @@ a.est-card { text-decoration: none; }
 :root[data-theme="light"] .mc-res-g b { color: #111827; }
 .mc-pie { margin: .8rem 0 0; font-size: .8rem; color: var(--text-muted); }
 @media (max-width: 520px) { .mc-ap small { display: none; } .mc-ev-n { font-size: 1.05rem; } }
+
+/* Boletas para imprimir: una hoja por estudiante (js/boleta-notas.js → bnImprimir) */
+#bn-print{display:none}
+.bn-hoja-tit{display:flex;flex-direction:column;align-items:center;gap:2px;margin-bottom:14px;text-align:center}
+.bn-hoja-tit b{font-size:1.15rem}.bn-hoja-tit span{font-size:.9rem;color:#444}
+.bn-firmas{display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-top:64px;text-align:center;font-size:.85rem}
+.bn-firmas div{border-top:1px solid #333;padding-top:6px}
+.bn-hoja-pie{text-align:right;font-size:.72rem;color:#666;margin-top:18px}
+@media print{
+  @page{size:letter;margin:16mm}
+  body.bn-imprimiendo>*:not(#bn-print){display:none!important}
+  body.bn-imprimiendo{background:#fff!important;color:#111!important}
+  body.bn-imprimiendo #bn-print{display:block}
+  #bn-print .bn-hoja{break-after:page;page-break-after:always;break-inside:avoid}
+  #bn-print .bn-hoja:last-child{break-after:auto;page-break-after:auto}
+  #bn-print .bn-boleta{max-width:none;margin:0 auto}
+  #bn-print .bn-cajas{grid-template-columns:repeat(3,minmax(0,1fr))}
+  #bn-print *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}

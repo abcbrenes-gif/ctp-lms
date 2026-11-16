@@ -67,6 +67,28 @@ function bnAnimar(root) {
   setTimeout(() => { const s = root.querySelector(".bn-sello"); if (s) { s.style.visibility = "visible"; s.classList.add("cae"); } }, reduce ? 0 : 1000);
 }
 
+// ── Imprimir o guardar como PDF: una hoja por estudiante (no emite nada) ──
+const BN_CUENTA_PRUEBA = "0-0000-0001"; // «Docente Prueba» no lleva boleta
+function bnImprimir(boletas) {
+  if (!boletas.length) return;
+  let cont = document.getElementById("bn-print"); if (cont) cont.remove();
+  cont = document.createElement("div"); cont.id = "bn-print";
+  const hoy = new Date().toLocaleDateString("es-CR", { dateStyle: "long" });
+  cont.innerHTML = boletas.map(h => `<section class="bn-hoja"><div class="bn-hoja-tit"><b>Colegio Técnico Profesional Mercedes Norte</b><span>Boleta de notas · Especialidad de Contabilidad</span></div>${h}
+    <div class="bn-firmas"><div>Firma del docente</div><div>Firma de la persona encargada</div></div><p class="bn-hoja-pie">Impresa el ${hoy}</p></section>`).join("");
+  // Versión fija: sin animaciones.
+  cont.querySelectorAll("[data-c]").forEach(el => { if (el.dataset.c !== "") el.textContent = npFmt(Number(el.dataset.c)); });
+  cont.querySelectorAll("[data-w]").forEach(i => { i.style.transition = "none"; i.style.width = i.dataset.w + "%"; });
+  cont.querySelectorAll(".bn-sello").forEach(x => { x.style.visibility = "visible"; });
+  document.body.appendChild(cont);
+  const html = document.documentElement, tema = html.getAttribute("data-theme");
+  html.setAttribute("data-theme", "light"); document.body.classList.add("bn-imprimiendo");
+  let listo = false;
+  const fin = () => { if (listo) return; listo = true; document.body.classList.remove("bn-imprimiendo"); if (tema == null) html.removeAttribute("data-theme"); else html.setAttribute("data-theme", tema); cont.remove(); };
+  window.addEventListener("afterprint", fin, { once: true });
+  setTimeout(() => { window.print(); setTimeout(() => { if (!matchMedia("print").matches) fin(); }, 60000); }, 150);
+}
+
 // ── Vista del profe: #/boleta-notas ──
 async function renderBoletaNotas() {
   if (session.role !== "docente") { location.hash = "#/"; return; }
@@ -101,7 +123,7 @@ async function renderBoletaNotas() {
     const puede = lista.length && !sinP1 && !prov;
     wrap.innerHTML = `<h1>🎓 Boleta de notas</h1>
       <p style="color:var(--text-muted);margin-top:-0.6em">Revise la boleta de cada estudiante y, cuando esté lista, emítala. <b>Hasta que la emita, los estudiantes no ven nada.</b> Las notas salen de <a href="#/notas-periodo">📄 Notas por período</a>.</p>
-      <div class="np-barra"><label><b>Sección:</b> <select id="bn-mat">${(materias || []).map(m => `<option value="${m.id}" ${m.id === sel ? "selected" : ""}>${npEsc(m.seccion || "")} · ${npEsc(String(m.nombre).trim())}</option>`).join("")}</select></label></div>
+      <div class="np-barra"><label><b>Sección:</b> <select id="bn-mat">${(materias || []).map(m => `<option value="${m.id}" ${m.id === sel ? "selected" : ""}>${npEsc(m.seccion || "")} · ${npEsc(String(m.nombre).trim())}</option>`).join("")}</select></label> <button class="btn secondary small" id="bn-imprimir">🖨️ Imprimir / PDF · una hoja por estudiante</button></div>
       <div class="bn-estado ${emitida ? "ok" : ""}">
         <div><b>${emitida ? "✅ Boleta emitida" : "🔒 Boleta sin emitir: solo usted la ve"}</b>
           <small>${emitida ? `Emitida el ${new Date(C.boleta.fecha).toLocaleString("es-CR", { dateStyle: "long", timeStyle: "short" }).replace(/\.$/, "")}. Cada estudiante la abre en su perfil.` :
@@ -124,6 +146,7 @@ async function renderBoletaNotas() {
       <p id="bn-msg" style="color:var(--text-muted)"></p>`;
     const msg = t => { const m = document.getElementById("bn-msg"); if (m) m.textContent = t; };
     const guardar = async () => { reg = await npGuardar(sel, reg, C); C = reg.C; };
+    document.getElementById("bn-imprimir").onclick = () => bnImprimir(filas.filter(x => x.e.id !== BN_CUENTA_PRUEBA).map(({ e, f }) => bnBoletaHTML({ est: e, materia, f, comps: comps[e.id], fijada: f.p2def != null })));
     document.getElementById("bn-mat").onchange = ev => { renderBoletaNotas.mat = ev.target.value; renderBoletaNotas(); };
     wrap.querySelectorAll("[data-bn-ver]").forEach(b => b.onclick = () => { abierto = abierto === b.dataset.bnVer ? null : b.dataset.bnVer; pintar(); const p = wrap.querySelector(".bn-prev"); if (p) bnAnimar(p); });
     const em = document.getElementById("bn-emitir"); if (em) em.onclick = () => { confirmando = true; pintar(); };
