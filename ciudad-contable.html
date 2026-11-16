@@ -298,7 +298,7 @@ select,input{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--lin
 <div id="iris" class="iris" aria-hidden="true"></div>
 <dialog id="dlg"><div class="dlg" id="dlgBody"></div></dialog>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=20261105h"></script>
+<script src="js/config.js?v=20261116a"></script>
 <script src="js/actividades.js?v=20261114a"></script>
 <script src="js/ciudad-catalogos.js?v=20261113a"></script>
 
@@ -1407,6 +1407,6 @@ document.body.classList.toggle("noche",NOCHE);pintar();requestAnimationFrame(tic
   let ang=0;const paseo=()=>{if(MODO!=="intro")return;ang+=.0025;const cx=VB[0]+VB[2]/2+Math.cos(ang)*VB[2]*.18,cy=VB[1]+VB[3]*.55+Math.sin(ang)*VB[3]*.12;OBJ=centrarEn(cx,cy,VB[2]/1.7);requestAnimationFrame(paseo)};paseo();
   $("#jugar").onclick=()=>{try{sessionStorage.setItem("ciudad_intro","1")}catch(e){}sonar("entrar");ini.classList.add("sale");setTimeout(()=>{ini.hidden=true;MODO="sigue";OBJ=centrarEn(...proj(AV.x,AV.y,40),VB[2]/2.3)},500)};$("#jugar").focus()})();
 </script>
-<script src="js/volver-plataforma.js?v=20261112b"></script>
+<script src="js/volver-plataforma.js?v=20261116a"></script>
 </body>
 </html>
