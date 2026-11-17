@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Auditoría · CTP Mercedes Norte</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="img/logo-ctp-mercedes-norte.png">
+<style>
+:root{--bg:#F5F7FB;--sf:#fff;--ink:#0F172A;--mut:#5B6B80;--line:#DCE3EE;--pri:#1F3864;--soft:#EEF3FB;--ok:#DDF1DC;--wa:#FFF2D6;--acc:#1d63e8}
+@media (prefers-color-scheme:dark){:root{--bg:#0B1020;--sf:#121A30;--ink:#E8EDFB;--mut:#9AA9CC;--line:#26324F;--pri:#9DB7F5;--soft:#17213B;--ok:#173A28;--wa:#3A2E10}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Inter,"Segoe UI",system-ui,sans-serif;padding-bottom:90px}
+header{background:#14213d;color:#fff;padding:14px 20px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}header h1{margin:0;font-size:1.3rem}header p{margin:2px 0 0;opacity:.85;font-size:.88rem}
+.pill{background:#ffd43b;color:#14213d;border-radius:999px;padding:2px 10px;font-size:.72rem;font-weight:800;vertical-align:middle}
+nav.sec{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--line);display:flex;gap:4px;overflow-x:auto;padding:8px 12px}
+nav.sec a{flex:none;text-decoration:none;color:var(--ink);font-weight:600;font-size:.9rem;padding:8px 14px;border-radius:999px;border:1px solid transparent}nav.sec a[aria-current=page]{background:var(--acc);color:#fff}
+main{max-width:1000px;margin:0 auto;padding:16px}.card{background:var(--sf);border:1px solid var(--line);border-radius:16px;padding:18px;margin:0 0 16px}
+h2{margin:0 0 6px;font-size:1.2rem;color:var(--pri)}h3{margin:14px 0 6px;font-size:.95rem}
+.muted{color:var(--mut);font-size:.86rem}.aviso{background:var(--wa);border-radius:10px;padding:8px 12px;font-size:.88rem;margin:8px 0}
+.btn{display:inline-block;background:var(--acc);color:#fff;border:0;border-radius:10px;padding:9px 14px;font:600 .9rem inherit;text-decoration:none;cursor:pointer;margin:4px 6px 4px 0}.btn.sec{background:transparent;color:var(--ink);border:1px solid var(--line)}.btn.sm{padding:6px 10px;font-size:.82rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.tile{display:block;text-decoration:none;color:var(--ink);background:var(--sf);border:1px solid var(--line);border-radius:16px;padding:16px}.tile b{display:block;font-size:1.05rem;margin:6px 0 2px}.tile span{font-size:2rem}.tile p{margin:0;color:var(--mut);font-size:.86rem}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}.tabs button{border:1px solid var(--line);background:var(--sf);color:var(--ink);border-radius:999px;padding:7px 14px;font:600 .88rem inherit;cursor:pointer}.tabs button[aria-pressed=true]{background:var(--acc);color:#fff;border-color:var(--acc)}
+details.lec{border:1px solid var(--line);border-radius:12px;margin:8px 0;background:var(--sf)}details.lec>summary{cursor:pointer;padding:10px 14px;list-style:none;display:flex;gap:10px;align-items:center;flex-wrap:wrap}details.lec>summary::-webkit-details-marker{display:none}
+details.lec[open]>summary{border-bottom:1px solid var(--line)}.lbody{padding:4px 16px 14px}
+.num{font-weight:800;color:var(--pri);min-width:2.6em}.tit{flex:1;font-weight:600;min-width:12em}.chip{font-size:.72rem;font-weight:700;border-radius:999px;padding:2px 9px;white-space:nowrap;background:var(--soft)}
+.ind{background:var(--soft);border-left:4px solid var(--acc);border-radius:8px;padding:8px 12px;margin:8px 0}
+.tiempo{display:flex;height:22px;border-radius:8px;overflow:hidden;font-size:.7rem;font-weight:700;color:#fff;margin:8px 0}.tiempo span{display:flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden}
+ul{margin:4px 0;padding-left:20px}li{margin:3px 0}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:6px 0}th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}thead th{background:#1F3864;color:#fff}
+.q{margin:4px 0}.q summary{cursor:pointer}.q div{color:var(--mut);padding:2px 0 2px 16px}
+.marco{width:100%;height:calc(100vh - 150px);min-height:520px;border:1px solid var(--line);border-radius:14px;background:var(--sf)}
+.lista a{display:flex;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:12px;margin:6px 0;text-decoration:none;color:var(--ink);background:var(--sf)}
+/* Modo exposición */
+#expo{position:fixed;inset:0;z-index:10000;background:#0d1b3a;color:#fff;display:none;flex-direction:column}#expo.on{display:flex}
+#expo .top{display:flex;align-items:center;gap:10px;padding:10px 16px;font-size:.85rem;opacity:.85}#expo .top b{flex:1}
+#expo .top button,#expo .nav button{background:rgba(255,255,255,.12);color:#fff;border:0;border-radius:10px;padding:8px 14px;font:600 .9rem inherit;cursor:pointer}
+#expo .slide{flex:1;display:flex;flex-direction:column;justify-content:center;padding:3vh 7vw;overflow:auto}
+#expo h2{color:#ffd43b;font-size:clamp(1.4rem,3.6vw,2.6rem);margin:0 0 .6em;line-height:1.2}#expo .k{font-size:clamp(.8rem,1.4vw,1rem);letter-spacing:.12em;text-transform:uppercase;opacity:.7;margin-bottom:.6em}
+#expo .t{font-size:clamp(1.05rem,2.4vw,1.75rem);line-height:1.45}#expo .t b{color:#9fd0ff}#expo ul{padding-left:1.2em}#expo li{margin:.4em 0}
+#expo .resp{color:#b9f6ca;display:none;margin-top:.3em}#expo .resp.ver{display:block}#expo .preg{cursor:pointer;margin:.6em 0}
+#expo .nav{display:flex;gap:10px;justify-content:center;align-items:center;padding:10px 16px 16px}#expo .bar{height:4px;background:rgba(255,255,255,.15)}#expo .bar i{display:block;height:100%;background:#ffd43b}
+/* Hoja de trabajo */
+.hoja{background:#fff;color:#111;border:1px solid var(--line);border-radius:12px;padding:24px;max-width:800px;margin:0 auto}.hoja h2{color:#1F3864}.hoja .datos{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin:10px 0}.hoja .datos div{border-bottom:1px solid #333;padding:14px 0 2px;font-size:.8rem;color:#555}
+.hoja .lineas div{border-bottom:1px solid #bbb;height:30px}.hoja table th{background:#1F3864;color:#fff}.hoja td,.hoja th{border-color:#999}
+@media print{header,nav.sec,.noprint,#volver-plataforma{display:none!important}body{background:#fff;padding:0}main{padding:0;max-width:none}.hoja{border:0;padding:0}.card{border:0}}
+</style>
+</head>
+<body>
+<header><img src="img/logo-ctp-mercedes-norte.png" alt="Escudo del CTP Mercedes Norte" width="34" height="48">
+<div><h1>🔎 Auditoría <span class="pill">2027 · solo profe</span></h1><p>Todo en un solo lugar: plan del MEP, clases, exposición, trabajos, caso y laboratorio</p></div></header>
+<nav class="sec" id="nav"></nav>
+<main id="app"><p class="muted">Cargando…</p></main>
+<div id="expo" role="dialog" aria-label="Modo exposición"><div class="bar"><i id="xbar"></i></div><div class="top"><b id="xtit"></b><span id="xnum"></span><button id="xfs">⛶ Pantalla completa</button><button id="xcer">✕ Cerrar</button></div><div class="slide" id="xsl"></div><div class="nav"><button id="xant">← Anterior</button><button id="xsig">Siguiente →</button></div></div>
+<script src="js/auditoria-unidades-datos.js?v=20261117b"></script>
+<script>
+(function(){
+var s=null;try{s=JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")||"null")}catch(e){}
+var app=document.getElementById("app"),nav=document.getElementById("nav");
+if(!(s&&s.role==="docente")){app.innerHTML='<section class="card"><h2>Solo para el profe</h2><p class="muted">Esta app se abre desde la plataforma, en <b>📅 2027</b>, con la sesión del docente.</p><a class="btn" href="index.html">Ir a la plataforma</a></section>';return}
+var U=window.AUD_UNIDADES||[],L=[];U.forEach(function(u){u.lecciones.forEach(function(l){l.u=u.n;L.push(l)})});
+var esc=function(t){return String(t==null?"":t).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
+var sinTag=function(t){var d=document.createElement("div");d.innerHTML=t;return d.textContent};
+var lec=function(id){return L.find(function(l){return l.id===id})};
+var SECC=[["inicio","🏠 Inicio"],["clases","📘 Clases"],["exponer","🎤 Exponer"],["trabajos","✍️ Trabajos"],["caso","🏛️ Caso Valle Sereno"],["lab","🧭 Brújula y Laboratorio"]];
+function reparto(m){var c=m<=30?[8,7,12,3]:m<=35?[10,8,13,4]:m<=40?[12,8,15,5]:[12,10,18,5];var t=c.reduce(function(a,b){return a+b},0);c[2]+=m-t;return c}
+function horas(m){return String(Math.round(m/60*10)/10).replace(".",",")}
+
+// ── Inicio ──
+function inicio(){
+  var tot=L.reduce(function(a,l){return a+l.min},0);
+  app.innerHTML='<section class="card"><h2>¿Qué quiere hacer?</h2><p class="muted">'+U.length+' unidades · '+L.length+' lecciones de 30 a 45 minutos · '+horas(tot)+' horas reloj. Todo sale del programa de estudio del MEP.</p></section><div class="grid">'+
+  [["clases","📘","Preparar la clase","Plan de cada lección: indicador, tiempos, explicación, práctica, cierre y escala de desempeño."],
+   ["exponer","🎤","Exponer en el proyector","Diapositivas de cada lección, a pantalla completa, con las respuestas del cierre ocultas."],
+   ["trabajos","✍️","Trabajos de los estudiantes","Hoja de trabajo de cada lección, lista para imprimir o proyectar, con su escala de desempeño."],
+   ["caso","🏛️","Caso Valle Sereno","Auditoría completa de una municipalidad ficticia: hallazgos, matriz de riesgos y papeles de trabajo."],
+   ["lab","🧭","Brújula y Laboratorio","La Brújula (metodología paso a paso) y el Laboratorio AuditCity para practicar con datos."]]
+  .map(function(t){return'<a class="tile" href="#'+t[0]+'"><span>'+t[1]+'</span><b>'+t[2]+'</b><p>'+t[3]+'</p></a>'}).join("")+'</div>';
+}
+
+// ── Clases (plan de cada lección) ──
+function leccionHTML(l){
+  var r=reparto(l.min);
+  return '<details class="lec" id="l'+l.id+'"><summary><span class="num">'+esc(l.id)+'</span><span class="tit">'+esc(l.tit)+'</span><span class="chip">⏱ '+l.min+' min</span></summary><div class="lbody">'+
+   '<p><a class="btn sm" href="#exponer/'+l.id+'">🎤 Exponer</a><a class="btn sm sec" href="#trabajos/'+l.id+'">✍️ Hoja de trabajo</a></p>'+
+   '<p class="muted"><b>Contenidos del programa:</b> '+esc(l.contenidos)+'</p><div class="ind"><b>Indicador:</b> '+esc(l.ind)+'</div>'+
+   '<div class="tiempo"><span style="flex:'+r[0]+';background:#1d63e8">Explicación '+r[0]+'′</span><span style="flex:'+r[1]+';background:#0e7490">Formación '+r[1]+'′</span><span style="flex:'+r[2]+';background:#7c3aed">Trabajo '+r[2]+'′</span><span style="flex:'+r[3]+';background:#b45309">Cierre '+r[3]+'′</span></div>'+
+   '<h3>1. Explicación</h3><ul>'+l.explica.map(function(x){return"<li>"+x+"</li>"}).join("")+'</ul>'+
+   '<h3>2. Formación (práctica guiada)</h3><p>'+esc(l.formacion)+'</p>'+
+   '<h3>3. Trabajo del estudiante · '+esc(l.trabajo.tipo)+'</h3><p>'+esc(l.trabajo.txt)+'</p>'+
+   '<h3>4. Cierre</h3>'+l.cierre.map(function(q){return'<details class="q"><summary>'+esc(q[0])+'</summary><div>'+esc(q[1])+'</div></details>'}).join("")+
+   escalaHTML(l)+'</div></details>'}
+function escalaHTML(l){return '<h3>Instrumento (escala de desempeño)</h3><div style="overflow-x:auto"><table><thead><tr><th>Indicador</th><th>Inicial (1)</th><th>Intermedio (2)</th><th>Avanzado (3)</th></tr></thead><tbody><tr><td>'+esc(l.ind)+'</td><td>'+esc(l.niveles[0])+'</td><td>'+esc(l.niveles[1])+'</td><td>'+esc(l.niveles[2])+'</td></tr></tbody></table></div><p class="muted">0 = sin evidencia.</p>'}
+function tabsU(sel,ruta){return '<div class="tabs noprint">'+U.map(function(x){return'<button data-u="'+x.n+'" aria-pressed="'+(x.n===sel)+'">Unidad '+x.n+'</button>'}).join("")+'</div>'}
+function bindTabs(ruta){app.querySelectorAll("[data-u]").forEach(function(b){b.onclick=function(){location.hash=ruta+"/u"+b.dataset.u}})}
+function clases(arg){
+  var abrir=arg&&!/^u/.test(arg)?arg:null,sel=abrir?lec(abrir)&&lec(abrir).u:+(String(arg||"u1").replace("u",""))||1;
+  var u=U.find(function(x){return x.n===sel})||U[0],tot=u.lecciones.reduce(function(a,l){return a+l.min},0);
+  app.innerHTML=tabsU(u.n)+'<section class="card"><h2>Unidad '+u.n+'</h2><p><b>Resultado de aprendizaje:</b> '+esc(u.ra)+'</p>'+
+   (u.raPendiente?'<p class="aviso">Texto provisional: el resultado de aprendizaje exacto no se ve en las capturas del plan.</p>':'')+
+   '<p class="muted">'+(u.horas?'Tiempo del programa: '+u.horas+' horas · ':'')+u.lecciones.length+' lecciones · '+horas(tot)+' horas reloj</p><p class="muted"><b>Evaluación según el plan:</b> '+esc(u.evaluacion)+'</p>'+
+   (u.indMEP.length?'<details class="q"><summary>Indicadores del plan del MEP</summary><div><ul>'+u.indMEP.map(function(x){return"<li>"+esc(x)+"</li>"}).join("")+'</ul></div></details>':'')+
+   '<button class="btn sec" id="abrir">Abrir todas</button><button class="btn sec" onclick="print()">🖨️ Imprimir unidad</button></section>'+u.lecciones.map(leccionHTML).join("");
+  bindTabs("#clases");
+  document.getElementById("abrir").onclick=function(){var d=app.querySelectorAll("details.lec"),a=[].some.call(d,function(x){return!x.open});d.forEach(function(x){x.open=a});this.textContent=a?"Cerrar todas":"Abrir todas"};
+  if(abrir){var d=document.getElementById("l"+abrir);if(d){d.open=true;d.scrollIntoView()}}
+}
+
+// ── Listas para exponer y trabajos ──
+function listaLecciones(ruta,arg,txt){
+  var sel=+(String(arg||"u1").replace("u",""))||1,u=U.find(function(x){return x.n===sel})||U[0];
+  app.innerHTML=tabsU(u.n)+'<section class="card"><h2>Unidad '+u.n+'</h2><p class="muted">'+txt+'</p><div class="lista">'+
+   u.lecciones.map(function(l){return'<a href="#'+ruta+'/'+l.id+'"><span class="num">'+l.id+'</span><span class="tit">'+esc(l.tit)+'</span><span class="chip">'+esc(ruta==="trabajos"?l.trabajo.tipo:"⏱ "+l.min+" min")+'</span></a>'}).join("")+'</div></section>';
+  bindTabs("#"+ruta);
+}
+
+// ── Exponer (diapositivas) ──
+var X={sl:[],i:0,l:null};
+function diapositivas(l){
+  var u=U.find(function(x){return x.n===l.u}),out=[];
+  out.push('<div class="k">Unidad '+u.n+' · Lección '+l.id+' · '+l.min+' minutos</div><h2>'+esc(l.tit)+'</h2><div class="t"><b>Hoy vamos a:</b> '+esc(l.ind)+'</div>');
+  for(var i=0;i<l.explica.length;i+=2){out.push('<div class="k">Explicación</div><div class="t"><ul>'+l.explica.slice(i,i+2).map(function(x){return"<li>"+x+"</li>"}).join("")+'</ul></div>')}
+  out.push('<div class="k">Practiquemos juntos</div><h2>Formación</h2><div class="t">'+esc(l.formacion)+'</div>');
+  out.push('<div class="k">Trabajo del estudiante</div><h2>'+esc(l.trabajo.tipo)+'</h2><div class="t">'+esc(l.trabajo.txt)+'</div>');
+  out.push('<div class="k">Cierre · toque cada pregunta para ver la respuesta</div><h2>¿Qué aprendimos?</h2><div class="t">'+l.cierre.map(function(q){return'<div class="preg">❓ '+esc(q[0])+'<div class="resp">✔ '+esc(q[1])+'</div></div>'}).join("")+'</div>');
+  out.push('<div class="k">Así se evalúa</div><h2>Escala de desempeño</h2><div class="t"><ul><li><b>Avanzado (3):</b> '+esc(l.niveles[2])+'</li><li><b>Intermedio (2):</b> '+esc(l.niveles[1])+'</li><li><b>Inicial (1):</b> '+esc(l.niveles[0])+'</li></ul></div>');
+  return out}
+function expoPintar(){var e=document.getElementById("xsl");e.innerHTML=X.sl[X.i];e.scrollTop=0;
+  e.querySelectorAll(".preg").forEach(function(p){p.onclick=function(){p.querySelector(".resp").classList.toggle("ver")}});
+  document.getElementById("xnum").textContent=(X.i+1)+" / "+X.sl.length;document.getElementById("xbar").style.width=((X.i+1)/X.sl.length*100)+"%";
+  document.getElementById("xant").disabled=X.i===0;document.getElementById("xsig").textContent=X.i===X.sl.length-1?"Terminar ✓":"Siguiente →"}
+function expoAbrir(l){X={sl:diapositivas(l),i:0,l:l};document.getElementById("xtit").textContent=l.id+" · "+l.tit;document.getElementById("expo").classList.add("on");expoPintar()}
+function expoCerrar(){document.getElementById("expo").classList.remove("on");if(document.fullscreenElement)document.exitFullscreen().catch(function(){});if(X.l)location.hash="#exponer/u"+X.l.u}
+function mover(d){var n=X.i+d;if(n>=X.sl.length){expoCerrar();return}if(n>=0){X.i=n;expoPintar()}}
+document.getElementById("xant").onclick=function(){mover(-1)};document.getElementById("xsig").onclick=function(){mover(1)};
+document.getElementById("xcer").onclick=expoCerrar;
+document.getElementById("xfs").onclick=function(){var e=document.getElementById("expo");if(document.fullscreenElement)document.exitFullscreen();else if(e.requestFullscreen)e.requestFullscreen().catch(function(){})};
+document.addEventListener("keydown",function(ev){if(!document.getElementById("expo").classList.contains("on"))return;if(["ArrowRight","PageDown"," "].indexOf(ev.key)>-1){ev.preventDefault();mover(1)}else if(["ArrowLeft","PageUp"].indexOf(ev.key)>-1){ev.preventDefault();mover(-1)}else if(ev.key==="Escape"&&!document.fullscreenElement)expoCerrar()});
+(function(){var x0=null,e=document.getElementById("xsl");e.addEventListener("touchstart",function(t){x0=t.touches[0].clientX},{passive:true});e.addEventListener("touchend",function(t){if(x0==null)return;var dx=t.changedTouches[0].clientX-x0;if(Math.abs(dx)>60)mover(dx<0?1:-1);x0=null})})();
+
+// ── Hoja de trabajo ──
+function hoja(l){
+  var u=U.find(function(x){return x.n===l.u});
+  app.innerHTML='<div class="noprint" style="margin-bottom:10px"><a class="btn sec sm" href="#trabajos/u'+l.u+'">← Unidad '+l.u+'</a><button class="btn sm" onclick="print()">🖨️ Imprimir</button><a class="btn sm sec" href="#exponer/'+l.id+'">🎤 Proyectar la lección</a></div>'+
+   '<article class="hoja"><div class="muted">CTP Mercedes Norte · Auditoría · Unidad '+u.n+' · Lección '+l.id+'</div><h2>'+esc(l.tit)+'</h2>'+
+   '<div class="datos"><div>Nombre</div><div>Sección</div><div>Fecha</div></div>'+
+   '<p><b>Lo que voy a lograr:</b> '+esc(l.ind)+'</p><h3>Trabajo: '+esc(l.trabajo.tipo)+'</h3><p>'+esc(l.trabajo.txt)+'</p>'+
+   '<h3>Ideas clave</h3><ul>'+l.explica.map(function(x){return"<li>"+x+"</li>"}).join("")+'</ul>'+
+   '<h3>Mi desarrollo</h3><div class="lineas">'+new Array(12).join("<div></div>")+'</div>'+
+   '<h3>Así se evalúa</h3><table><thead><tr><th>Inicial (1)</th><th>Intermedio (2)</th><th>Avanzado (3)</th></tr></thead><tbody><tr><td>'+esc(l.niveles[0])+'</td><td>'+esc(l.niveles[1])+'</td><td>'+esc(l.niveles[2])+'</td></tr></tbody></table><p class="muted">Puntos obtenidos: ____ / 3</p></article>';
+}
+
+// ── Apps incrustadas ──
+function marco(src,txt){app.innerHTML='<p class="muted noprint">'+txt+' <a href="'+src+'" target="_blank" rel="noopener">Abrir aparte ↗</a></p><iframe class="marco" src="'+src+'" title="'+esc(txt)+'"></iframe>'}
+
+function ruta(){
+  var h=(location.hash||"#inicio").slice(1).split("/"),sec=h[0]||"inicio",arg=h[1];
+  if(!SECC.some(function(x){return x[0]===sec}))sec="inicio";
+  nav.innerHTML=SECC.map(function(x){return'<a href="#'+x[0]+'"'+(x[0]===sec?' aria-current="page"':'')+'>'+x[1]+'</a>'}).join("");
+  var esL=arg&&lec(arg);
+  if(sec==="inicio")inicio();
+  else if(sec==="clases")clases(arg);
+  else if(sec==="exponer"){listaLecciones("exponer",esL?"u"+esL.u:arg,"Escoja la lección para proyectar. Avance con las flechas, la barra espaciadora o deslizando el dedo.");if(esL)expoAbrir(esL)}
+  else if(sec==="trabajos"){if(esL)hoja(esL);else listaLecciones("trabajos",arg,"Escoja la lección para ver o imprimir la hoja de trabajo de los estudiantes.")}
+  else if(sec==="caso")marco("auditoria-integral.html","Auditoría completa de la Municipalidad de Valle Sereno (entidad ficticia).");
+  else if(sec==="lab")marco("auditpro.html","AuditPro CTP: La Brújula y el Laboratorio AuditCity.");
+  if(sec!=="exponer")document.getElementById("expo").classList.remove("on");
+  if(!esL||sec!=="clases")scrollTo(0,0);
+}
+window.addEventListener("hashchange",ruta);ruta();
+})();
+</script>
+<script src="js/volver-plataforma.js?v=20261117a"></script>
+</body>
+</html>

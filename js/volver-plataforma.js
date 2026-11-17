@@ -38,6 +38,7 @@
     return !(h === "" || h === "#" || h === "#/" || /^#\/login/.test(h));
   }
   function poner() {
+    try { if (window.self !== window.top) return; } catch (e) { return; } // dentro de otra app (iframe): no se repiten los botones
     var caja = document.getElementById("volver-plataforma");
     if (!caja) {
       caja = document.createElement("div");
