@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Misión Auditoría · CTP Mercedes Norte</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="img/logo-ctp-mercedes-norte.png">
+<style>
+:root{--bg:#0d1430;--bg2:#141d42;--sf:#1b2655;--sf2:#22306a;--ink:#eef2ff;--mut:#a7b2dc;--line:#33427f;--acc:#ffd43b;--blue:#4c8dff;--green:#22c55e;--green-s:#0f3d27;--red:#ef4444;--red-s:#4a1616;--vio:#a78bfa}
+*{box-sizing:border-box}html,body{margin:0}body{background:radial-gradient(1200px 600px at 10% -10%,#26357a 0,transparent 60%),var(--bg);color:var(--ink);font:16px/1.5 Inter,"Segoe UI",system-ui,sans-serif;min-height:100vh;padding-bottom:100px}
+button{font:inherit;cursor:pointer}a{color:var(--acc)}
+.top{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:12px;padding:10px 16px;background:rgba(13,20,48,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.top .brand{font-weight:800;font-size:1.05rem;white-space:nowrap}.top .brand small{color:var(--acc)}
+.xp{flex:1;max-width:340px;margin-left:auto}.xp .bar{height:10px;border-radius:99px;background:var(--sf2);overflow:hidden}.xp .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),#ff9f1c);transition:width .6s}.xp small{color:var(--mut);font-size:.75rem;white-space:nowrap}
+.chipT{background:var(--sf2);border:1px solid var(--line);border-radius:99px;padding:5px 11px;font-weight:700;font-size:.85rem;white-space:nowrap;color:var(--ink)}
+.racha.on{background:#4a2a07;border-color:#f59e0b}.pop{animation:pop .5s}@keyframes pop{50%{transform:scale(1.35)}}
+main{max-width:980px;margin:0 auto;padding:18px 16px}
+h1{font-size:clamp(1.5rem,4vw,2.1rem);margin:.2em 0 .1em}.sub{color:var(--mut);margin:0 0 16px}
+.levels{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.lvl{background:linear-gradient(160deg,var(--sf),var(--bg2));border:1px solid var(--line);border-radius:20px;padding:16px;position:relative}
+.lvl.lock{opacity:.55}.lvl.done{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}
+.lvl .n{font-size:2rem;width:56px;height:56px;border-radius:16px;background:var(--sf2);display:flex;align-items:center;justify-content:center}
+.lvl small{color:var(--mut);font-weight:700;letter-spacing:.06em}.lvl h3{margin:2px 0}.lvl p{color:var(--mut);font-size:.88rem;margin:8px 0}
+.prog{height:8px;border-radius:99px;background:var(--sf2);overflow:hidden;margin:8px 0 4px}.prog span{display:block;height:100%;background:var(--green)}
+.dots{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}
+.dot{width:44px;height:44px;border-radius:14px;border:2px solid var(--line);background:var(--sf2);color:var(--ink);font-weight:800;font-size:.78rem;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05}
+.dot.done{background:var(--green-s);border-color:var(--green)}.dot.lock{opacity:.45;cursor:not-allowed}.dot .st{font-size:.58rem;color:var(--acc)}
+.btn{background:var(--acc);color:#1b1b1b;border:0;border-radius:14px;padding:11px 18px;font-weight:800}.btn.sec{background:var(--sf2);color:var(--ink);border:1px solid var(--line)}.btn.ok{background:var(--green);color:#04230f}.btn:disabled{opacity:.45;cursor:not-allowed}
+.badges{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 18px}.badge{background:var(--sf);border:1px solid var(--line);border-radius:14px;padding:8px 12px;font-weight:700;font-size:.9rem}.badge.off{opacity:.35;filter:grayscale(1)}
+.mhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}.mhead h2{margin:0;flex:1;font-size:1.25rem;min-width:200px}.tag{background:var(--sf2);border-radius:99px;padding:4px 11px;font-size:.78rem;font-weight:700;color:var(--mut)}
+.story{display:flex;gap:14px;background:linear-gradient(135deg,#2a2160,#1b2655);border:1px solid #4b3fa0;border-radius:18px;padding:14px 16px;margin-bottom:14px}.story .ic{font-size:2.4rem}.story b{color:var(--acc)}.story p{margin:4px 0 0}
+.steps{display:flex;gap:6px;margin:0 0 14px}.steps i{flex:1;height:7px;border-radius:99px;background:var(--sf2)}.steps i.on{background:var(--acc)}.steps i.ok{background:var(--green)}.steps i.bad{background:#f59e0b}
+.panel{background:var(--sf);border:1px solid var(--line);border-radius:20px;padding:18px}
+.panel h3{margin:0 0 10px;font-size:1.12rem}.kicker{color:var(--acc);font-size:.78rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+.idea{font-size:1.08rem;line-height:1.6;background:var(--bg2);border-radius:14px;padding:16px;border-left:5px solid var(--blue);margin:8px 0 14px;animation:entra .35s}.idea b{color:#9fd0ff}
+@keyframes entra{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.opts{display:grid;gap:10px}.opt{text-align:left;background:var(--bg2);color:var(--ink);border:2px solid var(--line);border-radius:14px;padding:13px 15px;font-weight:600}.opt:hover:not(:disabled){border-color:var(--blue)}
+.opt.ok{background:var(--green-s);border-color:var(--green)}.opt.bad{background:var(--red-s);border-color:var(--red)}.opt:disabled{cursor:default}
+.vf{grid-template-columns:1fr 1fr}.vf .opt{text-align:center;font-size:1.1rem}
+.bank{display:flex;flex-wrap:wrap;gap:8px;min-height:48px;padding:10px;border:2px dashed var(--line);border-radius:14px;margin:8px 0 12px}
+.chip{background:var(--sf2);color:var(--ink);border:2px solid var(--line);border-radius:12px;padding:8px 12px;font-weight:600;font-size:.92rem;text-align:left;touch-action:manipulation}
+.chip.sel{border-color:var(--acc);box-shadow:0 0 0 3px rgba(255,212,59,.35);transform:translateY(-2px)}.chip.ok{background:var(--green-s);border-color:var(--green);cursor:default}.chip.bad{animation:sacude .4s;border-color:var(--red)}
+@keyframes sacude{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.zones{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.zone{background:var(--bg2);border:2px solid var(--line);border-radius:14px;padding:10px;min-height:90px;display:flex;flex-direction:column;gap:6px;cursor:pointer}
+.zone.hot{border-color:var(--acc)}.zone>b{font-size:.85rem;color:var(--acc);margin-bottom:2px}.zone .chip{width:100%}
+.ord{list-style:none;padding:0;margin:8px 0;display:grid;gap:8px}.ord li{display:flex;gap:8px;align-items:center;background:var(--bg2);border:2px solid var(--line);border-radius:12px;padding:8px 10px}
+.ord li.ok{border-color:var(--green);background:var(--green-s)}.ord li span{flex:1;font-weight:600}.ord li .n{width:26px;height:26px;border-radius:8px;background:var(--sf2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.85rem;flex:none}
+.ord button{background:var(--sf2);color:var(--ink);border:1px solid var(--line);border-radius:8px;width:36px;height:34px}
+.fb{margin-top:14px;border-radius:14px;padding:12px 14px;animation:entra .3s}.fb.ok{background:var(--green-s);border:1px solid var(--green)}.fb.bad{background:#3d2a07;border:1px solid #f59e0b}
+.acciones{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;align-items:center}
+.resultado{text-align:center;padding:28px 18px}.estrellas{font-size:3rem;letter-spacing:.15em}.resultado h2{font-size:1.6rem;margin:.3em 0}
+.aviso{background:#3d2a07;border:1px solid #f59e0b;border-radius:12px;padding:10px 12px;font-size:.9rem;margin:0 0 14px}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(20px);background:#000c;color:#fff;padding:10px 16px;border-radius:12px;opacity:0;transition:.3s;z-index:60;pointer-events:none}.toast.on{opacity:1;transform:translateX(-50%)}
+canvas#confetti{position:fixed;inset:0;pointer-events:none;z-index:50}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="top"><span class="brand">🔎 Misión <small>Auditoría</small></span>
+<div class="xp"><div class="bar"><i id="xpBar"></i></div><small id="xpTxt">0 XP</small></div>
+<span class="chipT racha" id="racha" title="Racha de aciertos">🔥 <span id="rachaTxt">0</span></span>
+<button class="chipT" id="btnSonido" aria-pressed="true" title="Sonido">🔊</button></div>
+<main id="app"><p class="sub">Cargando…</p></main>
+<div class="toast" id="toast"></div><canvas id="confetti"></canvas><div class="sr" aria-live="polite" id="live"></div>
+<script src="js/auditoria-unidades-datos.js?v=20261117b"></script>
+<script src="js/mision-auditoria-retos.js?v=20261117a"></script>
+<script>
+// Misión Auditoría: la versión interactiva para estudiantes de las 40 lecciones de Auditoría (2027).
+// Por ahora solo la abre el docente (todo lo de 2027 es solo-profe). Para abrirla a estudiantes: ABIERTA_ESTUDIANTES = true.
+const ABIERTA_ESTUDIANTES = false;
+let SES=null;try{SES=JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")||"null")}catch(e){}
+const ES_DOCENTE=!!(SES&&SES.role==="docente");
+const $=s=>document.querySelector(s);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const mezclar=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+const U=window.AUD_UNIDADES||[],M=window.AUD_MISIONES||{},NV=window.AUD_NIVELES||{};
+const TODAS=[];U.forEach(u=>u.lecciones.forEach(l=>{if(M[l.id])TODAS.push(Object.assign({u:u.n,lec:l},M[l.id],{id:l.id}))}));
+const XP_MAX=TODAS.reduce((a,m)=>a+m.retos.length*25,0);
+
+// ═══ Estado (en este dispositivo, a nombre del usuario) ═══
+const CLAVE="ctp_mision_auditoria_v1_"+((SES&&SES.id)||"anon");
+let EST={xp:0,racha:0,mejorRacha:0,hechas:{},sonido:true,comoEst:false};
+try{Object.assign(EST,JSON.parse(localStorage.getItem(CLAVE)||"{}"))}catch(e){}
+function guardar(){try{localStorage.setItem(CLAVE,JSON.stringify(EST))}catch(e){}}
+const libre=()=>ES_DOCENTE&&!EST.comoEst;
+const misUnidad=n=>TODAS.filter(m=>m.u===n);
+const hechasU=n=>misUnidad(n).filter(m=>EST.hechas[m.id]).length;
+const unidadAbierta=n=>libre()||n===1||hechasU(n-1)===misUnidad(n-1).length;
+const misionAbierta=m=>{if(libre())return true;if(!unidadAbierta(m.u))return false;const l=misUnidad(m.u),i=l.indexOf(m);return i===0||!!EST.hechas[l[i-1].id]};
+
+// ═══ Barra, sonido, confeti ═══
+function stats(salto){$("#xpTxt").textContent=EST.xp+" XP · "+Object.keys(EST.hechas).length+"/"+TODAS.length;$("#xpBar").style.width=Math.min(100,100*EST.xp/XP_MAX)+"%";
+  const r=$("#racha");$("#rachaTxt").textContent=EST.racha;r.classList.toggle("on",EST.racha>=3);if(salto){r.classList.remove("pop");void r.offsetWidth;r.classList.add("pop")}
+  $("#btnSonido").textContent=EST.sonido?"🔊":"🔇";$("#btnSonido").setAttribute("aria-pressed",String(EST.sonido))}
+$("#btnSonido").onclick=()=>{EST.sonido=!EST.sonido;guardar();stats()};
+function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("on");clearTimeout(toast.k);toast.k=setTimeout(()=>e.classList.remove("on"),2600)}
+function anunciar(t){$("#live").textContent=t}
+let AC=null;
+function sonar(tipo){if(!EST.sonido)return;try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();
+  const notas=tipo==="ok"?[523,659,784]:tipo==="win"?[523,659,784,1047,1319]:tipo==="bad"?[220,170]:[700];
+  notas.forEach((f,i)=>{const o=AC.createOscillator(),g=AC.createGain();o.type=tipo==="bad"?"sawtooth":"triangle";o.frequency.value=f;
+   g.gain.setValueAtTime(.0001,AC.currentTime+i*.1);g.gain.exponentialRampToValueAtTime(.16,AC.currentTime+i*.1+.02);g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+i*.1+.2);
+   o.connect(g).connect(AC.destination);o.start(AC.currentTime+i*.1);o.stop(AC.currentTime+i*.1+.22)})}catch(e){}}
+function confeti(){if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;const c=$("#confetti"),x=c.getContext("2d");c.width=innerWidth;c.height=innerHeight;
+  const col=["#ffd43b","#22c55e","#4c8dff","#a78bfa","#ec4899","#06b6d4"];
+  const P=Array.from({length:150},()=>({x:innerWidth/2+(Math.random()-.5)*220,y:innerHeight*.35,vx:(Math.random()-.5)*14,vy:-Math.random()*14-4,r:Math.random()*6+4,c:col[Math.random()*col.length|0],a:Math.random()*6,va:(Math.random()-.5)*.3}));
+  let t=0;(function f(){x.clearRect(0,0,c.width,c.height);P.forEach(p=>{p.vy+=.35;p.x+=p.vx;p.y+=p.vy;p.a+=p.va;x.save();x.translate(p.x,p.y);x.rotate(p.a);x.fillStyle=p.c;x.fillRect(-p.r/2,-p.r/4,p.r,p.r/2);x.restore()});if(++t<130)requestAnimationFrame(f);else x.clearRect(0,0,c.width,c.height)})()}
+
+// ═══ Mapa ═══
+function mapa(){
+  const tot=Object.keys(EST.hechas).length;
+  $("#app").innerHTML=`${ES_DOCENTE?`<div class="aviso">👩‍🏫 <b>Modo docente</b> · ${EST.comoEst?"está viendo el juego como lo verá un estudiante (misiones en orden).":"todas las misiones abiertas."} <button class="btn sec" style="padding:5px 10px;margin-left:6px" id="comoEst">${EST.comoEst?"Volver a modo docente":"👀 Ver como estudiante"}</button> <button class="btn sec" style="padding:5px 10px" id="reiniciar">↺ Reiniciar mi avance</button></div>`:""}
+   <h1>🔎 Tu carrera como auditor</h1>
+   <p class="sub">Empiezas como auditor junior en <b>Auditores Mercedes & Asociados</b>. Supera las misiones para ganar XP e insignias. ${tot} de ${TODAS.length} misiones · mejor racha 🔥 ${EST.mejorRacha}</p>
+   <div class="badges">${U.map(u=>`<span class="badge ${hechasU(u.n)===misUnidad(u.n).length?"":"off"}">${esc(NV[u.n].insignia)}</span>`).join("")}</div>
+   <div class="levels">${U.map(u=>{const ms=misUnidad(u.n),h=hechasU(u.n),p=Math.round(100*h/ms.length),ab=unidadAbierta(u.n),done=h===ms.length,sig=ms.find(m=>!EST.hechas[m.id])||ms[0];
+    return `<section class="lvl ${ab?"":"lock"} ${done?"done":""}">
+     <div style="display:flex;gap:12px;align-items:center"><div class="n">${ab?NV[u.n].ic:"🔒"}</div><div><small>NIVEL ${u.n}</small><h3>${esc(NV[u.n].nombre)}</h3></div></div>
+     <p>${esc(u.ra)}</p><div class="prog"><span style="width:${p}%"></span></div><small>${h}/${ms.length} misiones · ${p} %</small>
+     <div class="dots">${ms.map(m=>{const ok=EST.hechas[m.id],a=misionAbierta(m);return `<button class="dot ${ok?"done":a?"":"lock"}" ${a?`data-m="${m.id}"`:"disabled"} title="${esc(m.lec.tit)}" aria-label="Misión ${m.id}: ${esc(m.lec.tit)}${ok?" (completada)":""}">${ok?"✓":m.id}${ok?`<span class="st">${"★".repeat(ok.estrellas)}</span>`:""}</button>`}).join("")}</div>
+     ${ab?`<button class="btn ${done?"sec":""}" data-m="${sig.id}">${done?"🔁 Repasar":h?"▶ Continuar":"▶ Empezar"}</button>`:`<small>🔒 Completa el nivel ${u.n-1} para desbloquearlo</small>`}</section>`}).join("")}</div>
+   <p class="sub" style="margin-top:18px">Tu avance se guarda en este dispositivo.</p>`;
+  document.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>location.hash="#/m/"+b.dataset.m);
+  if(ES_DOCENTE){$("#comoEst").onclick=()=>{EST.comoEst=!EST.comoEst;guardar();mapa()};
+    $("#reiniciar").onclick=()=>{if(confirm("¿Borrar su avance de prueba en este dispositivo?")){EST.xp=0;EST.racha=0;EST.mejorRacha=0;EST.hechas={};guardar();stats();mapa()}}}
+}
+
+// ═══ Misión: briefing → retos → resultado ═══
+let R=null;
+function mision(m){
+  R={m,fase:"brief",idea:0,reto:0,errores:[],retos:m.retos};
+  pintar();
+}
+function cabecera(){const m=R.m;return `<div class="mhead"><button class="btn sec" onclick="location.hash='#/'">← Mapa</button><h2>${m.ic} ${esc(m.lec.tit)}</h2><span class="tag">Nivel ${m.u} · Misión ${m.id}</span></div>
+  <div class="story"><div class="ic">${m.ic}</div><div><b>MISIÓN</b><p>${m.historia}</p></div></div>
+  <div class="steps">${["brief"].concat(R.retos.map((_,i)=>i)).map((s,i)=>{const cls=i===0?(R.fase==="brief"?"on":"ok"):(R.fase==="fin"||i-1<R.reto?(R.errores[i-1]?"bad":"ok"):(i-1===R.reto&&R.fase==="reto"?"on":""));return `<i class="${cls}"></i>`}).join("")}</div>`}
+function pintar(){
+  if(R.fase==="brief")return brief();
+  if(R.fase==="fin")return final();
+  const r=R.retos[R.reto];({q:retoQ,vf:retoVF,cl:retoCL,em:retoEM,or:retoOR})[r[0]](r);
+}
+function brief(){
+  const ideas=R.m.lec.explica,i=R.idea;
+  $("#app").innerHTML=cabecera()+`<div class="panel"><div class="kicker">📚 Lo que necesitas saber · ${i+1} de ${ideas.length}</div>
+   <div class="idea">${ideas[i]}</div>
+   <div class="acciones">${i>0?`<button class="btn sec" id="ant">← Anterior</button>`:""}<button class="btn" id="sig">${i<ideas.length-1?"Entendido →":"🚀 ¡A los retos!"}</button>
+   <span class="tag">${R.retos.length} retos te esperan</span></div></div>`;
+  if(i>0)$("#ant").onclick=()=>{R.idea--;brief()};
+  $("#sig").onclick=()=>{if(i<ideas.length-1){R.idea++;sonar("tic");brief()}else{R.fase="reto";pintar()}};
+}
+function marco(r,cuerpo){return cabecera()+`<div class="panel"><div class="kicker">🎯 Reto ${R.reto+1} de ${R.retos.length}</div><h3>${esc(r[1])}</h3>${cuerpo}<div id="fb"></div><div class="acciones" id="acc"></div></div>`}
+function terminar(r,ok){
+  const exp=r[0]==="q"?r[4]:r[0]==="vf"?r[3]:r[r.length-1];
+  if(ok&&!R.errores[R.reto]){EST.racha++;EST.mejorRacha=Math.max(EST.mejorRacha,EST.racha);sonar("ok")}else{EST.racha=0;sonar(ok?"ok":"bad")}
+  guardar();stats(ok);
+  $("#fb").innerHTML=`<div class="fb ${R.errores[R.reto]?"bad":"ok"}"><b>${R.errores[R.reto]?"💡 Para recordar:":"✅ ¡Excelente!"}</b> ${esc(exp)}</div>`;
+  $("#acc").innerHTML=`<button class="btn ok" id="cont">${R.reto<R.retos.length-1?"Siguiente reto →":"🏁 Terminar misión"}</button>`;
+  $("#cont").onclick=()=>{if(R.reto<R.retos.length-1){R.reto++;pintar()}else{R.fase="fin";pintar()}scrollTo({top:0})};
+  $("#cont").focus();anunciar(R.errores[R.reto]?"Respuesta incorrecta. "+exp:"Correcto. "+exp);
+}
+// Selección única y verdadero/falso: un intento.
+function opciones(r,ops,correcta){
+  $("#app").innerHTML=marco(r,`<div class="opts ${r[0]==="vf"?"vf":""}">${ops.map((o,i)=>`<button class="opt" data-i="${i}">${esc(o.t)}</button>`).join("")}</div>`);
+  document.querySelectorAll(".opt").forEach(b=>b.onclick=()=>{const k=+b.dataset.i,ok=ops[k].ok;
+    document.querySelectorAll(".opt").forEach((x,j)=>{x.disabled=true;if(ops[j].ok)x.classList.add("ok")});if(!ok){b.classList.add("bad");R.errores[R.reto]=1}
+    terminar(r,ok)})}
+function retoQ(r){opciones(r,mezclar(r[2].map((t,i)=>({t,ok:i===r[3]}))))}
+function retoVF(r){opciones(r,[{t:"✔ Verdadero",ok:r[2]===true},{t:"✘ Falso",ok:r[2]===false}])}
+// Clasificar (y emparejar): tocar una tarjeta y luego la zona.
+function retoCL(r){clasificar(r,r[2],r[3].map(([t,c])=>({t,c})),false)}
+function retoEM(r){clasificar(r,r[2].map(p=>p[0]),r[2].map((p,i)=>({t:p[1],c:i})),true)}
+function clasificar(r,cats,items,uno){
+  items=mezclar(items).map((x,i)=>Object.assign({k:i,en:null,fijo:false},x));let sel=null;
+  const pint=()=>{
+   $("#app").innerHTML=marco(r,`<p class="sub" style="margin:0">${uno?"Toca una definición y luego el término que le corresponde.":"Toca una tarjeta y luego la columna donde va."}</p>
+    <div class="bank" data-z="-1">${items.filter(x=>x.en==null).map(ch).join("")||'<span class="sub" style="margin:0">✓ Todo ubicado</span>'}</div>
+    <div class="zones">${cats.map((c,ci)=>`<div class="zone ${sel!=null?"hot":""}" data-z="${ci}" role="button" tabindex="0" aria-label="Colocar en ${esc(c)}"><b>${esc(c)}</b>${items.filter(x=>x.en===ci).map(ch).join("")}</div>`).join("")}</div>`);
+   $("#acc").innerHTML=`<button class="btn" id="comp" ${items.some(x=>x.en==null)?"disabled":""}>Comprobar</button>${R.errores[R.reto]?`<span class="tag">Intentos con error: ${R.errores[R.reto]}</span>`:""}`;
+   const colocar=zi=>{if(sel==null)return;
+     if(uno){if(items.some(x=>x.en===zi&&x.fijo))return;const ya=items.find(x=>x.en===zi);if(ya)ya.en=null}
+     items[sel].en=zi;sel=null;sonar("tic");pint()};
+   document.querySelectorAll(".chip").forEach(b=>b.onclick=e=>{e.stopPropagation();const it=items[+b.dataset.k];
+     if(sel!=null&&it.en!=null&&sel!==it.k){colocar(it.en);return} // con una tarjeta elegida, tocar otra ya colocada la pone en esa misma columna
+     if(it.fijo)return;
+     if(it.en!=null){it.en=null;sel=null;pint();return}sel=sel===it.k?null:it.k;pint();if(sel!=null)anunciar("Seleccionaste "+it.t+". Ahora toca dónde va.")});
+   document.querySelectorAll(".zone").forEach(z=>{const go=()=>colocar(+z.dataset.z);z.onclick=go;z.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go()}}});
+   const c=$("#comp");if(c)c.onclick=()=>{const malos=items.filter(x=>!x.fijo&&x.en!==x.c);items.forEach(x=>{if(x.en===x.c)x.fijo=true});
+     if(!malos.length){pint();document.querySelectorAll(".chip").forEach(b=>b.disabled=true);terminar(r,true);return}
+     R.errores[R.reto]=(R.errores[R.reto]||0)+1;malos.forEach(x=>x.en=null);EST.racha=0;guardar();stats();sonar("bad");
+     pint();document.querySelectorAll(".bank .chip").forEach(b=>b.classList.add("bad"));
+     $("#fb").innerHTML=`<div class="fb bad">${malos.length} ${malos.length===1?"tarjeta volvió":"tarjetas volvieron"} al banco. Las correctas quedaron fijas en verde. ¡Inténtalo otra vez!</div>`}};
+  const ch=x=>`<button class="chip ${x.fijo?"ok":""} ${sel===x.k?"sel":""}" data-k="${x.k}">${esc(x.t)}</button>`;
+  pint();
+}
+// Ordenar: subir y bajar.
+function retoOR(r){
+  let ord=mezclar(r[2]);while(ord.length>1&&ord.every((x,i)=>x===r[2][i]))ord=mezclar(r[2]);let fijos=[];
+  const pint=()=>{
+   $("#app").innerHTML=marco(r,`<ol class="ord">${ord.map((t,i)=>`<li class="${fijos[i]?"ok":""}"><span class="n">${i+1}</span><span>${esc(t)}</span><button data-u="${i}" aria-label="Subir" ${i===0?"disabled":""}>▲</button><button data-d="${i}" aria-label="Bajar" ${i===ord.length-1?"disabled":""}>▼</button></li>`).join("")}</ol>`);
+   $("#acc").innerHTML=`<button class="btn" id="comp">Comprobar orden</button>${R.errores[R.reto]?`<span class="tag">Intentos con error: ${R.errores[R.reto]}</span>`:""}`;
+   document.querySelectorAll("[data-u]").forEach(b=>b.onclick=()=>{const i=+b.dataset.u;[ord[i-1],ord[i]]=[ord[i],ord[i-1]];fijos=[];sonar("tic");pint()});
+   document.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>{const i=+b.dataset.d;[ord[i+1],ord[i]]=[ord[i],ord[i+1]];fijos=[];sonar("tic");pint()});
+   $("#comp").onclick=()=>{fijos=ord.map((t,i)=>t===r[2][i]);
+     if(fijos.every(Boolean)){pint();document.querySelectorAll(".ord button").forEach(b=>b.disabled=true);terminar(r,true);return}
+     R.errores[R.reto]=(R.errores[R.reto]||0)+1;EST.racha=0;guardar();stats();sonar("bad");pint();
+     $("#fb").innerHTML=`<div class="fb bad">${fijos.filter(Boolean).length} de ${ord.length} están en su lugar (en verde). Mueve los demás y vuelve a comprobar.</div>`}};
+  pint();
+}
+function final(){
+  const m=R.m,err=R.errores.reduce((a,b)=>a+(b||0),0),estrellas=err===0?3:err<=2?2:1;
+  const ganado=R.retos.reduce((a,_,i)=>a+Math.max(10,25-5*(R.errores[i]||0)),0);
+  const previo=EST.hechas[m.id],nuevoNivel=!previo&&hechasU(m.u)===misUnidad(m.u).length-1;
+  const extra=previo?Math.max(0,ganado-previo.xp):ganado;
+  EST.xp+=extra;EST.hechas[m.id]={xp:Math.max(ganado,previo?previo.xp:0),estrellas:Math.max(estrellas,previo?previo.estrellas:0),fecha:new Date().toISOString()};guardar();stats(true);
+  confeti();sonar("win");
+  const idx=TODAS.indexOf(m),sig=TODAS[idx+1];
+  $("#app").innerHTML=cabecera()+`<div class="panel resultado"><div class="estrellas" aria-label="${estrellas} de 3 estrellas">${"★".repeat(estrellas)}<span style="opacity:.25">${"★".repeat(3-estrellas)}</span></div>
+   <h2>¡Misión cumplida!</h2><p class="sub">${err===0?"Sin errores. ¡Así trabaja un auditor!":err<=2?"Muy bien: repasa las ideas donde dudaste.":"Lo lograste. Repite la misión para ganar más estrellas."}</p>
+   <p><b>+${extra} XP</b>${previo&&!extra?" (ya tenías tu mejor puntaje en esta misión)":""}</p>
+   ${nuevoNivel?`<div class="fb ok" style="text-align:center;font-size:1.1rem">🏅 ¡Nueva insignia! <b>${esc(NV[m.u].insignia)}</b></div>`:""}
+   <div class="acciones" style="justify-content:center"><button class="btn sec" id="rep">🔁 Repetir</button>${sig&&misionAbierta(sig)?`<button class="btn ok" id="sig">Siguiente misión ▶</button>`:`<button class="btn ok" id="map">🗺️ Ver mi carrera</button>`}</div></div>`;
+  $("#rep").onclick=()=>mision(m);
+  if($("#sig"))$("#sig").onclick=()=>location.hash="#/m/"+sig.id;if($("#map"))$("#map").onclick=()=>location.hash="#/";
+}
+
+function ruta(){
+  const h=location.hash.replace(/^#\/?/,"");
+  if(h.startsWith("m/")){const m=TODAS.find(x=>x.id===h.slice(2));if(m&&misionAbierta(m)){mision(m);scrollTo({top:0});return}if(m)toast("🔒 Primero completa la misión anterior")}
+  mapa();scrollTo({top:0});
+}
+if(!SES||!(ES_DOCENTE||(ABIERTA_ESTUDIANTES&&SES.role==="estudiante"))){
+  $("#app").innerHTML=`<div class="panel"><h3>🔒 Misión Auditoría</h3><p class="sub">${SES?"Esta misión se abre en 2027. Tu profe te avisará.":"Entra desde la plataforma con tu usuario."}</p><a class="btn" href="index.html">Ir a la plataforma</a></div>`;
+}else{stats();addEventListener("hashchange",ruta);ruta()}
+</script>
+<script src="js/volver-plataforma.js?v=20261117a"></script>
+</body>
+</html>

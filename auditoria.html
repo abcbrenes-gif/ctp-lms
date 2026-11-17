@@ -62,7 +62,7 @@ var U=window.AUD_UNIDADES||[],L=[];U.forEach(function(u){u.lecciones.forEach(fun
 var esc=function(t){return String(t==null?"":t).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
 var sinTag=function(t){var d=document.createElement("div");d.innerHTML=t;return d.textContent};
 var lec=function(id){return L.find(function(l){return l.id===id})};
-var SECC=[["inicio","🏠 Inicio"],["clases","📘 Clases"],["exponer","🎤 Exponer"],["trabajos","✍️ Trabajos"],["caso","🏛️ Caso Valle Sereno"],["lab","🧭 Brújula y Laboratorio"]];
+var SECC=[["inicio","🏠 Inicio"],["mision","🎮 Misión Auditoría"],["clases","📘 Clases"],["exponer","🎤 Exponer"],["trabajos","✍️ Trabajos"],["caso","🏛️ Caso Valle Sereno"],["lab","🧭 Brújula y Laboratorio"]];
 function reparto(m){var c=m<=30?[8,7,12,3]:m<=35?[10,8,13,4]:m<=40?[12,8,15,5]:[12,10,18,5];var t=c.reduce(function(a,b){return a+b},0);c[2]+=m-t;return c}
 function horas(m){return String(Math.round(m/60*10)/10).replace(".",",")}
 
@@ -70,7 +70,8 @@ function horas(m){return String(Math.round(m/60*10)/10).replace(".",",")}
 function inicio(){
   var tot=L.reduce(function(a,l){return a+l.min},0);
   app.innerHTML='<section class="card"><h2>¿Qué quiere hacer?</h2><p class="muted">'+U.length+' unidades · '+L.length+' lecciones de 30 a 45 minutos · '+horas(tot)+' horas reloj. Todo sale del programa de estudio del MEP.</p></section><div class="grid">'+
-  [["clases","📘","Preparar la clase","Plan de cada lección: indicador, tiempos, explicación, práctica, cierre y escala de desempeño."],
+  [["mision","🎮","Misión Auditoría (estudiantes)","Versión interactiva: 40 misiones con retos, XP, rachas, estrellas e insignias. Una misión por lección."],
+   ["clases","📘","Preparar la clase","Plan de cada lección: indicador, tiempos, explicación, práctica, cierre y escala de desempeño."],
    ["exponer","🎤","Exponer en el proyector","Diapositivas de cada lección, a pantalla completa, con las respuestas del cierre ocultas."],
    ["trabajos","✍️","Trabajos de los estudiantes","Hoja de trabajo de cada lección, lista para imprimir o proyectar, con su escala de desempeño."],
    ["caso","🏛️","Caso Valle Sereno","Auditoría completa de una municipalidad ficticia: hallazgos, matriz de riesgos y papeles de trabajo."],
@@ -82,7 +83,7 @@ function inicio(){
 function leccionHTML(l){
   var r=reparto(l.min);
   return '<details class="lec" id="l'+l.id+'"><summary><span class="num">'+esc(l.id)+'</span><span class="tit">'+esc(l.tit)+'</span><span class="chip">⏱ '+l.min+' min</span></summary><div class="lbody">'+
-   '<p><a class="btn sm" href="#exponer/'+l.id+'">🎤 Exponer</a><a class="btn sm sec" href="#trabajos/'+l.id+'">✍️ Hoja de trabajo</a></p>'+
+   '<p><a class="btn sm" href="mision-auditoria.html#/m/'+l.id+'">🎮 Misión</a><a class="btn sm" href="#exponer/'+l.id+'">🎤 Exponer</a><a class="btn sm sec" href="#trabajos/'+l.id+'">✍️ Hoja de trabajo</a></p>'+
    '<p class="muted"><b>Contenidos del programa:</b> '+esc(l.contenidos)+'</p><div class="ind"><b>Indicador:</b> '+esc(l.ind)+'</div>'+
    '<div class="tiempo"><span style="flex:'+r[0]+';background:#1d63e8">Explicación '+r[0]+'′</span><span style="flex:'+r[1]+';background:#0e7490">Formación '+r[1]+'′</span><span style="flex:'+r[2]+';background:#7c3aed">Trabajo '+r[2]+'′</span><span style="flex:'+r[3]+';background:#b45309">Cierre '+r[3]+'′</span></div>'+
    '<h3>1. Explicación</h3><ul>'+l.explica.map(function(x){return"<li>"+x+"</li>"}).join("")+'</ul>'+
@@ -158,6 +159,7 @@ function ruta(){
   if(!SECC.some(function(x){return x[0]===sec}))sec="inicio";
   nav.innerHTML=SECC.map(function(x){return'<a href="#'+x[0]+'"'+(x[0]===sec?' aria-current="page"':'')+'>'+x[1]+'</a>'}).join("");
   var esL=arg&&lec(arg);
+  if(sec==="mision"){location.href="mision-auditoria.html";return}
   if(sec==="inicio")inicio();
   else if(sec==="clases")clases(arg);
   else if(sec==="exponer"){listaLecciones("exponer",esL?"u"+esL.u:arg,"Escoja la lección para proyectar. Avance con las flechas, la barra espaciadora o deslizando el dedo.");if(esL)expoAbrir(esL)}
