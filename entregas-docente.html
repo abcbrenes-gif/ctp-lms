@@ -21,7 +21,7 @@ input,select,textarea{font:inherit;padding:8px 10px;border:1px solid var(--line)
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}label{font-size:.85rem;color:var(--mut)}
 .tag{display:inline-block;border-radius:999px;padding:1px 9px;font-size:.75rem;font-weight:700;background:var(--line)}.tag.ok{background:var(--okS)}.tag.wa{background:var(--wa)}.tag.bad{background:var(--bad)}
 table{border-collapse:collapse;width:100%;font-size:.86rem}th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}th{color:var(--mut);font-weight:600}
-details.t{border:1px solid var(--line);border-radius:12px;margin:8px 0}details.t>summary{cursor:pointer;padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}details.t>div{padding:0 14px 12px}
+details.t{border:1px solid var(--line);border-radius:12px;margin:8px 0}h3{margin:16px 0 6px;font-size:.95rem}details.t>summary{cursor:pointer;padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}details.t>div{padding:0 14px 12px}
 ol li{margin:4px 0}.msg{border-radius:10px;padding:8px 12px;margin:8px 0;font-size:.9rem}.msg.wa{background:var(--wa)}.msg.ok{background:var(--okS)}.msg.bad{background:var(--bad)}
 </style>
 </head>
@@ -36,7 +36,9 @@ const fmt=d=>d?new Date(d).toLocaleString("es-CR",{day:"numeric",month:"short",h
 // datetime-local (hora de Costa Rica) <-> ISO
 const aISO=v=>v?new Date(v+":00-06:00").toISOString():null;
 const aLocal=iso=>iso?new Date(new Date(iso).getTime()-6*3600e3).toISOString().slice(0,16):"";
-let SECS=[],MAT={},EST=[],TAR=[],ENT=[],editando=null;
+const NIV=["Inicial (1)","Intermedio (2)","Avanzado (3)"];
+const TIPOS={escala:"Escala de desempeño",rubrica:"Rúbrica",lista:"Lista de cotejo"};
+let SECS=[],MAT={},EST=[],TAR=[],ENT=[],editando=null,BOR=null,abierta=null,calif=null;
 
 async function cargar(){
   const [l,e,t,x]=await Promise.all([sb.from("lecciones").select("seccion,materia_id"),sb.from("estudiantes").select("id,nombre,apellido1,apellido2,seccion").order("apellido1"),
@@ -45,56 +47,127 @@ async function cargar(){
   (l.data||[]).forEach(r=>{MAT[r.seccion]=r.materia_id});SECS=Object.keys(MAT).sort();
   EST=(e.data||[]).filter(s=>s.id!=="0-0000-0001");TAR=t.data||[];ENT=x.data||[];pintar();
 }
-function form(){const t=editando||{};
-  return '<section class="card"><h2>'+(editando?"✏️ Editar":"➕ Nueva")+' tarea o proyecto</h2><div class="grid">'+
-  '<div><label>Sección</label><select id="fSec">'+SECS.map(s=>'<option '+(s===t.seccion?"selected":"")+'>'+esc(s)+'</option>').join("")+'</select></div>'+
-  '<div><label>Tipo</label><select id="fTipo"><option value="tarea">Tarea</option><option value="proyecto" '+(t.tipo==="proyecto"?"selected":"")+'>Proyecto</option></select></div>'+
-  '<div><label>Fecha y hora límite</label><input id="fLim" type="datetime-local" value="'+esc(aLocal(t.fecha_limite))+'"></div></div>'+
-  '<label>Título</label><input id="fTit" value="'+esc(t.titulo||"")+'" placeholder="Tarea 3 · Conciliación bancaria">'+
-  '<label>Instrucciones para el estudiante</label><textarea id="fIns" rows="2">'+esc(t.instrucciones||"")+'</textarea>'+
-  '<label>Enlace de la carpeta de OneDrive del MEP</label><input id="fEnl" value="'+esc(t.enlace_onedrive||"")+'" placeholder="https://adminmepcr-my.sharepoint.com/…">'+
-  '<label style="display:flex;gap:8px;align-items:center;margin-top:8px;color:var(--ink)"><input type="checkbox" id="fVis" style="width:auto" '+(t.visible?"checked":"")+'> Visible para los estudiantes</label>'+
+// Borrador del formulario (se conserva al agregar filas de material o indicadores).
+function nuevoBorrador(t){t=t||{};return{seccion:t.seccion||SECS[0]||"",tipo:t.tipo||"tarea",componente:t.componente||(t.tipo==="proyecto"?"Proyectos":"Tareas"),titulo:t.titulo||"",
+  instrucciones:t.instrucciones||"",fecha_limite:aLocal(t.fecha_limite),enlace_onedrive:t.enlace_onedrive||"",visible:!!t.visible,
+  materiales:JSON.parse(JSON.stringify(t.materiales||[])),instrumento:JSON.parse(JSON.stringify(t.instrumento&&t.instrumento.indicadores?t.instrumento:{tipo:"escala",indicadores:[]}))}}
+function leerForm(){if(!BOR||!$("#fTit"))return;Object.assign(BOR,{seccion:$("#fSec").value,tipo:$("#fTipo").value,componente:$("#fComp").value,titulo:$("#fTit").value,instrucciones:$("#fIns").value,
+  fecha_limite:$("#fLim").value,enlace_onedrive:$("#fEnl").value,visible:$("#fVis").checked});BOR.instrumento.tipo=$("#fInst").value;
+  BOR.materiales=[...document.querySelectorAll("[data-mat]")].map(r=>({nombre:r.querySelector(".mN").value.trim(),url:r.querySelector(".mU").value.trim()}));
+  BOR.instrumento.indicadores=[...document.querySelectorAll("[data-ind]")].map(r=>({texto:r.querySelector(".iT").value.trim(),niveles:[...r.querySelectorAll(".iN")].map(x=>x.value.trim())}));}
+function form(){const b=BOR;
+  return '<section class="card" id="formTarea"><h2>'+(editando?"✏️ Editar":"➕ Nueva")+' tarea o proyecto</h2>'+
+  '<h3>1 · Datos</h3><div class="grid">'+
+  '<div><label>Sección</label><select id="fSec">'+SECS.map(s=>'<option '+(s===b.seccion?"selected":"")+'>'+esc(s)+'</option>').join("")+'</select></div>'+
+  '<div><label>Tipo</label><select id="fTipo"><option value="tarea">Tarea</option><option value="proyecto" '+(b.tipo==="proyecto"?"selected":"")+'>Proyecto</option></select></div>'+
+  '<div><label>Componente de la nota</label><select id="fComp"><option>Tareas</option><option '+(b.componente==="Proyectos"?"selected":"")+'>Proyectos</option></select></div>'+
+  '<div><label>Fecha y hora límite</label><input id="fLim" type="datetime-local" value="'+esc(b.fecha_limite)+'"></div></div>'+
+  '<label>Título</label><input id="fTit" value="'+esc(b.titulo)+'" placeholder="Tarea 3 · Conciliación bancaria">'+
+  '<h3>2 · Instrucciones</h3><textarea id="fIns" rows="4" placeholder="Qué debe hacer el estudiante, formato del archivo, extensión…">'+esc(b.instrucciones)+'</textarea>'+
+  '<h3>3 · Material para los estudiantes</h3><p class="mut">Suba el material a su OneDrive (o use un enlace de YouTube, una página, etc.), compártalo y pegue aquí el enlace. Los estudiantes lo abren desde su tarea.</p>'+
+  b.materiales.map((m,i)=>'<div class="grid" data-mat="'+i+'" style="margin-bottom:6px"><input class="mN" placeholder="Nombre (ej. Guía de conciliación.pdf)" value="'+esc(m.nombre)+'"><input class="mU" placeholder="https://…" value="'+esc(m.url)+'"><button class="btn sm sec" data-qmat="'+i+'">Quitar</button></div>').join("")+
+  '<button class="btn sm sec" id="addMat">➕ Agregar material</button>'+
+  '<h3>4 · Evaluación</h3><div class="grid"><div><label>Instrumento</label><select id="fInst">'+Object.keys(TIPOS).map(k=>'<option value="'+k+'" '+(b.instrumento.tipo===k?"selected":"")+'>'+TIPOS[k]+'</option>').join("")+'</select></div>'+
+  '<div class="mut" style="align-self:end">Niveles: Inicial (1), Intermedio (2) y Avanzado (3); 0 = sin evidencia. Indicador: verbo + contenido + condición.</div></div>'+
+  b.instrumento.indicadores.map((d,i)=>'<div class="card" data-ind="'+i+'" style="padding:12px;margin:8px 0"><label>Indicador '+(i+1)+'</label><input class="iT" value="'+esc(d.texto)+'" placeholder="Elabora la conciliación bancaria según el estado de cuenta, en el caso asignado">'+
+   '<div class="grid" style="margin-top:6px">'+[0,1,2].map(k=>'<div><label>'+NIV[k]+'</label><textarea class="iN" rows="2" placeholder="Descriptor observable">'+esc(d.niveles[k]||"")+'</textarea></div>').join("")+'</div>'+
+   '<button class="btn sm sec" data-ia="'+i+'">✨ Sugerir niveles con IA</button><button class="btn sm sec" data-qind="'+i+'">Quitar indicador</button><span class="mut" data-iam="'+i+'"></span></div>').join("")+
+  '<button class="btn sm sec" id="addInd">➕ Agregar indicador</button>'+
+  '<h3>5 · Entrega</h3><label>Enlace de la carpeta de OneDrive del MEP donde suben el archivo</label><input id="fEnl" value="'+esc(b.enlace_onedrive)+'" placeholder="https://adminmepcr-my.sharepoint.com/…">'+
+  '<label style="display:flex;gap:8px;align-items:center;margin-top:8px;color:var(--ink)"><input type="checkbox" id="fVis" style="width:auto" '+(b.visible?"checked":"")+'> Visible para los estudiantes</label>'+
   '<button class="btn" id="fGuardar">'+(editando?"Guardar cambios":"Crear")+'</button>'+(editando?'<button class="btn sec" id="fCancelar">Cancelar</button>':'')+'<div id="fMsg"></div></section>'}
 function pintar(){
+  if(!BOR)BOR=nuevoBorrador();
   app.innerHTML=`<section class="card"><h2>Cómo funciona</h2><ol>
-   <li>En su OneDrive del MEP cree una carpeta por tarea o proyecto (por ejemplo «10-1 · Tarea 3»).</li>
-   <li>En esa carpeta use <b>«Solicitar archivos»</b>: los estudiantes suben sin ver los archivos de los demás. Si su cuenta no tiene esa opción, use <b>Compartir → Personas de su organización · Puede editar</b>.</li>
-   <li>Copie el enlace y péguelo aquí. El estudiante ve el botón «📤 Abrir la carpeta de entrega», sube su archivo y confirma en la plataforma.</li>
-   <li>Usted revisa el archivo en OneDrive y lo marca como <b>Recibido</b> o lo <b>Devuelve</b> con un comentario.</li></ol>
-   <div class="msg wa"><b>Pendiente para febrero de 2027:</b> probar con un estudiante que «Solicitar archivos» funcione con las cuentas del MEP (depende de cómo lo tenga configurado el MEP).</div>
+   <li>Cree la tarea o proyecto: instrucciones, material, evaluación (indicadores con sus niveles) y fecha límite.</li>
+   <li>En su OneDrive del MEP cree la carpeta de entrega y use <b>«Solicitar archivos»</b> (si no aparece: <b>Compartir → Personas de su organización · Puede editar</b>). Pegue el enlace.</li>
+   <li>El estudiante ve instrucciones, material y cómo se le evalúa; sube su archivo y confirma en la plataforma.</li>
+   <li>Usted revisa en OneDrive y califica cada indicador de 0 a 3 aquí mismo.</li></ol>
+   <div class="msg wa"><b>Pendiente para febrero de 2027:</b> probar «Solicitar archivos» con una cuenta de estudiante del MEP. Las notas de aquí todavía no pasan a «Tareas» o «Proyectos» de la nota del período; eso se conecta al iniciar 2027.</div>
    <a class="btn sec" href="entregas.html">👀 Ver lo que verá el estudiante</a></section>`+form()+
    '<section class="card"><h2>Tareas y proyectos</h2>'+(TAR.length?TAR.map(tarea).join(""):'<p class="mut">Todavía no hay ninguna.</p>')+'</section>';
-  $("#fGuardar").onclick=guardar;const c=$("#fCancelar");if(c)c.onclick=()=>{editando=null;pintar()};
-  document.querySelectorAll("[data-ed]").forEach(b=>b.onclick=()=>{editando=TAR.find(t=>t.id==b.dataset.ed);pintar();scrollTo(0,0)});
-  document.querySelectorAll("[data-vis]").forEach(b=>b.onclick=async()=>{const t=TAR.find(x=>x.id==b.dataset.vis);const {error}=await sb.from("entregas_tareas").update({visible:!t.visible}).eq("id",t.id);if(error)alert(error.message);else{t.visible=!t.visible;pintar()}});
-  document.querySelectorAll("[data-rec]").forEach(b=>b.onclick=()=>marcar(+b.dataset.rec,"recibido"));
-  document.querySelectorAll("[data-dev]").forEach(b=>b.onclick=()=>{const c=prompt("Comentario para el estudiante (qué debe corregir):");if(c!==null)marcar(+b.dataset.dev,"devuelto",c)});
+  $("#fGuardar").onclick=guardar;const c=$("#fCancelar");if(c)c.onclick=()=>{editando=null;BOR=null;pintar()};
+  $("#addMat").onclick=()=>{leerForm();BOR.materiales.push({nombre:"",url:""});pintar();$("#formTarea").scrollIntoView()};
+  $("#addInd").onclick=()=>{leerForm();BOR.instrumento.indicadores.push({texto:"",niveles:["","",""]});pintar();document.querySelector('[data-ind="'+(BOR.instrumento.indicadores.length-1)+'"]').scrollIntoView()};
+  document.querySelectorAll("[data-qmat]").forEach(x=>x.onclick=()=>{leerForm();BOR.materiales.splice(+x.dataset.qmat,1);pintar();$("#formTarea").scrollIntoView()});
+  document.querySelectorAll("[data-qind]").forEach(x=>x.onclick=()=>{leerForm();BOR.instrumento.indicadores.splice(+x.dataset.qind,1);pintar();$("#formTarea").scrollIntoView()});
+  document.querySelectorAll("[data-ia]").forEach(x=>x.onclick=()=>sugerir(+x.dataset.ia,x));
+  document.querySelectorAll("[data-ed]").forEach(b=>b.onclick=()=>{editando=TAR.find(t=>t.id==b.dataset.ed);BOR=nuevoBorrador(editando);pintar();scrollTo(0,0)});
+  document.querySelectorAll("[data-vis]").forEach(b=>b.onclick=async()=>{leerForm();const t=TAR.find(x=>x.id==b.dataset.vis);const {error}=await sb.from("entregas_tareas").update({visible:!t.visible}).eq("id",t.id);if(error)alert(error.message);else{t.visible=!t.visible;pintar()}});
+  document.querySelectorAll("details.t").forEach(d=>d.ontoggle=()=>{if(d.open)abierta=+d.dataset.t});
+  document.querySelectorAll("[data-cal]").forEach(b=>b.onclick=()=>{leerForm();calif=calif===b.dataset.cal?null:b.dataset.cal;pintar()});
+  document.querySelectorAll("[data-gcal]").forEach(b=>b.onclick=()=>guardarCalif(b.dataset.gcal));
+  document.querySelectorAll("[data-dev]").forEach(b=>b.onclick=()=>{const c=prompt("Comentario para el estudiante (qué debe corregir):");if(c!==null){leerForm();marcar(+b.dataset.dev,{estado:"devuelto",comentario:c})}});
+  if(abierta){const d=document.querySelector('details.t[data-t="'+abierta+'"]');if(d)d.open=true}
 }
 function tarea(t){
   const est=EST.filter(s=>s.seccion===t.seccion),en=ENT.filter(x=>x.tarea_id===t.id),m={};en.forEach(x=>m[x.estudiante_id]=x);
+  const inds=(t.instrumento&&t.instrumento.indicadores)||[],max=inds.length*3;
   const tarde=x=>t.fecha_limite&&new Date(x.entregado_en)>new Date(t.fecha_limite);
-  const n=en.length,nt=en.filter(tarde).length;
-  return '<details class="t"><summary><b>'+(t.tipo==="proyecto"?"📁":"📝")+' '+esc(t.titulo)+'</b><span class="tag">'+esc(t.seccion)+'</span><span class="tag '+(t.visible?"ok":"wa")+'">'+(t.visible?"Visible":"Oculta")+'</span>'+
-   '<span class="tag">'+n+'/'+est.length+' entregaron'+(nt?' · '+nt+' tarde':'')+'</span><span class="mut">Límite: '+esc(fmt(t.fecha_limite))+'</span></summary><div>'+
+  const n=en.length,nt=en.filter(tarde).length,nc=en.filter(x=>x.calificacion).length;
+  return '<details class="t" data-t="'+t.id+'"><summary><b>'+(t.tipo==="proyecto"?"📁":"📝")+' '+esc(t.titulo)+'</b><span class="tag">'+esc(t.seccion)+'</span><span class="tag">'+esc(t.componente||"Tareas")+'</span><span class="tag '+(t.visible?"ok":"wa")+'">'+(t.visible?"Visible":"Oculta")+'</span>'+
+   '<span class="tag">'+n+'/'+est.length+' entregaron'+(nt?' · '+nt+' tarde':'')+(nc?' · '+nc+' calificados':'')+'</span><span class="mut">Límite: '+esc(fmt(t.fecha_limite))+'</span></summary><div>'+
    '<p>'+(t.enlace_onedrive?'<a class="btn sm" href="'+esc(t.enlace_onedrive)+'" target="_blank" rel="noopener">📂 Abrir la carpeta en OneDrive</a>':'<span class="tag wa">Falta el enlace de OneDrive</span>')+
    '<button class="btn sm sec" data-ed="'+t.id+'">✏️ Editar</button><button class="btn sm sec" data-vis="'+t.id+'">'+(t.visible?"🙈 Ocultar":"👁 Mostrar")+'</button></p>'+
-   '<div style="overflow-x:auto"><table><thead><tr><th>Estudiante</th><th>Estado</th><th>Entregó</th><th>Archivo</th><th></th></tr></thead><tbody>'+
-   est.map(s=>{const x=m[s.id];return'<tr><td>'+esc(s.apellido1+" "+(s.apellido2||"")+" "+s.nombre)+'</td><td>'+(!x?'<span class="tag">Pendiente</span>':x.estado==="recibido"?'<span class="tag ok">Recibido</span>':x.estado==="devuelto"?'<span class="tag bad">Devuelto</span>':'<span class="tag '+(tarde(x)?"wa":"ok")+'">'+(tarde(x)?"Tarde":"A tiempo")+'</span>')+'</td>'+
-    '<td>'+(x?esc(fmt(x.entregado_en))+(x.veces>1?' <span class="mut">('+x.veces+' veces)</span>':''):'—')+'</td><td>'+(x?esc(x.archivo_nombre||""):"")+'</td>'+
-    '<td>'+(x&&x.estado!=="recibido"?'<button class="btn sm" data-rec="'+x.id+'">✓ Recibido</button>':'')+(x&&x.estado!=="devuelto"?'<button class="btn sm sec" data-dev="'+x.id+'">↩ Devolver</button>':'')+'</td></tr>'}).join("")+
+   (inds.length?'':'<div class="msg wa">Esta tarea no tiene indicadores: agréguelos en «Editar» para poder calificar.</div>')+
+   '<div style="overflow-x:auto"><table><thead><tr><th>Estudiante</th><th>Estado</th><th>Entregó</th><th>Archivo</th><th>Nota</th><th></th></tr></thead><tbody>'+
+   est.map(s=>{const x=m[s.id],k=t.id+"|"+s.id,cal=x&&x.calificacion;
+    let fila='<tr><td>'+esc(s.apellido1+" "+(s.apellido2||"")+" "+s.nombre)+'</td><td>'+(!x?'<span class="tag">Pendiente</span>':x.estado==="recibido"?'<span class="tag ok">Recibido</span>':x.estado==="devuelto"?'<span class="tag bad">Devuelto</span>':'<span class="tag '+(tarde(x)?"wa":"ok")+'">'+(tarde(x)?"Tarde":"A tiempo")+'</span>')+'</td>'+
+     '<td>'+(x?esc(fmt(x.entregado_en))+(x.veces>1?' <span class="mut">('+x.veces+' veces)</span>':''):'—')+'</td><td>'+(x?esc(x.archivo_nombre||""):"")+'</td>'+
+     '<td>'+(cal?'<b>'+cal.total+'/'+cal.max+'</b> <span class="mut">('+String(Math.round(cal.total/cal.max*1000)/10).replace(".",",")+' %)</span>':'—')+'</td>'+
+     '<td>'+(inds.length?'<button class="btn sm" data-cal="'+k+'">'+(cal?"✏️ Nota":"📝 Calificar")+'</button>':'')+(x&&x.estado!=="devuelto"?'<button class="btn sm sec" data-dev="'+x.id+'">↩ Devolver</button>':'')+'</td></tr>';
+    if(calif===k){const p=(cal&&cal.puntos)||[];
+     fila+='<tr><td colspan="6"><div class="card" style="margin:4px 0;padding:12px">'+inds.map((d,i)=>'<div style="margin:6px 0"><b>'+(i+1)+'. '+esc(d.texto)+'</b><br>'+
+      [0,1,2,3].map(v=>'<label style="display:inline-flex;gap:4px;margin:4px 10px 0 0;color:var(--ink)" title="'+esc(v?d.niveles[v-1]||"":"Sin evidencia")+'"><input type="radio" name="c'+i+'" value="'+v+'" style="width:auto" '+(p[i]===v?"checked":"")+'> '+(v?NIV[v-1]:"0 · Sin evidencia")+'</label>').join("")+
+      '</div>').join("")+'<label>Comentario (opcional)</label><input id="calCom" value="'+esc(x&&x.comentario||"")+'"><button class="btn" data-gcal="'+k+'">Guardar nota</button> <span class="mut">Máximo '+max+' puntos</span></div></td></tr>'}
+    return fila}).join("")+
    '</tbody></table></div></div></details>'}
-async function guardar(){
-  const fila={seccion:$("#fSec").value,materia_id:MAT[$("#fSec").value]||null,tipo:$("#fTipo").value,titulo:$("#fTit").value.trim(),instrucciones:$("#fIns").value.trim()||null,
-    fecha_limite:aISO($("#fLim").value),enlace_onedrive:$("#fEnl").value.trim()||null,visible:$("#fVis").checked};
-  if(!fila.titulo){$("#fMsg").innerHTML='<div class="msg bad">Escriba el título.</div>';return}
-  if(fila.enlace_onedrive&&!/^https:\/\//i.test(fila.enlace_onedrive)){$("#fMsg").innerHTML='<div class="msg bad">El enlace debe empezar con https://</div>';return}
-  const r=editando?await sb.from("entregas_tareas").update(fila).eq("id",editando.id):await sb.from("entregas_tareas").insert(fila);
-  if(r.error){$("#fMsg").innerHTML='<div class="msg bad">'+esc(r.error.message)+'</div>';return}
-  editando=null;cargar();
+async function sugerir(i,b){
+  leerForm();const d=BOR.instrumento.indicadores[i],msg=document.querySelector('[data-iam="'+i+'"]');
+  if(!d.texto){msg.textContent=" Escriba primero el indicador.";return}
+  b.disabled=true;b.textContent="Generando…";
+  try{const r=await fetch("/api/generar-criterios-ia",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({titulo:d.texto,contexto:(BOR.titulo+" — "+BOR.instrucciones).slice(0,1500),puntajeMaximo:3})});
+   const x=await r.json();if(!r.ok)throw new Error(x.error||"error");
+   (x.criterios||[]).forEach(c=>{if(c.puntaje>=1&&c.puntaje<=3)d.niveles[c.puntaje-1]=c.descripcion});
+   if(x.descripcion)d.texto=x.descripcion;pintar();document.querySelector('[data-iam="'+i+'"]').textContent=" Listo: revise y ajuste antes de guardar.";
+   document.querySelector('[data-ind="'+i+'"]').scrollIntoView()}
+  catch(e){b.disabled=false;b.textContent="✨ Sugerir niveles con IA";msg.textContent=" No se pudo: "+e.message}
 }
-async function marcar(id,estado,comentario){
-  const {error}=await sb.from("entregas_estudiantes").update({estado,comentario:comentario??null}).eq("id",id);
-  if(error){alert(error.message);return}const x=ENT.find(e=>e.id===id);x.estado=estado;x.comentario=comentario??null;pintar();
+async function guardar(){
+  leerForm();const b=BOR;
+  const inds=b.instrumento.indicadores.filter(d=>d.texto);
+  const fila={seccion:b.seccion,materia_id:MAT[b.seccion]||null,tipo:b.tipo,componente:b.componente,titulo:b.titulo.trim(),instrucciones:b.instrucciones.trim()||null,
+    fecha_limite:aISO(b.fecha_limite),enlace_onedrive:b.enlace_onedrive.trim()||null,visible:b.visible,
+    materiales:b.materiales.filter(m=>m.url),instrumento:{tipo:b.instrumento.tipo,indicadores:inds}};
+  const err=t=>{$("#fMsg").innerHTML='<div class="msg bad">'+esc(t)+'</div>'};
+  if(!fila.titulo)return err("Escriba el título.");
+  if(fila.enlace_onedrive&&!/^https:\/\//i.test(fila.enlace_onedrive))return err("El enlace de entrega debe empezar con https://");
+  if(fila.materiales.some(m=>!/^https:\/\//i.test(m.url)))return err("Los enlaces del material deben empezar con https://");
+  if(inds.some(d=>d.niveles.some(n=>!n)))return err("Cada indicador necesita su descriptor en los tres niveles.");
+  if(fila.visible&&!inds.length)return err("Para hacerla visible, agregue al menos un indicador de evaluación.");
+  if(editando&&ENT.some(x=>x.tarea_id===editando.id&&x.calificacion)&&JSON.stringify(editando.instrumento.indicadores.map(d=>d.texto))!==JSON.stringify(inds.map(d=>d.texto))
+     &&!confirm("Ya hay estudiantes calificados en esta tarea. Si cambia los indicadores, revise sus notas. ¿Guardar?"))return;
+  const r=editando?await sb.from("entregas_tareas").update(fila).eq("id",editando.id):await sb.from("entregas_tareas").insert(fila);
+  if(r.error)return err(r.error.message);
+  editando=null;BOR=null;cargar();
+}
+async function guardarCalif(k){
+  const [tid,sid]=k.split("|"),t=TAR.find(x=>x.id==tid),inds=t.instrumento.indicadores;
+  const puntos=inds.map((_,i)=>{const r=document.querySelector('input[name="c'+i+'"]:checked');return r?+r.value:null});
+  if(puntos.some(p=>p===null)){alert("Marque un nivel en cada indicador.");return}
+  const calificacion={puntos,total:puntos.reduce((a,b)=>a+b,0),max:inds.length*3,indicadores:inds.map(d=>d.texto)};
+  const cambios={calificacion,calificado_en:new Date().toISOString(),estado:"recibido",comentario:$("#calCom").value.trim()||null};
+  const x=ENT.find(e=>e.tarea_id==tid&&e.estudiante_id===sid);
+  if(x)await marcar(x.id,cambios);
+  else{ // Sin entrega registrada (por ejemplo, la entregó en papel): se crea el registro con la nota.
+    if(!confirm("Este estudiante no registró entrega en la plataforma. ¿Guardar la nota igual?"))return;
+    const {data,error}=await sb.from("entregas_estudiantes").insert(Object.assign({tarea_id:+tid,estudiante_id:sid,archivo_nombre:"(calificada sin entrega en la plataforma)"},cambios)).select().maybeSingle();
+    if(error){alert(error.message);return}ENT.push(data)}
+  calif=null;pintar();
+}
+async function marcar(id,cambios){
+  const {error}=await sb.from("entregas_estudiantes").update(cambios).eq("id",id);
+  if(error){alert(error.message);return}Object.assign(ENT.find(e=>e.id===id),cambios);pintar();
 }
 if(!(SES&&SES.role==="docente"))app.innerHTML='<section class="card"><h2>Solo para el profe</h2><p class="mut">Se abre desde la plataforma, en 📅 2027.</p><a class="btn" href="index.html">Ir a la plataforma</a></section>';
 else cargar();

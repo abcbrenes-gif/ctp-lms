@@ -44,12 +44,20 @@ function estadoHTML(t,m){if(!m)return'<span class="tag">Pendiente</span>';
   if(m.estado==="devuelto")return'<span class="tag bad">Devuelto: corrija y vuelva a entregar</span>';
   return'<span class="tag '+(tarde?"wa":"ok")+'">Entregado '+(tarde?"tarde":"a tiempo")+'</span>'}
 
+const NIV=["Inicial (1)","Intermedio (2)","Avanzado (3)"],TIPOS={escala:"Escala de desempeño",rubrica:"Rúbrica",lista:"Lista de cotejo"};
+function evalHTML(t,m){const ins=t.instrumento||{},inds=ins.indicadores||[];if(!inds.length)return"";const cal=m&&m.calificacion;
+  return'<details class="paso"'+(cal?" open":"")+'><summary><b>📋 Cómo se evalúa</b> · '+esc(TIPOS[ins.tipo]||"Escala de desempeño")+(cal?' · <span class="tag ok">Tu nota: '+cal.total+'/'+cal.max+' ('+String(Math.round(cal.total/cal.max*1000)/10).replace(".",",")+' %)</span>':' · '+inds.length*3+' puntos')+'</summary>'+
+   inds.map((d,i)=>'<div style="margin-top:8px"><b>'+(i+1)+'. '+esc(d.texto)+'</b>'+(cal?' <span class="tag '+(cal.puntos[i]>=2?"ok":cal.puntos[i]===1?"wa":"bad")+'">'+cal.puntos[i]+'/3</span>':'')+
+    '<ul style="margin:4px 0;padding-left:18px">'+d.niveles.map((n,k)=>'<li><b>'+NIV[k]+':</b> '+esc(n)+'</li>').join("")+'</ul></div>').join("")+
+   (cal&&m.comentario?'<div class="msg ok"><b>Comentario del profe:</b> '+esc(m.comentario)+'</div>':'')+'<p class="mut">0 = sin evidencia.</p></details>'}
 function pintar(){
   if(!TAREAS.length){app.innerHTML=cab()+'<div class="card"><p class="mut">No tienes tareas ni proyectos por entregar.</p></div>';return}
   app.innerHTML=cab()+TAREAS.map(t=>{const m=MIAS[t.id],nombre=EST.seccion+"_"+limpio(EST.apellido1)+"_"+limpio(EST.nombre)+"_"+limpio(t.titulo).slice(0,30);
    const abierta=!m||m.estado==="devuelto";
    return'<section class="card"><h2>'+(t.tipo==="proyecto"?"📁":"📝")+' '+esc(t.titulo)+'</h2><p class="mut">'+(t.tipo==="proyecto"?"Proyecto":"Tarea")+(t.fecha_limite?' · entrega hasta el '+esc(fmt(t.fecha_limite)):"")+'</p>'+
-    estadoHTML(t,m)+(abierta?falta(t.fecha_limite):"")+(t.instrucciones?'<p>'+esc(t.instrucciones)+'</p>':'')+
+    estadoHTML(t,m)+(abierta?falta(t.fecha_limite):"")+(t.instrucciones?'<p style="white-space:pre-line">'+esc(t.instrucciones)+'</p>':'')+
+    ((t.materiales||[]).length?'<div class="paso"><b>📚 Material</b><br>'+t.materiales.map(x=>'<a class="btn sec" href="'+esc(x.url)+'" target="_blank" rel="noopener">'+esc(x.nombre||"Abrir material")+'</a>').join("")+'</div>':'')+
+    evalHTML(t,m)+
     (m&&m.estado==="devuelto"&&m.comentario?'<div class="msg bad"><b>Comentario del profe:</b> '+esc(m.comentario)+'</div>':'')+
     (m?'<p class="mut">Última entrega: '+esc(fmt(m.entregado_en))+(m.archivo_nombre?' · '+esc(m.archivo_nombre):'')+(m.veces>1?' · '+m.veces+' veces':'')+'</p>':'')+
     (abierta||m.estado==="entregado"?'<div class="paso"><b>1.</b> Ponle este nombre a tu archivo: <code>'+esc(nombre)+'</code> <button class="btn sec" data-copiar="'+esc(nombre)+'" style="padding:4px 10px;font-size:.8rem">Copiar</button></div>'+
@@ -74,7 +82,8 @@ async function confirmar(id,b){
 }
 
 async function cargar(){
-  if(PREVIA){EST={seccion:"10-1",apellido1:"Mora",nombre:"Ana"};TAREAS=[{id:-1,tipo:"tarea",titulo:"Tarea 1 · Carta de encargo",instrucciones:"Redacte la carta de encargo del caso Café Mercedes S.A. en Word.",fecha_limite:new Date(Date.now()+2*864e5).toISOString(),enlace_onedrive:"https://www.office.com/"}];pintar();return}
+  if(PREVIA){EST={seccion:"10-1",apellido1:"Mora",nombre:"Ana"};TAREAS=[{id:-1,tipo:"tarea",titulo:"Tarea 1 · Carta de encargo",instrucciones:"Redacte la carta de encargo del caso Café Mercedes S.A. en Word.",fecha_limite:new Date(Date.now()+2*864e5).toISOString(),enlace_onedrive:"https://www.office.com/",
+    materiales:[{nombre:"Guía: partes de la carta de encargo",url:"https://www.office.com/"}],instrumento:{tipo:"escala",indicadores:[{texto:"Redacta una carta de encargo según la NIA 210 a partir del caso asignado",niveles:["La carta tiene 1 o 2 de las partes obligatorias.","La carta tiene 3 o 4 de las partes obligatorias.","La carta tiene las 5 partes obligatorias, claras y coherentes con el caso."]}]}}];pintar();return}
   const e=await sb.from("estudiantes").select("id,nombre,apellido1,seccion").eq("id",SES.id).maybeSingle();EST=e.data;
   if(!EST){app.innerHTML='<div class="card msg bad">No se encontró tu usuario.</div>';return}
   const t=await sb.from("entregas_tareas").select("*").eq("seccion",EST.seccion).eq("visible",true).order("fecha_limite",{ascending:true,nullsFirst:false});
