@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Asistencia por Wi-Fi · 2027</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="img/logo-ctp-mercedes-norte.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js?v=20261116b"></script>
+<style>
+:root{--bg:#F5F7FB;--sf:#fff;--ink:#0F172A;--mut:#5B6B80;--line:#DCE3EE;--pri:#1F3864;--acc:#1d63e8;--okS:#DDF1DC;--wa:#FFF2D6;--bad:#FDE2E2}
+@media (prefers-color-scheme:dark){:root{--bg:#0B1020;--sf:#121A30;--ink:#E8EDFB;--mut:#9AA9CC;--line:#26324F;--pri:#9DB7F5;--okS:#173A28;--wa:#3A2E10;--bad:#4a1616}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Inter,"Segoe UI",system-ui,sans-serif;padding-bottom:90px}
+header{background:#14213d;color:#fff;padding:14px 20px}header h1{margin:0;font-size:1.25rem}header p{margin:2px 0 0;opacity:.85;font-size:.88rem}
+.pill{background:#ffd43b;color:#14213d;border-radius:999px;padding:2px 10px;font-size:.72rem;font-weight:800;vertical-align:middle}
+main{max-width:900px;margin:0 auto;padding:16px}.card{background:var(--sf);border:1px solid var(--line);border-radius:16px;padding:18px;margin:0 0 14px}
+h2{margin:0 0 8px;font-size:1.1rem;color:var(--pri)}.mut{color:var(--mut);font-size:.86rem}
+.btn{display:inline-block;background:var(--acc);color:#fff;border:0;border-radius:10px;padding:9px 14px;font:600 .9rem inherit;cursor:pointer;margin:4px 6px 4px 0;text-decoration:none}.btn.sec{background:transparent;color:var(--ink);border:1px solid var(--line)}
+input,select{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--sf);color:var(--ink)}
+.lista li{margin:6px 0}.est{display:inline-block;border-radius:999px;padding:1px 9px;font-size:.75rem;font-weight:700}.est.ok{background:var(--okS)}.est.wa{background:var(--wa)}.est.bad{background:var(--bad)}
+table{border-collapse:collapse;width:100%;font-size:.88rem}th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left}th{color:var(--mut);font-weight:600}
+.msg{border-radius:10px;padding:8px 12px;margin:8px 0;font-size:.9rem}.msg.ok{background:var(--okS)}.msg.wa{background:var(--wa)}.msg.bad{background:var(--bad)}
+ol li{margin:4px 0}code{background:var(--bg);padding:1px 5px;border-radius:5px}
+</style>
+</head>
+<body>
+<header><h1>📶 Asistencia por Wi-Fi <span class="pill">2027 · solo profe</span></h1><p>El estudiante se conecta al router del aula y recibe un PIN en su correo del MEP</p></header>
+<main id="app"><p class="mut">Cargando…</p></main>
+<script>
+let SES=null;try{SES=JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")||"null")}catch(e){}
+const app=document.getElementById("app"),$=s=>document.querySelector(s);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const DIAS=["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
+const NOMB={presente:"Presente",tardia_leve:"Tardía leve",tardia_grave:"Tardía grave",ausente_justificada:"Ausente justificada",ausente_injustificada:"Ausente injustificada"};
+let CFG=null,EST=[],LEC=[],secSel="";
+
+const ahoraCR=()=>{const d=new Date(Date.now()-6*3600e3),p=n=>String(n).padStart(2,"0");return{dia:d.getUTCDay(),fecha:d.toISOString().slice(0,10),hora:p(d.getUTCHours())+":"+p(d.getUTCMinutes())+":00"}};
+async function api(accion,extra){try{const r=await fetch("/api/asistencia-red",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({accion},extra||{}))});return await r.json()}catch(e){return{ok:false,msg:"Sin conexión con el servidor."}}}
+
+async function cargar(){
+  const [c,e,l]=await Promise.all([sb.from("asistencia_red_config").select("*").eq("id",1).maybeSingle(),sb.from("estudiantes").select("id,nombre,apellido1,apellido2,seccion,correo_mep").order("apellido1"),sb.from("lecciones").select("id,seccion,materia_id,dia_semana,hora_inicio,hora_fin").order("hora_inicio")]);
+  if(c.error||e.error||l.error){app.innerHTML='<div class="card msg bad">No se pudo cargar: '+esc((c.error||e.error||l.error).message)+'</div>';return}
+  CFG=c.data||{activo:false,ips:[],tolerancia_min:10};EST=(e.data||[]).filter(x=>x.id!=="0-0000-0001");LEC=l.data||[];
+  const secs=[...new Set(LEC.map(x=>x.seccion))].sort();if(!secSel)secSel=secs[0]||"";
+  const srv=await api("estado",{estudiante_id:"0-0000-0001"}),srvOk=!srv.pendiente;
+  const conCorreo=EST.filter(x=>x.correo_mep).length;
+  app.innerHTML=`
+  <section class="card"><h2>Lo que falta para activarla en 2027</h2><ul class="lista">
+   <li>${srvOk?'<span class="est ok">Listo</span>':'<span class="est wa">Pendiente</span>'} Clave del servidor de la plataforma (la configuro yo cuando usted lo indique).</li>
+   <li><span class="est wa">Pendiente</span> Cuenta gratuita de envío de correos (Brevo). Pasos abajo.</li>
+   <li>${CFG.ips&&CFG.ips.length?'<span class="est ok">Listo</span> Router registrado: <code>'+CFG.ips.map(esc).join("</code>, <code>")+'</code>':'<span class="est wa">Pendiente</span> IP del router del aula.'}</li>
+   <li>${conCorreo?'<span class="est ok">'+conCorreo+'</span>':'<span class="est wa">0</span>'} estudiantes con su correo del MEP registrado (lo registran ellos la primera vez).</li>
+   <li>${CFG.activo?'<span class="est ok">Activa</span>':'<span class="est wa">Apagada</span>'} Asistencia por Wi-Fi.</li></ul>
+   <a class="btn sec" href="asistencia-red.html">👀 Ver lo que verá el estudiante</a></section>
+
+  <section class="card"><h2>1 · Router del aula</h2>
+   <p class="mut">Conéctese con su celular o computadora al Wi-Fi del router del aula (sin datos móviles) y toque el botón. Esa es la dirección con la que la plataforma reconoce el router.</p>
+   <button class="btn" id="verIp">📍 Ver la IP de esta conexión</button><span id="ip"></span>
+   <div style="margin-top:8px">IP registradas: <input id="ips" value="${esc((CFG.ips||[]).join(", "))}" placeholder="pendiente" style="min-width:240px"> <button class="btn sec" id="guardarIps">Guardar</button></div>
+   <p class="mut">Si todo el colegio sale a internet con la misma IP, cualquier Wi-Fi del colegio serviría. Para que sea solo el del aula, el router necesita su propia salida a internet.</p></section>
+
+  <section class="card"><h2>2 · Reglas</h2>
+   <label>Tolerancia: <input id="tol" type="number" min="0" max="60" value="${CFG.tolerancia_min}" style="width:80px"> minutos</label> <span class="mut">Después queda como tardía leve.</span><br>
+   <label style="display:inline-flex;gap:8px;margin-top:10px;align-items:center"><input type="checkbox" id="activo" ${CFG.activo?"checked":""} ${srvOk&&CFG.ips&&CFG.ips.length?"":"disabled"}> Asistencia por Wi-Fi activa</label>
+   <span class="mut">${srvOk&&CFG.ips&&CFG.ips.length?"":"(se puede activar cuando estén listos el servidor y el router)"}</span><br>
+   <button class="btn sec" id="guardarReglas">Guardar reglas</button><div id="mReglas"></div>
+   <p class="mut">Se abre sola en cada lección de su horario y se cierra al terminar. Los días marcados «sin clase» no se abre. No reemplaza una marca que usted ya haya puesto.</p></section>
+
+  <section class="card"><h2>3 · Hoy en vivo</h2>
+   <label>Sección: <select id="sec">${secs.map(s=>'<option '+(s===secSel?"selected":"")+'>'+esc(s)+'</option>').join("")}</select></label> <button class="btn sec" id="refrescar">🔄 Actualizar</button>
+   <div id="vivo"></div></section>
+
+  <section class="card"><h2>4 · Correos del MEP</h2><div id="correos"></div></section>
+
+  <section class="card"><h2>5 · Cuenta de envío de correos (Brevo) · para 2027</h2>
+   <ol><li>Entre a <a href="https://www.brevo.com/es/" target="_blank" rel="noopener">brevo.com/es</a> y cree una cuenta gratuita con el correo del colegio o el suyo.</li>
+   <li>Verifique el correo remitente que firmará los PIN.</li>
+   <li>En su perfil, busque «SMTP y API» y cree una <b>clave API</b>.</li>
+   <li>Cuando llegue el momento, me pasa la clave y el correo remitente, y yo los configuro en el servidor (la clave nunca va en la página).</li>
+   <li>Hacemos una prueba con su correo del MEP para revisar que no caiga en «Correo no deseado».</li></ol></section>`;
+  $("#verIp").onclick=async()=>{const r=await api("mi_ip");$("#ip").innerHTML=r.ok?' <b>'+esc(r.ip)+'</b> <button class="btn sec" id="usarIp">Usar esta IP</button>':' <span class="est bad">'+esc(r.msg)+'</span>';
+    const u=$("#usarIp");if(u)u.onclick=()=>{const v=$("#ips").value.split(",").map(s=>s.trim()).filter(Boolean);if(!v.includes(r.ip))v.push(r.ip);$("#ips").value=v.join(", ")}};
+  $("#guardarIps").onclick=async()=>{const ips=$("#ips").value.split(",").map(s=>s.trim()).filter(Boolean);const {error}=await sb.from("asistencia_red_config").update({ips,actualizado_en:new Date().toISOString()}).eq("id",1);if(error)alert(error.message);else cargar()};
+  $("#guardarReglas").onclick=async()=>{const tol=Math.max(0,Math.min(60,+$("#tol").value||0));const {error}=await sb.from("asistencia_red_config").update({tolerancia_min:tol,activo:$("#activo").checked,actualizado_en:new Date().toISOString()}).eq("id",1);
+    $("#mReglas").innerHTML=error?'<div class="msg bad">'+esc(error.message)+'</div>':'<div class="msg ok">Guardado.</div>'};
+  $("#sec").onchange=()=>{secSel=$("#sec").value;vivo();correos()};$("#refrescar").onclick=vivo;
+  vivo();correos();
+}
+
+async function vivo(){
+  const t=ahoraCR(),hoy=LEC.filter(x=>x.seccion===secSel&&x.dia_semana===t.dia);
+  if(!hoy.length){$("#vivo").innerHTML='<p class="mut">'+DIAS[t.dia]+': '+esc(secSel)+' no tiene lecciones hoy según el horario.</p>';return}
+  const actual=hoy.find(x=>x.hora_inicio<=t.hora&&x.hora_fin>t.hora);
+  const {data}=await sb.from("asistencia_lecciones").select("leccion_id,estudiante_id,estado").eq("fecha",t.fecha).in("leccion_id",hoy.map(x=>x.id));
+  const est=EST.filter(x=>x.seccion===secSel),m={};(data||[]).forEach(a=>{m[a.leccion_id+"|"+a.estudiante_id]=a.estado});
+  $("#vivo").innerHTML='<p class="mut">'+DIAS[t.dia]+' · '+(actual?'lección abierta ahora: <b>'+actual.hora_inicio.slice(0,5)+'–'+actual.hora_fin.slice(0,5)+'</b>':'ninguna lección abierta en este momento')+'</p><div style="overflow-x:auto"><table><thead><tr><th>Estudiante</th>'+
+   hoy.map(l=>'<th>'+l.hora_inicio.slice(0,5)+(actual&&actual.id===l.id?' 🟢':'')+'</th>').join("")+'</tr></thead><tbody>'+
+   est.map(e=>'<tr><td>'+esc(e.apellido1+" "+(e.apellido2||"")+" "+e.nombre)+'</td>'+hoy.map(l=>{const s=m[l.id+"|"+e.id];return'<td>'+(s?'<span class="est '+(s==="presente"?"ok":/tardia/.test(s)?"wa":"bad")+'">'+esc(NOMB[s]||s)+'</span>':'<span class="mut">—</span>')+'</td>'}).join("")+'</tr>').join("")+'</tbody></table></div>';
+}
+function correos(){
+  const est=EST.filter(x=>x.seccion===secSel);
+  $("#correos").innerHTML='<p class="mut">El estudiante lo registra la primera vez (solo se acepta @est.mep.go.cr). Si se equivocó, bórrelo aquí y lo vuelve a registrar.</p><table><thead><tr><th>Estudiante</th><th>Correo del MEP</th><th></th></tr></thead><tbody>'+
+   est.map(e=>'<tr><td>'+esc(e.apellido1+" "+e.nombre)+'</td><td>'+(e.correo_mep?esc(e.correo_mep):'<span class="mut">sin registrar</span>')+'</td><td>'+(e.correo_mep?'<button class="btn sec" data-borrar="'+esc(e.id)+'">Borrar</button>':'')+'</td></tr>').join("")+'</tbody></table>';
+  document.querySelectorAll("[data-borrar]").forEach(b=>b.onclick=async()=>{const e=EST.find(x=>x.id===b.dataset.borrar);if(!confirm("¿Borrar el correo de "+e.nombre+"? Lo tendrá que registrar de nuevo."))return;
+    const {error}=await sb.from("estudiantes").update({correo_mep:null}).eq("id",e.id);if(error)alert(error.message);else{e.correo_mep=null;correos()}});
+}
+
+if(!(SES&&SES.role==="docente"))app.innerHTML='<section class="card"><h2>Solo para el profe</h2><p class="mut">Se abre desde la plataforma, en 📅 2027.</p><a class="btn" href="index.html">Ir a la plataforma</a></section>';
+else cargar();
+</script>
+<script src="js/volver-plataforma.js?v=20261117a"></script>
+</body>
+</html>

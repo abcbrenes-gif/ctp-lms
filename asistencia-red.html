@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Marcar asistencia · CTP Mercedes Norte</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="img/logo-ctp-mercedes-norte.png">
+<style>
+:root{--bg:#F5F7FB;--sf:#fff;--ink:#0F172A;--mut:#5B6B80;--line:#DCE3EE;--acc:#1d63e8;--ok:#16a34a;--okS:#DDF1DC;--wa:#FFF2D6;--bad:#FDE2E2}
+@media (prefers-color-scheme:dark){:root{--bg:#0B1020;--sf:#121A30;--ink:#E8EDFB;--mut:#9AA9CC;--line:#26324F;--okS:#173A28;--wa:#3A2E10;--bad:#4a1616}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,"Segoe UI",system-ui,sans-serif;padding-bottom:90px}
+main{max-width:480px;margin:0 auto;padding:20px 16px}.card{background:var(--sf);border:1px solid var(--line);border-radius:18px;padding:20px;margin-bottom:14px}
+h1{font-size:1.35rem;margin:0 0 4px}.mut{color:var(--mut);font-size:.9rem}
+.btn{display:block;width:100%;background:var(--acc);color:#fff;border:0;border-radius:14px;padding:14px;font:700 1.05rem inherit;cursor:pointer;margin-top:12px}.btn:disabled{opacity:.5}.btn.sec{background:transparent;color:var(--ink);border:1px solid var(--line)}
+input{width:100%;font:inherit;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--sf);color:var(--ink);margin-top:10px}
+.pin{font-size:1.8rem;letter-spacing:.5em;text-align:center;font-weight:800}
+.paso{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}.paso:last-child{border:0}.paso b{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--line);flex:none;font-size:.85rem}.paso.ok b{background:var(--ok);color:#fff}
+.msg{border-radius:12px;padding:10px 12px;margin-top:12px;font-size:.92rem}.msg.ok{background:var(--okS)}.msg.wa{background:var(--wa)}.msg.bad{background:var(--bad)}
+.grande{font-size:3rem;text-align:center;margin:6px 0}
+</style>
+</head>
+<body>
+<main id="app"><p class="mut">Cargando…</p></main>
+<script>
+// Asistencia por red (2027). Se activa cambiando ASISTENCIA_RED_ACTIVA a true cuando esté configurado el servidor,
+// el envío de correos (Brevo) y la IP del router del aula. Mientras tanto el estudiante ve «Se abre en 2027»
+// y el profe ve una vista previa sin datos reales.
+const ASISTENCIA_RED_ACTIVA = false;
+let SES=null;try{SES=JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")||"null")}catch(e){}
+const app=document.getElementById("app"),$=s=>document.querySelector(s);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const PREVIA=!!(SES&&SES.role==="docente");
+let E={};
+
+async function api(accion,extra){
+  if(PREVIA)return simular(accion,extra);
+  const r=await fetch("/api/asistencia-red",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({accion,estudiante_id:SES.id},extra||{}))});
+  let d={};try{d=await r.json()}catch(e){d={ok:false,msg:"No hay conexión con la plataforma."}}return d;
+}
+// Vista previa para el profe: muestra el recorrido completo sin tocar datos.
+function simular(accion,extra){
+  if(accion==="estado")return Promise.resolve(Object.assign({ok:true,activo:true,leccion:{hora_inicio:"07:00:00",hora_fin:"08:00:00"},ipOk:true,ipPendiente:false,marca:null,tolerancia:10},{correo:E.correo||null}));
+  if(accion==="registrar_correo")return Promise.resolve(/@est\.mep\.go\.cr$/i.test(extra.correo||"")?{ok:true,correo:extra.correo}:{ok:false,msg:"Escribe tu correo del MEP (termina en @est.mep.go.cr)."});
+  if(accion==="pedir_pin")return Promise.resolve({ok:true,enviado:true,correo:"es•••@est.mep.go.cr",minutos:5});
+  if(accion==="confirmar")return Promise.resolve(extra.pin==="123456"?{ok:true,estado:"presente",hora:"07:04"}:{ok:false,msg:"PIN incorrecto. En la vista previa el PIN es 123456."});
+}
+
+function pasos(){const l=[["Wi-Fi del aula",E.ipOk],["Correo del MEP",!!E.correo],["PIN recibido",!!E.enviado],["Asistencia registrada",!!E.listo]];
+  return '<div class="card">'+l.map((p,i)=>'<div class="paso '+(p[1]?"ok":"")+'"><b>'+(p[1]?"✓":i+1)+'</b>'+p[0]+'</div>').join("")+'</div>'}
+function pintar(cuerpo){app.innerHTML=(PREVIA?'<div class="msg wa">👩‍🏫 <b>Vista previa del docente.</b> Así lo verá el estudiante en 2027. No se guarda nada; el PIN de prueba es 123456.</div>':'')+
+  '<div class="card"><h1>✋ Marcar asistencia</h1><p class="mut">'+(E.leccion?'Lección de las '+esc(String(E.leccion.hora_inicio).slice(0,5))+' a las '+esc(String(E.leccion.hora_fin).slice(0,5))+' · tolerancia '+E.tolerancia+' min':'CTP Mercedes Norte')+'</p></div>'+pasos()+'<div class="card">'+cuerpo+'</div>'}
+const aviso=(t,c)=>'<div class="msg '+(c||"wa")+'">'+esc(t)+'</div>';
+
+async function cargar(){
+  const d=await api("estado");
+  if(!d.ok){pintar(aviso(d.msg||"No se pudo revisar la asistencia.",d.pendiente?"wa":"bad")+'<button class="btn sec" onclick="cargar()">Reintentar</button>');return}
+  Object.assign(E,d);
+  if(d.marca){E.listo=true;return pintar('<div class="grande">✅</div><p style="text-align:center">Tu asistencia de esta lección ya está registrada.</p>')}
+  if(!d.activo)return pintar(aviso("La asistencia por red todavía no está activa."));
+  if(!d.leccion)return pintar(aviso("Ahora no hay una lección abierta para tu sección.")+'<button class="btn sec" onclick="cargar()">Revisar otra vez</button>');
+  if(d.ipPendiente)return pintar(aviso("El profe todavía no registra el router del aula."));
+  if(!d.ipOk)return pintar(aviso("📶 Conéctate al Wi-Fi del aula y vuelve a intentar. Si estás con datos del celular, apágalos.")+'<button class="btn" onclick="cargar()">Ya me conecté</button>');
+  if(!d.correo)return pintar('<p><b>Registra tu correo del MEP.</b> Solo se hace una vez. Ahí te llegará el PIN.</p><input id="correo" type="email" inputmode="email" autocomplete="email" placeholder="nombre.apellido@est.mep.go.cr"><button class="btn" id="reg">Guardar correo</button><div id="m"></div>'),
+    $("#reg").onclick=async()=>{const b=$("#reg");b.disabled=true;const r=await api("registrar_correo",{correo:$("#correo").value.trim()});b.disabled=false;if(r.ok){E.correo=r.correo;cargar()}else $("#m").innerHTML=aviso(r.msg,"bad")};
+  pedir();
+}
+function pedir(){
+  pintar('<p>Te enviaremos un PIN de 6 dígitos a tu correo del MEP.</p><button class="btn" id="pedir">📩 Enviarme el PIN</button><div id="m"></div>');
+  $("#pedir").onclick=async()=>{const b=$("#pedir");b.disabled=true;b.textContent="Enviando…";const r=await api("pedir_pin");
+    if(!r.ok){b.disabled=false;b.textContent="📩 Enviarme el PIN";$("#m").innerHTML=aviso(r.msg,r.pendiente?"wa":"bad");return}E.enviado=true;confirmar(r)};
+}
+function confirmar(r){
+  pintar(aviso("Te enviamos el PIN a "+r.correo+". Vence en "+r.minutos+" minutos. Revisa también «Correo no deseado».","ok")+
+   '<input id="pin" class="pin" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="••••••"><button class="btn" id="ok">Confirmar asistencia</button><button class="btn sec" id="otro">No me llegó: enviar otro</button><div id="m"></div>');
+  $("#pin").focus();
+  $("#ok").onclick=async()=>{const b=$("#ok");b.disabled=true;const x=await api("confirmar",{pin:$("#pin").value});b.disabled=false;
+    if(!x.ok){$("#m").innerHTML=aviso(x.msg,"bad");return}E.listo=true;
+    pintar('<div class="grande">'+(x.estado==="presente"?"✅":"⏰")+'</div><p style="text-align:center"><b>'+(x.estado==="presente"?"¡Presente!":"Registrado como tardía")+'</b><br><span class="mut">Hora: '+esc(x.hora)+'</span></p>')};
+  $("#otro").onclick=pedir;
+}
+
+if(!SES)app.innerHTML='<div class="card"><h1>✋ Marcar asistencia</h1><p class="mut">Entra desde la plataforma con tu usuario.</p><a class="btn" href="index.html" style="text-align:center;text-decoration:none">Ir a la plataforma</a></div>';
+else if(!PREVIA&&!ASISTENCIA_RED_ACTIVA)app.innerHTML='<div class="card"><h1>✋ Marcar asistencia</h1><p class="mut">La asistencia por Wi-Fi se abre en 2027. Tu profe te avisará.</p></div>';
+else cargar();
+</script>
+<script src="js/volver-plataforma.js?v=20261117a"></script>
+</body>
+</html>
