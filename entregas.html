@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Entregas · CTP Mercedes Norte</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="img/logo-ctp-mercedes-norte.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js?v=20261116b"></script>
+<style>
+:root{--bg:#F5F7FB;--sf:#fff;--ink:#0F172A;--mut:#5B6B80;--line:#DCE3EE;--acc:#1d63e8;--okS:#DDF1DC;--wa:#FFF2D6;--bad:#FDE2E2;--pri:#1F3864}
+@media (prefers-color-scheme:dark){:root{--bg:#0B1020;--sf:#121A30;--ink:#E8EDFB;--mut:#9AA9CC;--line:#26324F;--okS:#173A28;--wa:#3A2E10;--bad:#4a1616;--pri:#9DB7F5}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,"Segoe UI",system-ui,sans-serif;padding-bottom:90px}
+main{max-width:640px;margin:0 auto;padding:18px 14px}h1{font-size:1.35rem;margin:0 0 4px}.mut{color:var(--mut);font-size:.88rem}
+.card{background:var(--sf);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:14px}.card h2{margin:0 0 4px;font-size:1.08rem;color:var(--pri)}
+.tag{display:inline-block;border-radius:999px;padding:2px 10px;font-size:.75rem;font-weight:700;background:var(--line);margin-right:4px}.tag.ok{background:var(--okS)}.tag.wa{background:var(--wa)}.tag.bad{background:var(--bad)}
+.btn{display:inline-block;background:var(--acc);color:#fff;border:0;border-radius:12px;padding:11px 16px;font:700 .95rem inherit;cursor:pointer;margin:6px 6px 0 0;text-decoration:none}.btn.sec{background:transparent;color:var(--ink);border:1px solid var(--line)}.btn:disabled{opacity:.5}
+input{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--sf);color:var(--ink);margin-top:6px}
+.paso{background:var(--bg);border-radius:12px;padding:10px 12px;margin-top:10px}.paso b{color:var(--pri)}
+.msg{border-radius:12px;padding:10px 12px;margin-top:10px;font-size:.92rem}.msg.ok{background:var(--okS)}.msg.wa{background:var(--wa)}.msg.bad{background:var(--bad)}
+code{background:var(--bg);padding:2px 6px;border-radius:6px;word-break:break-all}
+</style>
+</head>
+<body>
+<main id="app"><p class="mut">Cargando…</p></main>
+<script>
+// Entregas 2027: el estudiante sube su archivo a la carpeta de OneDrive del MEP que el profe compartió
+// y aquí deja constancia de la entrega (fecha y hora). Se abre a estudiantes con ENTREGAS_ACTIVA = true.
+const ENTREGAS_ACTIVA = false;
+let SES=null;try{SES=JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")||"null")}catch(e){}
+const app=document.getElementById("app"),$=s=>document.querySelector(s);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const PREVIA=!!(SES&&SES.role==="docente");
+const fmt=d=>new Date(d).toLocaleString("es-CR",{weekday:"short",day:"numeric",month:"short",hour:"numeric",minute:"2-digit",timeZone:"America/Costa_Rica"});
+const limpio=t=>String(t||"").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9]+/g,"_").replace(/^_|_$/g,"").toUpperCase();
+let EST=null,TAREAS=[],MIAS={};
+
+function falta(f){if(!f)return"";const ms=new Date(f)-Date.now();if(ms<0)return'<span class="tag bad">Plazo vencido</span>';const h=Math.floor(ms/36e5),d=Math.floor(h/24);
+  return'<span class="tag '+(h<24?"wa":"")+'">Faltan '+(d?d+" d "+(h%24)+" h":h+" h "+Math.floor(ms%36e5/6e4)+" min")+'</span>'}
+function estadoHTML(t,m){if(!m)return'<span class="tag">Pendiente</span>';
+  const tarde=t.fecha_limite&&new Date(m.entregado_en)>new Date(t.fecha_limite);
+  if(m.estado==="recibido")return'<span class="tag ok">✓ Recibido por el profe</span>';
+  if(m.estado==="devuelto")return'<span class="tag bad">Devuelto: corrija y vuelva a entregar</span>';
+  return'<span class="tag '+(tarde?"wa":"ok")+'">Entregado '+(tarde?"tarde":"a tiempo")+'</span>'}
+
+function pintar(){
+  if(!TAREAS.length){app.innerHTML=cab()+'<div class="card"><p class="mut">No tienes tareas ni proyectos por entregar.</p></div>';return}
+  app.innerHTML=cab()+TAREAS.map(t=>{const m=MIAS[t.id],nombre=EST.seccion+"_"+limpio(EST.apellido1)+"_"+limpio(EST.nombre)+"_"+limpio(t.titulo).slice(0,30);
+   const abierta=!m||m.estado==="devuelto";
+   return'<section class="card"><h2>'+(t.tipo==="proyecto"?"📁":"📝")+' '+esc(t.titulo)+'</h2><p class="mut">'+(t.tipo==="proyecto"?"Proyecto":"Tarea")+(t.fecha_limite?' · entrega hasta el '+esc(fmt(t.fecha_limite)):"")+'</p>'+
+    estadoHTML(t,m)+(abierta?falta(t.fecha_limite):"")+(t.instrucciones?'<p>'+esc(t.instrucciones)+'</p>':'')+
+    (m&&m.estado==="devuelto"&&m.comentario?'<div class="msg bad"><b>Comentario del profe:</b> '+esc(m.comentario)+'</div>':'')+
+    (m?'<p class="mut">Última entrega: '+esc(fmt(m.entregado_en))+(m.archivo_nombre?' · '+esc(m.archivo_nombre):'')+(m.veces>1?' · '+m.veces+' veces':'')+'</p>':'')+
+    (abierta||m.estado==="entregado"?'<div class="paso"><b>1.</b> Ponle este nombre a tu archivo: <code>'+esc(nombre)+'</code> <button class="btn sec" data-copiar="'+esc(nombre)+'" style="padding:4px 10px;font-size:.8rem">Copiar</button></div>'+
+    '<div class="paso"><b>2.</b> Súbelo a la carpeta del profe (inicia sesión con tu correo del MEP).<br>'+(t.enlace_onedrive?'<a class="btn" href="'+esc(t.enlace_onedrive)+'" target="_blank" rel="noopener">📤 Abrir la carpeta de entrega</a>':'<span class="tag wa">El profe todavía no pone la carpeta</span>')+'</div>'+
+    '<div class="paso"><b>3.</b> Cuando termine de subirse, confirma aquí:<input data-arch="'+t.id+'" placeholder="Nombre del archivo que subiste" value="'+esc(m&&m.archivo_nombre||"")+'"><button class="btn" data-ok="'+t.id+'" '+(t.enlace_onedrive?"":"disabled")+'>✅ Ya lo subí</button><div data-m="'+t.id+'"></div></div>':'')+
+   '</section>'}).join("");
+  document.querySelectorAll("[data-copiar]").forEach(b=>b.onclick=()=>{try{navigator.clipboard.writeText(b.dataset.copiar);b.textContent="Copiado ✓"}catch(e){}});
+  document.querySelectorAll("[data-ok]").forEach(b=>b.onclick=()=>confirmar(+b.dataset.ok,b));
+}
+const cab=()=>(PREVIA?'<div class="msg wa">👩‍🏫 <b>Vista previa del docente.</b> Así lo verá el estudiante en 2027. Aquí no se guarda ninguna entrega.</div>':'')+'<div class="card"><h1>📤 Mis entregas</h1><p class="mut">Tus archivos quedan en la carpeta de OneDrive del profe. Aquí dejas constancia de la fecha y hora de entrega.</p></div>';
+
+async function confirmar(id,b){
+  const arch=document.querySelector('[data-arch="'+id+'"]').value.trim(),box=document.querySelector('[data-m="'+id+'"]');
+  if(!arch){box.innerHTML='<div class="msg bad">Escribe el nombre del archivo que subiste.</div>';return}
+  if(!confirm("¿Ya terminó de subirse tu archivo a la carpeta del profe?"))return;
+  if(PREVIA){box.innerHTML='<div class="msg ok">Vista previa: aquí quedaría registrada la entrega.</div>';return}
+  b.disabled=true;const prev=MIAS[id],ahora=new Date().toISOString();
+  const fila={tarea_id:id,estudiante_id:SES.id,archivo_nombre:arch,entregado_en:ahora,estado:"entregado",veces:prev?prev.veces+1:1};
+  const {data,error}=await sb.from("entregas_estudiantes").upsert(fila,{onConflict:"tarea_id,estudiante_id"}).select().maybeSingle();
+  b.disabled=false;if(error){box.innerHTML='<div class="msg bad">No se pudo registrar: '+esc(error.message)+'</div>';return}
+  MIAS[id]=data||fila;pintar();
+}
+
+async function cargar(){
+  if(PREVIA){EST={seccion:"10-1",apellido1:"Mora",nombre:"Ana"};TAREAS=[{id:-1,tipo:"tarea",titulo:"Tarea 1 · Carta de encargo",instrucciones:"Redacte la carta de encargo del caso Café Mercedes S.A. en Word.",fecha_limite:new Date(Date.now()+2*864e5).toISOString(),enlace_onedrive:"https://www.office.com/"}];pintar();return}
+  const e=await sb.from("estudiantes").select("id,nombre,apellido1,seccion").eq("id",SES.id).maybeSingle();EST=e.data;
+  if(!EST){app.innerHTML='<div class="card msg bad">No se encontró tu usuario.</div>';return}
+  const t=await sb.from("entregas_tareas").select("*").eq("seccion",EST.seccion).eq("visible",true).order("fecha_limite",{ascending:true,nullsFirst:false});
+  TAREAS=t.data||[];
+  if(TAREAS.length){const m=await sb.from("entregas_estudiantes").select("*").eq("estudiante_id",SES.id).in("tarea_id",TAREAS.map(x=>x.id));(m.data||[]).forEach(x=>MIAS[x.tarea_id]=x)}
+  pintar();
+}
+if(!SES)app.innerHTML='<div class="card"><h1>📤 Mis entregas</h1><p class="mut">Entra desde la plataforma con tu usuario.</p></div>';
+else if(!PREVIA&&!ENTREGAS_ACTIVA)app.innerHTML='<div class="card"><h1>📤 Mis entregas</h1><p class="mut">Las entregas por OneDrive se abren en 2027. Tu profe te avisará.</p></div>';
+else cargar();
+</script>
+<script src="js/volver-plataforma.js?v=20261117a"></script>
+</body>
+</html>
