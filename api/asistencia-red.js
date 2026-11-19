@@ -79,6 +79,8 @@ module.exports = async (req, res) => {
 
     // Para que el profe vea la IP del router estando conectado a él. No necesita claves.
     if (accion === "mi_ip") return enviar(200, { ok: true, ip: ipDe(req) });
+    // Solo dice si falta configurar algo (nunca devuelve las claves). Lo usan los recordatorios de febrero de 2027.
+    if (accion === "config_estado") return enviar(200, { ok: true, servidor: !!KEY, correo: !!(BREVO && REMITENTE) });
 
     if (!KEY) return enviar(200, { ok: false, pendiente: true, msg: "La asistencia por red se activa en 2027 (falta configurar el servidor)." });
     const id = String(b.estudiante_id || "").trim();
