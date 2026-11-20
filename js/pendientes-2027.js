@@ -3,6 +3,7 @@
 //   1. IP del router del aula  (se guarda aquí mismo, en asistencia_red_config)
 //   2. Cuenta de envío de correos (Brevo) y configuración del servidor
 // «Recordarme mañana» las pospone un día en este dispositivo.
+// A los estudiantes, desde la misma fecha, les sale el aviso del registro de inicio hasta que lo llenen.
 (function () {
   const INICIO = "2027-02-01";
   const hoyCR = () => new Date(Date.now() - 6 * 3600e3).toISOString().slice(0, 10);
@@ -12,11 +13,30 @@
   function intentar() {
     if (hecho) return;
     try { s = JSON.parse(sessionStorage.getItem("ctp_lms_session_v2") || "null"); } catch (e) { s = null; }
-    if (!s || s.role !== "docente") return;
+    if (!s) return;
+    if (s.role === "estudiante") { hecho = true; setTimeout(avisoRegistro, 1500); return; }
+    if (s.role !== "docente") return;
     hecho = true; setTimeout(iniciar, 1200);
   }
   window.addEventListener("hashchange", intentar);
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", intentar); else intentar();
+  // Estudiantes: aviso para llenar el registro de inicio (datos propios y del encargado) hasta que lo llenen.
+  async function avisoRegistro() {
+    if (typeof sb === "undefined" || /registro\.html/.test(location.pathname)) return;
+    const k = "ctp_registro_posponer_" + s.id;
+    try { if (localStorage.getItem(k) === hoyCR()) return; } catch (e) {}
+    const { data } = await sb.rpc("registro_estado", { p_id: s.id });
+    if (data !== false) return;
+    if (!document.getElementById("pend27-css")) {
+      const st = document.createElement("style"); st.id = "pend27-css";
+      st.textContent = '#pend27{position:fixed;inset:0;z-index:10001;background:rgba(10,15,30,.6);display:flex;align-items:center;justify-content:center;padding:16px}#pend27 .v{background:#fff;color:#0F172A;max-width:460px;width:100%;border-radius:18px;padding:22px;font:15px/1.55 Inter,"Segoe UI",system-ui,sans-serif}#pend27 .b{display:inline-block;background:#1d63e8;color:#fff;border:0;border-radius:10px;padding:10px 16px;font:700 .95rem inherit;cursor:pointer;margin:8px 6px 0 0;text-decoration:none}#pend27 .b.s{background:transparent;color:inherit;border:1px solid #ccd}';
+      document.head.appendChild(st);
+    }
+    const d = document.createElement("div"); d.id = "pend27"; d.setAttribute("role", "dialog"); d.setAttribute("aria-modal", "true");
+    d.innerHTML = '<div class="v"><h2 style="margin:0 0 6px">📋 Registro de inicio 2027</h2><p>Bienvenido al curso. Llena tus datos y los de tu encargado: el profe los necesita para comunicarse con tu familia y en caso de emergencia. Toma unos 5 minutos.</p><a class="b" href="registro.html">Llenar ahora</a><button class="b s" id="p27reg">Más tarde</button></div>';
+    document.body.appendChild(d);
+    d.querySelector("#p27reg").onclick = () => { try { localStorage.setItem(k, hoyCR()); } catch (e) {} d.remove(); };
+  }
   function iniciar() {
   const CLAVE = "ctp_pend2027_posponer_" + s.id;
   let pos = {}; try { pos = JSON.parse(localStorage.getItem(CLAVE) || "{}"); } catch (e) {}

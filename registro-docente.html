@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Registro de estudiantes y encargados · 2027</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="img/logo-ctp-mercedes-norte.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js?v=20261116b"></script>
+<style>
+:root{--bg:#F5F7FB;--sf:#fff;--ink:#0F172A;--mut:#5B6B80;--line:#DCE3EE;--pri:#1F3864;--acc:#1d63e8;--okS:#DDF1DC;--wa:#FFF2D6;--bad:#FDE2E2}
+@media (prefers-color-scheme:dark){:root{--bg:#0B1020;--sf:#121A30;--ink:#E8EDFB;--mut:#9AA9CC;--line:#26324F;--pri:#9DB7F5;--okS:#173A28;--wa:#3A2E10;--bad:#4a1616}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Inter,"Segoe UI",system-ui,sans-serif;padding-bottom:90px}
+header{background:#14213d;color:#fff;padding:14px 20px}header h1{margin:0;font-size:1.25rem}header p{margin:2px 0 0;opacity:.85;font-size:.88rem}
+.pill{background:#ffd43b;color:#14213d;border-radius:999px;padding:2px 10px;font-size:.72rem;font-weight:800;vertical-align:middle}
+main{max-width:1000px;margin:0 auto;padding:16px}.card{background:var(--sf);border:1px solid var(--line);border-radius:16px;padding:18px;margin:0 0 14px}
+h2{margin:0 0 8px;font-size:1.1rem;color:var(--pri)}.mut{color:var(--mut);font-size:.86rem}
+.btn{display:inline-block;background:var(--acc);color:#fff;border:0;border-radius:10px;padding:8px 13px;font:600 .88rem inherit;cursor:pointer;margin:4px 6px 4px 0;text-decoration:none}.btn.sec{background:transparent;color:var(--ink);border:1px solid var(--line)}
+input,select{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--sf);color:var(--ink)}
+.tag{display:inline-block;border-radius:999px;padding:1px 9px;font-size:.75rem;font-weight:700}.tag.ok{background:var(--okS)}.tag.wa{background:var(--wa)}
+table{border-collapse:collapse;width:100%;font-size:.86rem}th,td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}th{color:var(--mut);font-weight:600}
+details summary{cursor:pointer}dl{display:grid;grid-template-columns:180px 1fr;gap:4px 12px;margin:8px 0}dt{color:var(--mut)}dd{margin:0}
+.msg{border-radius:10px;padding:8px 12px;margin:8px 0}.msg.bad{background:var(--bad)}.msg.wa{background:var(--wa)}
+</style>
+</head>
+<body>
+<header><h1>📋 Registro de estudiantes y encargados <span class="pill">2027 · solo profe</span></h1><p>Lo llena cada estudiante al iniciar el curso; aquí lo ve y lo descarga</p></header>
+<main id="app"><p class="mut">Cargando…</p></main>
+<script>
+let SES=null;try{SES=JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")||"null")}catch(e){}
+const app=document.getElementById("app"),$=s=>document.querySelector(s);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt=d=>d?new Date(d).toLocaleDateString("es-CR",{day:"numeric",month:"short",year:"numeric",timeZone:"America/Costa_Rica"}):"—";
+const wa=t=>{const n=String(t||"").replace(/\D/g,"");return n.length===8?'https://wa.me/506'+n:null};
+let EST=[],REG={},sec="";
+
+function pedirPin(msg){
+  app.innerHTML='<section class="card"><h2>🔒 Datos personales</h2><p class="mut">Estos datos son de menores de edad y sus familias. Para verlos, escriba su PIN de docente.</p>'+(msg?'<div class="msg bad">'+esc(msg)+'</div>':'')+
+   '<input id="pin" type="password" inputmode="numeric" autocomplete="current-password"> <button class="btn" id="ok">Ver registros</button></section>'+
+   '<section class="card"><h2>Cómo funciona</h2><ul><li>Desde el 1 de febrero de 2027, al entrar a la plataforma, cada estudiante ve un aviso para llenar su registro.</li>'+
+   '<li>Llena sus datos (fecha de nacimiento, celular, correo del MEP, dirección, con quién vive, dispositivos e internet) y los de 1 a 3 encargados, más un contacto de emergencia.</li>'+
+   '<li>Debe marcar que su encargado autoriza el uso de los datos (Ley 8968) y confirmar con su PIN.</li>'+
+   '<li>Los datos no se pueden leer desde fuera: solo el estudiante (con su PIN) y usted (con el suyo).</li></ul>'+
+   '<a class="btn sec" href="registro.html">👀 Ver el formulario del estudiante</a></section>';
+  $("#ok").onclick=()=>cargar($("#pin").value.trim());$("#pin").onkeydown=e=>{if(e.key==="Enter")cargar($("#pin").value.trim())};
+}
+async function cargar(pin){
+  const [r,e]=await Promise.all([sb.rpc("registro_listar",{p_pin_docente:pin}),sb.from("estudiantes").select("id,nombre,apellido1,apellido2,seccion").order("apellido1")]);
+  if(r.error)return pedirPin(/PIN/.test(r.error.message)?"PIN incorrecto.":r.error.message);
+  REG={};(r.data||[]).forEach(x=>REG[x.estudiante_id]=x);EST=(e.data||[]).filter(x=>x.id!=="0-0000-0001");
+  const secs=[...new Set(EST.map(x=>x.seccion))].sort();if(!sec)sec=secs[0]||"";pintar(secs);
+}
+function principal(d){return(d.encargados||[]).find(c=>c.principal)||(d.encargados||[])[0]||{}}
+function pintar(secs){
+  const est=EST.filter(x=>x.seccion===sec),n=est.filter(x=>REG[x.id]).length;
+  app.innerHTML='<section class="card"><label>Sección: <select id="sec">'+secs.map(s=>'<option '+(s===sec?"selected":"")+'>'+esc(s)+'</option>').join("")+'</select></label> '+
+   '<span class="tag '+(n===est.length&&est.length?"ok":"wa")+'">'+n+' de '+est.length+' registrados</span> <button class="btn" id="csv">⬇️ Descargar para Excel</button></section>'+
+   '<section class="card"><div style="overflow-x:auto"><table><thead><tr><th>Estudiante</th><th>Encargado principal</th><th>Teléfono</th><th>Estado</th></tr></thead><tbody>'+
+   est.map(s=>{const r=REG[s.id];if(!r)return'<tr><td>'+esc(s.apellido1+" "+(s.apellido2||"")+" "+s.nombre)+'</td><td colspan="2" class="mut">—</td><td><span class="tag wa">Pendiente</span></td></tr>';
+    const d=r.datos||{},p=principal(d),w=wa(p.telefono);
+    return'<tr><td><details><summary><b>'+esc(s.apellido1+" "+(s.apellido2||"")+" "+s.nombre)+'</b></summary>'+detalle(d)+'</details></td><td>'+esc(p.nombre)+' <span class="mut">('+esc(p.parentesco)+')</span></td>'+
+     '<td>'+esc(p.telefono)+(w&&p.whatsapp?' <a href="'+w+'" target="_blank" rel="noopener">WhatsApp</a>':'')+'</td><td><span class="tag ok">Registrado</span><br><span class="mut">'+esc(fmt(r.actualizado_en))+'</span></td></tr>'}).join("")+
+   '</tbody></table></div></section>';
+  $("#sec").onchange=()=>{sec=$("#sec").value;pintar(secs)};$("#csv").onclick=()=>csv(est);
+}
+function detalle(d){const e=d.emergencia||{};
+  return'<dl><dt>Nacimiento</dt><dd>'+esc(d.fecha_nacimiento)+'</dd><dt>Celular</dt><dd>'+esc(d.telefono)+'</dd><dt>Correo MEP</dt><dd>'+esc(d.correo_mep)+'</dd>'+
+   '<dt>Dirección</dt><dd>'+esc([d.provincia,d.canton,d.distrito].filter(Boolean).join(", "))+'. '+esc(d.direccion)+'</dd><dt>Vive con</dt><dd>'+esc(d.vive_con)+'</dd>'+
+   '<dt>Dispositivos</dt><dd>'+esc((d.dispositivos||[]).join(", ")||"—")+'</dd><dt>Internet en casa</dt><dd>'+esc(d.internet_casa||"—")+'</dd><dt>Transporte</dt><dd>'+esc(d.transporte)+'</dd></dl>'+
+   (d.encargados||[]).map((c,i)=>'<dl><dt>Encargado '+(i+1)+(c.principal?" ⭐":"")+'</dt><dd><b>'+esc(c.nombre)+'</b> ('+esc(c.parentesco)+') · céd. '+esc(c.cedula||"—")+'<br>'+esc(c.telefono)+(c.whatsapp?" (WhatsApp)":"")+' · '+esc(c.correo||"sin correo")+'<br>'+esc(c.ocupacion||"")+(c.retira?" · puede retirarlo":" · <b>no</b> autorizado a retirarlo")+'</dd></dl>').join("")+
+   '<dl><dt>Emergencia</dt><dd>'+esc(e.nombre||"—")+(e.parentesco?' ('+esc(e.parentesco)+')':'')+' '+esc(e.telefono||"")+'</dd></dl>'}
+function csv(est){
+  const col=["Sección","Cédula","Apellidos","Nombre","Nacimiento","Celular","Correo MEP","Provincia","Cantón","Distrito","Dirección","Vive con","Dispositivos","Internet","Transporte",
+    "Encargado principal","Parentesco","Cédula encargado","Teléfono encargado","WhatsApp","Correo encargado","Ocupación","Otros encargados","Emergencia","Teléfono emergencia","Actualizado"];
+  const q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
+  const filas=est.map(s=>{const r=REG[s.id],d=r?r.datos||{}:{},p=principal(d),e=d.emergencia||{};
+    return[s.seccion,s.id,s.apellido1+" "+(s.apellido2||""),s.nombre,d.fecha_nacimiento,d.telefono,d.correo_mep,d.provincia,d.canton,d.distrito,d.direccion,d.vive_con,(d.dispositivos||[]).join("; "),d.internet_casa,d.transporte,
+      p.nombre,p.parentesco,p.cedula,p.telefono,p.whatsapp?"Sí":r?"No":"",p.correo,p.ocupacion,(d.encargados||[]).filter(c=>c!==p).map(c=>c.nombre+" ("+c.parentesco+") "+c.telefono).join("; "),
+      e.nombre?e.nombre+(e.parentesco?" ("+e.parentesco+")":""):"",e.telefono,r?fmt(r.actualizado_en):"Pendiente"]});
+  const txt="﻿"+[col].concat(filas).map(f=>f.map(q).join(";")).join("\r\n");
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([txt],{type:"text/csv;charset=utf-8"}));a.download="registro-"+sec+".csv";a.click();
+}
+if(!(SES&&SES.role==="docente"))app.innerHTML='<section class="card"><h2>Solo para el profe</h2><p class="mut">Se abre desde la plataforma, en 📅 2027.</p><a class="btn" href="index.html">Ir a la plataforma</a></section>';
+else pedirPin();
+</script>
+<script src="js/volver-plataforma.js?v=20261117a"></script>
+</body>
+</html>

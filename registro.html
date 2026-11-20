@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Registro de inicio · CTP Mercedes Norte</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="img/logo-ctp-mercedes-norte.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js?v=20261116b"></script>
+<style>
+:root{--bg:#F5F7FB;--sf:#fff;--ink:#0F172A;--mut:#5B6B80;--line:#DCE3EE;--acc:#1d63e8;--okS:#DDF1DC;--wa:#FFF2D6;--bad:#FDE2E2;--pri:#1F3864}
+@media (prefers-color-scheme:dark){:root{--bg:#0B1020;--sf:#121A30;--ink:#E8EDFB;--mut:#9AA9CC;--line:#26324F;--okS:#173A28;--wa:#3A2E10;--bad:#4a1616;--pri:#9DB7F5}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,"Segoe UI",system-ui,sans-serif;padding-bottom:100px}
+main{max-width:640px;margin:0 auto;padding:18px 14px}h1{font-size:1.35rem;margin:0 0 4px}.mut{color:var(--mut);font-size:.88rem}
+.card{background:var(--sf);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:14px}.card h2{margin:0 0 8px;font-size:1.08rem;color:var(--pri)}
+label{display:block;font-size:.85rem;color:var(--mut);margin-top:10px}input,select,textarea{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--sf);color:var(--ink);margin-top:4px}
+.dos{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:480px){.dos{grid-template-columns:1fr}}
+.chk{display:flex;gap:8px;align-items:flex-start;margin-top:10px;color:var(--ink);font-size:.95rem}.chk input{width:auto;margin-top:4px}
+.btn{display:inline-block;background:var(--acc);color:#fff;border:0;border-radius:12px;padding:12px 18px;font:700 1rem inherit;cursor:pointer;margin:8px 6px 0 0}.btn.sec{background:transparent;color:var(--ink);border:1px solid var(--line)}.btn.sm{padding:6px 12px;font-size:.85rem}
+.enc{border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:10px}
+.msg{border-radius:12px;padding:10px 12px;margin-top:10px;font-size:.92rem}.msg.ok{background:var(--okS)}.msg.wa{background:var(--wa)}.msg.bad{background:var(--bad)}
+</style>
+</head>
+<body>
+<main id="app"><p class="mut">Cargando…</p></main>
+<script>
+// Registro de inicio 2027. Lo llena el estudiante con sus datos y los de su encargado.
+// Se abre a estudiantes desde el 1 de febrero de 2027 (antes, solo el profe lo ve en vista previa).
+const ABRE = "2027-02-01";
+let SES=null;try{SES=JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")||"null")}catch(e){}
+const app=document.getElementById("app"),$=s=>document.querySelector(s);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const PREVIA=!!(SES&&SES.role==="docente"),hoyCR=()=>new Date(Date.now()-6*3600e3).toISOString().slice(0,10);
+const PROV=["San José","Alajuela","Cartago","Heredia","Guanacaste","Puntarenas","Limón"];
+const PAR=["Madre","Padre","Abuela","Abuelo","Tía","Tío","Hermana mayor","Hermano mayor","Otro"];
+const VIVE=["Madre y padre","Madre","Padre","Abuelos","Otro familiar","Otro"];
+const DISP=["Celular propio","Computadora o portátil","Tableta","Celular compartido","Ninguno"];
+const TRANS=["Bus","A pie","Carro","Moto","Bicicleta","Otro"];
+let D=null,ESTU=null;
+
+const vacioEnc=()=>({parentesco:"Madre",nombre:"",cedula:"",telefono:"",whatsapp:true,correo:"",ocupacion:"",principal:false,retira:true});
+function nuevo(){return{fecha_nacimiento:"",telefono:"",correo_mep:ESTU&&ESTU.correo_mep||"",provincia:"Heredia",canton:"",distrito:"",direccion:"",vive_con:"Madre y padre",
+  dispositivos:[],internet_casa:"",transporte:"Bus",encargados:[Object.assign(vacioEnc(),{principal:true})],emergencia:{nombre:"",parentesco:"",telefono:""}}}
+const opt=(l,v)=>l.map(x=>'<option '+(x===v?"selected":"")+'>'+esc(x)+'</option>').join("");
+const inp=(id,v,ph,t)=>'<input id="'+id+'" type="'+(t||"text")+'" value="'+esc(v)+'" placeholder="'+esc(ph||"")+'">';
+
+function leer(){if(!$("#fNac"))return;
+  Object.assign(D,{fecha_nacimiento:$("#fNac").value,telefono:$("#fTel").value.trim(),correo_mep:$("#fCor").value.trim().toLowerCase(),provincia:$("#fProv").value,canton:$("#fCan").value.trim(),
+   distrito:$("#fDis").value.trim(),direccion:$("#fDir").value.trim(),vive_con:$("#fVive").value,transporte:$("#fTra").value,internet_casa:$("#fNet").value,
+   dispositivos:[...document.querySelectorAll("[data-disp]:checked")].map(x=>x.value),emergencia:{nombre:$("#eNom").value.trim(),parentesco:$("#ePar").value.trim(),telefono:$("#eTel").value.trim()}});
+  const pr=document.querySelector('input[name="principal"]:checked');
+  D.encargados=[...document.querySelectorAll("[data-enc]")].map((r,i)=>({parentesco:r.querySelector(".cPar").value,nombre:r.querySelector(".cNom").value.trim(),cedula:r.querySelector(".cCed").value.trim(),
+   telefono:r.querySelector(".cTel").value.trim(),whatsapp:r.querySelector(".cWa").checked,correo:r.querySelector(".cCor").value.trim(),ocupacion:r.querySelector(".cOcu").value.trim(),
+   principal:pr?+pr.value===i:i===0,retira:r.querySelector(".cRet").checked}));}
+
+function pintar(aviso){
+  app.innerHTML=(PREVIA?'<div class="msg wa">👩‍🏫 <b>Vista previa del docente.</b> Así lo verá el estudiante desde febrero de 2027. Aquí no se guarda nada.</div>':'')+
+  '<div class="card"><h1>📋 Registro de inicio 2027</h1><p class="mut">Llena tus datos y los de tu encargado. Solo los ve tu profe, para comunicarse con tu familia y en caso de emergencia. Puedes actualizarlos cuando cambien.</p>'+(aviso||"")+'</div>'+
+  '<section class="card"><h2>1 · Mis datos</h2><div class="dos"><div><label>Fecha de nacimiento</label>'+inp("fNac",D.fecha_nacimiento,"","date")+'</div><div><label>Mi celular</label>'+inp("fTel",D.telefono,"8888-8888","tel")+'</div></div>'+
+   '<label>Mi correo del MEP</label>'+inp("fCor",D.correo_mep,"nombre.apellido@est.mep.go.cr","email")+
+   '<div class="dos"><div><label>Provincia</label><select id="fProv">'+opt(PROV,D.provincia)+'</select></div><div><label>Cantón</label>'+inp("fCan",D.canton)+'</div></div>'+
+   '<label>Distrito</label>'+inp("fDis",D.distrito)+'<label>Dirección exacta (otras señas)</label><textarea id="fDir" rows="2">'+esc(D.direccion)+'</textarea>'+
+   '<div class="dos"><div><label>Vivo con</label><select id="fVive">'+opt(VIVE,D.vive_con)+'</select></div><div><label>Cómo llego al colegio</label><select id="fTra">'+opt(TRANS,D.transporte)+'</select></div></div>'+
+   '<label>Para trabajar en la plataforma tengo</label>'+DISP.map(x=>'<label class="chk"><input type="checkbox" data-disp value="'+esc(x)+'" '+(D.dispositivos.includes(x)?"checked":"")+'> '+esc(x)+'</label>').join("")+
+   '<label>¿Hay internet en mi casa?</label><select id="fNet"><option value="">Escoja…</option>'+opt(["Sí","No","A veces"],D.internet_casa)+'</select></section>'+
+  '<section class="card"><h2>2 · Mi encargado o encargada</h2><p class="mut">Agrega a quien responde por ti ante el colegio (puedes agregar hasta 3).</p>'+
+   D.encargados.map((c,i)=>'<div class="enc" data-enc="'+i+'"><div class="dos"><div><label>Parentesco</label><select class="cPar">'+opt(PAR,c.parentesco)+'</select></div><div><label>Nombre completo</label><input class="cNom" value="'+esc(c.nombre)+'"></div></div>'+
+    '<div class="dos"><div><label>Cédula</label><input class="cCed" value="'+esc(c.cedula)+'" placeholder="0-0000-0000"></div><div><label>Teléfono</label><input class="cTel" type="tel" value="'+esc(c.telefono)+'"></div></div>'+
+    '<div class="dos"><div><label>Correo electrónico</label><input class="cCor" type="email" value="'+esc(c.correo)+'"></div><div><label>Ocupación</label><input class="cOcu" value="'+esc(c.ocupacion)+'"></div></div>'+
+    '<label class="chk"><input type="checkbox" class="cWa" '+(c.whatsapp?"checked":"")+'> Usa WhatsApp en ese número</label>'+
+    '<label class="chk"><input type="radio" name="principal" value="'+i+'" '+(c.principal?"checked":"")+'> Es mi encargado principal (a quien se llama primero)</label>'+
+    '<label class="chk"><input type="checkbox" class="cRet" '+(c.retira?"checked":"")+'> Puede retirarme del colegio</label>'+
+    (D.encargados.length>1?'<button class="btn sec sm" data-qenc="'+i+'">Quitar</button>':'')+'</div>').join("")+
+   (D.encargados.length<3?'<button class="btn sec sm" id="addEnc">➕ Agregar otro encargado</button>':'')+'</section>'+
+  '<section class="card"><h2>3 · Contacto de emergencia</h2><p class="mut">Otra persona, por si no se localiza a tu encargado.</p>'+
+   '<label>Nombre</label>'+inp("eNom",D.emergencia.nombre)+'<div class="dos"><div><label>Parentesco</label>'+inp("ePar",D.emergencia.parentesco)+'</div><div><label>Teléfono</label>'+inp("eTel",D.emergencia.telefono,"","tel")+'</div></div></section>'+
+  '<section class="card"><h2>4 · Autorización y guardar</h2><label class="chk"><input type="checkbox" id="fCons"> Mi encargado sabe y autoriza que el colegio use estos datos solo para fines educativos y de contacto (Ley 8968 de Protección de Datos Personales).</label>'+
+   '<label>Escribe tu PIN de la plataforma para guardar</label><input id="fPin" type="password" inputmode="numeric" autocomplete="current-password">'+
+   '<button class="btn" id="guardar">💾 Guardar mi registro</button><div id="m"></div></section>';
+  $("#guardar").onclick=guardar;
+  const a=$("#addEnc");if(a)a.onclick=()=>{leer();D.encargados.push(vacioEnc());pintar()};
+  document.querySelectorAll("[data-qenc]").forEach(b=>b.onclick=()=>{leer();D.encargados.splice(+b.dataset.qenc,1);if(!D.encargados.some(c=>c.principal))D.encargados[0].principal=true;pintar()});
+}
+function validar(){
+  const e=[];if(!D.fecha_nacimiento)e.push("tu fecha de nacimiento");if(!D.telefono&&!D.encargados.some(c=>c.telefono))e.push("al menos un teléfono");
+  if(D.correo_mep&&!/@est\.mep\.go\.cr$/i.test(D.correo_mep))e.push("un correo del MEP válido (termina en @est.mep.go.cr)");
+  if(!D.canton||!D.distrito||!D.direccion)e.push("tu dirección completa");
+  D.encargados.forEach((c,i)=>{if(!c.nombre||!c.telefono)e.push("nombre y teléfono del encargado "+(i+1))});
+  return e}
+async function guardar(){
+  leer();const m=$("#m"),e=validar();
+  if(e.length){m.innerHTML='<div class="msg bad">Falta: '+esc(e.join(", "))+'.</div>';return}
+  if(!$("#fCons").checked){m.innerHTML='<div class="msg bad">Marca la autorización de tu encargado.</div>';return}
+  if(PREVIA){m.innerHTML='<div class="msg ok">Vista previa: aquí quedaría guardado el registro.</div>';return}
+  const pin=$("#fPin").value.trim();if(!pin){m.innerHTML='<div class="msg bad">Escribe tu PIN.</div>';return}
+  $("#guardar").disabled=true;
+  const {error}=await sb.rpc("registro_guardar",{p_id:SES.id,p_pin:pin,p_datos:D,p_consentimiento:true});
+  $("#guardar").disabled=false;
+  if(error){m.innerHTML='<div class="msg bad">'+esc(/PIN/.test(error.message)?"PIN incorrecto.":"No se pudo guardar: "+error.message)+'</div>';return}
+  if(D.correo_mep&&ESTU&&!ESTU.correo_mep)await sb.from("estudiantes").update({correo_mep:D.correo_mep}).eq("id",SES.id).is("correo_mep",null);
+  app.innerHTML='<div class="card"><h1>✅ ¡Registro guardado!</h1><p>Gracias. Si algún dato cambia durante el año, vuelve a esta pantalla y actualízalo.</p><a class="btn" href="index.html" style="text-decoration:none">Volver a la plataforma</a></div>';
+}
+async function cargar(){
+  if(PREVIA){D=nuevo();pintar();return}
+  const e=await sb.from("estudiantes").select("id,correo_mep").eq("id",SES.id).maybeSingle();ESTU=e.data;
+  const r=await sb.rpc("registro_estado",{p_id:SES.id});
+  if(r.data===true){
+    app.innerHTML='<div class="card"><h1>📋 Registro de inicio 2027</h1><div class="msg ok">Ya llenaste tu registro. Si algo cambió, puedes actualizarlo.</div><label>Escribe tu PIN para ver tus datos</label><input id="pin0" type="password" inputmode="numeric"><button class="btn" id="ver">Ver y actualizar</button><div id="m0"></div></div>';
+    $("#ver").onclick=async()=>{const pin=$("#pin0").value.trim();const x=await sb.rpc("registro_mio",{p_id:SES.id,p_pin:pin});
+      if(x.error){$("#m0").innerHTML='<div class="msg bad">PIN incorrecto.</div>';return}D=Object.assign(nuevo(),x.data||{});pintar();$("#fPin").value=pin};return}
+  D=nuevo();pintar();
+}
+if(!SES)app.innerHTML='<div class="card"><h1>📋 Registro de inicio</h1><p class="mut">Entra desde la plataforma con tu usuario.</p></div>';
+else if(!PREVIA&&hoyCR()<ABRE)app.innerHTML='<div class="card"><h1>📋 Registro de inicio 2027</h1><p class="mut">Se abre en febrero de 2027.</p></div>';
+else cargar();
+</script>
+<script src="js/volver-plataforma.js?v=20261117a"></script>
+</body>
+</html>
