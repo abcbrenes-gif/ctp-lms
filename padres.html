@@ -35,6 +35,21 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .reg small{color:var(--mut);display:block}
 .pill{font-size:.78rem;font-weight:700;padding:2px 9px;border-radius:999px}
 .muted{color:var(--mut)}
+.home{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}.home .side{grid-column:1/-1}
+@media (min-width:860px){.wrap.ancho{max-width:1080px}.home{grid-template-columns:1fr 1fr 330px}.home .side{grid-column:3;grid-row:1/span 3}}
+@media (max-width:520px){.home{grid-template-columns:1fr}}
+.tile{position:relative;overflow:hidden;text-align:left;background:#fff;color:var(--ink);border:1.5px solid var(--c2);border-radius:20px;padding:22px 20px;cursor:pointer;min-height:190px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 4px 14px rgba(20,33,61,.04);transition:transform .12s,box-shadow .12s}
+.tile:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(20,33,61,.08)}[hidden]{display:none!important}.tile>span{position:relative;z-index:1}.tile p{padding-right:34px}.tile::after{content:"";position:absolute;right:-28px;top:-28px;width:84px;height:84px;border-radius:50%;background:var(--c3)}
+.tile h3{font:800 1.45rem/1.1 Lexend,Inter,sans-serif;margin:0 0 6px}.tile p{margin:0;color:var(--mut);font-size:.9rem;font-weight:400}
+.tile .ico{width:62px;height:62px;border-radius:18px;display:grid;place-items:center;font-size:1.7rem;background:var(--c1);box-shadow:0 8px 18px var(--c3);margin-top:18px}
+.side{background:#fff;border:1.5px solid var(--line);border-radius:20px;padding:18px}.side h3{font:800 1.3rem Lexend,Inter,sans-serif;margin:0 0 10px}
+.mini{display:flex;gap:12px;align-items:center;padding:10px;border-radius:14px;margin:8px 0;background:var(--c3)}.mini .d{width:54px;height:54px;border-radius:12px;background:var(--c1);display:grid;place-items:center;text-align:center;font-weight:800;line-height:1;font-size:1.25rem}.mini .d small{display:block;font-size:.65rem;text-transform:uppercase;font-weight:700}
+.volver{margin:14px 0 0}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 0}.tabs button{padding:8px 13px;font-size:.92rem;background:var(--pri2);color:var(--pri)}.tabs button.on{background:var(--pri);color:#fff}
+table.t{width:100%;border-collapse:collapse;font-size:.92rem}table.t th,table.t td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}table.t th{color:var(--mut);font-weight:600}table.t th.n{text-align:right}table.t td.n{text-align:right;white-space:nowrap}
+.big{font:800 2rem/1 Lexend,Inter,sans-serif}.ev{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.ev .d{min-width:64px;text-align:center;border-radius:12px;background:var(--pri2);color:var(--pri);padding:6px 4px;font-weight:700;line-height:1.1}.ev .d small{display:block;font-weight:600;font-size:.72rem}
+.aviso{border-left:4px solid var(--pri);padding:8px 12px;margin:10px 0;background:#f8fbff;border-radius:0 12px 12px 0}
+@media print{body *{visibility:hidden}#boleta,#boleta *{visibility:visible}#boleta{position:absolute;left:0;top:0;width:100%}.noprint{display:none!important}}
 </style>
 </head>
 <body>
@@ -42,7 +57,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   <header><img class="logo" src="img/logo-ctp-mercedes-norte.png" alt="Escudo del Colegio Técnico Profesional Mercedes Norte" width="54" height="77">
     <div><h1>Portal de familias</h1><p class="sub">CTP Mercedes Norte · Contabilidad</p></div></header>
   <main id="app"><p class="muted">Cargando…</p></main>
-  <p class="muted" style="font-size:.82rem">Este portal es solo para madres, padres y encargados. Cada justificación la revisa y aprueba el docente; mientras tanto queda «pendiente».</p>
+  <p class="muted" style="font-size:.82rem">Este portal es solo para madres, padres y encargados. Aquí puede justificar ausencias y tardías y, cuando el docente lo active, ver notas, trabajos, fechas y avisos. Cada justificación la revisa y aprueba el docente; mientras tanto queda «pendiente».</p>
 </div>
 <script>
 const $=s=>document.querySelector(s);
@@ -74,12 +89,14 @@ function vIngreso(msg){
 async function vPortal(okMsg){
   $("#app").innerHTML='<p class="muted">Cargando…</p>';
   let d;try{d=await api({accion:"ver",token:TOKEN})}catch(e){try{sessionStorage.removeItem("padres_t")}catch(x){}TOKEN=null;return vIngreso(e.message)}
+  let R={mostrar:{}};try{R=await api({accion:"resumen",token:TOKEN})}catch(e){}
   const pend=new Set(d.solicitudes.filter(s=>s.estado==="pendiente").flatMap(s=>s.registros));
   const porJustificar=d.registros.filter(r=>["ausente_injustificada","tardia_leve","tardia_grave"].includes(r.estado)&&!pend.has(r.id));
   const chip=e=>{const t=TIPO[e]||["?",e,"#64748b"];return `<span class="code" style="color:${t[2]};background:${t[2]}22">${t[0]}</span>`};
   $("#app").innerHTML=`${okMsg?`<div class="msg ok">${esc(okMsg)}</div>`:""}
    <div class="card"><div class="muted">Estudiante</div><h2 style="margin:.1rem 0 0">${esc(d.estudiante.nombre)}</h2><div class="muted">Sección ${esc(d.estudiante.seccion||"")}</div></div>
-   <div class="card"><h2 style="margin-top:0">Justificar</h2>
+   ${tabsHTML(R)}
+   <div data-tab="asistencia"><div class="card"><h2 style="margin-top:0">Justificar</h2>
     ${porJustificar.length?`<p class="muted">Marque las ausencias o tardías que va a justificar.</p>
       ${porJustificar.map(r=>`<label class="reg"><input type="checkbox" value="${esc(r.id)}" checked>${chip(r.estado)}<span>${esc(fFecha(r.fecha))}<small>${esc((TIPO[r.estado]||[])[1]||r.estado)}</small></span></label>`).join("")}
       <label for="mot">Motivo</label><select id="mot"><option>Cita médica</option><option>Enfermedad</option><option>Asunto familiar</option><option>Trámite o diligencia</option><option>Problema de transporte</option><option>Otro</option></select>
@@ -92,7 +109,9 @@ async function vPortal(okMsg){
       :'<p class="muted">No hay ausencias ni tardías por justificar. 🎉</p>'}
    </div>
    ${d.solicitudes.length?`<div class="card"><h2 style="margin-top:0">Solicitudes enviadas</h2>${d.solicitudes.map(s=>`<div class="reg" style="cursor:default"><span class="pill" style="background:${s.estado==="aprobada"?"var(--okbg);color:var(--ok)":s.estado==="rechazada"?"var(--badbg);color:var(--bad)":"var(--warnbg);color:#8a6100"}">${s.estado==="aprobada"?"Aprobada":s.estado==="rechazada"?"Rechazada":"Pendiente"}</span><span>${esc(s.motivo)}<small>${s.registros.length} registro(s) · enviada el ${esc(new Date(s.enviado).toLocaleDateString("es-CR"))}${s.respuesta?" · Docente: "+esc(s.respuesta):""}</small></span></div>`).join("")}</div>`:""}
+   </div>${seccionesHTML(R,d)}
    <p><button class="sec" id="salir">Salir</button></p>`;
+  activarTabs(R,d,okMsg?"asistencia":null);document.querySelector(".wrap").classList.toggle("ancho",!!document.getElementById("home"));
   $("#salir").onclick=()=>{try{sessionStorage.removeItem("padres_t")}catch(e){}TOKEN=null;vIngreso()};
   const b=$("#enviar");if(!b)return;
   $("#adj").onchange=()=>{const fs=[...$("#adj").files];$("#adj-lista").textContent=fs.length?(fs.length>3?"⚠ Máximo 3 documentos. ":"")+fs.map(f=>"📎 "+f.name).join("  "):""};
@@ -111,6 +130,46 @@ async function vPortal(okMsg){
       vPortal("✅ Justificación enviada. Queda pendiente hasta que el docente la apruebe.")}
     catch(e){b.disabled=false;m(`<div class="msg bad">${esc(e.message)}</div>`)}};
 }
+
+// ───── Notas, trabajos, calendario y avisos (2027). El docente decide qué se muestra. ─────
+const TABS=[["asistencia","📅 Asistencia"],["notas","📊 Notas"],["trabajos","📚 Trabajos"],["calendario","🗓️ Calendario"],["avisos","📣 Avisos"]];
+const fCorta=f=>{if(!f)return"";const d=new Date(String(f).slice(0,10)+"T12:00:00");return d.toLocaleDateString("es-CR",{day:"numeric",month:"short",year:"numeric"})};
+const num=n=>n==null?"—":Number(n).toLocaleString("es-CR",{maximumFractionDigits:2});
+const TILES={notas:["📊","Calificaciones","Notas por componente, nota del período y la boleta.","#cfe0ff","#e3edff","#eef4ff"],trabajos:["🎓","Aula y trabajos","Tareas, proyectos y trabajos calificados.","#ffd1d1","#ffe3e3","#fff1f1"],
+  calendario:["🗓️","Agenda","Pruebas, entregas y actividades próximas.","#ffd9a8","#ffe7c9","#fff4e6"],avisos:["💬","Comunicación","Avisos y mensajes del docente.","#c5f0d2","#dcf7e5","#eefbf2"],asistencia:["📅","Asistencia","Ausencias y tardías, y justificarlas.","#e2d4ff","#ece2ff","#f6f1ff"]};
+function tabsHTML(R){const on=TABS.filter(([k])=>k==="asistencia"||R.mostrar[k]).map(([k])=>k);if(on.length<2)return"";
+  const orden=["notas","trabajos","calendario","avisos","asistencia"].filter(k=>on.includes(k));
+  const hoy=new Date().toISOString().slice(0,10),prox=(R.calendario||[]).filter(e=>e.fecha&&e.fecha>=hoy).slice(0,4);
+  const tile=k=>{const t=TILES[k];return `<button class="tile" data-tb="${k}" style="--c1:${t[3]};--c2:${t[4]};--c3:${t[5]}"><span><h3>${t[1]}</h3><p>${t[2]}</p></span><span class="ico">${t[0]}</span></button>`};
+  const side=R.calendario?`<div class="side"><h3>Próximos eventos</h3>${prox.length?prox.map((e,i)=>{const c=[["#ffd3e6","#fff0f6"],["#e4d6ff","#f6f1ff"],["#cfe0ff","#eef4ff"],["#ffd9a8","#fff4e6"]][i%4],d=new Date(e.fecha+"T12:00:00");
+      return `<div class="mini" style="--c1:${c[0]};--c3:${c[1]}"><div class="d"><small>${d.toLocaleDateString("es-CR",{month:"short"}).replace(".","")}</small>${d.getDate()}</div><div><small class="muted">${esc(e.tipo)}</small><br><b>${esc(e.titulo)}</b></div></div>`}).join(""):'<p class="muted">No hay fechas próximas.</p>'}
+      <button class="sec" data-tb="calendario" style="width:100%;margin-top:6px">Ver todos</button></div>`:"";
+  return `<div class="home noprint" id="home">${orden.map(tile).join("")}${side}</div>`}
+function seccionesHTML(R,d){let h="";
+  if(R.notas){h+=`<div data-tab="notas" hidden><div id="boleta">${R.notas.map(m=>`<div class="card"><div class="muted">Boleta de calificaciones · CTP Mercedes Norte · Especialidad de Contabilidad</div>
+    <h2 style="margin:.2rem 0">${esc(m.materia)} · Sección ${esc(m.seccion)}</h2><div class="muted">Estudiante: <b>${esc(d.estudiante.nombre)}</b> · ${esc(new Date().toLocaleDateString("es-CR",{day:"numeric",month:"long",year:"numeric"}))}</div>
+    <table class="t" style="margin-top:10px"><thead><tr><th>Componente</th><th class="n">Nota (0-100)</th><th class="n">Valor</th><th class="n">Obtenido</th></tr></thead><tbody>
+    ${m.componentes.map(c=>`<tr><td>${esc(c.nombre)}</td><td class="n">${num(c.nota)}</td><td class="n">${c.porcentaje} %</td><td class="n">${c.aporte==null?"—":num(c.aporte)+" %"}</td></tr>`).join("")}
+    <tr><td colspan="3"><b>Nota del período en curso</b></td><td class="n"><b>${num(m.actual)}</b></td></tr>
+    ${m.p1!=null?`<tr><td colspan="3">Nota del I Período</td><td class="n">${num(m.p1)}</td></tr>`:""}</tbody></table>
+    <p class="muted" style="font-size:.8rem;margin-bottom:0">Notas según el Reglamento de Evaluación de los Aprendizajes (Decreto 45509-MEP). La nota del período en curso puede cambiar mientras se califiquen trabajos y pruebas. La mínima para aprobar es 70.</p></div>`).join("")}</div>
+    <p class="noprint"><button id="imp">🖨️ Imprimir o guardar la boleta en PDF</button></p></div>`}
+  if(R.trabajos){const est={pendiente:["Pendiente","var(--warnbg);color:#8a6100"],sin_entregar:["Sin entregar","var(--badbg);color:var(--bad)"],entregada:["Entregada","var(--pri2);color:var(--pri)"],devuelta:["Devuelta para corregir","var(--warnbg);color:#8a6100"],calificada:["Calificada","var(--okbg);color:var(--ok)"]};
+    h+=`<div data-tab="trabajos" hidden>${R.trabajos.map(m=>`<div class="card"><h2 style="margin-top:0">${esc(m.materia)}</h2>
+    ${m.entregas.length?`<h3>Tareas y proyectos por entregar</h3>${m.entregas.map(e=>{const x=est[e.estado]||[e.estado,"var(--pri2)"];return `<div class="reg" style="cursor:default"><span style="flex:1"><b>${esc(e.titulo)}</b><small>${esc(e.componente||e.tipo||"")} · fecha límite ${esc(fCorta(e.fecha_limite))}${e.nota?` · nota ${num(e.nota.puntos)} de ${num(e.nota.total)}`:""}</small></span><span class="pill" style="background:${x[1]}">${x[0]}</span></div>`}).join("")}`:""}
+    <h3>Trabajos calificados por indicador</h3>${m.indicadores.length?`<table class="t"><thead><tr><th>Trabajo</th><th class="n">Puntos</th></tr></thead><tbody>${m.indicadores.map(i=>`<tr><td><small class="muted">${esc(i.componente)}${i.letra?" · "+esc(i.letra):""}${i.fecha?" · "+esc(fCorta(i.fecha)):""}</small><br>${esc(i.descripcion)}</td><td class="n">${i.justificado?"Justificado":i.puntos==null?"Sin calificar":`${num(i.puntos)} de ${num(i.max)}`}</td></tr>`).join("")}</tbody></table>`:'<p class="muted">Todavía no hay trabajos.</p>'}
+    <p class="muted" style="font-size:.8rem">Cada indicador se califica con 3 (Avanzado), 2 (Intermedio), 1 (Inicial) o 0 (sin evidencia).</p></div>`).join("")}</div>`}
+  if(R.calendario){const hoy=new Date().toISOString().slice(0,10);const L=R.calendario.filter(e=>e.fecha);const prox=L.filter(e=>e.fecha>=hoy),pas=L.filter(e=>e.fecha<hoy).reverse();
+    const item=e=>{const d=new Date(e.fecha+"T12:00:00");return `<div class="ev"><div class="d">${d.getDate()}<small>${d.toLocaleDateString("es-CR",{month:"short"})}</small></div><div><b>${esc(e.tipo)}</b>${e.seccion?` <span class="muted">· ${esc(e.seccion)}</span>`:""}<br>${esc(e.titulo)}${e.detalle?`<br><small class="muted">${esc(e.detalle)}</small>`:""}</div></div>`};
+    h+=`<div data-tab="calendario" hidden><div class="card"><h2 style="margin-top:0">Próximas fechas</h2>${prox.length?prox.map(item).join(""):'<p class="muted">No hay fechas próximas.</p>'}</div>${pas.length?`<div class="card"><h2 style="margin-top:0">Fechas recientes</h2>${pas.map(item).join("")}</div>`:""}</div>`}
+  if(R.avisos){h+=`<div data-tab="avisos" hidden><div class="card"><h2 style="margin-top:0">Avisos del docente</h2>${R.avisos.length?R.avisos.map(a=>`<div class="aviso"><small class="muted">${esc(fCorta(a.fecha))} · ${esc(a.para)}</small><br><b>${esc(a.titulo)}</b>${a.texto?`<div style="white-space:pre-wrap">${esc(a.texto)}</div>`:""}</div>`).join(""):'<p class="muted">No hay avisos.</p>'}</div></div>`}
+  return h}
+function activarTabs(R,d,abrir){const home=document.getElementById("home");
+  const ir=k=>{document.querySelectorAll("[data-tab]").forEach(x=>x.hidden=x.dataset.tab!==k);if(home)home.hidden=!!k;document.querySelectorAll(".volver").forEach(v=>v.remove());
+    if(k&&home){const t=document.querySelector(`[data-tab="${k}"]`);t.insertAdjacentHTML("afterbegin",'<p class="volver noprint"><button class="sec">← Inicio</button></p>');t.querySelector(".volver button").onclick=()=>ir(null)}scrollTo(0,0)};
+  document.querySelectorAll("[data-tb]").forEach(b=>b.onclick=()=>ir(b.dataset.tb));
+  if(home)ir(abrir||null);
+  const imp=document.getElementById("imp");if(imp)imp.onclick=()=>window.print()}
 leerToken();TOKEN?vPortal():vIngreso();
 </script>
 </body>

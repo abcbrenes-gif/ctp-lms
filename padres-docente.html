@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Portal de familias · lo que ven los encargados</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="img/logo-ctp-mercedes-norte.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js?v=20261116b"></script>
+<style>
+:root{--bg:#F5F7FB;--sf:#fff;--ink:#0F172A;--mut:#5B6B80;--line:#DCE3EE;--pri:#1F3864;--acc:#1d63e8;--okS:#DDF1DC;--bad:#FDE2E2}
+@media (prefers-color-scheme:dark){:root{--bg:#0B1020;--sf:#121A30;--ink:#E8EDFB;--mut:#9AA9CC;--line:#26324F;--pri:#9DB7F5;--okS:#173A28;--bad:#4a1616}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Inter,"Segoe UI",system-ui,sans-serif;padding-bottom:70px}
+header{background:#14213d;color:#fff;padding:14px 20px}header h1{margin:0;font-size:1.2rem}header p{margin:2px 0 0;opacity:.85;font-size:.88rem}
+main{max-width:860px;margin:0 auto;padding:14px}.card{background:var(--sf);border:1px solid var(--line);border-radius:16px;padding:16px;margin:0 0 12px}
+h2{margin:0 0 6px;font-size:1.08rem;color:var(--pri)}.mut{color:var(--mut);font-size:.86rem}
+.btn{display:inline-block;background:var(--acc);color:#fff;border:0;border-radius:10px;padding:8px 13px;font:600 .9rem inherit;cursor:pointer;margin:4px 6px 4px 0;text-decoration:none}.btn.sec{background:transparent;color:var(--ink);border:1px solid var(--line)}.btn.small{padding:4px 9px;font-size:.8rem}
+input,select,textarea{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--sf);color:var(--ink);width:100%}textarea{min-height:70px}
+.sw{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}.sw input{width:22px;height:22px;flex:none;margin-top:2px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0}@media (max-width:560px){.row{grid-template-columns:1fr}}
+.it{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line)}.it div{flex:1}
+.msg{border-radius:10px;padding:8px 12px;margin:8px 0}.msg.ok{background:var(--okS)}.msg.bad{background:var(--bad)}
+</style>
+</head>
+<body>
+<header><h1>👪 Portal de familias · lo que ven los encargados</h1><p>Usted decide qué se muestra, y escribe los avisos y las fechas</p></header>
+<main id="app"><p class="mut">Cargando…</p></main>
+<script>
+let SES=null;try{SES=JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")||"null")}catch(e){}
+const app=document.getElementById("app"),$=s=>document.querySelector(s);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const hoy=()=>new Date().toLocaleDateString("sv-SE",{timeZone:"America/Costa_Rica"});
+const fC=f=>f?new Date(f+"T12:00:00").toLocaleDateString("es-CR",{day:"numeric",month:"short",year:"numeric"}):"";
+const SECCIONES=[
+  ["notas","📊 Calificaciones","Nota de 0 a 100 y lo obtenido en cada componente, la nota del período en curso, la del I Período si usted la hizo visible, y la boleta para imprimir."],
+  ["trabajos","🎓 Aula y trabajos","Tareas y proyectos por entregar (pendiente, entregada, sin entregar, calificada) y los puntos de cada indicador."],
+  ["calendario","🗓️ Agenda","Pruebas con fecha, fechas límite de entregas y las actividades que usted agregue abajo."],
+  ["avisos","💬 Comunicación","Los avisos que usted escriba abajo, para todas las familias, una sección o un estudiante."]];
+let REG=null,C={mostrar:{},avisos:[],eventos:[]},EST=[];
+async function cargar(){
+  const [{data},{data:es}]=await Promise.all([sb.from("trabajos_cotidianos").select("id, contenido_actividad").eq("contenido_actividad->>estrategia","portal_padres").order("id").limit(1),
+    sb.from("estudiantes").select("id,nombre,apellido1,seccion").neq("id","0-0000-0001").order("seccion").order("apellido1")]);
+  REG=(data||[])[0]||null;C={mostrar:{},avisos:[],eventos:[],...((REG&&REG.contenido_actividad)||{})};EST=es||[];
+}
+async function guardar(){
+  const CA={...C,estrategia:"portal_padres"};
+  if(REG){const {error}=await sb.from("trabajos_cotidianos").update({contenido_actividad:CA}).eq("id",REG.id);if(error)throw error}
+  else{const {data,error}=await sb.from("trabajos_cotidianos").insert({titulo:"Portal de familias: qué se muestra, avisos y fechas (registro del profe, no borrar)",tipo_actividad:"rubrica_directa",habilitado:false,contenido_actividad:CA}).select("id, contenido_actividad").maybeSingle();if(error)throw error;REG=data}
+}
+const secs=()=>[...new Set(EST.map(e=>e.seccion).filter(Boolean))];
+const paraTxt=p=>!p||p==="todos"?"Todas las familias":secs().includes(p)?"Sección "+p:(e=>e?`${e.nombre} ${e.apellido1} (${e.seccion})`:p)(EST.find(e=>e.id===p));
+function pintar(m){
+  app.innerHTML=`${m||""}<section class="card"><h2>Qué ven los encargados</h2><p class="mut">«Asistencia» (justificar ausencias y tardías) siempre está. Active lo demás cuando quiera que lo vean; si apaga algo, desaparece del portal al instante.</p>
+   ${SECCIONES.map(([k,t,d])=>`<label class="sw"><input type="checkbox" data-sw="${k}" ${C.mostrar[k]?"checked":""}><span><b>${t}</b><br><span class="mut">${d}</span></span></label>`).join("")}</section>
+   <section class="card"><h2>💬 Avisos</h2>
+    <div class="row"><input id="av-t" placeholder="Título (ej. Reunión de padres)"><select id="av-p"><option value="todos">Todas las familias</option>${secs().map(s=>`<option value="${esc(s)}">Sección ${esc(s)}</option>`).join("")}<optgroup label="Un estudiante">${EST.map(e=>`<option value="${esc(e.id)}">${esc(e.apellido1+" "+e.nombre)} (${esc(e.seccion)})</option>`).join("")}</optgroup></select></div>
+    <textarea id="av-x" placeholder="Mensaje"></textarea><button class="btn" id="av-add">＋ Publicar aviso</button>
+    ${C.avisos.length?[...C.avisos].reverse().map(a=>`<div class="it"><div><small class="mut">${fC(a.fecha)} · ${esc(paraTxt(a.para))}</small><br><b>${esc(a.titulo)}</b><div style="white-space:pre-wrap">${esc(a.texto||"")}</div></div><button class="btn sec small" data-avd="${esc(a.id)}">Quitar</button></div>`).join(""):'<p class="mut">Todavía no hay avisos.</p>'}</section>
+   <section class="card"><h2>🗓️ Fechas de la agenda</h2><p class="mut">Las pruebas con fecha y las fechas límite de las entregas aparecen solas. Aquí agrega otras: feriados, giras, reuniones, convocatorias.</p>
+    <div class="row"><input id="ev-f" type="date"><select id="ev-s"><option value="">Todas las secciones</option>${secs().map(s=>`<option>${esc(s)}</option>`).join("")}</select></div>
+    <div class="row"><select id="ev-ti"><option>Actividad</option><option>Feriado</option><option>Reunión</option><option>Gira</option><option>Convocatoria</option><option>Prueba</option><option>Entrega</option></select><input id="ev-t" placeholder="Qué es (ej. Feria vocacional)"></div>
+    <input id="ev-d" placeholder="Detalle (opcional)"><p><button class="btn" id="ev-add">＋ Agregar fecha</button></p>
+    ${C.eventos.length?[...C.eventos].sort((a,b)=>a.fecha.localeCompare(b.fecha)).map(e=>`<div class="it"><div><b>${fC(e.fecha)}</b> · ${esc(e.tipo)} · ${esc(e.titulo)}${e.seccion?` <span class="mut">(${esc(e.seccion)})</span>`:""}${e.detalle?`<br><span class="mut">${esc(e.detalle)}</span>`:""}</div><button class="btn sec small" data-evd="${esc(e.id)}">Quitar</button></div>`).join(""):'<p class="mut">Todavía no hay fechas agregadas.</p>'}</section>
+   <p><a class="btn sec" href="/#/2027">← Volver a 2027</a><a class="btn sec" href="/padres" target="_blank" rel="noopener">👀 Abrir el portal</a></p>`;
+  const hacer=async(f,ok)=>{try{f();await guardar();pintar(`<div class="msg ok">✅ ${ok}</div>`)}catch(e){await cargar();pintar(`<div class="msg bad">❌ No se pudo guardar: ${esc(e.message)}</div>`)}};
+  app.querySelectorAll("[data-sw]").forEach(c=>c.onchange=()=>hacer(()=>{C.mostrar={...C.mostrar,[c.dataset.sw]:c.checked}},c.checked?"Ahora los encargados lo ven.":"Ya no se muestra a los encargados."));
+  $("#av-add").onclick=()=>{const t=$("#av-t").value.trim();if(!t)return alert("Escriba el título del aviso.");hacer(()=>C.avisos=[...C.avisos,{id:Date.now().toString(36),fecha:hoy(),titulo:t,texto:$("#av-x").value.trim(),para:$("#av-p").value}],"Aviso publicado.")};
+  app.querySelectorAll("[data-avd]").forEach(b=>b.onclick=()=>{if(confirm("¿Quitar este aviso del portal?"))hacer(()=>C.avisos=C.avisos.filter(a=>a.id!==b.dataset.avd),"Aviso quitado.")});
+  $("#ev-add").onclick=()=>{const f=$("#ev-f").value,t=$("#ev-t").value.trim();if(!f||!t)return alert("Escriba la fecha y qué es.");hacer(()=>C.eventos=[...C.eventos,{id:Date.now().toString(36),fecha:f,tipo:$("#ev-ti").value,titulo:t,detalle:$("#ev-d").value.trim(),seccion:$("#ev-s").value}],"Fecha agregada.")};
+  app.querySelectorAll("[data-evd]").forEach(b=>b.onclick=()=>{if(confirm("¿Quitar esta fecha de la agenda?"))hacer(()=>C.eventos=C.eventos.filter(e=>e.id!==b.dataset.evd),"Fecha quitada.")});
+}
+(async()=>{if(!SES||SES.role!=="docente"){app.innerHTML='<section class="card"><h2>🔒 Solo para el docente</h2><a class="btn" href="/">Ir a la plataforma</a></section>';return}
+  await cargar();pintar()})();
+</script>
+</body>
+</html>

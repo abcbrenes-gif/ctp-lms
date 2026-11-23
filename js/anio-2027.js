@@ -55,8 +55,8 @@ const PARTES_2027 = [
     links: [["aula-contable.html", "📒 Aula Contable NIIF"], ["ciudad-contable.html", "🏙️ Ciudad Contable"], ["taller-contable.html", "🧮 Taller del Ciclo Contable"], ["iva-150.html", "🧾 Declaración del IVA · Formulario 150"], ["liquidaciones.html", "💼 Liquidaciones laborales"], ["simulador-b2b.html", "🤝 ContaRed · Simulador B2B"], ["auditpro.html", "🔍 AuditPro CTP"], ["auditoria-integral.html", "🗂️ Auditoría integral · caso simulado"]] },
   { id: "evaluacion", ico: "📝", t: "Evaluación", d: "Entregas, pruebas y justificaciones, siguiendo el Reglamento de Evaluación (Decreto 45509-MEP).",
     links: [["entregas-docente.html", "📤 Entregas de tareas y proyectos (OneDrive)"], ["#/evaluaciones", "📊 Rúbrica y evaluaciones"], ["examen.html", "🧪 Exámenes"], ["#a27-jus", "📝 Justificaciones de ausencias y tardías"]] },
-  { id: "padres", ico: "👪", t: "Padres", d: "Registro de las familias y lo que ven los encargados de sus hijos.",
-    links: [["#a27-fam", "👪 Registro de familias (QR)"], ["/padres", "👀 Ver el Portal de familias"], ["registro-docente.html", "📋 Datos de los encargados (registro de inicio)"]] }
+  { id: "padres", ico: "👪", t: "Padres", d: "El Portal de familias: usted decide qué ven los encargados (calificaciones, trabajos, agenda y avisos) y aprueba su registro.",
+    links: [["padres-docente.html", "⚙️ Qué ven los encargados: notas, trabajos, agenda y avisos"], ["#a27-fam", "👪 Registro de familias (QR)"], ["/padres", "👀 Ver el Portal de familias"], ["registro-docente.html", "📋 Datos de los encargados (registro de inicio)"]] }
 ];
 function partes27(secs) {
   const esc = escAC; let act = "secciones"; try { act = sessionStorage.getItem("a27_parte") || act; } catch (e) { }
