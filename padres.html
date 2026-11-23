@@ -39,7 +39,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 @media (min-width:860px){.wrap.ancho{max-width:1080px}.home{grid-template-columns:1fr 1fr 330px}.home .side{grid-column:3;grid-row:1/span 3}}
 @media (max-width:520px){.home{grid-template-columns:1fr}}
 .tile{position:relative;overflow:hidden;text-align:left;background:#fff;color:var(--ink);border:1.5px solid var(--c2);border-radius:20px;padding:22px 20px;cursor:pointer;min-height:190px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 4px 14px rgba(20,33,61,.04);transition:transform .12s,box-shadow .12s}
-.tile:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(20,33,61,.08)}[hidden]{display:none!important}.modal{position:fixed;inset:0;background:rgba(15,23,42,.55);display:grid;place-items:center;padding:16px;z-index:50}.mbox{background:#fff;border-radius:20px;padding:22px;max-width:520px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.25)}.mbox p{margin:.5rem 0}.tile>span{position:relative;z-index:1}.tile p{padding-right:34px}.tile::after{content:"";position:absolute;right:-28px;top:-28px;width:84px;height:84px;border-radius:50%;background:var(--c3)}
+.tile:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(20,33,61,.08)}.prohibido{background:#fde2e2;color:#9b1c1c;border:2px solid #e5484d;border-radius:14px;padding:12px 14px;margin:12px 0;font:800 1.15rem/1.3 Lexend,Inter,sans-serif;text-align:center}.prohibido small{display:block;font:500 .88rem/1.4 Inter,sans-serif;color:#7a1d1d;margin-top:6px}.prohibido a{color:#9b1c1c}
+.regl{padding-left:1.2rem;font-size:.93rem}.regl li{margin:6px 0}.regl ul{margin:4px 0;padding-left:1.1rem}
+[hidden]{display:none!important}.modal{position:fixed;inset:0;background:rgba(15,23,42,.55);display:grid;place-items:center;padding:16px;z-index:50}.mbox{background:#fff;border-radius:20px;padding:22px;max-width:520px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.25)}.mbox p{margin:.5rem 0}.tile>span{position:relative;z-index:1}.tile p{padding-right:34px}.tile::after{content:"";position:absolute;right:-28px;top:-28px;width:84px;height:84px;border-radius:50%;background:var(--c3)}
 .tile h3{font:800 1.45rem/1.1 Lexend,Inter,sans-serif;margin:0 0 6px}.tile p{margin:0;color:var(--mut);font-size:.9rem;font-weight:400}
 .tile .ico{width:62px;height:62px;border-radius:18px;display:grid;place-items:center;font-size:1.7rem;background:var(--c1);box-shadow:0 8px 18px var(--c3);margin-top:18px}
 .side{background:#fff;border:1.5px solid var(--line);border-radius:20px;padding:18px}.side h3{font:800 1.3rem Lexend,Inter,sans-serif;margin:0 0 10px}
@@ -108,7 +110,7 @@ async function vPortal(okMsg){
    ${d.via==="docente"?'<div class="msg" style="background:var(--warnbg);color:#8a6100">👀 Vista previa del docente: así lo ve el encargado. Aquí no se envían justificaciones.</div>':""}
    <div class="card"><div class="muted">Estudiante</div><h2 style="margin:.1rem 0 0">${esc(d.estudiante.nombre)}</h2><div class="muted">Sección ${esc(d.estudiante.seccion||"")}</div></div>
    ${tabsHTML(R)}
-   <div data-tab="asistencia"><div class="card"><h2 style="margin-top:0">Justificar</h2>
+   <div data-tab="asistencia"><div class="prohibido">🚫 Las facturas de farmacia o de supermercado por compra de medicamentos NO justifican ausencias ni tardías.<small>Plazo: 3 días hábiles después del regreso del estudiante (Decreto 45509-MEP, art. 36). <a href="#" id="ver-reg">Ver el reglamento</a></small></div><div class="card"><h2 style="margin-top:0">Justificar</h2>
     ${porJustificar.length?`<p class="muted">Marque las ausencias o tardías que va a justificar.</p>
       ${porJustificar.map(r=>`<label class="reg"><input type="checkbox" value="${esc(r.id)}" checked>${chip(r.estado)}<span>${esc(fFecha(r.fecha))}<small>${esc((TIPO[r.estado]||[])[1]||r.estado)}</small></span></label>`).join("")}
       <label for="mot">Motivo</label><select id="mot"><option>Cita médica</option><option>Enfermedad</option><option>Asunto familiar</option><option>Trámite o diligencia</option><option>Problema de transporte</option><option>Otro</option></select>
@@ -125,9 +127,10 @@ async function vPortal(okMsg){
    <p><button class="sec" id="salir">Salir</button></p>`;
   activarTabs(R,d,okMsg?"asistencia":null);document.querySelector(".wrap").classList.toggle("ancho",!!document.getElementById("home"));
   $("#salir").onclick=()=>{try{sessionStorage.removeItem("padres_t")}catch(e){}TOKEN=null;vIngreso()};
+  const vr=$("#ver-reg");if(vr)vr.onclick=e=>{e.preventDefault();avisoReglamento(()=>{})};
   const b=$("#enviar");if(!b)return;
   $("#adj").onchange=()=>{const fs=[...$("#adj").files];$("#adj-lista").textContent=fs.length?(fs.length>3?"⚠ Máximo 3 documentos. ":"")+fs.map(f=>"📎 "+f.name).join("  "):""};
-  b.onclick=async()=>{const m=t=>$("#m").innerHTML=t;const regs=[...document.querySelectorAll(".reg input:checked")].map(x=>x.value);
+  b.onclick=async()=>{if(!LEYO_REG)return avisoReglamento(()=>b.click());const m=t=>$("#m").innerHTML=t;const regs=[...document.querySelectorAll(".reg input:checked")].map(x=>x.value);
     const det=$("#det").value.trim(),nom=$("#nom").value.trim();
     if(!regs.length)return m('<div class="msg bad">Marque al menos una ausencia o tardía.</div>');
     if(det.length<5||nom.length<5)return m('<div class="msg bad">Escriba el detalle y su nombre completo.</div>');
@@ -138,7 +141,7 @@ async function vPortal(okMsg){
       for(const [i,f] of fs.entries()){m(`<p class="muted">Subiendo documento ${i+1} de ${fs.length}…</p>`);const ruta=`justificaciones/${Date.now()}-${Math.random().toString(36).slice(2,8)}-${f.name.replace(/[^\w.-]+/g,"_")}`;
         const up=await sb.storage.from("materiales").upload(ruta,f,{upsert:false});if(up.error)throw new Error("No se pudo subir «"+f.name+"»: "+up.error.message);adjuntos.push(ruta)}
       m('<p class="muted">Enviando…</p>');
-      await api({accion:"justificar",token:TOKEN,registros:regs,motivo:$("#mot").value+": "+det,encargado:nom,cedula:$("#ced2").value.trim(),parentesco:$("#par").value,adjuntos,dispositivo:disp()});
+      await api({accion:"justificar",token:TOKEN,registros:regs,motivo:$("#mot").value+": "+det,encargado:nom,cedula:$("#ced2").value.trim(),parentesco:$("#par").value,adjuntos,dispositivo:disp(),leyo_reglamento:LEYO_REG});
       vPortal("✅ Justificación enviada. Queda pendiente hasta que el docente la apruebe.")}
     catch(e){b.disabled=false;m(`<div class="msg bad">${esc(e.message)}</div>`)}};
 }
@@ -187,6 +190,34 @@ function seccionesHTML(R,d){let h="";
     h+=`<div data-tab="calendario" hidden><div class="card"><h2 style="margin-top:0">Próximas fechas</h2>${prox.length?prox.map(item).join(""):'<p class="muted">No hay fechas próximas.</p>'}</div>${pas.length?`<div class="card"><h2 style="margin-top:0">Fechas recientes</h2>${pas.map(item).join("")}</div>`:""}</div>`}
   if(R.avisos){h+=`<div data-tab="avisos" hidden><div class="card"><h2 style="margin-top:0">Avisos del docente</h2>${R.avisos.length?R.avisos.map(a=>`<div class="aviso"><small class="muted">${esc(fCorta(a.fecha))} · ${esc(a.para)}</small><br><b>${esc(a.titulo)}</b>${a.texto?`<div style="white-space:pre-wrap">${esc(a.texto)}</div>`:""}</div>`).join(""):'<p class="muted">No hay avisos.</p>'}</div></div>`}
   return h}
+// Reglamento de justificaciones (Decreto 45509-MEP, REAC 2026, arts. 36 y 37). El encargado lo lee
+// y acepta antes de ver o enviar justificaciones; cada aceptación queda en la bitácora.
+let LEYO_REG=null;
+function avisoReglamento(seguir){
+  const fondo=document.createElement("div");fondo.className="modal";
+  fondo.innerHTML=`<div class="mbox" role="dialog" aria-modal="true" aria-labelledby="rt" style="max-width:640px"><div style="font-size:2rem">⚖️</div>
+   <h2 id="rt" style="margin:.2rem 0 .3rem">Reglamento para justificar ausencias y tardías</h2>
+   <p class="muted" style="margin-top:0">Reglamento de Evaluación de los Aprendizajes y de la Conducta, Decreto 45509-MEP, artículos 36 y 37.</p>
+   <div class="prohibido">🚫 LAS FACTURAS DE FARMACIA O DE SUPERMERCADO POR COMPRA DE MEDICAMENTOS <u>NO</u> JUSTIFICAN UNA AUSENCIA NI UNA TARDÍA.<small>Una compra no demuestra que el estudiante estuvo enfermo ni que asistió a una cita. Presente un dictamen, una constancia o un comprobante de cita médica (CCSS, EBAIS o médico privado), u otro documento que pruebe la causa.</small></div>
+   <ol class="regl">
+    <li><b>Quién la presenta:</b> el padre, la madre o la persona encargada legal, por escrito, ante el docente de la materia.</li>
+    <li><b>Plazo:</b> dentro de los <b>3 días hábiles</b> siguientes al regreso del estudiante. Fuera de ese plazo no procede.</li>
+    <li><b>Ausencias que se pueden justificar</b> (fuerza mayor o caso fortuito):
+      <ul><li>Enfermedad, accidente u otra causa de caso fortuito o fuerza mayor.</li>
+      <li>Enfermedad grave de los encargados legales o de los hermanos.</li>
+      <li>Muerte de un familiar hasta el segundo grado (hasta una semana).</li>
+      <li>Aspectos culturales de los pueblos indígenas.</li></ul></li>
+    <li><b>Llegada tardía justificada:</b> la causada por fuerza mayor o caso fortuito que impidió llegar a tiempo, a juicio del docente.</li>
+    <li><b>Tardías injustificadas:</b> menos de 10 minutos cuenta como <b>media ausencia</b>; 10 minutos o más cuenta como <b>una ausencia</b> injustificada.</li>
+    <li><b>Decisión:</b> el docente analiza lo que usted presenta y decide si procede. Si procede, se reponen las pruebas o se amplía el plazo de los trabajos.</li>
+   </ol>
+   <label class="reg" style="cursor:pointer"><input type="checkbox" id="r-ok"><span>Leí y entiendo el reglamento para justificar ausencias y tardías.</span></label>
+   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button id="r-si" disabled>Continuar</button><button class="sec" id="r-no">Cancelar</button></div></div>`;
+  document.body.appendChild(fondo);const cerrar=()=>fondo.remove();
+  fondo.querySelector("#r-ok").onchange=e=>fondo.querySelector("#r-si").disabled=!e.target.checked;
+  fondo.querySelector("#r-no").onclick=cerrar;
+  fondo.querySelector("#r-si").onclick=()=>{LEYO_REG=new Date().toISOString();api({accion:"registrar_visita",token:TOKEN,tipo:"reglamento",dispositivo:disp()}).catch(()=>{});cerrar();seguir()};
+  fondo.querySelector(".mbox").scrollTop=0}
 // Aviso al abrir Calificaciones: corte de la fecha y responsabilidad del encargado. Cada apertura queda en la bitácora.
 function avisoNotas(d,seguir){const ahora=new Date(),f=ahora.toLocaleDateString("es-CR",{weekday:"long",day:"numeric",month:"long",year:"numeric"}),h=ahora.toLocaleTimeString("es-CR",{hour:"numeric",minute:"2-digit"});
   const fondo=document.createElement("div");fondo.className="modal";
@@ -206,7 +237,7 @@ function avisoNotas(d,seguir){const ahora=new Date(),f=ahora.toLocaleDateString(
 function activarTabs(R,d,abrir){const home=document.getElementById("home");
   const ir=k=>{document.querySelectorAll("[data-tab]").forEach(x=>x.hidden=x.dataset.tab!==k);if(home)home.hidden=!!k;document.querySelectorAll(".volver").forEach(v=>v.remove());
     if(k&&home){const t=document.querySelector(`[data-tab="${k}"]`);t.insertAdjacentHTML("afterbegin",'<p class="volver noprint"><button class="sec">← Inicio</button></p>');t.querySelector(".volver button").onclick=()=>ir(null)}scrollTo(0,0)};
-  document.querySelectorAll("[data-tb]").forEach(b=>b.onclick=()=>b.dataset.tb==="notas"?avisoNotas(d,()=>ir("notas")):ir(b.dataset.tb));
+  document.querySelectorAll("[data-tb]").forEach(b=>b.onclick=()=>b.dataset.tb==="notas"?avisoNotas(d,()=>ir("notas")):b.dataset.tb==="asistencia"&&!LEYO_REG?avisoReglamento(()=>ir("asistencia")):ir(b.dataset.tb));
   if(home)ir(abrir||null);
   const imp=document.getElementById("imp");if(imp)imp.onclick=()=>window.print()}
 leerToken();TOKEN?vPortal():vIngreso();
