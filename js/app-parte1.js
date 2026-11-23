@@ -2474,6 +2474,7 @@ async function renderPerfil(id, isSelf) {
 
 
 
+      ${isSelf ? `<div id="panel-2027"></div>` : ""}
       <div id="bitacora-panel" style="margin-bottom:1rem;"></div>
       <div id="boleta-panel" style="margin-bottom:1rem;"></div>
       <div id="notas-periodo-panel" style="margin-bottom:1rem;"></div>
@@ -2497,6 +2498,7 @@ async function renderPerfil(id, isSelf) {
     </div>`;
   bindTopbar();
 
+  if (isSelf && typeof pintarPanel2027 === "function") pintarPanel2027(s, previewing);
   pintarBitacoraPerfil(s, isSelf);
   if (typeof pintarNotasPeriodoPerfil === "function") pintarNotasPeriodoPerfil(s, isSelf).catch(e => console.error("notas por período:", e));
   if (typeof pintarBoletaPerfil === "function") pintarBoletaPerfil(s, isSelf).catch(e => console.error("boleta:", e));

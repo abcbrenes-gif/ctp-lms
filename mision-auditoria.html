@@ -67,6 +67,7 @@ canvas#confetti{position:fixed;inset:0;pointer-events:none;z-index:50}
 <div class="toast" id="toast"></div><canvas id="confetti"></canvas><div class="sr" aria-live="polite" id="live"></div>
 <script src="js/auditoria-unidades-datos.js?v=20261117b"></script>
 <script src="js/mision-auditoria-retos.js?v=20261117a"></script>
+<script src="js/abierto-2027.js?v=20261123a"></script>
 <script>
 // Misión Auditoría: la versión interactiva para estudiantes de las 40 lecciones de Auditoría (2027).
 // Por ahora solo la abre el docente (todo lo de 2027 es solo-profe). Para abrirla a estudiantes: ABIERTA_ESTUDIANTES = true.
@@ -231,9 +232,11 @@ function ruta(){
   if(h.startsWith("m/")){const m=TODAS.find(x=>x.id===h.slice(2));if(m&&misionAbierta(m)){mision(m);scrollTo({top:0});return}if(m)toast("🔒 Primero completa la misión anterior")}
   mapa();scrollTo({top:0});
 }
-if(!SES||!(ES_DOCENTE||(ABIERTA_ESTUDIANTES&&SES.role==="estudiante"))){
+(async()=>{const ABIERTO=ABIERTA_ESTUDIANTES||await abierto2027();
+if(!SES||!(ES_DOCENTE||(ABIERTO&&SES.role==="estudiante"))){
   $("#app").innerHTML=`<div class="panel"><h3>🔒 Misión Auditoría</h3><p class="sub">${SES?"Esta misión se abre en 2027. Tu profe te avisará.":"Entra desde la plataforma con tu usuario."}</p><a class="btn" href="index.html">Ir a la plataforma</a></div>`;
 }else{stats();addEventListener("hashchange",ruta);ruta()}
+})();
 </script>
 <script src="js/volver-plataforma.js?v=20261117a"></script>
 </body>

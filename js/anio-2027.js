@@ -12,15 +12,16 @@ async function renderAnio2027() {
   let items = ((reg && reg.contenido_actividad.items) || []).slice();
   let secs = ((reg && reg.contenido_actividad.secciones) || []).slice();
   let usos = { ...((reg && reg.contenido_actividad.usos) || {}) };
+  let abiertoEst = !!(reg && reg.contenido_actividad.abierto_estudiantes);
   const guardar = async () => {
-    const C = { ...((reg && reg.contenido_actividad) || {}), estrategia: "plan_2027", items, secciones: secs, usos };
+    const C = { ...((reg && reg.contenido_actividad) || {}), estrategia: "plan_2027", items, secciones: secs, usos, abierto_estudiantes: abiertoEst };
     if (reg) { const { error } = await sb.from("trabajos_cotidianos").update({ contenido_actividad: C }).eq("id", reg.id); if (error) throw error; }
     else { const { data: d, error } = await sb.from("trabajos_cotidianos").insert({ titulo: "Plan 2027 (registro del profe, no borrar)", tipo_actividad: "rubrica_directa", habilitado: false, contenido_actividad: C }).select("id, contenido_actividad").maybeSingle(); if (error) throw error; reg = d; }
   };
   const pintar = () => {
     wrap.innerHTML = `<h1>📅 Curso lectivo 2027</h1>
       <p style="color:var(--text-muted);margin-top:-0.6em">Aquí vamos armando lo del próximo año. Solo lo ve usted: nada de esta sección aparece a los estudiantes.</p>
-      ${partes27(secs, usos)}
+      ${partes27(secs, usos, abiertoEst)}
       <div class="card" style="padding:1rem"><h2 style="margin-top:0">📝 Pendientes e ideas para 2027</h2>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap"><input id="a27-txt" placeholder="Escriba una idea o pendiente para 2027" style="flex:1;min-width:16rem"><button class="btn" id="a27-add">＋ Agregar</button></div>
         <ul style="list-style:none;padding:0;margin:1rem 0 0">${items.map((x, i) => `<li style="display:flex;gap:.6rem;align-items:center;padding:.5rem 0;border-bottom:1px solid var(--paper-line)">
@@ -34,6 +35,10 @@ async function renderAnio2027() {
     wrap.querySelectorAll("[data-a27f]").forEach(b => b.onclick = () => { try { sessionStorage.setItem("a27_filtro", b.dataset.a27f); } catch (e) { } pintar(); });
     wrap.querySelectorAll("[data-a27u]").forEach(b => b.onclick = () => hacer(() => { const h = b.dataset.a27u, g = b.dataset.g;
       const act = usos[h] || (HERRAMIENTAS_2027.find(x => x[0] === h) || [])[3] || []; usos[h] = act.includes(g) ? act.filter(x => x !== g) : [...act, g]; }));
+    const ab = document.getElementById("a27-abrir");
+    if (ab) ab.onchange = () => { if (ab.checked && !confirm("Los estudiantes van a ver «Mi curso 2027» en su perfil y podrán abrir el registro, la asistencia, las entregas y la Misión Auditoría. ¿Abrirlo ya?")) { ab.checked = false; return; } hacer(() => { abiertoEst = ab.checked; }); };
+    const pvb = document.getElementById("a27-pvb");
+    if (pvb) pvb.onclick = () => { document.getElementById("a27-pvbox").innerHTML = panelEstudiante2027HTML(document.getElementById("a27-pv").value, usos, true); };
     const sAdd = document.getElementById("a27-sadd");
     if (sAdd) sAdd.onclick = () => { const g = id => document.getElementById(id).value.trim(); const sec = g("a27-ssec"), mat = g("a27-smat");
       if (!sec || !mat) { msg("Escriba la sección y la materia."); return; } hacer(() => secs.push({ seccion: sec, nivel: g("a27-sniv"), materia: mat, nota: g("a27-snota") })); };
@@ -92,17 +97,62 @@ const PARTES_2027 = [
   { id: "padres", ico: "👪", t: "Padres", d: "El Portal de familias: usted decide qué ven los encargados (calificaciones, trabajos, agenda y avisos) y aprueba su registro.",
     links: [["padres-docente.html", "⚙️ Qué ven los encargados: notas, trabajos, agenda y avisos"], ["#a27-fam", "👪 Registro de familias (QR)"], ["/padres", "👀 Ver el Portal de familias"], ["registro-docente.html", "📋 Datos de los encargados (registro de inicio)"]] }
 ];
-function partes27(secs, usos) {
+function partes27(secs, usos, abiertoEst) {
   const esc = escAC; let act = "secciones"; try { act = sessionStorage.getItem("a27_parte") || act; } catch (e) { }
   if (act === "simuladores") act = "estrategias";
   const P = PARTES_2027.find(x => x.id === act) || PARTES_2027[0];
   const btn = ([h, t]) => h.startsWith("#a27-") ? `<button class="btn" id="${h.slice(1)}">${esc(t)}</button>` : `<a class="btn" href="${esc(h)}"${h === "/padres" ? ' target="_blank" rel="noopener"' : ""}>${esc(t)}</a>`;
-  const tablaSec = P.id !== "secciones" ? "" : `<h3 style="margin:1.2rem 0 .4rem">Secciones y materias 2027</h3>
+  const vistaEst = P.id !== "secciones" ? "" : `<h3 style="margin:1.2rem 0 .4rem">🎒 Lo que ven los estudiantes</h3>
+    <p style="color:var(--text-muted);margin:.2rem 0 .5rem">Cada estudiante entra a la plataforma con su cédula y PIN, como siempre. En su perfil le aparece arriba el apartado <b>«Mi curso 2027»</b>: registro de inicio, marcar asistencia, sus entregas y las estrategias y simuladores de su nivel o sección. Se abre solo el <b>1 de febrero de 2027</b>; si quiere, lo abre antes.</p>
+    <label style="display:flex;gap:.5rem;align-items:center;margin:.4rem 0"><input type="checkbox" id="a27-abrir" ${abiertoEst ? "checked" : ""}> <b>Abrir «Mi curso 2027» a los estudiantes desde ya</b></label>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin:.4rem 0"><span>👀 Ver como un estudiante de</span><select id="a27-pv">${[...new Set([...secs.map(x => x.seccion), "10-1", "11-1", "12-1"])].map(x => `<option>${esc(x)}</option>`).join("")}</select><button class="btn small" id="a27-pvb">Ver</button></div>
+    <div id="a27-pvbox"></div>`;
+  const tablaSec = P.id !== "secciones" ? "" : vistaEst + `<h3 style="margin:1.2rem 0 .4rem">Secciones y materias 2027</h3>
     ${secs.length ? `<div style="overflow-x:auto"><table class="grades"><thead><tr><th>Sección</th><th>Nivel</th><th>Materia</th><th>Nota</th><th></th></tr></thead><tbody>${secs.map((x, i) => `<tr><td><b>${esc(x.seccion)}</b></td><td>${esc(x.nivel || "")}</td><td>${esc(x.materia)}</td><td>${esc(x.nota || "")}</td><td><button class="btn secondary small" data-a27sd="${i}" title="Quitar">✕</button></td></tr>`).join("")}</tbody></table></div>` : '<p style="color:var(--text-muted)">Todavía no hay secciones para 2027. Agréguelas cuando tenga la asignación.</p>'}
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem"><input id="a27-ssec" placeholder="Sección (ej. 10-1)" style="width:9rem"><input id="a27-sniv" placeholder="Nivel (ej. Décimo)" style="width:10rem"><input id="a27-smat" placeholder="Materia (ej. Gestión Contable)" style="flex:1;min-width:12rem"><input id="a27-snota" placeholder="Nota (opcional)" style="flex:1;min-width:10rem"><button class="btn" id="a27-sadd">＋ Agregar sección</button></div>`;
   return `<div style="display:flex;gap:.4rem;flex-wrap:wrap;margin:1rem 0 .6rem">${PARTES_2027.map(x => `<button class="btn ${x.id === P.id ? "" : "secondary"}" data-p27="${x.id}">${x.ico} ${esc(x.t)}</button>`).join("")}</div>
     <div class="card" style="padding:1rem;margin:0 0 1rem"><h2 style="margin-top:0">${P.ico} ${esc(P.t)}</h2><p style="color:var(--text-muted);margin-top:-.4rem">${esc(P.d)}</p>
       ${P.herramientas ? herramientas27(secs, usos) : `<div style="display:flex;gap:.6rem;flex-wrap:wrap">${P.links.map(btn).join("")}</div>`}${tablaSec}</div>`;
+}
+
+
+// ═══════════ 🎒 Lo que ve el estudiante en 2027 ═══════════
+// Panel «Mi curso 2027» en el perfil del estudiante. Se ve desde el 1 de febrero de 2027
+// (o antes si el docente lo abre) y en la vista previa del docente.
+// Las estrategias y simuladores salen según el nivel y la sección marcados en «Estrategias y simuladores».
+const PAG_ESTUDIANTE_2027 = { "auditoria.html": "mision-auditoria.html" }; // la versión para estudiantes
+function nivelDeSeccion(sec) { const n = String(sec || "").split("-")[0]; return { "10": "Décimo", "11": "Undécimo", "12": "Duodécimo" }[n] || ""; }
+function panelEstudiante2027HTML(seccion, usos, previa) {
+  const esc = escAC, niv = nivelDeSeccion(seccion);
+  const de = h => usos[h] || (HERRAMIENTAS_2027.find(x => x[0] === h) || [])[3] || [];
+  const mias = HERRAMIENTAS_2027.filter(([h, , tipo]) => tipo !== "Apoyo" && (de(h).includes(niv) || de(h).includes(seccion)));
+  const tarjeta = (href, ico, t, d, c) => `<a href="${esc(href)}" style="display:flex;gap:.8rem;align-items:center;text-decoration:none;color:inherit;border:1px solid var(--paper-line);border-radius:14px;padding:.8rem;background:var(--paper,#fff)">
+    <span style="width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-size:1.4rem;background:${c};flex:none">${ico}</span><span><b>${esc(t)}</b><br><small style="color:var(--text-muted)">${esc(d)}</small></span></a>`;
+  const grid = h => `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:.6rem">${h}</div>`;
+  return `<div class="card" style="padding:1rem;margin-bottom:1rem;border-left:4px solid #1d63e8">
+    ${previa ? `<p style="margin:0 0 .5rem;color:#8a6100;background:#fff6dc;border-radius:8px;padding:.4rem .6rem;font-size:.85rem">👀 Vista previa: así ve este apartado un estudiante de ${esc(seccion || "esa sección")}.</p>` : ""}
+    <h2 style="margin:0 0 .2rem">🎒 Mi curso 2027</h2><p style="color:var(--text-muted);margin:0 0 .8rem">Sección ${esc(seccion)}${niv ? " · " + niv : ""}</p>
+    <h3 style="margin:.4rem 0">Primeros pasos</h3>${grid(
+      tarjeta("registro.html", "📋", "Registro de inicio", "Tus datos y los de tu familia (una sola vez, al empezar).", "#e3edff") +
+      tarjeta("asistencia-red.html", "✋", "Marcar asistencia", "Conéctate al Wi-Fi del aula y confirma con el PIN de tu correo MEP.", "#ffe7c9") +
+      tarjeta("entregas.html", "📤", "Mis entregas", "Tareas y proyectos: instrucciones, material, entrega por OneDrive y tu nota.", "#dcf7e5"))}
+    <h3 style="margin:1rem 0 .4rem">Mis estrategias y simuladores</h3>
+    ${mias.length ? grid(mias.map(([h, t, tipo]) => { const m = t.match(/^(\S+)\s+(.*)$/) || [, "🎯", t]; return tarjeta(PAG_ESTUDIANTE_2027[h] || h, m[1], m[2], tipo === "Simulador" ? "Simulador" : "Estrategia de clase", tipo === "Simulador" ? "#ece2ff" : "#ffe3e3"); }).join(""))
+      : '<p style="color:var(--text-muted)">Tu profe todavía no ha asignado estrategias ni simuladores para tu grupo.</p>'}
+  </div>`;
+}
+async function planDatos2027() {
+  const { data } = await sb.from("trabajos_cotidianos").select("contenido_actividad").eq("contenido_actividad->>estrategia", "plan_2027").order("id").limit(1);
+  return ((data || [])[0] || {}).contenido_actividad || {};
+}
+async function pintarPanel2027(s, previa) {
+  const box = document.getElementById("panel-2027"); if (!box) return;
+  try {
+    const C = await planDatos2027();
+    const abierto = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Costa_Rica" }) >= "2027-02-01" || !!C.abierto_estudiantes;
+    if (!abierto && !previa) return;
+    box.innerHTML = panelEstudiante2027HTML(s.seccion, C.usos || {}, previa && !abierto);
+  } catch (e) { }
 }
 
 // ═══════════ 👪 Registro de familias 2027 ═══════════

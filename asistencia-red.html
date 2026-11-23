@@ -22,6 +22,7 @@ input{width:100%;font:inherit;padding:12px 14px;border:1px solid var(--line);bor
 </head>
 <body>
 <main id="app"><p class="mut">Cargando…</p></main>
+<script src="js/abierto-2027.js?v=20261123a"></script>
 <script>
 // Asistencia por red (2027). Se activa cambiando ASISTENCIA_RED_ACTIVA a true cuando esté configurado el servidor,
 // el envío de correos (Brevo) y la IP del router del aula. Mientras tanto el estudiante ve «Se abre en 2027»
@@ -80,9 +81,11 @@ function confirmar(r){
   $("#otro").onclick=pedir;
 }
 
+(async()=>{const ABIERTO=ASISTENCIA_RED_ACTIVA||await abierto2027();
 if(!SES)app.innerHTML='<div class="card"><h1>✋ Marcar asistencia</h1><p class="mut">Entra desde la plataforma con tu usuario.</p><a class="btn" href="index.html" style="text-align:center;text-decoration:none">Ir a la plataforma</a></div>';
-else if(!PREVIA&&!ASISTENCIA_RED_ACTIVA)app.innerHTML='<div class="card"><h1>✋ Marcar asistencia</h1><p class="mut">La asistencia por Wi-Fi se abre en 2027. Tu profe te avisará.</p></div>';
+else if(!PREVIA&&!ABIERTO)app.innerHTML='<div class="card"><h1>✋ Marcar asistencia</h1><p class="mut">La asistencia por Wi-Fi se abre en 2027. Tu profe te avisará.</p></div>';
 else cargar();
+})();
 </script>
 <script src="js/volver-plataforma.js?v=20261117a"></script>
 </body>

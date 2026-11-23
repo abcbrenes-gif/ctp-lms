@@ -24,6 +24,7 @@ code{background:var(--bg);padding:2px 6px;border-radius:6px;word-break:break-all
 </head>
 <body>
 <main id="app"><p class="mut">Cargando…</p></main>
+<script src="js/abierto-2027.js?v=20261123a"></script>
 <script>
 // Entregas 2027: el estudiante sube su archivo a la carpeta de OneDrive del MEP que el profe compartió
 // y aquí deja constancia de la entrega (fecha y hora). Se abre a estudiantes con ENTREGAS_ACTIVA = true.
@@ -91,9 +92,11 @@ async function cargar(){
   if(TAREAS.length){const m=await sb.from("entregas_estudiantes").select("*").eq("estudiante_id",SES.id).in("tarea_id",TAREAS.map(x=>x.id));(m.data||[]).forEach(x=>MIAS[x.tarea_id]=x)}
   pintar();
 }
+(async()=>{const ABIERTO=ENTREGAS_ACTIVA||await abierto2027();
 if(!SES)app.innerHTML='<div class="card"><h1>📤 Mis entregas</h1><p class="mut">Entra desde la plataforma con tu usuario.</p></div>';
-else if(!PREVIA&&!ENTREGAS_ACTIVA)app.innerHTML='<div class="card"><h1>📤 Mis entregas</h1><p class="mut">Las entregas por OneDrive se abren en 2027. Tu profe te avisará.</p></div>';
+else if(!PREVIA&&!ABIERTO)app.innerHTML='<div class="card"><h1>📤 Mis entregas</h1><p class="mut">Las entregas por OneDrive se abren en 2027. Tu profe te avisará.</p></div>';
 else cargar();
+})();
 </script>
 <script src="js/volver-plataforma.js?v=20261117a"></script>
 </body>
