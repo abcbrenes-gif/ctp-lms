@@ -94,6 +94,7 @@ async function vPortal(okMsg){
   const porJustificar=d.registros.filter(r=>["ausente_injustificada","tardia_leve","tardia_grave"].includes(r.estado)&&!pend.has(r.id));
   const chip=e=>{const t=TIPO[e]||["?",e,"#64748b"];return `<span class="code" style="color:${t[2]};background:${t[2]}22">${t[0]}</span>`};
   $("#app").innerHTML=`${okMsg?`<div class="msg ok">${esc(okMsg)}</div>`:""}
+   ${d.via==="docente"?'<div class="msg" style="background:var(--warnbg);color:#8a6100">👀 Vista previa del docente: así lo ve el encargado. Aquí no se envían justificaciones.</div>':""}
    <div class="card"><div class="muted">Estudiante</div><h2 style="margin:.1rem 0 0">${esc(d.estudiante.nombre)}</h2><div class="muted">Sección ${esc(d.estudiante.seccion||"")}</div></div>
    ${tabsHTML(R)}
    <div data-tab="asistencia"><div class="card"><h2 style="margin-top:0">Justificar</h2>
