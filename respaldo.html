@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Respaldo completo de la plataforma</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="img/logo-ctp-mercedes-norte.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js?v=20261116b"></script>
+<style>
+:root{--bg:#F5F7FB;--sf:#fff;--ink:#0F172A;--mut:#5B6B80;--line:#DCE3EE;--pri:#1F3864;--acc:#1d63e8;--okS:#DDF1DC;--bad:#FDE2E2}
+@media (prefers-color-scheme:dark){:root{--bg:#0B1020;--sf:#121A30;--ink:#E8EDFB;--mut:#9AA9CC;--line:#26324F;--pri:#9DB7F5;--okS:#173A28;--bad:#4a1616}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Inter,"Segoe UI",system-ui,sans-serif}
+header{background:#14213d;color:#fff;padding:14px 20px}header h1{margin:0;font-size:1.25rem}header p{margin:2px 0 0;opacity:.85;font-size:.88rem}
+main{max-width:760px;margin:0 auto;padding:16px}.card{background:var(--sf);border:1px solid var(--line);border-radius:16px;padding:18px;margin:0 0 14px}
+h2{margin:0 0 8px;font-size:1.1rem;color:var(--pri)}.mut{color:var(--mut);font-size:.86rem}
+.btn{display:inline-block;background:var(--acc);color:#fff;border:0;border-radius:10px;padding:10px 14px;font:600 .95rem inherit;cursor:pointer;margin:4px 6px 4px 0;text-decoration:none}.btn.sec{background:transparent;color:var(--ink);border:1px solid var(--line)}.btn:disabled{opacity:.5}
+.bar{height:10px;background:var(--line);border-radius:99px;overflow:hidden;margin:10px 0}.bar i{display:block;height:100%;width:0;background:var(--acc);transition:width .2s}
+ol{padding-left:1.2rem}li{margin:4px 0}.ok{background:var(--okS);border-radius:10px;padding:8px 12px}.bad{background:var(--bad);border-radius:10px;padding:8px 12px}
+</style>
+</head>
+<body>
+<header><h1>💾 Respaldo completo de la plataforma</h1><p>Todas las tablas de la base de datos en un solo archivo, para guardarlo en OneDrive</p></header>
+<main id="app"><p class="mut">Cargando…</p></main>
+<script>
+let SES=null;try{SES=JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")||"null")}catch(e){}
+const app=document.getElementById("app");
+// Tablas de la base de datos (public). Las que no se puedan leer se anotan en el archivo y se siguen las demás.
+const TABLAS=["estudiantes","docentes","materias","estudiante_materias","periodos","rubrica_categorias","programa","resultados_aprendizaje","subtemas",
+ "indicadores","criterios_indicador","calificaciones_indicador","notas","trabajos_cotidianos","trabajos_cotidianos_estudiante","trabajos_clase","trabajos_clase_estudiante",
+ "tareas","publicaciones","materiales","proyecto_entregas","documentos_entrega","actividades_estudiante","lecciones","plantilla_lecciones","lecciones_sin_clase",
+ "asistencia_lecciones","asistencia_diaria","bitacora_ingresos","aula_conta_modulos","aula_conta_empresas","aula_conta_entregas","aula_conta_entregas_empresas",
+ "aula_conta_trabajos_estudiante","cursos_interactivos","curso_mc","curso_asocie","progreso_curso","materia_cuadros","infografias_estudiante","mediacion_registros",
+ "trabajo_ideas","pizarras_rapidas","pizarra_rapida_ideas","b2b_solicitudes","b2b_contratos","b2b_firmas","entregas_tareas","entregas_estudiantes","asistencia_red_config"];
+
+if(!SES||SES.role!=="docente"){
+  app.innerHTML='<section class="card"><h2>🔒 Solo para el docente</h2><p>Entre a la plataforma con su usuario de docente y vuelva a abrir esta página.</p><a class="btn" href="/">Ir a la plataforma</a></section>';
+}else{
+  app.innerHTML=`<section class="card"><h2>Respaldo de todo el año</h2>
+   <p>Se descarga <b>un archivo</b> con todo lo de la 10-1 y la 11-3: estudiantes, indicadores, notas, trabajos, tareas, exámenes y respuestas, Aula Contable, asistencia, notas por período, puntos extra y justificaciones.</p>
+   <p class="mut">No incluye los archivos que suben los estudiantes (PDF, fotos, videos); esos quedan en el almacenamiento de la plataforma.</p>
+   <button class="btn" id="go">💾 Crear respaldo</button><a class="btn sec" href="/">← Volver</a>
+   <div class="bar"><i id="pb"></i></div><p class="mut" id="st"></p><div id="fin"></div></section>
+   <section class="card"><h2>Cómo guardarlo en OneDrive</h2><ol>
+   <li>Toque <b>Crear respaldo</b> y espere a que termine.</li>
+   <li>En el celular toque <b>📤 Guardar en OneDrive</b> y elija <b>OneDrive</b> → carpeta <b>«Respaldo 2026 - CTP Mercedes Norte»</b>.</li>
+   <li>En la computadora toque <b>⬇️ Descargar</b> y arrastre el archivo a esa misma carpeta de OneDrive.</li></ol></section>`;
+  document.getElementById("go").onclick=crear;
+}
+
+async function todas(t){
+  const filas=[];
+  for(let desde=0;;desde+=1000){
+    const {data,error}=await sb.from(t).select("*").range(desde,desde+999);
+    if(error) throw new Error(error.message);
+    filas.push(...(data||[]));
+    if(!data||data.length<1000) return filas;
+  }
+}
+async function crear(){
+  const go=document.getElementById("go"),pb=document.getElementById("pb"),st=document.getElementById("st"),fin=document.getElementById("fin");
+  go.disabled=true;fin.innerHTML="";
+  const R={plataforma:"ctp-lms · CTP Mercedes Norte",creado:new Date().toISOString(),creado_por:SES.nombre||"",tablas:{},conteo:{},errores:{}};
+  for(let i=0;i<TABLAS.length;i++){
+    const t=TABLAS[i];st.textContent=`Copiando ${t}… (${i+1} de ${TABLAS.length})`;
+    try{const f=await todas(t);R.tablas[t]=f;R.conteo[t]=f.length}catch(e){R.errores[t]=e.message}
+    pb.style.width=((i+1)/TABLAS.length*100)+"%";
+  }
+  const hoy=new Date().toLocaleDateString("sv-SE",{timeZone:"America/Costa_Rica"});
+  const nombre=`respaldo-plataforma-${hoy}.json`;
+  const blob=new Blob([JSON.stringify(R)],{type:"application/json"});
+  const filas=Object.values(R.conteo).reduce((a,b)=>a+b,0),mb=(blob.size/1048576).toFixed(1);
+  const errs=Object.keys(R.errores);
+  st.textContent="";
+  fin.innerHTML=`<div class="ok">✅ Listo: ${Object.keys(R.tablas).length} tablas, ${filas.toLocaleString("es-CR")} registros, ${mb} MB.</div>`+
+   (errs.length?`<p class="bad">No se pudieron copiar: ${errs.join(", ")}.</p>`:"")+
+   `<p><button class="btn" id="sh">📤 Guardar en OneDrive</button><a class="btn sec" id="dl">⬇️ Descargar</a></p>`;
+  const url=URL.createObjectURL(blob),dl=document.getElementById("dl");dl.href=url;dl.download=nombre;
+  const archivo=new File([blob],nombre,{type:"application/json"});
+  const sh=document.getElementById("sh");
+  if(navigator.canShare&&navigator.canShare({files:[archivo]})) sh.onclick=()=>navigator.share({files:[archivo],title:nombre}).catch(()=>{});
+  else sh.style.display="none";
+  go.disabled=false;
+}
+</script>
+</body>
+</html>

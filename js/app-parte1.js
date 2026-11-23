@@ -94,7 +94,7 @@ function topbar() {
     <div>
       <span class="docente">${role === "docente" ? "Prof. " + nombre : nombre}</span>
       <nav style="display:inline">
-        ${esDocenteSinPreview ? `<a href="#/">Secciones</a><a href="#/materias">Materias</a><a href="#/programa">Programa</a><a href="#/evaluaciones">Rúbrica y Evaluaciones</a><a href="#/asistencia">Asistencia</a><a href="#/periodos">Períodos</a>` : ""}
+        ${esDocenteSinPreview ? `<a href="#/">Secciones</a><a href="#/materias">Materias</a><a href="#/programa">Programa</a><a href="#/evaluaciones">Rúbrica y Evaluaciones</a><a href="#/asistencia">Asistencia</a><a href="#/periodos">Períodos</a><a href="respaldo.html">💾 Respaldo</a>` : ""}
         ${previewEstudianteId ? `<a href="#" id="salir-preview-topbar">&larr; Volver a modo profesor</a>` : ""}
         <a href="#" id="logout-link">Salir</a>
       </nav>
