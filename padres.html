@@ -39,7 +39,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 @media (min-width:860px){.wrap.ancho{max-width:1080px}.home{grid-template-columns:1fr 1fr 330px}.home .side{grid-column:3;grid-row:1/span 3}}
 @media (max-width:520px){.home{grid-template-columns:1fr}}
 .tile{position:relative;overflow:hidden;text-align:left;background:#fff;color:var(--ink);border:1.5px solid var(--c2);border-radius:20px;padding:22px 20px;cursor:pointer;min-height:190px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 4px 14px rgba(20,33,61,.04);transition:transform .12s,box-shadow .12s}
-.tile:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(20,33,61,.08)}[hidden]{display:none!important}.tile>span{position:relative;z-index:1}.tile p{padding-right:34px}.tile::after{content:"";position:absolute;right:-28px;top:-28px;width:84px;height:84px;border-radius:50%;background:var(--c3)}
+.tile:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(20,33,61,.08)}[hidden]{display:none!important}.modal{position:fixed;inset:0;background:rgba(15,23,42,.55);display:grid;place-items:center;padding:16px;z-index:50}.mbox{background:#fff;border-radius:20px;padding:22px;max-width:520px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.25)}.mbox p{margin:.5rem 0}.tile>span{position:relative;z-index:1}.tile p{padding-right:34px}.tile::after{content:"";position:absolute;right:-28px;top:-28px;width:84px;height:84px;border-radius:50%;background:var(--c3)}
 .tile h3{font:800 1.45rem/1.1 Lexend,Inter,sans-serif;margin:0 0 6px}.tile p{margin:0;color:var(--mut);font-size:.9rem;font-weight:400}
 .tile .ico{width:62px;height:62px;border-radius:18px;display:grid;place-items:center;font-size:1.7rem;background:var(--c1);box-shadow:0 8px 18px var(--c3);margin-top:18px}
 .side{background:#fff;border:1.5px solid var(--line);border-radius:20px;padding:18px}.side h3{font:800 1.3rem Lexend,Inter,sans-serif;margin:0 0 10px}
@@ -100,6 +100,7 @@ async function vPortal(okMsg){
   $("#app").innerHTML='<p class="muted">Cargando…</p>';
   let d;try{d=await api({accion:"ver",token:TOKEN})}catch(e){try{sessionStorage.removeItem("padres_t")}catch(x){}TOKEN=null;return vIngreso(e.message)}
   let R={mostrar:{}};try{R=await api({accion:"resumen",token:TOKEN})}catch(e){}
+  if(!window._visita){window._visita=1;api({accion:"registrar_visita",token:TOKEN,tipo:"portal",dispositivo:disp()}).catch(()=>{})}
   const pend=new Set(d.solicitudes.filter(s=>s.estado==="pendiente").flatMap(s=>s.registros));
   const porJustificar=d.registros.filter(r=>["ausente_injustificada","tardia_leve","tardia_grave"].includes(r.estado)&&!pend.has(r.id));
   const chip=e=>{const t=TIPO[e]||["?",e,"#64748b"];return `<span class="code" style="color:${t[2]};background:${t[2]}22">${t[0]}</span>`};
@@ -186,10 +187,26 @@ function seccionesHTML(R,d){let h="";
     h+=`<div data-tab="calendario" hidden><div class="card"><h2 style="margin-top:0">Próximas fechas</h2>${prox.length?prox.map(item).join(""):'<p class="muted">No hay fechas próximas.</p>'}</div>${pas.length?`<div class="card"><h2 style="margin-top:0">Fechas recientes</h2>${pas.map(item).join("")}</div>`:""}</div>`}
   if(R.avisos){h+=`<div data-tab="avisos" hidden><div class="card"><h2 style="margin-top:0">Avisos del docente</h2>${R.avisos.length?R.avisos.map(a=>`<div class="aviso"><small class="muted">${esc(fCorta(a.fecha))} · ${esc(a.para)}</small><br><b>${esc(a.titulo)}</b>${a.texto?`<div style="white-space:pre-wrap">${esc(a.texto)}</div>`:""}</div>`).join(""):'<p class="muted">No hay avisos.</p>'}</div></div>`}
   return h}
+// Aviso al abrir Calificaciones: corte de la fecha y responsabilidad del encargado. Cada apertura queda en la bitácora.
+function avisoNotas(d,seguir){const ahora=new Date(),f=ahora.toLocaleDateString("es-CR",{weekday:"long",day:"numeric",month:"long",year:"numeric"}),h=ahora.toLocaleTimeString("es-CR",{hour:"numeric",minute:"2-digit"});
+  const fondo=document.createElement("div");fondo.className="modal";
+  fondo.innerHTML=`<div class="mbox" role="dialog" aria-modal="true" aria-labelledby="mt"><div style="font-size:2rem">📋</div><h2 id="mt" style="margin:.2rem 0 .6rem">Aviso importante</h2>
+    <p>Usted está observando las calificaciones de <b>${esc(d.estudiante.nombre)}</b> con corte al <b>${esc(f)}, ${esc(h)}</b></p>
+    <p>Las notas del período en curso pueden cambiar mientras el docente califique trabajos y pruebas pendientes. Las notas oficiales son las que entrega el colegio al cierre de cada período.</p>
+    <p>Esta información es personal y confidencial. <b>Es responsabilidad del encargado</b> revisarla, darle seguimiento con su hijo(a) y hacer un uso adecuado de ella.</p>
+    <p class="muted" style="font-size:.85rem">Cada vez que se abre esta sección queda registrada la fecha y la hora.</p>
+    <label class="reg" style="cursor:pointer"><input type="checkbox" id="m-ok"><span>Entiendo y acepto</span></label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button id="m-ver" disabled>Ver calificaciones</button><button class="sec" id="m-no">Cancelar</button></div></div>`;
+  document.body.appendChild(fondo);const cerrar=()=>fondo.remove();
+  fondo.querySelector("#m-ok").onchange=e=>fondo.querySelector("#m-ver").disabled=!e.target.checked;
+  fondo.querySelector("#m-no").onclick=cerrar;
+  fondo.querySelector("#m-ver").onclick=()=>{api({accion:"registrar_visita",token:TOKEN,tipo:"calificaciones",dispositivo:disp()}).catch(()=>{});cerrar();
+    seguir();const t=document.querySelector('[data-tab="notas"] #boleta');if(t)t.insertAdjacentHTML("beforebegin",`<div class="msg noprint" style="background:var(--warnbg);color:#8a6100">Calificaciones con corte al ${esc(f)}, ${esc(h)}</div>`)};
+  fondo.querySelector("#m-ok").focus()}
 function activarTabs(R,d,abrir){const home=document.getElementById("home");
   const ir=k=>{document.querySelectorAll("[data-tab]").forEach(x=>x.hidden=x.dataset.tab!==k);if(home)home.hidden=!!k;document.querySelectorAll(".volver").forEach(v=>v.remove());
     if(k&&home){const t=document.querySelector(`[data-tab="${k}"]`);t.insertAdjacentHTML("afterbegin",'<p class="volver noprint"><button class="sec">← Inicio</button></p>');t.querySelector(".volver button").onclick=()=>ir(null)}scrollTo(0,0)};
-  document.querySelectorAll("[data-tb]").forEach(b=>b.onclick=()=>ir(b.dataset.tb));
+  document.querySelectorAll("[data-tb]").forEach(b=>b.onclick=()=>b.dataset.tb==="notas"?avisoNotas(d,()=>ir("notas")):ir(b.dataset.tb));
   if(home)ir(abrir||null);
   const imp=document.getElementById("imp");if(imp)imp.onclick=()=>window.print()}
 leerToken();TOKEN?vPortal():vIngreso();

@@ -41,8 +41,16 @@ let REG=null,C={mostrar:{},avisos:[],eventos:[]},EST=[];
 async function cargar(){
   const [{data},{data:es}]=await Promise.all([sb.from("trabajos_cotidianos").select("id, contenido_actividad").eq("contenido_actividad->>estrategia","portal_padres").order("id").limit(1),
     sb.from("estudiantes").select("id,nombre,apellido1,seccion").neq("id","0-0000-0001").order("seccion").order("apellido1")]);
-  REG=(data||[])[0]||null;C={mostrar:{},avisos:[],eventos:[],...((REG&&REG.contenido_actividad)||{})};EST=es||[];
+  REG=(data||[])[0]||null;const {data:bt}=await sb.from("portal_padres_bitacora").select("estudiante_id,tipo,dispositivo,fecha").order("fecha",{ascending:false}).limit(5000);BIT=bt||[];C={mostrar:{},avisos:[],eventos:[],...((REG&&REG.contenido_actividad)||{})};EST=es||[];
 }
+let BIT=[];
+function bitHTML(){const por={};BIT.forEach(r=>{const x=por[r.estudiante_id]=por[r.estudiante_id]||{portal:0,calificaciones:0,ult:null,ultC:null,lista:[]};x[r.tipo]++;x.lista.push(r);if(!x.ult||r.fecha>x.ult)x.ult=r.fecha;if(r.tipo==="calificaciones"&&(!x.ultC||r.fecha>x.ultC))x.ultC=r.fecha});
+  const fh=t=>t?new Date(t).toLocaleString("es-CR",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"}):"—";
+  const tot=BIT.filter(r=>r.tipo==="portal").length,totC=BIT.filter(r=>r.tipo==="calificaciones").length;
+  return `<p><b>${tot}</b> ingresos al portal · <b>${totC}</b> veces abrieron Calificaciones · <b>${Object.keys(por).length}</b> de ${EST.length} familias han entrado.</p>
+   <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.88rem"><thead><tr><th style="text-align:left;padding:6px">Estudiante</th><th style="padding:6px">Ingresos</th><th style="padding:6px">Calificaciones</th><th style="text-align:left;padding:6px">Último ingreso</th><th style="text-align:left;padding:6px">Última vez en Calificaciones</th></tr></thead><tbody>
+   ${EST.map(e=>{const x=por[e.id];return `<tr style="border-top:1px solid var(--line)"><td style="padding:6px">${esc(e.apellido1+" "+e.nombre)} <span class="mut">(${esc(e.seccion)})</span>${x?`<details><summary class="mut" style="cursor:pointer">Ver registro (${x.lista.length})</summary>${x.lista.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(r=>`<div class="mut">${fh(r.fecha)} · ${r.tipo==="calificaciones"?"Abrió Calificaciones":"Entró al portal"}${r.dispositivo?" · "+esc(r.dispositivo):""}</div>`).join("")}</details>`:""}</td>
+     <td style="text-align:center;padding:6px">${x?x.portal:0}</td><td style="text-align:center;padding:6px">${x?x.calificaciones:0}</td><td style="padding:6px">${x?fh(x.ult):"Nunca"}</td><td style="padding:6px">${x?fh(x.ultC):"—"}</td></tr>`}).join("")}</tbody></table></div>`}
 async function guardar(){
   const CA={...C,estrategia:"portal_padres"};
   if(REG){const {error}=await sb.from("trabajos_cotidianos").update({contenido_actividad:CA}).eq("id",REG.id);if(error)throw error}
@@ -62,6 +70,8 @@ function pintar(m){
     <div class="row"><select id="ev-ti"><option>Actividad</option><option>Feriado</option><option>Reunión</option><option>Gira</option><option>Convocatoria</option><option>Prueba</option><option>Entrega</option></select><input id="ev-t" placeholder="Qué es (ej. Feria vocacional)"></div>
     <input id="ev-d" placeholder="Detalle (opcional)"><p><button class="btn" id="ev-add">＋ Agregar fecha</button></p>
     ${C.eventos.length?[...C.eventos].sort((a,b)=>a.fecha.localeCompare(b.fecha)).map(e=>`<div class="it"><div><b>${fC(e.fecha)}</b> · ${esc(e.tipo)} · ${esc(e.titulo)}${e.seccion?` <span class="mut">(${esc(e.seccion)})</span>`:""}${e.detalle?`<br><span class="mut">${esc(e.detalle)}</span>`:""}</div><button class="btn sec small" data-evd="${esc(e.id)}">Quitar</button></div>`).join(""):'<p class="mut">Todavía no hay fechas agregadas.</p>'}</section>
+   <section class="card"><h2>📈 Ingresos de las familias</h2><p class="mut">Cuántas veces entró cada familia al portal y cuántas veces abrió Calificaciones (después de aceptar el aviso). Las vistas previas suyas no cuentan.</p>
+    ${bitHTML()}</section>
    <section class="card"><h2>👀 Ver el portal como una familia</h2><p class="mut">Elija un estudiante y escriba su PIN de docente: se abre el portal tal como lo ve su encargado (por 1 hora, sin poder enviar justificaciones).</p>
     <div class="row"><select id="pv-e">${EST.map(e=>`<option value="${esc(e.id)}">${esc(e.apellido1+" "+e.nombre)} (${esc(e.seccion)})</option>`).join("")}</select><input id="pv-p" type="password" inputmode="numeric" placeholder="PIN de docente" autocomplete="current-password"></div>
     <button class="btn" id="pv-go">👀 Abrir vista previa</button><span id="pv-m" class="mut"></span></section>
