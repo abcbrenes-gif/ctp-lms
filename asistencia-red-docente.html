@@ -43,12 +43,12 @@ async function cargar(){
   if(c.error||e.error||l.error){app.innerHTML='<div class="card msg bad">No se pudo cargar: '+esc((c.error||e.error||l.error).message)+'</div>';return}
   CFG=c.data||{activo:false,ips:[],tolerancia_min:10};EST=(e.data||[]).filter(x=>x.id!=="0-0000-0001");LEC=l.data||[];
   const secs=[...new Set(LEC.map(x=>x.seccion))].sort();if(!secSel)secSel=secs[0]||"";
-  const srv=await api("estado",{estudiante_id:"0-0000-0001"}),srvOk=!srv.pendiente;
+  const srv=await api("estado",{estudiante_id:"0-0000-0001"}),srvOk=!srv.pendiente;let CE={};try{CE=await api("config_estado")}catch(e){}
   const conCorreo=EST.filter(x=>x.correo_mep).length;
   app.innerHTML=`
   <section class="card"><h2>Lo que falta para activarla en 2027</h2><ul class="lista">
    <li>${srvOk?'<span class="est ok">Listo</span>':'<span class="est wa">Pendiente</span>'} Clave del servidor de la plataforma (la configuro yo cuando usted lo indique).</li>
-   <li><span class="est wa">Pendiente</span> Cuenta gratuita de envío de correos (Brevo). Pasos abajo.</li>
+   <li>${CE.correo?'<span class="est ok">Listo</span> Envío de correos por '+esc(CE.via||'')+'.':'<span class="est wa">Pendiente</span> Cuenta para enviar los PIN (Gmail). Pasos abajo.'}</li>
    <li>${CFG.ips&&CFG.ips.length?'<span class="est ok">Listo</span> Router registrado: <code>'+CFG.ips.map(esc).join("</code>, <code>")+'</code>':'<span class="est wa">Pendiente</span> IP del router del aula.'}</li>
    <li>${conCorreo?'<span class="est ok">'+conCorreo+'</span>':'<span class="est wa">0</span>'} estudiantes con su correo del MEP registrado (lo registran ellos la primera vez).</li>
    <li>${CFG.activo?'<span class="est ok">Activa</span>':'<span class="est wa">Apagada</span>'} Asistencia por Wi-Fi.</li></ul>
@@ -73,12 +73,11 @@ async function cargar(){
 
   <section class="card"><h2>4 · Correos del MEP</h2><div id="correos"></div></section>
 
-  <section class="card"><h2>5 · Cuenta de envío de correos (Brevo) · para 2027</h2>
-   <ol><li>Entre a <a href="https://www.brevo.com/es/" target="_blank" rel="noopener">brevo.com/es</a> y cree una cuenta gratuita con el correo del colegio o el suyo.</li>
-   <li>Verifique el correo remitente que firmará los PIN.</li>
-   <li>En su perfil, busque «SMTP y API» y cree una <b>clave API</b>.</li>
-   <li>Cuando llegue el momento, me pasa la clave y el correo remitente, y yo los configuro en el servidor (la clave nunca va en la página).</li>
-   <li>Hacemos una prueba con su correo del MEP para revisar que no caiga en «Correo no deseado».</li></ol></section>`;
+  <section class="card"><h2>5 · Cuenta para enviar los PIN (Gmail) · para 2027</h2>
+   <ol><li>En su cuenta de Gmail active la <b>verificación en 2 pasos</b> (myaccount.google.com → Seguridad).</li>
+   <li>Cree una <b>contraseña de aplicación</b> en <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">myaccount.google.com/apppasswords</a> con el nombre «ctp-lms» (son 16 letras).</li>
+   <li>En Vercel → proyecto ctp-lms → Settings → Environment Variables agregue <code>GMAIL_USER</code> (su correo de Gmail) y <code>GMAIL_APP_PASSWORD</code> (las 16 letras), y vuelva a publicar (Redeploy). La misma cuenta envía también los códigos del Portal de familias.</li>
+   <li>Si después prefiere Brevo, también sirve: <code>BREVO_API_KEY</code> y <code>BREVO_REMITENTE</code>. Si están las dos, se usa Gmail.</li></ol></section>`;
   $("#verIp").onclick=async()=>{const r=await api("mi_ip");$("#ip").innerHTML=r.ok?' <b>'+esc(r.ip)+'</b> <button class="btn sec" id="usarIp">Usar esta IP</button>':' <span class="est bad">'+esc(r.msg)+'</span>';
     const u=$("#usarIp");if(u)u.onclick=()=>{const v=$("#ips").value.split(",").map(s=>s.trim()).filter(Boolean);if(!v.includes(r.ip))v.push(r.ip);$("#ips").value=v.join(", ")}};
   $("#guardarIps").onclick=async()=>{const ips=$("#ips").value.split(",").map(s=>s.trim()).filter(Boolean);const {error}=await sb.from("asistencia_red_config").update({ips,actualizado_en:new Date().toISOString()}).eq("id",1);if(error)alert(error.message);else cargar()};

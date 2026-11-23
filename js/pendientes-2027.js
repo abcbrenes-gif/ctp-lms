@@ -1,7 +1,7 @@
 // Pendientes de la asistencia por Wi-Fi: a partir del 1 de febrero de 2027 (hora de Costa Rica) el profe ve
 // dos ventanas emergentes al entrar a la plataforma, una por pendiente, hasta que queden listos:
 //   1. IP del router del aula  (se guarda aquí mismo, en asistencia_red_config)
-//   2. Cuenta de envío de correos (Brevo) y configuración del servidor
+//   2. Cuenta de envío de correos (Gmail con contraseña de aplicación, o Brevo) y configuración del servidor
 // «Recordarme mañana» las pospone un día en este dispositivo.
 // A los estudiantes, desde la misma fecha, les sale el aviso del registro de inicio hasta que lo llenen.
 (function () {
@@ -84,9 +84,8 @@
   }
   function ventanaCorreo(sig) {
     const w = ventana(`<div class="k">Pendiente 2 de 2 · Asistencia por Wi-Fi</div><h2>📩 Cuenta para enviar los PIN</h2>
-      <ol><li>Cree una cuenta gratuita en <a href="https://www.brevo.com/es/" target="_blank" rel="noopener">brevo.com/es</a> (300 correos al día gratis).</li>
-      <li>Verifique el correo que firmará los mensajes.</li><li>En su perfil, entre a «SMTP y API» y cree una <b>clave API</b>.</li>
-      <li>Abra un chat con Claude y pídale: «configura la asistencia por Wi-Fi», con la clave y el correo remitente. La clave va al servidor, nunca a la página.</li></ol>
+      <ol><li>Active la verificación en 2 pasos de su Gmail y cree una <b>contraseña de aplicación</b> en <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">myaccount.google.com/apppasswords</a>.</li>
+      <li>En Vercel (proyecto ctp-lms → Settings → Environment Variables) agregue <code>GMAIL_USER</code> y <code>GMAIL_APP_PASSWORD</code>, y vuelva a publicar. La clave va al servidor, nunca a la página.</li></ol>
       <p style="font-size:.85rem;opacity:.8">Esta ventana deja de salir cuando el servidor tenga la clave configurada.</p>
       <button class="b" id="p27ok">Entendido</button><button class="b s" id="p27luego2">Recordarme mañana</button>`, sig);
     w.d.querySelector("#p27ok").onclick = () => { posponer("correo"); w.cerrar(); };
