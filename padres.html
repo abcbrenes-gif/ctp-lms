@@ -45,6 +45,16 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .side{background:#fff;border:1.5px solid var(--line);border-radius:20px;padding:18px}.side h3{font:800 1.3rem Lexend,Inter,sans-serif;margin:0 0 10px}
 .mini{display:flex;gap:12px;align-items:center;padding:10px;border-radius:14px;margin:8px 0;background:var(--c3)}.mini .d{width:54px;height:54px;border-radius:12px;background:var(--c1);display:grid;place-items:center;text-align:center;font-weight:800;line-height:1;font-size:1.25rem}.mini .d small{display:block;font-size:.65rem;text-transform:uppercase;font-weight:700}
 .volver{margin:14px 0 0}
+.np{background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden;margin:14px 0;box-shadow:0 6px 20px rgba(20,33,61,.05)}
+.nh{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:18px 20px;background:linear-gradient(120deg,#eef3ff,#f7f1ff);border-bottom:1px solid var(--line)}
+.nt{font:700 1.7rem/1.15 Lexend,Inter,sans-serif}.nf{font:500 2.2rem/1.1 Lexend,Inter,sans-serif}.nb{padding:14px 16px}
+.nc{border:1px solid var(--line);border-radius:14px;background:#f9fafc;margin:0 0 12px}.nc summary{list-style:none;display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer}.nc summary::-webkit-details-marker{display:none}
+.nicon{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;flex:none}.nn{flex:1;min-width:0}.nn b{display:block}.nn small,.na small{color:var(--mut)}.nn small{display:block;font-weight:500}
+.na{text-align:right;white-space:nowrap}.na small{display:block}.chev{font-size:1.5rem;color:var(--mut);transition:transform .15s;margin-left:4px}.nc[open] .chev{transform:rotate(90deg)}
+.nd{padding:0 16px 10px 64px}.ni{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px dashed var(--line);font-size:.92rem}.ni small{display:block;color:var(--mut);font-size:.78rem}.ni b{white-space:nowrap}
+.nr{border:1px solid var(--line);border-radius:14px;padding:14px 16px;background:linear-gradient(120deg,#f5f8ff,#faf6ff)}
+@media (max-width:520px){.nt{font-size:1.35rem}.nf{font-size:1.8rem}.nd{padding-left:16px}.na b{font-size:.85rem}}
+@media print{.nc{break-inside:avoid}.nd{display:block!important}}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 0}.tabs button{padding:8px 13px;font-size:.92rem;background:var(--pri2);color:var(--pri)}.tabs button.on{background:var(--pri);color:#fff}
 table.t{width:100%;border-collapse:collapse;font-size:.92rem}table.t th,table.t td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}table.t th{color:var(--mut);font-weight:600}table.t th.n{text-align:right}table.t td.n{text-align:right;white-space:nowrap}
 .big{font:800 2rem/1 Lexend,Inter,sans-serif}.ev{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.ev .d{min-width:64px;text-align:center;border-radius:12px;background:var(--pri2);color:var(--pri);padding:6px 4px;font-weight:700;line-height:1.1}.ev .d small{display:block;font-weight:600;font-size:.72rem}
@@ -147,13 +157,24 @@ function tabsHTML(R){const on=TABS.filter(([k])=>k==="asistencia"||R.mostrar[k])
       <button class="sec" data-tb="calendario" style="width:100%;margin-top:6px">Ver todos</button></div>`:"";
   return `<div class="home noprint" id="home">${orden.map(tile).join("")}${side}</div>`}
 function seccionesHTML(R,d){let h="";
-  if(R.notas){h+=`<div data-tab="notas" hidden><div id="boleta">${R.notas.map(m=>`<div class="card"><div class="muted">Boleta de calificaciones · CTP Mercedes Norte · Especialidad de Contabilidad</div>
-    <h2 style="margin:.2rem 0">${esc(m.materia)} · Sección ${esc(m.seccion)}</h2><div class="muted">Estudiante: <b>${esc(d.estudiante.nombre)}</b> · ${esc(new Date().toLocaleDateString("es-CR",{day:"numeric",month:"long",year:"numeric"}))}</div>
-    <table class="t" style="margin-top:10px"><thead><tr><th>Componente</th><th class="n">Nota (0-100)</th><th class="n">Valor</th><th class="n">Obtenido</th></tr></thead><tbody>
-    ${m.componentes.map(c=>`<tr><td>${esc(c.nombre)}</td><td class="n">${num(c.nota)}</td><td class="n">${c.porcentaje} %</td><td class="n">${c.aporte==null?"—":num(c.aporte)+" %"}</td></tr>`).join("")}
-    <tr><td colspan="3"><b>Nota del período en curso</b></td><td class="n"><b>${num(m.actual)}</b></td></tr>
-    ${m.p1!=null?`<tr><td colspan="3">Nota del I Período</td><td class="n">${num(m.p1)}</td></tr>`:""}</tbody></table>
-    <p class="muted" style="font-size:.8rem;margin-bottom:0">Notas según el Reglamento de Evaluación de los Aprendizajes (Decreto 45509-MEP). La nota del período en curso puede cambiar mientras se califiquen trabajos y pruebas. La mínima para aprobar es 70.</p></div>`).join("")}</div>
+  if(R.notas){const ICO={lista:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l1.5 1.5L8 5M4 12l1.5 1.5L8 11M4 18l1.5 1.5L8 17M11 6h9M11 12h9M11 18h9"/></svg>',
+      doc:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>',
+      cal:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>'};
+    const EST={"Trabajo cotidiano":["#f07a1a","lista"],"Tareas":["#6bbf3b","lista"],"Proyectos":["#c62f2f","lista"],"Pruebas":["#f5d90a","doc"],"Asistencia":["#f2556b","cal"]};
+    const det=c=>c.items.length?c.items.map(x=>`<div class="ni"><span>${esc(x.titulo)}${x.fecha?`<small>${esc(fCorta(x.fecha))}</small>`:""}${x.peso?`<small>Vale ${num(x.peso)} % de la nota</small>`:""}</span><b>${x.valor!=null?num(x.valor):x.bono!=null?"+"+num(x.bono)+" pts":x.justificado?"Justificado":x.puntos==null?"Sin calificar":`${num(x.puntos)} de ${num(x.max)}`}</b></div>`).join(""):'<div class="ni"><span class="muted">Todavía no hay evaluaciones.</span></div>';
+    const nEval=c=>c.nombre==="Asistencia"?"Lecciones y ausencias":`${c.items.filter(x=>x.bono==null).length} evaluaci${c.items.filter(x=>x.bono==null).length===1?"ón":"ones"}`;
+    h+=`<div data-tab="notas" hidden><div id="boleta">${R.notas.map(m=>`<div class="np">
+      <div class="nh"><div><div class="nt">${esc(m.materia)}</div><div class="muted">${m.docente?"Prof. "+esc(m.docente)+" · ":""}Sección ${esc(m.seccion)} · ${esc(d.estudiante.nombre)}</div></div>
+        <div style="text-align:right"><div class="muted" style="font-size:.85rem">Nota del período</div><div class="nf" style="color:${m.actual>=70?"#16a34a":"#c2410c"}">${num(m.actual)}</div></div></div>
+      <div class="nb">${m.componentes.map(c=>{const e=EST[c.nombre]||["#64748b","lista"];return `<details class="nc"><summary><span class="nicon" style="background:${e[0]}">${ICO[e[1]]}</span>
+        <span class="nn"><b>${esc(c.nombre)}</b><small>${nEval(c)} · ${num(c.porcentaje)}% del total</small></span>
+        <span class="na"><small>Aporte</small><b>${c.aporte==null?"—":num(c.aporte)} de ${num(c.porcentaje)}%</b></span><span class="chev">›</span></summary>
+        <div class="nd">${c.nota!=null?`<div class="ni"><span>Nota del componente (0 a 100)</span><b>${num(c.nota)}</b></div>`:""}${det(c)}</div></details>`}).join("")}
+        <div class="nr"><b>Resumen de calificaciones</b>
+          ${m.p1!=null?`<div class="ni"><span>I Período</span><b>${num(m.p1)}</b></div>`:""}
+          <div class="ni"><span>Período en curso</span><b>${num(m.actual)}</b></div>
+          ${m.p1!=null?`<div class="ni"><span>Nota anual estimada (50 % I Período + 50 % período en curso)</span><b>${num(Math.round((m.p1+m.actual)/2*100)/100)}</b></div>`:""}
+          <p class="muted" style="font-size:.8rem;margin:.6rem 0 0">Según el Reglamento de Evaluación de los Aprendizajes (Decreto 45509-MEP). La nota del período en curso cambia mientras se califiquen trabajos y pruebas. La mínima para aprobar es 70.</p></div></div></div>`).join("")}</div>
     <p class="noprint"><button id="imp">🖨️ Imprimir o guardar la boleta en PDF</button></p></div>`}
   if(R.trabajos){const est={pendiente:["Pendiente","var(--warnbg);color:#8a6100"],sin_entregar:["Sin entregar","var(--badbg);color:var(--bad)"],entregada:["Entregada","var(--pri2);color:var(--pri)"],devuelta:["Devuelta para corregir","var(--warnbg);color:#8a6100"],calificada:["Calificada","var(--okbg);color:var(--ok)"]};
     h+=`<div data-tab="trabajos" hidden>${R.trabajos.map(m=>`<div class="card"><h2 style="margin-top:0">${esc(m.materia)}</h2>
