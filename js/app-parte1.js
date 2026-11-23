@@ -94,7 +94,8 @@ function topbar() {
     <div>
       <span class="docente">${role === "docente" ? "Prof. " + nombre : nombre}</span>
       <nav style="display:inline">
-        ${esDocenteSinPreview ? `<a href="#/">Secciones</a><a href="#/materias">Materias</a><a href="#/programa">Programa</a><a href="#/evaluaciones">Rúbrica y Evaluaciones</a><a href="#/asistencia">Asistencia</a><a href="#/periodos">Períodos</a><a href="respaldo.html">💾 Respaldo</a>` : ""}
+        ${esDocenteSinPreview ? `<a href="#/">Secciones</a><a href="#/materias">Materias</a><a href="#/programa">Programa</a><a href="#/evaluaciones">Rúbrica y Evaluaciones</a><a href="#/asistencia">Asistencia</a><a href="#/periodos">Períodos</a><a href="respaldo.html">💾 Respaldo</a><a href="practicas-convocatoria.html">🎯 Convocatoria 10-1</a>` : ""}
+        ${role === "estudiante" && ["4-0288-0526","4-0287-0846","4-0285-0003","4-0286-0372"].includes(session?.id) ? `<a href="practicas-convocatoria.html">🎯 Prácticas de convocatoria</a>` : ""}
         ${previewEstudianteId ? `<a href="#" id="salir-preview-topbar">&larr; Volver a modo profesor</a>` : ""}
         <a href="#" id="logout-link">Salir</a>
       </nav>

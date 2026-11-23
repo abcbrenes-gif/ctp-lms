@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Prácticas de convocatoria · 10-1 Gestión Contable</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="img/logo-ctp-mercedes-norte.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js?v=20261116b"></script>
+<script src="js/planilla-calculo.js?v=20261109b"></script>
+<script src="js/liquidacion-calculo.js?v=20261112a"></script>
+<style>
+:root{--bg:#F5F7FB;--sf:#fff;--ink:#0F172A;--mut:#5B6B80;--line:#DCE3EE;--pri:#1F3864;--acc:#1d63e8;--ok:#1f8a4c;--okS:#DDF1DC;--bad:#c0392b;--badS:#FDE2E2;--wa:#FFF2D6}
+@media (prefers-color-scheme:dark){:root{--bg:#0B1020;--sf:#121A30;--ink:#E8EDFB;--mut:#9AA9CC;--line:#26324F;--pri:#9DB7F5;--okS:#173A28;--badS:#4a1616;--wa:#3A2E10}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Inter,"Segoe UI",system-ui,sans-serif;padding-bottom:80px}
+header{background:#14213d;color:#fff;padding:14px 20px}header h1{margin:0;font-size:1.2rem}header p{margin:2px 0 0;opacity:.85;font-size:.88rem}
+main{max-width:900px;margin:0 auto;padding:14px}.card{background:var(--sf);border:1px solid var(--line);border-radius:16px;padding:16px;margin:0 0 12px}
+h2{margin:0 0 6px;font-size:1.08rem;color:var(--pri)}h3{margin:14px 0 6px;font-size:.98rem}.mut{color:var(--mut);font-size:.86rem}
+.btn{display:inline-block;background:var(--acc);color:#fff;border:0;border-radius:10px;padding:9px 14px;font:600 .92rem inherit;cursor:pointer;margin:4px 6px 4px 0;text-decoration:none}.btn.sec{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.pr{background:var(--sf);border:1px solid var(--line);border-radius:14px;padding:12px;cursor:pointer;text-align:left;color:var(--ink);font:inherit}.pr:hover{border-color:var(--acc)}
+.pr b{display:block;margin-bottom:2px}.tag{display:inline-block;border-radius:999px;padding:1px 9px;font-size:.74rem;font-weight:700;background:var(--line)}.tag.ok{background:var(--okS)}.tag.wa{background:var(--wa)}
+.dato{background:var(--bg);border-radius:10px;padding:10px 12px;margin:6px 0;font-size:.92rem}
+.paso{display:grid;grid-template-columns:1fr 150px 26px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line)}
+.paso label{font-size:.9rem}.paso input{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:9px;background:var(--sf);color:var(--ink);width:100%;text-align:right}
+.paso.bien input{border-color:var(--ok);background:var(--okS)}.paso.mal input{border-color:var(--bad);background:var(--badS)}
+.sol{grid-column:1/-1;font-size:.82rem;color:var(--mut)}.ayuda{grid-column:1/-1;font-size:.8rem;color:var(--mut)}
+.res{border-radius:10px;padding:10px 12px;margin:10px 0;font-weight:600}.res.ok{background:var(--okS)}.res.wa{background:var(--wa)}
+table{border-collapse:collapse;width:100%;font-size:.86rem}th,td{border-bottom:1px solid var(--line);padding:6px 7px;text-align:left}th{color:var(--mut);font-weight:600}td.n{text-align:center}
+.recuerde{border-left:4px solid var(--acc);padding:6px 10px;margin:8px 0;font-size:.88rem;background:var(--bg);border-radius:0 10px 10px 0}
+@media (max-width:560px){.paso{grid-template-columns:1fr 120px 22px}}
+</style>
+</head>
+<body>
+<header><h1>🎯 Prácticas de convocatoria · 10-1</h1><p>Gestión Contable · Planillas (Aula Contable) y liquidaciones laborales</p></header>
+<main id="app"><p class="mut">Cargando…</p></main>
+<script>
+// Estudiantes de la 10-1 que van a convocatoria (pedido del docente, 23-11-2026).
+const CONVOCADOS={"4-0288-0526":"Matías Hernández Montero","4-0287-0846":"Victoria Alvarado Araya","4-0285-0003":"Luciana Vílchez Martínez","4-0286-0372":"Dana Priscilla Chavarría Araya"};
+let SES=null;try{SES=JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")||"null")}catch(e){}
+const app=document.getElementById("app");
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const NF=new Intl.NumberFormat("es-CR",{minimumFractionDigits:2,maximumFractionDigits:2});
+const col=n=>"₡ "+NF.format(+n||0), num=n=>String(n).replace(".",",");
+const MOT=Object.fromEntries(LIQ_MOTIVOS);
+const fechaL=s=>{const [y,m,d]=s.split("-").map(Number);return d+" de "+["enero","febrero","marzo","abril","mayo","junio","julio","agosto","setiembre","octubre","noviembre","diciembre"][m-1]+" de "+y};
+
+// ───────── Las 10 prácticas ─────────
+const PL_RECUERDE="Salario bruto = base + horas extra + comisiones − ausencias − tardías. Cuotas obreras: SEM 5,50 %, IVM 4,33 %, Banco Popular 1 %. Renta 2026: exento hasta ₡918 000; 10 % hasta ₡1 347 000; 15 % hasta ₡2 364 000; 20 % hasta ₡4 727 000; 25 % el exceso. Créditos: ₡1 710 por hijo y ₡2 590 por cónyuge. Hora extra = salario ÷ 30 ÷ horas de la jornada × 1,5.";
+const LQ_RECUERDE="Preaviso (art. 28): 7 días de 3 a 6 meses, 15 días de 6 meses a 1 año, 30 días con 1 año o más; solo en despido con responsabilidad. Cesantía (art. 29): 7 días de 3 a 6 meses, 14 días de 6 meses a 1 año; con 1 año o más, días según la tabla por año (máximo 8 años); paga en despido con responsabilidad o pensión/fallecimiento. Vacaciones: 14 días por cada 50 semanas + 1 día por mes completo del período actual, menos los disfrutados. Aguinaldo: lo devengado del 1 de diciembre a la salida ÷ 12. Salario diario = promedio mensual ÷ 30.";
+const PRACTICAS=[
+ {n:1,tipo:"pl",tit:"Planilla de un colaborador",tema:"Aula Contable · salario bruto, cuotas obreras y neto",
+  intro:"La empresa Comercial La Sabana S.A. paga la planilla mensual. Calcule la boleta de pago de su colaboradora.",
+  emps:[{nombre:"Ana Lucía Vargas Mora",base:650000}]},
+ {n:2,tipo:"pl",tit:"Horas extra y comisiones",tema:"Aula Contable · salario bruto con extras",
+  intro:"Distribuidora El Roble paga a su vendedor salario base, horas extra y comisiones del mes.",
+  emps:[{nombre:"Carlos Andrés Solís Rojas",base:720000,horasExtra:8,comisiones:60000}]},
+ {n:3,tipo:"pl",tit:"Ausencias, tardías y renta",tema:"Aula Contable · rebajos y créditos fiscales",
+  intro:"Ferretería Mercedes rebaja una ausencia y dos horas de tardía a su encargado. Él tiene 2 hijos y cónyuge, y su salario paga renta.",
+  emps:[{nombre:"Esteban Rojas Fallas",base:1180000,diasAusencia:1,horasTarde:2,hijos:2,conyuge:true}]},
+ {n:4,tipo:"pl",tit:"Machote de planilla de 3 colaboradores",tema:"Aula Contable · machote completo",
+  intro:"Llene el machote de la planilla mensual de Servicios Contables Heredia. Cada colaborador tiene una situación distinta.",
+  emps:[{nombre:"Gabriela Mora Alvarado",base:1250000,hijos:1},{nombre:"Jonathan Vindas Pérez",base:480000,horasExtra:5,jornada:"mixta"},{nombre:"Katherine Salas Brenes",base:860000,rebajos:{asoc:{on:true,valor:5}}}]},
+ {n:5,tipo:"pl",tit:"Asiento de la planilla",tema:"Aula Contable · cargas sociales, provisiones y asiento",asiento:true,
+  intro:"Con la planilla de estos dos colaboradores, registre el asiento de diario: salarios, cargas sociales patronales, provisiones de aguinaldo y vacaciones, las cuentas por pagar y el pago por Bancos.",
+  emps:[{nombre:"Diego Alonso Ureña Zamora",base:600000},{nombre:"Fiorella Campos Barboza",base:1100000,conyuge:true}]},
+ {n:6,tipo:"lq",tit:"Liquidación de menos de un año",tema:"Liquidaciones · despido con responsabilidad",
+  c:{trabajador:"Marvin Obando Chacón",fechaIngreso:"2026-03-02",fechaSalida:"2026-11-20",motivo:"despido_responsabilidad",preavisoEstado:"no",salarioMensual:520000,vacDisfrutadasTotal:0}},
+ {n:7,tipo:"lq",tit:"Liquidación de 3 años",tema:"Liquidaciones · preaviso, cesantía, vacaciones y aguinaldo",
+  c:{trabajador:"Melissa Fernández Ugalde",fechaIngreso:"2023-05-15",fechaSalida:"2026-11-13",motivo:"despido_responsabilidad",preavisoEstado:"no",salarioMensual:690000,vacDisfrutadasTotal:42}},
+ {n:8,tipo:"lq",tit:"Renuncia voluntaria",tema:"Liquidaciones · qué se paga cuando la persona renuncia",
+  c:{trabajador:"Randall Chinchilla Soto",fechaIngreso:"2024-08-01",fechaSalida:"2026-10-31",motivo:"renuncia",preavisoEstado:"completo",salarioMensual:450000,vacDisfrutadasTotal:14}},
+ {n:9,tipo:"lq",tit:"Salario variable y justa causa",tema:"Liquidaciones · promedio de los últimos meses",
+  c:{trabajador:"Ivannia Castro Monge",fechaIngreso:"2021-02-01",fechaSalida:"2026-09-30",motivo:"despido_justa_causa",preavisoEstado:"no",salarioModo:"meses",salarioMensual:800000,vacDisfrutadasTotal:66,
+     extras:{"2026-04":40000,"2026-06":25000,"2026-07":60000,"2026-09":35000}}},
+ {n:10,tipo:"lq",tit:"Liquidación de 7 años con asiento",tema:"Liquidaciones · cálculo completo y registro contable",asiento:true,
+  c:{trabajador:"Kevin Gómez Araya",fechaIngreso:"2019-01-07",fechaSalida:"2026-11-27",motivo:"despido_responsabilidad",preavisoEstado:"parcial",preavisoDias:10,salarioMensual:1050000,vacDisfrutadasTotal:98}}
+];
+
+function caso(p){const c={...liqCasoVacio(),tiempoModo:"fechas",salarioModo:"mensual",...p.c};
+  c.salarios=liqMeses12(c.fechaSalida).map(mes=>({mes,extra:(p.c.extras||{})[mes]||0,incap:false}));return c}
+// Pasos (respuestas) de cada práctica: [{k, et, tipo, ok, ayuda, grupo}]
+function pasosDe(p){
+  const L=[];
+  if(p.tipo==="pl"){
+    const M=plArmarMachote(p.emps);p._M=M;
+    M.emps.forEach((e,i)=>M.campos.forEach(([k,et])=>L.push({k:"e"+i+"_"+k,et,tipo:"monto",ok:e.sol[k],grupo:e.nombre})));
+    if(p.asiento) M.asiento.forEach((a,i)=>L.push({k:"as"+i,et:a.code+" "+a.name+(a.d?" · Debe":" · Haber"),tipo:"monto",ok:a.d||a.c,grupo:"Asiento de diario de la planilla"}));
+  }else{
+    const R=liqCalcularCaso(caso(p));p._R=R;const P=liqPasosPractica(R);
+    [["salario","Salario"],["preaviso","Preaviso"],["cesantia","Cesantía"],["vacaciones","Vacaciones"],["aguinaldo","Aguinaldo"]].forEach(([s,g])=>P[s].forEach(x=>L.push({...x,grupo:g})));
+    L.push({k:"total",et:"Total de la liquidación",tipo:"monto",ok:R.total,grupo:"Total"});
+    if(p.asiento){const A=liqAsientoDe(R,{provisiones:true});A.lineas.forEach((l,i)=>L.push({k:"as"+i,et:l.cod+" "+l.cuenta+(l.debe?" · Debe":" · Haber"),tipo:"monto",ok:l.debe||l.haber,grupo:"Asiento de diario (la empresa tenía provisiones)"}))}
+  }
+  return L;
+}
+function enunciado(p){
+  if(p.tipo==="pl"){const M=p._M;
+    return `<p>${esc(p.intro)}</p>`+M.emps.map(e=>`<div class="dato"><b>${esc(e.nombre)}</b><br>${esc(e.datos)}</div>`).join("")+
+      `<p class="mut">Jornada diurna y pago mensual si no se dice otra cosa. Escriba los montos con dos decimales (puede usar coma o punto).</p>`}
+  const c=p.c,R=p._R;
+  let ext="";if(c.salarioModo==="meses"){ext=`<br>Salario ordinario de ${col(c.salarioMensual)} por mes. Además ganó horas extra: `+Object.entries(c.extras).map(([m,v])=>liqMesNombre(m)+" "+col(v)).join(", ")+". Use los últimos 6 meses para el promedio."}
+  const pre={no:"no trabajó el preaviso",completo:"trabajó el preaviso completo",parcial:`trabajó ${c.preavisoDias} días de preaviso`}[c.preavisoEstado];
+  return `<div class="dato"><b>${esc(c.trabajador)}</b><br>Ingresó el ${fechaL(c.fechaIngreso)} y salió el ${fechaL(c.fechaSalida)}.<br>Motivo: <b>${esc(MOT[c.motivo])}</b>; ${pre}.<br>`+
+    (c.salarioModo==="meses"?"":`Salario mensual: ${col(c.salarioMensual)}.`)+ext+`<br>Vacaciones disfrutadas en total durante la relación laboral: ${c.vacDisfrutadasTotal} días.</div>`+
+    `<p class="mut">Tiempo laborado: ${R.antiguedad.anios} año(s), ${R.antiguedad.meses} mes(es) y ${R.antiguedad.dias} día(s). Si un rubro no corresponde, escriba 0.</p>`;
+}
+function revisar(paso,v){const n=liqNumero(v);if(n===null)return null;const tol=paso.tipo==="dias"?0.011:Math.max(1,Math.abs(paso.ok)*0.0005);return Math.abs(n-paso.ok)<=tol}
+
+// ───────── Datos guardados ─────────
+let EST=null,GUARD={};
+async function cargar(id){const {data}=await sb.from("convocatoria_practicas").select("*").eq("estudiante_id",id);GUARD={};(data||[]).forEach(r=>GUARD[r.practica]=r)}
+async function guardar(n,resp,ac,tot){const prev=GUARD[n];const fila={estudiante_id:EST,practica:n,respuestas:resp,aciertos:ac,total:tot,intentos:(prev?.intentos||0)+1,actualizado:new Date().toISOString()};
+  const {error}=await sb.from("convocatoria_practicas").upsert(fila,{onConflict:"estudiante_id,practica"});if(!error)GUARD[n]=fila;return !error}
+
+// ───────── Pantallas ─────────
+async function inicio(){
+  if(!SES){app.innerHTML='<section class="card"><h2>Entre primero a la plataforma</h2><a class="btn" href="/">Ir a la plataforma</a></section>';return}
+  if(SES.role==="docente") return vistaDocente();
+  if(!CONVOCADOS[SES.id]){app.innerHTML='<section class="card"><h2>Este apartado no está asignado a su usuario</h2><a class="btn sec" href="/">← Volver</a></section>';return}
+  EST=SES.id;await cargar(EST);lista();
+}
+function lista(){
+  const hechas=PRACTICAS.filter(p=>GUARD[p.n]).length;
+  app.innerHTML=`<section class="card"><h2>Hola, ${esc(CONVOCADOS[EST]||"profe (vista de estudiante)")}</h2>
+   <p>Estas 10 prácticas le preparan para la convocatoria. Cada una se revisa sola: escriba sus respuestas y toque <b>Revisar</b>. Puede intentarlo las veces que quiera; queda guardado su mejor resultado.</p>
+   <p class="mut">Avance: ${hechas} de 10 prácticas revisadas.</p>${SES.role==="docente"?'<button class="btn sec" id="vd">← Volver al resumen del profe</button>':'<a class="btn sec" href="/">← Volver a la plataforma</a>'}</section>
+   <div class="grid">${PRACTICAS.map(p=>{const g=GUARD[p.n];const t=g?`<span class="tag ${g.aciertos===g.total?"ok":"wa"}">${g.aciertos}/${g.total}</span>`:'<span class="tag">Pendiente</span>';
+    return `<button class="pr" data-n="${p.n}"><span class="mut">Práctica ${p.n}</span><b>${esc(p.tit)}</b><span class="mut">${esc(p.tema)}</span><br>${t}</button>`}).join("")}</div>`;
+  app.querySelectorAll("[data-n]").forEach(b=>b.onclick=()=>abrir(+b.dataset.n));
+  const vd=document.getElementById("vd");if(vd)vd.onclick=vistaDocente;
+  scrollTo(0,0);
+}
+function abrir(n){
+  const p=PRACTICAS.find(x=>x.n===n),L=pasosDe(p),prev=(GUARD[n]||{}).respuestas||{};
+  let g="",h="";
+  L.forEach(x=>{if(x.grupo!==g){g=x.grupo;h+=`<h3>${esc(g)}</h3>`}
+    h+=`<div class="paso" id="ps_${x.k}"><label for="in_${x.k}">${esc(x.et)}</label><input id="in_${x.k}" inputmode="decimal" autocomplete="off" value="${esc(prev[x.k]??"")}"><span id="mk_${x.k}"></span>`+
+       (x.ayuda?`<div class="ayuda">💡 ${esc(x.ayuda)}</div>`:"")+`<div class="sol" id="sl_${x.k}" hidden>Respuesta: ${x.tipo==="dias"?num(x.ok)+" días":col(x.ok)}</div></div>`});
+  app.innerHTML=`<section class="card"><span class="mut">Práctica ${p.n} de 10 · ${esc(p.tema)}</span><h2>${esc(p.tit)}</h2>${enunciado(p)}
+   <div class="recuerde"><b>Recuerde:</b> ${p.tipo==="pl"?PL_RECUERDE:LQ_RECUERDE}</div></section>
+   <section class="card">${h}<div id="res"></div>
+   <button class="btn" id="rv">✅ Revisar</button><button class="btn sec" id="vs" hidden>👁 Ver respuestas</button><button class="btn sec" id="vl">← Volver a la lista</button></section>`;
+  document.getElementById("vl").onclick=lista;
+  document.getElementById("vs").onclick=()=>L.forEach(x=>document.getElementById("sl_"+x.k).hidden=false);
+  document.getElementById("rv").onclick=async()=>{
+    let ac=0;const resp={};
+    L.forEach(x=>{const v=document.getElementById("in_"+x.k).value;resp[x.k]=v;const r=revisar(x,v);const d=document.getElementById("ps_"+x.k);
+      d.classList.toggle("bien",r===true);d.classList.toggle("mal",r!==true);document.getElementById("mk_"+x.k).textContent=r===true?"✔️":"❌";if(r===true)ac++});
+    const ok=SES.role==="docente"?true:await guardar(n,resp,ac,L.length);
+    const res=document.getElementById("res");
+    res.innerHTML=`<div class="res ${ac===L.length?"ok":"wa"}">${ac===L.length?"🎉 ¡Excelente! Todo correcto.":`Tiene ${ac} de ${L.length} correctas. Corrija las que están en rojo y vuelva a revisar.`}${ok?"":" (No se pudo guardar; revise su conexión.)"}</div>`;
+    document.getElementById("vs").hidden=false;
+  };
+  scrollTo(0,0);
+}
+async function vistaDocente(){
+  const {data}=await sb.from("convocatoria_practicas").select("*");const T={};(data||[]).forEach(r=>{(T[r.estudiante_id]=T[r.estudiante_id]||{})[r.practica]=r});
+  app.innerHTML=`<section class="card"><h2>Resumen del profe</h2><p class="mut">Aciertos de cada estudiante en cada práctica (la última vez que tocó Revisar). Las 10 prácticas usan los mismos cálculos de Aula Contable y de Liquidaciones.</p>
+   <div style="overflow-x:auto"><table><thead><tr><th>Estudiante</th>${PRACTICAS.map(p=>`<th class="n">P${p.n}</th>`).join("")}</tr></thead><tbody>
+   ${Object.entries(CONVOCADOS).map(([id,nom])=>`<tr><td>${esc(nom)}</td>${PRACTICAS.map(p=>{const r=(T[id]||{})[p.n];return `<td class="n" title="${r?"Intentos: "+r.intentos:""}">${r?r.aciertos+"/"+r.total:"—"}</td>`}).join("")}</tr>`).join("")}
+   </tbody></table></div>
+   <button class="btn" id="ve">👀 Ver las prácticas como estudiante</button><a class="btn sec" href="/">← Volver a la plataforma</a></section>`;
+  document.getElementById("ve").onclick=()=>{EST="docente";GUARD={};lista()};
+}
+inicio();
+</script>
+</body>
+</html>
