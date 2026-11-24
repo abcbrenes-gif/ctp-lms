@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Solucionario del folleto · caja chica e inventarios</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="img/logo-ctp-mercedes-norte.png">
+<script src="js/convocatoria-casos.js?v=20261124a"></script>
+<style>
+:root{--bg:#F5F7FB;--sf:#fff;--ink:#0F172A;--mut:#5B6B80;--line:#DCE3EE;--pri:#1F3864;--acc:#1d63e8;--wa:#FFF2D6}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Inter,"Segoe UI",system-ui,sans-serif;padding-bottom:60px}
+header{background:#14213d;color:#fff;padding:14px 20px}header h1{margin:0;font-size:1.2rem}header p{margin:2px 0 0;opacity:.85;font-size:.88rem}
+main{max-width:980px;margin:0 auto;padding:14px}.card{background:var(--sf);border:1px solid var(--line);border-radius:14px;padding:16px;margin:0 0 14px;break-inside:avoid}
+h2{margin:0 0 6px;font-size:1.1rem;color:var(--pri)}h3{margin:14px 0 6px;font-size:.98rem}.mut{color:var(--mut);font-size:.85rem}
+.btn{display:inline-block;background:var(--acc);color:#fff;border:0;border-radius:10px;padding:8px 13px;font:600 .9rem inherit;cursor:pointer;margin:4px 6px 4px 0;text-decoration:none}.btn.sec{background:transparent;color:var(--ink);border:1px solid var(--line)}
+table{border-collapse:collapse;width:100%;font-size:.84rem;margin:6px 0}th,td{border:1px solid var(--line);padding:4px 6px;text-align:right}th{background:#eef2f9}td.l,th.l{text-align:left}
+.as td{border:0;border-bottom:1px dashed var(--line)}.as td.c2{padding-left:24px}.as tr.n td{color:var(--mut);font-style:italic;border-bottom:1px solid #b8c3d6}
+.nota{background:var(--wa);border-radius:10px;padding:8px 12px;margin:8px 0}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+@media print{header,.noprint{display:none}body{background:#fff}.card{border:0;padding:0}}
+</style>
+</head>
+<body>
+<header><h1>📘 Solucionario del folleto · convocatoria 10-1</h1><p>Ejercicios propuestos de Fondo Fijo de Caja Chica (1.1 a 1.4) y de Valuación de Inventarios (14.1 a 14.5) · solo para el docente</p></header>
+<main id="app"></main>
+<script>
+let SES=null;try{SES=JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")||"null")}catch(e){}
+const app=document.getElementById("app");
+const NF=new Intl.NumberFormat("es-CR",{minimumFractionDigits:2,maximumFractionDigits:2}),col=n=>NF.format(+n||0);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const C=window.CONV_CALC;
+
+// Datos transcritos de los ejercicios propuestos del folleto (págs. 13-16 y 147-149).
+const CAJA=[
+ {id:"1.1",emp:"Perla del Pacífico S.A.",ops:[{f:"02-09-06",op:"abrir",monto:100000},
+   {f:"08-09-06",op:"reintegro",gastos:{"Peajes":2000,"Especies y Timbres Fiscales":10000,"Artículos de Aseo":5500,"Periódicos Nacionales":12000,"Viáticos":25000},vales:20000,efectivo:24000,responsable:"Rubén Mora"},
+   {f:"10-09-06",op:"disminucion",monto:25000}]},
+ {id:"1.2",emp:"Perla del Pacífico S.A. (continuación)",ops:[{f:"—",op:"existe",monto:75000},
+   {f:"19-09-06",op:"reintegro",gastos:{"Peajes":3000,"Especies y Timbres Fiscales":9000,"Artículos de Aseo":3500,"Periódicos Nacionales":10000,"Viáticos":15000},vales:25000,efectivo:10000,responsable:"Rubén Mora"},
+   {f:"20-09-06",op:"aumento",monto:20000}]},
+ {id:"1.3",emp:"Servicios Automotrices S.A.",ops:[{f:"01-08-06",op:"abrir",monto:100000},
+   {f:"10-08-06",op:"reintegro",gastos:{"Estampillas de correos":8000,"Artículos de limpieza":15000,"Parqueos":2500,"Pasajes y Taxis":13250,"Reparación de mobiliario":12600},vales:30000,efectivo:18650,responsable:"Alonso Alvarado"},
+   {f:"12-08-06",op:"disminucion",monto:30000},
+   {f:"16-08-06",op:"reintegro",gastos:{"Estampillas de correos":5000,"Artículos de limpieza":12000,"Parqueos":3500,"Pasajes y Taxis":10250,"Reparación de mobiliario":11600},vales:20000,efectivo:8650,responsable:"Alonso Alvarado"}]},
+ {id:"1.4",emp:"Transportes del Atlántico S.A.",ops:[{f:"02-01-07",op:"abrir",monto:60000},
+   {f:"09-01-07",op:"reintegro",gastos:{"Alimentación":11000,"Pasajes y Taxis":23500,"Periódicos Nacionales":6500,"Materiales de Oficina":16000},vales:0,efectivo:5000,responsable:"Sebastián Alvarado"},
+   {f:"17-01-07",op:"reintegro",gastos:{"Alimentación":13000,"Pasajes y Taxis":20500,"Periódicos Nacionales":8500,"Materiales de Oficina":13000},vales:0,efectivo:5000,responsable:"Sebastián Alvarado"},
+   {f:"19-01-07",op:"aumento",monto:15000}]}];
+const E=(f,u,c)=>({f,tipo:"E",u,c}),S=(f,u)=>({f,tipo:"S",u});
+const INV=[
+ {id:"14.1",emp:"El Nuevo Amanecer S.A. (mayo)",movs:[E("03-05",100,1740),S("06-05",50),E("10-05",100,1750),S("14-05",50),E("17-05",400,1730),S("23-05",250),E("25-05",200,1750),S("28-05",300),E("31-05",150,1760)]},
+ {id:"14.2",emp:"Pinturas Bahía Drake S.A. (2007)",movs:[E("Ene",100,1530),E("Feb",100,1540),S("Mar",150),E("Abr",200,1550),S("May",100),E("Jun",300,1560),S("Jul",100),S("Ago",350),E("Set",400,1590),S("Oct",200),E("Dic",200,1600)]},
+ {id:"14.3",emp:"Pinturas Bahía Drake S.A. (2007)",movs:[E("Ene",300,1530),S("Feb",100),E("Mar",200,1540),E("Abr",200,1550),S("May",500),E("Jun",300,1560),S("Jul",200),S("Ago",150),E("Set",300,1590),S("Oct",300),E("Dic",200,1600)]},
+ {id:"14.4",emp:"El Nuevo Amanecer S.A. (agosto)",movs:[E("03-08",200,1740),S("06-08",150),E("10-08",200,1750),S("14-08",150),E("17-08",500,1730),S("23-08",450),E("25-08",250,1750),S("28-08",400),E("31-08",150,1760)]},
+ {id:"14.5",emp:"Concreto S.A. (2007)",movs:[E("Ene",300,1830),S("Feb",200),E("Mar",200,1740),E("Abr",200,1750),S("May",400),E("Jun",400,1860),S("Jul",200),S("Ago",250),E("Set",300,1790),S("Oct",300),E("Dic",300,1900)]}];
+const MET={PEPS:"P.E.P.S.",UEPS:"U.E.P.S.",PP:"Promedio Ponderado"};
+
+function asientosHTML(R){return `<table class="as"><tr><th class="l">Fecha</th><th class="l">Cuenta</th><th>Debe</th><th>Haber</th></tr>${R.asientos.map((a,i)=>a.lineas.map((l,j)=>`<tr><td class="l">${j?"":esc(a.f)}</td><td class="l ${l[2]?"c2":""}">${esc(l[0])}${j===0&&a.detalle?`<div class="mut">${Object.entries(a.detalle).map(([k,v])=>esc(k)+" "+col(v)).join(" · ")}</div>`:""}</td><td>${l[1]?col(l[1]):""}</td><td>${l[2]?col(l[2]):""}</td></tr>`).join("")+`<tr class="n"><td></td><td class="l" colspan="3">${esc(a.n)} · /${i+1}/</td></tr>`).join("")}</table>`}
+function revHTML(R){return R.revisiones.map(r=>`<h3>Revisión del reintegro del ${esc(r.f)}</h3><table style="max-width:420px"><tr><td class="l">Gastos Administrativos</td><td>${col(r.gastos)}</td></tr><tr><td class="l">Cuentas por Cobrar (vales)</td><td>${col(r.vales)}</td></tr><tr><td class="l">Efectivo disponible</td><td>${col(r.efectivo)}</td></tr><tr><th class="l">Total</th><th>${col(r.total)}</th></tr><tr><td class="l">Fondo Fijo (−)</td><td>${col(r.fondo)}</td></tr><tr><th class="l">${r.dif<0?"Faltante":r.dif>0?"Sobrante":"Fondo completo"}</th><th>${col(Math.abs(r.dif))}</th></tr></table>`).join("")}
+function kardexHTML(movs,m){const K=C.kardex(movs,m);
+  return `<table><tr><th class="l">Fecha</th><th>Entradas</th><th>Salidas</th><th>Costo de la salida</th><th>Existencias</th><th>Costo unitario</th><th>Saldo</th></tr>${K.filas.map(f=>{const caps=f.capas.length?f.capas:[{u:0,c:0}];
+    return caps.map((c,i)=>`<tr><td class="l">${i?"":esc(f.f)}</td><td>${i||!f.ent?"":f.ent+(m!=="PP"?" a "+col(f.cEnt):"")}</td><td>${i||!f.sal?"":f.sal}</td><td>${i||f.costoSal==null?"":col(f.costoSal)}</td><td>${c.u}</td><td>${col(c.c)}</td><td>${col(c.u*c.c)}</td></tr>`).join("")}).join("")}
+    <tr><th class="l" colspan="3">Costo de las salidas</th><th>${col(K.costoVentas)}</th><th>${K.uFin}</th><th class="l">Inventario final</th><th>${col(K.vFin)}</th></tr></table>`}
+function pintar(){
+  let tab="caja";try{tab=sessionStorage.getItem("sol_tab")||tab}catch(e){}
+  let h=`<div class="tabs noprint"><button class="btn ${tab==="caja"?"":"sec"}" data-t="caja">💵 Caja chica (1.1 a 1.4)</button><button class="btn ${tab==="inv"?"":"sec"}" data-t="inv">📦 Inventarios (14.1 a 14.5)</button><button class="btn sec" onclick="print()">🖨️ Imprimir</button><a class="btn sec" href="practicas-convocatoria.html">← Prácticas de convocatoria</a></div>`;
+  if(tab==="caja"){
+    h+=`<div class="nota">El reintegro se registra como en el ejercicio resuelto del folleto: los gastos en Gastos Administrativos, los vales en Cuentas por Cobrar y el cheque contra Bancos. El faltante se carga al responsable (Cuentas por Cobrar contra Bancos) y el sobrante va a Bancos contra Ingresos por Sobrantes.</div>`;
+    CAJA.forEach(x=>{const R=C.cajaChica(x.ops);h+=`<section class="card"><h2>Ejercicio ${esc(x.id)} · ${esc(x.emp)}</h2>${asientosHTML(R)}${revHTML(R)}<p class="mut">Fondo fijo al final: ${col(R.fondoFinal)}</p></section>`});
+    h+=`<div class="nota">Ojo en el ejercicio resuelto (pág. 12): el enunciado disminuye el fondo en ₡30 000,00 pero el asiento /7/ dice ₡20 000,00, y el cierre /8/ queda en ₡20 000,00. Con los datos del enunciado (₡70 000,00 − ₡30 000,00) el cierre es de ₡40 000,00.</div>`;
+  }else{
+    INV.forEach(x=>{const r={};h+=`<section class="card"><h2>Ejercicio ${esc(x.id)} · ${esc(x.emp)}</h2>`;
+      ["PEPS","UEPS","PP"].forEach(m=>{const K=C.kardex(x.movs,m);r[m]=K;h+=`<h3>Método ${MET[m]}</h3>${kardexHTML(x.movs,m)}`});
+      h+=`<h3>Comparación</h3><table style="max-width:560px"><tr><th class="l">Método</th><th>Costo de las salidas</th><th>Unidades finales</th><th>Inventario final</th></tr>${["PEPS","UEPS","PP"].map(m=>`<tr><td class="l">${MET[m]}</td><td>${col(r[m].costoVentas)}</td><td>${r[m].uFin}</td><td>${col(r[m].vFin)}</td></tr>`).join("")}</table></section>`});
+    h+=`<div class="nota">Promedio ponderado móvil: en cada compra se recalcula el costo unitario (valor total ÷ unidades) sin redondear, como en la pág. 146. El ejercicio 14.6 no se ve completo en las fotos y no está incluido.</div>`;
+  }
+  app.innerHTML=h;app.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{try{sessionStorage.setItem("sol_tab",b.dataset.t)}catch(e){}pintar()});
+}
+if(!SES||SES.role!=="docente")app.innerHTML='<section class="card"><h2>🔒 Solo para el docente</h2><a class="btn" href="/">Ir a la plataforma</a></section>';else pintar();
+</script>
+</body>
+</html>

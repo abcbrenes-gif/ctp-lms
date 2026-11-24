@@ -10,6 +10,7 @@
 <script src="js/config.js?v=20261116b"></script>
 <script src="js/planilla-calculo.js?v=20261109b"></script>
 <script src="js/liquidacion-calculo.js?v=20261112a"></script>
+<script src="js/convocatoria-casos.js?v=20261124a"></script>
 <style>
 :root{--bg:#F5F7FB;--sf:#fff;--ink:#0F172A;--mut:#5B6B80;--line:#DCE3EE;--pri:#1F3864;--acc:#1d63e8;--ok:#1f8a4c;--okS:#DDF1DC;--bad:#c0392b;--badS:#FDE2E2;--wa:#FFF2D6}
 @media (prefers-color-scheme:dark){:root{--bg:#0B1020;--sf:#121A30;--ink:#E8EDFB;--mut:#9AA9CC;--line:#26324F;--pri:#9DB7F5;--okS:#173A28;--badS:#4a1616;--wa:#3A2E10}}
@@ -33,7 +34,7 @@ table{border-collapse:collapse;width:100%;font-size:.86rem}th,td{border-bottom:1
 </style>
 </head>
 <body>
-<header><h1>🎯 Prácticas de convocatoria · 10-1</h1><p>Gestión Contable · Planillas (Aula Contable) y liquidaciones laborales</p></header>
+<header><h1>🎯 Prácticas de convocatoria · 10-1</h1><p>Gestión Contable · Planillas, liquidaciones, caja chica, conciliación bancaria e inventarios</p></header>
 <main id="app"><p class="mut">Cargando…</p></main>
 <script>
 // Estudiantes de la 10-1 que van a convocatoria (pedido del docente, 23-11-2026).
@@ -46,9 +47,14 @@ const col=n=>"₡ "+NF.format(+n||0), num=n=>String(n).replace(".",",");
 const MOT=Object.fromEntries(LIQ_MOTIVOS);
 const fechaL=s=>{const [y,m,d]=s.split("-").map(Number);return d+" de "+["enero","febrero","marzo","abril","mayo","junio","julio","agosto","setiembre","octubre","noviembre","diciembre"][m-1]+" de "+y};
 
-// ───────── Las 10 prácticas ─────────
+// ───────── Las prácticas ─────────
+const MOVS_TUCAN=[{f:"01-03",tipo:"E",u:300,c:2000},{f:"05-03",tipo:"E",u:200,c:2100},{f:"10-03",tipo:"S",u:350},{f:"15-03",tipo:"E",u:250,c:2050},{f:"22-03",tipo:"S",u:300},{f:"28-03",tipo:"E",u:100,c:2200},{f:"30-03",tipo:"S",u:120}];
+const CC_RECUERDE="Apertura y aumento: Caja Chica al Debe y Bancos al Haber. Reintegro: Gastos Administrativos (los gastos) y Cuentas por Cobrar (los vales) al Debe, Bancos al Haber. Revisión: gastos + vales + efectivo, comparado con el fondo. Faltante: Cuentas por Cobrar al responsable contra Bancos. Sobrante: Bancos contra Ingresos por Sobrantes. Disminución y cierre: Bancos al Debe y Caja Chica al Haber.";
+const CB_RECUERDE="Banco: saldo del banco + depósitos en tránsito + errores del banco que rebajaron de más, menos cheques pendientes y errores del banco que acreditaron de más. Libros: saldo en libros + notas de crédito + errores en libros que rebajaron de más, menos notas de débito y errores en libros que sumaron de más. Los dos saldos reales deben ser iguales. Solo lo de libros lleva asiento.";
+const INV_RECUERDE="Inventario perpetuo: después de cada movimiento se actualiza el saldo. PEPS: las salidas se costean con las unidades más antiguas. UEPS: con las más recientes. Promedio ponderado: en cada compra, costo unitario = valor total ÷ unidades en existencia, y las salidas salen a ese costo.";
 const PL_RECUERDE="Salario bruto = base + horas extra + comisiones − ausencias − tardías. Cuotas obreras: SEM 5,50 %, IVM 4,33 %, Banco Popular 1 %. Renta 2026: exento hasta ₡918 000; 10 % hasta ₡1 347 000; 15 % hasta ₡2 364 000; 20 % hasta ₡4 727 000; 25 % el exceso. Créditos: ₡1 710 por hijo y ₡2 590 por cónyuge. Hora extra = salario ÷ 30 ÷ horas de la jornada × 1,5.";
 const LQ_RECUERDE="Preaviso (art. 28): 7 días de 3 a 6 meses, 15 días de 6 meses a 1 año, 30 días con 1 año o más; solo en despido con responsabilidad. Cesantía (art. 29): 7 días de 3 a 6 meses, 14 días de 6 meses a 1 año; con 1 año o más, días según la tabla por año (máximo 8 años); paga en despido con responsabilidad o pensión/fallecimiento. Vacaciones: 14 días por cada 50 semanas + 1 día por mes completo del período actual, menos los disfrutados. Aguinaldo: lo devengado del 1 de diciembre a la salida ÷ 12. Salario diario = promedio mensual ÷ 30.";
+const RECUERDE={pl:PL_RECUERDE,lq:LQ_RECUERDE,cc:CC_RECUERDE,cb:CB_RECUERDE,inv:INV_RECUERDE};
 const PRACTICAS=[
  {n:1,tipo:"pl",tit:"Planilla de un colaborador",tema:"Aula Contable · salario bruto, cuotas obreras y neto",
   intro:"La empresa Comercial La Sabana S.A. paga la planilla mensual. Calcule la boleta de pago de su colaboradora.",
@@ -75,7 +81,42 @@ const PRACTICAS=[
   c:{trabajador:"Ivannia Castro Monge",fechaIngreso:"2021-02-01",fechaSalida:"2026-09-30",motivo:"despido_justa_causa",preavisoEstado:"no",salarioModo:"meses",salarioMensual:800000,vacDisfrutadasTotal:66,
      extras:{"2026-04":40000,"2026-06":25000,"2026-07":60000,"2026-09":35000}}},
  {n:10,tipo:"lq",tit:"Liquidación de 7 años con asiento",tema:"Liquidaciones · cálculo completo y registro contable",asiento:true,
-  c:{trabajador:"Kevin Gómez Araya",fechaIngreso:"2019-01-07",fechaSalida:"2026-11-27",motivo:"despido_responsabilidad",preavisoEstado:"parcial",preavisoDias:10,salarioMensual:1050000,vacDisfrutadasTotal:98}}
+  c:{trabajador:"Kevin Gómez Araya",fechaIngreso:"2019-01-07",fechaSalida:"2026-11-27",motivo:"despido_responsabilidad",preavisoEstado:"parcial",preavisoDias:10,salarioMensual:1050000,vacDisfrutadasTotal:98}},
+ {n:11,tipo:"cc",tit:"Caja chica: apertura, reintegro y faltante",tema:"Fondo fijo de caja chica · asientos y arqueo",
+  texto:["Repuestos La Uruca S.A. crea el 2 de febrero un Fondo Fijo de Caja Chica de ₡80 000,00 con un cheque a nombre de la responsable, Karla Méndez.",
+   "El 9 de febrero Karla presenta al contador las facturas de la tabla y un vale por un adelanto a un empleado de ₡12 000,00. El contador emite el cheque del reintegro.",
+   "Ese mismo día la auditora hace un arqueo y cuenta ₡36 350,00 en efectivo en la caja."],
+  gastos:{"Papelería y útiles de oficina":6250,"Taxis y pasajes":9800,"Café y repostería":4350,"Correos":2600,"Artículos de limpieza":7400},
+  ops:[{f:"02-02",op:"abrir",monto:80000},{f:"09-02",op:"reintegro",gastos:{"Papelería y útiles de oficina":6250,"Taxis y pasajes":9800,"Café y repostería":4350,"Correos":2600,"Artículos de limpieza":7400},vales:12000,efectivo:36350,responsable:"Karla Méndez"}]},
+ {n:12,tipo:"cc",tit:"Caja chica: aumento, sobrante, disminución y cierre",tema:"Fondo fijo de caja chica · movimientos del fondo",
+  texto:["Continúa Repuestos La Uruca S.A. El fondo es de ₡80 000,00.",
+   "12 de febrero: el gerente aumenta el fondo en ₡20 000,00 con un cheque a nombre de Karla Méndez.",
+   "20 de febrero: Karla presenta las facturas de la tabla y vales por adelantos a empleados de ₡18 000,00. Se emite el cheque del reintegro. En el arqueo hay ₡37 600,00 en efectivo.",
+   "23 de febrero: el gerente disminuye el fondo en ₡30 000,00 y deposita ese dinero en la cuenta corriente.",
+   "27 de febrero: la empresa cierra el fondo y deposita el monto que queda en la cuenta corriente."],
+  gastos:{"Peajes":5000,"Papelería y útiles de oficina":12450,"Café y repostería":7850,"Taxis y pasajes":14000,"Especies y timbres fiscales":6000},
+  ops:[{f:"—",op:"existe",monto:80000},{f:"12-02",op:"aumento",monto:20000},{f:"20-02",op:"reintegro",gastos:{"Peajes":5000,"Papelería y útiles de oficina":12450,"Café y repostería":7850,"Taxis y pasajes":14000,"Especies y timbres fiscales":6000},vales:18000,efectivo:37600,responsable:"Karla Méndez"},{f:"23-02",op:"disminucion",monto:30000},{f:"27-02",op:"cierre"}]},
+ {n:13,tipo:"cb",tit:"Conciliación bancaria de saldos ajustados",tema:"Conciliación bancaria · saldo real disponible",
+  texto:["Distribuidora Tilarán S.A. recibe el estado de cuenta al 31 de marzo con un saldo de ₡1 482 600,00. En el mayor, la cuenta Bancos tiene un saldo de ₡1 216 150,00. Al comparar ambos se encontró:"],
+  lista:["Un depósito de ₡318 000,00 hecho el 31 de marzo en el cajero nocturno; el banco lo acredita en abril.",
+   "Cheques pendientes de cambiar por ₡412 750,00.",
+   "El banco rebajó por error un cheque de otra empresa por ₡25 000,00.",
+   "Nota de crédito: el banco cobró un documento a favor de la empresa por ₡250 000,00 más ₡12 500,00 de intereses.",
+   "Nota de débito: un cheque de un cliente por ₡95 000,00 salió sin fondos.",
+   "Nota de débito: comisión por servicios bancarios de ₡6 800,00.",
+   "Un cheque a un proveedor por ₡48 900,00 se registró en libros como ₡84 900,00."],
+  c:{banco:1482600,libros:1216150,transito:[{m:318000}],errBancoMas:[{m:25000}],pendientes:[{m:412750}],ncredito:[{m:250000},{m:12500}],errLibrosMas:[{m:36000}],ndebito:[{m:95000},{m:6800}]}},
+ {n:14,tipo:"cb",tit:"Asientos de la conciliación bancaria",tema:"Conciliación bancaria · asientos en libros",asientosCb:true,
+  texto:["Con el caso de Distribuidora Tilarán S.A. de la práctica 13, registre en libros los asientos de diario para incluir lo que faltaba y corregir el error de la empresa. Lo que corresponde al banco (depósito en tránsito, cheques pendientes y el error del banco) no lleva asiento en libros."],
+  lista:["Nota de crédito: cobro de un documento por ₡250 000,00 más ₡12 500,00 de intereses.","Nota de débito: cheque de un cliente sin fondos por ₡95 000,00.","Nota de débito: comisión bancaria de ₡6 800,00.","Error en libros: cheque a proveedor de ₡48 900,00 registrado como ₡84 900,00."],
+  c:{banco:1482600,libros:1216150,transito:[{m:318000}],errBancoMas:[{m:25000}],pendientes:[{m:412750}],ncredito:[{m:250000},{m:12500}],errLibrosMas:[{m:36000}],ndebito:[{m:95000},{m:6800}]},
+  asientos:[{n:"Cobro de documento e intereses (nota de crédito)",l:[["Bancos",262500,0],["Documentos por Cobrar",0,250000],["Ingresos por Intereses",0,12500]]},
+   {n:"Cheque de cliente sin fondos (nota de débito)",l:[["Cuentas por Cobrar Clientes",95000,0],["Bancos",0,95000]]},
+   {n:"Comisión bancaria (nota de débito)",l:[["Gastos por Servicios Bancarios",6800,0],["Bancos",0,6800]]},
+   {n:"Corrección del error en libros",l:[["Bancos",36000,0],["Cuentas por Pagar Proveedores",0,36000]]}]},
+ {n:15,tipo:"inv",metodo:"PEPS",tit:"Inventarios por PEPS",tema:"Valuación de inventarios · primeras entradas, primeras salidas"},
+ {n:16,tipo:"inv",metodo:"UEPS",tit:"Inventarios por UEPS",tema:"Valuación de inventarios · últimas entradas, primeras salidas"},
+ {n:17,tipo:"inv",metodo:"PP",tit:"Inventarios por Promedio Ponderado",tema:"Valuación de inventarios · costo promedio"}
 ];
 
 function caso(p){const c={...liqCasoVacio(),tiempoModo:"fechas",salarioModo:"mensual",...p.c};
@@ -87,6 +128,21 @@ function pasosDe(p){
     const M=plArmarMachote(p.emps);p._M=M;
     M.emps.forEach((e,i)=>M.campos.forEach(([k,et])=>L.push({k:"e"+i+"_"+k,et,tipo:"monto",ok:e.sol[k],grupo:e.nombre})));
     if(p.asiento) M.asiento.forEach((a,i)=>L.push({k:"as"+i,et:a.code+" "+a.name+(a.d?" · Debe":" · Haber"),tipo:"monto",ok:a.d||a.c,grupo:"Asiento de diario de la planilla"}));
+  }else if(p.tipo==="cc"){
+    const R=CONV_CALC.cajaChica(p.ops);
+    R.asientos.forEach((as,i)=>as.lineas.forEach((l,j)=>L.push({k:`a${i}_${j}`,et:l[0]+(l[1]?" · Debe":" · Haber"),tipo:"monto",ok:l[1]||l[2],grupo:`${as.f} · ${as.n}`})));
+    R.revisiones.forEach((r,i)=>{L.push({k:`r${i}t`,et:"Gastos + vales + efectivo",tipo:"monto",ok:r.total,grupo:`Revisión del ${r.f} (fondo de ${col(r.fondo)})`});
+      L.push({k:`r${i}d`,et:"Faltante o sobrante (escriba 0 si el fondo está completo)",tipo:"monto",ok:Math.abs(r.dif),grupo:`Revisión del ${r.f} (fondo de ${col(r.fondo)})`})});
+  }else if(p.tipo==="cb"){
+    if(p.asientosCb) p.asientos.forEach((as,i)=>as.l.forEach((l,j)=>L.push({k:`a${i}_${j}`,et:l[0]+(l[1]?" · Debe":" · Haber"),tipo:"monto",ok:l[1]||l[2],grupo:`Asiento ${i+1}`})));
+    else{const R=CONV_CALC.conciliacion(p.c);
+      L.push({k:"subB",et:"Subtotal (saldo del banco + lo que se suma)",tipo:"monto",ok:R.subB,grupo:"Partiendo del saldo del banco"},{k:"realB",et:"Saldo real disponible en bancos",tipo:"monto",ok:R.realB,grupo:"Partiendo del saldo del banco"},
+        {k:"subL",et:"Subtotal (saldo en libros + lo que se suma)",tipo:"monto",ok:R.subL,grupo:"Partiendo del saldo en libros"},{k:"realL",et:"Saldo real disponible en libros",tipo:"monto",ok:R.realL,grupo:"Partiendo del saldo en libros"});}
+  }else if(p.tipo==="inv"){
+    const R=CONV_CALC.kardex(MOVS_TUCAN,p.metodo);p._K=R;
+    if(p.metodo==="PP") R.filas.forEach((f,i)=>{if(f.ent)L.push({k:"cu"+i,et:`Costo unitario promedio después de la compra del ${f.f}`,tipo:"cu",ok:CONV_CALC.r2(f.capas[0].c),grupo:"Costo promedio"})});
+    R.ventas.forEach((v,i)=>L.push({k:"v"+i,et:`Costo de la salida del ${v.f} (${v.u} unidades)`,tipo:"monto",ok:v.costo,grupo:"Costo de las salidas"}));
+    L.push({k:"cv",et:"Costo total de las salidas del mes",tipo:"monto",ok:R.costoVentas,grupo:"Resultados"},{k:"uf",et:"Unidades en existencia al 31 de marzo",tipo:"unid",ok:R.uFin,grupo:"Resultados"},{k:"vf",et:"Valor del inventario final",tipo:"monto",ok:R.vFin,grupo:"Resultados"});
   }else{
     const R=liqCalcularCaso(caso(p));p._R=R;const P=liqPasosPractica(R);
     [["salario","Salario"],["preaviso","Preaviso"],["cesantia","Cesantía"],["vacaciones","Vacaciones"],["aguinaldo","Aguinaldo"]].forEach(([s,g])=>P[s].forEach(x=>L.push({...x,grupo:g})));
@@ -96,6 +152,13 @@ function pasosDe(p){
   return L;
 }
 function enunciado(p){
+  if(p.tipo==="cc"||p.tipo==="cb"){let h=p.texto.map(t=>`<p>${esc(t)}</p>`).join("");
+    if(p.gastos)h+=`<div class="dato"><b>Facturas presentadas</b><table style="margin-top:6px">${Object.entries(p.gastos).map(([k,v])=>`<tr><td>${esc(k)}</td><td style="text-align:right">${col(v)}</td></tr>`).join("")}</table></div>`;
+    if(p.lista)h+=`<div class="dato"><ol style="margin:0;padding-left:1.2rem">${p.lista.map(t=>`<li>${esc(t)}</li>`).join("")}</ol></div>`;
+    return h+`<p class="mut">Escriba los montos con dos decimales (puede usar coma o punto). ${p.tipo==="cc"?"Los gastos van todos juntos en Gastos Administrativos.":""}</p>`}
+  if(p.tipo==="inv")return `<p>Ferretería El Tucán lleva su inventario de un producto con el sistema perpetuo. Estos fueron los movimientos de marzo. Valúe el inventario por <b>${{PEPS:"PEPS (primeras entradas, primeras salidas)",UEPS:"UEPS (últimas entradas, primeras salidas)",PP:"Promedio Ponderado"}[p.metodo]}</b>.</p>
+    <div class="dato"><table><tr><th>Fecha</th><th>Movimiento</th><th style="text-align:right">Unidades</th><th style="text-align:right">Costo unitario</th></tr>${MOVS_TUCAN.map(m=>`<tr><td>${m.f}</td><td>${m.tipo==="E"?"Compra":"Venta"}</td><td style="text-align:right">${m.u}</td><td style="text-align:right">${m.c?col(m.c):"—"}</td></tr>`).join("")}</table></div>
+    <p class="mut">Le conviene armar el cuadro (fecha, entradas, salidas, existencias, costo unitario y saldo) en su cuaderno o en una hoja de cálculo y luego escribir aquí los resultados.${p.metodo==="PP"?" Redondee el costo promedio a dos decimales.":""}</p>`;
   if(p.tipo==="pl"){const M=p._M;
     return `<p>${esc(p.intro)}</p>`+M.emps.map(e=>`<div class="dato"><b>${esc(e.nombre)}</b><br>${esc(e.datos)}</div>`).join("")+
       `<p class="mut">Jornada diurna y pago mensual si no se dice otra cosa. Escriba los montos con dos decimales (puede usar coma o punto).</p>`}
@@ -106,7 +169,7 @@ function enunciado(p){
     (c.salarioModo==="meses"?"":`Salario mensual: ${col(c.salarioMensual)}.`)+ext+`<br>Vacaciones disfrutadas en total durante la relación laboral: ${c.vacDisfrutadasTotal} días.</div>`+
     `<p class="mut">Tiempo laborado: ${R.antiguedad.anios} año(s), ${R.antiguedad.meses} mes(es) y ${R.antiguedad.dias} día(s). Si un rubro no corresponde, escriba 0.</p>`;
 }
-function revisar(paso,v){const n=liqNumero(v);if(n===null)return null;const tol=paso.tipo==="dias"?0.011:Math.max(1,Math.abs(paso.ok)*0.0005);return Math.abs(n-paso.ok)<=tol}
+function revisar(paso,v){const n=liqNumero(v);if(n===null)return null;const tol=paso.tipo==="dias"||paso.tipo==="unid"?0.011:paso.tipo==="cu"?0.02:Math.max(1,Math.abs(paso.ok)*0.0005);return Math.abs(n-paso.ok)<=tol}
 
 // ───────── Datos guardados ─────────
 let EST=null,GUARD={};
@@ -124,8 +187,8 @@ async function inicio(){
 function lista(){
   const hechas=PRACTICAS.filter(p=>GUARD[p.n]).length;
   app.innerHTML=`<section class="card"><h2>Hola, ${esc(CONVOCADOS[EST]||"profe (vista de estudiante)")}</h2>
-   <p>Estas 10 prácticas le preparan para la convocatoria. Cada una se revisa sola: escriba sus respuestas y toque <b>Revisar</b>. Puede intentarlo las veces que quiera; queda guardado su mejor resultado.</p>
-   <p class="mut">Avance: ${hechas} de 10 prácticas revisadas.</p>${SES.role==="docente"?'<button class="btn sec" id="vd">← Volver al resumen del profe</button>':'<a class="btn sec" href="/">← Volver a la plataforma</a>'}</section>
+   <p>Estas ${PRACTICAS.length} prácticas le preparan para la convocatoria. Cada una se revisa sola: escriba sus respuestas y toque <b>Revisar</b>. Puede intentarlo las veces que quiera; queda guardado su mejor resultado.</p>
+   <p class="mut">Avance: ${hechas} de ${PRACTICAS.length} prácticas revisadas.</p>${SES.role==="docente"?'<button class="btn sec" id="vd">← Volver al resumen del profe</button>':'<a class="btn sec" href="/">← Volver a la plataforma</a>'}</section>
    <div class="grid">${PRACTICAS.map(p=>{const g=GUARD[p.n];const t=g?`<span class="tag ${g.aciertos===g.total?"ok":"wa"}">${g.aciertos}/${g.total}</span>`:'<span class="tag">Pendiente</span>';
     return `<button class="pr" data-n="${p.n}"><span class="mut">Práctica ${p.n}</span><b>${esc(p.tit)}</b><span class="mut">${esc(p.tema)}</span><br>${t}</button>`}).join("")}</div>`;
   app.querySelectorAll("[data-n]").forEach(b=>b.onclick=()=>abrir(+b.dataset.n));
@@ -137,9 +200,9 @@ function abrir(n){
   let g="",h="";
   L.forEach(x=>{if(x.grupo!==g){g=x.grupo;h+=`<h3>${esc(g)}</h3>`}
     h+=`<div class="paso" id="ps_${x.k}"><label for="in_${x.k}">${esc(x.et)}</label><input id="in_${x.k}" inputmode="decimal" autocomplete="off" value="${esc(prev[x.k]??"")}"><span id="mk_${x.k}"></span>`+
-       (x.ayuda?`<div class="ayuda">💡 ${esc(x.ayuda)}</div>`:"")+`<div class="sol" id="sl_${x.k}" hidden>Respuesta: ${x.tipo==="dias"?num(x.ok)+" días":col(x.ok)}</div></div>`});
-  app.innerHTML=`<section class="card"><span class="mut">Práctica ${p.n} de 10 · ${esc(p.tema)}</span><h2>${esc(p.tit)}</h2>${enunciado(p)}
-   <div class="recuerde"><b>Recuerde:</b> ${p.tipo==="pl"?PL_RECUERDE:LQ_RECUERDE}</div></section>
+       (x.ayuda?`<div class="ayuda">💡 ${esc(x.ayuda)}</div>`:"")+`<div class="sol" id="sl_${x.k}" ${SES.role==="docente"?"":"hidden"}>Respuesta: ${x.tipo==="dias"?num(x.ok)+" días":x.tipo==="unid"?num(x.ok)+" unidades":col(x.ok)}</div></div>`});
+  app.innerHTML=`<section class="card"><span class="mut">Práctica ${p.n} de ${PRACTICAS.length} · ${esc(p.tema)}</span><h2>${esc(p.tit)}</h2>${enunciado(p)}
+   <div class="recuerde"><b>Recuerde:</b> ${RECUERDE[p.tipo]}</div>${SES.role==="docente"?'<p class="mut" style="color:#1f8a4c">👁 Como docente ve la respuesta debajo de cada casilla.</p>':""}</section>
    <section class="card">${h}<div id="res"></div>
    <button class="btn" id="rv">✅ Revisar</button><button class="btn sec" id="vs" hidden>👁 Ver respuestas</button><button class="btn sec" id="vl">← Volver a la lista</button></section>`;
   document.getElementById("vl").onclick=lista;
@@ -157,11 +220,11 @@ function abrir(n){
 }
 async function vistaDocente(){
   const {data}=await sb.from("convocatoria_practicas").select("*");const T={};(data||[]).forEach(r=>{(T[r.estudiante_id]=T[r.estudiante_id]||{})[r.practica]=r});
-  app.innerHTML=`<section class="card"><h2>Resumen del profe</h2><p class="mut">Aciertos de cada estudiante en cada práctica (la última vez que tocó Revisar). Las 10 prácticas usan los mismos cálculos de Aula Contable y de Liquidaciones.</p>
+  app.innerHTML=`<section class="card"><h2>Resumen del profe</h2><p class="mut">Aciertos de cada estudiante en cada práctica (la última vez que tocó Revisar). Las prácticas 1 a 10 usan los mismos cálculos de Aula Contable y de Liquidaciones; de la 11 a la 17 son de caja chica, conciliación bancaria e inventarios.</p>
    <div style="overflow-x:auto"><table><thead><tr><th>Estudiante</th>${PRACTICAS.map(p=>`<th class="n">P${p.n}</th>`).join("")}</tr></thead><tbody>
    ${Object.entries(CONVOCADOS).map(([id,nom])=>`<tr><td>${esc(nom)}</td>${PRACTICAS.map(p=>{const r=(T[id]||{})[p.n];return `<td class="n" title="${r?"Intentos: "+r.intentos:""}">${r?r.aciertos+"/"+r.total:"—"}</td>`}).join("")}</tr>`).join("")}
    </tbody></table></div>
-   <button class="btn" id="ve">👀 Ver las prácticas como estudiante</button><a class="btn sec" href="/">← Volver a la plataforma</a></section>`;
+   <button class="btn" id="ve">👀 Ver las prácticas con sus respuestas</button><a class="btn sec" href="solucionario-folleto.html">📘 Solucionario del folleto (caja chica e inventarios)</a><a class="btn sec" href="/">← Volver a la plataforma</a></section>`;
   document.getElementById("ve").onclick=()=>{EST="docente";GUARD={};lista()};
 }
 inicio();
