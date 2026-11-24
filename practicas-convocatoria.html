@@ -11,6 +11,7 @@
 <script src="js/planilla-calculo.js?v=20261109b"></script>
 <script src="js/liquidacion-calculo.js?v=20261112a"></script>
 <script src="js/convocatoria-casos.js?v=20261124a"></script>
+<script src="js/convocatoria-marque.js?v=20261124a"></script>
 <style>
 :root{--bg:#F5F7FB;--sf:#fff;--ink:#0F172A;--mut:#5B6B80;--line:#DCE3EE;--pri:#1F3864;--acc:#1d63e8;--ok:#1f8a4c;--okS:#DDF1DC;--bad:#c0392b;--badS:#FDE2E2;--wa:#FFF2D6}
 @media (prefers-color-scheme:dark){:root{--bg:#0B1020;--sf:#121A30;--ink:#E8EDFB;--mut:#9AA9CC;--line:#26324F;--pri:#9DB7F5;--okS:#173A28;--badS:#4a1616;--wa:#3A2E10}}
@@ -26,6 +27,7 @@ h2{margin:0 0 6px;font-size:1.08rem;color:var(--pri)}h3{margin:14px 0 6px;font-s
 .paso{display:grid;grid-template-columns:1fr 150px 26px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line)}
 .paso label{font-size:.9rem}.paso input{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:9px;background:var(--sf);color:var(--ink);width:100%;text-align:right}
 .paso.bien input{border-color:var(--ok);background:var(--okS)}.paso.mal input{border-color:var(--bad);background:var(--badS)}
+.mcq{padding:10px 0;border-bottom:1px dashed var(--line)}.mct{font-weight:600;margin-bottom:6px}.mco{display:flex;gap:8px;align-items:flex-start;padding:6px 8px;border-radius:9px;cursor:pointer}.mco:hover{background:var(--bg)}.mco input{margin-top:4px}.mcq.bien .mct{color:var(--ok)}.mcq.mal .mct{color:var(--bad)}
 .sol{grid-column:1/-1;font-size:.82rem;color:var(--mut)}.ayuda{grid-column:1/-1;font-size:.8rem;color:var(--mut)}
 .res{border-radius:10px;padding:10px 12px;margin:10px 0;font-weight:600}.res.ok{background:var(--okS)}.res.wa{background:var(--wa)}
 table{border-collapse:collapse;width:100%;font-size:.86rem}th,td{border-bottom:1px solid var(--line);padding:6px 7px;text-align:left}th{color:var(--mut);font-weight:600}td.n{text-align:center}
@@ -54,7 +56,7 @@ const CB_RECUERDE="Banco: saldo del banco + depósitos en tránsito + errores de
 const INV_RECUERDE="Inventario perpetuo: después de cada movimiento se actualiza el saldo. PEPS: las salidas se costean con las unidades más antiguas. UEPS: con las más recientes. Promedio ponderado: en cada compra, costo unitario = valor total ÷ unidades en existencia, y las salidas salen a ese costo.";
 const PL_RECUERDE="Salario bruto = base + horas extra + comisiones − ausencias − tardías. Cuotas obreras: SEM 5,50 %, IVM 4,33 %, Banco Popular 1 %. Renta 2026: exento hasta ₡918 000; 10 % hasta ₡1 347 000; 15 % hasta ₡2 364 000; 20 % hasta ₡4 727 000; 25 % el exceso. Créditos: ₡1 710 por hijo y ₡2 590 por cónyuge. Hora extra = salario ÷ 30 ÷ horas de la jornada × 1,5.";
 const LQ_RECUERDE="Preaviso (art. 28): 7 días de 3 a 6 meses, 15 días de 6 meses a 1 año, 30 días con 1 año o más; solo en despido con responsabilidad. Cesantía (art. 29): 7 días de 3 a 6 meses, 14 días de 6 meses a 1 año; con 1 año o más, días según la tabla por año (máximo 8 años); paga en despido con responsabilidad o pensión/fallecimiento. Vacaciones: 14 días por cada 50 semanas + 1 día por mes completo del período actual, menos los disfrutados. Aguinaldo: lo devengado del 1 de diciembre a la salida ÷ 12. Salario diario = promedio mensual ÷ 30.";
-const RECUERDE={pl:PL_RECUERDE,lq:LQ_RECUERDE,cc:CC_RECUERDE,cb:CB_RECUERDE,inv:INV_RECUERDE};
+const RECUERDE={mc:"Lea con calma cada pregunta y, en las de cálculo, haga la operación en su cuaderno antes de marcar.",pl:PL_RECUERDE,lq:LQ_RECUERDE,cc:CC_RECUERDE,cb:CB_RECUERDE,inv:INV_RECUERDE};
 const PRACTICAS=[
  {n:1,tipo:"pl",tit:"Planilla de un colaborador",tema:"Aula Contable · salario bruto, cuotas obreras y neto",
   intro:"La empresa Comercial La Sabana S.A. paga la planilla mensual. Calcule la boleta de pago de su colaboradora.",
@@ -116,7 +118,11 @@ const PRACTICAS=[
    {n:"Corrección del error en libros",l:[["Bancos",36000,0],["Cuentas por Pagar Proveedores",0,36000]]}]},
  {n:15,tipo:"inv",metodo:"PEPS",tit:"Inventarios por PEPS",tema:"Valuación de inventarios · primeras entradas, primeras salidas"},
  {n:16,tipo:"inv",metodo:"UEPS",tit:"Inventarios por UEPS",tema:"Valuación de inventarios · últimas entradas, primeras salidas"},
- {n:17,tipo:"inv",metodo:"PP",tit:"Inventarios por Promedio Ponderado",tema:"Valuación de inventarios · costo promedio"}
+ {n:17,tipo:"inv",metodo:"PP",tit:"Inventarios por Promedio Ponderado",tema:"Valuación de inventarios · costo promedio"},
+ {n:18,tipo:"mc",tit:"Marque con X · Planillas y cargas sociales",tema:"Selección única · 30 preguntas"},
+ {n:19,tipo:"mc",tit:"Marque con X · Liquidaciones laborales",tema:"Selección única · 30 preguntas"},
+ {n:20,tipo:"mc",tit:"Marque con X · Caja chica y conciliación bancaria",tema:"Selección única · 30 preguntas"},
+ {n:21,tipo:"mc",tit:"Marque con X · Inventarios y repaso general",tema:"Selección única · 30 preguntas"}
 ];
 
 function caso(p){const c={...liqCasoVacio(),tiempoModo:"fechas",salarioModo:"mensual",...p.c};
@@ -128,6 +134,11 @@ function pasosDe(p){
     const M=plArmarMachote(p.emps);p._M=M;
     M.emps.forEach((e,i)=>M.campos.forEach(([k,et])=>L.push({k:"e"+i+"_"+k,et,tipo:"monto",ok:e.sol[k],grupo:e.nombre})));
     if(p.asiento) M.asiento.forEach((a,i)=>L.push({k:"as"+i,et:a.code+" "+a.name+(a.d?" · Debe":" · Haber"),tipo:"monto",ok:a.d||a.c,grupo:"Asiento de diario de la planilla"}));
+  }else if(p.tipo==="mc"){
+    // Las opciones se mezclan siempre igual (semilla fija por práctica y pregunta), para que la correcta no quede casi siempre en la misma letra.
+    (window.CONV_MC[p.n]||[]).forEach((q,i)=>{let sd=(p.n*131+i*17+7)>>>0;const rnd=()=>(sd=(sd*1103515245+12345)>>>0)/4294967296;
+      const ord=[0,1,2,3];for(let j=3;j>0;j--){const r=Math.floor(rnd()*(j+1));[ord[j],ord[r]]=[ord[r],ord[j]]}
+      L.push({k:"q"+i,et:(i+1)+". "+q.t,tipo:"mc",ok:ord.indexOf(q.c),o:ord.map(j=>q.o[j]),e:q.e,grupo:""})});
   }else if(p.tipo==="cc"){
     const R=CONV_CALC.cajaChica(p.ops);
     R.asientos.forEach((as,i)=>as.lineas.forEach((l,j)=>L.push({k:`a${i}_${j}`,et:l[0]+(l[1]?" · Debe":" · Haber"),tipo:"monto",ok:l[1]||l[2],grupo:`${as.f} · ${as.n}`})));
@@ -152,6 +163,7 @@ function pasosDe(p){
   return L;
 }
 function enunciado(p){
+  if(p.tipo==="mc")return `<p>Marque con una X (toque) la respuesta correcta de cada pregunta. Hay una sola respuesta correcta. Al terminar toque <b>Revisar</b>.</p>`;
   if(p.tipo==="cc"||p.tipo==="cb"){let h=p.texto.map(t=>`<p>${esc(t)}</p>`).join("");
     if(p.gastos)h+=`<div class="dato"><b>Facturas presentadas</b><table style="margin-top:6px">${Object.entries(p.gastos).map(([k,v])=>`<tr><td>${esc(k)}</td><td style="text-align:right">${col(v)}</td></tr>`).join("")}</table></div>`;
     if(p.lista)h+=`<div class="dato"><ol style="margin:0;padding-left:1.2rem">${p.lista.map(t=>`<li>${esc(t)}</li>`).join("")}</ol></div>`;
@@ -169,7 +181,7 @@ function enunciado(p){
     (c.salarioModo==="meses"?"":`Salario mensual: ${col(c.salarioMensual)}.`)+ext+`<br>Vacaciones disfrutadas en total durante la relación laboral: ${c.vacDisfrutadasTotal} días.</div>`+
     `<p class="mut">Tiempo laborado: ${R.antiguedad.anios} año(s), ${R.antiguedad.meses} mes(es) y ${R.antiguedad.dias} día(s). Si un rubro no corresponde, escriba 0.</p>`;
 }
-function revisar(paso,v){const n=liqNumero(v);if(n===null)return null;const tol=paso.tipo==="dias"||paso.tipo==="unid"?0.011:paso.tipo==="cu"?0.02:Math.max(1,Math.abs(paso.ok)*0.0005);return Math.abs(n-paso.ok)<=tol}
+function revisar(paso,v){if(paso.tipo==="mc")return v===""||v==null?null:+v===paso.ok;const n=liqNumero(v);if(n===null)return null;const tol=paso.tipo==="dias"||paso.tipo==="unid"?0.011:paso.tipo==="cu"?0.02:Math.max(1,Math.abs(paso.ok)*0.0005);return Math.abs(n-paso.ok)<=tol}
 
 // ───────── Datos guardados ─────────
 let EST=null,GUARD={};
@@ -199,6 +211,8 @@ function abrir(n){
   const p=PRACTICAS.find(x=>x.n===n),L=pasosDe(p),prev=(GUARD[n]||{}).respuestas||{};
   let g="",h="";
   L.forEach(x=>{if(x.grupo!==g){g=x.grupo;h+=`<h3>${esc(g)}</h3>`}
+    if(x.tipo==="mc"){const L4="abcd";h+=`<div class="mcq" id="ps_${x.k}"><div class="mct">${esc(x.et)} <span id="mk_${x.k}"></span></div>${x.o.map((op,j)=>`<label class="mco"><input type="radio" name="in_${x.k}" value="${j}" ${String(prev[x.k])===String(j)?"checked":""}><b>${L4[j]})</b> ${esc(op)}</label>`).join("")}
+      <div class="sol" id="sl_${x.k}" ${SES.role==="docente"?"":"hidden"}>Respuesta: <b>${L4[x.ok]}) ${esc(x.o[x.ok])}</b>. ${esc(x.e)}</div></div>`;return}
     h+=`<div class="paso" id="ps_${x.k}"><label for="in_${x.k}">${esc(x.et)}</label><input id="in_${x.k}" inputmode="decimal" autocomplete="off" value="${esc(prev[x.k]??"")}"><span id="mk_${x.k}"></span>`+
        (x.ayuda?`<div class="ayuda">💡 ${esc(x.ayuda)}</div>`:"")+`<div class="sol" id="sl_${x.k}" ${SES.role==="docente"?"":"hidden"}>Respuesta: ${x.tipo==="dias"?num(x.ok)+" días":x.tipo==="unid"?num(x.ok)+" unidades":col(x.ok)}</div></div>`});
   app.innerHTML=`<section class="card"><span class="mut">Práctica ${p.n} de ${PRACTICAS.length} · ${esc(p.tema)}</span><h2>${esc(p.tit)}</h2>${enunciado(p)}
@@ -209,7 +223,7 @@ function abrir(n){
   document.getElementById("vs").onclick=()=>L.forEach(x=>document.getElementById("sl_"+x.k).hidden=false);
   document.getElementById("rv").onclick=async()=>{
     let ac=0;const resp={};
-    L.forEach(x=>{const v=document.getElementById("in_"+x.k).value;resp[x.k]=v;const r=revisar(x,v);const d=document.getElementById("ps_"+x.k);
+    L.forEach(x=>{const v=x.tipo==="mc"?((document.querySelector(`input[name="in_${x.k}"]:checked`)||{}).value??""):document.getElementById("in_"+x.k).value;resp[x.k]=v;const r=revisar(x,v);const d=document.getElementById("ps_"+x.k);
       d.classList.toggle("bien",r===true);d.classList.toggle("mal",r!==true);document.getElementById("mk_"+x.k).textContent=r===true?"✔️":"❌";if(r===true)ac++});
     const ok=SES.role==="docente"?true:await guardar(n,resp,ac,L.length);
     const res=document.getElementById("res");
@@ -220,7 +234,7 @@ function abrir(n){
 }
 async function vistaDocente(){
   const {data}=await sb.from("convocatoria_practicas").select("*");const T={};(data||[]).forEach(r=>{(T[r.estudiante_id]=T[r.estudiante_id]||{})[r.practica]=r});
-  app.innerHTML=`<section class="card"><h2>Resumen del profe</h2><p class="mut">Aciertos de cada estudiante en cada práctica (la última vez que tocó Revisar). Las prácticas 1 a 10 usan los mismos cálculos de Aula Contable y de Liquidaciones; de la 11 a la 17 son de caja chica, conciliación bancaria e inventarios.</p>
+  app.innerHTML=`<section class="card"><h2>Resumen del profe</h2><p class="mut">Aciertos de cada estudiante en cada práctica (la última vez que tocó Revisar). Las prácticas 1 a 10 usan los mismos cálculos de Aula Contable y de Liquidaciones; de la 11 a la 17 son de caja chica, conciliación bancaria e inventarios, y de la 18 a la 21 son de marque con X (30 preguntas cada una).</p>
    <div style="overflow-x:auto"><table><thead><tr><th>Estudiante</th>${PRACTICAS.map(p=>`<th class="n">P${p.n}</th>`).join("")}</tr></thead><tbody>
    ${Object.entries(CONVOCADOS).map(([id,nom])=>`<tr><td>${esc(nom)}</td>${PRACTICAS.map(p=>{const r=(T[id]||{})[p.n];return `<td class="n" title="${r?"Intentos: "+r.intentos:""}">${r?r.aciertos+"/"+r.total:"—"}</td>`}).join("")}</tr>`).join("")}
    </tbody></table></div>
