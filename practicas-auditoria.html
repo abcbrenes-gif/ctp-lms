@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Prácticas de Auditoría · CTP Mercedes Norte</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="img/logo-ctp-mercedes-norte.png">
+<style>
+:root{--bg:#0d1430;--bg2:#141d42;--sf:#1b2655;--sf2:#22306a;--ink:#eef2ff;--mut:#a7b2dc;--line:#33427f;--acc:#ffd43b;--blue:#4c8dff;--green:#22c55e;--green-s:#0f3d27;--red:#ef4444;--red-s:#4a1616}
+*{box-sizing:border-box}html,body{margin:0}body{background:radial-gradient(1200px 600px at 10% -10%,#26357a 0,transparent 60%),var(--bg);color:var(--ink);font:16px/1.5 Inter,"Segoe UI",system-ui,sans-serif;min-height:100vh;padding-bottom:80px}
+button{font:inherit;cursor:pointer}a{color:var(--acc)}
+.top{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:12px;padding:10px 16px;background:rgba(13,20,48,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.top b{font-weight:800}.top small{color:var(--acc)}.top .sp{flex:1}
+main{max-width:900px;margin:0 auto;padding:18px 16px}
+h1{font-size:clamp(1.4rem,4vw,2rem);margin:.2em 0}.sub{color:var(--mut);margin:0 0 16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.card{background:linear-gradient(160deg,var(--sf),var(--bg2));border:1px solid var(--line);border-radius:20px;padding:16px}
+.card h3{margin:4px 0}.card p{color:var(--mut);font-size:.9rem;margin:6px 0}.card .ra{color:var(--acc);font-size:.78rem;font-weight:800;letter-spacing:.06em}
+.prog{height:8px;border-radius:99px;background:var(--sf2);overflow:hidden;margin:8px 0 4px}.prog span{display:block;height:100%;background:var(--green)}
+.btn{background:var(--acc);color:#1b1b1b;border:0;border-radius:14px;padding:10px 16px;font-weight:800;text-decoration:none;display:inline-block}.btn.sec{background:var(--sf2);color:var(--ink);border:1px solid var(--line)}
+.q{background:var(--sf);border:1px solid var(--line);border-radius:18px;padding:16px;margin:12px 0}
+.q .tema{color:var(--acc);font-size:.75rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.q .e{font-weight:700;margin:4px 0 10px}
+.opts{display:grid;gap:8px}.opt{text-align:left;background:var(--bg2);color:var(--ink);border:2px solid var(--line);border-radius:14px;padding:11px 14px;font-weight:600}.opt:hover:not(:disabled){border-color:var(--blue)}
+.opt.ok{background:var(--green-s);border-color:var(--green)}.opt.bad{background:var(--red-s);border-color:var(--red)}.opt:disabled{cursor:default}
+.fb{margin-top:10px;background:var(--bg2);border-left:4px solid var(--blue);border-radius:10px;padding:10px 12px;font-size:.93rem}.fb small{display:block;color:var(--mut);margin-top:4px}
+.barra{position:sticky;top:58px;z-index:20;display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--bg);padding:8px 0}
+.chip{background:var(--sf2);border:1px solid var(--line);border-radius:99px;padding:5px 12px;font-weight:700;font-size:.88rem}
+.fin{background:linear-gradient(135deg,#2a2160,#1b2655);border:1px solid #4b3fa0;border-radius:18px;padding:16px;text-align:center;margin-top:16px}
+</style>
+</head>
+<body>
+<div class="top"><b>📝 Prácticas de Auditoría <small>2027</small></b><span class="sp"></span><a class="btn sec" href="mision-auditoria.html">🎮 Misión</a></div>
+<main id="app"></main>
+<script src="js/auditoria-banco.js?v=20261125a"></script>
+<script src="js/abierto-2027.js?v=20261123a"></script>
+<script>
+// Prácticas de marque con X de Auditoría (Duodécimo, 2027). Al responder cada pregunta se ve la respuesta,
+// la explicación y la fuente; también se pueden ver todas las respuestas desde el inicio.
+const ABIERTA_ESTUDIANTES=false;
+let SES=null;try{SES=JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")||"null")}catch(e){}
+const ES_DOCENTE=!!(SES&&SES.role==="docente");
+const $=s=>document.querySelector(s);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const PR=window.AUD_PRACTICAS||[],L="abc";
+const CLAVE="ctp_practicas_auditoria_v1_"+((SES&&SES.id)||"anon");
+let EST={};try{EST=JSON.parse(localStorage.getItem(CLAVE)||"{}")}catch(e){}
+const guardar=()=>{try{localStorage.setItem(CLAVE,JSON.stringify(EST))}catch(e){}};
+const resp=id=>EST[id]||(EST[id]={r:{},mejor:0});
+const aciertos=p=>{const r=resp(p.id).r;return p.items.filter((it,i)=>r[i]===it.c).length};
+
+function lista(){
+  $("#app").innerHTML=`<h1>Prácticas de marque con X</h1><p class="sub">Cuatro prácticas con todos los temas de la unidad de Auditoría. Al responder ves si acertaste, por qué y de qué fuente sale.</p>
+  <div class="grid">${PR.map(p=>{const r=resp(p.id),n=Object.keys(r.r).length,a=aciertos(p);return`<div class="card"><div class="ra">RA ${p.ra}</div><h3>${esc(p.tit)}</h3><p>${esc(p.desc)}</p>
+  <div class="prog"><span style="width:${Math.round(100*n/p.items.length)}%"></span></div><p>${n} de ${p.items.length} respondidas · ${a} correctas · mejor: ${r.mejor}/${p.items.length}</p>
+  <a class="btn" href="#/${p.id}">${n?"Continuar":"Empezar"} ▶</a></div>`}).join("")}</div>`;
+}
+function practica(p){
+  const r=resp(p.id);let ver=false;
+  const pintar=()=>{
+    const n=Object.keys(r.r).length,a=aciertos(p);
+    $("#app").innerHTML=`<a href="#/">◀ Todas las prácticas</a><h1>${esc(p.tit)}</h1><p class="sub">${esc(p.desc)} Marque la opción correcta.</p>
+    <div class="barra"><span class="chip">✅ ${a} / ${p.items.length}</span><span class="chip">📋 ${n} respondidas</span>
+    <button class="btn sec" id="ver">${ver?"🙈 Ocultar respuestas":"👀 Ver todas las respuestas"}</button><button class="btn sec" id="rei">🔁 Reiniciar</button></div>
+    ${p.items.map((it,i)=>{const sel=r.r[i],hecho=sel!=null,mostrar=hecho||ver;return`<div class="q"><div class="tema">${i+1} · ${esc(it.t)}</div><div class="e">${esc(it.e)}</div><div class="opts">
+    ${it.o.map((o,k)=>`<button class="opt ${mostrar&&k===it.c?"ok":""} ${hecho&&k===sel&&k!==it.c?"bad":""}" data-i="${i}" data-k="${k}" ${hecho?"disabled":""}>${L[k]}) ${esc(o)}</button>`).join("")}</div>
+    ${mostrar?`<div class="fb">${hecho?(sel===it.c?"✅ ¡Correcto! ":"❌ La respuesta es "+L[it.c]+". "):"Respuesta: "+L[it.c]+". "}${esc(it.x)}<small>📚 Fuente: ${esc(it.f)}</small></div>`:""}</div>`}).join("")}
+    ${n===p.items.length?`<div class="fin"><h2>${a>=p.items.length*0.8?"🏆":a>=p.items.length*0.6?"👍":"💪"} ${a} de ${p.items.length}</h2><p>${a>=p.items.length*0.8?"¡Excelente dominio del tema!":"Repasá las preguntas en rojo y volvé a intentarlo."}</p><button class="btn" id="rei2">🔁 Hacerla otra vez</button></div>`:""}`;
+    $("#ver").onclick=()=>{ver=!ver;pintar()};
+    const reiniciar=()=>{r.r={};guardar();pintar();scrollTo({top:0})};
+    $("#rei").onclick=reiniciar;if($("#rei2"))$("#rei2").onclick=reiniciar;
+    document.querySelectorAll(".opt:not(:disabled)").forEach(b=>b.onclick=()=>{const y=scrollY;r.r[b.dataset.i]=+b.dataset.k;r.mejor=Math.max(r.mejor,aciertos(p));guardar();pintar();scrollTo({top:y})});
+  };pintar();
+}
+function ruta(){const h=location.hash.replace(/^#\/?/,"");const p=PR.find(x=>x.id===h);if(p)practica(p);else lista();scrollTo({top:0})}
+(async()=>{const ABIERTO=ABIERTA_ESTUDIANTES||await abierto2027();
+if(!SES||!(ES_DOCENTE||(ABIERTO&&SES.role==="estudiante"))){
+  $("#app").innerHTML=`<div class="card"><h3>🔒 Prácticas de Auditoría</h3><p class="sub">${SES?"Estas prácticas se abren en 2027. Tu profe te avisará.":"Entra desde la plataforma con tu usuario."}</p><a class="btn" href="index.html">Ir a la plataforma</a></div>`;
+}else{addEventListener("hashchange",ruta);ruta()}
+})();
+</script>
+<script src="js/volver-plataforma.js?v=20261117a"></script>
+</body>
+</html>

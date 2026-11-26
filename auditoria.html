@@ -52,7 +52,8 @@ table{border-collapse:collapse;width:100%;font-size:.86rem;margin:6px 0}th,td{bo
 <nav class="sec" id="nav"></nav>
 <main id="app"><p class="muted">Cargando…</p></main>
 <div id="expo" role="dialog" aria-label="Modo exposición"><div class="bar"><i id="xbar"></i></div><div class="top"><b id="xtit"></b><span id="xnum"></span><button id="xfs">⛶ Pantalla completa</button><button id="xcer">✕ Cerrar</button></div><div class="slide" id="xsl"></div><div class="nav"><button id="xant">← Anterior</button><button id="xsig">Siguiente →</button></div></div>
-<script src="js/auditoria-unidades-datos.js?v=20261117b"></script>
+<script src="js/auditoria-unidades-datos.js?v=20261125a"></script>
+<script src="js/auditoria-banco.js?v=20261125a"></script>
 <script>
 (function(){
 var s=null;try{s=JSON.parse(sessionStorage.getItem("ctp_lms_session_v2")||"null")}catch(e){}
@@ -62,7 +63,7 @@ var U=window.AUD_UNIDADES||[],L=[];U.forEach(function(u){u.lecciones.forEach(fun
 var esc=function(t){return String(t==null?"":t).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
 var sinTag=function(t){var d=document.createElement("div");d.innerHTML=t;return d.textContent};
 var lec=function(id){return L.find(function(l){return l.id===id})};
-var SECC=[["inicio","🏠 Inicio"],["mision","🎮 Misión Auditoría"],["clases","📘 Clases"],["exponer","🎤 Exponer"],["trabajos","✍️ Trabajos"],["caso","🏛️ Caso Valle Sereno"],["lab","🧭 Brújula y Laboratorio"]];
+var SECC=[["inicio","🏠 Inicio"],["mision","🎮 Misión Auditoría"],["clases","📘 Clases"],["exponer","🎤 Exponer"],["trabajos","✍️ Trabajos"],["caso","🏛️ Caso Valle Sereno"],["lab","🧭 Brújula y Laboratorio"],["practicas","📝 Prácticas"],["prueba","🧪 Prueba escrita"],["plan","🗂️ Planeamiento"],["material","📚 Material"]];
 function reparto(m){var c=m<=30?[8,7,12,3]:m<=35?[10,8,13,4]:m<=40?[12,8,15,5]:[12,10,18,5];var t=c.reduce(function(a,b){return a+b},0);c[2]+=m-t;return c}
 function horas(m){return String(Math.round(m/60*10)/10).replace(".",",")}
 
@@ -75,7 +76,11 @@ function inicio(){
    ["exponer","🎤","Exponer en el proyector","Diapositivas de cada lección, a pantalla completa, con las respuestas del cierre ocultas."],
    ["trabajos","✍️","Trabajos de los estudiantes","Hoja de trabajo de cada lección, lista para imprimir o proyectar, con su escala de desempeño."],
    ["caso","🏛️","Caso Valle Sereno","Auditoría completa de una municipalidad ficticia: hallazgos, matriz de riesgos y papeles de trabajo."],
-   ["lab","🧭","Brújula y Laboratorio","La Brújula (metodología paso a paso) y el Laboratorio AuditCity para practicar con datos."]]
+   ["lab","🧭","Brújula y Laboratorio","La Brújula (metodología paso a paso) y el Laboratorio AuditCity para practicar con datos."],
+   ["practicas","📝","Prácticas de marque con X","4 prácticas de 25 preguntas (100 en total). Al responder se ve la respuesta, la explicación y la fuente."],
+   ["prueba","🧪","Prueba escrita","40 de selección, correspondencia de 5 y un caso de desarrollo con escala. Tabla de especificaciones, clave y fuente de cada ítem."],
+   ["plan","🗂️","Planeamiento didáctico","Plan de práctica pedagógica (formato MEP) de los 5 resultados de aprendizaje, con indicadores y escalas."],
+   ["material","📚","Material de apoyo","Las fuentes con que se cotejó todo: NIA, Ley 8292, COSO, libros, circulares del Colegio y presentaciones."]]
   .map(function(t){return'<a class="tile" href="#'+t[0]+'"><span>'+t[1]+'</span><b>'+t[2]+'</b><p>'+t[3]+'</p></a>'}).join("")+'</div>';
 }
 
@@ -87,6 +92,7 @@ function leccionHTML(l){
    '<p class="muted"><b>Contenidos del programa:</b> '+esc(l.contenidos)+'</p><div class="ind"><b>Indicador:</b> '+esc(l.ind)+'</div>'+
    '<div class="tiempo"><span style="flex:'+r[0]+';background:#1d63e8">Explicación '+r[0]+'′</span><span style="flex:'+r[1]+';background:#0e7490">Formación '+r[1]+'′</span><span style="flex:'+r[2]+';background:#7c3aed">Trabajo '+r[2]+'′</span><span style="flex:'+r[3]+';background:#b45309">Cierre '+r[3]+'′</span></div>'+
    '<h3>1. Explicación</h3><ul>'+l.explica.map(function(x){return"<li>"+x+"</li>"}).join("")+'</ul>'+
+   (l.fuentes&&l.fuentes.length?'<p class="muted"><b>Fuentes:</b> '+l.fuentes.map(esc).join(' · ')+'</p>':'')+
    '<h3>2. Formación (práctica guiada)</h3><p>'+esc(l.formacion)+'</p>'+
    '<h3>3. Trabajo del estudiante · '+esc(l.trabajo.tipo)+'</h3><p>'+esc(l.trabajo.txt)+'</p>'+
    '<h3>4. Cierre</h3>'+l.cierre.map(function(q){return'<details class="q"><summary>'+esc(q[0])+'</summary><div>'+esc(q[1])+'</div></details>'}).join("")+
@@ -154,6 +160,36 @@ function hoja(l){
 // ── Apps incrustadas ──
 function marco(src,txt){app.innerHTML='<p class="muted noprint">'+txt+' <a href="'+src+'" target="_blank" rel="noopener">Abrir aparte ↗</a></p><iframe class="marco" src="'+src+'" title="'+esc(txt)+'"></iframe>'}
 
+// ── Prueba escrita ──
+var EXA=window.AUD_EXAMEN,LT="abc";
+function prueba(){
+  if(!EXA){app.innerHTML='<p>Falta el banco de la prueba.</p>';return}
+  var conClave=location.hash.indexOf("/clave")>0;
+  var temas={};EXA.items.forEach(function(it,i){(temas[it.t]=temas[it.t]||[]).push(i+1)});
+  var h='<section class="card noprint"><h2>🧪 Prueba escrita · Auditoría</h2><p class="muted">Formato de la prueba escrita del MEP: 40 ítems de selección única de tres opciones (40 pts), correspondencia de 5 (5 pts) y un caso de desarrollo con escala de desempeño (15 pts). Total 60 puntos · 80 minutos. Los ítems son distintos de los de las prácticas.</p><p><a class="btn" href="#prueba'+(conClave?'':'/clave')+'">'+(conClave?'🙈 Ocultar clave y fuentes':'🔑 Ver clave y fuentes')+'</a> <button class="btn sec" onclick="print()">🖨️ Imprimir</button></p></section>';
+  h+='<section class="card"><h2>Encabezado</h2><table><tbody><tr><td>Centro educativo</td><td>CTP Mercedes Norte</td><td>Nivel</td><td>Duodécimo</td></tr><tr><td>Subárea</td><td>Gestión contable</td><td>Unidad de estudio</td><td>Auditoría</td></tr><tr><td>Estudiante</td><td></td><td>Sección</td><td></td></tr><tr><td>Puntuación total</td><td>60 puntos</td><td>Valor porcentual</td><td>____ %</td></tr><tr><td>Duración</td><td>80 minutos</td><td>Firma del encargado</td><td></td></tr></tbody></table></section>';
+  if(conClave)h+='<section class="card"><h2>Tabla de especificaciones</h2><table><thead><tr><th>Aprendizaje</th><th>Ítems de selección</th><th>Puntos</th></tr></thead><tbody>'+Object.keys(temas).map(function(t){return'<tr><td>'+esc(t)+'</td><td>'+temas[t].join(", ")+'</td><td>'+temas[t].length+'</td></tr>'}).join("")+'<tr><td>El informe del auditor (correspondencia)</td><td>Parte II, 1-5</td><td>5</td></tr><tr><td>Riesgo y control interno (desarrollo)</td><td>Parte III</td><td>15</td></tr><tr><td><b>Total</b></td><td></td><td><b>60</b></td></tr></tbody></table></section>';
+  h+='<section class="card"><h2>Parte I · Selección única (40 puntos)</h2><p class="muted">Marque con una X la opción correcta. Cada ítem vale 1 punto.</p>'+EXA.items.map(function(it,i){return'<div style="margin:10px 0;break-inside:avoid"><b>'+(i+1)+'.</b> '+esc(it.e)+it.o.map(function(o,k){var ok=conClave&&k===it.c;return'<div style="margin-left:18px'+(ok?';color:#11743c;font-weight:700':'')+'">(&nbsp;&nbsp;) '+LT[k]+') '+esc(o)+(ok?' ✔':'')+'</div>'}).join("")+(conClave?'<div class="muted" style="margin-left:18px">'+esc(it.x)+' · 📚 '+esc(it.f)+'</div>':'')+'</div>'}).join("")+'</section>';
+  var C=EXA.corr;
+  h+='<section class="card"><h2>Parte II · Correspondencia (5 puntos)</h2><p class="muted">Tema: '+esc(C.tema)+'. Escriba en el paréntesis la letra de la columna B que corresponde. Cada letra se usa una sola vez y sobran dos.</p><table><thead><tr><th>Columna A</th><th>Columna B</th></tr></thead><tbody>'+C.B.map(function(b,i){return'<tr><td>'+(i<5?'( '+(conClave?'<b>'+C.clave[i]+'</b>':'&nbsp;&nbsp;')+' ) '+(i+1)+'. '+esc(C.A[i])+(conClave?' <span class="muted">· 📚 '+esc(C.f[i])+'</span>':''):'')+'</td><td>'+esc(b)+'</td></tr>'}).join("")+'</tbody></table></section>';
+  var K=EXA.caso;
+  h+='<section class="card"><h2>Parte III · Desarrollo (15 puntos)</h2><p><b>Caso: '+esc(K.tit)+'.</b> '+esc(K.txt)+'</p><ol>'+K.preg.map(function(p,i){return'<li>'+esc(p)+(conClave?'<div class="muted">Respuesta esperada: '+esc(K.resp[i][0])+' · 📚 '+esc(K.resp[i][1])+'</div>':'')+'</li>'}).join("")+'</ol><h3>Escala de desempeño</h3><div style="overflow-x:auto"><table><thead><tr><th>Criterio</th><th>Avanzado (3)</th><th>Intermedio (2)</th><th>Inicial (1)</th><th>Puntos</th></tr></thead><tbody>'+K.crit.map(function(c){return'<tr><td>'+esc(c[0])+'</td><td>'+esc(c[1])+'</td><td>'+esc(c[2])+'</td><td>'+esc(c[3])+'</td><td></td></tr>'}).join("")+'</tbody></table></div><p class="muted">0 = sin evidencia.</p></section>';
+  app.innerHTML=h;
+}
+// ── Planeamiento ──
+var HRS={1:18,2:9,3:9,4:7,5:5};
+function plan(arg){
+  var n=+(String(arg||"u1").replace("u",""))||1,u=U.find(function(x){return x.n===n})||U[0];
+  var h='<section class="card noprint"><h2>🗂️ Plan de práctica pedagógica · Auditoría</h2><p class="muted">Formato del programa de estudio (CSE, sesión 37-2020). Duodécimo · Gestión contable · 48 horas en 6 semanas · Competencia: Solución · Eje: Educación para el desarrollo sostenible.</p><button class="btn sec" onclick="print()">🖨️ Imprimir</button></section>'+tabsU(n,"plan");
+  h+='<section class="card"><h2>Resultado de aprendizaje '+u.n+'</h2><p><b>'+esc(u.ra)+'</b> · Tiempo estimado: '+HRS[u.n]+' horas</p><div style="overflow-x:auto"><table><thead><tr><th>Saberes esenciales</th><th>Estrategia · docente</th><th>Estrategia · estudiante</th><th>Evidencias</th></tr></thead><tbody><tr><td><ul>'+u.lecciones.map(function(l){return'<li>'+esc(l.contenidos)+'</li>'}).join("")+'</ul></td><td><ul>'+u.lecciones.map(function(l){return'<li><b>'+l.id+'</b> '+esc(l.formacion)+'</li>'}).join("")+'</ul></td><td><ul>'+u.lecciones.map(function(l){return'<li><b>'+l.id+'</b> '+esc(l.trabajo.tipo)+': '+esc(l.trabajo.txt)+'</li>'}).join("")+'</ul></td><td>'+esc(u.evaluacion)+'<p><b>Indicadores del programa:</b></p><ul>'+u.indMEP.map(function(x){return'<li>'+esc(x)+'</li>'}).join("")+'</ul></td></tr></tbody></table></div>';
+  h+='<h3>Indicadores e instrumento (escala de desempeño)</h3><div style="overflow-x:auto"><table><thead><tr><th>Lección</th><th>Indicador</th><th>Inicial (1)</th><th>Intermedio (2)</th><th>Avanzado (3)</th></tr></thead><tbody>'+u.lecciones.map(function(l){return'<tr><td>'+l.id+'</td><td>'+esc(l.ind)+'</td><td>'+esc(l.niveles[0])+'</td><td>'+esc(l.niveles[1])+'</td><td>'+esc(l.niveles[2])+'</td></tr>'}).join("")+'</tbody></table></div><p class="muted">0 = sin evidencia. Calificación = puntos obtenidos × 100 ÷ puntos totales.</p></section>';
+  app.innerHTML=h;bindTabs("plan");
+}
+// ── Material de apoyo ──
+function material(){
+  var B=window.AUD_BIBLIO||[];
+  app.innerHTML='<section class="card"><h2>📚 Material de apoyo</h2><p class="muted">Con este material se cotejaron las lecciones, las prácticas y la prueba. Cada lección (en 📘 Clases) y cada pregunta indica el archivo y la página de donde sale. Los archivos originales quedan en el OneDrive del docente.</p><div style="overflow-x:auto"><table><thead><tr><th>Material</th><th>Extensión</th><th>Qué aporta</th></tr></thead><tbody>'+B.map(function(b){return'<tr><td>'+esc(b[0])+'</td><td>'+esc(b[1])+'</td><td>'+esc(b[2])+'</td></tr>'}).join("")+'</tbody></table></div></section>';
+}
 function ruta(){
   var h=(location.hash||"#inicio").slice(1).split("/"),sec=h[0]||"inicio",arg=h[1];
   if(!SECC.some(function(x){return x[0]===sec}))sec="inicio";
@@ -166,6 +202,10 @@ function ruta(){
   else if(sec==="trabajos"){if(esL)hoja(esL);else listaLecciones("trabajos",arg,"Escoja la lección para ver o imprimir la hoja de trabajo de los estudiantes.")}
   else if(sec==="caso")marco("auditoria-integral.html","Auditoría completa de la Municipalidad de Valle Sereno (entidad ficticia).");
   else if(sec==="lab")marco("auditpro.html","AuditPro CTP: La Brújula y el Laboratorio AuditCity.");
+  else if(sec==="practicas")marco("practicas-auditoria.html","Prácticas de marque con X (vista del estudiante).");
+  else if(sec==="prueba")prueba();
+  else if(sec==="plan")plan(arg);
+  else if(sec==="material")material();
   if(sec!=="exponer")document.getElementById("expo").classList.remove("on");
   if(!esL||sec!=="clases")scrollTo(0,0);
 }

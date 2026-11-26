@@ -65,7 +65,7 @@ canvas#confetti{position:fixed;inset:0;pointer-events:none;z-index:50}
 <button class="chipT" id="btnSonido" aria-pressed="true" title="Sonido">🔊</button></div>
 <main id="app"><p class="sub">Cargando…</p></main>
 <div class="toast" id="toast"></div><canvas id="confetti"></canvas><div class="sr" aria-live="polite" id="live"></div>
-<script src="js/auditoria-unidades-datos.js?v=20261117b"></script>
+<script src="js/auditoria-unidades-datos.js?v=20261125a"></script>
 <script src="js/mision-auditoria-retos.js?v=20261117a"></script>
 <script src="js/abierto-2027.js?v=20261123a"></script>
 <script>
@@ -116,6 +116,7 @@ function mapa(){
   $("#app").innerHTML=`${ES_DOCENTE?`<div class="aviso">👩‍🏫 <b>Modo docente</b> · ${EST.comoEst?"está viendo el juego como lo verá un estudiante (misiones en orden).":"todas las misiones abiertas."} <button class="btn sec" style="padding:5px 10px;margin-left:6px" id="comoEst">${EST.comoEst?"Volver a modo docente":"👀 Ver como estudiante"}</button> <button class="btn sec" style="padding:5px 10px" id="reiniciar">↺ Reiniciar mi avance</button></div>`:""}
    <h1>🔎 Tu carrera como auditor</h1>
    <p class="sub">Empiezas como auditor junior en <b>Auditores Mercedes & Asociados</b>. Supera las misiones para ganar XP e insignias. ${tot} de ${TODAS.length} misiones · mejor racha 🔥 ${EST.mejorRacha}</p>
+   <p><a class="btn sec" href="practicas-auditoria.html">📝 Prácticas de marque con X (100 preguntas)</a></p>
    <div class="badges">${U.map(u=>`<span class="badge ${hechasU(u.n)===misUnidad(u.n).length?"":"off"}">${esc(NV[u.n].insignia)}</span>`).join("")}</div>
    <div class="levels">${U.map(u=>{const ms=misUnidad(u.n),h=hechasU(u.n),p=Math.round(100*h/ms.length),ab=unidadAbierta(u.n),done=h===ms.length,sig=ms.find(m=>!EST.hechas[m.id])||ms[0];
     return `<section class="lvl ${ab?"":"lock"} ${done?"done":""}">
